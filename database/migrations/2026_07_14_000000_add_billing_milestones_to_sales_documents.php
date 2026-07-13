@@ -10,11 +10,16 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('sales_documents', function (Blueprint $table) {
+            // MySQL needs an index beginning with quote_id while the foreign
+            // key exists, so create the replacement before dropping the unique one.
+            $table->index(['quote_id', 'type']);
+        });
+
+        Schema::table('sales_documents', function (Blueprint $table) {
             $table->dropUnique(['quote_id', 'type']);
             $table->decimal('billing_percentage', 5, 2)->nullable()->after('due_date');
             $table->unsignedSmallInteger('billing_sequence')->nullable()->after('billing_percentage');
             $table->string('billing_label')->nullable()->after('billing_sequence');
-            $table->index(['quote_id', 'type']);
         });
 
         DB::table('sales_documents')
@@ -26,9 +31,12 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('sales_documents', function (Blueprint $table) {
+            $table->unique(['quote_id', 'type']);
+        });
+
+        Schema::table('sales_documents', function (Blueprint $table) {
             $table->dropIndex(['quote_id', 'type']);
             $table->dropColumn(['billing_percentage', 'billing_sequence', 'billing_label']);
-            $table->unique(['quote_id', 'type']);
         });
     }
 };
