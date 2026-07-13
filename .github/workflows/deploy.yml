@@ -70,7 +70,7 @@ jobs:
           DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
         run: |
           ssh -i ~/.ssh/arevantes_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
-            "php -r 'exit(version_compare(PHP_VERSION, \"8.3.0\", \">=\") ? 0 : 1);' && mkdir -p '$DEPLOY_PATH'"
+            "php -r 'exit(version_compare(PHP_VERSION, \"8.4.1\", \">=\") ? 0 : 1);' && mkdir -p '$DEPLOY_PATH'"
 
       - name: Enable maintenance mode
         env:

@@ -5,7 +5,7 @@ La instalación de producción empieza vacía. La base de datos, los documentos 
 ## 1. Requisitos del alojamiento
 
 - Acceso SSH mediante clave.
-- PHP 8.3 o superior con `mbstring`, `intl`, `PDO SQLite` y `SQLite3`.
+- PHP 8.4.1 o superior con `mbstring`, `intl`, `PDO SQLite` y `SQLite3`.
 - Posibilidad de cambiar la raíz del dominio a la carpeta `public` del proyecto.
 - Cron con frecuencia de un minuto.
 - Certificado SSL para `arevantes.com` y `www.arevantes.com`.
