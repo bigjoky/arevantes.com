@@ -1,0 +1,308 @@
+import { Form, Head, Link } from '@inertiajs/react';
+import { ArrowLeft, Download, Trash2, WalletCards } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+type Expense = {
+    id: number;
+    number: string;
+    type: string;
+    document_number: string | null;
+    merchant_name: string | null;
+    expense_date: string;
+    due_date: string | null;
+    subtotal: string;
+    tax_amount: string;
+    amount: string;
+    paid_amount: string;
+    status: string;
+    notes: string | null;
+    category: { name: string };
+    supplier: { legal_name: string; trade_name: string | null } | null;
+    attachments: {
+        id: number;
+        original_name: string;
+        mime_type: string;
+        size: number;
+    }[];
+    payments: {
+        id: number;
+        paid_at: string;
+        amount: string;
+        method: string;
+        reference: string | null;
+    }[];
+};
+export default function ExpenseShow({ expense }: { expense: Expense }) {
+    const outstanding = Math.max(
+        0,
+        Number(expense.amount) - Number(expense.paid_amount),
+    );
+
+    return (
+        <>
+            <Head title={expense.number} />
+            <div className="flex flex-1 flex-col gap-6 p-4 md:p-6">
+                <header className="flex items-start justify-between gap-3">
+                    <div>
+                        <div className="flex items-center gap-2">
+                            <h1 className="text-xl font-semibold">
+                                {expense.number}
+                            </h1>
+                            <Badge variant="outline">{expense.status}</Badge>
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                            {expense.category.name} ·{' '}
+                            {expense.supplier?.trade_name ||
+                                expense.supplier?.legal_name ||
+                                expense.merchant_name ||
+                                'Expense'}
+                        </p>
+                    </div>
+                    <Button variant="outline" asChild>
+                        <Link href="/expenses">
+                            <ArrowLeft /> Expenses
+                        </Link>
+                    </Button>
+                </header>
+                <section className="grid gap-4 border-y py-4 text-sm sm:grid-cols-4">
+                    <Info
+                        label="Document"
+                        value={expense.document_number || '—'}
+                    />
+                    <Info label="Date" value={date(expense.expense_date)} />
+                    <Info
+                        label="Due"
+                        value={expense.due_date ? date(expense.due_date) : '—'}
+                    />
+                    <Info label="Type" value={expense.type} />
+                </section>
+                <section className="ml-auto w-full max-w-sm border-t pt-4 text-sm">
+                    <Total label="Subtotal" value={expense.subtotal} />
+                    <Total label="Tax" value={expense.tax_amount} />
+                    <Total label="Total" value={expense.amount} strong />
+                    <Total label="Paid" value={expense.paid_amount} />
+                    <Total
+                        label="Outstanding"
+                        value={String(outstanding)}
+                        strong
+                    />
+                </section>
+                <section className="grid gap-8 border-t pt-5 xl:grid-cols-2">
+                    <div>
+                        <h2 className="mb-3 font-semibold">Attachments</h2>
+                        <div className="border-y">
+                            {expense.attachments.map((file) => (
+                                <div
+                                    key={file.id}
+                                    className="flex items-center justify-between gap-3 border-b py-3 text-sm last:border-0"
+                                >
+                                    <div>
+                                        <div className="font-medium">
+                                            {file.original_name}
+                                        </div>
+                                        <div className="text-xs text-muted-foreground">
+                                            {Math.ceil(file.size / 1024)} KB
+                                        </div>
+                                    </div>
+                                    <div className="flex">
+                                        <Button
+                                            size="icon"
+                                            variant="ghost"
+                                            asChild
+                                        >
+                                            <a
+                                                href={`/expenses/${expense.id}/attachments/${file.id}`}
+                                            >
+                                                <Download />
+                                            </a>
+                                        </Button>
+                                        <Form
+                                            action={`/expenses/${expense.id}/attachments/${file.id}`}
+                                            method="delete"
+                                        >
+                                            <Button size="icon" variant="ghost">
+                                                <Trash2 />
+                                            </Button>
+                                        </Form>
+                                    </div>
+                                </div>
+                            ))}
+                            {expense.attachments.length === 0 && (
+                                <Empty text="No attachments." />
+                            )}
+                        </div>
+                    </div>
+                    <div>
+                        <h2 className="mb-3 font-semibold">Payment history</h2>
+                        <div className="border-y">
+                            {expense.payments.map((payment) => (
+                                <div
+                                    key={payment.id}
+                                    className="flex justify-between gap-3 border-b py-3 text-sm last:border-0"
+                                >
+                                    <div>
+                                        <div className="font-medium">
+                                            {money(payment.amount)} ·{' '}
+                                            {payment.method.replaceAll(
+                                                '_',
+                                                ' ',
+                                            )}
+                                        </div>
+                                        <div className="text-xs text-muted-foreground">
+                                            {date(payment.paid_at)}
+                                            {payment.reference
+                                                ? ` · ${payment.reference}`
+                                                : ''}
+                                        </div>
+                                    </div>
+                                    <Form
+                                        action={`/supplier-payments/${payment.id}`}
+                                        method="delete"
+                                    >
+                                        <Button size="icon" variant="ghost">
+                                            <Trash2 />
+                                        </Button>
+                                    </Form>
+                                </div>
+                            ))}
+                            {expense.payments.length === 0 && (
+                                <Empty text="No payments." />
+                            )}
+                        </div>
+                    </div>
+                </section>
+                {outstanding > 0 && (
+                    <section className="border-t pt-5">
+                        <h2 className="font-semibold">Register payment</h2>
+                        <Form
+                            action={`/expenses/${expense.id}/payments`}
+                            method="post"
+                            resetOnSuccess
+                            className="mt-3 grid gap-4 sm:grid-cols-4 sm:items-end"
+                        >
+                            <Field
+                                label="Date"
+                                name="paid_at"
+                                type="date"
+                                value={today()}
+                            />
+                            <Field
+                                label="Amount"
+                                name="amount"
+                                type="number"
+                                value={String(outstanding)}
+                                step="0.01"
+                            />
+                            <div className="grid gap-2">
+                                <label className="text-sm font-medium">
+                                    Method
+                                </label>
+                                <select
+                                    name="method"
+                                    className="h-9 rounded-md border bg-background px-3 text-sm"
+                                >
+                                    <option value="bank_transfer">
+                                        Bank transfer
+                                    </option>
+                                    <option value="card">Card</option>
+                                    <option value="cash">Cash</option>
+                                    <option value="direct_debit">
+                                        Direct debit
+                                    </option>
+                                    <option value="other">Other</option>
+                                </select>
+                            </div>
+                            <Button>
+                                <WalletCards /> Register payment
+                            </Button>
+                        </Form>
+                    </section>
+                )}
+                <section className="flex justify-end border-t pt-5">
+                    <Form
+                        action={`/expenses/${expense.id}`}
+                        method="delete"
+                        onBefore={() => confirm('Delete this expense?')}
+                    >
+                        <Button
+                            variant="destructive"
+                            disabled={expense.payments.length > 0}
+                        >
+                            <Trash2 /> Delete expense
+                        </Button>
+                    </Form>
+                </section>
+            </div>
+        </>
+    );
+}
+function Info({ label, value }: { label: string; value: string }) {
+    return (
+        <div>
+            <div className="text-muted-foreground">{label}</div>
+            <div className="mt-1 font-medium">{value}</div>
+        </div>
+    );
+}
+function Total({
+    label,
+    value,
+    strong = false,
+}: {
+    label: string;
+    value: string;
+    strong?: boolean;
+}) {
+    return (
+        <div
+            className={`flex justify-between border-b py-2 ${strong ? 'text-base font-semibold' : ''}`}
+        >
+            <span>{label}</span>
+            <span>{money(value)}</span>
+        </div>
+    );
+}
+function Field({
+    label,
+    name,
+    type,
+    value,
+    step,
+}: {
+    label: string;
+    name: string;
+    type: string;
+    value: string;
+    step?: string;
+}) {
+    return (
+        <div className="grid gap-2">
+            <label className="text-sm font-medium">{label}</label>
+            <Input name={name} type={type} defaultValue={value} step={step} />
+        </div>
+    );
+}
+function Empty({ text }: { text: string }) {
+    return (
+        <div className="py-8 text-center text-sm text-muted-foreground">
+            {text}
+        </div>
+    );
+}
+const money = (v: string) =>
+    new Intl.NumberFormat(undefined, {
+        style: 'currency',
+        currency: 'EUR',
+    }).format(Number(v));
+const date = (v: string) =>
+    new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(
+        new Date(`${v.slice(0, 10)}T12:00:00`),
+    );
+const today = () => new Date().toISOString().slice(0, 10);
+ExpenseShow.layout = {
+    breadcrumbs: [
+        { title: 'Expenses', href: '/expenses' },
+        { title: 'Expense', href: '#' },
+    ],
+};

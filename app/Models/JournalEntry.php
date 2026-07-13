@@ -1,0 +1,44 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
+
+class JournalEntry extends Model
+{
+    protected $fillable = ['fiscal_year_id', 'created_by', 'entry_date', 'number', 'description', 'source_type', 'source_id', 'event', 'entry_kind', 'reverses_entry_id', 'status', 'posted_at'];
+
+    protected function casts(): array
+    {
+        return ['entry_date' => 'date', 'posted_at' => 'datetime'];
+    }
+
+    public function fiscalYear(): BelongsTo
+    {
+        return $this->belongsTo(FiscalYear::class);
+    }
+
+    public function source(): MorphTo
+    {
+        return $this->morphTo();
+    }
+
+    public function lines(): HasMany
+    {
+        return $this->hasMany(JournalLine::class);
+    }
+
+    public function reversedEntry(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'reverses_entry_id');
+    }
+
+    public function reversal(): HasOne
+    {
+        return $this->hasOne(self::class, 'reverses_entry_id');
+    }
+}

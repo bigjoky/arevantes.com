@@ -1,0 +1,274 @@
+openapi: 3.1.0
+info:
+  title: Arevantes Mobile API
+  version: 1.0.0
+servers:
+  - url: https://arevantes.com/api/mobile/v1
+security:
+  - bearerAuth: []
+paths:
+  /auth/login:
+    post:
+      security: []
+      operationId: login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password, device_name]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string, format: password }
+                device_name: { type: string, maxLength: 120 }
+                two_factor_code: { type: [string, 'null'], pattern: '^[0-9]{6}$' }
+      responses:
+        '200':
+          description: Device token and current user
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      token: { type: string }
+                      user: { $ref: '#/components/schemas/User' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /auth/token:
+    delete:
+      operationId: logout
+      responses:
+        '204': { description: Token revoked }
+  /me:
+    get:
+      operationId: currentUser
+      responses:
+        '200':
+          description: Current user
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/User' }
+  /devices/{deviceId}:
+    put:
+      operationId: registerMobileDevice
+      parameters:
+        - { name: deviceId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [push_token, environment]
+              properties:
+                push_token: { type: string, pattern: '^[a-fA-F0-9]{64}$' }
+                environment: { type: string, enum: [development, production] }
+                app_version: { type: [string, 'null'], maxLength: 40 }
+      responses:
+        '200': { description: Device registered or updated }
+        '422': { $ref: '#/components/responses/ValidationError' }
+    delete:
+      operationId: revokeMobileDevice
+      parameters:
+        - { name: deviceId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '204': { description: Device revoked }
+  /work-orders:
+    get:
+      operationId: listWorkOrders
+      parameters:
+        - { name: updated_after, in: query, schema: { type: string, format: date-time } }
+        - { name: status, in: query, schema: { $ref: '#/components/schemas/WorkOrderStatus' } }
+        - { name: per_page, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 30 } }
+      responses:
+        '200':
+          description: Accessible work orders
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { $ref: '#/components/schemas/WorkOrder' } }
+                  running_time_entry:
+                    type: [object, 'null']
+                    properties:
+                      id: { type: integer }
+                      started_at: { type: string, format: date-time }
+                      work_order_id: { type: integer }
+  /work-orders/{workOrder}:
+    get:
+      operationId: getWorkOrder
+      parameters: [{ $ref: '#/components/parameters/WorkOrderId' }]
+      responses:
+        '200':
+          description: Work order details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/WorkOrder' }
+        '403': { description: Not assigned to this technician }
+  /work-orders/{workOrder}/timer:
+    post:
+      operationId: startTimer
+      parameters:
+        - { $ref: '#/components/parameters/WorkOrderId' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      responses:
+        '201': { description: Timer started }
+        '422': { description: Another timer is active or order cannot be executed }
+  /time-entries/{timeEntry}/stop:
+    patch:
+      operationId: stopTimer
+      parameters:
+        - { name: timeEntry, in: path, required: true, schema: { type: integer } }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                travel_km: { type: number, minimum: 0 }
+                notes: { type: [string, 'null'] }
+      responses:
+        '200': { description: Timer stopped }
+  /work-orders/{workOrder}/checklist/{item}:
+    patch:
+      operationId: updateChecklist
+      parameters:
+        - { $ref: '#/components/parameters/WorkOrderId' }
+        - { name: item, in: path, required: true, schema: { type: integer } }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [completed]
+              properties:
+                completed: { type: boolean }
+                notes: { type: [string, 'null'] }
+      responses:
+        '200': { description: Checklist item updated }
+  /work-orders/{workOrder}/attachments:
+    post:
+      operationId: uploadWorkOrderAttachment
+      parameters:
+        - { $ref: '#/components/parameters/WorkOrderId' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: { type: string, format: binary }
+                caption: { type: [string, 'null'], maxLength: 500 }
+      responses:
+        '201':
+          description: Evidence stored or a previous response replayed
+        '403': { description: Work order is not accessible to the technician }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /work-orders/{workOrder}/signature:
+    post:
+      operationId: uploadWorkOrderSignature
+      parameters:
+        - { $ref: '#/components/parameters/WorkOrderId' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [signed_by_name, signature]
+              properties:
+                signed_by_name: { type: string, maxLength: 255 }
+                signature: { type: string, format: binary, description: PNG up to 750 KB }
+      responses:
+        '201':
+          description: Signature stored or a previous response replayed
+        '403': { description: Work order is not accessible to the technician }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /work-orders/{workOrder}/arrivals:
+    post:
+      operationId: recordWorkOrderArrival
+      parameters:
+        - { $ref: '#/components/parameters/WorkOrderId' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [latitude, longitude, arrived_at]
+              properties:
+                latitude: { type: number, minimum: -90, maximum: 90 }
+                longitude: { type: number, minimum: -180, maximum: 180 }
+                accuracy_meters: { type: [number, 'null'], minimum: 0, maximum: 10000 }
+                arrived_at: { type: string, format: date-time }
+      responses:
+        '201': { description: Arrival stored or a previous response replayed }
+        '403': { description: Work order is not accessible to the technician }
+        '422': { $ref: '#/components/responses/ValidationError' }
+components:
+  securitySchemes:
+    bearerAuth: { type: http, scheme: bearer }
+  parameters:
+    WorkOrderId: { name: workOrder, in: path, required: true, schema: { type: integer } }
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: UUID generated once by the device and reused for every retry of the same mutation.
+      schema: { type: string, format: uuid }
+  responses:
+    ValidationError: { description: Invalid input }
+  schemas:
+    User:
+      type: object
+      required: [id, name, email, role]
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        email: { type: string, format: email }
+        role: { type: string, enum: [admin, commercial, technician] }
+    WorkOrderStatus: { type: string, enum: [planned, in_progress, completed, cancelled] }
+    WorkOrder:
+      type: object
+      required: [id, number, title, status, updated_at]
+      properties:
+        id: { type: integer }
+        number: { type: string }
+        title: { type: string }
+        status: { $ref: '#/components/schemas/WorkOrderStatus' }
+        scheduled_start: { type: [string, 'null'], format: date-time }
+        scheduled_end: { type: [string, 'null'], format: date-time }
+        updated_at: { type: string, format: date-time }
+        instructions: { type: [string, 'null'] }
+        completion_notes: { type: [string, 'null'] }
+        signed_by_name: { type: [string, 'null'] }
+        signed_at: { type: [string, 'null'], format: date-time }
+        installation:
+          type: [object, 'null']
+          properties:
+            id: { type: integer }
+            project_reference: { type: [string, 'null'] }
+            site_name: { type: [string, 'null'] }
+            address: { type: [string, 'null'] }
+            city: { type: [string, 'null'] }
+            postal_code: { type: [string, 'null'] }
+            latitude: { type: [number, 'null'] }
+            longitude: { type: [number, 'null'] }

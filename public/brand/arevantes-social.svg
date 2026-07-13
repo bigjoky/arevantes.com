@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" role="img" aria-label="Arevantes, energía bien instalada">
+  <defs>
+    <radialGradient id="glow" cx="82%" cy="20%" r="70%">
+      <stop offset="0" stop-color="#289548" stop-opacity=".38"/>
+      <stop offset="1" stop-color="#18181b" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="grid" width="56" height="56" patternUnits="userSpaceOnUse">
+      <path d="M56 0H0v56" fill="none" stroke="#fff" stroke-opacity=".055"/>
+    </pattern>
+  </defs>
+  <rect width="1200" height="630" fill="#18181b"/>
+  <rect width="1200" height="630" fill="url(#glow)"/>
+  <rect width="1200" height="630" fill="url(#grid)"/>
+  <rect x="82" y="78" width="68" height="68" rx="16" fill="#289548"/>
+  <path fill="#fff" d="M125.7 91 144 135h-12l-3.8-10.4h-23.1l-3.8 10.4H90l18.4-44h17.3Zm-17.2 23.6h16.2l-7.7-18-8.5 18Z"/>
+  <text x="170" y="130" fill="#fff" font-family="Arial, sans-serif" font-size="48" font-weight="700" letter-spacing="2">AREVANTES</text>
+  <text x="82" y="320" fill="#fff" font-family="Arial, sans-serif" font-size="70" font-weight="700">Energía bien pensada.</text>
+  <text x="82" y="402" fill="#87b550" font-family="Arial, sans-serif" font-size="70" font-weight="700">Energía bien instalada.</text>
+  <text x="86" y="500" fill="#d4d4d8" font-family="Arial, sans-serif" font-size="28">Fotovoltaica · Electricidad · Recarga · Mantenimiento</text>
+  <text x="86" y="553" fill="#a1a1aa" font-family="Arial, sans-serif" font-size="23">Baena · Córdoba · Andalucía</text>
+</svg>

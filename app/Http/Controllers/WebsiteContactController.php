@@ -1,0 +1,110 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Opportunity;
+use App\Models\Person;
+use App\Models\User;
+use App\Notifications\WebsiteLeadNotification;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
+
+class WebsiteContactController extends Controller
+{
+    private const SERVICES = [
+        'solar' => 'Instalación fotovoltaica',
+        'storage_charging' => 'Recarga y almacenamiento',
+        'electrical' => 'Soluciones eléctricas',
+        'maintenance' => 'Mantenimiento',
+    ];
+
+    public function __invoke(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'email' => ['required', 'email:rfc', 'max:255'],
+            'phone' => ['nullable', 'string', 'max:40'],
+            'postal_code' => ['nullable', 'string', 'max:12'],
+            'service' => ['required', Rule::in(array_keys(self::SERVICES))],
+            'message' => ['required', 'string', 'min:20', 'max:2000'],
+            'privacy' => ['accepted'],
+            'company_url' => ['nullable', 'string', 'max:0'],
+        ]);
+
+        $opportunity = DB::transaction(function () use ($data): Opportunity {
+            $email = Str::lower($data['email']);
+            $service = self::SERVICES[$data['service']];
+            $customer = Person::query()
+                ->where('category', 'customer')
+                ->whereRaw('lower(email) = ?', [$email])
+                ->first();
+
+            if ($customer) {
+                $customer->update([
+                    'phone' => $customer->phone ?: ($data['phone'] ?: null),
+                    'postal_code' => $customer->postal_code ?: ($data['postal_code'] ?: null),
+                    'service_interests' => collect($customer->service_interests)
+                        ->push($service)
+                        ->filter()
+                        ->unique()
+                        ->values()
+                        ->all(),
+                ]);
+            } else {
+                [$firstName, $lastName] = $this->splitName($data['name']);
+                $customer = Person::create([
+                    'category' => 'customer',
+                    'first_name' => $firstName,
+                    'last_name' => $lastName,
+                    'email' => $email,
+                    'phone' => $data['phone'] ?: null,
+                    'postal_code' => $data['postal_code'] ?: null,
+                    'country' => 'Spain',
+                    'preferred_language' => 'es',
+                    'service_interests' => [$service],
+                    'lead_source' => 'Website',
+                ]);
+            }
+
+            $notes = collect([
+                $data['message'],
+                filled($data['phone']) ? 'Teléfono: '.$data['phone'] : null,
+                filled($data['postal_code']) ? 'Código postal: '.$data['postal_code'] : null,
+            ])->filter()->implode("\n\n");
+
+            $opportunity = Opportunity::create([
+                'person_id' => $customer->id,
+                'title' => 'Solicitud web · '.$service,
+                'stage' => 'new',
+                'probability' => 10,
+                'estimated_value' => 0,
+                'source' => 'Website',
+                'notes' => $notes,
+            ]);
+            $opportunity->update([
+                'code' => 'OPP-'.now()->format('Y').'-'.str_pad((string) $opportunity->id, 5, '0', STR_PAD_LEFT),
+            ]);
+
+            return $opportunity;
+        });
+
+        Notification::send(
+            User::query()->whereIn('role', ['admin', 'commercial'])->get(),
+            new WebsiteLeadNotification($opportunity),
+        );
+
+        return back()->with('contact_submitted', true);
+    }
+
+    /** @return array{string, ?string} */
+    private function splitName(string $name): array
+    {
+        $parts = explode(' ', Str::squish($name), 2);
+
+        return [$parts[0], $parts[1] ?? null];
+    }
+}

@@ -1,0 +1,148 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Expense;
+use App\Models\ExpenseAttachment;
+use App\Models\ExpenseCategory;
+use App\Models\PurchaseDocument;
+use App\Models\Supplier;
+use App\Models\SupplierPayment;
+use App\Services\Accounting\AccountingSynchronizer;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
+use Inertia\Inertia;
+use Inertia\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
+
+class ExpenseController extends Controller
+{
+    public function index(): Response
+    {
+        return Inertia::render('expenses/index', [
+            'expenses' => Expense::with(['category:id,name', 'supplier:id,legal_name,trade_name'])->latest('expense_date')->get(),
+            'supplierInvoices' => PurchaseDocument::with('supplier:id,legal_name,trade_name')->whereIn('type', ['supplier_invoice', 'supplier_credit_note'])->latest('issue_date')->get(),
+            'categories' => ExpenseCategory::where('is_active', true)->orderBy('name')->get(),
+            'suppliers' => Supplier::where('is_active', true)->orderBy('legal_name')->get(['id', 'legal_name', 'trade_name']),
+            'summary' => ['pending' => $this->pendingTotal(), 'paidThisMonth' => SupplierPayment::whereBetween('paid_at', [now()->startOfMonth(), now()->endOfMonth()])->sum('amount'), 'expensesThisMonth' => Expense::whereBetween('expense_date', [now()->startOfMonth(), now()->endOfMonth()])->sum('amount')],
+        ]);
+    }
+
+    public function show(Expense $expense): Response
+    {
+        return Inertia::render('expenses/show', ['expense' => $expense->load(['category', 'supplier', 'attachments', 'payments'])]);
+    }
+
+    public function store(Request $request, AccountingSynchronizer $accounting): RedirectResponse
+    {
+        if ($request->input('supplier_id') === 'none') {
+            $request->merge(['supplier_id' => null]);
+        }
+        $data = $request->validate(['expense_category_id' => ['required', 'exists:expense_categories,id'], 'supplier_id' => ['nullable', 'exists:suppliers,id'], 'type' => ['required', Rule::in(['receipt', 'invoice', 'other'])], 'document_number' => ['nullable', 'string', 'max:255'], 'merchant_name' => ['nullable', 'string', 'max:255'], 'expense_date' => ['required', 'date'], 'due_date' => ['nullable', 'date', 'after_or_equal:expense_date'], 'subtotal' => ['required', 'numeric', 'min:0'], 'tax_amount' => ['required', 'numeric', 'min:0'], 'notes' => ['nullable', 'string'], 'attachments' => ['nullable', 'array', 'max:10'], 'attachments.*' => ['file', 'mimes:pdf,jpg,jpeg,png,webp', 'max:10240']]);
+        $files = $data['attachments'] ?? [];
+        unset($data['attachments']);
+        $expense = DB::transaction(function () use ($request, $data, $files, $accounting) {
+            $number = 'EXP-'.now()->format('Y').'-'.str_pad((string) (Expense::lockForUpdate()->count() + 1), 5, '0', STR_PAD_LEFT);
+            $amount = round((float) $data['subtotal'] + (float) $data['tax_amount'], 2);
+            $expense = Expense::create([...$data, 'created_by' => $request->user()->id, 'number' => $number, 'amount' => $amount, 'status' => 'pending']);
+            foreach ($files as $file) {
+                $path = $file->store("expenses/{$expense->id}", 'local');
+                $expense->attachments()->create(['uploaded_by' => $request->user()->id, 'original_name' => $file->getClientOriginalName(), 'path' => $path, 'mime_type' => $file->getMimeType() ?: 'application/octet-stream', 'size' => $file->getSize()]);
+            }
+            $accounting->syncExpense($expense, $request->user()->id);
+
+            return $expense;
+        });
+
+        return to_route('expenses.show', $expense)->with('toast', ['type' => 'success', 'message' => __('Expense created.')]);
+    }
+
+    public function destroy(Expense $expense): RedirectResponse
+    {
+        abort_if($expense->payments()->exists(), 422, __('Expenses with payments cannot be deleted.'));
+        abort_if($expense->accountingEntry()->exists(), 422, __('Posted expenses cannot be deleted. Reverse the accounting entry first.'));
+        foreach ($expense->attachments as $attachment) {
+            Storage::disk('local')->delete($attachment->path);
+        }
+        $expense->delete();
+
+        return to_route('expenses.index')->with('toast', ['type' => 'success', 'message' => __('Expense deleted.')]);
+    }
+
+    public function download(Expense $expense, ExpenseAttachment $attachment): StreamedResponse
+    {
+        abort_unless($attachment->expense_id === $expense->id && Storage::disk('local')->exists($attachment->path), 404);
+
+        return Storage::disk('local')->download($attachment->path, $attachment->original_name, ['Content-Type' => $attachment->mime_type]);
+    }
+
+    public function destroyAttachment(Expense $expense, ExpenseAttachment $attachment): RedirectResponse
+    {
+        abort_unless($attachment->expense_id === $expense->id, 404);
+        Storage::disk('local')->delete($attachment->path);
+        $attachment->delete();
+
+        return back()->with('toast', ['type' => 'success', 'message' => __('Attachment deleted.')]);
+    }
+
+    public function payExpense(Request $request, Expense $expense, AccountingSynchronizer $accounting): RedirectResponse
+    {
+        $this->storePayment($request, $expense, null, $accounting);
+
+        return back()->with('toast', ['type' => 'success', 'message' => __('Payment registered.')]);
+    }
+
+    public function paySupplierInvoice(Request $request, PurchaseDocument $purchaseDocument, AccountingSynchronizer $accounting): RedirectResponse
+    {
+        abort_unless($purchaseDocument->type === 'supplier_invoice', 422);
+        abort_if($purchaseDocument->matching_status === 'review_required', 422, __('Approve invoice variances before registering a payment.'));
+        $this->storePayment($request, null, $purchaseDocument, $accounting);
+
+        return back()->with('toast', ['type' => 'success', 'message' => __('Payment registered.')]);
+    }
+
+    public function destroyPayment(SupplierPayment $payment): RedirectResponse
+    {
+        if ($payment->accountingEntry()->exists()) {
+            throw ValidationException::withMessages(['payment' => __('Posted payments cannot be deleted. Reverse the accounting entry first.')]);
+        }
+        $expense = $payment->expense;
+        $invoice = $payment->purchaseDocument;
+        $payment->delete();
+        $this->refreshStatus($expense, $invoice);
+
+        return back()->with('toast', ['type' => 'success', 'message' => __('Payment removed.')]);
+    }
+
+    private function storePayment(Request $request, ?Expense $expense, ?PurchaseDocument $invoice, AccountingSynchronizer $accounting): void
+    {
+        $payable = $expense ?? $invoice;
+        $creditAmount = $invoice ? abs((float) $invoice->creditNotes()->sum('amount')) : 0;
+        $outstanding = round((float) $payable->amount - $creditAmount - (float) $payable->paid_amount, 2);
+        abort_if($outstanding <= 0, 422, __('This document has no outstanding balance.'));
+        $data = $request->validate(['paid_at' => ['required', 'date'], 'amount' => ['required', 'numeric', 'gt:0', 'max:'.$outstanding], 'method' => ['required', Rule::in(['bank_transfer', 'card', 'cash', 'direct_debit', 'other'])], 'reference' => ['nullable', 'string', 'max:255'], 'notes' => ['nullable', 'string']]);
+        DB::transaction(function () use ($request, $expense, $invoice, $accounting, $data) {
+            $payment = SupplierPayment::create([...$data, 'expense_id' => $expense?->id, 'purchase_document_id' => $invoice?->id, 'created_by' => $request->user()->id]);
+            $accounting->syncSupplierPayment($payment, $request->user()->id);
+            $this->refreshStatus($expense, $invoice);
+        });
+    }
+
+    private function refreshStatus(?Expense $expense, ?PurchaseDocument $invoice): void
+    {
+        $payable = $expense ?? $invoice;
+        $paid = (float) SupplierPayment::when($expense, fn ($q) => $q->where('expense_id', $expense->id))->when($invoice, fn ($q) => $q->where('purchase_document_id', $invoice->id))->sum('amount');
+        $netAmount = (float) $payable->amount - ($invoice ? abs((float) $invoice->creditNotes()->sum('amount')) : 0);
+        $status = $paid >= $netAmount ? 'paid' : ($paid > 0 ? 'partial' : ($payable->due_date?->isPast() ? 'overdue' : 'pending'));
+        $payable->update(['paid_amount' => $paid, 'status' => $status]);
+    }
+
+    private function pendingTotal(): float
+    {
+        return (float) Expense::selectRaw('coalesce(sum(amount - paid_amount), 0) as total')->value('total') + (float) PurchaseDocument::whereIn('type', ['supplier_invoice', 'supplier_credit_note'])->whereNot('status', 'review_required')->selectRaw('coalesce(sum(amount - paid_amount), 0) as total')->value('total');
+    }
+}

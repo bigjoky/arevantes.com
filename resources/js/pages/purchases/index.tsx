@@ -1,0 +1,513 @@
+import { Form, Head, Link, usePage } from '@inertiajs/react';
+import { Plus, ShoppingCart, Trash2 } from 'lucide-react';
+import { useState } from 'react';
+import InputError from '@/components/input-error';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
+type Supplier = { id: number; legal_name: string; trade_name: string | null };
+type Product = {
+    id: number;
+    sku: string | null;
+    name: string;
+    description: string | null;
+    cost_price: string;
+    track_stock: boolean;
+    track_serials: boolean;
+    tax_rate: { rate: string };
+};
+type Document = {
+    id: number;
+    type: string;
+    number: string;
+    status: string;
+    issue_date: string;
+    amount: string;
+    supplier: { legal_name: string; trade_name: string | null };
+    sales_order: { id: number; number: string } | null;
+};
+type Line = {
+    product_id: string;
+    description: string;
+    quantity: string;
+    unit_price: string;
+    discount_percent: string;
+    tax_percent: string;
+};
+export default function PurchasesIndex({
+    documents,
+    counts,
+    suppliers,
+    products,
+}: {
+    documents: Document[];
+    counts: Record<string, number>;
+    suppliers: Supplier[];
+    products: Product[];
+}) {
+    const quickCreate =
+        new URLSearchParams(usePage().url.split('?')[1] || '').get('create') ===
+        '1';
+
+    return (
+        <>
+            <Head title="Purchases" />
+            <div className="flex flex-1 flex-col gap-6 p-4 md:p-6">
+                <header className="flex items-center justify-between gap-3">
+                    <div>
+                        <h1 className="text-xl font-semibold">Purchases</h1>
+                        <p className="text-sm text-muted-foreground">
+                            Supplier requests, orders, invoices, credits and
+                            returns.
+                        </p>
+                    </div>
+                    <PurchaseDialog
+                        suppliers={suppliers}
+                        products={products}
+                        initialOpen={quickCreate}
+                    />
+                </header>
+                <section className="grid grid-cols-2 border-y sm:grid-cols-4">
+                    {[
+                        ['purchase_rfq', 'Requests'],
+                        ['purchase_order', 'Orders'],
+                        ['supplier_invoice', 'Invoices'],
+                        ['supplier_credit_note', 'Credits'],
+                    ].map(([type, label]) => (
+                        <div key={type} className="border-r p-4 last:border-0">
+                            <div className="text-sm text-muted-foreground">
+                                {label}
+                            </div>
+                            <div className="mt-1 text-2xl font-semibold">
+                                {counts[type] ?? 0}
+                            </div>
+                        </div>
+                    ))}
+                </section>
+                <section className="overflow-x-auto">
+                    <table className="w-full min-w-[48rem] text-sm">
+                        <thead>
+                            <tr className="border-b text-left text-muted-foreground">
+                                <th className="py-2">Number</th>
+                                <th>Type</th>
+                                <th>Supplier</th>
+                                <th>Sales order</th>
+                                <th>Date</th>
+                                <th>Status</th>
+                                <th className="text-right">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {documents.map((document) => (
+                                <tr key={document.id} className="border-b">
+                                    <td className="py-3 font-medium">
+                                        <Link
+                                            className="underline underline-offset-2"
+                                            href={`/purchases/${document.id}`}
+                                        >
+                                            {document.number}
+                                        </Link>
+                                    </td>
+                                    <td className="capitalize">
+                                        {document.type.replaceAll('_', ' ')}
+                                    </td>
+                                    <td>
+                                        {document.supplier.trade_name ||
+                                            document.supplier.legal_name}
+                                    </td>
+                                    <td>
+                                        {document.sales_order ? (
+                                            <Link
+                                                href={`/sales/${document.sales_order.id}`}
+                                                className="underline underline-offset-2"
+                                            >
+                                                {document.sales_order.number}
+                                            </Link>
+                                        ) : (
+                                            '—'
+                                        )}
+                                    </td>
+                                    <td>{date(document.issue_date)}</td>
+                                    <td>
+                                        <Badge variant="outline">
+                                            {document.status}
+                                        </Badge>
+                                    </td>
+                                    <td className="text-right font-medium">
+                                        {money(document.amount)}
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                    {documents.length === 0 && (
+                        <div className="flex flex-col items-center gap-2 py-12 text-sm text-muted-foreground">
+                            <ShoppingCart className="size-6" />
+                            No purchase documents yet.
+                        </div>
+                    )}
+                </section>
+            </div>
+        </>
+    );
+}
+function PurchaseDialog({
+    suppliers,
+    products,
+    initialOpen = false,
+}: {
+    suppliers: Supplier[];
+    products: Product[];
+    initialOpen?: boolean;
+}) {
+    const { errors } = usePage().props;
+    const [open, setOpen] = useState(initialOpen);
+    const [lines, setLines] = useState<Line[]>([blank()]);
+    const update = (i: number, data: Partial<Line>) =>
+        setLines(
+            lines.map((line, p) => (p === i ? { ...line, ...data } : line)),
+        );
+
+    return (
+        <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+                <Button>
+                    <Plus /> New purchase
+                </Button>
+            </DialogTrigger>
+            <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl">
+                <DialogHeader>
+                    <DialogTitle>New purchase document</DialogTitle>
+                </DialogHeader>
+                <Form
+                    action="/purchases"
+                    method="post"
+                    onSuccess={() => setOpen(false)}
+                    className="grid gap-5"
+                >
+                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                        <SelectField
+                            label="Document"
+                            name="type"
+                            error={errors.type}
+                            options={[
+                                ['purchase_rfq', 'Request for quotation'],
+                                ['purchase_order', 'Purchase order'],
+                            ]}
+                        />
+                        <SelectField
+                            label="Supplier"
+                            name="supplier_id"
+                            error={errors.supplier_id}
+                            options={suppliers.map((s) => [
+                                String(s.id),
+                                s.trade_name || s.legal_name,
+                            ])}
+                        />
+                        <Field
+                            label="Issue date"
+                            name="issue_date"
+                            type="date"
+                            value={today()}
+                            error={errors.issue_date}
+                        />
+                        <Field
+                            label="Transport cost"
+                            name="shipping_cost"
+                            type="number"
+                            value="0"
+                            error={errors.shipping_cost}
+                        />
+                    </div>
+                    <div className="overflow-x-auto border-y">
+                        <table className="w-full min-w-[60rem] text-sm">
+                            <thead>
+                                <tr className="border-b text-left text-muted-foreground">
+                                    <th className="py-2">Product</th>
+                                    <th>Description</th>
+                                    <th className="w-24">Qty.</th>
+                                    <th className="w-28">Cost</th>
+                                    <th className="w-24">Disc. %</th>
+                                    <th className="w-24">Tax %</th>
+                                    <th className="w-12" />
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {lines.map((line, i) => (
+                                    <tr
+                                        key={i}
+                                        className="border-b last:border-0"
+                                    >
+                                        <td className="py-2 pr-2">
+                                            <Select
+                                                name={`lines[${i}][product_id]`}
+                                                value={line.product_id}
+                                                onValueChange={(value) => {
+                                                    const p = products.find(
+                                                        (x) =>
+                                                            x.id ===
+                                                            Number(value),
+                                                    );
+
+                                                    if (p) {
+                                                        update(i, {
+                                                            product_id: value,
+                                                            description:
+                                                                p.description ||
+                                                                p.name,
+                                                            unit_price:
+                                                                p.cost_price,
+                                                            tax_percent:
+                                                                p.tax_rate.rate,
+                                                        });
+                                                    }
+                                                }}
+                                            >
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select product" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {products.map((p) => (
+                                                        <SelectItem
+                                                            key={p.id}
+                                                            value={String(p.id)}
+                                                        >
+                                                            {p.name}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                            <InputError
+                                                message={
+                                                    errors[
+                                                        `lines.${i}.product_id`
+                                                    ]
+                                                }
+                                            />
+                                        </td>
+                                        <Cell
+                                            name={`lines[${i}][description]`}
+                                            value={line.description}
+                                            onChange={(v) =>
+                                                update(i, { description: v })
+                                            }
+                                            error={
+                                                errors[
+                                                    `lines.${i}.description`
+                                                ]
+                                            }
+                                        />
+                                        <Cell
+                                            name={`lines[${i}][quantity]`}
+                                            type="number"
+                                            value={line.quantity}
+                                            onChange={(v) =>
+                                                update(i, { quantity: v })
+                                            }
+                                            error={
+                                                errors[`lines.${i}.quantity`]
+                                            }
+                                        />
+                                        <Cell
+                                            name={`lines[${i}][unit_price]`}
+                                            type="number"
+                                            value={line.unit_price}
+                                            onChange={(v) =>
+                                                update(i, { unit_price: v })
+                                            }
+                                            error={
+                                                errors[
+                                                    `lines.${i}.unit_price`
+                                                ]
+                                            }
+                                        />
+                                        <Cell
+                                            name={`lines[${i}][discount_percent]`}
+                                            type="number"
+                                            value={line.discount_percent}
+                                            onChange={(v) =>
+                                                update(i, {
+                                                    discount_percent: v,
+                                                })
+                                            }
+                                            error={
+                                                errors[
+                                                    `lines.${i}.discount_percent`
+                                                ]
+                                            }
+                                        />
+                                        <Cell
+                                            name={`lines[${i}][tax_percent]`}
+                                            type="number"
+                                            value={line.tax_percent}
+                                            onChange={(v) =>
+                                                update(i, { tax_percent: v })
+                                            }
+                                            error={
+                                                errors[
+                                                    `lines.${i}.tax_percent`
+                                                ]
+                                            }
+                                        />
+                                        <td className="p-2">
+                                            <Button
+                                                type="button"
+                                                size="icon"
+                                                variant="ghost"
+                                                disabled={lines.length === 1}
+                                                onClick={() =>
+                                                    setLines(
+                                                        lines.filter(
+                                                            (_, p) => p !== i,
+                                                        ),
+                                                    )
+                                                }
+                                            >
+                                                <Trash2 />
+                                            </Button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                    <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setLines([...lines, blank()])}
+                    >
+                        <Plus /> Add line
+                    </Button>
+                    <div className="grid gap-2">
+                        <Label>Notes</Label>
+                        <textarea
+                            name="notes"
+                            className="min-h-20 rounded-md border bg-transparent p-3 text-sm"
+                        />
+                    </div>
+                    <InputError message={errors.lines || errors.notes} />
+                    <Button>Create document</Button>
+                </Form>
+            </DialogContent>
+        </Dialog>
+    );
+}
+function Cell({
+    name,
+    value,
+    onChange,
+    error,
+    type = 'text',
+}: {
+    name: string;
+    value: string;
+    onChange: (v: string) => void;
+    error?: string;
+    type?: string;
+}) {
+    return (
+        <td className="p-2">
+            <Input
+                name={name}
+                type={type}
+                step={type === 'number' ? '0.01' : undefined}
+                value={value}
+                onChange={(e) => onChange(e.target.value)}
+            />
+            <InputError message={error} />
+        </td>
+    );
+}
+function Field({
+    label,
+    name,
+    type = 'text',
+    value,
+    error,
+}: {
+    label: string;
+    name: string;
+    type?: string;
+    value?: string;
+    error?: string;
+}) {
+    return (
+        <div className="grid gap-2">
+            <Label>{label}</Label>
+            <Input
+                name={name}
+                type={type}
+                step={type === 'number' ? '0.01' : undefined}
+                min={type === 'number' ? '0' : undefined}
+                defaultValue={value}
+            />
+            <InputError message={error} />
+        </div>
+    );
+}
+function SelectField({
+    label,
+    name,
+    options,
+    error,
+}: {
+    label: string;
+    name: string;
+    options: string[][];
+    error?: string;
+}) {
+    return (
+        <div className="grid gap-2">
+            <Label>{label}</Label>
+            <Select name={name} defaultValue={options[0]?.[0]}>
+                <SelectTrigger>
+                    <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                    {options.map(([id, text]) => (
+                        <SelectItem key={id} value={id}>
+                            {text}
+                        </SelectItem>
+                    ))}
+                </SelectContent>
+            </Select>
+            <InputError message={error} />
+        </div>
+    );
+}
+const blank = (): Line => ({
+    product_id: '',
+    description: '',
+    quantity: '1',
+    unit_price: '0',
+    discount_percent: '0',
+    tax_percent: '21',
+});
+const today = () => new Date().toISOString().slice(0, 10);
+const money = (v: string) =>
+    new Intl.NumberFormat(undefined, {
+        style: 'currency',
+        currency: 'EUR',
+    }).format(Number(v));
+const date = (v: string) =>
+    new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(
+        new Date(`${v.slice(0, 10)}T12:00:00`),
+    );
+PurchasesIndex.layout = {
+    breadcrumbs: [{ title: 'Purchases', href: '/purchases' }],
+};

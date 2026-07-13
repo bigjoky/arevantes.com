@@ -1,0 +1,62 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+class WorkOrder extends Model
+{
+    protected $fillable = ['installation_id', 'assigned_user_id', 'created_by', 'number', 'title', 'kind', 'status', 'scheduled_start', 'scheduled_end', 'instructions', 'completion_notes', 'signed_by_name', 'signature_path', 'signed_at', 'completed_at'];
+
+    protected function casts(): array
+    {
+        return ['scheduled_start' => 'datetime', 'scheduled_end' => 'datetime', 'signed_at' => 'datetime', 'completed_at' => 'datetime'];
+    }
+
+    public function installation(): BelongsTo
+    {
+        return $this->belongsTo(Installation::class);
+    }
+
+    public function assignedUser(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'assigned_user_id');
+    }
+
+    public function timeEntries(): HasMany
+    {
+        return $this->hasMany(TimeEntry::class)->orderByDesc('started_at');
+    }
+
+    public function checklistItems(): HasMany
+    {
+        return $this->hasMany(WorkOrderChecklistItem::class)->orderBy('position');
+    }
+
+    public function attachments(): HasMany
+    {
+        return $this->hasMany(WorkOrderAttachment::class)->latest();
+    }
+
+    public function activities(): HasMany
+    {
+        return $this->hasMany(CrmActivity::class);
+    }
+
+    public function stockReservations(): HasMany
+    {
+        return $this->hasMany(StockReservation::class);
+    }
+
+    public function purchaseDocuments(): HasMany
+    {
+        return $this->hasMany(PurchaseDocument::class);
+    }
+
+    public function visits(): HasMany
+    {
+        return $this->hasMany(WorkOrderVisit::class)->latest('arrived_at');
+    }
+}

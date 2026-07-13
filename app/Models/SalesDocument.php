@@ -1,0 +1,73 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphOne;
+
+class SalesDocument extends Model
+{
+    protected $fillable = ['type', 'quote_id', 'source_document_id', 'person_id', 'installation_id', 'document_series_id', 'created_by', 'number', 'status', 'fulfillment_status', 'billing_status', 'issue_date', 'due_date', 'billing_percentage', 'billing_sequence', 'billing_label', 'issued_at', 'locked_at', 'subtotal', 'discount_amount', 'tax_amount', 'amount', 'paid_amount', 'customer_snapshot', 'notes'];
+
+    protected function casts(): array
+    {
+        return ['issue_date' => 'date:Y-m-d', 'due_date' => 'date:Y-m-d', 'billing_percentage' => 'decimal:2', 'issued_at' => 'datetime', 'locked_at' => 'datetime', 'subtotal' => 'decimal:2', 'discount_amount' => 'decimal:2', 'tax_amount' => 'decimal:2', 'amount' => 'decimal:2', 'paid_amount' => 'decimal:2', 'customer_snapshot' => 'array'];
+    }
+
+    public function quote(): BelongsTo
+    {
+        return $this->belongsTo(Quote::class);
+    }
+
+    public function customer(): BelongsTo
+    {
+        return $this->belongsTo(Person::class, 'person_id');
+    }
+
+    public function installation(): BelongsTo
+    {
+        return $this->belongsTo(Installation::class);
+    }
+
+    public function sourceDocument(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'source_document_id');
+    }
+
+    public function childDocuments(): HasMany
+    {
+        return $this->hasMany(self::class, 'source_document_id');
+    }
+
+    public function stockReservations(): HasMany
+    {
+        return $this->hasMany(StockReservation::class);
+    }
+
+    public function purchaseDocuments(): HasMany
+    {
+        return $this->hasMany(PurchaseDocument::class);
+    }
+
+    public function lines(): HasMany
+    {
+        return $this->hasMany(SalesDocumentLine::class)->orderBy('position');
+    }
+
+    public function payments(): HasMany
+    {
+        return $this->hasMany(SalesDocumentPayment::class)->orderByDesc('paid_at')->orderByDesc('id');
+    }
+
+    public function deliveries(): HasMany
+    {
+        return $this->hasMany(DocumentDelivery::class)->latest();
+    }
+
+    public function accountingEntry(): MorphOne
+    {
+        return $this->morphOne(JournalEntry::class, 'source')->where('event', 'document');
+    }
+}
