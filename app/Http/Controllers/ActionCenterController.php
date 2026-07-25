@@ -30,6 +30,10 @@ class ActionCenterController extends Controller
             $groups->push($this->operations($request, $schedule));
         }
 
+        if (Gate::allows('manage-purchases')) {
+            $groups->push($this->supply());
+        }
+
         if (Gate::allows('manage-catalog')) {
             $groups->push($this->purchaseInbox(), $this->collections(), $this->payments(), $this->banking());
         }
@@ -41,6 +45,76 @@ class ActionCenterController extends Controller
             'groups' => $groups,
             'generated_at' => now()->toIso8601String(),
         ]);
+    }
+
+    /** @return array<string, mixed> */
+    private function supply(): array
+    {
+        $query = PurchaseDocument::query()
+            ->where('type', 'purchase_order')
+            ->whereIn('status', ['ordered', 'partially_received'])
+            ->where(function ($query) {
+                $query->where(function ($query) {
+                    $query->where(fn ($query) => $query
+                        ->whereNotNull('supplier_confirmed_delivery_date')
+                        ->whereDate('supplier_confirmed_delivery_date', '<', today()))
+                        ->orWhere(fn ($query) => $query
+                            ->whereNull('supplier_confirmed_delivery_date')
+                            ->whereDate('expected_delivery_date', '<', today()));
+                })
+                    ->orWhereDate('next_follow_up_date', '<=', today())
+                    ->orWhere(fn ($query) => $query
+                        ->whereNull('supplier_confirmed_at')
+                        ->whereDate('issue_date', '<=', today()->subDays(2)));
+            });
+
+        $items = (clone $query)
+            ->with('supplier:id,legal_name,trade_name')
+            ->limit(20)
+            ->get()
+            ->map(function (PurchaseDocument $order): array {
+                $supplier = $order->supplier?->trade_name ?: $order->supplier?->legal_name ?: __('Supplier');
+                $eta = $order->supplier_confirmed_delivery_date ?: $order->expected_delivery_date;
+                if ($eta?->lt(today())) {
+                    $daysLate = abs(today()->diffInDays($eta, false));
+
+                    return [
+                        'id' => 'supply-'.$order->id,
+                        'title' => $order->number.' · '.$supplier,
+                        'subtitle' => __('Delivery is :days day(s) late', ['days' => $daysLate]),
+                        'href' => '/supply-control',
+                        'severity' => 'critical',
+                        'due_at' => $eta->startOfDay()->toIso8601String(),
+                    ];
+                }
+
+                if ($order->next_follow_up_date?->lte(today())) {
+                    return [
+                        'id' => 'supply-'.$order->id,
+                        'title' => $order->number.' · '.$supplier,
+                        'subtitle' => __('Supplier follow-up is due'),
+                        'href' => '/supply-control',
+                        'severity' => $order->next_follow_up_date->lt(today()) ? 'critical' : 'warning',
+                        'due_at' => $order->next_follow_up_date->startOfDay()->toIso8601String(),
+                    ];
+                }
+
+                $dueAt = $order->issue_date->copy()->addDays(2)->startOfDay();
+
+                return [
+                    'id' => 'supply-'.$order->id,
+                    'title' => $order->number.' · '.$supplier,
+                    'subtitle' => __('Supplier confirmation is still pending'),
+                    'href' => '/supply-control',
+                    'severity' => 'warning',
+                    'due_at' => $dueAt->toIso8601String(),
+                ];
+            })
+            ->sortBy('due_at')
+            ->take(10)
+            ->values();
+
+        return $this->group(__('Supply'), (clone $query)->count(), $items);
     }
 
     /** @return array<string, mixed> */

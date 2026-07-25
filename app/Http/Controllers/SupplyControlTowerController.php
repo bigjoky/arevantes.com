@@ -31,9 +31,11 @@ class SupplyControlTowerController extends Controller
                 $eta = $order->supplier_confirmed_delivery_date ?: $order->expected_delivery_date;
                 $daysUntilEta = $eta ? today()->diffInDays($eta, false) : null;
                 $daysLate = $daysUntilEta !== null && $daysUntilEta < 0 ? abs($daysUntilEta) : 0;
+                $followUpDue = $order->next_follow_up_date && $order->next_follow_up_date->lte(today());
                 $priority = match (true) {
                     $daysLate > 0 => 'late',
                     $order->open_quality_incidents_count > 0 => 'quality',
+                    $followUpDue => 'follow_up_due',
                     ! $order->supplier_confirmed_at => 'unconfirmed',
                     $daysUntilEta !== null && $daysUntilEta <= 7 => 'due_soon',
                     default => 'on_track',
@@ -50,6 +52,7 @@ class SupplyControlTowerController extends Controller
                     'supplier_confirmation_reference' => $order->supplier_confirmation_reference,
                     'last_followed_up_at' => $order->last_followed_up_at?->toIso8601String(),
                     'last_follow_up_note' => $order->last_follow_up_note,
+                    'next_follow_up_date' => $order->next_follow_up_date?->toDateString(),
                     'supplier' => $order->supplier,
                     'destination_warehouse' => $order->destinationWarehouse,
                     'ordered_quantity' => round($ordered, 3),
@@ -62,7 +65,7 @@ class SupplyControlTowerController extends Controller
                 ];
             })
             ->sortBy(fn (array $order) => [
-                array_search($order['priority'], ['late', 'quality', 'unconfirmed', 'due_soon', 'on_track'], true),
+                array_search($order['priority'], ['late', 'quality', 'follow_up_due', 'unconfirmed', 'due_soon', 'on_track'], true),
                 $order['days_until_eta'] ?? 99999,
                 $order['issue_date'],
             ])
@@ -75,6 +78,7 @@ class SupplyControlTowerController extends Controller
                 'late' => $orders->where('priority', 'late')->count(),
                 'unconfirmed' => $orders->whereNull('supplier_confirmed_at')->count(),
                 'due_soon' => $orders->where('priority', 'due_soon')->count(),
+                'follow_up_due' => $orders->where('priority', 'follow_up_due')->count(),
             ],
         ]);
     }
@@ -86,6 +90,7 @@ class SupplyControlTowerController extends Controller
             'confirmed_delivery_date' => ['required', 'date'],
             'confirmation_reference' => ['nullable', 'string', 'max:255'],
             'note' => ['nullable', 'string', 'max:2000'],
+            'next_follow_up_date' => ['nullable', 'date'],
         ]);
 
         $order = DB::transaction(function () use ($request, $purchaseDocument, $data) {
@@ -100,6 +105,7 @@ class SupplyControlTowerController extends Controller
                 'last_followed_up_at' => now(),
                 'last_followed_up_by' => $request->user()->id,
                 'last_follow_up_note' => $data['note'] ?? null,
+                'next_follow_up_date' => $data['next_follow_up_date'] ?? null,
             ]);
 
             return $order;
@@ -109,6 +115,7 @@ class SupplyControlTowerController extends Controller
             'confirmed_delivery_date' => $data['confirmed_delivery_date'],
             'reference' => $data['confirmation_reference'] ?? null,
             'note' => $data['note'] ?? null,
+            'next_follow_up_date' => $data['next_follow_up_date'] ?? null,
         ]);
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Supplier delivery confirmed.')]);
@@ -121,6 +128,7 @@ class SupplyControlTowerController extends Controller
             'note' => ['required', 'string', 'max:2000'],
             'confirmed_delivery_date' => ['nullable', 'date'],
             'confirmation_reference' => ['nullable', 'string', 'max:255'],
+            'next_follow_up_date' => ['nullable', 'date'],
         ]);
 
         [$order, $previousEta] = DB::transaction(function () use ($request, $purchaseDocument, $data) {
@@ -134,6 +142,7 @@ class SupplyControlTowerController extends Controller
                 'last_followed_up_at' => now(),
                 'last_followed_up_by' => $request->user()->id,
                 'last_follow_up_note' => $data['note'],
+                'next_follow_up_date' => $data['next_follow_up_date'] ?? null,
             ]);
 
             return [$order, $previousEta];
@@ -144,6 +153,7 @@ class SupplyControlTowerController extends Controller
             'to' => $order->supplier_confirmed_delivery_date?->toDateString(),
             'reference' => $order->supplier_confirmation_reference,
             'note' => $data['note'],
+            'next_follow_up_date' => $data['next_follow_up_date'] ?? null,
         ]);
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Supplier follow-up recorded.')]);

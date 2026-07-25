@@ -15,6 +15,7 @@ type Order = {
     supplier_confirmation_reference: string | null;
     last_followed_up_at: string | null;
     last_follow_up_note: string | null;
+    next_follow_up_date: string | null;
     supplier: {
         legal_name: string;
         trade_name: string | null;
@@ -31,7 +32,13 @@ type Order = {
     open_quality_incidents: number;
     days_late: number;
     days_until_eta: number | null;
-    priority: 'late' | 'quality' | 'unconfirmed' | 'due_soon' | 'on_track';
+    priority:
+        | 'late'
+        | 'quality'
+        | 'follow_up_due'
+        | 'unconfirmed'
+        | 'due_soon'
+        | 'on_track';
 };
 
 export default function SupplyControlTower({
@@ -44,6 +51,7 @@ export default function SupplyControlTower({
         late: number;
         unconfirmed: number;
         due_soon: number;
+        follow_up_due: number;
     };
 }) {
     const canManage = usePage<{
@@ -63,10 +71,14 @@ export default function SupplyControlTower({
                         receiving progress for every open order.
                     </p>
                 </header>
-                <section className="grid grid-cols-2 border-y lg:grid-cols-4">
+                <section className="grid grid-cols-2 border-y lg:grid-cols-5">
                     <Metric label="Open orders" value={counts.open} />
                     <Metric label="Late" value={counts.late} />
                     <Metric label="Unconfirmed" value={counts.unconfirmed} />
+                    <Metric
+                        label="Follow-up due"
+                        value={counts.follow_up_due}
+                    />
                     <Metric label="Due within 7 days" value={counts.due_soon} />
                 </section>
                 <section className="grid gap-4">
@@ -162,7 +174,8 @@ export default function SupplyControlTower({
                                 </div>
                             </div>
                             {(order.last_follow_up_note ||
-                                order.supplier_confirmation_reference) && (
+                                order.supplier_confirmation_reference ||
+                                order.next_follow_up_date) && (
                                 <div className="mt-3 text-sm text-muted-foreground">
                                     {order.supplier_confirmation_reference
                                         ? `Ref. ${order.supplier_confirmation_reference}`
@@ -174,6 +187,9 @@ export default function SupplyControlTower({
                                     {order.last_follow_up_note}
                                     {order.last_followed_up_at
                                         ? ` · ${dateTime(order.last_followed_up_at)}`
+                                        : ''}
+                                    {order.next_follow_up_date
+                                        ? ` · Next contact ${date(order.next_follow_up_date)}`
                                         : ''}
                                 </div>
                             )}
@@ -191,7 +207,7 @@ export default function SupplyControlTower({
                                                 : `/supply-control/${order.id}/confirm`
                                         }
                                         method="post"
-                                        className="mt-3 grid gap-3 lg:grid-cols-[12rem_14rem_1fr_auto]"
+                                        className="mt-3 grid gap-3 lg:grid-cols-[12rem_11rem_14rem_1fr_auto]"
                                     >
                                         <div className="grid gap-1">
                                             <label className="text-xs text-muted-foreground">
@@ -207,6 +223,19 @@ export default function SupplyControlTower({
                                                     order.supplier_confirmed_delivery_date ||
                                                     order.expected_delivery_date ||
                                                     ''
+                                                }
+                                            />
+                                        </div>
+                                        <div className="grid gap-1">
+                                            <label className="text-xs text-muted-foreground">
+                                                Next contact
+                                            </label>
+                                            <Input
+                                                name="next_follow_up_date"
+                                                type="date"
+                                                defaultValue={
+                                                    order.next_follow_up_date ||
+                                                    daysFromNow(2)
                                                 }
                                             />
                                         </div>
@@ -285,6 +314,7 @@ function PriorityBadge({
     const labels: Record<Order['priority'], string> = {
         late: 'Late',
         quality: 'Quality attention',
+        follow_up_due: 'Follow-up due',
         unconfirmed: 'Awaiting confirmation',
         due_soon: 'Due soon',
         on_track: 'On track',
@@ -306,6 +336,12 @@ const dateTime = (value: string) =>
         dateStyle: 'medium',
         timeStyle: 'short',
     }).format(new Date(value));
+const daysFromNow = (days: number) => {
+    const value = new Date();
+    value.setDate(value.getDate() + days);
+
+    return value.toISOString().slice(0, 10);
+};
 
 SupplyControlTower.layout = {
     breadcrumbs: [
