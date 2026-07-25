@@ -64,7 +64,11 @@ class JournalPoster
 
     private function number(FiscalYear $year): string
     {
-        $last = JournalEntry::where('fiscal_year_id', $year->id)->lockForUpdate()->count();
+        $last = JournalEntry::where('fiscal_year_id', $year->id)
+            ->lockForUpdate()
+            ->pluck('number')
+            ->map(fn (string $number) => (int) str($number)->afterLast('-')->toString())
+            ->max() ?? 0;
 
         return 'AST-'.$year->year.'-'.str_pad((string) ($last + 1), 6, '0', STR_PAD_LEFT);
     }

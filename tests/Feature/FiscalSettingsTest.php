@@ -38,11 +38,25 @@ class FiscalSettingsTest extends TestCase
         $this->actingAs($admin)->post(route('fiscal-settings.years.store'), ['year' => 2027])->assertRedirect();
         $year = FiscalYear::where('year', 2027)->firstOrFail();
         $this->assertCount(11, $year->series);
-        $this->post(route('fiscal-settings.years.close', $year))->assertRedirect();
+        $this->post(route('fiscal-settings.years.close', $year))->assertSessionHasErrors('confirmation');
+        $this->travelTo('2028-01-10');
+        $this->post(route('fiscal-settings.years.close', $year), ['confirmation' => '2027'])->assertRedirect()->assertSessionHasNoErrors();
         $this->assertSame('closed', $year->fresh()->status);
 
         $this->expectException(ValidationException::class);
         app(DocumentNumber::class)->next('invoice', '2027-03-01');
+    }
+
+    public function test_current_fiscal_year_cannot_be_closed_early_even_with_confirmation(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $year = FiscalYear::where('year', now()->year)->firstOrFail();
+
+        $this->actingAs($admin)
+            ->post(route('fiscal-settings.years.close', $year), ['confirmation' => (string) $year->year])
+            ->assertSessionHasErrors('year');
+
+        $this->assertSame('open', $year->fresh()->status);
     }
 
     public function test_only_administrators_can_access_fiscal_configuration(): void

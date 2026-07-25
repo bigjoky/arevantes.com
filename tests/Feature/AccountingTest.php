@@ -200,8 +200,9 @@ class AccountingTest extends TestCase
         $year = FiscalYear::where('year', now()->year)->firstOrFail();
         $invoice = SalesDocument::create(['type' => 'invoice', 'number' => 'FAC-CLOSE-1', 'status' => 'issued', 'issue_date' => $year->ends_on, 'subtotal' => 100, 'discount_amount' => 0, 'tax_amount' => 0, 'amount' => 100, 'paid_amount' => 0, 'customer_snapshot' => []]);
         FiscalYear::create(['year' => $year->year + 1, 'starts_on' => $year->ends_on->copy()->addDay(), 'ends_on' => $year->ends_on->copy()->addYear(), 'status' => 'open']);
+        $this->travelTo($year->ends_on->copy()->addDays(10));
 
-        $this->actingAs($admin)->post(route('accounting.years.close', $year))->assertRedirect()->assertSessionHasNoErrors();
+        $this->actingAs($admin)->post(route('accounting.years.close', $year), ['confirmation' => (string) $year->year])->assertRedirect()->assertSessionHasNoErrors();
         $this->assertSame('closed', $year->fresh()->status);
         $this->assertDatabaseHas('journal_entries', ['entry_kind' => 'closing', 'source_id' => $year->id]);
         $this->post(route('accounting.years.opening', $year))->assertRedirect()->assertSessionHasNoErrors();
@@ -209,5 +210,36 @@ class AccountingTest extends TestCase
         $this->assertEqualsWithDelta($opening->lines->sum('debit'), $opening->lines->sum('credit'), 0.001);
         $this->assertSame($year->year + 1, $opening->entry_date->year);
         $this->assertNotNull($invoice->fresh());
+        $nextYearEntry = app(JournalPoster::class)->post(
+            $opening->entry_date->copy()->addDay()->toDateString(),
+            'Entry after opening',
+            [
+                ['account_code' => '572', 'debit' => 50, 'credit' => 0],
+                ['account_code' => '129', 'debit' => 0, 'credit' => 50],
+            ],
+            $admin->id,
+        );
+
+        $this->post(route('fiscal-settings.years.reopen', $year), ['confirmation' => (string) $year->year])->assertRedirect()->assertSessionHasNoErrors();
+        $this->assertSame('open', $year->fresh()->status);
+        $this->assertNull($year->fresh()->closed_at);
+        $this->assertDatabaseMissing('journal_entries', ['entry_kind' => 'closing', 'source_id' => $year->id]);
+        $this->assertDatabaseMissing('journal_entries', ['entry_kind' => 'opening', 'source_id' => $year->id]);
+        $this->assertSame(0, JournalEntry::where('entry_kind', 'reversal')->count());
+        $this->assertNotNull($nextYearEntry->fresh());
+        $followingEntry = app(JournalPoster::class)->post(
+            $nextYearEntry->entry_date->copy()->addDay()->toDateString(),
+            'Entry after deleted opening',
+            [
+                ['account_code' => '572', 'debit' => 25, 'credit' => 0],
+                ['account_code' => '129', 'debit' => 0, 'credit' => 25],
+            ],
+            $admin->id,
+        );
+        $this->assertSame('AST-'.($year->year + 1).'-000003', $followingEntry->number);
+
+        $this->post(route('fiscal-settings.years.close', $year), ['confirmation' => (string) $year->year])->assertRedirect()->assertSessionHasNoErrors();
+        $this->assertSame('closed', $year->fresh()->status);
+        $this->assertSame(1, JournalEntry::where('entry_kind', 'closing')->count());
     }
 }

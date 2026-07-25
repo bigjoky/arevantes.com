@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\MorphOne;
 
 class SupplierPayment extends Model
 {
-    protected $fillable = ['purchase_document_id', 'expense_id', 'created_by', 'paid_at', 'amount', 'method', 'reference', 'notes'];
+    protected $fillable = ['purchase_document_id', 'expense_id', 'created_by', 'origin_bank_transaction_id', 'paid_at', 'amount', 'method', 'reference', 'notes'];
 
     protected function casts(): array
     {

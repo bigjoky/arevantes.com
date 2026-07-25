@@ -7,8 +7,11 @@ use App\Models\BankReconciliation;
 use App\Models\BankTransaction;
 use App\Models\BankTransactionPosting;
 use App\Models\BankTransfer;
+use App\Models\Expense;
+use App\Models\ExpenseCategory;
 use App\Models\PurchaseDocument;
 use App\Models\SalesDocument;
+use App\Models\SalesDocumentPayment;
 use App\Models\Supplier;
 use App\Models\SupplierPayment;
 use App\Models\User;
@@ -136,5 +139,117 @@ class BankingTest extends TestCase
         $this->assertSame('100.00', $reconciliation->journalEntry->lines->firstWhere('account.code', '572')->credit);
         $this->delete(route('banking.reconciliations.undo', $reconciliation))->assertRedirect()->assertSessionHasNoErrors();
         $this->assertSame('pending', $transaction->fresh()->status);
+    }
+
+    public function test_incoming_bank_movement_can_create_and_reconcile_customer_receipt(): void
+    {
+        $user = User::factory()->create(['role' => 'commercial']);
+        $account = BankAccount::create(['name' => 'Collections', 'currency' => 'EUR', 'opening_balance' => 0, 'is_active' => true]);
+        $invoice = SalesDocument::create([
+            'type' => 'invoice', 'number' => 'FAC-2026-0042', 'status' => 'issued',
+            'issue_date' => now()->subDays(10), 'due_date' => now()->addDays(20),
+            'issued_at' => now(), 'locked_at' => now(), 'subtotal' => 100,
+            'discount_amount' => 0, 'tax_amount' => 21, 'amount' => 121,
+            'paid_amount' => 0, 'customer_snapshot' => [],
+        ]);
+        $transaction = $account->transactions()->create([
+            'booked_on' => now(), 'amount' => 40, 'currency' => 'EUR',
+            'description' => 'Cobro FAC20260042', 'reference' => 'FAC-2026-0042',
+            'import_hash' => hash('sha256', 'direct-customer-receipt'), 'status' => 'pending',
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('banking.index', ['account' => $account->id]))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('transactions.0.candidates.0.value', 'customer_invoice:'.$invoice->id)
+                ->where('transactions.0.candidates.0.creates_payment', true));
+        $this->post(route('banking.reconcile', $transaction), ['payment' => 'customer_invoice:'.$invoice->id])
+            ->assertRedirect()
+            ->assertSessionHasNoErrors();
+
+        $payment = SalesDocumentPayment::firstOrFail();
+        $this->assertSame('40.00', $payment->amount);
+        $this->assertSame('partial', $invoice->fresh()->status);
+        $this->assertSame('40.00', $invoice->fresh()->paid_amount);
+        $this->assertSame('reconciled', $transaction->fresh()->status);
+        $this->assertDatabaseHas('bank_reconciliations', ['sales_document_payment_id' => $payment->id, 'method' => 'manual']);
+        $this->assertNotNull($payment->accountingEntry);
+
+        $this->delete(route('banking.reconciliations.undo', $payment->reconciliation))
+            ->assertRedirect()
+            ->assertSessionHasNoErrors();
+        $this->assertDatabaseMissing('sales_document_payments', ['id' => $payment->id]);
+        $this->assertSame('issued', $invoice->fresh()->status);
+        $this->assertSame('0.00', $invoice->fresh()->paid_amount);
+        $this->assertSame('pending', $transaction->fresh()->status);
+        $this->assertDatabaseHas('journal_entries', ['event' => 'reversal', 'reverses_entry_id' => $payment->accountingEntry->id]);
+    }
+
+    public function test_auto_reconciliation_creates_supplier_invoice_and_expense_payments_from_exact_references(): void
+    {
+        $user = User::factory()->create(['role' => 'commercial']);
+        $supplier = Supplier::create(['legal_name' => 'Solar Supply SL', 'country' => 'ES', 'payment_terms_days' => 30]);
+        $account = BankAccount::create(['name' => 'Payments', 'currency' => 'EUR', 'opening_balance' => 0, 'is_active' => true]);
+        $invoice = PurchaseDocument::create([
+            'type' => 'supplier_invoice', 'supplier_id' => $supplier->id,
+            'number' => 'FR-2026-0008', 'supplier_number' => 'SS-8841',
+            'status' => 'registered', 'issue_date' => now()->subDays(5),
+            'due_date' => now()->addDays(25), 'subtotal' => 50, 'tax_amount' => 10.5,
+            'amount' => 60.5, 'paid_amount' => 0,
+        ]);
+        $expense = Expense::create([
+            'expense_category_id' => ExpenseCategory::firstOrFail()->id,
+            'supplier_id' => $supplier->id, 'created_by' => $user->id,
+            'number' => 'EXP-2026-0009', 'document_number' => 'TICKET-778',
+            'type' => 'receipt', 'merchant_name' => 'Solar Supply',
+            'expense_date' => now()->subDay(), 'due_date' => now(),
+            'subtotal' => 20, 'tax_amount' => 4.2, 'amount' => 24.2,
+            'paid_amount' => 0, 'status' => 'pending',
+        ]);
+        $account->transactions()->create([
+            'booked_on' => now(), 'amount' => -60.5, 'currency' => 'EUR',
+            'description' => 'Pago factura SS8841', 'reference' => 'SS-8841',
+            'import_hash' => hash('sha256', 'direct-supplier-payment'), 'status' => 'pending',
+        ]);
+        $account->transactions()->create([
+            'booked_on' => now(), 'amount' => -24.2, 'currency' => 'EUR',
+            'description' => 'Pago TICKET778', 'reference' => 'TICKET-778',
+            'import_hash' => hash('sha256', 'direct-expense-payment'), 'status' => 'pending',
+        ]);
+
+        $this->actingAs($user)->post(route('banking.auto', $account))->assertRedirect()->assertSessionHasNoErrors();
+
+        $this->assertSame(2, SupplierPayment::count());
+        $this->assertSame('paid', $invoice->fresh()->status);
+        $this->assertSame('60.50', $invoice->fresh()->paid_amount);
+        $this->assertSame('paid', $expense->fresh()->status);
+        $this->assertSame('24.20', $expense->fresh()->paid_amount);
+        $this->assertSame(2, BankReconciliation::where('method', 'automatic')->count());
+        $this->assertSame(0, BankTransaction::where('status', 'pending')->count());
+    }
+
+    public function test_auto_reconciliation_does_not_create_payment_from_amount_alone(): void
+    {
+        $user = User::factory()->create(['role' => 'commercial']);
+        $account = BankAccount::create(['name' => 'Safe matching', 'currency' => 'EUR', 'opening_balance' => 0, 'is_active' => true]);
+        SalesDocument::create([
+            'type' => 'invoice', 'number' => 'FAC-2026-0099', 'status' => 'issued',
+            'issue_date' => now(), 'due_date' => now()->addMonth(), 'issued_at' => now(),
+            'locked_at' => now(), 'subtotal' => 100, 'discount_amount' => 0,
+            'tax_amount' => 21, 'amount' => 121, 'paid_amount' => 0,
+            'customer_snapshot' => [],
+        ]);
+        $transaction = $account->transactions()->create([
+            'booked_on' => now(), 'amount' => 121, 'currency' => 'EUR',
+            'description' => 'Transferencia recibida sin concepto', 'reference' => null,
+            'import_hash' => hash('sha256', 'ambiguous-amount-only'), 'status' => 'pending',
+        ]);
+
+        $this->actingAs($user)->post(route('banking.auto', $account))->assertRedirect()->assertSessionHasNoErrors();
+
+        $this->assertSame('pending', $transaction->fresh()->status);
+        $this->assertSame(0, SalesDocumentPayment::count());
+        $this->assertSame(0, BankReconciliation::count());
     }
 }

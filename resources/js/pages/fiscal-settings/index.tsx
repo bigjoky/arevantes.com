@@ -1,9 +1,25 @@
 import { Form, Head, usePage } from '@inertiajs/react';
-import { Building2, CalendarPlus, LockKeyhole, Save } from 'lucide-react';
+import {
+    Building2,
+    CalendarPlus,
+    LockKeyhole,
+    RefreshCw,
+    Save,
+    UnlockKeyhole,
+} from 'lucide-react';
+import { useState } from 'react';
 import InputError from '@/components/input-error';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 type Company = {
@@ -41,6 +57,7 @@ type FiscalYear = {
     ends_on: string;
     status: string;
     closed_at: string | null;
+    has_opening_entry: boolean;
     series: Series[];
 };
 export default function FiscalSettings({
@@ -204,11 +221,12 @@ export default function FiscalSettings({
                     <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
                         <div>
                             <h2 className="font-semibold">
-                                Fiscal years & series
+                                Ejercicios fiscales y series
                             </h2>
                             <p className="text-sm text-muted-foreground">
-                                Closing a year permanently blocks further
-                                numbering.
+                                La gestión de cierre y reapertura está
+                                centralizada aquí para proteger la numeración y
+                                la contabilidad.
                             </p>
                         </div>
                         <Form
@@ -239,24 +257,7 @@ export default function FiscalSettings({
                                             {year.status}
                                         </Badge>
                                     </div>
-                                    {year.status === 'open' && (
-                                        <Form
-                                            action={`/company-fiscal/years/${year.id}/close`}
-                                            method="post"
-                                            onBefore={() =>
-                                                confirm(
-                                                    `Close fiscal year ${year.year}? This cannot be undone.`,
-                                                )
-                                            }
-                                        >
-                                            <Button
-                                                variant="destructive"
-                                                size="sm"
-                                            >
-                                                <LockKeyhole /> Close year
-                                            </Button>
-                                        </Form>
-                                    )}
+                                    <FiscalYearActions year={year} />
                                 </div>
                                 <div className="overflow-x-auto">
                                     <table className="w-full min-w-[58rem] text-sm">
@@ -378,6 +379,125 @@ export default function FiscalSettings({
                 </section>
             </div>
         </>
+    );
+}
+function FiscalYearActions({ year }: { year: FiscalYear }) {
+    const endDate = new Date(`${year.ends_on.slice(0, 10)}T23:59:59`);
+    const canClose = endDate < new Date();
+
+    if (year.status === 'closed') {
+        return (
+            <div className="flex flex-wrap items-center justify-end gap-2">
+                {!year.has_opening_entry && (
+                    <Form
+                        action={`/company-fiscal/years/${year.id}/opening`}
+                        method="post"
+                    >
+                        <Button variant="outline" size="sm">
+                            <RefreshCw /> Generar apertura
+                        </Button>
+                    </Form>
+                )}
+                <FiscalYearConfirmation year={year} action="reopen" />
+            </div>
+        );
+    }
+
+    if (!canClose) {
+        return (
+            <span className="text-xs text-muted-foreground">
+                El cierre estará disponible después del{' '}
+                {new Intl.DateTimeFormat(undefined, {
+                    dateStyle: 'medium',
+                }).format(endDate)}
+            </span>
+        );
+    }
+
+    return <FiscalYearConfirmation year={year} action="close" />;
+}
+function FiscalYearConfirmation({
+    year,
+    action,
+}: {
+    year: FiscalYear;
+    action: 'close' | 'reopen';
+}) {
+    const [open, setOpen] = useState(false);
+    const [confirmation, setConfirmation] = useState('');
+    const closing = action === 'close';
+    const expected = String(year.year);
+
+    return (
+        <Dialog
+            open={open}
+            onOpenChange={(nextOpen) => {
+                setOpen(nextOpen);
+
+                if (!nextOpen) {
+                    setConfirmation('');
+                }
+            }}
+        >
+            <DialogTrigger asChild>
+                <Button variant={closing ? 'destructive' : 'outline'} size="sm">
+                    {closing ? <LockKeyhole /> : <UnlockKeyhole />}
+                    {closing ? 'Cerrar ejercicio' : 'Reabrir ejercicio'}
+                </Button>
+            </DialogTrigger>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>
+                        {closing ? 'Cerrar' : 'Reabrir'} ejercicio {year.year}
+                    </DialogTitle>
+                    <DialogDescription>
+                        {closing
+                            ? 'El cierre bloqueará la numeración y los nuevos asientos de este ejercicio. Revise antes los borradores y saldos pendientes.'
+                            : 'La reapertura restaurará la numeración y eliminará los asientos de cierre y apertura vinculados. Esta acción no generará contraasientos.'}
+                    </DialogDescription>
+                </DialogHeader>
+                <Form
+                    action={`/company-fiscal/years/${year.id}/${action}`}
+                    method="post"
+                    onSuccess={() => setOpen(false)}
+                    className="grid gap-4"
+                >
+                    {({ errors, processing }) => (
+                        <>
+                            <div className="grid gap-2">
+                                <Label htmlFor={`${action}-${year.id}`}>
+                                    Escriba {expected} para confirmar
+                                </Label>
+                                <Input
+                                    id={`${action}-${year.id}`}
+                                    name="confirmation"
+                                    inputMode="numeric"
+                                    value={confirmation}
+                                    onChange={(event) =>
+                                        setConfirmation(event.target.value)
+                                    }
+                                    autoComplete="off"
+                                />
+                                <InputError
+                                    message={errors.confirmation || errors.year}
+                                />
+                            </div>
+                            <Button
+                                variant={closing ? 'destructive' : 'default'}
+                                disabled={
+                                    processing || confirmation !== expected
+                                }
+                            >
+                                {closing ? <LockKeyhole /> : <UnlockKeyhole />}
+                                {closing
+                                    ? 'Confirmar cierre'
+                                    : 'Confirmar reapertura'}
+                            </Button>
+                        </>
+                    )}
+                </Form>
+            </DialogContent>
+        </Dialog>
     );
 }
 function Field({

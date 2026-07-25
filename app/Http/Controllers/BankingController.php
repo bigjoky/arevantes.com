@@ -8,22 +8,32 @@ use App\Models\BankStatementImport;
 use App\Models\BankTransaction;
 use App\Models\BankTransactionPosting;
 use App\Models\BankTransfer;
+use App\Models\Expense;
+use App\Models\JournalEntry;
 use App\Models\JournalLine;
 use App\Models\LedgerAccount;
+use App\Models\PurchaseDocument;
+use App\Models\SalesDocument;
 use App\Models\SalesDocumentPayment;
 use App\Models\SupplierPayment;
 use App\Models\TaxReturnPayment;
+use App\Services\Accounting\AccountingSynchronizer;
 use App\Services\Accounting\JournalPoster;
 use App\Services\Banking\StatementImporter;
+use App\Services\Finance\OutstandingBalanceCalculator;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class BankingController extends Controller
 {
+    public function __construct(private OutstandingBalanceCalculator $balances) {}
+
     public function index(Request $request): Response
     {
         $accounts = BankAccount::withSum('transactions as transaction_total', 'amount')->orderByDesc('is_active')->orderBy('name')->get()->map(fn ($account) => [...$account->toArray(), 'balance' => round((float) $account->opening_balance + (float) ($account->transaction_total ?? 0), 2)]);
@@ -58,34 +68,22 @@ class BankingController extends Controller
         return back()->with('toast', ['type' => 'success', 'message' => __('Imported :created transactions; :duplicates duplicates skipped.', ['created' => $result['created'], 'duplicates' => $result['duplicates']])]);
     }
 
-    public function reconcile(Request $request, BankTransaction $transaction, JournalPoster $poster): RedirectResponse
+    public function reconcile(Request $request, BankTransaction $transaction, JournalPoster $poster, AccountingSynchronizer $accounting): RedirectResponse
     {
         abort_unless($transaction->status === 'pending', 422);
-        $data = $request->validate(['payment' => ['required', 'string', 'regex:/^(customer|supplier|tax|transfer):[0-9]+$/']]);
-        [$type, $id] = explode(':', $data['payment']);
-        if ($type === 'transfer') {
-            $this->storeTransfer($transaction, BankTransaction::findOrFail($id), $request->user()->id, $poster);
+        $data = $request->validate(['payment' => ['required', 'string', 'regex:/^(customer|supplier|tax|transfer|customer_invoice|supplier_invoice|expense):[0-9]+$/']]);
+        $transfer = $this->matchSelection($transaction, $data['payment'], $request->user()->id, 'manual', $poster, $accounting);
 
-            return back()->with('toast', ['type' => 'success', 'message' => __('Transfer between own accounts matched.')]);
-        }
-        $payment = match ($type) {
-            'customer' => SalesDocumentPayment::findOrFail($id), 'supplier' => SupplierPayment::findOrFail($id), 'tax' => TaxReturnPayment::with('taxReturn')->findOrFail($id)
-        };
-        $inbound = $type === 'customer' || ($type === 'tax' && (float) $payment->taxReturn->result < 0);
-        abort_if($payment->reconciliation()->exists() || abs((float) $transaction->amount) !== (float) $payment->amount || ($inbound !== ((float) $transaction->amount > 0)), 422, __('The payment does not match this bank transaction.'));
-        $this->storeReconciliation($transaction, $type, $payment->id, $request->user()->id, 'manual', $poster);
-
-        return back()->with('toast', ['type' => 'success', 'message' => __('Transaction reconciled.')]);
+        return back()->with('toast', ['type' => 'success', 'message' => $transfer ? __('Transfer between own accounts matched.') : __('Transaction reconciled.')]);
     }
 
-    public function auto(Request $request, BankAccount $account, JournalPoster $poster): RedirectResponse
+    public function auto(Request $request, BankAccount $account, JournalPoster $poster, AccountingSynchronizer $accounting): RedirectResponse
     {
         $matched = 0;
-        $account->transactions()->where('status', 'pending')->orderBy('booked_on')->each(function ($transaction) use ($request, $poster, &$matched) {
-            $candidates = $this->candidates($transaction);
+        $account->transactions()->where('status', 'pending')->orderBy('booked_on')->each(function ($transaction) use ($request, $poster, $accounting, &$matched) {
+            $candidates = $this->candidates($transaction, true);
             if (count($candidates) === 1) {
-                [$type, $id] = explode(':', $candidates[0]['value']);
-                $type === 'transfer' ? $this->storeTransfer($transaction, BankTransaction::findOrFail($id), $request->user()->id, $poster) : $this->storeReconciliation($transaction, $type, (int) $id, $request->user()->id, 'automatic', $poster);
+                $this->matchSelection($transaction, $candidates[0]['value'], $request->user()->id, 'automatic', $poster, $accounting);
                 $matched++;
             }
         });
@@ -96,12 +94,31 @@ class BankingController extends Controller
     public function undo(Request $request, BankReconciliation $reconciliation, JournalPoster $poster): RedirectResponse
     {
         DB::transaction(function () use ($request, $reconciliation, $poster) {
+            $reconciliation->load([
+                'customerPayment.document',
+                'customerPayment.accountingEntry.lines.account:id,code',
+                'supplierPayment.expense',
+                'supplierPayment.purchaseDocument.creditNotes',
+                'supplierPayment.accountingEntry.lines.account:id,code',
+            ]);
             if ($reconciliation->journalEntry) {
-                $reconciliation->journalEntry->load('lines.account:id,code');
-                $lines = $reconciliation->journalEntry->lines->map(fn ($line) => ['account_code' => $line->account->code, 'debit' => $line->credit, 'credit' => $line->debit])->all();
-                $poster->post(now()->toDateString(), __('Reversal of :entry', ['entry' => $reconciliation->journalEntry->number]), $lines, $request->user()->id, 'reversal', null, 'reversal', $reconciliation->journalEntry);
-            } $reconciliation->transaction()->update(['status' => 'pending']);
+                $this->reverseEntry($reconciliation->journalEntry, $request->user()->id, $poster);
+            }
+            $transactionId = $reconciliation->bank_transaction_id;
+            $generatedPayment = collect([$reconciliation->customerPayment, $reconciliation->supplierPayment])
+                ->first(fn ($payment) => (int) $payment?->origin_bank_transaction_id === (int) $transactionId);
+            if ($generatedPayment?->accountingEntry) {
+                $this->reverseEntry($generatedPayment->accountingEntry, $request->user()->id, $poster);
+            }
+            $reconciliation->transaction()->update(['status' => 'pending']);
             $reconciliation->delete();
+            if ($generatedPayment) {
+                $customerDocument = $generatedPayment instanceof SalesDocumentPayment ? $generatedPayment->document : null;
+                $expense = $generatedPayment instanceof SupplierPayment ? $generatedPayment->expense : null;
+                $supplierDocument = $generatedPayment instanceof SupplierPayment ? $generatedPayment->purchaseDocument : null;
+                $generatedPayment->delete();
+                $this->refreshDocumentPaymentStatus($customerDocument, $expense, $supplierDocument);
+            }
         });
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Reconciliation removed.')]);
@@ -155,7 +172,7 @@ class BankingController extends Controller
         return back()->with('toast', ['type' => 'success', 'message' => __('Bank transfer match reversed.')]);
     }
 
-    private function candidates(BankTransaction $transaction): array
+    private function candidates(BankTransaction $transaction, bool $automatic = false): array
     {
         $from = $transaction->booked_on->copy()->subDays(5);
         $to = $transaction->booked_on->copy()->addDays(5);
@@ -165,13 +182,230 @@ class BankingController extends Controller
             ? SalesDocumentPayment::with('document:id,number')->whereDoesntHave('reconciliation')->where('amount', $amount)->whereBetween('paid_at', [$from, $to])->get()->map(fn ($payment) => ['type' => 'customer', 'payment' => $payment, 'number' => $payment->document?->number, 'date' => $payment->paid_at])
             : SupplierPayment::with(['expense:id,number', 'purchaseDocument:id,number'])->whereDoesntHave('reconciliation')->where('amount', $amount)->whereBetween('paid_at', [$from, $to])->get()->map(fn ($payment) => ['type' => 'supplier', 'payment' => $payment, 'number' => $payment->expense?->number ?? $payment->purchaseDocument?->number, 'date' => $payment->paid_at]);
         $tax = TaxReturnPayment::with('taxReturn:id,year,quarter,result')->whereDoesntHave('reconciliation')->where('amount', $amount)->whereBetween('paid_on', [$from, $to])->whereHas('taxReturn', fn ($query) => $query->where('result', $inbound ? '<' : '>', 0))->get()->map(fn ($payment) => ['type' => 'tax', 'payment' => $payment, 'number' => 'VAT '.$payment->taxReturn->year.' Q'.$payment->taxReturn->quarter, 'date' => $payment->paid_on]);
-        $transfers = BankTransaction::with('account:id,name')->where('status', 'pending')->where('bank_account_id', '!=', $transaction->bank_account_id)->where('amount', -(float) $transaction->amount)->whereBetween('booked_on', [$from, $to])->get()->map(fn ($other) => ['value' => 'transfer:'.$other->id, 'label' => __('Own transfer').' · '.$other->account->name.' · '.$other->booked_on->format('d/m/Y').' · '.number_format(abs((float) $other->amount), 2, ',', '.').' EUR', 'reference_match' => filled($transaction->reference) && filled($other->reference) && Str::lower($transaction->reference) === Str::lower($other->reference)]);
+        $transfers = BankTransaction::with('account:id,name')->where('status', 'pending')->where('bank_account_id', '!=', $transaction->bank_account_id)->where('amount', -(float) $transaction->amount)->whereBetween('booked_on', [$from, $to])->get()->map(function ($other) use ($transaction) {
+            $referenceMatch = filled($transaction->reference) && filled($other->reference) && Str::lower($transaction->reference) === Str::lower($other->reference);
 
-        return $payments->concat($tax)->map(function ($item) use ($transaction) {
+            return ['value' => 'transfer:'.$other->id, 'label' => __('Own transfer').' · '.$other->account->name.' · '.$other->booked_on->format('d/m/Y').' · '.number_format(abs((float) $other->amount), 2, ',', '.').' EUR', 'reference_match' => $referenceMatch, 'confidence' => $referenceMatch ? 100 : 80];
+        });
+
+        $recorded = $payments->concat($tax)->map(function ($item) use ($transaction) {
             $payment = $item['payment'];
 
-            return ['value' => $item['type'].':'.$payment->id, 'label' => $item['number'].' · '.$item['date']->format('d/m/Y').' · '.number_format((float) $payment->amount, 2, ',', '.').' EUR', 'reference_match' => filled($transaction->reference) && filled($payment->reference) && str_contains(Str::lower($payment->reference), Str::lower($transaction->reference))];
-        })->concat($transfers)->sortByDesc('reference_match')->values()->all();
+            $referenceMatch = filled($transaction->reference) && filled($payment->reference) && str_contains(Str::lower($payment->reference), Str::lower($transaction->reference));
+
+            return ['value' => $item['type'].':'.$payment->id, 'label' => $item['number'].' · '.$item['date']->format('d/m/Y').' · '.number_format((float) $payment->amount, 2, ',', '.').' EUR', 'reference_match' => $referenceMatch, 'creates_payment' => false, 'confidence' => $referenceMatch ? 98 : 82];
+        })->concat($transfers->map(fn ($transfer) => [...$transfer, 'creates_payment' => false]));
+        $direct = $this->openDocumentCandidates($transaction);
+
+        return $recorded
+            ->concat($automatic ? $direct->where('reference_match', true) : $direct)
+            ->sortByDesc('confidence')
+            ->values()
+            ->all();
+    }
+
+    private function openDocumentCandidates(BankTransaction $transaction): Collection
+    {
+        $amount = abs((float) $transaction->amount);
+        $inbound = (float) $transaction->amount > 0;
+
+        if ($inbound) {
+            return SalesDocument::with('customer:id,first_name,last_name,company_name')
+                ->where('type', 'invoice')
+                ->whereIn('status', ['issued', 'partial', 'overdue'])
+                ->latest('issue_date')
+                ->limit(100)
+                ->get()
+                ->filter(function (SalesDocument $document) use ($transaction, $amount): bool {
+                    $outstanding = $this->balances->receivable($document);
+
+                    return $outstanding >= $amount && ($outstanding === round($amount, 2) || $this->documentReferenceMatches($transaction, $document->number));
+                })
+                ->map(function (SalesDocument $document) use ($transaction, $amount): array {
+                    $party = $document->customer?->company_name ?: trim(($document->customer?->first_name ?? '').' '.($document->customer?->last_name ?? ''));
+                    $referenceMatch = $this->documentReferenceMatches($transaction, $document->number);
+                    $exactAmount = $this->balances->receivable($document) === round($amount, 2);
+
+                    return [
+                        'value' => 'customer_invoice:'.$document->id,
+                        'label' => __('Create receipt').' · '.$document->number.' · '.($party ?: __('Customer')).' · '.number_format($this->balances->receivable($document), 2, ',', '.').' EUR',
+                        'reference_match' => $referenceMatch,
+                        'creates_payment' => true,
+                        'confidence' => $referenceMatch ? ($exactAmount ? 99 : 92) : 70,
+                    ];
+                });
+        }
+
+        $invoices = PurchaseDocument::with('supplier:id,legal_name,trade_name')
+            ->withSum('creditNotes as credited_total', 'amount')
+            ->where('type', 'supplier_invoice')
+            ->whereIn('status', ['registered', 'pending', 'partial', 'overdue'])
+            ->where(fn ($query) => $query->whereNull('matching_status')->orWhereNot('matching_status', 'review_required'))
+            ->latest('issue_date')
+            ->limit(100)
+            ->get()
+            ->filter(function (PurchaseDocument $document) use ($transaction, $amount): bool {
+                $outstanding = $this->balances->purchase($document);
+
+                return $outstanding >= $amount && ($outstanding === round($amount, 2) || $this->documentReferenceMatches($transaction, $document->supplier_number, $document->number));
+            })
+            ->map(function (PurchaseDocument $document) use ($transaction, $amount): array {
+                $party = $document->supplier?->trade_name ?: $document->supplier?->legal_name;
+                $outstanding = $this->balances->purchase($document);
+                $referenceMatch = $this->documentReferenceMatches($transaction, $document->supplier_number, $document->number);
+
+                return [
+                    'value' => 'supplier_invoice:'.$document->id,
+                    'label' => __('Create payment').' · '.($document->supplier_number ?: $document->number).' · '.($party ?: __('Supplier')).' · '.number_format($outstanding, 2, ',', '.').' EUR',
+                    'reference_match' => $referenceMatch,
+                    'creates_payment' => true,
+                    'confidence' => $referenceMatch ? ($outstanding === round($amount, 2) ? 99 : 92) : 70,
+                ];
+            });
+        $expenses = Expense::with('supplier:id,legal_name,trade_name')
+            ->whereIn('status', ['pending', 'partial', 'overdue'])
+            ->latest('expense_date')
+            ->limit(100)
+            ->get()
+            ->filter(function (Expense $expense) use ($transaction, $amount): bool {
+                $outstanding = $this->balances->expense($expense);
+
+                return $outstanding >= $amount && ($outstanding === round($amount, 2) || $this->documentReferenceMatches($transaction, $expense->document_number, $expense->number));
+            })
+            ->map(function (Expense $expense) use ($transaction, $amount): array {
+                $party = $expense->supplier?->trade_name ?: ($expense->supplier?->legal_name ?: $expense->merchant_name);
+                $outstanding = $this->balances->expense($expense);
+                $referenceMatch = $this->documentReferenceMatches($transaction, $expense->document_number, $expense->number);
+
+                return [
+                    'value' => 'expense:'.$expense->id,
+                    'label' => __('Create payment').' · '.($expense->document_number ?: $expense->number).' · '.($party ?: __('Expense')).' · '.number_format($outstanding, 2, ',', '.').' EUR',
+                    'reference_match' => $referenceMatch,
+                    'creates_payment' => true,
+                    'confidence' => $referenceMatch ? ($outstanding === round($amount, 2) ? 99 : 92) : 70,
+                ];
+            });
+
+        return $invoices->concat($expenses);
+    }
+
+    private function documentReferenceMatches(BankTransaction $transaction, ?string ...$references): bool
+    {
+        $haystack = Str::lower((string) $transaction->reference.' '.(string) $transaction->description);
+        $normalizedHaystack = preg_replace('/[^a-z0-9]/i', '', $haystack);
+
+        foreach (array_filter($references) as $reference) {
+            $normalizedReference = preg_replace('/[^a-z0-9]/i', '', Str::lower($reference));
+            if (strlen($normalizedReference) >= 4 && str_contains($normalizedHaystack, $normalizedReference)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function matchSelection(BankTransaction $transaction, string $selection, int $userId, string $method, JournalPoster $poster, AccountingSynchronizer $accounting): bool
+    {
+        return DB::transaction(function () use ($transaction, $selection, $userId, $method, $poster, $accounting): bool {
+            $transaction = BankTransaction::lockForUpdate()->findOrFail($transaction->id);
+            abort_unless($transaction->status === 'pending', 422);
+            [$type, $id] = explode(':', $selection);
+            if ($type === 'transfer') {
+                $this->storeTransfer($transaction, BankTransaction::findOrFail($id), $userId, $poster);
+
+                return true;
+            }
+            if (in_array($type, ['customer_invoice', 'supplier_invoice', 'expense'], true)) {
+                [$type, $id] = $this->createPaymentFromTransaction($transaction, $type, (int) $id, $userId, $accounting);
+            }
+            $payment = match ($type) {
+                'customer' => SalesDocumentPayment::findOrFail($id),
+                'supplier' => SupplierPayment::findOrFail($id),
+                'tax' => TaxReturnPayment::with('taxReturn')->findOrFail($id),
+            };
+            $inbound = $type === 'customer' || ($type === 'tax' && (float) $payment->taxReturn->result < 0);
+            abort_if($payment->reconciliation()->exists() || abs((float) $transaction->amount) !== (float) $payment->amount || ($inbound !== ((float) $transaction->amount > 0)), 422, __('The payment does not match this bank transaction.'));
+            $this->storeReconciliation($transaction, $type, $payment->id, $userId, $method, $poster);
+
+            return false;
+        });
+    }
+
+    private function createPaymentFromTransaction(BankTransaction $transaction, string $type, int $documentId, int $userId, AccountingSynchronizer $accounting): array
+    {
+        $amount = abs((float) $transaction->amount);
+        if ($type === 'customer_invoice') {
+            abort_unless((float) $transaction->amount > 0, 422, __('Customer receipts require an incoming bank movement.'));
+            $document = SalesDocument::lockForUpdate()->findOrFail($documentId);
+            $outstanding = $this->balances->receivable($document);
+            $this->ensureOutstandingAmount($amount, $outstanding);
+            $payment = $document->payments()->create(['created_by' => $userId, 'origin_bank_transaction_id' => $transaction->id, 'paid_at' => $transaction->booked_on, 'amount' => $amount, 'method' => 'bank_transfer', 'reference' => $transaction->reference, 'notes' => __('Created from bank reconciliation.')]);
+            $accounting->syncCustomerPayment($payment, $userId);
+            $paid = (float) $document->payments()->sum('amount');
+            $document->update(['paid_amount' => $paid, 'status' => $paid >= (float) $document->amount ? 'paid' : 'partial']);
+
+            return ['customer', $payment->id];
+        }
+
+        abort_unless((float) $transaction->amount < 0, 422, __('Supplier payments require an outgoing bank movement.'));
+        if ($type === 'supplier_invoice') {
+            $document = PurchaseDocument::lockForUpdate()->findOrFail($documentId);
+            abort_unless($document->type === 'supplier_invoice' && $document->matching_status !== 'review_required', 422, __('This supplier invoice cannot be paid.'));
+            $creditAmount = abs((float) $document->creditNotes()->sum('amount'));
+            $outstanding = $this->balances->purchase($document);
+            $this->ensureOutstandingAmount($amount, $outstanding);
+            $payment = SupplierPayment::create(['purchase_document_id' => $document->id, 'created_by' => $userId, 'origin_bank_transaction_id' => $transaction->id, 'paid_at' => $transaction->booked_on, 'amount' => $amount, 'method' => 'bank_transfer', 'reference' => $transaction->reference, 'notes' => __('Created from bank reconciliation.')]);
+            $accounting->syncSupplierPayment($payment, $userId);
+            $paid = (float) $document->payments()->sum('amount');
+            $document->update(['paid_amount' => $paid, 'status' => $paid >= (float) $document->amount - $creditAmount ? 'paid' : 'partial']);
+
+            return ['supplier', $payment->id];
+        }
+
+        $expense = Expense::lockForUpdate()->findOrFail($documentId);
+        $outstanding = $this->balances->expense($expense);
+        $this->ensureOutstandingAmount($amount, $outstanding);
+        $payment = SupplierPayment::create(['expense_id' => $expense->id, 'created_by' => $userId, 'origin_bank_transaction_id' => $transaction->id, 'paid_at' => $transaction->booked_on, 'amount' => $amount, 'method' => 'bank_transfer', 'reference' => $transaction->reference, 'notes' => __('Created from bank reconciliation.')]);
+        $accounting->syncSupplierPayment($payment, $userId);
+        $paid = (float) $expense->payments()->sum('amount');
+        $expense->update(['paid_amount' => $paid, 'status' => $paid >= (float) $expense->amount ? 'paid' : 'partial']);
+
+        return ['supplier', $payment->id];
+    }
+
+    private function ensureOutstandingAmount(float $amount, float $outstanding): void
+    {
+        if ($outstanding <= 0 || $amount > $outstanding) {
+            throw ValidationException::withMessages(['payment' => __('The bank amount exceeds the outstanding document balance.')]);
+        }
+    }
+
+    private function refreshDocumentPaymentStatus(?SalesDocument $customerDocument, ?Expense $expense, ?PurchaseDocument $supplierDocument): void
+    {
+        if ($customerDocument) {
+            $paid = (float) $customerDocument->payments()->sum('amount');
+            $status = $paid >= (float) $customerDocument->amount ? 'paid' : ($paid > 0 ? 'partial' : ($customerDocument->due_date?->isPast() ? 'overdue' : 'issued'));
+            $customerDocument->update(['paid_amount' => $paid, 'status' => $status]);
+
+            return;
+        }
+
+        $payable = $expense ?? $supplierDocument;
+        if (! $payable) {
+            return;
+        }
+        $paid = (float) $payable->payments()->sum('amount');
+        $creditAmount = $supplierDocument ? abs((float) $supplierDocument->creditNotes()->sum('amount')) : 0;
+        $netAmount = (float) $payable->amount - $creditAmount;
+        $status = $paid >= $netAmount ? 'paid' : ($paid > 0 ? 'partial' : ($payable->due_date?->isPast() ? 'overdue' : ($supplierDocument ? 'registered' : 'pending')));
+        $payable->update(['paid_amount' => $paid, 'status' => $status]);
+    }
+
+    private function reverseEntry(JournalEntry $entry, int $userId, JournalPoster $poster): void
+    {
+        $entry->loadMissing('lines.account:id,code');
+        $lines = $entry->lines->map(fn ($line) => ['account_code' => $line->account->code, 'debit' => $line->credit, 'credit' => $line->debit])->all();
+        $poster->post(now()->toDateString(), __('Reversal of :entry', ['entry' => $entry->number]), $lines, $userId, 'reversal', null, 'reversal', $entry);
     }
 
     private function storeReconciliation(BankTransaction $transaction, string $type, int $paymentId, int $userId, string $method, JournalPoster $poster): void

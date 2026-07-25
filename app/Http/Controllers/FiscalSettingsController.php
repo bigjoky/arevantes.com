@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\CompanyProfile;
 use App\Models\DocumentSeries;
 use App\Models\FiscalYear;
+use App\Models\JournalEntry;
 use App\Models\PurchaseDocument;
 use App\Models\Quote;
 use App\Models\SalesDocument;
@@ -13,6 +14,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -21,7 +23,17 @@ class FiscalSettingsController extends Controller
 {
     public function index(): Response
     {
-        return Inertia::render('fiscal-settings/index', ['company' => CompanyProfile::firstOrFail(), 'fiscalYears' => FiscalYear::with(['series' => fn ($query) => $query->orderBy('document_type')])->orderByDesc('year')->get()]);
+        $years = FiscalYear::with(['series' => fn ($query) => $query->orderBy('document_type')])
+            ->orderByDesc('year')
+            ->get()
+            ->map(fn (FiscalYear $year) => [
+                ...$year->toArray(),
+                'starts_on' => $year->starts_on->toDateString(),
+                'ends_on' => $year->ends_on->toDateString(),
+                'has_opening_entry' => JournalEntry::whereMorphedTo('source', $year)->where('entry_kind', 'opening')->whereDoesntHave('reversal')->exists(),
+            ]);
+
+        return Inertia::render('fiscal-settings/index', ['company' => CompanyProfile::firstOrFail(), 'fiscalYears' => $years]);
     }
 
     public function updateCompany(Request $request): RedirectResponse
@@ -64,12 +76,28 @@ class FiscalSettingsController extends Controller
 
     public function closeYear(Request $request, FiscalYear $fiscalYear, FiscalYearClosing $closing): RedirectResponse
     {
+        $request->validate(['confirmation' => ['required', Rule::in([(string) $fiscalYear->year])]]);
         abort_unless($fiscalYear->status === 'open', 422);
         $hasDrafts = Quote::whereYear('issue_date', $fiscalYear->year)->where('status', 'draft')->exists() || SalesDocument::whereYear('issue_date', $fiscalYear->year)->where('status', 'draft')->exists() || PurchaseDocument::whereYear('issue_date', $fiscalYear->year)->where('status', 'draft')->exists();
         abort_if($hasDrafts, 422, __('Resolve draft documents before closing the fiscal year.'));
         $closing->close($fiscalYear, $request->user()->id);
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Fiscal year closed.')]);
+    }
+
+    public function reopenYear(Request $request, FiscalYear $fiscalYear, FiscalYearClosing $closing): RedirectResponse
+    {
+        $request->validate(['confirmation' => ['required', Rule::in([(string) $fiscalYear->year])]]);
+        $closing->reopen($fiscalYear);
+
+        return back()->with('toast', ['type' => 'success', 'message' => __('Fiscal year reopened and closing entries deleted.')]);
+    }
+
+    public function openNextYear(Request $request, FiscalYear $fiscalYear, FiscalYearClosing $closing): RedirectResponse
+    {
+        $closing->openNext($fiscalYear, $request->user()->id);
+
+        return back()->with('toast', ['type' => 'success', 'message' => __('Opening entry generated.')]);
     }
 
     public function updateSeries(Request $request, DocumentSeries $series): RedirectResponse

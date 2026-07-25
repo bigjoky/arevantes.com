@@ -30,7 +30,13 @@ type Account = {
     is_active: boolean;
     balance: number;
 };
-type Candidate = { value: string; label: string; reference_match: boolean };
+type Candidate = {
+    value: string;
+    label: string;
+    reference_match: boolean;
+    creates_payment: boolean;
+    confidence: number;
+};
 type LedgerAccount = { id: number; code: string; name: string; type: string };
 type StatementImport = {
     id: number;
@@ -110,8 +116,8 @@ export default function BankingIndex({
                             Bank reconciliation
                         </h1>
                         <p className="text-sm text-muted-foreground">
-                            Import statements and match bank movements with
-                            recorded payments.
+                            Import statements and reconcile movements directly
+                            with payments or outstanding documents.
                         </p>
                     </div>
                     <div className="flex gap-2">
@@ -479,6 +485,13 @@ export default function BankingIndex({
                                                                             {candidate.reference_match
                                                                                 ? 'Exact ref · '
                                                                                 : ''}
+                                                                            {candidate.creates_payment
+                                                                                ? 'New payment · '
+                                                                                : ''}
+                                                                            {
+                                                                                candidate.confidence
+                                                                            }
+                                                                            % ·{' '}
                                                                             {
                                                                                 candidate.label
                                                                             }

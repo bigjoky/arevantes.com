@@ -3,17 +3,36 @@
 namespace App\Providers;
 
 use App\Contracts\PurchaseMailboxClient;
+use App\Models\BankAccount;
+use App\Models\BankReconciliation;
+use App\Models\BankTransaction;
+use App\Models\BankTransactionPosting;
+use App\Models\BankTransfer;
+use App\Models\CollectionAction;
+use App\Models\CollectionActionEvent;
 use App\Models\CompanyProfile;
 use App\Models\DocumentSeries;
+use App\Models\FinancialBudget;
+use App\Models\FinancialForecastItem;
 use App\Models\FiscalYear;
 use App\Models\Installation;
+use App\Models\JournalEntry;
 use App\Models\Opportunity;
+use App\Models\PaymentBatch;
+use App\Models\PaymentBatchItem;
 use App\Models\Person;
+use App\Models\SalesDocument;
+use App\Models\SalesDocumentPayment;
 use App\Models\Supplier;
+use App\Models\SupplierPayment;
+use App\Models\TaxReturnPayment;
 use App\Models\User;
 use App\Models\WorkOrder;
 use App\Observers\AuditableObserver;
+use App\Observers\BankReconciliationFinancialObserver;
+use App\Observers\CollectionActionHistoryObserver;
 use App\Observers\PartyLedgerObserver;
+use App\Observers\SalesDocumentFinancialObserver;
 use App\Observers\WorkOrderObserver;
 use App\Services\Mailbox\NativeImapPurchaseMailboxClient;
 use Carbon\CarbonImmutable;
@@ -49,6 +68,24 @@ class AppServiceProvider extends ServiceProvider
         CompanyProfile::observe(AuditableObserver::class);
         FiscalYear::observe(AuditableObserver::class);
         DocumentSeries::observe(AuditableObserver::class);
+        BankAccount::observe(AuditableObserver::class);
+        BankTransaction::observe(AuditableObserver::class);
+        BankReconciliation::observe(AuditableObserver::class);
+        BankReconciliation::observe(BankReconciliationFinancialObserver::class);
+        BankTransactionPosting::observe(AuditableObserver::class);
+        BankTransfer::observe(AuditableObserver::class);
+        SalesDocumentPayment::observe(AuditableObserver::class);
+        SalesDocument::observe(SalesDocumentFinancialObserver::class);
+        SupplierPayment::observe(AuditableObserver::class);
+        JournalEntry::observe(AuditableObserver::class);
+        FinancialForecastItem::observe(AuditableObserver::class);
+        FinancialBudget::observe(AuditableObserver::class);
+        CollectionAction::observe(AuditableObserver::class);
+        CollectionAction::observe(CollectionActionHistoryObserver::class);
+        CollectionActionEvent::observe(AuditableObserver::class);
+        PaymentBatch::observe(AuditableObserver::class);
+        PaymentBatchItem::observe(AuditableObserver::class);
+        TaxReturnPayment::observe(AuditableObserver::class);
     }
 
     private function configureAuthorization(): void
@@ -61,6 +98,11 @@ class AppServiceProvider extends ServiceProvider
         Gate::define('use-ai', fn (User $user) => $user->hasRole('commercial', 'technician'));
         Gate::define('manage-operations', fn (User $user) => $user->hasRole('commercial', 'technician'));
         Gate::define('manage-catalog', fn (User $user) => $user->hasRole('commercial'));
+        Gate::define('view-finance', fn (User $user) => $user->hasRole('commercial'));
+        Gate::define('manage-treasury', fn (User $user) => $user->hasRole('commercial'));
+        Gate::define('manage-accounting', fn (User $user) => $user->hasRole('commercial'));
+        Gate::define('approve-payments', fn (User $user) => false);
+        Gate::define('manage-tax', fn (User $user) => false);
         Gate::define('manage-staff', fn (User $user) => false);
     }
 
