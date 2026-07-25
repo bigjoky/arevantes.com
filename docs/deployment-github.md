@@ -33,7 +33,6 @@ SESSION_DRIVER=database
 CACHE_STORE=database
 QUEUE_CONNECTION=database
 BROADCAST_CONNECTION=log
-FORTIFY_REGISTRATION_ENABLED=false
 
 MAIL_MAILER=smtp
 MAIL_FROM_ADDRESS=contact@arevantes.com
@@ -96,6 +95,8 @@ php artisan arevantes:create-admin correo@arevantes.com --name="Nombre del admin
 ```
 
 La contraseña se solicita de forma oculta y no queda guardada en GitHub ni en el historial de la terminal.
+
+El registro público está desactivado. Los usuarios adicionales deben crearse desde la administración de la plataforma.
 
 ## 7. Sitemap
 
