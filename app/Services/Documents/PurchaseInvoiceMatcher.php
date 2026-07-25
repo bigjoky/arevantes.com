@@ -8,9 +8,10 @@ use Illuminate\Validation\ValidationException;
 
 class PurchaseInvoiceMatcher
 {
-    public function match(PurchaseDocument $order, array $submittedLines): array
+    public function match(PurchaseDocument $order, array $submittedLines, ?float $submittedShippingCost = null): array
     {
-        $summary = $this->summary($order)['lines']->keyBy('line_id');
+        $summaryData = $this->summary($order);
+        $summary = $summaryData['lines']->keyBy('line_id');
         $submitted = collect($submittedLines)->keyBy(fn (array $line) => (int) $line['line_id']);
         $unknown = $submitted->keys()->diff($summary->keys());
         if ($unknown->isNotEmpty()) {
@@ -53,19 +54,29 @@ class PurchaseInvoiceMatcher
             ];
         })->filter()->values();
 
-        if ($lines->isEmpty()) {
+        $expectedShippingCost = (float) $summaryData['shipping']['pending_cost'];
+        $shippingCost = round($submittedShippingCost ?? $expectedShippingCost, 2);
+        if ($shippingCost < 0) {
+            throw ValidationException::withMessages(['shipping_cost' => __('Transport cost cannot be negative.')]);
+        }
+        if ($lines->isEmpty() && $shippingCost <= 0) {
             throw ValidationException::withMessages(['lines' => __('Enter at least one pending quantity to invoice.')]);
         }
 
-        $hasVariance = $lines->contains(fn (array $line) => abs($line['quantity_variance']) > 0.0005 || abs($line['price_variance']) > 0.005);
+        $shippingVariance = round($shippingCost - $expectedShippingCost, 2);
+        $shippingTax = round($shippingCost * 0.21 + 1e-9, 2);
+        $hasVariance = abs($shippingVariance) > 0.005 || $lines->contains(fn (array $line) => abs($line['quantity_variance']) > 0.0005 || abs($line['price_variance']) > 0.005);
+        $lineSubtotal = round((float) $lines->sum('subtotal'), 2);
+        $lineTax = round((float) $lines->sum('tax_amount'), 2);
 
         return [
             'matching_status' => $hasVariance ? 'review_required' : 'matched',
-            'variance_amount' => round((float) $lines->sum('amount_variance'), 2),
+            'variance_amount' => round((float) $lines->sum('amount_variance') + $shippingVariance * 1.21, 2),
             'totals' => [
-                'subtotal' => round((float) $lines->sum('subtotal'), 2),
-                'tax_amount' => round((float) $lines->sum('tax_amount'), 2),
-                'amount' => round((float) $lines->sum('total'), 2),
+                'subtotal' => round($lineSubtotal + $shippingCost, 2),
+                'tax_amount' => round($lineTax + $shippingTax, 2),
+                'shipping_cost' => $shippingCost,
+                'amount' => round($lineSubtotal + $shippingCost + $lineTax + $shippingTax, 2),
             ],
             'lines' => $lines->map(fn (array $line) => collect($line)->except(['quantity_variance', 'price_variance', 'amount_variance'])->all())->all(),
         ];
@@ -103,10 +114,18 @@ class PurchaseInvoiceMatcher
 
         $hasInvoices = $lines->contains(fn (array $line) => $line['invoiced_quantity'] > 0.0005);
         $hasOverbilling = $lines->contains(fn (array $line) => $line['over_invoiced_quantity'] > 0.0005);
-        $complete = $hasInvoices && $lines->every(fn (array $line) => $line['invoiced_quantity'] >= $line['ordered_quantity'] - 0.0005);
+        $creditedShipping = (float) $credits->sum('shipping_cost');
+        $invoicedShipping = round((float) $invoices->sum('shipping_cost') + $creditedShipping, 2);
+        $pendingShipping = round(max(0, (float) $order->shipping_cost - $invoicedShipping), 2);
+        $hasOverbilling = $hasOverbilling || $invoicedShipping > (float) $order->shipping_cost + 0.005;
+        $hasInvoices = $hasInvoices || $invoicedShipping > 0.005;
+        $complete = $hasInvoices
+            && $lines->every(fn (array $line) => $line['invoiced_quantity'] >= $line['ordered_quantity'] - 0.0005)
+            && $pendingShipping <= 0.005;
         $status = $hasOverbilling ? 'over_invoiced' : ($complete ? 'invoiced' : ($hasInvoices ? 'partially_invoiced' : 'not_invoiced'));
+        $shipping = ['ordered_cost' => (float) $order->shipping_cost, 'invoiced_cost' => $invoicedShipping, 'pending_cost' => $pendingShipping];
 
-        return compact('status', 'lines');
+        return compact('status', 'lines', 'shipping');
     }
 
     public function refresh(PurchaseDocument $order): string
@@ -135,6 +154,15 @@ class PurchaseInvoiceMatcher
             'creditable_quantity' => round(max(0, (float) $line->quantity - abs((float) $credited->get($line->id, collect())->sum('quantity'))), 3),
             'unit_price' => (float) $line->unit_price,
         ]);
+    }
+
+    public function creditableShipping(PurchaseDocument $invoice): float
+    {
+        $credited = (float) PurchaseDocument::where('type', 'supplier_credit_note')
+            ->where('source_document_id', $invoice->id)
+            ->sum('shipping_cost');
+
+        return round(max(0, (float) $invoice->shipping_cost + $credited), 2);
     }
 
     public function details(PurchaseDocument $invoice): Collection

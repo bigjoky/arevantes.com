@@ -61,6 +61,7 @@ class SupplierInvoiceExtraction
             ['field' => 'issue_date', 'label' => __('Issue date'), 'extracted' => $data['issue_date'] ?? '', 'registered' => $document->issue_date?->toDateString() ?? '', 'type' => 'date'],
             ['field' => 'due_date', 'label' => __('Due date'), 'extracted' => $data['due_date'] ?? '', 'registered' => $document->due_date?->toDateString() ?? '', 'type' => 'date'],
             ['field' => 'subtotal', 'label' => __('Subtotal'), 'extracted' => $data['subtotal'] ?? null, 'registered' => (float) $document->subtotal, 'type' => 'amount'],
+            ['field' => 'shipping_cost', 'label' => __('Transport'), 'extracted' => $data['shipping_cost'] ?? null, 'registered' => (float) $document->shipping_cost, 'type' => 'amount'],
             ['field' => 'tax_amount', 'label' => __('Tax'), 'extracted' => $data['tax_amount'] ?? null, 'registered' => (float) $document->tax_amount, 'type' => 'amount'],
             ['field' => 'total', 'label' => __('Total'), 'extracted' => $data['total'] ?? null, 'registered' => (float) $document->amount, 'type' => 'amount'],
         ];
@@ -110,6 +111,7 @@ class SupplierInvoiceExtraction
             'issue_date' => trim((string) ($data['issue_date'] ?? '')),
             'due_date' => trim((string) ($data['due_date'] ?? '')),
             'subtotal' => round((float) ($data['subtotal'] ?? 0), 2),
+            'shipping_cost' => round((float) ($data['shipping_cost'] ?? 0), 2),
             'tax_amount' => round((float) ($data['tax_amount'] ?? 0), 2),
             'total' => round((float) ($data['total'] ?? 0), 2),
             'currency' => strtoupper(trim((string) ($data['currency'] ?? 'EUR'))),

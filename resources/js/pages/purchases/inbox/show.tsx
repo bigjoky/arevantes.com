@@ -103,6 +103,7 @@ setOrderId('none');
                         <Info label="Issue date" value={formatDate(extracted.issue_date)} />
                         <Info label="Due date" value={formatDate(extracted.due_date)} />
                         <Info label="Subtotal" value={formatMoney(extracted.subtotal)} />
+                        <Info label="Transport" value={formatMoney(extracted.shipping_cost)} />
                         <Info label="Tax" value={formatMoney(extracted.tax_amount)} />
                         <Info label="Total" value={formatMoney(extracted.total)} />
                     </div>
@@ -170,6 +171,7 @@ function ConversionForm(props: WorkflowProps & { extracted: Record<string, strin
                         <Field label="Issue date" name="issue_date" type="date" value={String(props.extracted.issue_date || today())} error={errors.issue_date} />
                         <Field label="Due date" name="due_date" type="date" value={String(props.extracted.due_date || '')} error={errors.due_date} />
                         <Field label="Subtotal" name="subtotal" type="number" value={absolute(props.extracted.subtotal)} error={errors.subtotal} />
+                        <Field label="Transport (included in subtotal)" name="shipping_cost" type="number" value={absolute(props.extracted.shipping_cost) || '0'} error={errors.shipping_cost} />
                         <Field label="Tax" name="tax_amount" type="number" value={absolute(props.extracted.tax_amount)} error={errors.tax_amount} />
                         <Field label="Total" name="total" type="number" value={absolute(props.extracted.total)} error={errors.total} />
                     </div>

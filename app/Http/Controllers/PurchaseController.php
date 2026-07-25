@@ -37,13 +37,14 @@ class PurchaseController extends Controller
     public function show(PurchaseDocument $purchaseDocument, PurchaseInvoiceMatcher $matcher): Response
     {
         $orderSummary = $purchaseDocument->type === 'purchase_order' ? $matcher->summary($purchaseDocument) : null;
-        $purchaseDocument->load(['supplier', 'sourceDocument:id,number,type', 'derivedDocuments:id,source_document_id,number,type,status,matching_status,amount,issue_date,supplier_number', 'salesOrder:id,number', 'approver:id,name', 'lines.product:id,name,sku,track_stock,track_serials', 'receipts.movement:id,number', 'returns.movement:id,number', 'payments', 'attachment.verifier:id,name']);
+        $purchaseDocument->load(['supplier', 'sourceDocument:id,number,type,shipping_cost', 'derivedDocuments:id,source_document_id,number,type,status,matching_status,amount,issue_date,supplier_number', 'salesOrder:id,number', 'approver:id,name', 'lines.product:id,name,sku,track_stock,track_serials', 'receipts.movement:id,number', 'returns.movement:id,number', 'payments', 'attachment.verifier:id,name']);
 
         return Inertia::render('purchases/show', [
             'document' => $purchaseDocument,
             'matchDetails' => $purchaseDocument->type === 'supplier_invoice' ? $matcher->details($purchaseDocument) : [],
             'orderSummary' => $orderSummary,
             'creditSummary' => $purchaseDocument->type === 'supplier_invoice' ? $matcher->creditable($purchaseDocument) : [],
+            'creditableShipping' => $purchaseDocument->type === 'supplier_invoice' ? $matcher->creditableShipping($purchaseDocument) : 0,
             'creditedAmount' => $purchaseDocument->type === 'supplier_invoice' ? abs((float) $purchaseDocument->creditNotes()->sum('amount')) : 0,
             'extractionComparison' => in_array($purchaseDocument->type, ['supplier_invoice', 'supplier_credit_note'], true) ? app(SupplierInvoiceExtraction::class)->comparison($purchaseDocument) : [],
             'warehouses' => Warehouse::where('is_active', true)->orderByDesc('is_default')->orderBy('name')->get(['id', 'code', 'name']),
@@ -71,23 +72,6 @@ class PurchaseController extends Controller
         $order = $conversion->convert($purchaseDocument, request()->user()->id);
 
         return to_route('purchases.show', $order)->with('toast', ['type' => 'success', 'message' => __('Purchase order created.')]);
-    }
-
-    public function updateShipping(Request $request, PurchaseDocument $purchaseDocument): RedirectResponse
-    {
-        abort_unless($purchaseDocument->type === 'purchase_order', 422);
-        $data = $request->validate(['shipping_cost' => ['required', 'numeric', 'min:0']]);
-
-        DB::transaction(function () use ($purchaseDocument, $data): void {
-            $purchaseDocument = PurchaseDocument::lockForUpdate()->findOrFail($purchaseDocument->id);
-            $shippingCost = round((float) $data['shipping_cost'], 2);
-            $purchaseDocument->update([
-                'shipping_cost' => $shippingCost,
-                'amount' => round((float) $purchaseDocument->subtotal + (float) $purchaseDocument->tax_amount + $shippingCost, 2),
-            ]);
-        });
-
-        return back()->with('toast', ['type' => 'success', 'message' => __('Transport cost updated.')]);
     }
 
     public function receive(Request $request, PurchaseDocument $purchaseDocument, StockLedger $ledger, ProjectMaterialAllocator $allocator): RedirectResponse
@@ -132,6 +116,7 @@ class PurchaseController extends Controller
             'supplier_number' => ['required', 'string', 'max:255', Rule::unique('purchase_documents', 'supplier_number')->where(fn ($query) => $query->where('supplier_id', $purchaseDocument->supplier_id)->where('type', 'supplier_invoice'))],
             'issue_date' => ['required', 'date'],
             'due_date' => ['nullable', 'date', 'after_or_equal:issue_date'],
+            'shipping_cost' => ['nullable', 'numeric', 'min:0'],
             'lines' => ['nullable', 'array'],
             'lines.*.line_id' => ['required', 'integer'],
             'lines.*.quantity' => ['required', 'numeric', 'min:0'],
@@ -139,7 +124,7 @@ class PurchaseController extends Controller
         ]);
         $invoice = DB::transaction(function () use ($request, $purchaseDocument, $data, $accounting, $matcher) {
             $purchaseDocument = PurchaseDocument::lockForUpdate()->findOrFail($purchaseDocument->id);
-            $match = $matcher->match($purchaseDocument, $data['lines'] ?? []);
+            $match = $matcher->match($purchaseDocument, $data['lines'] ?? [], isset($data['shipping_cost']) ? (float) $data['shipping_cost'] : null);
             $issued = app(DocumentNumber::class)->next('supplier_invoice', $data['issue_date']);
             $reviewRequired = $match['matching_status'] === 'review_required';
             $invoice = PurchaseDocument::create(['type' => 'supplier_invoice', 'source_document_id' => $purchaseDocument->id, 'installation_id' => $purchaseDocument->installation_id, 'work_order_id' => $purchaseDocument->work_order_id, 'sales_document_id' => $purchaseDocument->sales_document_id, 'supplier_id' => $purchaseDocument->supplier_id, 'document_series_id' => $issued['series']->id, 'created_by' => $request->user()->id, 'number' => $issued['number'], 'supplier_number' => $data['supplier_number'], 'status' => $reviewRequired ? 'review_required' : 'registered', 'matching_status' => $match['matching_status'], 'match_variance_amount' => $match['variance_amount'], 'issue_date' => $data['issue_date'], 'due_date' => $data['due_date'] ?? null, ...$match['totals'], 'notes' => $purchaseDocument->notes, 'locked_at' => now()]);
@@ -165,7 +150,8 @@ class PurchaseController extends Controller
         $data = $request->validate([
             'supplier_number' => ['required', 'string', 'max:255', Rule::unique('purchase_documents', 'supplier_number')->where(fn ($query) => $query->where('supplier_id', $purchaseDocument->supplier_id)->where('type', 'supplier_credit_note'))],
             'issue_date' => ['required', 'date'],
-            'lines' => ['required', 'array'],
+            'shipping_cost' => ['nullable', 'numeric', 'min:0'],
+            'lines' => ['nullable', 'array'],
             'lines.*.line_id' => ['required', 'integer'],
             'lines.*.quantity' => ['required', 'numeric', 'min:0'],
         ]);
@@ -173,7 +159,7 @@ class PurchaseController extends Controller
         $credit = DB::transaction(function () use ($request, $purchaseDocument, $accounting, $matcher, $data) {
             $invoice = PurchaseDocument::lockForUpdate()->with('lines')->findOrFail($purchaseDocument->id);
             $creditable = $matcher->creditable($invoice)->keyBy('line_id');
-            $submitted = collect($data['lines'])->keyBy(fn (array $line) => (int) $line['line_id']);
+            $submitted = collect($data['lines'] ?? [])->keyBy(fn (array $line) => (int) $line['line_id']);
             abort_if($submitted->keys()->diff($creditable->keys())->isNotEmpty(), 422, __('The credit note contains lines outside this invoice.'));
 
             $subtotal = $tax = $amount = 0;
@@ -191,14 +177,21 @@ class PurchaseController extends Controller
 
                 return [...$line->only(['product_id', 'position', 'description', 'unit_price', 'discount_percent', 'tax_percent']), 'source_line_id' => $line->id, 'quantity' => -$quantity, 'received_quantity' => 0, 'returned_quantity' => 0, 'subtotal' => $base, 'tax_amount' => $lineTax, 'total' => $base + $lineTax];
             })->filter()->values();
-            abort_if($lines->isEmpty(), 422, __('Enter at least one quantity to credit.'));
+            $shippingCost = round((float) ($data['shipping_cost'] ?? 0), 2);
+            $creditableShipping = $matcher->creditableShipping($invoice);
+            abort_if($shippingCost > $creditableShipping + 0.005, 422, __('Credited transport exceeds the available invoice transport.'));
+            abort_if($lines->isEmpty() && $shippingCost <= 0, 422, __('Enter at least one quantity or transport amount to credit.'));
+            $shippingTax = round($shippingCost * 0.21 + 1e-9, 2);
+            $subtotal -= $shippingCost;
+            $tax -= $shippingTax;
+            $amount -= $shippingCost + $shippingTax;
 
             $issued = app(DocumentNumber::class)->next('supplier_credit_note', $data['issue_date']);
             $credit = PurchaseDocument::create([
                 'type' => 'supplier_credit_note', 'source_document_id' => $invoice->id, 'installation_id' => $invoice->installation_id, 'work_order_id' => $invoice->work_order_id,
                 'sales_document_id' => $invoice->sales_document_id, 'supplier_id' => $invoice->supplier_id, 'document_series_id' => $issued['series']->id, 'created_by' => $request->user()->id,
                 'number' => $issued['number'], 'supplier_number' => $data['supplier_number'], 'status' => 'registered', 'matching_status' => 'matched', 'issue_date' => $data['issue_date'],
-                'subtotal' => round($subtotal, 2), 'tax_amount' => round($tax, 2), 'amount' => round($amount, 2), 'notes' => __('Credit of supplier invoice :number', ['number' => $invoice->number]), 'locked_at' => now(),
+                'subtotal' => round($subtotal, 2), 'tax_amount' => round($tax, 2), 'shipping_cost' => -$shippingCost, 'amount' => round($amount, 2), 'notes' => __('Credit of supplier invoice :number', ['number' => $invoice->number]), 'locked_at' => now(),
             ]);
             $credit->lines()->createMany($lines->all());
             $accounting->syncPurchaseDocument($credit, $request->user()->id);
@@ -281,6 +274,8 @@ class PurchaseController extends Controller
             $amount += $base + $lineTax;
         }
 
-        return ['lines' => $result, 'totals' => ['subtotal' => $subtotal, 'tax_amount' => $tax, 'shipping_cost' => $shippingCost, 'amount' => round($amount + $shippingCost, 2)]];
+        $shippingTax = round($shippingCost * 0.21 + 1e-9, 2);
+
+        return ['lines' => $result, 'totals' => ['subtotal' => round($subtotal + $shippingCost, 2), 'tax_amount' => round($tax + $shippingTax, 2), 'shipping_cost' => $shippingCost, 'amount' => round($amount + $shippingCost + $shippingTax, 2)]];
     }
 }

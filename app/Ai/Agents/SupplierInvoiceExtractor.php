@@ -23,6 +23,7 @@ class SupplierInvoiceExtractor implements Agent, HasStructuredOutput
             'issue_date' => $schema->string()->required(),
             'due_date' => $schema->string()->required(),
             'subtotal' => $schema->number()->required(),
+            'shipping_cost' => $schema->number()->required(),
             'tax_amount' => $schema->number()->required(),
             'total' => $schema->number()->required(),
             'currency' => $schema->string()->required(),
@@ -37,7 +38,7 @@ You extract accounting fields from supplier invoices and supplier credit notes f
 Use only visible information in the attached document. Never infer missing identifiers, dates or amounts.
 Return dates as YYYY-MM-DD, currency as an ISO 4217 code, and decimal amounts without currency symbols.
 Use an empty string for missing text or dates and zero only when the document explicitly shows a zero amount.
-The subtotal is the taxable base before VAT, tax_amount is total VAT, and total is the final document amount.
+The subtotal is the full taxable base before VAT, including transport. shipping_cost is the transport or freight amount before VAT included in that subtotal; return zero when the document has no separate transport charge. tax_amount is total VAT, and total is the final document amount.
 For a credit note, return monetary amounts as negative values.
 PROMPT;
     }

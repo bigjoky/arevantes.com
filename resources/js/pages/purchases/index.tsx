@@ -227,7 +227,7 @@ function PurchaseDialog({
                             error={errors.issue_date}
                         />
                         <Field
-                            label="Transport cost"
+                            label="Transport cost (before tax, VAT 21%)"
                             name="shipping_cost"
                             type="number"
                             value="0"

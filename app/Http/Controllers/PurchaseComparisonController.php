@@ -54,6 +54,8 @@ class PurchaseComparisonController extends Controller
                 $tax += $lineTax;
                 $amount += $base + $lineTax;
             }
+            $shippingCost = round((float) ($data['shipping_cost'] ?? 0), 2);
+            $shippingTax = round($shippingCost * 0.21 + 1e-9, 2);
             $purchaseDocument->update([
                 'supplier_number' => $data['supplier_number'] ?? null,
                 'delivery_days' => $data['delivery_days'],
@@ -61,10 +63,10 @@ class PurchaseComparisonController extends Controller
                 'quote_notes' => $data['quote_notes'] ?? null,
                 'quoted_at' => now(),
                 'status' => 'quoted',
-                'subtotal' => round($subtotal, 2),
-                'tax_amount' => round($tax, 2),
-                'shipping_cost' => round((float) ($data['shipping_cost'] ?? 0), 2),
-                'amount' => round($amount + (float) ($data['shipping_cost'] ?? 0), 2),
+                'subtotal' => round($subtotal + $shippingCost, 2),
+                'tax_amount' => round($tax + $shippingTax, 2),
+                'shipping_cost' => $shippingCost,
+                'amount' => round($amount + $shippingCost + $shippingTax, 2),
             ]);
         });
 

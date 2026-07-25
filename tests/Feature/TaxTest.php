@@ -6,10 +6,16 @@ use App\Models\BankAccount;
 use App\Models\BankReconciliation;
 use App\Models\Expense;
 use App\Models\ExpenseCategory;
+use App\Models\Product;
+use App\Models\PurchaseDocument;
 use App\Models\SalesDocument;
+use App\Models\Supplier;
+use App\Models\TaxRate;
 use App\Models\TaxReturn;
+use App\Models\Unit;
 use App\Models\User;
 use App\Services\Accounting\AccountingSynchronizer;
+use App\Services\Tax\VatReport;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -18,6 +24,23 @@ use Tests\TestCase;
 class TaxTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_supplier_transport_is_reported_as_a_separate_21_percent_vat_base(): void
+    {
+        $user = User::factory()->create(['role' => 'commercial']);
+        $supplier = Supplier::create(['legal_name' => 'VAT Transport SL', 'country' => 'ES']);
+        $product = Product::create(['type' => 'product', 'sku' => 'VAT-TRANSPORT', 'name' => 'Equipment', 'unit_id' => Unit::firstOrFail()->id, 'tax_rate_id' => TaxRate::firstOrFail()->id, 'sale_price' => 150, 'cost_price' => 100, 'is_active' => true]);
+        $invoice = PurchaseDocument::create(['type' => 'supplier_invoice', 'supplier_id' => $supplier->id, 'created_by' => $user->id, 'number' => 'FR-VAT-TRANSPORT', 'status' => 'registered', 'issue_date' => '2026-07-13', 'subtotal' => 120, 'shipping_cost' => 20, 'tax_amount' => 14.20, 'amount' => 134.20]);
+        $invoice->lines()->create(['product_id' => $product->id, 'position' => 1, 'description' => 'Equipment', 'quantity' => 1, 'unit_price' => 100, 'discount_percent' => 0, 'tax_percent' => 10, 'subtotal' => 100, 'tax_amount' => 10, 'total' => 110]);
+        app(AccountingSynchronizer::class)->syncPurchaseDocument($invoice, $user->id);
+
+        $report = app(VatReport::class)->make(2026, 3);
+
+        $this->assertEqualsWithDelta(120, $report['summary']['taxableBaseReceived'], 0.001);
+        $this->assertEqualsWithDelta(14.20, $report['summary']['deductibleVat'], 0.001);
+        $this->assertEqualsWithDelta(20, $report['rates']->firstWhere('rate', 21)['receivedBase'], 0.001);
+        $this->assertTrue($report['accountingCheck']['matches']);
+    }
 
     public function test_quarterly_vat_registers_match_accounting_and_export_to_csv(): void
     {
