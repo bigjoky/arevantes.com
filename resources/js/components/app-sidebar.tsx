@@ -6,6 +6,7 @@ import {
     LayoutGrid,
     Settings2,
     ShoppingCart,
+    UsersRound,
 } from 'lucide-react';
 import AppLogo from '@/components/app-logo';
 import { NavMain } from '@/components/nav-main';
@@ -97,11 +98,19 @@ export function AppSidebar() {
         ...(user.role === 'admin'
             ? [
                   {
+                      title: 'Recursos Humanos',
+                      href: '/human-resources',
+                      icon: UsersRound,
+                      children: [
+                          { title: 'Resumen', href: '/human-resources' },
+                          { title: 'Equipo y accesos', href: '/staff' },
+                      ],
+                  },
+                  {
                       title: 'Company',
-                      href: '/staff',
+                      href: '/knowledge',
                       icon: Settings2,
                       children: [
-                          { title: 'Staff & access', href: '/staff' },
                           { title: 'Arevia knowledge', href: '/knowledge' },
                           {
                               title: 'Empresa y fiscalidad',

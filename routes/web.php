@@ -19,6 +19,7 @@ use App\Http\Controllers\FinanceController;
 use App\Http\Controllers\FiscalSettingsController;
 use App\Http\Controllers\GeocodingController;
 use App\Http\Controllers\GlobalSearchController;
+use App\Http\Controllers\HumanResourcesController;
 use App\Http\Controllers\InstallationAiController;
 use App\Http\Controllers\InstallationController;
 use App\Http\Controllers\InstallationDeyeController;
@@ -84,6 +85,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('people/{person}/portal', [CustomerPortalController::class, 'invite'])->middleware('can:manage-customers')->name('people.portal.invite');
     Route::delete('people/{person}/portal/{access}', [CustomerPortalController::class, 'revoke'])->middleware('can:manage-customers')->name('people.portal.revoke');
     Route::resource('staff', StaffController::class)->middleware('can:manage-staff');
+    Route::get('human-resources', HumanResourcesController::class)->middleware('can:manage-staff')->name('human-resources.index');
     Route::post('staff/{staff}/access', [StaffAccessController::class, 'store'])->middleware('can:manage-staff')->name('staff.access.store');
     Route::patch('staff/{staff}/access', [StaffAccessController::class, 'update'])->middleware('can:manage-staff')->name('staff.access.update');
     Route::delete('staff/{staff}/access', [StaffAccessController::class, 'destroy'])->middleware('can:manage-staff')->name('staff.access.destroy');
