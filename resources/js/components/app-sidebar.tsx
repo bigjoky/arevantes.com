@@ -67,6 +67,10 @@ export function AppSidebar() {
                     ? [
                           { title: 'Catalog', href: '/catalog' },
                           { title: 'Inventory', href: '/inventory' },
+                          {
+                              title: 'Stock counts',
+                              href: '/inventory/counts',
+                          },
                           { title: 'Document inbox', href: '/purchase-inbox' },
                           { title: 'Purchases', href: '/purchases' },
                           {
