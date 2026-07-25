@@ -2,6 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\HrDepartment;
+use App\Models\HrEmploymentProfile;
+use App\Models\HrLeaveRequest;
 use App\Models\Person;
 use Illuminate\Support\Collection;
 use Inertia\Inertia;
@@ -35,6 +38,9 @@ class HumanResourcesController extends Controller
                 'withAccess' => $staff->whereNotNull('user')->count(),
                 'withoutAccess' => $staff->whereNull('user')->count(),
                 'roles' => $staff->pluck('staff_role')->filter()->unique()->count(),
+                'activeEmployment' => HrEmploymentProfile::where('status', 'active')->count(),
+                'pendingLeave' => HrLeaveRequest::where('status', 'pending')->count(),
+                'departments' => HrDepartment::where('is_active', true)->count(),
             ],
             'roleDistribution' => $this->roleDistribution($staff),
             'recentStaff' => $staff

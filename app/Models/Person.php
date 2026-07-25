@@ -57,6 +57,16 @@ class Person extends Model
         return $this->hasOne(User::class);
     }
 
+    public function employmentProfile(): HasOne
+    {
+        return $this->hasOne(HrEmploymentProfile::class);
+    }
+
+    public function leaveRequests(): HasMany
+    {
+        return $this->hasMany(HrLeaveRequest::class);
+    }
+
     public function portalAccesses(): HasMany
     {
         return $this->hasMany(CustomerPortalAccess::class);

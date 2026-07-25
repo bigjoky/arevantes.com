@@ -1,6 +1,8 @@
 import { Head, Link } from '@inertiajs/react';
 import {
     BriefcaseBusiness,
+    Building2,
+    CalendarClock,
     KeyRound,
     UserPlus,
     UsersRound,
@@ -20,6 +22,9 @@ type Summary = {
     withAccess: number;
     withoutAccess: number;
     roles: number;
+    activeEmployment: number;
+    pendingLeave: number;
+    departments: number;
 };
 
 type RoleDistribution = {
@@ -69,6 +74,24 @@ export default function HumanResourcesIndex({
             value: summary.roles,
             detail: 'Funciones distintas en el equipo',
             icon: BriefcaseBusiness,
+        },
+        {
+            label: 'Relaciones activas',
+            value: summary.activeEmployment,
+            detail: 'Fichas laborales en estado activo',
+            icon: BriefcaseBusiness,
+        },
+        {
+            label: 'Ausencias pendientes',
+            value: summary.pendingLeave,
+            detail: 'Solicitudes que requieren revisión',
+            icon: CalendarClock,
+        },
+        {
+            label: 'Departamentos',
+            value: summary.departments,
+            detail: 'Unidades activas de la organización',
+            icon: Building2,
         },
     ];
 

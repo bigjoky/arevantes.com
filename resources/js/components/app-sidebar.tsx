@@ -103,6 +103,18 @@ export function AppSidebar() {
                       icon: UsersRound,
                       children: [
                           { title: 'Resumen', href: '/human-resources' },
+                          {
+                              title: 'Fichas laborales',
+                              href: '/human-resources/employees',
+                          },
+                          {
+                              title: 'Ausencias',
+                              href: '/human-resources/leave',
+                          },
+                          {
+                              title: 'Departamentos',
+                              href: '/human-resources/departments',
+                          },
                           { title: 'Equipo y accesos', href: '/staff' },
                       ],
                   },
