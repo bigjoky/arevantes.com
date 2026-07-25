@@ -1,7 +1,8 @@
-import { Form, Head, Link } from '@inertiajs/react';
+import { Form, Head, Link, usePage } from '@inertiajs/react';
 import {
     ArrowLeft,
     CircleAlert,
+    CalendarClock,
     Download,
     FileInput,
     FileSearch,
@@ -9,6 +10,7 @@ import {
     RefreshCw,
     RotateCcw,
     ShieldCheck,
+    Send,
     Trash2,
     Upload,
     WalletCards,
@@ -48,13 +50,25 @@ type Document = {
     procurement_batch_id: string | null;
     issue_date: string;
     due_date: string | null;
+    expected_delivery_date: string | null;
+    supplier_confirmed_delivery_date: string | null;
+    supplier_confirmed_at: string | null;
+    supplier_confirmation_reference: string | null;
+    last_followed_up_at: string | null;
+    last_follow_up_note: string | null;
+    sent_at: string | null;
+    created_by: number | null;
     subtotal: string;
     tax_amount: string;
     shipping_cost: string;
     amount: string;
     paid_amount: string;
     notes: string | null;
-    supplier: { legal_name: string; trade_name: string | null };
+    supplier: {
+        legal_name: string;
+        trade_name: string | null;
+        email: string | null;
+    };
     source_document: {
         id: number;
         number: string;
@@ -73,6 +87,7 @@ type Document = {
     }[];
     approver: { id: number; name: string } | null;
     sales_order: { id: number; number: string } | null;
+    destination_warehouse: Warehouse | null;
     lines: Line[];
     receipts: {
         id: number;
@@ -80,6 +95,21 @@ type Document = {
         supplier_delivery_note: string | null;
         received_at: string;
         movement: { number: string };
+    }[];
+    quality_incidents: {
+        id: number;
+        rejected_quantity: string;
+        reason: string;
+        severity: string;
+        notes: string | null;
+        status: string;
+        resolution: string | null;
+        resolution_notes: string | null;
+        resolved_at: string | null;
+        product: { id: number; sku: string | null; name: string };
+        warehouse: Warehouse;
+        reporter: { id: number; name: string } | null;
+        resolver: { id: number; name: string } | null;
     }[];
     returns: {
         id: number;
@@ -107,6 +137,15 @@ type Document = {
         verified_at: string | null;
         verifier: { id: number; name: string } | null;
     } | null;
+    events: {
+        id: number;
+        event: string;
+        from_status: string | null;
+        to_status: string | null;
+        metadata: Record<string, string | number | null> | null;
+        occurred_at: string;
+        user: { id: number; name: string } | null;
+    }[];
 };
 type MatchDetail = {
     line_id: number;
@@ -173,9 +212,20 @@ export default function PurchaseShow({
     creditableShipping: number;
     extractionComparison: ExtractionComparison[];
 }) {
+    const { user, abilities } = usePage<{
+        auth: {
+            user: { id: number; role: string };
+            abilities: {
+                managePurchases: boolean;
+                receivePurchases: boolean;
+                approvePurchaseInvoices: boolean;
+            };
+        };
+    }>().props.auth;
     const canReceive =
         document.type === 'purchase_order' &&
-        ['ordered', 'partially_received'].includes(document.status);
+        ['ordered', 'partially_received'].includes(document.status) &&
+        abilities.receivePurchases;
     const supplierInvoices = document.derived_documents.filter(
         (item) => item.type === 'supplier_invoice',
     );
@@ -216,7 +266,10 @@ export default function PurchaseShow({
                             {document.type === 'purchase_order' &&
                                 orderSummary && (
                                     <Badge variant="secondary">
-                                        {orderSummary.status.replaceAll('_', ' ')}
+                                        {orderSummary.status.replaceAll(
+                                            '_',
+                                            ' ',
+                                        )}
                                     </Badge>
                                 )}
                         </div>
@@ -227,6 +280,19 @@ export default function PurchaseShow({
                         </p>
                     </div>
                     <div className="flex gap-2">
+                        {['purchase_rfq', 'purchase_order'].includes(
+                            document.type,
+                        ) && (
+                            <Button variant="outline" asChild>
+                                <a
+                                    href={`/purchases/${document.id}/pdf`}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                >
+                                    <Download /> PDF
+                                </a>
+                            </Button>
+                        )}
                         {document.procurement_batch_id && (
                             <Button variant="outline" asChild>
                                 <Link
@@ -253,6 +319,27 @@ export default function PurchaseShow({
                         value={date(document.issue_date)}
                     />
                     <Info
+                        label="Requested delivery"
+                        value={
+                            document.expected_delivery_date
+                                ? date(document.expected_delivery_date)
+                                : '—'
+                        }
+                    />
+                    {document.type === 'purchase_order' && (
+                        <InfoLink
+                            label="Supplier ETA"
+                            value={
+                                document.supplier_confirmed_delivery_date
+                                    ? date(
+                                          document.supplier_confirmed_delivery_date,
+                                      )
+                                    : 'Unconfirmed'
+                            }
+                            href="/supply-control"
+                        />
+                    )}
+                    <Info
                         label="Supplier number"
                         value={document.supplier_number || '—'}
                     />
@@ -274,13 +361,165 @@ export default function PurchaseShow({
                                 : null
                         }
                     />
+                    <Info
+                        label="Destination"
+                        value={
+                            document.destination_warehouse
+                                ? `${document.destination_warehouse.name} (${document.destination_warehouse.code})`
+                                : '—'
+                        }
+                    />
                 </section>
+                {abilities.managePurchases &&
+                    ['purchase_rfq', 'purchase_order'].includes(
+                        document.type,
+                    ) &&
+                    !['cancelled'].includes(document.status) && (
+                        <section className="grid gap-5 border-y py-5 lg:grid-cols-2">
+                            <Form
+                                action={`/purchases/${document.id}/send`}
+                                method="post"
+                                className="grid gap-3"
+                            >
+                                <div>
+                                    <h2 className="font-semibold">
+                                        Send to supplier
+                                    </h2>
+                                    <p className="text-sm text-muted-foreground">
+                                        Email this document with its PDF
+                                        attached.
+                                    </p>
+                                </div>
+                                <Field
+                                    label="Recipient email"
+                                    name="recipient_email"
+                                    type="email"
+                                    value={document.supplier.email || ''}
+                                />
+                                <textarea
+                                    name="message"
+                                    rows={3}
+                                    className="border bg-transparent p-3 text-sm"
+                                    placeholder="Optional message"
+                                />
+                                <Button className="justify-self-start">
+                                    <Send /> Send document
+                                </Button>
+                            </Form>
+                            {document.type === 'purchase_order' &&
+                                !['closed'].includes(document.status) && (
+                                    <Form
+                                        action={`/purchases/${document.id}/schedule`}
+                                        method="patch"
+                                        className="grid content-start gap-3"
+                                    >
+                                        <div>
+                                            <h2 className="font-semibold">
+                                                Requested delivery
+                                            </h2>
+                                            <p className="text-sm text-muted-foreground">
+                                                Set the internal target sent to
+                                                the supplier. Record their
+                                                confirmation in Order control.
+                                            </p>
+                                        </div>
+                                        <Field
+                                            label="Requested delivery"
+                                            name="expected_delivery_date"
+                                            type="date"
+                                            value={
+                                                document.expected_delivery_date ||
+                                                ''
+                                            }
+                                        />
+                                        <Button
+                                            variant="outline"
+                                            className="justify-self-start"
+                                        >
+                                            <CalendarClock /> Update date
+                                        </Button>
+                                        <Button
+                                            variant="ghost"
+                                            className="justify-self-start"
+                                            asChild
+                                        >
+                                            <Link href="/supply-control">
+                                                Open order control
+                                            </Link>
+                                        </Button>
+                                    </Form>
+                                )}
+                        </section>
+                    )}
+                {abilities.managePurchases &&
+                    ['purchase_rfq', 'purchase_order'].includes(
+                        document.type,
+                    ) && (
+                        <section className="flex flex-wrap items-end gap-4 border-b pb-5">
+                            {document.status === 'closed' ? (
+                                <Form
+                                    action={`/purchases/${document.id}/reopen`}
+                                    method="post"
+                                >
+                                    <Button variant="outline">
+                                        <RefreshCw /> Reopen order
+                                    </Button>
+                                </Form>
+                            ) : (
+                                <>
+                                    {document.type === 'purchase_order' &&
+                                        [
+                                            'ordered',
+                                            'partially_received',
+                                            'received',
+                                        ].includes(document.status) && (
+                                            <Form
+                                                action={`/purchases/${document.id}/close`}
+                                                method="post"
+                                                className="flex flex-wrap items-end gap-2"
+                                            >
+                                                <Field
+                                                    label="Closing reason"
+                                                    name="reason"
+                                                />
+                                                <Button variant="outline">
+                                                    Close order
+                                                </Button>
+                                            </Form>
+                                        )}
+                                    {![
+                                        'cancelled',
+                                        'accepted',
+                                        'rejected',
+                                    ].includes(document.status) && (
+                                        <Form
+                                            action={`/purchases/${document.id}/cancel`}
+                                            method="post"
+                                            className="flex flex-wrap items-end gap-2"
+                                        >
+                                            <Field
+                                                label="Cancellation reason"
+                                                name="reason"
+                                            />
+                                            <Button variant="destructive">
+                                                Cancel
+                                            </Button>
+                                        </Form>
+                                    )}
+                                </>
+                            )}
+                        </section>
+                    )}
                 <section className="overflow-x-auto">
                     <table className="w-full min-w-[52rem] text-sm">
                         <thead>
                             <tr className="border-b text-left text-muted-foreground">
                                 <th className="py-2">Product</th>
-                                <th>{document.type === 'purchase_order' ? 'Ordered' : 'Quantity'}</th>
+                                <th>
+                                    {document.type === 'purchase_order'
+                                        ? 'Ordered'
+                                        : 'Quantity'}
+                                </th>
                                 {document.type === 'purchase_order' && (
                                     <>
                                         <th>Received</th>
@@ -303,11 +542,21 @@ export default function PurchaseShow({
                                     <td>{Number(line.quantity)}</td>
                                     {document.type === 'purchase_order' && (
                                         <>
-                                            <td>{progress.get(line.id)?.received_quantity ?? 0}</td>
-                                            <td>{progress.get(line.id)?.returned_quantity ?? 0}</td>
-                                            <td>{progress.get(line.id)?.invoiced_quantity ?? 0}</td>
+                                            <td>
+                                                {progress.get(line.id)
+                                                    ?.received_quantity ?? 0}
+                                            </td>
+                                            <td>
+                                                {progress.get(line.id)
+                                                    ?.returned_quantity ?? 0}
+                                            </td>
+                                            <td>
+                                                {progress.get(line.id)
+                                                    ?.invoiced_quantity ?? 0}
+                                            </td>
                                             <td className="font-medium">
-                                                {progress.get(line.id)?.pending_quantity ?? 0}
+                                                {progress.get(line.id)
+                                                    ?.pending_quantity ?? 0}
                                             </td>
                                         </>
                                     )}
@@ -347,6 +596,11 @@ export default function PurchaseShow({
                         <MatchingPanel
                             document={document}
                             details={matchDetails}
+                            canApprove={
+                                abilities.approvePurchaseInvoices &&
+                                (user.role === 'admin' ||
+                                    document.created_by !== user.id)
+                            }
                         />
                     )}
                 {['supplier_invoice', 'supplier_credit_note'].includes(
@@ -383,18 +637,27 @@ export default function PurchaseShow({
                             className="grid gap-4"
                         >
                             <div className="grid gap-4 sm:grid-cols-2">
-                                <SelectWarehouse warehouses={warehouses} />
+                                <SelectWarehouse
+                                    warehouses={warehouses}
+                                    selected={
+                                        document.destination_warehouse?.id
+                                    }
+                                />
                                 <Field
                                     label="Supplier delivery note"
                                     name="supplier_delivery_note"
                                 />
                             </div>
                             <div className="overflow-x-auto border-y">
-                                <table className="w-full min-w-[44rem] text-sm">
+                                <table className="w-full min-w-[78rem] text-sm">
                                     <thead>
                                         <tr className="border-b text-left text-muted-foreground">
                                             <th className="py-2">Product</th>
                                             <th className="w-28">Receive</th>
+                                            <th className="w-28">Reject</th>
+                                            <th className="w-44">Reason</th>
+                                            <th className="w-32">Severity</th>
+                                            <th>Quality notes</th>
                                             <th>Serial numbers</th>
                                         </tr>
                                     </thead>
@@ -449,6 +712,75 @@ export default function PurchaseShow({
                                                         />
                                                     </td>
                                                     <td className="p-2">
+                                                        <Input
+                                                            name={`rejected_quantities[${line.id}]`}
+                                                            type="number"
+                                                            step="0.001"
+                                                            min="0"
+                                                            max={
+                                                                Number(
+                                                                    line.quantity,
+                                                                ) -
+                                                                Number(
+                                                                    line.received_quantity,
+                                                                )
+                                                            }
+                                                            defaultValue="0"
+                                                        />
+                                                    </td>
+                                                    <td className="p-2">
+                                                        <select
+                                                            name={`rejection_reasons[${line.id}]`}
+                                                            className="h-9 w-full border bg-transparent px-2"
+                                                            defaultValue=""
+                                                        >
+                                                            <option value="">
+                                                                Select
+                                                            </option>
+                                                            <option value="damaged">
+                                                                Damaged
+                                                            </option>
+                                                            <option value="wrong_item">
+                                                                Wrong item
+                                                            </option>
+                                                            <option value="defective">
+                                                                Defective
+                                                            </option>
+                                                            <option value="incomplete">
+                                                                Incomplete
+                                                            </option>
+                                                            <option value="documentation">
+                                                                Documentation
+                                                            </option>
+                                                            <option value="other">
+                                                                Other
+                                                            </option>
+                                                        </select>
+                                                    </td>
+                                                    <td className="p-2">
+                                                        <select
+                                                            name={`rejection_severities[${line.id}]`}
+                                                            className="h-9 w-full border bg-transparent px-2"
+                                                            defaultValue="minor"
+                                                        >
+                                                            <option value="minor">
+                                                                Minor
+                                                            </option>
+                                                            <option value="major">
+                                                                Major
+                                                            </option>
+                                                            <option value="critical">
+                                                                Critical
+                                                            </option>
+                                                        </select>
+                                                    </td>
+                                                    <td className="p-2">
+                                                        <Input
+                                                            name={`rejection_notes[${line.id}]`}
+                                                            placeholder="Damage or discrepancy"
+                                                        />
+                                                    </td>
+                                                    <td className="p-2">
                                                         {line.product
                                                             .track_serials ? (
                                                             <Input
@@ -486,7 +818,12 @@ export default function PurchaseShow({
                             className="grid gap-4"
                         >
                             <div className="grid gap-4 sm:grid-cols-2">
-                                <SelectWarehouse warehouses={warehouses} />
+                                <SelectWarehouse
+                                    warehouses={warehouses}
+                                    selected={
+                                        document.destination_warehouse?.id
+                                    }
+                                />
                                 <Field
                                     label="Supplier return reference"
                                     name="supplier_return_number"
@@ -552,7 +889,8 @@ export default function PurchaseShow({
                                                                 />
                                                             ) : (
                                                                 <span className="text-muted-foreground">
-                                                                    Quantity tracking
+                                                                    Quantity
+                                                                    tracking
                                                                 </span>
                                                             )}
                                                         </td>
@@ -601,7 +939,7 @@ export default function PurchaseShow({
                                 </div>
                                 <div className="grid max-w-sm gap-2">
                                     <Field
-                                        label="Transport (before tax, VAT 21%)"
+                                        label="Transport (before tax)"
                                         name="shipping_cost"
                                         type="number"
                                         value={String(
@@ -662,7 +1000,8 @@ export default function PurchaseShow({
                                                                 .track_stock
                                                                 ? progress.get(
                                                                       line.id,
-                                                                  )?.available_to_invoice ||
+                                                                  )
+                                                                      ?.available_to_invoice ||
                                                                   0
                                                                 : Number(
                                                                       line.quantity,
@@ -769,6 +1108,71 @@ export default function PurchaseShow({
                         </div>
                     </section>
                 )}
+                {document.quality_incidents.length > 0 && (
+                    <section className="border-t pt-5">
+                        <div className="mb-3 flex items-center justify-between gap-3">
+                            <h2 className="font-semibold">
+                                Supplier quality incidents
+                            </h2>
+                            <Button size="sm" variant="outline" asChild>
+                                <Link href="/supplier-quality">
+                                    Manage claims
+                                </Link>
+                            </Button>
+                        </div>
+                        <div className="border-y">
+                            {document.quality_incidents.map((incident) => (
+                                <div
+                                    key={incident.id}
+                                    className="grid gap-2 border-b py-3 text-sm last:border-0 sm:grid-cols-[1fr_auto]"
+                                >
+                                    <div>
+                                        <div className="font-medium">
+                                            {incident.product.name} ·{' '}
+                                            {incident.rejected_quantity}{' '}
+                                            rejected
+                                        </div>
+                                        <div className="text-muted-foreground">
+                                            {label(incident.reason)}
+                                            {incident.notes
+                                                ? ` · ${incident.notes}`
+                                                : ''}
+                                        </div>
+                                        {incident.resolution && (
+                                            <div className="mt-1 text-muted-foreground">
+                                                Resolution:{' '}
+                                                {label(incident.resolution)}
+                                                {incident.resolution_notes
+                                                    ? ` · ${incident.resolution_notes}`
+                                                    : ''}
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="flex items-start gap-2">
+                                        <Badge
+                                            variant={
+                                                incident.severity === 'critical'
+                                                    ? 'destructive'
+                                                    : 'outline'
+                                            }
+                                        >
+                                            {label(incident.severity)}
+                                        </Badge>
+                                        <Badge
+                                            variant={
+                                                incident.status === 'resolved'
+                                                    ? 'secondary'
+                                                    : 'outline'
+                                            }
+                                        >
+                                            {label(incident.status)}
+                                        </Badge>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </section>
+                )}
                 {document.returns.length > 0 && (
                     <section className="border-t pt-5">
                         <h2 className="mb-3 font-semibold">Goods returns</h2>
@@ -848,40 +1252,58 @@ export default function PurchaseShow({
                                     <table className="w-full min-w-[38rem] text-sm">
                                         <thead>
                                             <tr className="border-b text-left text-muted-foreground">
-                                                <th className="py-2">Product</th>
+                                                <th className="py-2">
+                                                    Product
+                                                </th>
                                                 <th>Invoiced</th>
                                                 <th>Already credited</th>
-                                                <th className="w-32">Credit now</th>
+                                                <th className="w-32">
+                                                    Credit now
+                                                </th>
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {creditSummary.map((line, index) => (
-                                                <tr
-                                                    key={line.line_id}
-                                                    className="border-b last:border-0"
-                                                >
-                                                    <td className="py-3 font-medium">
-                                                        {line.description}
-                                                        <input
-                                                            type="hidden"
-                                                            name={`lines[${index}][line_id]`}
-                                                            value={line.line_id}
-                                                        />
-                                                    </td>
-                                                    <td>{line.invoiced_quantity}</td>
-                                                    <td>{line.credited_quantity}</td>
-                                                    <td className="p-2">
-                                                        <Input
-                                                            name={`lines[${index}][quantity]`}
-                                                            type="number"
-                                                            min="0"
-                                                            max={line.creditable_quantity}
-                                                            step="0.001"
-                                                            defaultValue="0"
-                                                        />
-                                                    </td>
-                                                </tr>
-                                            ))}
+                                            {creditSummary.map(
+                                                (line, index) => (
+                                                    <tr
+                                                        key={line.line_id}
+                                                        className="border-b last:border-0"
+                                                    >
+                                                        <td className="py-3 font-medium">
+                                                            {line.description}
+                                                            <input
+                                                                type="hidden"
+                                                                name={`lines[${index}][line_id]`}
+                                                                value={
+                                                                    line.line_id
+                                                                }
+                                                            />
+                                                        </td>
+                                                        <td>
+                                                            {
+                                                                line.invoiced_quantity
+                                                            }
+                                                        </td>
+                                                        <td>
+                                                            {
+                                                                line.credited_quantity
+                                                            }
+                                                        </td>
+                                                        <td className="p-2">
+                                                            <Input
+                                                                name={`lines[${index}][quantity]`}
+                                                                type="number"
+                                                                min="0"
+                                                                max={
+                                                                    line.creditable_quantity
+                                                                }
+                                                                step="0.001"
+                                                                defaultValue="0"
+                                                            />
+                                                        </td>
+                                                    </tr>
+                                                ),
+                                            )}
                                         </tbody>
                                     </table>
                                 </div>
@@ -896,8 +1318,7 @@ export default function PurchaseShow({
                         <div>
                             <h2 className="font-semibold">Payment</h2>
                             <p className="mb-3 text-sm text-muted-foreground">
-                                Outstanding:{' '}
-                                {money(String(outstandingAmount))}
+                                Outstanding: {money(String(outstandingAmount))}
                             </p>
                             {document.matching_status !== 'review_required' &&
                                 outstandingAmount > 0 && (
@@ -983,6 +1404,40 @@ export default function PurchaseShow({
                                     </div>
                                 ))}
                             </div>
+                        </div>
+                    </section>
+                )}
+                {document.events.length > 0 && (
+                    <section className="border-t pt-5">
+                        <h2 className="mb-3 font-semibold">Activity</h2>
+                        <div className="grid gap-3">
+                            {document.events.map((event) => (
+                                <div
+                                    key={event.id}
+                                    className="flex items-start justify-between gap-4 border-b pb-3 text-sm"
+                                >
+                                    <div>
+                                        <div className="font-medium capitalize">
+                                            {event.event.replaceAll('_', ' ')}
+                                        </div>
+                                        <div className="text-muted-foreground">
+                                            {event.user?.name || 'System'}
+                                            {event.from_status &&
+                                            event.to_status &&
+                                            event.from_status !==
+                                                event.to_status
+                                                ? ` · ${event.from_status} → ${event.to_status}`
+                                                : ''}
+                                        </div>
+                                    </div>
+                                    <span className="text-xs whitespace-nowrap text-muted-foreground">
+                                        {new Intl.DateTimeFormat(undefined, {
+                                            dateStyle: 'medium',
+                                            timeStyle: 'short',
+                                        }).format(new Date(event.occurred_at))}
+                                    </span>
+                                </div>
+                            ))}
                         </div>
                     </section>
                 )}
@@ -1096,12 +1551,8 @@ function SupplierDocumentPanel({
                                             <td className="py-3 font-medium">
                                                 {item.label}
                                             </td>
-                                            <td>
-                                                {displayExtracted(item)}
-                                            </td>
-                                            <td>
-                                                {displayRegistered(item)}
-                                            </td>
+                                            <td>{displayExtracted(item)}</td>
+                                            <td>{displayRegistered(item)}</td>
                                             <td>
                                                 <Badge
                                                     variant={
@@ -1150,9 +1601,11 @@ function SupplierDocumentPanel({
 function MatchingPanel({
     document,
     details,
+    canApprove,
 }: {
     document: Document;
     details: MatchDetail[];
+    canApprove: boolean;
 }) {
     const needsReview = document.matching_status === 'review_required';
 
@@ -1251,7 +1704,7 @@ function MatchingPanel({
                     </tbody>
                 </table>
             </div>
-            {needsReview && (
+            {needsReview && canApprove && (
                 <Form
                     action={`/supplier-invoices/${document.id}/approve`}
                     method="post"
@@ -1392,12 +1845,19 @@ function Field({
         </div>
     );
 }
-function SelectWarehouse({ warehouses }: { warehouses: Warehouse[] }) {
+function SelectWarehouse({
+    warehouses,
+    selected,
+}: {
+    warehouses: Warehouse[];
+    selected?: number;
+}) {
     return (
         <div className="grid gap-2">
             <label className="text-sm font-medium">Warehouse</label>
             <select
                 name="warehouse_id"
+                defaultValue={selected}
                 className="h-9 rounded-md border bg-background px-3 text-sm"
             >
                 {warehouses.map((w) => (
@@ -1418,6 +1878,8 @@ const date = (v: string) =>
     new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(
         new Date(`${v.slice(0, 10)}T12:00:00`),
     );
+const label = (value: string) =>
+    value.replaceAll('_', ' ').replace(/^\w/, (letter) => letter.toUpperCase());
 const today = () => new Date().toISOString().slice(0, 10);
 PurchaseShow.layout = {
     breadcrumbs: [

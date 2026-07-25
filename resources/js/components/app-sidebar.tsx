@@ -58,20 +58,50 @@ export function AppSidebar() {
                 { title: 'After-sales', href: '/after-sales' },
             ],
         },
-        ...(commercial
-            ? [
-                  {
-                      title: 'Supply',
-                      href: '/catalog',
-                      icon: ShoppingCart,
-                      children: [
+        ...[
+            {
+                title: 'Supply',
+                href: commercial ? '/catalog' : '/purchases',
+                icon: ShoppingCart,
+                children: commercial
+                    ? [
                           { title: 'Catalog', href: '/catalog' },
                           { title: 'Inventory', href: '/inventory' },
                           { title: 'Document inbox', href: '/purchase-inbox' },
                           { title: 'Purchases', href: '/purchases' },
+                          {
+                              title: 'Order control',
+                              href: '/supply-control',
+                          },
+                          {
+                              title: 'Supplier intelligence',
+                              href: '/supplier-intelligence',
+                          },
+                          {
+                              title: 'Replenishment',
+                              href: '/replenishment',
+                          },
+                          {
+                              title: 'Quality claims',
+                              href: '/supplier-quality',
+                          },
                           { title: 'Expenses', href: '/expenses' },
+                      ]
+                    : [
+                          { title: 'Purchases', href: '/purchases' },
+                          {
+                              title: 'Order control',
+                              href: '/supply-control',
+                          },
+                          {
+                              title: 'Quality claims',
+                              href: '/supplier-quality',
+                          },
                       ],
-                  },
+            },
+        ],
+        ...(commercial
+            ? [
                   {
                       title: 'Finance',
                       href: '/finance',

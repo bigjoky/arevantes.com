@@ -221,7 +221,7 @@ export default function PurchaseComparison({
                                                 )}
                                             />
                                             <Field
-                                                label="Transport cost (before tax, VAT 21%)"
+                                                label="Transport cost (before tax)"
                                                 name="shipping_cost"
                                                 type="number"
                                                 step="0.01"

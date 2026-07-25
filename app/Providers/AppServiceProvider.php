@@ -9,11 +9,14 @@ use App\Models\FiscalYear;
 use App\Models\Installation;
 use App\Models\Opportunity;
 use App\Models\Person;
+use App\Models\PurchaseDocument;
+use App\Models\PurchaseDocumentLine;
 use App\Models\Supplier;
 use App\Models\User;
 use App\Models\WorkOrder;
 use App\Observers\AuditableObserver;
 use App\Observers\PartyLedgerObserver;
+use App\Observers\SupplierPriceObserver;
 use App\Observers\WorkOrderObserver;
 use App\Services\Mailbox\NativeImapPurchaseMailboxClient;
 use Carbon\CarbonImmutable;
@@ -49,6 +52,8 @@ class AppServiceProvider extends ServiceProvider
         CompanyProfile::observe(AuditableObserver::class);
         FiscalYear::observe(AuditableObserver::class);
         DocumentSeries::observe(AuditableObserver::class);
+        PurchaseDocument::observe(AuditableObserver::class);
+        PurchaseDocumentLine::observe(SupplierPriceObserver::class);
     }
 
     private function configureAuthorization(): void
@@ -61,6 +66,11 @@ class AppServiceProvider extends ServiceProvider
         Gate::define('use-ai', fn (User $user) => $user->hasRole('commercial', 'technician'));
         Gate::define('manage-operations', fn (User $user) => $user->hasRole('commercial', 'technician'));
         Gate::define('manage-catalog', fn (User $user) => $user->hasRole('commercial'));
+        Gate::define('view-purchases', fn (User $user) => $user->hasRole('commercial', 'technician'));
+        Gate::define('manage-purchases', fn (User $user) => $user->hasRole('commercial'));
+        Gate::define('receive-purchases', fn (User $user) => $user->hasRole('commercial', 'technician'));
+        Gate::define('approve-purchase-invoices', fn (User $user) => $user->hasRole('commercial'));
+        Gate::define('manage-purchase-payments', fn (User $user) => $user->hasRole('commercial'));
         Gate::define('manage-staff', fn (User $user) => false);
     }
 

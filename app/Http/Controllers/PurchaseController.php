@@ -6,12 +6,15 @@ use App\Models\GoodsReceipt;
 use App\Models\GoodsReturn;
 use App\Models\Product;
 use App\Models\PurchaseDocument;
+use App\Models\PurchaseSetting;
 use App\Models\Supplier;
+use App\Models\SupplierQualityIncident;
 use App\Models\Warehouse;
 use App\Services\Accounting\AccountingSynchronizer;
 use App\Services\Documents\DocumentNumber;
 use App\Services\Documents\PurchaseInvoiceMatcher;
 use App\Services\Documents\PurchaseOrderConversion;
+use App\Services\Documents\PurchaseWorkflow;
 use App\Services\Documents\SupplierInvoiceExtraction;
 use App\Services\Inventory\ProjectMaterialAllocator;
 use App\Services\Inventory\StockLedger;
@@ -24,11 +27,47 @@ use Inertia\Response;
 
 class PurchaseController extends Controller
 {
-    public function index(): Response
+    public function index(Request $request): Response
     {
+        $filters = $request->validate([
+            'search' => ['nullable', 'string', 'max:100'],
+            'type' => ['nullable', Rule::in(['purchase_rfq', 'purchase_order', 'supplier_invoice', 'supplier_credit_note'])],
+            'status' => ['nullable', 'string', 'max:30'],
+            'attention' => ['nullable', Rule::in(['late', 'receiving', 'review'])],
+        ]);
+        $lateOrders = fn ($query) => $query
+            ->where('type', 'purchase_order')
+            ->whereNotIn('status', ['received', 'closed', 'cancelled'])
+            ->where(function ($query) {
+                $query->where(fn ($query) => $query
+                    ->whereNotNull('supplier_confirmed_delivery_date')
+                    ->whereDate('supplier_confirmed_delivery_date', '<', today()))
+                    ->orWhere(fn ($query) => $query
+                        ->whereNull('supplier_confirmed_delivery_date')
+                        ->whereDate('expected_delivery_date', '<', today()));
+            });
+        $query = PurchaseDocument::query()
+            ->with(['supplier:id,legal_name,trade_name', 'salesOrder:id,number'])
+            ->when($filters['search'] ?? null, fn ($query, $search) => $query->where(fn ($query) => $query
+                ->where('number', 'like', "%{$search}%")
+                ->orWhere('supplier_number', 'like', "%{$search}%")
+                ->orWhereHas('supplier', fn ($query) => $query->where('legal_name', 'like', "%{$search}%")->orWhere('trade_name', 'like', "%{$search}%"))))
+            ->when($filters['type'] ?? null, fn ($query, $type) => $query->where('type', $type))
+            ->when($filters['status'] ?? null, fn ($query, $status) => $query->where('status', $status))
+            ->when(($filters['attention'] ?? null) === 'late', $lateOrders)
+            ->when(($filters['attention'] ?? null) === 'receiving', fn ($query) => $query->where('type', 'purchase_order')->whereIn('status', ['ordered', 'partially_received']))
+            ->when(($filters['attention'] ?? null) === 'review', fn ($query) => $query->where('matching_status', 'review_required'));
+
         return Inertia::render('purchases/index', [
-            'documents' => PurchaseDocument::with(['supplier:id,legal_name,trade_name', 'salesOrder:id,number'])->latest('issue_date')->latest()->get(),
+            'documents' => $query->latest('issue_date')->latest()->paginate(25)->withQueryString(),
             'counts' => PurchaseDocument::selectRaw('type, count(*) as total')->groupBy('type')->pluck('total', 'type'),
+            'attention' => [
+                'late' => $lateOrders(PurchaseDocument::query())->count(),
+                'receiving' => PurchaseDocument::where('type', 'purchase_order')->whereIn('status', ['ordered', 'partially_received'])->count(),
+                'review' => PurchaseDocument::where('matching_status', 'review_required')->count(),
+            ],
+            'filters' => $filters,
+            'settings' => PurchaseSetting::current(),
             'suppliers' => Supplier::where('is_active', true)->orderBy('legal_name')->get(['id', 'legal_name', 'trade_name']),
             'products' => Product::where('is_active', true)->orderBy('name')->get(['id', 'sku', 'name', 'description', 'cost_price', 'tax_rate_id', 'track_stock', 'track_serials'])->load('taxRate:id,rate'),
         ]);
@@ -37,7 +76,7 @@ class PurchaseController extends Controller
     public function show(PurchaseDocument $purchaseDocument, PurchaseInvoiceMatcher $matcher): Response
     {
         $orderSummary = $purchaseDocument->type === 'purchase_order' ? $matcher->summary($purchaseDocument) : null;
-        $purchaseDocument->load(['supplier', 'sourceDocument:id,number,type,shipping_cost', 'derivedDocuments:id,source_document_id,number,type,status,matching_status,amount,issue_date,supplier_number', 'salesOrder:id,number', 'approver:id,name', 'lines.product:id,name,sku,track_stock,track_serials', 'receipts.movement:id,number', 'returns.movement:id,number', 'payments', 'attachment.verifier:id,name']);
+        $purchaseDocument->load(['supplier', 'destinationWarehouse:id,code,name', 'sourceDocument:id,number,type,shipping_cost', 'derivedDocuments:id,source_document_id,number,type,status,matching_status,amount,issue_date,supplier_number', 'salesOrder:id,number', 'approver:id,name', 'lines.product:id,name,sku,track_stock,track_serials', 'receipts.movement:id,number', 'returns.movement:id,number', 'payments', 'attachment.verifier:id,name', 'events.user:id,name', 'qualityIncidents.product:id,sku,name', 'qualityIncidents.warehouse:id,code,name', 'qualityIncidents.reporter:id,name', 'qualityIncidents.resolver:id,name']);
 
         return Inertia::render('purchases/show', [
             'document' => $purchaseDocument,
@@ -58,8 +97,9 @@ class PurchaseController extends Controller
             $totals = $this->calculate($data['lines'], (float) ($data['shipping_cost'] ?? 0));
             $issued = app(DocumentNumber::class)->next($data['type'], $data['issue_date']);
             $isOrder = $data['type'] === 'purchase_order';
-            $document = PurchaseDocument::create(['type' => $data['type'], 'supplier_id' => $data['supplier_id'], 'document_series_id' => $issued['series']->id, 'created_by' => $request->user()->id, 'number' => $issued['number'], 'status' => $isOrder ? 'ordered' : 'draft', 'invoicing_status' => $isOrder ? 'not_invoiced' : null, 'issue_date' => $data['issue_date'], 'notes' => $data['notes'] ?? null, 'locked_at' => $isOrder ? now() : null, ...$totals['totals']]);
+            $document = PurchaseDocument::create(['type' => $data['type'], 'supplier_id' => $data['supplier_id'], 'document_series_id' => $issued['series']->id, 'created_by' => $request->user()->id, 'number' => $issued['number'], 'status' => $isOrder ? 'ordered' : 'draft', 'invoicing_status' => $isOrder ? 'not_invoiced' : null, 'issue_date' => $data['issue_date'], 'expected_delivery_date' => $data['expected_delivery_date'] ?? null, 'notes' => $data['notes'] ?? null, 'locked_at' => $isOrder ? now() : null, ...$totals['totals']]);
             $document->lines()->createMany($totals['lines']);
+            app(PurchaseWorkflow::class)->record($document, 'created', $request->user()->id, null, $document->status);
 
             return $document;
         });
@@ -77,36 +117,99 @@ class PurchaseController extends Controller
     public function receive(Request $request, PurchaseDocument $purchaseDocument, StockLedger $ledger, ProjectMaterialAllocator $allocator): RedirectResponse
     {
         abort_unless($purchaseDocument->type === 'purchase_order' && in_array($purchaseDocument->status, ['ordered', 'partially_received'], true), 422);
-        $data = $request->validate(['warehouse_id' => ['required', 'exists:warehouses,id'], 'supplier_delivery_note' => ['nullable', 'string', 'max:255'], 'quantities' => ['required', 'array'], 'quantities.*' => ['nullable', 'numeric', 'min:0'], 'serials' => ['nullable', 'array'], 'serials.*' => ['nullable', 'string']]);
-        $received = DB::transaction(function () use ($request, $purchaseDocument, $ledger, $allocator, $data) {
-            $lines = $purchaseDocument->lines->map(function ($line) use ($data) {
-                $quantity = (float) ($data['quantities'][$line->id] ?? 0);
+        $data = $request->validate([
+            'warehouse_id' => ['required', 'exists:warehouses,id'],
+            'supplier_delivery_note' => ['nullable', 'string', 'max:255'],
+            'quantities' => ['nullable', 'array'],
+            'quantities.*' => ['nullable', 'numeric', 'min:0'],
+            'serials' => ['nullable', 'array'],
+            'serials.*' => ['nullable', 'string'],
+            'rejected_quantities' => ['nullable', 'array'],
+            'rejected_quantities.*' => ['nullable', 'numeric', 'min:0'],
+            'rejection_reasons' => ['nullable', 'array'],
+            'rejection_reasons.*' => ['nullable', Rule::in(['damaged', 'wrong_item', 'defective', 'incomplete', 'documentation', 'other'])],
+            'rejection_severities' => ['nullable', 'array'],
+            'rejection_severities.*' => ['nullable', Rule::in(['minor', 'major', 'critical'])],
+            'rejection_notes' => ['nullable', 'array'],
+            'rejection_notes.*' => ['nullable', 'string', 'max:2000'],
+        ]);
+        $result = DB::transaction(function () use ($request, $purchaseDocument, $ledger, $allocator, $data) {
+            $order = PurchaseDocument::lockForUpdate()->with('lines.product')->findOrFail($purchaseDocument->id);
+            $acceptedLines = collect();
+            $rejectedLines = collect();
+
+            foreach ($order->lines as $line) {
+                $quantity = round((float) ($data['quantities'][$line->id] ?? 0), 3);
+                $rejectedQuantity = round((float) ($data['rejected_quantities'][$line->id] ?? 0), 3);
                 $pending = (float) $line->quantity - (float) $line->received_quantity;
-                if ($quantity > $pending) {
-                    abort(422, __('Received quantity exceeds the pending quantity.'));
-                }
-                if ($quantity <= 0 || ! $line->product->track_stock) {
-                    return null;
+                abort_if($quantity + $rejectedQuantity > $pending + 0.0005, 422, __('Accepted and rejected quantities exceed the pending quantity.'));
+                abort_if(($quantity > 0 || $rejectedQuantity > 0) && ! $line->product->track_stock, 422, __('Only stock-tracked products can be received.'));
+
+                if ($quantity > 0) {
+                    $acceptedLines->push(['line' => $line, 'product_id' => $line->product_id, 'quantity' => $quantity, 'unit_cost' => $line->unit_price, 'serials' => $data['serials'][$line->id] ?? null]);
                 }
 
-                return ['line' => $line, 'product_id' => $line->product_id, 'quantity' => $quantity, 'unit_cost' => $line->unit_price, 'serials' => $data['serials'][$line->id] ?? null];
-            })->filter();
-            abort_if($lines->isEmpty(), 422, __('Enter at least one stock quantity to receive.'));
-            $movement = $ledger->post(['type' => 'receipt', 'warehouse_id' => $data['warehouse_id'], 'purchase_document_id' => $purchaseDocument->id, 'reference' => $purchaseDocument->number, 'lines' => $lines->map(fn ($line) => collect($line)->except('line')->all())->all()], $request->user()->id);
-            foreach ($lines as $item) {
-                $item['line']->increment('received_quantity', $item['quantity']);
+                if ($rejectedQuantity > 0) {
+                    $reason = $data['rejection_reasons'][$line->id] ?? null;
+                    abort_if(! $reason, 422, __('Select a rejection reason for every rejected quantity.'));
+                    $rejectedLines->push([
+                        'line' => $line,
+                        'quantity' => $rejectedQuantity,
+                        'reason' => $reason,
+                        'severity' => $data['rejection_severities'][$line->id] ?? 'minor',
+                        'notes' => $data['rejection_notes'][$line->id] ?? null,
+                    ]);
+                }
             }
-            $allocator->allocate($purchaseDocument, (int) $data['warehouse_id'], $lines->map(fn ($line) => collect($line)->only(['product_id', 'quantity'])->all()));
-            $complete = $purchaseDocument->lines()->get()->every(fn ($line) => (float) $line->received_quantity >= (float) $line->quantity || ! $line->product->track_stock);
-            $purchaseDocument->update(['status' => $complete ? 'received' : 'partially_received']);
-            $issued = app(DocumentNumber::class)->next('goods_receipt', now());
 
-            return GoodsReceipt::create(['purchase_document_id' => $purchaseDocument->id, 'stock_movement_id' => $movement->id, 'warehouse_id' => $data['warehouse_id'], 'created_by' => $request->user()->id, 'number' => $issued['number'], 'supplier_delivery_note' => $data['supplier_delivery_note'] ?? null, 'received_at' => now()]);
+            abort_if($acceptedLines->isEmpty() && $rejectedLines->isEmpty(), 422, __('Enter at least one accepted or rejected quantity.'));
+
+            $receipt = null;
+            if ($acceptedLines->isNotEmpty()) {
+                $movement = $ledger->post(['type' => 'receipt', 'warehouse_id' => $data['warehouse_id'], 'purchase_document_id' => $order->id, 'reference' => $order->number, 'lines' => $acceptedLines->map(fn ($line) => collect($line)->except('line')->all())->all()], $request->user()->id);
+                foreach ($acceptedLines as $item) {
+                    $item['line']->increment('received_quantity', $item['quantity']);
+                }
+                $allocator->allocate($order, (int) $data['warehouse_id'], $acceptedLines->map(fn ($line) => collect($line)->only(['product_id', 'quantity'])->all()));
+                $complete = $order->lines()->with('product')->get()->every(fn ($line) => (float) $line->received_quantity >= (float) $line->quantity || ! $line->product->track_stock);
+                $order->update(['status' => $complete ? 'received' : 'partially_received']);
+                $issued = app(DocumentNumber::class)->next('goods_receipt', now());
+                $receipt = GoodsReceipt::create(['purchase_document_id' => $order->id, 'stock_movement_id' => $movement->id, 'warehouse_id' => $data['warehouse_id'], 'created_by' => $request->user()->id, 'number' => $issued['number'], 'supplier_delivery_note' => $data['supplier_delivery_note'] ?? null, 'received_at' => now()]);
+            }
+
+            foreach ($rejectedLines as $item) {
+                SupplierQualityIncident::create([
+                    'purchase_document_id' => $order->id,
+                    'goods_receipt_id' => $receipt?->id,
+                    'product_id' => $item['line']->product_id,
+                    'warehouse_id' => $data['warehouse_id'],
+                    'reported_by' => $request->user()->id,
+                    'rejected_quantity' => $item['quantity'],
+                    'reason' => $item['reason'],
+                    'severity' => $item['severity'],
+                    'notes' => $item['notes'],
+                    'status' => 'open',
+                ]);
+            }
+
+            return ['receipt' => $receipt, 'incident_count' => $rejectedLines->count(), 'status' => $order->fresh()->status];
         });
 
         app(PurchaseInvoiceMatcher::class)->refresh($purchaseDocument->fresh());
+        if ($result['receipt']) {
+            app(PurchaseWorkflow::class)->record($purchaseDocument, 'goods_received', $request->user()->id, $purchaseDocument->status, $result['status'], ['receipt' => $result['receipt']->number]);
+        }
+        if ($result['incident_count'] > 0) {
+            app(PurchaseWorkflow::class)->record($purchaseDocument, 'quality_incident_reported', $request->user()->id, $result['status'], $result['status'], ['incidents' => $result['incident_count']]);
+        }
 
-        return back()->with('toast', ['type' => 'success', 'message' => __('Goods receipt :number posted.', ['number' => $received->number])]);
+        $message = match (true) {
+            $result['receipt'] && $result['incident_count'] > 0 => __('Goods receipt :number posted with :count rejected line(s).', ['number' => $result['receipt']->number, 'count' => $result['incident_count']]),
+            (bool) $result['receipt'] => __('Goods receipt :number posted.', ['number' => $result['receipt']->number]),
+            default => __(':count supplier quality incident(s) reported.', ['count' => $result['incident_count']]),
+        };
+
+        return back()->with('toast', ['type' => $result['incident_count'] > 0 ? 'warning' : 'success', 'message' => $message]);
     }
 
     public function invoice(Request $request, PurchaseDocument $purchaseDocument, AccountingSynchronizer $accounting, PurchaseInvoiceMatcher $matcher): RedirectResponse
@@ -140,6 +243,7 @@ class PurchaseController extends Controller
         $message = $invoice->matching_status === 'review_required'
             ? __('Supplier invoice registered with variances. Approval is required.')
             : __('Supplier invoice registered and matched.');
+        app(PurchaseWorkflow::class)->record($purchaseDocument, 'invoice_registered', $request->user()->id, $purchaseDocument->status, $purchaseDocument->fresh()->status, ['invoice' => $invoice->number, 'matching_status' => $invoice->matching_status]);
 
         return to_route('purchases.show', $invoice)->with('toast', ['type' => $invoice->matching_status === 'review_required' ? 'warning' : 'success', 'message' => $message]);
     }
@@ -181,7 +285,8 @@ class PurchaseController extends Controller
             $creditableShipping = $matcher->creditableShipping($invoice);
             abort_if($shippingCost > $creditableShipping + 0.005, 422, __('Credited transport exceeds the available invoice transport.'));
             abort_if($lines->isEmpty() && $shippingCost <= 0, 422, __('Enter at least one quantity or transport amount to credit.'));
-            $shippingTax = round($shippingCost * 0.21 + 1e-9, 2);
+            $shippingTaxRate = (float) PurchaseSetting::current()->shipping_tax_percent;
+            $shippingTax = round($shippingCost * $shippingTaxRate / 100 + 1e-9, 2);
             $subtotal -= $shippingCost;
             $tax -= $shippingTax;
             $amount -= $shippingCost + $shippingTax;
@@ -233,6 +338,7 @@ class PurchaseController extends Controller
 
             return $result;
         });
+        app(PurchaseWorkflow::class)->record($purchaseDocument, 'goods_returned', $request->user()->id, $purchaseDocument->status, $purchaseDocument->status, ['return' => $goodsReturn->number]);
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Goods return :number posted.', ['number' => $goodsReturn->number])]);
     }
@@ -241,8 +347,11 @@ class PurchaseController extends Controller
     {
         abort_unless($purchaseDocument->type === 'supplier_invoice' && $purchaseDocument->matching_status === 'review_required', 422);
         $data = $request->validate(['approval_notes' => ['required', 'string', 'max:2000']]);
+        abort_if($purchaseDocument->created_by === $request->user()->id && ! $request->user()->hasRole('admin'), 403, __('A different authorised user must approve this invoice.'));
 
         DB::transaction(function () use ($request, $purchaseDocument, $accounting, $data): void {
+            $purchaseDocument = PurchaseDocument::lockForUpdate()->findOrFail($purchaseDocument->id);
+            abort_unless($purchaseDocument->matching_status === 'review_required', 422);
             $purchaseDocument->update([
                 'status' => 'registered',
                 'matching_status' => 'approved',
@@ -251,6 +360,7 @@ class PurchaseController extends Controller
                 'approval_notes' => $data['approval_notes'],
             ]);
             $accounting->syncPurchaseDocument($purchaseDocument, $request->user()->id);
+            app(PurchaseWorkflow::class)->record($purchaseDocument, 'variance_approved', $request->user()->id, 'review_required', 'approved', ['notes' => $data['approval_notes']]);
         });
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Invoice variance approved and posted to accounting.')]);
@@ -258,7 +368,7 @@ class PurchaseController extends Controller
 
     private function validateDocument(Request $request): array
     {
-        return $request->validate(['type' => ['required', Rule::in(['purchase_rfq', 'purchase_order'])], 'supplier_id' => ['required', 'exists:suppliers,id'], 'issue_date' => ['required', 'date'], 'shipping_cost' => ['nullable', 'numeric', 'min:0'], 'notes' => ['nullable', 'string'], 'lines' => ['required', 'array', 'min:1'], 'lines.*.product_id' => ['required', 'exists:products,id'], 'lines.*.description' => ['required', 'string'], 'lines.*.quantity' => ['required', 'numeric', 'gt:0'], 'lines.*.unit_price' => ['required', 'numeric', 'min:0'], 'lines.*.discount_percent' => ['required', 'numeric', 'between:0,100'], 'lines.*.tax_percent' => ['required', 'numeric', 'between:0,100']]);
+        return $request->validate(['type' => ['required', Rule::in(['purchase_rfq', 'purchase_order'])], 'supplier_id' => ['required', Rule::exists('suppliers', 'id')->where('is_active', true)], 'issue_date' => ['required', 'date'], 'expected_delivery_date' => ['nullable', 'date', 'after_or_equal:issue_date'], 'shipping_cost' => ['nullable', 'numeric', 'min:0'], 'notes' => ['nullable', 'string'], 'lines' => ['required', 'array', 'min:1'], 'lines.*.product_id' => ['required', Rule::exists('products', 'id')->where('is_active', true)], 'lines.*.description' => ['required', 'string'], 'lines.*.quantity' => ['required', 'numeric', 'gt:0'], 'lines.*.unit_price' => ['required', 'numeric', 'min:0'], 'lines.*.discount_percent' => ['required', 'numeric', 'between:0,100'], 'lines.*.tax_percent' => ['required', 'numeric', 'between:0,100']]);
     }
 
     private function calculate(array $lines, float $shippingCost = 0): array
@@ -274,7 +384,7 @@ class PurchaseController extends Controller
             $amount += $base + $lineTax;
         }
 
-        $shippingTax = round($shippingCost * 0.21 + 1e-9, 2);
+        $shippingTax = round($shippingCost * (float) PurchaseSetting::current()->shipping_tax_percent / 100 + 1e-9, 2);
 
         return ['lines' => $result, 'totals' => ['subtotal' => round($subtotal + $shippingCost, 2), 'tax_amount' => round($tax + $shippingTax, 2), 'shipping_cost' => $shippingCost, 'amount' => round($amount + $shippingCost + $shippingTax, 2)]];
     }
