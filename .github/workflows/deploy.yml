@@ -68,9 +68,10 @@ jobs:
           DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
           DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
           DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          DEPLOY_PHP_BINARY: ${{ secrets.DEPLOY_PHP_BINARY }}
         run: |
           ssh -i ~/.ssh/arevantes_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
-            "php -r 'exit(version_compare(PHP_VERSION, \"8.4.1\", \">=\") ? 0 : 1);' && mkdir -p '$DEPLOY_PATH'"
+            "'$DEPLOY_PHP_BINARY' -r 'exit(version_compare(PHP_VERSION, \"8.4.1\", \">=\") ? 0 : 1);' && mkdir -p '$DEPLOY_PATH'"
 
       - name: Enable maintenance mode
         env:
@@ -78,9 +79,10 @@ jobs:
           DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
           DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
           DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          DEPLOY_PHP_BINARY: ${{ secrets.DEPLOY_PHP_BINARY }}
         run: |
           ssh -i ~/.ssh/arevantes_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
-            "if [ -f '$DEPLOY_PATH/artisan' ]; then cd '$DEPLOY_PATH' && php artisan down --retry=60; fi"
+            "if [ -f '$DEPLOY_PATH/artisan' ]; then cd '$DEPLOY_PATH' && '$DEPLOY_PHP_BINARY' artisan down --retry=60; fi"
 
       - name: Upload release
         env:
@@ -106,6 +108,7 @@ jobs:
           DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
           DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
           DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          DEPLOY_PHP_BINARY: ${{ secrets.DEPLOY_PHP_BINARY }}
         run: |
           ssh -i ~/.ssh/arevantes_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" "
             set -eu
@@ -114,11 +117,11 @@ jobs:
             touch database/database.sqlite
             chmod -R ug+rw storage database/database.sqlite
             test -f .env || { echo 'Production .env is missing'; exit 1; }
-            trap 'php artisan up || true' EXIT
-            php artisan migrate --force
-            php artisan storage:link || true
-            php artisan optimize
-            php artisan up
+            trap \"'$DEPLOY_PHP_BINARY' artisan up || true\" EXIT
+            '$DEPLOY_PHP_BINARY' artisan migrate --force
+            '$DEPLOY_PHP_BINARY' artisan storage:link || true
+            '$DEPLOY_PHP_BINARY' artisan optimize
+            '$DEPLOY_PHP_BINARY' artisan up
             trap - EXIT
           "
 
