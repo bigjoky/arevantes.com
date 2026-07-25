@@ -47,8 +47,8 @@ jobs:
         run: |
           composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader
           npm ci
-          npm run types:check
           npm run build
+          npm run types:check
           rm -rf node_modules
 
       - name: Configure SSH
