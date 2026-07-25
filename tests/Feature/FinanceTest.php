@@ -19,6 +19,7 @@ use App\Models\SupplierPayment;
 use App\Models\User;
 use App\Services\Finance\TreasuryForecast;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
@@ -147,6 +148,80 @@ class FinanceTest extends TestCase
             ->assertRedirect()
             ->assertSessionHasNoErrors();
         $this->assertDatabaseMissing('financial_budgets', ['id' => $existing->id]);
+    }
+
+    public function test_budget_csv_can_be_exported_with_a_complete_template(): void
+    {
+        $user = User::factory()->create(['role' => 'commercial']);
+        FinancialBudget::create([
+            'year' => 2026,
+            'month' => 3,
+            'category' => 'revenue',
+            'amount' => 1250.50,
+            'notes' => 'Sales plan',
+            'created_by' => $user->id,
+        ]);
+
+        $response = $this->actingAs($user)->get(route('finance.export', ['type' => 'budget', 'year' => 2026]));
+        $response->assertOk()->assertDownload('finance-budget-2026.csv');
+        $this->assertStringContainsString('2026,3,revenue,1250.50,"Sales plan"', $response->streamedContent());
+
+        $template = $this->get(route('finance.export', ['type' => 'budget_template', 'year' => 2026]));
+        $template->assertOk()->assertDownload('finance-budget_template-2026.csv');
+        $lines = array_values(array_filter(explode("\n", trim($template->streamedContent()))));
+        $this->assertCount(49, $lines);
+        $this->assertStringContainsString('2026,3,revenue,1250.50,"Sales plan"', $template->streamedContent());
+    }
+
+    public function test_budget_csv_import_is_validated_before_transactional_upsert(): void
+    {
+        $user = User::factory()->create(['role' => 'commercial']);
+        $existing = FinancialBudget::create([
+            'year' => 2026,
+            'month' => 1,
+            'category' => 'revenue',
+            'amount' => 750,
+            'created_by' => $user->id,
+        ]);
+        $csv = "\xEF\xBB\xBFyear;month;category;amount;notes\n2026;1;revenue;900;Keep existing\n2026;2;cash_in;1.234,56;February collections\n";
+
+        $this->actingAs($user)->post(route('finance.budgets.import'), [
+            'year' => 2026,
+            'budget_file' => UploadedFile::fake()->createWithContent('budget.csv', $csv),
+        ])->assertRedirect()->assertSessionHasNoErrors();
+
+        $this->assertSame('750.00', $existing->fresh()->amount);
+        $this->assertDatabaseHas('financial_budgets', [
+            'year' => 2026,
+            'month' => 2,
+            'category' => 'cash_in',
+            'amount' => 1234.56,
+            'notes' => 'February collections',
+        ]);
+
+        $invalid = "year,month,category,amount,notes\n2026,3,costs,100,Valid row\n2026,13,cash_out,20,Invalid month\n";
+        $this->post(route('finance.budgets.import'), [
+            'year' => 2026,
+            'budget_file' => UploadedFile::fake()->createWithContent('invalid.csv', $invalid),
+            'overwrite' => true,
+        ])->assertRedirect()->assertSessionHasErrors('budget_file');
+        $this->assertDatabaseMissing('financial_budgets', [
+            'year' => 2026,
+            'month' => 3,
+            'category' => 'costs',
+        ]);
+
+        $overwrite = "year,month,category,amount,notes\n2026,1,revenue,950,Updated plan\n";
+        $this->post(route('finance.budgets.import'), [
+            'year' => 2026,
+            'budget_file' => UploadedFile::fake()->createWithContent('overwrite.csv', $overwrite),
+            'overwrite' => true,
+        ])->assertRedirect()->assertSessionHasNoErrors();
+        $this->assertDatabaseHas('financial_budgets', [
+            'id' => $existing->id,
+            'amount' => 950,
+            'notes' => 'Updated plan',
+        ]);
     }
 
     public function test_financial_alert_thresholds_are_configurable_and_ignore_future_months(): void
@@ -312,6 +387,7 @@ class FinanceTest extends TestCase
         $this->actingAs($technician)->get(route('finance.index'))->assertForbidden();
         $this->post(route('finance.forecast-items.store'), ['direction' => 'in'])->assertForbidden();
         $this->patch(route('finance.alert-settings.update'), [])->assertForbidden();
+        $this->post(route('finance.budgets.import'), [])->assertForbidden();
     }
 
     public function test_thirteen_week_forecast_uses_current_bank_balance_and_expands_recurring_items(): void

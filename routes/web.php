@@ -136,6 +136,7 @@ Route::middleware(['auth'])->group(function () {
     Route::patch('finance/forecast-items/{forecastItem}', [FinanceController::class, 'updateForecast'])->middleware('can:manage-treasury')->name('finance.forecast-items.update');
     Route::delete('finance/forecast-items/{forecastItem}', [FinanceController::class, 'destroyForecast'])->middleware('can:manage-treasury')->name('finance.forecast-items.destroy');
     Route::post('finance/budgets', [FinanceController::class, 'storeBudget'])->middleware('can:manage-treasury')->name('finance.budgets.store');
+    Route::post('finance/budgets/import', [FinanceController::class, 'importBudgets'])->middleware('can:manage-treasury')->name('finance.budgets.import');
     Route::post('finance/budgets/copy', [FinanceController::class, 'copyBudget'])->middleware('can:manage-treasury')->name('finance.budgets.copy');
     Route::delete('finance/budgets/{financialBudget}', [FinanceController::class, 'destroyBudget'])->middleware('can:manage-treasury')->name('finance.budgets.destroy');
     Route::patch('finance/alert-settings', [FinanceController::class, 'updateAlertSettings'])->middleware('can:manage-treasury')->name('finance.alert-settings.update');

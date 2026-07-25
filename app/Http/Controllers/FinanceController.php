@@ -16,6 +16,7 @@ use App\Models\SalesDocumentPayment;
 use App\Models\SupplierPayment;
 use App\Models\User;
 use App\Services\Accounting\AccountingSynchronizer;
+use App\Services\Finance\BudgetCsvImporter;
 use App\Services\Finance\FinancialAlertService;
 use App\Services\Finance\OutstandingBalanceCalculator;
 use App\Services\Finance\ProjectProfitability;
@@ -289,6 +290,26 @@ class FinanceController extends Controller
         return back()->with('toast', ['type' => 'success', 'message' => __(':count budget values copied.', ['count' => $copied])]);
     }
 
+    public function importBudgets(Request $request, BudgetCsvImporter $importer): RedirectResponse
+    {
+        $data = $request->validate([
+            'year' => ['required', 'integer', 'between:2020,2100'],
+            'budget_file' => ['required', 'file', 'mimetypes:text/plain,text/csv,application/csv,application/octet-stream', 'max:2048'],
+            'overwrite' => ['nullable', 'boolean'],
+        ]);
+        $result = $importer->import(
+            $request->file('budget_file')->getRealPath(),
+            (int) $data['year'],
+            (bool) ($data['overwrite'] ?? false),
+            $request->user()->id,
+        );
+
+        return back()->with('toast', [
+            'type' => 'success',
+            'message' => __(':imported budget values imported; :skipped existing values skipped.', $result),
+        ]);
+    }
+
     public function destroyBudget(FinancialBudget $financialBudget): RedirectResponse
     {
         $financialBudget->delete();
@@ -474,7 +495,7 @@ class FinanceController extends Controller
     public function export(Request $request): StreamedResponse
     {
         $year = $this->year($request);
-        $type = $request->validate(['type' => ['required', 'in:cash,vat,receivables,payables']])['type'];
+        $type = $request->validate(['type' => ['required', 'in:cash,vat,receivables,payables,budget,budget_template']])['type'];
 
         return response()->streamDownload(function () use ($year, $type) {
             $out = fopen('php://output', 'w');
@@ -487,6 +508,20 @@ class FinanceController extends Controller
                 SalesDocument::whereIn('type', ['invoice', 'credit_note'])->whereNotNull('locked_at')->whereYear('issue_date', $year)->orderBy('issue_date')->each(fn ($d) => fputcsv($out, [$d->issue_date->format('Y-m-d'), 'output', $d->number, $d->subtotal - $d->discount_amount, $d->tax_amount, $d->amount]));
                 PurchaseDocument::whereIn('type', ['supplier_invoice', 'supplier_credit_note'])->whereNot('status', 'review_required')->whereYear('issue_date', $year)->orderBy('issue_date')->each(fn ($d) => fputcsv($out, [$d->issue_date->format('Y-m-d'), 'input', $d->supplier_number ?: $d->number, $d->subtotal, $d->tax_amount, $d->amount]));
                 Expense::whereYear('expense_date', $year)->orderBy('expense_date')->each(fn ($d) => fputcsv($out, [$d->expense_date->format('Y-m-d'), 'input', $d->document_number ?: $d->number, $d->subtotal, $d->tax_amount, $d->amount]));
+            } elseif (in_array($type, ['budget', 'budget_template'], true)) {
+                fputcsv($out, ['year', 'month', 'category', 'amount', 'notes']);
+                $budgets = FinancialBudget::where('year', $year)->get()->keyBy(fn ($budget) => $budget->month.'-'.$budget->category);
+                if ($type === 'budget') {
+                    $budgets->sortBy(fn ($budget) => sprintf('%02d-%s', $budget->month, $budget->category))
+                        ->each(fn ($budget) => fputcsv($out, [$budget->year, $budget->month, $budget->category, $budget->amount, $budget->notes]));
+                } else {
+                    foreach (range(1, 12) as $month) {
+                        foreach (['revenue', 'costs', 'cash_in', 'cash_out'] as $category) {
+                            $budget = $budgets->get($month.'-'.$category);
+                            fputcsv($out, [$year, $month, $category, $budget?->amount ?? 0, $budget?->notes]);
+                        }
+                    }
+                }
             } elseif ($type === 'receivables') {
                 fputcsv($out, ['document', 'customer', 'due_date', 'days_overdue', 'status', 'outstanding']);
                 SalesDocument::with('customer:id,first_name,last_name,company_name')->where('type', 'invoice')->whereIn('status', ['issued', 'partial', 'overdue'])->orderBy('due_date')->each(function ($document) use ($out) {

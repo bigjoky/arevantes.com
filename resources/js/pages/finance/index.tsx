@@ -1183,6 +1183,7 @@ function ExportMenu({ year }: { year: number }) {
         ['vat', 'VAT register'],
         ['receivables', 'Accounts receivable'],
         ['payables', 'Accounts payable'],
+        ['budget', 'Budget values'],
     ];
 
     return (
@@ -1742,6 +1743,36 @@ function BudgetForm({
                 </label>
                 <div className="flex items-end">
                     <Button variant="outline">Copy previous year</Button>
+                </div>
+            </Form>
+            <Form
+                action="/finance/budgets/import"
+                method="post"
+                encType="multipart/form-data"
+                className="grid gap-3 border-t pt-3 sm:grid-cols-[1fr_1fr_auto]"
+            >
+                <input type="hidden" name="year" value={year} />
+                <Field label="Budget CSV">
+                    <Input
+                        name="budget_file"
+                        type="file"
+                        accept=".csv,text/csv"
+                        required
+                    />
+                </Field>
+                <label className="flex items-end gap-2 pb-2 text-sm">
+                    <input type="checkbox" name="overwrite" value="1" />
+                    Overwrite existing values
+                </label>
+                <div className="flex flex-wrap items-end gap-2">
+                    <Button variant="outline" asChild>
+                        <a
+                            href={`/finance/export?type=budget_template&year=${year}`}
+                        >
+                            <Download /> Template
+                        </a>
+                    </Button>
+                    <Button>Import CSV</Button>
                 </div>
             </Form>
             <Form
