@@ -185,7 +185,6 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('supplier-payments/{payment}', [ExpenseController::class, 'destroyPayment'])->middleware('can:manage-catalog')->name('supplier-payments.destroy');
     Route::post('purchases', [PurchaseController::class, 'store'])->middleware('can:manage-catalog')->name('purchases.store');
     Route::get('purchases/{purchaseDocument}', [PurchaseController::class, 'show'])->middleware('can:manage-catalog')->name('purchases.show');
-    Route::patch('purchases/{purchaseDocument}/shipping', [PurchaseController::class, 'updateShipping'])->middleware('can:manage-catalog')->name('purchases.shipping.update');
     Route::post('purchases/{purchaseDocument}/convert', [PurchaseController::class, 'convert'])->middleware('can:manage-catalog')->name('purchases.convert');
     Route::post('purchases/{purchaseDocument}/receive', [PurchaseController::class, 'receive'])->middleware('can:manage-catalog')->name('purchases.receive');
     Route::post('purchases/{purchaseDocument}/return', [PurchaseController::class, 'returnGoods'])->middleware('can:manage-catalog')->name('purchases.return');

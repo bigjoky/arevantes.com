@@ -161,7 +161,6 @@ return [
     */
 
     'features' => [
-        ...(env('FORTIFY_REGISTRATION_ENABLED', true) ? [Features::registration()] : []),
         Features::resetPasswords(),
         Features::emailVerification(),
         Features::twoFactorAuthentication([

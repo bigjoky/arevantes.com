@@ -140,6 +140,7 @@ class PurchaseInboxController extends Controller
             'issue_date' => ['required', 'date'],
             'due_date' => ['nullable', 'date', 'after_or_equal:issue_date'],
             'subtotal' => ['required', 'numeric', 'min:0'],
+            'shipping_cost' => ['nullable', 'numeric', 'min:0'],
             'tax_amount' => ['required', 'numeric', 'min:0'],
             'total' => ['required', 'numeric', 'gt:0'],
             'notes' => ['nullable', 'string', 'max:2000'],
@@ -149,12 +150,16 @@ class PurchaseInboxController extends Controller
         if (abs(round((float) $data['subtotal'] + (float) $data['tax_amount'], 2) - (float) $data['total']) > 0.01) {
             throw ValidationException::withMessages(['total' => __('Total must equal subtotal plus tax.')]);
         }
+        if ((float) ($data['shipping_cost'] ?? 0) > (float) $data['subtotal'] + 0.005) {
+            throw ValidationException::withMessages(['shipping_cost' => __('Transport cannot exceed the document subtotal.')]);
+        }
         if (PurchaseDocument::where('supplier_id', $data['supplier_id'])->where('type', $data['classification'])->where('supplier_number', $data['supplier_number'])->exists()) {
             throw ValidationException::withMessages(['supplier_number' => __('This supplier document number is already registered.')]);
         }
 
         $document = DB::transaction(function () use ($request, $inboxDocument, $matcher, $accounting, $data, $order) {
-            $match = $order ? $matcher->match($order, []) : null;
+            $shippingCost = round((float) ($data['shipping_cost'] ?? 0), 2);
+            $match = $order ? $matcher->match($order, [], $shippingCost) : null;
             if ($match && abs((float) $match['totals']['amount'] - (float) $data['total']) > 0.01) {
                 throw ValidationException::withMessages(['total' => __('The document total does not match the pending lines of the selected purchase order.')]);
             }
@@ -174,6 +179,7 @@ class PurchaseInboxController extends Controller
                 'issue_date' => $data['issue_date'],
                 'due_date' => $data['due_date'] ?? null,
                 'subtotal' => ($credit ? -1 : 1) * (float) $data['subtotal'],
+                'shipping_cost' => ($credit ? -1 : 1) * $shippingCost,
                 'tax_amount' => ($credit ? -1 : 1) * (float) $data['tax_amount'],
                 'amount' => ($credit ? -1 : 1) * (float) $data['total'],
                 'notes' => $data['notes'] ?? null,

@@ -96,16 +96,27 @@ class AccountingSynchronizer
         $supplierAccount = $document->supplier?->payable_account_code ?: '400';
         $costs = $document->lines->groupBy(fn ($line) => $line->product?->purchase_account_code ?: '600')->map(fn ($lines) => round((float) $lines->sum('subtotal'), 2));
         if ($costs->isEmpty()) {
-            $costs = collect(['600' => (float) $document->subtotal]);
-        } $lines = [];
+            $costs = collect(['600' => (float) $document->subtotal - (float) $document->shipping_cost]);
+        }
+        if (abs((float) $document->shipping_cost) > 0.005) {
+            $costs['624'] = round((float) ($costs['624'] ?? 0) + (float) $document->shipping_cost, 2);
+        }
+        $lines = [];
         foreach ($costs as $code => $amount) {
             $lines[] = [$code, $creditNote ? 0 : abs($amount), $creditNote ? abs($amount) : 0];
-        } $taxes = $document->lines->groupBy(fn ($line) => (string) $line->tax_percent)->map(fn ($items) => round((float) $items->sum('tax_amount'), 2));
+        }
+        $taxes = $document->lines->groupBy(fn ($line) => (string) $line->tax_percent)->map(fn ($items) => round((float) $items->sum('tax_amount'), 2));
+        $shippingTax = round((float) $document->tax_amount - (float) $document->lines->sum('tax_amount'), 2);
+        if (abs($shippingTax) > 0.005) {
+            $taxes['21'] = round((float) ($taxes['21'] ?? 0) + $shippingTax, 2);
+        }
         if ($taxes->isEmpty() && abs((float) $document->tax_amount) > 0) {
             $taxes = collect(['default' => abs((float) $document->tax_amount)]);
-        } foreach ($taxes as $rate => $amount) {
+        }
+        foreach ($taxes as $rate => $amount) {
             $lines[] = [$this->taxAccount($rate === 'default' ? null : (float) $rate, 'input'), $creditNote ? 0 : abs($amount), $creditNote ? abs($amount) : 0];
-        } $lines[] = [$supplierAccount, $creditNote ? abs((float) $document->amount) : 0, $creditNote ? 0 : abs((float) $document->amount)];
+        }
+        $lines[] = [$supplierAccount, $creditNote ? abs((float) $document->amount) : 0, $creditNote ? 0 : abs((float) $document->amount)];
 
         return $this->post($document, 'document', $document->issue_date->toDateString(), $document->number, $userId, $lines);
     }
