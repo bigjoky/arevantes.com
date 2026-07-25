@@ -157,7 +157,7 @@ export default function PurchaseComparison({
                                             value={money(request.amount)}
                                         />
                                         <Summary
-                                            label="Transport"
+                                            label="Transport (before tax)"
                                             value={money(request.shipping_cost)}
                                         />
                                         <Summary
@@ -221,7 +221,7 @@ export default function PurchaseComparison({
                                                 )}
                                             />
                                             <Field
-                                                label="Transport cost"
+                                                label="Transport cost (before tax, VAT 21%)"
                                                 name="shipping_cost"
                                                 type="number"
                                                 step="0.01"

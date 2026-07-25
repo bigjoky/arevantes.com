@@ -13,7 +13,6 @@ import {
     Upload,
     WalletCards,
 } from 'lucide-react';
-import InputError from '@/components/input-error';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -56,7 +55,12 @@ type Document = {
     paid_amount: string;
     notes: string | null;
     supplier: { legal_name: string; trade_name: string | null };
-    source_document: { id: number; number: string; type: string } | null;
+    source_document: {
+        id: number;
+        number: string;
+        type: string;
+        shipping_cost: string;
+    } | null;
     derived_documents: {
         id: number;
         number: string;
@@ -125,6 +129,11 @@ type OrderProgress = {
     pending_quantity: number;
     over_invoiced_quantity: number;
 };
+type ShippingProgress = {
+    ordered_cost: number;
+    invoiced_cost: number;
+    pending_cost: number;
+};
 type CreditProgress = {
     line_id: number;
     description: string;
@@ -148,14 +157,20 @@ export default function PurchaseShow({
     orderSummary,
     creditSummary,
     creditedAmount,
+    creditableShipping,
     extractionComparison,
 }: {
     document: Document;
     warehouses: Warehouse[];
     matchDetails: MatchDetail[];
-    orderSummary: { status: string; lines: OrderProgress[] } | null;
+    orderSummary: {
+        status: string;
+        lines: OrderProgress[];
+        shipping: ShippingProgress;
+    } | null;
     creditSummary: CreditProgress[];
     creditedAmount: number;
+    creditableShipping: number;
     extractionComparison: ExtractionComparison[];
 }) {
     const canReceive =
@@ -172,15 +187,16 @@ export default function PurchaseShow({
     );
     const hasPendingInvoice =
         orderSummary?.lines.some((line) => line.pending_quantity > 0.0005) ||
+        (orderSummary?.shipping.pending_cost ?? 0) > 0.005 ||
         false;
     const hasReturnableStock = document.lines.some(
         (line) =>
             line.product.track_stock &&
             Number(line.received_quantity) - Number(line.returned_quantity) > 0,
     );
-    const hasCreditableLines = creditSummary.some(
-        (line) => line.creditable_quantity > 0.0005,
-    );
+    const hasCreditableLines =
+        creditSummary.some((line) => line.creditable_quantity > 0.0005) ||
+        creditableShipping > 0.005;
     const outstandingAmount = Math.max(
         0,
         Number(document.amount) - creditedAmount - Number(document.paid_amount),
@@ -306,49 +322,26 @@ export default function PurchaseShow({
                     </table>
                 </section>
                 <section className="ml-auto w-full max-w-sm border-t pt-4 text-sm">
-                    <Total label="Subtotal" value={document.subtotal} />
-                    <Total label="Tax" value={document.tax_amount} />
+                    <Total
+                        label={
+                            Number(document.shipping_cost) > 0
+                                ? 'Products'
+                                : 'Subtotal'
+                        }
+                        value={String(
+                            Number(document.subtotal) -
+                                Number(document.shipping_cost),
+                        )}
+                    />
                     {Number(document.shipping_cost) > 0 && (
                         <Total
-                            label="Transport"
+                            label="Transport (before tax)"
                             value={document.shipping_cost}
                         />
                     )}
+                    <Total label="Tax" value={document.tax_amount} />
                     <Total label="Total" value={document.amount} strong />
                 </section>
-                {document.type === 'purchase_order' && (
-                    <Form
-                        action={`/purchases/${document.id}/shipping`}
-                        method="patch"
-                        className="ml-auto grid w-full max-w-sm gap-2"
-                    >
-                        {({ errors, processing }) => (
-                            <>
-                                <label
-                                    htmlFor="shipping_cost"
-                                    className="text-sm font-medium"
-                                >
-                                    Transport cost
-                                </label>
-                                <div className="flex gap-2">
-                                    <Input
-                                        id="shipping_cost"
-                                        name="shipping_cost"
-                                        type="number"
-                                        min="0"
-                                        step="0.01"
-                                        defaultValue={document.shipping_cost}
-                                        required
-                                    />
-                                    <Button disabled={processing}>
-                                        Update transport
-                                    </Button>
-                                </div>
-                                <InputError message={errors.shipping_cost} />
-                            </>
-                        )}
-                    </Form>
-                )}
                 {document.type === 'supplier_invoice' &&
                     document.matching_status && (
                         <MatchingPanel
@@ -606,6 +599,26 @@ export default function PurchaseShow({
                                         type="date"
                                     />
                                 </div>
+                                <div className="grid max-w-sm gap-2">
+                                    <Field
+                                        label="Transport (before tax, VAT 21%)"
+                                        name="shipping_cost"
+                                        type="number"
+                                        value={String(
+                                            orderSummary?.shipping
+                                                .pending_cost ?? 0,
+                                        )}
+                                    />
+                                    <p className="text-xs text-muted-foreground">
+                                        Remaining order transport:{' '}
+                                        {money(
+                                            String(
+                                                orderSummary?.shipping
+                                                    .pending_cost ?? 0,
+                                            ),
+                                        )}
+                                    </p>
+                                </div>
                                 <div className="overflow-x-auto border-y">
                                     <table className="w-full min-w-[42rem] text-sm">
                                         <thead>
@@ -813,7 +826,7 @@ export default function PurchaseShow({
                                 resetOnSuccess
                                 className="mt-3 grid gap-4"
                             >
-                                <div className="grid gap-4 sm:grid-cols-2">
+                                <div className="grid gap-4 sm:grid-cols-3">
                                     <Field
                                         label="Supplier credit note number"
                                         name="supplier_number"
@@ -823,6 +836,12 @@ export default function PurchaseShow({
                                         name="issue_date"
                                         type="date"
                                         value={today()}
+                                    />
+                                    <Field
+                                        label={`Transport credit (available ${money(String(creditableShipping))})`}
+                                        name="shipping_cost"
+                                        type="number"
+                                        value="0"
                                     />
                                 </div>
                                 <div className="overflow-x-auto border-y">
@@ -1151,7 +1170,7 @@ function MatchingPanel({
                     </div>
                     <p className="mt-1 text-sm text-muted-foreground">
                         {needsReview
-                            ? 'Quantity or price differs from the order and goods received.'
+                            ? 'Quantity, price or transport differs from the order and goods received.'
                             : document.matching_status === 'approved'
                               ? `Variance approved by ${document.approver?.name || 'an authorised user'}.`
                               : 'Order, receipt and supplier invoice agree.'}
@@ -1164,6 +1183,18 @@ function MatchingPanel({
                     </div>
                 </div>
             </div>
+            {document.source_document?.type === 'purchase_order' && (
+                <div className="mt-4 grid border-y text-sm sm:grid-cols-2">
+                    <Info
+                        label="Order transport"
+                        value={money(document.source_document.shipping_cost)}
+                    />
+                    <Info
+                        label="Invoice transport"
+                        value={money(document.shipping_cost)}
+                    />
+                </div>
+            )}
             <div className="mt-4 overflow-x-auto border-y">
                 <table className="w-full min-w-[48rem] text-sm">
                     <thead>
@@ -1351,7 +1382,13 @@ function Field({
     return (
         <div className="grid gap-2">
             <label className="text-sm font-medium">{label}</label>
-            <Input name={name} type={type} defaultValue={value} />
+            <Input
+                name={name}
+                type={type}
+                min={type === 'number' ? '0' : undefined}
+                step={type === 'number' ? '0.01' : undefined}
+                defaultValue={value}
+            />
         </div>
     );
 }
