@@ -30,6 +30,7 @@ use App\Http\Controllers\InstallationHuaweiController;
 use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\KnowledgeDocumentController;
 use App\Http\Controllers\LegalController;
+use App\Http\Controllers\MyHumanResourcesController;
 use App\Http\Controllers\OperationsController;
 use App\Http\Controllers\OpportunityController;
 use App\Http\Controllers\PersonController;
@@ -93,6 +94,9 @@ Route::middleware(['auth'])->group(function () {
     Route::put('human-resources/employees/{staff}', [HrEmploymentController::class, 'update'])->middleware('can:manage-staff')->name('human-resources.employees.update');
     Route::resource('human-resources/departments', HrDepartmentController::class)->only(['index', 'store', 'update', 'destroy'])->middleware('can:manage-staff')->names('human-resources.departments');
     Route::resource('human-resources/leave', HrLeaveController::class)->only(['index', 'store', 'update', 'destroy'])->middleware('can:manage-staff')->names('human-resources.leave');
+    Route::get('my-human-resources', [MyHumanResourcesController::class, 'index'])->name('my-human-resources.index');
+    Route::post('my-human-resources/leave', [MyHumanResourcesController::class, 'store'])->name('my-human-resources.leave.store');
+    Route::patch('my-human-resources/leave/{leave}/cancel', [MyHumanResourcesController::class, 'cancel'])->name('my-human-resources.leave.cancel');
     Route::post('staff/{staff}/access', [StaffAccessController::class, 'store'])->middleware('can:manage-staff')->name('staff.access.store');
     Route::patch('staff/{staff}/access', [StaffAccessController::class, 'update'])->middleware('can:manage-staff')->name('staff.access.update');
     Route::delete('staff/{staff}/access', [StaffAccessController::class, 'destroy'])->middleware('can:manage-staff')->name('staff.access.destroy');

@@ -4,7 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\HrLeaveRequest;
 use App\Models\Person;
-use Carbon\CarbonImmutable;
+use App\Notifications\LeaveRequestDecisionNotification;
+use App\Services\HumanResources\LeaveRequestCreator;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -46,7 +47,7 @@ class HrLeaveController extends Controller
         ]);
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request, LeaveRequestCreator $creator): RedirectResponse
     {
         $validated = $request->validate([
             'person_id' => ['required', Rule::exists('people', 'id')->where('category', 'staff')],
@@ -56,11 +57,8 @@ class HrLeaveController extends Controller
             'notes' => ['nullable', 'string', 'max:2000'],
         ]);
 
-        $validated['requested_days'] = CarbonImmutable::parse($validated['start_date'])
-            ->diffInDays(CarbonImmutable::parse($validated['end_date'])) + 1;
-        $validated['status'] = 'pending';
-
-        HrLeaveRequest::create($validated);
+        $person = Person::findOrFail($validated['person_id']);
+        $creator->create($person, collect($validated)->except('person_id')->all());
 
         return back()->with('success', __('Leave request created.'));
     }
@@ -78,6 +76,9 @@ class HrLeaveController extends Controller
             'reviewed_by' => $reviewed ? $request->user()->id : null,
             'reviewed_at' => $reviewed ? now() : null,
         ]);
+        if ($reviewed && $leave->person->user) {
+            $leave->person->user->notify(new LeaveRequestDecisionNotification($leave));
+        }
 
         return back()->with('success', __('Leave request updated.'));
     }

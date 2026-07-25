@@ -2,6 +2,7 @@ import { Link, usePage } from '@inertiajs/react';
 import {
     BriefcaseBusiness,
     Building2,
+    CalendarDays,
     ChartNoAxesCombined,
     LayoutGrid,
     Settings2,
@@ -28,6 +29,11 @@ export function AppSidebar() {
     const commercial = user.role !== 'technician';
     const items: NavItem[] = [
         { title: 'Dashboard', href: dashboard(), icon: LayoutGrid },
+        {
+            title: 'Mi RR. HH.',
+            href: '/my-human-resources',
+            icon: CalendarDays,
+        },
         ...(commercial
             ? [
                   {
