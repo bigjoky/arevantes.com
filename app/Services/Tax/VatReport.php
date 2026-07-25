@@ -69,16 +69,26 @@ class VatReport
     {
         $purchases = PurchaseDocument::with(['lines', 'supplier'])->whereIn('type', ['supplier_invoice', 'supplier_credit_note'])->whereNot('status', 'review_required')->whereBetween('issue_date', [$from, $to])->orderBy('issue_date')->get()->flatMap(function ($document) {
             $groups = $document->lines->groupBy(fn ($line) => number_format((float) $line->tax_percent, 2, '.', ''));
-            if ($groups->isEmpty()) {
-                $groups = collect([$this->effectiveRate($document->subtotal, $document->tax_amount) => collect()]);
-            }
-
-            return $groups->map(function ($lines, $rate) use ($document) {
-                $base = $lines->isEmpty() ? (float) $document->subtotal : (float) $lines->sum('subtotal');
-                $vat = $lines->isEmpty() ? (float) $document->tax_amount : (float) $lines->sum('tax_amount');
+            $rows = $groups->map(function ($lines, $rate) use ($document) {
+                $base = (float) $lines->sum('subtotal');
+                $vat = (float) $lines->sum('tax_amount');
 
                 return $this->row('received', $document->issue_date, $document->supplier_number ?: $document->number, $document->supplier?->legal_name ?: __('Unknown supplier'), $document->supplier?->tax_id, (float) $rate, $base, $vat, $base + $vat, 'purchase_document', $document->id);
             });
+            $shippingBase = (float) $document->shipping_cost;
+            $shippingVat = round($shippingBase * 0.21, 2);
+            $unallocatedBase = round((float) $document->subtotal - (float) $document->lines->sum('subtotal') - $shippingBase, 2);
+            $unallocatedVat = round((float) $document->tax_amount - (float) $document->lines->sum('tax_amount') - $shippingVat, 2);
+
+            if (abs($unallocatedBase) > 0.005 || abs($unallocatedVat) > 0.005) {
+                $rate = (float) $this->effectiveRate($unallocatedBase, $unallocatedVat);
+                $rows->push($this->row('received', $document->issue_date, $document->supplier_number ?: $document->number, $document->supplier?->legal_name ?: __('Unknown supplier'), $document->supplier?->tax_id, $rate, $unallocatedBase, $unallocatedVat, $unallocatedBase + $unallocatedVat, 'purchase_document', $document->id));
+            }
+            if (abs($shippingBase) > 0.005) {
+                $rows->push($this->row('received', $document->issue_date, $document->supplier_number ?: $document->number, $document->supplier?->legal_name ?: __('Unknown supplier'), $document->supplier?->tax_id, 21, $shippingBase, $shippingVat, $shippingBase + $shippingVat, 'purchase_document', $document->id));
+            }
+
+            return $rows;
         });
         $expenses = Expense::with('supplier')->whereBetween('expense_date', [$from, $to])->orderBy('expense_date')->get()->map(fn ($expense) => $this->row('received', $expense->expense_date, $expense->document_number ?: $expense->number, $expense->supplier?->legal_name ?: ($expense->merchant_name ?: __('Unknown merchant')), $expense->supplier?->tax_id, (float) $this->effectiveRate($expense->subtotal, $expense->tax_amount), (float) $expense->subtotal, (float) $expense->tax_amount, (float) $expense->amount, 'expense', $expense->id));
 

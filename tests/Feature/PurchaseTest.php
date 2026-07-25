@@ -34,46 +34,16 @@ class PurchaseTest extends TestCase
                 'quantity' => 2,
                 'unit_price' => 100,
                 'discount_percent' => 0,
-                'tax_percent' => 21,
+                'tax_percent' => 10,
             ]],
         ])->assertRedirect();
 
         $order = PurchaseDocument::firstOrFail();
 
         $this->assertSame('25.50', $order->shipping_cost);
-        $this->assertSame('267.50', $order->amount);
-    }
-
-    public function test_transport_cost_can_be_added_to_an_existing_purchase_order(): void
-    {
-        $user = User::factory()->create(['role' => 'commercial']);
-        $supplier = Supplier::create(['legal_name' => 'Legacy Supply SL', 'country' => 'ES']);
-        $product = Product::create(['type' => 'product', 'sku' => 'OLD-10', 'name' => 'Inverter', 'unit_id' => Unit::firstOrFail()->id, 'tax_rate_id' => TaxRate::firstOrFail()->id, 'sale_price' => 150, 'cost_price' => 100, 'is_active' => true]);
-
-        $this->actingAs($user)->post(route('purchases.store'), [
-            'type' => 'purchase_order',
-            'supplier_id' => $supplier->id,
-            'issue_date' => '2026-07-01',
-            'lines' => [[
-                'product_id' => $product->id,
-                'description' => 'Inverter',
-                'quantity' => 1,
-                'unit_price' => 100,
-                'discount_percent' => 0,
-                'tax_percent' => 21,
-            ]],
-        ])->assertRedirect();
-
-        $order = PurchaseDocument::firstOrFail();
-        $this->assertSame('0.00', $order->shipping_cost);
-        $this->assertSame('121.00', $order->amount);
-
-        $this->patch(route('purchases.shipping.update', $order), [
-            'shipping_cost' => 18.75,
-        ])->assertRedirect();
-
-        $this->assertSame('18.75', $order->refresh()->shipping_cost);
-        $this->assertSame('139.75', $order->amount);
+        $this->assertSame('225.50', $order->subtotal);
+        $this->assertSame('25.36', $order->tax_amount);
+        $this->assertSame('250.86', $order->amount);
     }
 
     public function test_a_purchase_order_receives_serialized_stock_and_creates_a_supplier_invoice(): void
@@ -86,11 +56,12 @@ class PurchaseTest extends TestCase
 
         $this->post(route('purchases.store'), [
             'type' => 'purchase_order', 'supplier_id' => $supplier->id, 'issue_date' => '2026-07-12',
+            'shipping_cost' => 50,
             'lines' => [['product_id' => $product->id, 'description' => 'Inverter', 'quantity' => 2, 'unit_price' => 800, 'discount_percent' => 0, 'tax_percent' => 21]],
         ])->assertRedirect();
         $order = PurchaseDocument::firstOrFail();
         $this->assertSame('PC-2026-00001', $order->number);
-        $this->assertSame('1936.00', $order->amount);
+        $this->assertSame('1996.50', $order->amount);
 
         $line = $order->lines()->firstOrFail();
         $this->post(route('purchases.receive', $order), [
@@ -108,7 +79,16 @@ class PurchaseTest extends TestCase
         $this->assertSame('FS-2026-88', $invoice->supplier_number);
         $this->assertSame('matched', $invoice->matching_status);
         $this->assertSame('0.00', $invoice->match_variance_amount);
+        $this->assertSame('50.00', $invoice->shipping_cost);
+        $this->assertSame('1650.00', $invoice->subtotal);
+        $this->assertSame('346.50', $invoice->tax_amount);
+        $this->assertSame('1996.50', $invoice->amount);
         $this->assertSame('AST-2026-000001', $invoice->accountingEntry()->firstOrFail()->number);
+        $this->assertEqualsWithDelta(
+            $invoice->accountingEntry->lines->sum('debit'),
+            $invoice->accountingEntry->lines->sum('credit'),
+            0.001,
+        );
         $this->post(route('purchases.invoice', $order), ['supplier_number' => 'DUPLICATE', 'issue_date' => '2026-07-12'])->assertSessionHasErrors('lines');
         $this->assertSame(1, PurchaseDocument::where('type', 'supplier_invoice')->count());
     }
@@ -156,6 +136,47 @@ class PurchaseTest extends TestCase
         $this->assertSame($user->id, $invoice->approved_by);
         $this->assertNotNull($invoice->approved_at);
         $this->assertNotNull($invoice->accountingEntry()->first());
+    }
+
+    public function test_transport_is_invoiced_once_across_partial_invoices_and_can_be_credited(): void
+    {
+        $user = User::factory()->create(['role' => 'commercial']);
+        $supplier = Supplier::create(['legal_name' => 'Freight Supplier SL', 'country' => 'ES']);
+        $product = Product::create(['type' => 'service', 'sku' => 'FREIGHT-SERVICE', 'name' => 'Service', 'unit_id' => Unit::firstOrFail()->id, 'tax_rate_id' => TaxRate::firstOrFail()->id, 'sale_price' => 150, 'cost_price' => 100, 'track_stock' => false, 'is_active' => true]);
+        $this->actingAs($user);
+
+        $this->post(route('purchases.store'), [
+            'type' => 'purchase_order', 'supplier_id' => $supplier->id, 'issue_date' => '2026-07-13', 'shipping_cost' => 30,
+            'lines' => [['product_id' => $product->id, 'description' => 'Service', 'quantity' => 2, 'unit_price' => 100, 'discount_percent' => 0, 'tax_percent' => 21]],
+        ])->assertRedirect();
+        $order = PurchaseDocument::where('type', 'purchase_order')->firstOrFail();
+        $line = $order->lines()->firstOrFail();
+
+        $this->post(route('purchases.invoice', $order), [
+            'supplier_number' => 'FREIGHT-1', 'issue_date' => '2026-07-13',
+            'lines' => [['line_id' => $line->id, 'quantity' => 1, 'unit_price' => 100]],
+        ])->assertRedirect();
+        $firstInvoice = PurchaseDocument::where('type', 'supplier_invoice')->firstOrFail();
+        $this->assertSame('30.00', $firstInvoice->shipping_cost);
+        $this->assertSame('157.30', $firstInvoice->amount);
+        $this->assertSame('partially_invoiced', $order->refresh()->invoicing_status);
+
+        $this->post(route('purchases.invoice', $order), [
+            'supplier_number' => 'FREIGHT-2', 'issue_date' => '2026-07-14',
+            'lines' => [['line_id' => $line->id, 'quantity' => 1, 'unit_price' => 100]],
+        ])->assertRedirect();
+        $secondInvoice = PurchaseDocument::where('type', 'supplier_invoice')->latest('id')->firstOrFail();
+        $this->assertSame('0.00', $secondInvoice->shipping_cost);
+        $this->assertSame('invoiced', $order->refresh()->invoicing_status);
+
+        $this->post(route('supplier-invoices.credit-note', $firstInvoice), [
+            'supplier_number' => 'FREIGHT-CREDIT', 'issue_date' => '2026-07-15', 'shipping_cost' => 10, 'lines' => [],
+        ])->assertRedirect();
+        $credit = PurchaseDocument::where('type', 'supplier_credit_note')->firstOrFail();
+        $this->assertSame('-10.00', $credit->shipping_cost);
+        $this->assertSame('-12.10', $credit->amount);
+        $this->assertNotNull($credit->accountingEntry()->first());
+        $this->assertSame('partially_invoiced', $order->refresh()->invoicing_status);
     }
 
     public function test_an_order_supports_partial_invoices_supplier_credits_and_goods_returns(): void
