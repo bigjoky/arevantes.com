@@ -13,6 +13,7 @@ use App\Models\CollectionActionEvent;
 use App\Models\CompanyProfile;
 use App\Models\DocumentSeries;
 use App\Models\FinancialBudget;
+use App\Models\FinancialBudgetPeriod;
 use App\Models\FinancialForecastItem;
 use App\Models\FiscalYear;
 use App\Models\Installation;
@@ -80,6 +81,7 @@ class AppServiceProvider extends ServiceProvider
         JournalEntry::observe(AuditableObserver::class);
         FinancialForecastItem::observe(AuditableObserver::class);
         FinancialBudget::observe(AuditableObserver::class);
+        FinancialBudgetPeriod::observe(AuditableObserver::class);
         CollectionAction::observe(AuditableObserver::class);
         CollectionAction::observe(CollectionActionHistoryObserver::class);
         CollectionActionEvent::observe(AuditableObserver::class);
@@ -102,6 +104,7 @@ class AppServiceProvider extends ServiceProvider
         Gate::define('manage-treasury', fn (User $user) => $user->hasRole('commercial'));
         Gate::define('manage-accounting', fn (User $user) => $user->hasRole('commercial'));
         Gate::define('approve-payments', fn (User $user) => false);
+        Gate::define('approve-budgets', fn (User $user) => false);
         Gate::define('manage-tax', fn (User $user) => false);
         Gate::define('manage-staff', fn (User $user) => false);
     }

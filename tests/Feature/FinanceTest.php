@@ -10,6 +10,7 @@ use App\Models\CompanyProfile;
 use App\Models\Expense;
 use App\Models\ExpenseCategory;
 use App\Models\FinancialBudget;
+use App\Models\FinancialBudgetPeriod;
 use App\Models\FinancialForecastItem;
 use App\Models\PaymentBatch;
 use App\Models\PurchaseDocument;
@@ -85,6 +86,9 @@ class FinanceTest extends TestCase
             ->where('alertSettings.operatingVariancePercent', 10)
             ->where('alertSettings.cashVariancePercent', 10)
             ->where('alertSettings.liquidityBufferAmount', 0)
+            ->where('budgetPeriod.status', 'draft')
+            ->where('budgetPeriod.configuredValues', 4)
+            ->where('budgetPeriod.requiredValues', 48)
             ->where('receivables.0.promise_breached', true)
             ->where('kpis.brokenPromises', 1)
             ->has('cashFlow', 12)
@@ -256,6 +260,84 @@ class FinanceTest extends TestCase
             ->has('budgetAlerts', 3));
     }
 
+    public function test_annual_budget_approval_locks_every_mutation_until_reopened(): void
+    {
+        $commercial = User::factory()->create(['role' => 'commercial']);
+        $admin = User::factory()->create(['role' => 'admin']);
+        FinancialBudget::create(['year' => 2025, 'month' => 1, 'category' => 'revenue', 'amount' => 100, 'created_by' => $commercial->id]);
+
+        $this->actingAs($admin)->post(route('finance.budgets.approve', 2026), [
+            'confirmation' => '2026',
+        ])->assertRedirect()->assertSessionHasErrors('budget');
+
+        foreach (range(1, 12) as $month) {
+            foreach (['revenue', 'costs', 'cash_in', 'cash_out'] as $category) {
+                FinancialBudget::create([
+                    'year' => 2026,
+                    'month' => $month,
+                    'category' => $category,
+                    'amount' => $month * 100,
+                    'created_by' => $commercial->id,
+                ]);
+            }
+        }
+
+        $this->actingAs($commercial)->post(route('finance.budgets.approve', 2026), [
+            'confirmation' => '2026',
+        ])->assertForbidden();
+        $this->actingAs($admin)->post(route('finance.budgets.approve', 2026), [
+            'confirmation' => '2026',
+            'approval_notes' => 'Board-approved annual plan.',
+        ])->assertRedirect()->assertSessionHasNoErrors();
+
+        $period = FinancialBudgetPeriod::firstOrFail();
+        $this->assertSame('approved', $period->status);
+        $this->assertSame($admin->id, $period->approved_by);
+        $this->assertNotNull($period->approved_at);
+        $lockedBudget = FinancialBudget::where(['year' => 2026, 'month' => 1, 'category' => 'revenue'])->firstOrFail();
+
+        $this->actingAs($commercial)->post(route('finance.budgets.store'), [
+            'year' => 2026,
+            'month' => 1,
+            'category' => 'revenue',
+            'amount' => 999,
+        ])->assertRedirect()->assertSessionHasErrors('budget');
+        $this->post(route('finance.budgets.copy'), [
+            'source_year' => 2025,
+            'target_year' => 2026,
+            'adjustment_percent' => 0,
+            'overwrite' => true,
+        ])->assertRedirect()->assertSessionHasErrors('budget');
+        $this->post(route('finance.budgets.import'), [
+            'year' => 2026,
+            'budget_file' => UploadedFile::fake()->createWithContent(
+                'locked.csv',
+                "year,month,category,amount\n2026,1,revenue,999\n",
+            ),
+            'overwrite' => true,
+        ])->assertRedirect()->assertSessionHasErrors('budget');
+        $this->delete(route('finance.budgets.destroy', $lockedBudget))
+            ->assertRedirect()
+            ->assertSessionHasErrors('budget');
+        $this->assertSame('100.00', $lockedBudget->fresh()->amount);
+
+        $this->actingAs($admin)->post(route('finance.budgets.reopen', 2026), [
+            'reopen_reason' => 'Revenue assumptions changed after approval.',
+        ])->assertRedirect()->assertSessionHasNoErrors();
+        $this->assertSame('draft', $period->fresh()->status);
+        $this->assertSame($admin->id, $period->fresh()->reopened_by);
+        $this->assertSame('Revenue assumptions changed after approval.', $period->fresh()->reopen_reason);
+
+        $this->actingAs($commercial)->post(route('finance.budgets.store'), [
+            'year' => 2026,
+            'month' => 1,
+            'category' => 'revenue',
+            'amount' => 999,
+        ])->assertRedirect()->assertSessionHasNoErrors();
+        $this->assertSame('999.00', $lockedBudget->fresh()->amount);
+        $this->assertGreaterThanOrEqual(2, AuditLog::where('auditable_type', FinancialBudgetPeriod::class)->count());
+    }
+
     public function test_treasury_planning_collection_workflow_and_payment_batches_are_operational(): void
     {
         $commercial = User::factory()->create(['role' => 'commercial']);
@@ -388,6 +470,7 @@ class FinanceTest extends TestCase
         $this->post(route('finance.forecast-items.store'), ['direction' => 'in'])->assertForbidden();
         $this->patch(route('finance.alert-settings.update'), [])->assertForbidden();
         $this->post(route('finance.budgets.import'), [])->assertForbidden();
+        $this->post(route('finance.budgets.approve', now()->year), [])->assertForbidden();
     }
 
     public function test_thirteen_week_forecast_uses_current_bank_balance_and_expands_recurring_items(): void

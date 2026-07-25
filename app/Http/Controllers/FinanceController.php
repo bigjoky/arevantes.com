@@ -7,6 +7,7 @@ use App\Models\CollectionAction;
 use App\Models\CompanyProfile;
 use App\Models\Expense;
 use App\Models\FinancialBudget;
+use App\Models\FinancialBudgetPeriod;
 use App\Models\FinancialForecastItem;
 use App\Models\PaymentBatch;
 use App\Models\PaymentBatchItem;
@@ -50,6 +51,7 @@ class FinanceController extends Controller
         $purchases = PurchaseDocument::whereIn('type', ['supplier_invoice', 'supplier_credit_note'])->whereNot('status', 'review_required')->whereYear('issue_date', $year)->get();
         $expenses = Expense::whereYear('expense_date', $year)->get();
         $budgets = FinancialBudget::where('year', $year)->orderBy('month')->orderBy('category')->get();
+        $budgetPeriod = FinancialBudgetPeriod::with('approver:id,name')->where('year', $year)->first();
         $receivables = SalesDocument::with(['customer:id,first_name,last_name,company_name', 'collectionAction.assignee:id,name', 'collectionAction.events.creator:id,name'])->where('type', 'invoice')->whereIn('status', ['issued', 'partial', 'overdue'])->get();
         $payableInvoices = PurchaseDocument::with('supplier:id,legal_name,trade_name')->withSum('creditNotes as credited_total', 'amount')->where('type', 'supplier_invoice')->whereIn('status', ['registered', 'pending', 'partial', 'overdue'])->get();
         $payableExpenses = Expense::with('supplier:id,legal_name,trade_name')->whereIn('status', ['pending', 'partial', 'overdue'])->get();
@@ -178,6 +180,15 @@ class FinanceController extends Controller
             'treasuryForecast' => $treasuryForecast,
             'forecastItems' => FinancialForecastItem::with('installation:id,project_reference,site_name')->whereYear('due_on', $year)->latest('due_on')->limit(100)->get(),
             'budgets' => $budgets,
+            'budgetPeriod' => [
+                'status' => $budgetPeriod?->status ?? 'draft',
+                'approvedBy' => $budgetPeriod?->approver?->name,
+                'approvedAt' => $budgetPeriod?->approved_at?->toIso8601String(),
+                'reopenedAt' => $budgetPeriod?->reopened_at?->toIso8601String(),
+                'reopenReason' => $budgetPeriod?->reopen_reason,
+                'configuredValues' => $budgets->count(),
+                'requiredValues' => 48,
+            ],
             'budgetSummary' => $this->budgetSummary($year, $revenue, $costs, (float) $customerPayments->sum('amount'), (float) $supplierPayments->sum('amount')),
             'budgetAlerts' => $budgetAlerts,
             'alertSettings' => [
@@ -194,6 +205,7 @@ class FinanceController extends Controller
                 'manageTreasury' => Gate::allows('manage-treasury'),
                 'manageAccounting' => Gate::allows('manage-accounting'),
                 'approvePayments' => Gate::allows('approve-payments'),
+                'approveBudgets' => Gate::allows('approve-budgets'),
             ],
         ]);
     }
@@ -244,6 +256,7 @@ class FinanceController extends Controller
             'amount' => ['required', 'numeric', 'min:0'],
             'notes' => ['nullable', 'string', 'max:1000'],
         ]);
+        $this->assertBudgetEditable((int) $data['year']);
         FinancialBudget::updateOrCreate(
             collect($data)->only(['year', 'month', 'category'])->all(),
             [...collect($data)->only(['amount', 'notes'])->all(), 'created_by' => $request->user()->id],
@@ -264,6 +277,7 @@ class FinanceController extends Controller
         if ($source->isEmpty()) {
             throw ValidationException::withMessages(['source_year' => __('The source year has no budget values.')]);
         }
+        $this->assertBudgetEditable((int) $data['target_year']);
 
         $copied = DB::transaction(function () use ($request, $data, $source) {
             $copied = 0;
@@ -297,6 +311,7 @@ class FinanceController extends Controller
             'budget_file' => ['required', 'file', 'mimetypes:text/plain,text/csv,application/csv,application/octet-stream', 'max:2048'],
             'overwrite' => ['nullable', 'boolean'],
         ]);
+        $this->assertBudgetEditable((int) $data['year']);
         $result = $importer->import(
             $request->file('budget_file')->getRealPath(),
             (int) $data['year'],
@@ -312,9 +327,62 @@ class FinanceController extends Controller
 
     public function destroyBudget(FinancialBudget $financialBudget): RedirectResponse
     {
+        $this->assertBudgetEditable($financialBudget->year);
         $financialBudget->delete();
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Budget value removed.')]);
+    }
+
+    public function approveBudget(Request $request, int $year): RedirectResponse
+    {
+        abort_unless($year >= 2020 && $year <= 2100, 404);
+        $data = $request->validate([
+            'confirmation' => ['required', 'string', Rule::in([(string) $year])],
+            'approval_notes' => ['nullable', 'string', 'max:1000'],
+        ]);
+        $configuredValues = FinancialBudget::where('year', $year)->count();
+        if ($configuredValues !== 48) {
+            throw ValidationException::withMessages([
+                'budget' => __('Complete all 48 monthly budget values before approval.'),
+            ]);
+        }
+
+        DB::transaction(function () use ($request, $year, $data) {
+            $period = FinancialBudgetPeriod::query()->lockForUpdate()->firstOrCreate(
+                ['year' => $year],
+                ['status' => 'draft'],
+            );
+            abort_unless($period->status === 'draft', 422);
+            $period->update([
+                'status' => 'approved',
+                'approved_by' => $request->user()->id,
+                'approved_at' => now(),
+                'approval_notes' => $data['approval_notes'] ?? null,
+            ]);
+        });
+
+        return back()->with('toast', ['type' => 'success', 'message' => __('Annual budget approved and locked.')]);
+    }
+
+    public function reopenBudget(Request $request, int $year): RedirectResponse
+    {
+        abort_unless($year >= 2020 && $year <= 2100, 404);
+        $data = $request->validate([
+            'reopen_reason' => ['required', 'string', 'min:5', 'max:1000'],
+        ]);
+
+        DB::transaction(function () use ($request, $year, $data) {
+            $period = FinancialBudgetPeriod::query()->where('year', $year)->lockForUpdate()->firstOrFail();
+            abort_unless($period->status === 'approved', 422);
+            $period->update([
+                'status' => 'draft',
+                'reopened_by' => $request->user()->id,
+                'reopened_at' => now(),
+                'reopen_reason' => $data['reopen_reason'],
+            ]);
+        });
+
+        return back()->with('toast', ['type' => 'success', 'message' => __('Annual budget reopened for editing.')]);
     }
 
     public function updateAlertSettings(Request $request): RedirectResponse
@@ -543,6 +611,15 @@ class FinanceController extends Controller
         $validated = $request->validate(['year' => ['nullable', 'integer', 'between:2020,2100']]);
 
         return (int) ($validated['year'] ?? now()->year);
+    }
+
+    private function assertBudgetEditable(int $year): void
+    {
+        if (FinancialBudgetPeriod::where('year', $year)->where('status', 'approved')->exists()) {
+            throw ValidationException::withMessages([
+                'budget' => __('The approved annual budget is locked. Reopen it before making changes.'),
+            ]);
+        }
     }
 
     private function payables(Collection $invoices, Collection $expenses, ?Collection $activeBatchItems = null): Collection

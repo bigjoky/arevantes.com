@@ -195,6 +195,7 @@ export default function FinanceIndex({
     treasuryForecast,
     forecastItems,
     budgets,
+    budgetPeriod,
     budgetSummary,
     budgetAlerts,
     alertSettings,
@@ -235,6 +236,15 @@ export default function FinanceIndex({
     };
     forecastItems: ForecastItem[];
     budgets: Budget[];
+    budgetPeriod: {
+        status: 'draft' | 'approved';
+        approvedBy: string | null;
+        approvedAt: string | null;
+        reopenedAt: string | null;
+        reopenReason: string | null;
+        configuredValues: number;
+        requiredValues: number;
+    };
     budgetSummary: {
         revenue: number;
         costs: number;
@@ -276,6 +286,7 @@ export default function FinanceIndex({
         manageTreasury: boolean;
         manageAccounting: boolean;
         approvePayments: boolean;
+        approveBudgets: boolean;
     };
 }) {
     const vatBalance = vat.output - vat.input;
@@ -708,11 +719,22 @@ export default function FinanceIndex({
                 </section>
                 <section className="grid gap-8 border-t pt-5 xl:grid-cols-2 [&>*]:min-w-0">
                     <div>
-                        <div className="mb-3 flex items-center gap-2">
-                            <Target className="size-4 text-muted-foreground" />
-                            <h2 className="font-semibold">
-                                Budget and comparison
-                            </h2>
+                        <div className="mb-3 flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-2">
+                                <Target className="size-4 text-muted-foreground" />
+                                <h2 className="font-semibold">
+                                    Budget and comparison
+                                </h2>
+                            </div>
+                            <Badge
+                                variant={
+                                    budgetPeriod.status === 'approved'
+                                        ? 'default'
+                                        : 'outline'
+                                }
+                            >
+                                {budgetPeriod.status}
+                            </Badge>
                         </div>
                         <div className="grid grid-cols-2 border-y text-sm">
                             <Total
@@ -756,16 +778,28 @@ export default function FinanceIndex({
                                 ? 'no baseline'
                                 : `${comparison.resultChange}%`}
                         </p>
-                        {can.manageTreasury && (
-                            <BudgetForm
-                                year={year}
-                                budgets={budgets}
-                                performance={performance}
-                                cashFlow={cashFlow}
-                                alertSettings={alertSettings}
-                                alertCount={budgetAlerts.length}
-                            />
+                        <BudgetGovernance
+                            year={year}
+                            period={budgetPeriod}
+                            canApprove={can.approveBudgets}
+                        />
+                        {budgetPeriod.status === 'approved' && (
+                            <p className="mt-3 text-sm font-medium text-muted-foreground">
+                                This annual budget is locked. Reopen it before
+                                changing values.
+                            </p>
                         )}
+                        {can.manageTreasury &&
+                            budgetPeriod.status === 'draft' && (
+                                <BudgetForm
+                                    year={year}
+                                    budgets={budgets}
+                                    performance={performance}
+                                    cashFlow={cashFlow}
+                                    alertSettings={alertSettings}
+                                    alertCount={budgetAlerts.length}
+                                />
+                            )}
                     </div>
                     <div>
                         <div className="mb-3 flex items-center gap-2">
@@ -1647,6 +1681,101 @@ function ForecastForm() {
                 <Plus /> Add forecast item
             </Button>
         </Form>
+    );
+}
+function BudgetGovernance({
+    year,
+    period,
+    canApprove,
+}: {
+    year: number;
+    period: {
+        status: 'draft' | 'approved';
+        approvedBy: string | null;
+        approvedAt: string | null;
+        reopenedAt: string | null;
+        reopenReason: string | null;
+        configuredValues: number;
+        requiredValues: number;
+    };
+    canApprove: boolean;
+}) {
+    const complete = period.configuredValues === period.requiredValues;
+
+    return (
+        <div className="mt-4 border-y py-3 text-sm">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                    <span className="font-medium">
+                        {period.configuredValues}/{period.requiredValues}{' '}
+                        configured values
+                    </span>
+                    {period.approvedAt && (
+                        <span className="ml-2 text-muted-foreground">
+                            Last approved {dateTime(period.approvedAt)}
+                            {period.approvedBy
+                                ? ` by ${period.approvedBy}`
+                                : ''}
+                        </span>
+                    )}
+                </div>
+                {!complete && period.status === 'draft' && (
+                    <Badge variant="outline">
+                        {period.requiredValues - period.configuredValues}{' '}
+                        missing
+                    </Badge>
+                )}
+            </div>
+            {period.reopenedAt && period.reopenReason && (
+                <p className="mt-2 text-xs text-muted-foreground">
+                    Reopened {dateTime(period.reopenedAt)} ·{' '}
+                    {period.reopenReason}
+                </p>
+            )}
+            {canApprove && period.status === 'draft' && (
+                <Form
+                    action={`/finance/budgets/${year}/approve`}
+                    method="post"
+                    className="mt-3 grid gap-3 border-t pt-3 sm:grid-cols-[10rem_1fr_auto]"
+                >
+                    <Field label={`Confirm ${year}`}>
+                        <Input
+                            name="confirmation"
+                            placeholder={String(year)}
+                            required
+                        />
+                    </Field>
+                    <Field label="Approval notes">
+                        <Input
+                            name="approval_notes"
+                            placeholder="Approved assumptions and scope"
+                        />
+                    </Field>
+                    <div className="flex items-end">
+                        <Button disabled={!complete}>Approve and lock</Button>
+                    </div>
+                </Form>
+            )}
+            {canApprove && period.status === 'approved' && (
+                <Form
+                    action={`/finance/budgets/${year}/reopen`}
+                    method="post"
+                    className="mt-3 grid gap-3 border-t pt-3 sm:grid-cols-[1fr_auto]"
+                >
+                    <Field label="Reason for reopening">
+                        <Input
+                            name="reopen_reason"
+                            minLength={5}
+                            placeholder="Explain why the approved budget must change"
+                            required
+                        />
+                    </Field>
+                    <div className="flex items-end">
+                        <Button variant="outline">Reopen budget</Button>
+                    </div>
+                </Form>
+            )}
+        </div>
     );
 }
 function BudgetForm({
