@@ -118,6 +118,10 @@ export function AppSidebar() {
                               href: '/human-resources/leave',
                           },
                           {
+                              title: 'Tareas y onboarding',
+                              href: '/human-resources/tasks',
+                          },
+                          {
                               title: 'Departamentos',
                               href: '/human-resources/departments',
                           },

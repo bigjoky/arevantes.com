@@ -3,6 +3,8 @@ import {
     BriefcaseBusiness,
     Building2,
     CalendarDays,
+    Check,
+    ClipboardCheck,
     Clock3,
     MapPin,
     UserRound,
@@ -50,6 +52,17 @@ type LeaveRequest = {
     decisionNotes: string | null;
     reviewerName: string | null;
 };
+type EmployeeTask = {
+    id: number;
+    title: string;
+    category: string;
+    priority: string;
+    dueDate: string | null;
+    status: string;
+    employeeActionable: boolean;
+    notes: string | null;
+    completedAt: string | null;
+};
 
 const selectClass =
     'border-input bg-background h-9 w-full rounded-md border px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]';
@@ -57,9 +70,11 @@ const selectClass =
 export default function MySpace({
     employee,
     requests,
+    tasks,
 }: {
     employee: Employee | null;
     requests: LeaveRequest[];
+    tasks: EmployeeTask[];
 }) {
     return (
         <>
@@ -288,6 +303,90 @@ export default function MySpace({
 
                         <Card>
                             <CardHeader>
+                                <CardTitle className="flex items-center gap-2">
+                                    <ClipboardCheck className="size-4" />
+                                    Mis tareas
+                                </CardTitle>
+                                <CardDescription>
+                                    Acciones de incorporación, formación y
+                                    cumplimiento.
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                {tasks.length ? (
+                                    <div className="divide-y">
+                                        {tasks.map((task) => (
+                                            <div
+                                                key={task.id}
+                                                className="flex flex-wrap items-start justify-between gap-4 py-4 first:pt-0 last:pb-0"
+                                            >
+                                                <div>
+                                                    <div className="font-medium">
+                                                        {task.title}
+                                                    </div>
+                                                    <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                                                        <span>
+                                                            {taskCategoryLabel(
+                                                                task.category,
+                                                            )}
+                                                        </span>
+                                                        {task.dueDate ? (
+                                                            <span>
+                                                                Fecha límite:{' '}
+                                                                {formatDate(
+                                                                    task.dueDate,
+                                                                )}
+                                                            </span>
+                                                        ) : null}
+                                                        <Badge variant="outline">
+                                                            {taskPriorityLabel(
+                                                                task.priority,
+                                                            )}
+                                                        </Badge>
+                                                    </div>
+                                                    {task.notes ? (
+                                                        <p className="mt-2 text-sm">
+                                                            {task.notes}
+                                                        </p>
+                                                    ) : null}
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <Badge
+                                                        variant={taskStatusVariant(
+                                                            task.status,
+                                                        )}
+                                                    >
+                                                        {taskStatusLabel(
+                                                            task.status,
+                                                        )}
+                                                    </Badge>
+                                                    {task.employeeActionable &&
+                                                    task.status !==
+                                                        'completed' ? (
+                                                        <Form
+                                                            action={`/my-human-resources/tasks/${task.id}/complete`}
+                                                            method="patch"
+                                                        >
+                                                            <Button size="sm">
+                                                                <Check />
+                                                                Completar
+                                                            </Button>
+                                                        </Form>
+                                                    ) : null}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="py-8 text-center text-sm text-muted-foreground">
+                                        No tienes tareas asignadas.
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+
+                        <Card>
+                            <CardHeader>
                                 <CardTitle>Mis solicitudes</CardTitle>
                                 <CardDescription>
                                     Historial de ausencias y decisiones.
@@ -412,6 +511,52 @@ function employmentTypeLabel(type: string) {
             contractor: 'Profesional externo',
         }[type] ?? type
     );
+}
+
+function taskCategoryLabel(category: string) {
+    return (
+        {
+            onboarding: 'Incorporación',
+            offboarding: 'Salida',
+            training: 'Formación',
+            compliance: 'Cumplimiento',
+            other: 'Otra',
+        }[category] ?? category
+    );
+}
+
+function taskPriorityLabel(priority: string) {
+    return (
+        {
+            low: 'Prioridad baja',
+            normal: 'Prioridad normal',
+            high: 'Prioridad alta',
+        }[priority] ?? priority
+    );
+}
+
+function taskStatusLabel(status: string) {
+    return (
+        {
+            pending: 'Pendiente',
+            in_progress: 'En curso',
+            completed: 'Completada',
+        }[status] ?? status
+    );
+}
+
+function taskStatusVariant(
+    status: string,
+): 'default' | 'secondary' | 'outline' {
+    if (status === 'completed') {
+        return 'default';
+    }
+
+    if (status === 'in_progress') {
+        return 'secondary';
+    }
+
+    return 'outline';
 }
 
 function employmentStatusLabel(status: string) {

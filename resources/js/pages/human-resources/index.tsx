@@ -3,6 +3,7 @@ import {
     BriefcaseBusiness,
     Building2,
     CalendarClock,
+    ClipboardCheck,
     KeyRound,
     UserPlus,
     UsersRound,
@@ -25,6 +26,7 @@ type Summary = {
     activeEmployment: number;
     pendingLeave: number;
     departments: number;
+    overdueTasks: number;
 };
 
 type RoleDistribution = {
@@ -92,6 +94,12 @@ export default function HumanResourcesIndex({
             value: summary.departments,
             detail: 'Unidades activas de la organización',
             icon: Building2,
+        },
+        {
+            label: 'Tareas vencidas',
+            value: summary.overdueTasks,
+            detail: 'Acciones abiertas fuera de plazo',
+            icon: ClipboardCheck,
         },
     ];
 

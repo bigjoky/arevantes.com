@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\HrDepartment;
+use App\Models\HrEmployeeTask;
 use App\Models\HrEmploymentProfile;
 use App\Models\HrLeaveRequest;
 use App\Models\Person;
@@ -41,6 +42,10 @@ class HumanResourcesController extends Controller
                 'activeEmployment' => HrEmploymentProfile::where('status', 'active')->count(),
                 'pendingLeave' => HrLeaveRequest::where('status', 'pending')->count(),
                 'departments' => HrDepartment::where('is_active', true)->count(),
+                'overdueTasks' => HrEmployeeTask::query()
+                    ->whereNot('status', 'completed')
+                    ->whereDate('due_date', '<', today())
+                    ->count(),
             ],
             'roleDistribution' => $this->roleDistribution($staff),
             'recentStaff' => $staff

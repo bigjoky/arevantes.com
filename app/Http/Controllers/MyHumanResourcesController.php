@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\HrEmployeeTask;
 use App\Models\HrLeaveRequest;
 use App\Models\Person;
 use App\Models\User;
+use App\Notifications\HrTaskCompletedNotification;
 use App\Notifications\LeaveRequestSubmittedNotification;
 use App\Services\HumanResources\LeaveRequestCreator;
 use Illuminate\Http\RedirectResponse;
@@ -42,6 +44,25 @@ class MyHumanResourcesController extends Controller
                         'reviewerName' => $leave->reviewer?->name,
                     ])
                 : [],
+            'tasks' => $person
+                ? $person->hrTasks()
+                    ->where('employee_visible', true)
+                    ->orderByRaw("case when status = 'completed' then 1 else 0 end")
+                    ->orderByRaw('case when due_date is null then 1 else 0 end')
+                    ->orderBy('due_date')
+                    ->get()
+                    ->map(fn (HrEmployeeTask $task) => [
+                        'id' => $task->id,
+                        'title' => $task->title,
+                        'category' => $task->category,
+                        'priority' => $task->priority,
+                        'dueDate' => $task->due_date?->toDateString(),
+                        'status' => $task->status,
+                        'employeeActionable' => $task->employee_actionable,
+                        'notes' => $task->notes,
+                        'completedAt' => $task->completed_at?->toIso8601String(),
+                    ])
+                : [],
         ]);
     }
 
@@ -77,6 +98,29 @@ class MyHumanResourcesController extends Controller
         ]);
 
         return back()->with('success', __('Leave request cancelled.'));
+    }
+
+    public function completeTask(Request $request, HrEmployeeTask $task): RedirectResponse
+    {
+        $person = $this->staffProfile($request);
+        abort_unless($task->person_id === $person->id, 404);
+        abort_unless($task->employee_visible, 404);
+        abort_unless($task->employee_actionable, 403);
+        abort_if($task->status === 'completed', 422);
+
+        $task->update([
+            'status' => 'completed',
+            'completed_by' => $request->user()->id,
+            'completed_at' => now(),
+        ]);
+        $task->load('person');
+
+        Notification::send(
+            User::query()->where('role', 'admin')->whereKeyNot($request->user()->id)->get(),
+            new HrTaskCompletedNotification($task),
+        );
+
+        return back()->with('success', __('HR task completed.'));
     }
 
     /**
