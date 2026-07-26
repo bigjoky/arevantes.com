@@ -48,6 +48,7 @@ use App\Http\Controllers\StockCountController;
 use App\Http\Controllers\SupplierIntelligenceController;
 use App\Http\Controllers\SupplierInvoiceDocumentController;
 use App\Http\Controllers\SupplierQualityController;
+use App\Http\Controllers\SupplyAnalyticsController;
 use App\Http\Controllers\SupplyControlTowerController;
 use App\Http\Controllers\TaxController;
 use App\Http\Controllers\WebsiteContactController;
@@ -226,6 +227,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('supply-control', [SupplyControlTowerController::class, 'index'])->middleware('can:view-purchases')->name('supply-control.index');
     Route::post('supply-control/{purchaseDocument}/confirm', [SupplyControlTowerController::class, 'confirm'])->middleware('can:manage-purchases')->name('supply-control.confirm');
     Route::post('supply-control/{purchaseDocument}/follow-up', [SupplyControlTowerController::class, 'followUp'])->middleware('can:manage-purchases')->name('supply-control.follow-up');
+    Route::get('supply-analytics', SupplyAnalyticsController::class)->middleware('can:manage-purchases')->name('supply-analytics');
     Route::post('supplier-invoices/{purchaseDocument}/approve', [PurchaseController::class, 'approveInvoice'])->middleware('can:approve-purchase-invoices')->name('supplier-invoices.approve');
     Route::post('supplier-invoices/{purchaseDocument}/credit-note', [PurchaseController::class, 'creditNote'])->middleware('can:manage-purchases')->name('supplier-invoices.credit-note');
     Route::post('supplier-invoices/{purchaseDocument}/document', [SupplierInvoiceDocumentController::class, 'store'])->middleware('can:manage-catalog')->name('supplier-invoices.document.store');

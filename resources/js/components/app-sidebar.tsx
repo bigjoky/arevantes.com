@@ -78,6 +78,10 @@ export function AppSidebar() {
                               href: '/supply-control',
                           },
                           {
+                              title: 'Supply analytics',
+                              href: '/supply-analytics',
+                          },
+                          {
                               title: 'Supplier intelligence',
                               href: '/supplier-intelligence',
                           },
