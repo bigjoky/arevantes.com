@@ -8,6 +8,7 @@ use App\Models\CompanyProfile;
 use App\Models\Expense;
 use App\Models\FinancialBudget;
 use App\Models\FinancialBudgetPeriod;
+use App\Models\FinancialBudgetVersion;
 use App\Models\FinancialForecastItem;
 use App\Models\PaymentBatch;
 use App\Models\PaymentBatchItem;
@@ -51,7 +52,7 @@ class FinanceController extends Controller
         $purchases = PurchaseDocument::whereIn('type', ['supplier_invoice', 'supplier_credit_note'])->whereNot('status', 'review_required')->whereYear('issue_date', $year)->get();
         $expenses = Expense::whereYear('expense_date', $year)->get();
         $budgets = FinancialBudget::where('year', $year)->orderBy('month')->orderBy('category')->get();
-        $budgetPeriod = FinancialBudgetPeriod::with('approver:id,name')->where('year', $year)->first();
+        $budgetPeriod = FinancialBudgetPeriod::with(['approver:id,name', 'versions.approver:id,name'])->where('year', $year)->first();
         $receivables = SalesDocument::with(['customer:id,first_name,last_name,company_name', 'collectionAction.assignee:id,name', 'collectionAction.events.creator:id,name'])->where('type', 'invoice')->whereIn('status', ['issued', 'partial', 'overdue'])->get();
         $payableInvoices = PurchaseDocument::with('supplier:id,legal_name,trade_name')->withSum('creditNotes as credited_total', 'amount')->where('type', 'supplier_invoice')->whereIn('status', ['registered', 'pending', 'partial', 'overdue'])->get();
         $payableExpenses = Expense::with('supplier:id,legal_name,trade_name')->whereIn('status', ['pending', 'partial', 'overdue'])->get();
@@ -182,12 +183,29 @@ class FinanceController extends Controller
             'budgets' => $budgets,
             'budgetPeriod' => [
                 'status' => $budgetPeriod?->status ?? 'draft',
+                'currentRevision' => $budgetPeriod?->current_revision ?? 0,
                 'approvedBy' => $budgetPeriod?->approver?->name,
                 'approvedAt' => $budgetPeriod?->approved_at?->toIso8601String(),
                 'reopenedAt' => $budgetPeriod?->reopened_at?->toIso8601String(),
                 'reopenReason' => $budgetPeriod?->reopen_reason,
                 'configuredValues' => $budgets->count(),
                 'requiredValues' => 48,
+                'versions' => $budgetPeriod?->versions->map(function (FinancialBudgetVersion $version) {
+                    $values = collect($version->values);
+                    $total = fn (string $category) => (float) $values
+                        ->where('category', $category)
+                        ->sum(fn (array $value) => (float) $value['amount']);
+
+                    return [
+                        'id' => $version->id,
+                        'revision' => $version->revision,
+                        'approvedBy' => $version->approver?->name,
+                        'approvedAt' => $version->approved_at->toIso8601String(),
+                        'approvalNotes' => $version->approval_notes,
+                        'operatingResult' => round($total('revenue') - $total('costs'), 2),
+                        'cashNet' => round($total('cash_in') - $total('cash_out'), 2),
+                    ];
+                })->values() ?? [],
             ],
             'budgetSummary' => $this->budgetSummary($year, $revenue, $costs, (float) $customerPayments->sum('amount'), (float) $supplierPayments->sum('amount')),
             'budgetAlerts' => $budgetAlerts,
@@ -340,28 +358,49 @@ class FinanceController extends Controller
             'confirmation' => ['required', 'string', Rule::in([(string) $year])],
             'approval_notes' => ['nullable', 'string', 'max:1000'],
         ]);
-        $configuredValues = FinancialBudget::where('year', $year)->count();
-        if ($configuredValues !== 48) {
-            throw ValidationException::withMessages([
-                'budget' => __('Complete all 48 monthly budget values before approval.'),
-            ]);
-        }
-
         DB::transaction(function () use ($request, $year, $data) {
-            $period = FinancialBudgetPeriod::query()->lockForUpdate()->firstOrCreate(
+            FinancialBudgetPeriod::firstOrCreate(
                 ['year' => $year],
-                ['status' => 'draft'],
+                ['status' => 'draft', 'current_revision' => 0],
             );
+            $period = FinancialBudgetPeriod::query()->where('year', $year)->lockForUpdate()->firstOrFail();
             abort_unless($period->status === 'draft', 422);
+            $budgets = FinancialBudget::query()
+                ->where('year', $year)
+                ->orderBy('month')
+                ->orderBy('category')
+                ->lockForUpdate()
+                ->get();
+            if ($budgets->count() !== 48) {
+                throw ValidationException::withMessages([
+                    'budget' => __('Complete all 48 monthly budget values before approval.'),
+                ]);
+            }
+
+            $approvedAt = now();
+            $revision = $period->current_revision + 1;
+            $period->versions()->create([
+                'revision' => $revision,
+                'approved_by' => $request->user()->id,
+                'approved_at' => $approvedAt,
+                'approval_notes' => $data['approval_notes'] ?? null,
+                'values' => $budgets->map(fn (FinancialBudget $budget) => [
+                    'month' => $budget->month,
+                    'category' => $budget->category,
+                    'amount' => $budget->amount,
+                    'notes' => $budget->notes,
+                ])->all(),
+            ]);
             $period->update([
                 'status' => 'approved',
+                'current_revision' => $revision,
                 'approved_by' => $request->user()->id,
-                'approved_at' => now(),
+                'approved_at' => $approvedAt,
                 'approval_notes' => $data['approval_notes'] ?? null,
             ]);
         });
 
-        return back()->with('toast', ['type' => 'success', 'message' => __('Annual budget approved and locked.')]);
+        return back()->with('toast', ['type' => 'success', 'message' => __('Annual budget revision approved and locked.')]);
     }
 
     public function reopenBudget(Request $request, int $year): RedirectResponse
@@ -383,6 +422,29 @@ class FinanceController extends Controller
         });
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Annual budget reopened for editing.')]);
+    }
+
+    public function exportBudgetVersion(int $year, FinancialBudgetVersion $financialBudgetVersion): StreamedResponse
+    {
+        abort_unless(
+            $financialBudgetVersion->period()->where('year', $year)->exists(),
+            404,
+        );
+
+        return response()->streamDownload(function () use ($year, $financialBudgetVersion) {
+            $out = fopen('php://output', 'w');
+            fputcsv($out, ['year', 'month', 'category', 'amount', 'notes']);
+            collect($financialBudgetVersion->values)
+                ->sortBy(fn (array $value) => sprintf('%02d-%s', $value['month'], $value['category']))
+                ->each(fn (array $value) => fputcsv($out, [
+                    $year,
+                    $value['month'],
+                    $value['category'],
+                    number_format((float) $value['amount'], 2, '.', ''),
+                    $value['notes'],
+                ]));
+            fclose($out);
+        }, "finance-budget-{$year}-r{$financialBudgetVersion->revision}.csv", ['Content-Type' => 'text/csv; charset=UTF-8']);
     }
 
     public function updateAlertSettings(Request $request): RedirectResponse

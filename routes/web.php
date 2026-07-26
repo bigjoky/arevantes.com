@@ -140,6 +140,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('finance/budgets/copy', [FinanceController::class, 'copyBudget'])->middleware('can:manage-treasury')->name('finance.budgets.copy');
     Route::post('finance/budgets/{year}/approve', [FinanceController::class, 'approveBudget'])->middleware('can:approve-budgets')->name('finance.budgets.approve');
     Route::post('finance/budgets/{year}/reopen', [FinanceController::class, 'reopenBudget'])->middleware('can:approve-budgets')->name('finance.budgets.reopen');
+    Route::get('finance/budgets/{year}/versions/{financialBudgetVersion}/export', [FinanceController::class, 'exportBudgetVersion'])->middleware('can:view-finance')->name('finance.budgets.versions.export');
     Route::delete('finance/budgets/{financialBudget}', [FinanceController::class, 'destroyBudget'])->middleware('can:manage-treasury')->name('finance.budgets.destroy');
     Route::patch('finance/alert-settings', [FinanceController::class, 'updateAlertSettings'])->middleware('can:manage-treasury')->name('finance.alert-settings.update');
     Route::put('finance/collections/{salesDocument}', [FinanceController::class, 'storeCollectionAction'])->middleware('can:manage-treasury')->name('finance.collections.store');

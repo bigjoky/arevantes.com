@@ -11,6 +11,7 @@ use App\Models\Expense;
 use App\Models\ExpenseCategory;
 use App\Models\FinancialBudget;
 use App\Models\FinancialBudgetPeriod;
+use App\Models\FinancialBudgetVersion;
 use App\Models\FinancialForecastItem;
 use App\Models\PaymentBatch;
 use App\Models\PurchaseDocument;
@@ -292,8 +293,14 @@ class FinanceTest extends TestCase
 
         $period = FinancialBudgetPeriod::firstOrFail();
         $this->assertSame('approved', $period->status);
+        $this->assertSame(1, $period->current_revision);
         $this->assertSame($admin->id, $period->approved_by);
         $this->assertNotNull($period->approved_at);
+        $firstVersion = FinancialBudgetVersion::firstOrFail();
+        $this->assertSame(1, $firstVersion->revision);
+        $this->assertSame($admin->id, $firstVersion->approved_by);
+        $this->assertSame('Board-approved annual plan.', $firstVersion->approval_notes);
+        $this->assertSame('100.00', collect($firstVersion->values)->firstWhere(fn (array $value) => $value['month'] === 1 && $value['category'] === 'revenue')['amount']);
         $lockedBudget = FinancialBudget::where(['year' => 2026, 'month' => 1, 'category' => 'revenue'])->firstOrFail();
 
         $this->actingAs($commercial)->post(route('finance.budgets.store'), [
@@ -335,6 +342,32 @@ class FinanceTest extends TestCase
             'amount' => 999,
         ])->assertRedirect()->assertSessionHasNoErrors();
         $this->assertSame('999.00', $lockedBudget->fresh()->amount);
+
+        $this->actingAs($admin)->post(route('finance.budgets.approve', 2026), [
+            'confirmation' => '2026',
+            'approval_notes' => 'Reforecast after commercial review.',
+        ])->assertRedirect()->assertSessionHasNoErrors();
+        $this->assertSame(2, $period->fresh()->current_revision);
+        $this->assertCount(2, $period->versions);
+        $this->assertSame('100.00', collect($firstVersion->fresh()->values)->firstWhere(fn (array $value) => $value['month'] === 1 && $value['category'] === 'revenue')['amount']);
+        $secondVersion = FinancialBudgetVersion::where('revision', 2)->firstOrFail();
+        $this->assertSame('999.00', collect($secondVersion->values)->firstWhere(fn (array $value) => $value['month'] === 1 && $value['category'] === 'revenue')['amount']);
+
+        $this->actingAs($commercial)->get(route('finance.index', ['year' => 2026]))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('budgetPeriod.currentRevision', 2)
+                ->where('budgetPeriod.versions.0.revision', 2)
+                ->where('budgetPeriod.versions.0.operatingResult', 899)
+                ->where('budgetPeriod.versions.1.revision', 1)
+                ->where('budgetPeriod.versions.1.operatingResult', 0)
+                ->has('budgetPeriod.versions', 2));
+
+        $export = $this->get(route('finance.budgets.versions.export', [2026, $firstVersion]));
+        $export->assertOk()->assertDownload('finance-budget-2026-r1.csv');
+        $this->assertStringContainsString('2026,1,revenue,100.00', $export->streamedContent());
+        $this->get(route('finance.budgets.versions.export', [2025, $firstVersion]))->assertNotFound();
+
         $this->assertGreaterThanOrEqual(2, AuditLog::where('auditable_type', FinancialBudgetPeriod::class)->count());
     }
 

@@ -85,6 +85,25 @@ type Due = {
         }[];
     } | null;
 };
+type BudgetPeriod = {
+    status: 'draft' | 'approved';
+    currentRevision: number;
+    approvedBy: string | null;
+    approvedAt: string | null;
+    reopenedAt: string | null;
+    reopenReason: string | null;
+    configuredValues: number;
+    requiredValues: number;
+    versions: {
+        id: number;
+        revision: number;
+        approvedBy: string | null;
+        approvedAt: string;
+        approvalNotes: string | null;
+        operatingResult: number;
+        cashNet: number;
+    }[];
+};
 type Profit = {
     installation_id: number;
     reference: string | null;
@@ -236,15 +255,7 @@ export default function FinanceIndex({
     };
     forecastItems: ForecastItem[];
     budgets: Budget[];
-    budgetPeriod: {
-        status: 'draft' | 'approved';
-        approvedBy: string | null;
-        approvedAt: string | null;
-        reopenedAt: string | null;
-        reopenReason: string | null;
-        configuredValues: number;
-        requiredValues: number;
-    };
+    budgetPeriod: BudgetPeriod;
     budgetSummary: {
         revenue: number;
         costs: number;
@@ -734,6 +745,8 @@ export default function FinanceIndex({
                                 }
                             >
                                 {budgetPeriod.status}
+                                {budgetPeriod.currentRevision > 0 &&
+                                    ` · R${budgetPeriod.currentRevision}`}
                             </Badge>
                         </div>
                         <div className="grid grid-cols-2 border-y text-sm">
@@ -1689,15 +1702,7 @@ function BudgetGovernance({
     canApprove,
 }: {
     year: number;
-    period: {
-        status: 'draft' | 'approved';
-        approvedBy: string | null;
-        approvedAt: string | null;
-        reopenedAt: string | null;
-        reopenReason: string | null;
-        configuredValues: number;
-        requiredValues: number;
-    };
+    period: BudgetPeriod;
     canApprove: boolean;
 }) {
     const complete = period.configuredValues === period.requiredValues;
@@ -1731,6 +1736,51 @@ function BudgetGovernance({
                     Reopened {dateTime(period.reopenedAt)} ·{' '}
                     {period.reopenReason}
                 </p>
+            )}
+            {period.versions.length > 0 && (
+                <details className="mt-3 border-t pt-3">
+                    <summary className="cursor-pointer font-medium">
+                        Approved revisions ({period.versions.length})
+                    </summary>
+                    <div className="mt-2 divide-y border-y">
+                        {period.versions.map((version) => (
+                            <div
+                                key={version.id}
+                                className="grid gap-2 py-3 sm:grid-cols-[auto_1fr_auto_auto_auto] sm:items-center"
+                            >
+                                <Badge variant="outline">
+                                    R{version.revision}
+                                </Badge>
+                                <div className="min-w-0">
+                                    <p>
+                                        {dateTime(version.approvedAt)}
+                                        {version.approvedBy
+                                            ? ` · ${version.approvedBy}`
+                                            : ''}
+                                    </p>
+                                    {version.approvalNotes && (
+                                        <p className="truncate text-xs text-muted-foreground">
+                                            {version.approvalNotes}
+                                        </p>
+                                    )}
+                                </div>
+                                <span className="text-muted-foreground">
+                                    Result {money(version.operatingResult)}
+                                </span>
+                                <span className="text-muted-foreground">
+                                    Cash {money(version.cashNet)}
+                                </span>
+                                <Button variant="ghost" size="sm" asChild>
+                                    <a
+                                        href={`/finance/budgets/${year}/versions/${version.id}/export`}
+                                    >
+                                        <Download /> CSV
+                                    </a>
+                                </Button>
+                            </div>
+                        ))}
+                    </div>
+                </details>
             )}
             {canApprove && period.status === 'draft' && (
                 <Form
