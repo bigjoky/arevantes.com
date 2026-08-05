@@ -40,7 +40,7 @@ class DailyReminderDispatcher
             ->where('payable_type', 'expense')
             ->whereHas('batch', fn ($query) => $query->whereIn('status', ['draft', 'approved', 'exported']))
             ->pluck('payable_id');
-        $budgetAlerts = $this->financialAlerts->forYear(now()->year);
+        $budgetAlerts = $this->financialAlerts->forYear(now()->year)->where('status', '!=', 'resolved');
 
         $financial = [
             'collections' => [

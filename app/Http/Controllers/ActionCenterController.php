@@ -307,7 +307,7 @@ class ActionCenterController extends Controller
     private function financialAlertsGroup(): array
     {
         $year = now()->year;
-        $alerts = $this->financialAlerts->forYear($year);
+        $alerts = $this->financialAlerts->forYear($year)->where('status', '!=', 'resolved')->values();
         $items = $alerts->map(fn (array $alert, int $index) => [
             'id' => 'financial-alert-'.$alert['type'].'-'.($alert['month'] ?? 'forecast').'-'.$index,
             'title' => match ($alert['type']) {

@@ -143,6 +143,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('finance/budgets/{year}/versions/{financialBudgetVersion}/export', [FinanceController::class, 'exportBudgetVersion'])->middleware('can:view-finance')->name('finance.budgets.versions.export');
     Route::delete('finance/budgets/{financialBudget}', [FinanceController::class, 'destroyBudget'])->middleware('can:manage-treasury')->name('finance.budgets.destroy');
     Route::patch('finance/alert-settings', [FinanceController::class, 'updateAlertSettings'])->middleware('can:manage-treasury')->name('finance.alert-settings.update');
+    Route::patch('finance/alerts', [FinanceController::class, 'updateFinancialAlert'])->middleware('can:manage-treasury')->name('finance.alerts.update');
     Route::put('finance/collections/{salesDocument}', [FinanceController::class, 'storeCollectionAction'])->middleware('can:manage-treasury')->name('finance.collections.store');
     Route::post('finance/payment-batches', [FinanceController::class, 'storePaymentBatch'])->middleware('can:manage-treasury')->name('finance.payment-batches.store');
     Route::post('finance/payment-batches/{paymentBatch}/approve', [FinanceController::class, 'approvePaymentBatch'])->middleware('can:approve-payments')->name('finance.payment-batches.approve');

@@ -170,6 +170,7 @@ type Budget = {
     amount: string;
 };
 type BudgetAlert = {
+    key: string;
     type: 'operating' | 'cash' | 'liquidity';
     month: number | null;
     monthLabel: string | null;
@@ -177,6 +178,12 @@ type BudgetAlert = {
     variance: number;
     variancePercent: number | null;
     message: string;
+    actionId: number | null;
+    status: 'open' | 'in_review' | 'resolved';
+    assignedTo: number | null;
+    assignee: string | null;
+    notes: string | null;
+    resolvedAt: string | null;
 };
 type PaymentBatch = {
     id: number;
@@ -301,6 +308,9 @@ export default function FinanceIndex({
     };
 }) {
     const vatBalance = vat.output - vat.input;
+    const activeBudgetAlerts = budgetAlerts.filter(
+        (alert) => alert.status !== 'resolved',
+    ).length;
 
     return (
         <>
@@ -507,53 +517,157 @@ export default function FinanceIndex({
                                     Financial alerts
                                 </h2>
                             </div>
-                            <Badge variant="destructive">
-                                {budgetAlerts.length} active
+                            <Badge
+                                variant={
+                                    activeBudgetAlerts > 0
+                                        ? 'destructive'
+                                        : 'outline'
+                                }
+                            >
+                                {activeBudgetAlerts} active
                             </Badge>
                         </div>
                         <div className="divide-y border-y">
-                            {budgetAlerts.map((alert, index) => (
+                            {budgetAlerts.map((alert) => (
                                 <div
-                                    key={`${alert.type}-${alert.month ?? 'forecast'}-${index}`}
-                                    className="flex flex-wrap items-center justify-between gap-3 py-3 text-sm"
+                                    key={alert.key}
+                                    className={`py-3 text-sm ${alert.status === 'resolved' ? 'opacity-70' : ''}`}
                                 >
-                                    <div className="flex min-w-0 items-start gap-3">
-                                        <Badge
-                                            variant={
-                                                alert.severity === 'critical'
-                                                    ? 'destructive'
-                                                    : 'outline'
-                                            }
-                                        >
-                                            {alert.severity}
-                                        </Badge>
-                                        <div>
-                                            <div className="font-medium">
-                                                {alert.monthLabel
-                                                    ? `${alert.monthLabel} · `
-                                                    : ''}
-                                                {alert.message}
-                                            </div>
-                                            <div className="text-xs text-muted-foreground">
-                                                {money(alert.variance)}
-                                                {alert.variancePercent !== null
-                                                    ? ` · ${alert.variancePercent}% unfavorable`
-                                                    : ' · against liquidity buffer'}
+                                    <div className="flex flex-wrap items-start justify-between gap-3">
+                                        <div className="flex min-w-0 items-start gap-3">
+                                            <Badge
+                                                variant={
+                                                    alert.status === 'resolved'
+                                                        ? 'outline'
+                                                        : alert.severity ===
+                                                            'critical'
+                                                          ? 'destructive'
+                                                          : 'outline'
+                                                }
+                                            >
+                                                {alert.status === 'resolved'
+                                                    ? 'resolved'
+                                                    : alert.severity}
+                                            </Badge>
+                                            <div>
+                                                <div className="font-medium">
+                                                    {alert.monthLabel
+                                                        ? `${alert.monthLabel} · `
+                                                        : ''}
+                                                    {alert.message}
+                                                </div>
+                                                <div className="text-xs text-muted-foreground">
+                                                    {money(alert.variance)}
+                                                    {alert.variancePercent !==
+                                                    null
+                                                        ? ` · ${alert.variancePercent}% unfavorable`
+                                                        : ' · against liquidity buffer'}
+                                                    {alert.assignee
+                                                        ? ` · ${alert.assignee}`
+                                                        : ''}
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
-                                    {alert.month !== null && (
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            asChild
-                                        >
-                                            <a
-                                                href={`#budget-month-${alert.month}`}
+                                        {alert.month !== null && (
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                asChild
                                             >
-                                                Review month
-                                            </a>
-                                        </Button>
+                                                <a
+                                                    href={`#budget-month-${alert.month}`}
+                                                >
+                                                    Review month
+                                                </a>
+                                            </Button>
+                                        )}
+                                    </div>
+                                    {alert.notes && (
+                                        <p className="mt-2 text-xs text-muted-foreground">
+                                            {alert.notes}
+                                            {alert.resolvedAt
+                                                ? ` · Resolved ${dateTime(alert.resolvedAt)}`
+                                                : ''}
+                                        </p>
+                                    )}
+                                    {can.manageTreasury && (
+                                        <Form
+                                            action="/finance/alerts"
+                                            method="patch"
+                                            className="mt-3 grid gap-3 border-t pt-3 md:grid-cols-[9rem_12rem_1fr_auto]"
+                                        >
+                                            <input
+                                                type="hidden"
+                                                name="year"
+                                                value={year}
+                                            />
+                                            <input
+                                                type="hidden"
+                                                name="alert_key"
+                                                value={alert.key}
+                                            />
+                                            <Field label="Status">
+                                                <select
+                                                    name="status"
+                                                    className={
+                                                        nativeSelectClass
+                                                    }
+                                                    defaultValue={alert.status}
+                                                >
+                                                    <option value="open">
+                                                        Open
+                                                    </option>
+                                                    <option value="in_review">
+                                                        In review
+                                                    </option>
+                                                    <option value="resolved">
+                                                        Resolved
+                                                    </option>
+                                                </select>
+                                            </Field>
+                                            <Field label="Responsible">
+                                                <select
+                                                    name="assigned_to"
+                                                    className={
+                                                        nativeSelectClass
+                                                    }
+                                                    defaultValue={
+                                                        alert.assignedTo ?? ''
+                                                    }
+                                                >
+                                                    <option value="">
+                                                        Unassigned
+                                                    </option>
+                                                    {financeUsers.map(
+                                                        (user) => (
+                                                            <option
+                                                                key={user.id}
+                                                                value={user.id}
+                                                            >
+                                                                {user.name}
+                                                            </option>
+                                                        ),
+                                                    )}
+                                                </select>
+                                            </Field>
+                                            <Field label="Follow-up note">
+                                                <Input
+                                                    name="notes"
+                                                    minLength={3}
+                                                    maxLength={2000}
+                                                    defaultValue={
+                                                        alert.notes ?? ''
+                                                    }
+                                                    placeholder="Explain the cause and next action"
+                                                    required
+                                                />
+                                            </Field>
+                                            <div className="flex items-end">
+                                                <Button variant="outline">
+                                                    Save follow-up
+                                                </Button>
+                                            </div>
+                                        </Form>
                                     )}
                                 </div>
                             ))}

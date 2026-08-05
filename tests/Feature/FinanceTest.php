@@ -9,6 +9,7 @@ use App\Models\CollectionAction;
 use App\Models\CompanyProfile;
 use App\Models\Expense;
 use App\Models\ExpenseCategory;
+use App\Models\FinancialAlertAction;
 use App\Models\FinancialBudget;
 use App\Models\FinancialBudgetPeriod;
 use App\Models\FinancialBudgetVersion;
@@ -261,6 +262,62 @@ class FinanceTest extends TestCase
             ->has('budgetAlerts', 3));
     }
 
+    public function test_financial_alerts_can_be_assigned_reviewed_and_resolved(): void
+    {
+        $this->travelTo('2026-07-26');
+        $user = User::factory()->create(['role' => 'commercial']);
+        $assignee = User::factory()->create(['role' => 'commercial']);
+        FinancialBudget::create([
+            'year' => 2026,
+            'month' => 6,
+            'category' => 'revenue',
+            'amount' => 1000,
+            'created_by' => $user->id,
+        ]);
+
+        $this->actingAs($user)->patch(route('finance.alerts.update'), [
+            'year' => 2026,
+            'alert_key' => 'operating:6',
+            'status' => 'in_review',
+            'assigned_to' => $assignee->id,
+            'notes' => 'Review delayed June invoicing with the commercial team.',
+        ])->assertRedirect()->assertSessionHasNoErrors();
+
+        $action = FinancialAlertAction::firstOrFail();
+        $this->assertSame('in_review', $action->status);
+        $this->assertSame($assignee->id, $action->assigned_to);
+        $this->assertNull($action->resolved_at);
+        $this->get(route('finance.index', ['year' => 2026]))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('budgetAlerts.0.key', 'operating:6')
+                ->where('budgetAlerts.0.status', 'in_review')
+                ->where('budgetAlerts.0.assignee', $assignee->name)
+                ->where('budgetAlerts.0.notes', 'Review delayed June invoicing with the commercial team.'));
+
+        $this->patch(route('finance.alerts.update'), [
+            'year' => 2026,
+            'alert_key' => 'operating:6',
+            'status' => 'resolved',
+            'assigned_to' => $assignee->id,
+            'notes' => 'June invoices were posted and the deviation was accepted.',
+        ])->assertRedirect()->assertSessionHasNoErrors();
+
+        $this->assertSame('resolved', $action->fresh()->status);
+        $this->assertSame($user->id, $action->fresh()->resolved_by);
+        $this->assertNotNull($action->fresh()->resolved_at);
+        $groups = collect($this->getJson(route('action-center'))->assertOk()->json('groups'));
+        $this->assertNull($groups->firstWhere('label', 'Financial alerts'));
+        $this->assertGreaterThanOrEqual(2, AuditLog::where('auditable_type', FinancialAlertAction::class)->count());
+
+        $this->patch(route('finance.alerts.update'), [
+            'year' => 2026,
+            'alert_key' => 'operating:13',
+            'status' => 'open',
+            'notes' => 'Invalid alert.',
+        ])->assertRedirect()->assertSessionHasErrors('alert_key');
+    }
+
     public function test_annual_budget_approval_locks_every_mutation_until_reopened(): void
     {
         $commercial = User::factory()->create(['role' => 'commercial']);
@@ -502,6 +559,7 @@ class FinanceTest extends TestCase
         $this->actingAs($technician)->get(route('finance.index'))->assertForbidden();
         $this->post(route('finance.forecast-items.store'), ['direction' => 'in'])->assertForbidden();
         $this->patch(route('finance.alert-settings.update'), [])->assertForbidden();
+        $this->patch(route('finance.alerts.update'), [])->assertForbidden();
         $this->post(route('finance.budgets.import'), [])->assertForbidden();
         $this->post(route('finance.budgets.approve', now()->year), [])->assertForbidden();
     }

@@ -12,6 +12,7 @@ use App\Models\CollectionAction;
 use App\Models\CollectionActionEvent;
 use App\Models\CompanyProfile;
 use App\Models\DocumentSeries;
+use App\Models\FinancialAlertAction;
 use App\Models\FinancialBudget;
 use App\Models\FinancialBudgetPeriod;
 use App\Models\FinancialForecastItem;
@@ -82,6 +83,7 @@ class AppServiceProvider extends ServiceProvider
         FinancialForecastItem::observe(AuditableObserver::class);
         FinancialBudget::observe(AuditableObserver::class);
         FinancialBudgetPeriod::observe(AuditableObserver::class);
+        FinancialAlertAction::observe(AuditableObserver::class);
         CollectionAction::observe(AuditableObserver::class);
         CollectionAction::observe(CollectionActionHistoryObserver::class);
         CollectionActionEvent::observe(AuditableObserver::class);

@@ -6,6 +6,7 @@ use App\Models\BankAccount;
 use App\Models\CollectionAction;
 use App\Models\CompanyProfile;
 use App\Models\Expense;
+use App\Models\FinancialAlertAction;
 use App\Models\FinancialBudget;
 use App\Models\FinancialBudgetPeriod;
 use App\Models\FinancialBudgetVersion;
@@ -457,6 +458,44 @@ class FinanceController extends Controller
         CompanyProfile::firstOrFail()->update($data);
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Financial alert thresholds updated.')]);
+    }
+
+    public function updateFinancialAlert(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'year' => ['required', 'integer', 'between:2020,2100'],
+            'alert_key' => ['required', 'string', 'max:40'],
+            'status' => ['required', Rule::in(['open', 'in_review', 'resolved'])],
+            'assigned_to' => ['nullable', 'exists:users,id'],
+            'notes' => ['required', 'string', 'min:3', 'max:2000'],
+        ]);
+        $alert = $this->financialAlerts->forYear((int) $data['year'])
+            ->firstWhere('key', $data['alert_key']);
+        if (! $alert) {
+            throw ValidationException::withMessages([
+                'alert_key' => __('This financial alert is no longer active.'),
+            ]);
+        }
+
+        $action = FinancialAlertAction::firstOrNew([
+            'year' => $data['year'],
+            'alert_key' => $data['alert_key'],
+        ]);
+        $action->fill([
+            'type' => $alert['type'],
+            'month' => $alert['month'],
+            'status' => $data['status'],
+            'assigned_to' => $data['assigned_to'] ?? null,
+            'notes' => $data['notes'],
+            'resolved_by' => $data['status'] === 'resolved' ? $request->user()->id : null,
+            'resolved_at' => $data['status'] === 'resolved' ? now() : null,
+        ]);
+        if (! $action->exists) {
+            $action->created_by = $request->user()->id;
+        }
+        $action->save();
+
+        return back()->with('toast', ['type' => 'success', 'message' => __('Financial alert follow-up updated.')]);
     }
 
     public function storeCollectionAction(Request $request, SalesDocument $salesDocument): RedirectResponse

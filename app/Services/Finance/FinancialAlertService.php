@@ -4,6 +4,7 @@ namespace App\Services\Finance;
 
 use App\Models\CompanyProfile;
 use App\Models\Expense;
+use App\Models\FinancialAlertAction;
 use App\Models\FinancialBudget;
 use App\Models\PurchaseDocument;
 use App\Models\SalesDocument;
@@ -96,6 +97,7 @@ class FinancialAlertService
         if ((float) $treasuryForecast['lowestBalance'] < $liquidityBuffer) {
             $shortfall = (float) $treasuryForecast['lowestBalance'] - $liquidityBuffer;
             $alerts->push([
+                'key' => 'liquidity',
                 'type' => 'liquidity',
                 'month' => null,
                 'monthLabel' => null,
@@ -106,15 +108,36 @@ class FinancialAlertService
             ]);
         }
 
-        return $alerts
+        $alerts = $alerts
             ->sortByDesc(fn (array $alert) => ($alert['severity'] === 'critical' ? 1000000 : 0) + abs((float) $alert['variance']))
             ->values();
+
+        $actions = FinancialAlertAction::with('assignee:id,name')
+            ->where('year', $year)
+            ->whereIn('alert_key', $alerts->pluck('key'))
+            ->get()
+            ->keyBy('alert_key');
+
+        return $alerts->map(function (array $alert) use ($actions) {
+            $action = $actions->get($alert['key']);
+
+            return [
+                ...$alert,
+                'actionId' => $action?->id,
+                'status' => $action?->status ?? 'open',
+                'assignedTo' => $action?->assigned_to,
+                'assignee' => $action?->assignee?->name,
+                'notes' => $action?->notes,
+                'resolvedAt' => $action?->resolved_at?->toIso8601String(),
+            ];
+        });
     }
 
     /** @return array<string, mixed> */
     private function budgetAlert(string $type, int $month, string $monthLabel, float $variance, float $variancePercent, float $threshold): array
     {
         return [
+            'key' => $type.':'.$month,
             'type' => $type,
             'month' => $month,
             'monthLabel' => $monthLabel,
