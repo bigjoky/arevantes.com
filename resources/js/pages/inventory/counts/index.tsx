@@ -7,6 +7,7 @@ type Warehouse = { id: number; code: string; name: string };
 type Count = {
     id: number;
     number: string;
+    mode: 'quantity' | 'serial';
     status: 'draft' | 'posted';
     notes: string | null;
     started_at: string;
@@ -59,7 +60,7 @@ export default function StockCountsIndex({
                     <Form
                         action="/inventory/counts"
                         method="post"
-                        className="mt-4 grid gap-4 sm:grid-cols-[1fr_2fr_auto]"
+                        className="mt-4 grid gap-4 sm:grid-cols-[1fr_1fr_2fr_auto]"
                     >
                         <div className="grid gap-2">
                             <label className="text-sm font-medium">
@@ -81,6 +82,20 @@ export default function StockCountsIndex({
                             </select>
                         </div>
                         <div className="grid gap-2">
+                            <label className="text-sm font-medium">
+                                Count type
+                            </label>
+                            <select
+                                name="mode"
+                                required
+                                defaultValue="quantity"
+                                className="h-9 border bg-transparent px-3 text-sm"
+                            >
+                                <option value="quantity">Quantities</option>
+                                <option value="serial">Serial numbers</option>
+                            </select>
+                        </div>
+                        <div className="grid gap-2">
                             <label className="text-sm font-medium">Notes</label>
                             <input
                                 name="notes"
@@ -93,8 +108,8 @@ export default function StockCountsIndex({
                         </Button>
                     </Form>
                     <p className="mt-3 text-xs text-muted-foreground">
-                        Serialized products are excluded and remain controlled
-                        through their individual serial-number ledger.
+                        Use separate sessions for quantity-tracked and
+                        serial-number-tracked products.
                     </p>
                 </details>
                 <section className="overflow-x-auto">
@@ -103,6 +118,7 @@ export default function StockCountsIndex({
                             <tr className="border-b text-left text-muted-foreground">
                                 <th className="py-2">Count</th>
                                 <th>Warehouse</th>
+                                <th>Type</th>
                                 <th>Started</th>
                                 <th>Status</th>
                                 <th>Products</th>
@@ -122,6 +138,11 @@ export default function StockCountsIndex({
                                         <span className="text-xs text-muted-foreground">
                                             ({count.warehouse.code})
                                         </span>
+                                    </td>
+                                    <td>
+                                        {count.mode === 'serial'
+                                            ? 'Serial audit'
+                                            : 'Quantity count'}
                                     </td>
                                     <td>{dateTime(count.started_at)}</td>
                                     <td>

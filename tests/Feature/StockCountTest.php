@@ -34,9 +34,11 @@ class StockCountTest extends TestCase
 
         $this->actingAs($technician)->post(route('stock-counts.store'), [
             'warehouse_id' => $warehouse->id,
+            'mode' => 'quantity',
         ])->assertForbidden();
         $this->actingAs($commercial)->post(route('stock-counts.store'), [
             'warehouse_id' => $warehouse->id,
+            'mode' => 'quantity',
             'notes' => 'Aisle A',
         ])->assertRedirect();
 
@@ -83,7 +85,7 @@ class StockCountTest extends TestCase
             'warehouse_id' => $warehouse->id,
             'lines' => [['product_id' => $product->id, 'quantity' => 10, 'unit_cost' => 5]],
         ])->assertRedirect();
-        $this->post(route('stock-counts.store'), ['warehouse_id' => $warehouse->id])->assertRedirect();
+        $this->post(route('stock-counts.store'), ['warehouse_id' => $warehouse->id, 'mode' => 'quantity'])->assertRedirect();
         $count = StockCount::firstOrFail();
         $line = $count->lines()->firstOrFail();
         $this->patch(route('stock-counts.update', $count), ['quantities' => [$line->id => 8]])->assertRedirect();

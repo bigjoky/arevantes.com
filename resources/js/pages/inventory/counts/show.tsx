@@ -10,6 +10,11 @@ type CountLine = {
     counted_quantity: string | null;
     difference_quantity: string | null;
     unit_cost: string | null;
+    discrepancy_count: number;
+    snapshot_serials: string[] | null;
+    counted_serials: string[] | null;
+    missing_serials: string[] | null;
+    unexpected_serials: string[] | null;
     product: {
         id: number;
         sku: string | null;
@@ -20,6 +25,7 @@ type CountLine = {
 type Count = {
     id: number;
     number: string;
+    mode: 'quantity' | 'serial';
     status: 'draft' | 'posted';
     notes: string | null;
     started_at: string;
@@ -32,11 +38,15 @@ type Count = {
 };
 
 export default function StockCountShow({ count }: { count: Count }) {
-    const differences = count.lines.filter(
-        (line) => Math.abs(difference(line)) > 0.0005,
+    const differences = count.lines.filter((line) =>
+        count.mode === 'serial'
+            ? serialVariance(line).total > 0
+            : Math.abs(difference(line)) > 0.0005,
     );
-    const complete = count.lines.every(
-        (line) => line.counted_quantity !== null,
+    const complete = count.lines.every((line) =>
+        count.mode === 'serial'
+            ? line.counted_serials !== null
+            : line.counted_quantity !== null,
     );
 
     return (
@@ -57,6 +67,11 @@ export default function StockCountShow({ count }: { count: Count }) {
                                 }
                             >
                                 {count.status === 'posted' ? 'Posted' : 'Open'}
+                            </Badge>
+                            <Badge variant="outline">
+                                {count.mode === 'serial'
+                                    ? 'Serial audit'
+                                    : 'Quantity count'}
                             </Badge>
                         </div>
                         <p className="text-sm text-muted-foreground">
@@ -120,7 +135,17 @@ export default function StockCountShow({ count }: { count: Count }) {
                                     <th className="py-2">Product</th>
                                     <th>SKU</th>
                                     <th className="text-right">System</th>
-                                    <th className="w-36 text-right">Counted</th>
+                                    <th
+                                        className={
+                                            count.mode === 'serial'
+                                                ? 'w-[28rem]'
+                                                : 'w-36 text-right'
+                                        }
+                                    >
+                                        {count.mode === 'serial'
+                                            ? 'Scanned serial numbers'
+                                            : 'Counted'}
+                                    </th>
                                     <th className="text-right">Difference</th>
                                     <th className="text-right">Value</th>
                                 </tr>
@@ -128,6 +153,8 @@ export default function StockCountShow({ count }: { count: Count }) {
                             <tbody>
                                 {count.lines.map((line) => {
                                     const variance = difference(line);
+                                    const serialDifference =
+                                        serialVariance(line);
 
                                     return (
                                         <tr key={line.id} className="border-b">
@@ -141,7 +168,20 @@ export default function StockCountShow({ count }: { count: Count }) {
                                                 {Number(line.system_quantity)}
                                             </td>
                                             <td className="p-2">
-                                                {count.status === 'draft' ? (
+                                                {count.status === 'draft' &&
+                                                count.mode === 'serial' ? (
+                                                    <textarea
+                                                        name={`serials[${line.id}]`}
+                                                        rows={5}
+                                                        defaultValue={
+                                                            line.counted_serials?.join(
+                                                                '\n',
+                                                            ) ?? ''
+                                                        }
+                                                        className="w-full border bg-transparent p-2 font-mono text-xs"
+                                                        placeholder="One serial per line, or scan with line breaks"
+                                                    />
+                                                ) : count.status === 'draft' ? (
                                                     <Input
                                                         name={`quantities[${line.id}]`}
                                                         type="number"
@@ -153,6 +193,12 @@ export default function StockCountShow({ count }: { count: Count }) {
                                                         }
                                                         className="text-right"
                                                     />
+                                                ) : count.mode === 'serial' ? (
+                                                    <div className="text-left font-mono text-xs whitespace-pre-line">
+                                                        {line.counted_serials?.join(
+                                                            '\n',
+                                                        ) || 'None'}
+                                                    </div>
                                                 ) : (
                                                     <div className="text-right">
                                                         {Number(
@@ -167,6 +213,26 @@ export default function StockCountShow({ count }: { count: Count }) {
                                                 {line.counted_quantity === null
                                                     ? '—'
                                                     : signed(variance)}
+                                                {count.mode === 'serial' &&
+                                                    line.counted_serials !==
+                                                        null &&
+                                                    serialDifference.total >
+                                                        0 && (
+                                                        <div className="mt-1 text-xs font-normal text-muted-foreground">
+                                                            {serialDifference.missing >
+                                                                0 &&
+                                                                `${serialDifference.missing} missing`}
+                                                            {serialDifference.missing >
+                                                                0 &&
+                                                            serialDifference.unexpected >
+                                                                0
+                                                                ? ' · '
+                                                                : ''}
+                                                            {serialDifference.unexpected >
+                                                                0 &&
+                                                                `${serialDifference.unexpected} unexpected`}
+                                                        </div>
+                                                    )}
                                             </td>
                                             <td className="text-right">
                                                 {line.counted_quantity === null
@@ -190,7 +256,10 @@ export default function StockCountShow({ count }: { count: Count }) {
                     {count.status === 'draft' && (
                         <div className="flex flex-wrap justify-end gap-2 border-t pt-4">
                             <Button variant="outline">
-                                <Save /> Save quantities
+                                <Save />{' '}
+                                {count.mode === 'serial'
+                                    ? 'Save scans'
+                                    : 'Save quantities'}
                             </Button>
                         </div>
                     )}
@@ -199,7 +268,9 @@ export default function StockCountShow({ count }: { count: Count }) {
                     <section className="flex flex-wrap items-center justify-between gap-3 border-t pt-4">
                         <p className="text-sm text-muted-foreground">
                             Posting creates one immutable adjustment movement.
-                            Stock must not have changed since the count started.
+                            {count.mode === 'serial'
+                                ? ' The available serial registry must not have changed since the audit started.'
+                                : ' Stock must not have changed since the count started.'}
                         </p>
                         <div className="flex gap-2">
                             <Form
@@ -251,6 +322,22 @@ const difference = (line: CountLine) =>
         : line.counted_quantity !== null
           ? Number(line.counted_quantity) - Number(line.system_quantity)
           : 0;
+const serialVariance = (line: CountLine) => {
+    if (line.counted_serials === null) {
+        return { missing: 0, unexpected: 0, total: 0 };
+    }
+
+    const expected = new Set(line.snapshot_serials || []);
+    const counted = new Set(line.counted_serials);
+    const missing = [...expected].filter(
+        (serial) => !counted.has(serial),
+    ).length;
+    const unexpected = [...counted].filter(
+        (serial) => !expected.has(serial),
+    ).length;
+
+    return { missing, unexpected, total: missing + unexpected };
+};
 const signed = (value: number) => (value > 0 ? `+${value}` : String(value));
 const money = (value: number) =>
     new Intl.NumberFormat(undefined, {

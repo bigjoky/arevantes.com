@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class StockCount extends Model
 {
-    protected $fillable = ['warehouse_id', 'created_by', 'posted_by', 'stock_movement_id', 'number', 'status', 'notes', 'started_at', 'posted_at'];
+    protected $fillable = ['warehouse_id', 'created_by', 'posted_by', 'stock_movement_id', 'number', 'mode', 'status', 'notes', 'started_at', 'posted_at'];
 
     protected function casts(): array
     {
