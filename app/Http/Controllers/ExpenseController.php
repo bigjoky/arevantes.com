@@ -9,6 +9,7 @@ use App\Models\Installation;
 use App\Models\PurchaseDocument;
 use App\Models\Supplier;
 use App\Models\SupplierPayment;
+use App\Rules\SafeUpload;
 use App\Services\Accounting\AccountingSynchronizer;
 use App\Services\Finance\OutstandingBalanceCalculator;
 use Illuminate\Http\RedirectResponse;
@@ -50,7 +51,7 @@ class ExpenseController extends Controller
         if ($request->input('installation_id') === 'none') {
             $request->merge(['installation_id' => null]);
         }
-        $data = $request->validate(['expense_category_id' => ['required', 'exists:expense_categories,id'], 'supplier_id' => ['nullable', 'exists:suppliers,id'], 'installation_id' => ['nullable', 'exists:installations,id'], 'type' => ['required', Rule::in(['receipt', 'invoice', 'other'])], 'document_number' => ['nullable', 'string', 'max:255'], 'merchant_name' => ['nullable', 'string', 'max:255'], 'expense_date' => ['required', 'date'], 'due_date' => ['nullable', 'date', 'after_or_equal:expense_date'], 'subtotal' => ['required', 'numeric', 'min:0'], 'tax_amount' => ['required', 'numeric', 'min:0'], 'notes' => ['nullable', 'string'], 'attachments' => ['nullable', 'array', 'max:10'], 'attachments.*' => ['file', 'mimes:pdf,jpg,jpeg,png,webp', 'max:10240']]);
+        $data = $request->validate(['expense_category_id' => ['required', 'exists:expense_categories,id'], 'supplier_id' => ['nullable', 'exists:suppliers,id'], 'installation_id' => ['nullable', 'exists:installations,id'], 'type' => ['required', Rule::in(['receipt', 'invoice', 'other'])], 'document_number' => ['nullable', 'string', 'max:255'], 'merchant_name' => ['nullable', 'string', 'max:255'], 'expense_date' => ['required', 'date'], 'due_date' => ['nullable', 'date', 'after_or_equal:expense_date'], 'subtotal' => ['required', 'numeric', 'min:0'], 'tax_amount' => ['required', 'numeric', 'min:0'], 'notes' => ['nullable', 'string'], 'attachments' => ['nullable', 'array', 'max:10'], 'attachments.*' => ['file', new SafeUpload(['pdf', 'jpg', 'jpeg', 'png', 'webp'], 10240)]]);
         $files = $data['attachments'] ?? [];
         unset($data['attachments']);
         $expense = DB::transaction(function () use ($request, $data, $files, $accounting) {

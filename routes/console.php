@@ -22,6 +22,10 @@ Schedule::command('monitoring:discover deye')->everyFiveMinutes()->withoutOverla
 Schedule::command('monitoring:discover huawei')->cron('2 */6 * * *')->withoutOverlapping();
 Schedule::command('locations:sync-spain')->monthly()->withoutOverlapping();
 Schedule::command('database:backup')->dailyAt('02:30')->withoutOverlapping();
+Schedule::command('database:verify-backup')->weeklyOn(1, '03:30')->withoutOverlapping();
+Schedule::command('system:heartbeat')->everyMinute();
+Schedule::command('system:health-check')->everyFiveMinutes()->withoutOverlapping();
+Schedule::command('data:prune-retention')->weekly()->withoutOverlapping();
 Schedule::command('accounting:sync')->everyFiveMinutes()->withoutOverlapping();
 Schedule::command('purchase-inbox:sync')->everyFiveMinutes()->withoutOverlapping();
 Schedule::command('purchase-inbox:extract --limit=3')->everyFiveMinutes()->withoutOverlapping();

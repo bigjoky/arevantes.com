@@ -7,6 +7,7 @@ use App\Models\PurchaseDocumentAttachment;
 use App\Models\PurchaseInboxDocument;
 use App\Models\PurchaseMailbox;
 use App\Models\Supplier;
+use App\Rules\SafeUpload;
 use App\Services\Accounting\AccountingSynchronizer;
 use App\Services\Documents\DocumentNumber;
 use App\Services\Documents\PurchaseInboxAutomation;
@@ -52,7 +53,7 @@ class PurchaseInboxController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
-        $files = $request->validate(['documents' => ['required', 'array', 'min:1', 'max:10'], 'documents.*' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png,webp', 'max:15360']])['documents'];
+        $files = $request->validate(['documents' => ['required', 'array', 'min:1', 'max:10'], 'documents.*' => ['required', 'file', new SafeUpload(['pdf', 'jpg', 'jpeg', 'png', 'webp'])]])['documents'];
         $prepared = collect($files)->map(function ($file) {
             $hash = hash_file('sha256', $file->getRealPath());
             if (PurchaseInboxDocument::where('file_hash', $hash)->exists() || PurchaseDocumentAttachment::where('file_hash', $hash)->exists()) {

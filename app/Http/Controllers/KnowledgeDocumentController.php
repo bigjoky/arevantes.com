@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\AiFeedback;
 use App\Models\KnowledgeDocument;
+use App\Rules\SafeUpload;
 use App\Services\Ai\KnowledgeIndexer;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -61,7 +62,7 @@ class KnowledgeDocumentController extends Controller
         $data = $request->validate([
             'title' => ['required', 'string', 'max:160'],
             'content' => ['nullable', 'string', 'max:200000'],
-            'document' => ['nullable', 'file', 'mimes:txt,md', 'max:10240'],
+            'document' => ['nullable', 'file', new SafeUpload(['txt', 'md'], 10240)],
             'source_url' => ['nullable', 'url:http,https', 'max:2000'],
         ]);
         abort_if(blank($data['content'] ?? null) && blank($data['source_url'] ?? null) && ! $request->hasFile('document'), 422, __('Add text, a public URL, or select a document.'));

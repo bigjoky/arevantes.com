@@ -22,11 +22,15 @@ import {
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
 import { dashboard } from '@/routes';
-import type { NavItem, User } from '@/types';
+import type { NavItem } from '@/types';
 
 export function AppSidebar() {
-    const { user } = usePage<{ auth: { user: User } }>().props.auth;
-    const commercial = user.role !== 'technician';
+    const { abilities } = usePage<{
+        auth: {
+            abilities: Record<string, boolean>;
+        };
+    }>().props.auth;
+    const commercial = abilities.manageCustomers;
     const items: NavItem[] = [
         { title: 'Dashboard', href: dashboard(), icon: LayoutGrid },
         {
@@ -48,74 +52,85 @@ export function AppSidebar() {
                       ],
                   },
               ]
-            : [
+            : abilities.viewInstallations
+              ? [
+                    {
+                        title: 'Installations',
+                        href: '/installations',
+                        icon: BriefcaseBusiness,
+                    },
+                ]
+              : []),
+        ...(abilities.manageOperations
+            ? [
                   {
-                      title: 'Installations',
-                      href: '/installations',
-                      icon: BriefcaseBusiness,
-                  },
-              ]),
-        {
-            title: 'Operations',
-            href: '/operations',
-            icon: Building2,
-            children: [
-                { title: 'Planning', href: '/operations' },
-                { title: 'Work orders', href: '/work-orders' },
-                { title: 'After-sales', href: '/after-sales' },
-            ],
-        },
-        ...[
-            {
-                title: 'Supply',
-                href: commercial ? '/catalog' : '/purchases',
-                icon: ShoppingCart,
-                children: commercial
-                    ? [
-                          { title: 'Catalog', href: '/catalog' },
-                          { title: 'Inventory', href: '/inventory' },
-                          {
-                              title: 'Stock counts',
-                              href: '/inventory/counts',
-                          },
-                          { title: 'Document inbox', href: '/purchase-inbox' },
-                          { title: 'Purchases', href: '/purchases' },
-                          {
-                              title: 'Order control',
-                              href: '/supply-control',
-                          },
-                          {
-                              title: 'Supply analytics',
-                              href: '/supply-analytics',
-                          },
-                          {
-                              title: 'Supplier intelligence',
-                              href: '/supplier-intelligence',
-                          },
-                          {
-                              title: 'Replenishment',
-                              href: '/replenishment',
-                          },
-                          {
-                              title: 'Quality claims',
-                              href: '/supplier-quality',
-                          },
-                          { title: 'Expenses', href: '/expenses' },
-                      ]
-                    : [
-                          { title: 'Purchases', href: '/purchases' },
-                          {
-                              title: 'Order control',
-                              href: '/supply-control',
-                          },
-                          {
-                              title: 'Quality claims',
-                              href: '/supplier-quality',
-                          },
+                      title: 'Operations',
+                      href: '/operations',
+                      icon: Building2,
+                      children: [
+                          { title: 'Planning', href: '/operations' },
+                          { title: 'Work orders', href: '/work-orders' },
+                          { title: 'After-sales', href: '/after-sales' },
                       ],
-            },
-        ],
-        ...(commercial
+                  },
+              ]
+            : []),
+        ...(abilities.viewPurchases || abilities.manageCatalog
+            ? [
+                  {
+                      title: 'Supply',
+                      href: commercial ? '/catalog' : '/purchases',
+                      icon: ShoppingCart,
+                      children: commercial
+                          ? [
+                                { title: 'Catalog', href: '/catalog' },
+                                { title: 'Inventory', href: '/inventory' },
+                                {
+                                    title: 'Stock counts',
+                                    href: '/inventory/counts',
+                                },
+                                {
+                                    title: 'Document inbox',
+                                    href: '/purchase-inbox',
+                                },
+                                { title: 'Purchases', href: '/purchases' },
+                                {
+                                    title: 'Order control',
+                                    href: '/supply-control',
+                                },
+                                {
+                                    title: 'Supply analytics',
+                                    href: '/supply-analytics',
+                                },
+                                {
+                                    title: 'Supplier intelligence',
+                                    href: '/supplier-intelligence',
+                                },
+                                {
+                                    title: 'Replenishment',
+                                    href: '/replenishment',
+                                },
+                                {
+                                    title: 'Quality claims',
+                                    href: '/supplier-quality',
+                                },
+                                { title: 'Expenses', href: '/expenses' },
+                            ]
+                          : [
+                                { title: 'Purchases', href: '/purchases' },
+                                {
+                                    title: 'Order control',
+                                    href: '/supply-control',
+                                },
+                                {
+                                    title: 'Quality claims',
+                                    href: '/supplier-quality',
+                                },
+                            ],
+                  },
+              ]
+            : []),
+        ...(abilities.viewFinance
             ? [
                   {
                       title: 'Finance',
@@ -139,7 +154,7 @@ export function AppSidebar() {
                   },
               ]
             : []),
-        ...(user.role === 'admin'
+        ...(abilities.manageStaff
             ? [
                   {
                       title: 'Recursos Humanos',
@@ -166,6 +181,13 @@ export function AppSidebar() {
                           { title: 'Equipo y accesos', href: '/staff' },
                       ],
                   },
+              ]
+            : []),
+        ...(abilities.manageAdmin ||
+        abilities.manageAccess ||
+        abilities.exportAudit ||
+        abilities.viewSystemHealth
+            ? [
                   {
                       title: 'Company',
                       href: '/knowledge',
@@ -176,8 +198,28 @@ export function AppSidebar() {
                               title: 'Company & fiscal settings',
                               href: '/company-fiscal',
                           },
-                          { title: 'Backups', href: '/admin/backups' },
-                          { title: 'Audit log', href: '/admin/audit' },
+                          ...(abilities.manageAccess
+                              ? [
+                                    {
+                                        title: 'Access & permissions',
+                                        href: '/admin/access',
+                                    },
+                                ]
+                              : []),
+                          ...(abilities.manageAdmin
+                              ? [{ title: 'Backups', href: '/admin/backups' }]
+                              : []),
+                          ...(abilities.exportAudit
+                              ? [{ title: 'Audit log', href: '/admin/audit' }]
+                              : []),
+                          ...(abilities.viewSystemHealth
+                              ? [
+                                    {
+                                        title: 'System health',
+                                        href: '/admin/health',
+                                    },
+                                ]
+                              : []),
                       ],
                   },
               ]

@@ -35,15 +35,23 @@ class AuditableObserver
 
         $request = app()->bound('request') ? request() : null;
 
+        $sensitive = ['password', 'remember_token', 'two_factor_secret', 'two_factor_recovery_codes', 'mailbox_password'];
+        $sanitize = fn (?array $values) => $values === null ? null : collect($values)->mapWithKeys(
+            fn ($value, $key) => [$key => in_array($key, $sensitive, true) ? '[REDACTED]' : $value]
+        )->all();
+
         AuditLog::create([
             'user_id' => auth()->id(),
             'event' => $event,
             'auditable_type' => $model->getMorphClass(),
             'auditable_id' => $model->getKey(),
-            'old_values' => $old,
-            'new_values' => $new,
+            'old_values' => $sanitize($old),
+            'new_values' => $sanitize($new),
             'ip_address' => $request?->ip(),
             'user_agent' => $request?->userAgent(),
+            'correlation_id' => $request?->attributes->get('correlation_id'),
+            'route' => $request?->route()?->getName(),
+            'method' => $request?->method(),
         ]);
     }
 }
