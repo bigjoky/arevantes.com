@@ -84,7 +84,7 @@ export default function FinanceIndex({
                             installation margin.
                         </p>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2">
                         <Button variant="outline" asChild>
                             <Link href="/accounting">
                                 <LibraryBig /> Accounting
@@ -334,7 +334,7 @@ function DueTable({
     base?: string;
 }) {
     return (
-        <div>
+        <div className="min-w-0">
             <h2 className="mb-3 font-semibold">{title}</h2>
             <div className="overflow-x-auto border-y">
                 <table className="w-full min-w-[34rem] text-sm">

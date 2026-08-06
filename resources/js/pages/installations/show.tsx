@@ -376,15 +376,17 @@ export default function InstallationShow({
         <>
             <Head title={title} />
 
-            <div className="flex h-full flex-1 flex-col gap-4 p-4">
+            <div className="flex min-w-0 flex-1 flex-col gap-6 p-4 md:p-6">
                 <Card className="rounded-lg">
-                    <CardHeader className="flex-row items-start justify-between gap-3">
+                    <CardHeader className="flex-col items-start justify-between gap-4 sm:flex-row">
                         <div>
                             <div className="flex flex-wrap items-center gap-2">
                                 <ServiceIcon
                                     service={installation.service_type}
                                 />
-                                <CardTitle>{title}</CardTitle>
+                                <CardTitle className="text-xl tracking-tight">
+                                    {title}
+                                </CardTitle>
                                 <Badge variant="outline">
                                     {statusLabels[installation.status]}
                                 </Badge>
@@ -395,7 +397,7 @@ export default function InstallationShow({
                                     'No customer'}
                             </CardDescription>
                         </div>
-                        <div className="flex gap-2">
+                        <div className="flex w-full flex-wrap gap-2 sm:w-auto sm:justify-end">
                             <Button variant="outline" asChild>
                                 <Link href="/installations">
                                     All installations

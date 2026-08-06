@@ -221,7 +221,7 @@ export default function OpportunitiesIndex({
     return (
         <>
             <Head title="Opportunities" />
-            <div className="flex flex-1 flex-col gap-6 p-4">
+            <div className="flex min-w-0 flex-1 flex-col gap-6 p-4 md:p-6">
                 <header className="flex flex-wrap items-center justify-between gap-3">
                     <div>
                         <h1 className="text-xl font-semibold">Opportunities</h1>

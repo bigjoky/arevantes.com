@@ -40,7 +40,7 @@ export default function InstallationMap({
         ) ?? null;
 
     return (
-        <Card className="relative min-h-[calc(100vh-7rem)] overflow-hidden rounded-lg p-0">
+        <Card className="relative min-h-[34rem] overflow-hidden rounded-lg p-0 lg:min-h-[calc(100vh-20rem)]">
             <Map center={[-3.7038, 40.4168]} zoom={5.4}>
                 <MapControls />
                 {mappedInstallations.map((installation) => (
@@ -79,9 +79,9 @@ export default function InstallationMap({
                 <div className="rounded-md border bg-background/95 p-4 shadow-sm backdrop-blur">
                     <div className="flex flex-wrap items-center gap-2">
                         <MapPin className="size-4 text-muted-foreground" />
-                        <h1 className="text-base font-semibold">
+                        <h2 className="text-base font-semibold">
                             Installation map
-                        </h1>
+                        </h2>
                         <Badge variant="outline">
                             {mappedInstallations.length} mapped
                         </Badge>

@@ -104,7 +104,7 @@ export function AppSidebar() {
                           { title: 'Staff & access', href: '/staff' },
                           { title: 'Arevia knowledge', href: '/knowledge' },
                           {
-                              title: 'Empresa y fiscalidad',
+                              title: 'Company & fiscal settings',
                               href: '/company-fiscal',
                           },
                           { title: 'Backups', href: '/admin/backups' },

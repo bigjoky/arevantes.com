@@ -1,13 +1,8 @@
 import { Head, Link } from '@inertiajs/react';
+import { PageHeader, PageShell } from '@/components/page-shell';
 import PersonForm from '@/components/people/person-form';
 import { Button } from '@/components/ui/button';
-import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardHeader,
-    CardTitle,
-} from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 
 type PeopleCreateProps = {
     category: 'customer' | 'staff';
@@ -26,19 +21,17 @@ export default function PeopleCreate({
         <>
             <Head title={createTitle} />
 
-            <div className="flex h-full flex-1 flex-col gap-4 p-4">
-                <Card className="rounded-lg">
-                    <CardHeader className="flex-row items-center justify-between gap-3">
-                        <div>
-                            <CardTitle>{createTitle}</CardTitle>
-                            <CardDescription>
-                                {createDescription}
-                            </CardDescription>
-                        </div>
+            <PageShell>
+                <PageHeader
+                    title={createTitle}
+                    description={createDescription}
+                    actions={
                         <Button variant="outline" asChild>
                             <Link href={basePath}>Cancel</Link>
                         </Button>
-                    </CardHeader>
+                    }
+                />
+                <Card className="rounded-lg">
                     <CardContent>
                         <PersonForm
                             action={basePath}
@@ -47,7 +40,7 @@ export default function PeopleCreate({
                         />
                     </CardContent>
                 </Card>
-            </div>
+            </PageShell>
         </>
     );
 }

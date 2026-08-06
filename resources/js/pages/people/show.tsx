@@ -156,12 +156,14 @@ export default function PeopleShow({
         <>
             <Head title={displayName} />
 
-            <div className="flex h-full flex-1 flex-col gap-4 p-4">
+            <div className="flex min-w-0 flex-1 flex-col gap-6 p-4 md:p-6">
                 <Card className="rounded-lg">
-                    <CardHeader className="flex-row flex-wrap items-start justify-between gap-3">
+                    <CardHeader className="flex-col items-start justify-between gap-4 sm:flex-row">
                         <div>
                             <div className="flex flex-wrap items-center gap-2">
-                                <CardTitle>{displayName}</CardTitle>
+                                <CardTitle className="text-xl tracking-tight">
+                                    {displayName}
+                                </CardTitle>
                                 <Badge variant="outline">
                                     {person.category}
                                 </Badge>
@@ -172,7 +174,7 @@ export default function PeopleShow({
                                     'Profile'}
                             </CardDescription>
                         </div>
-                        <div className="flex flex-wrap justify-end gap-2">
+                        <div className="flex w-full flex-wrap gap-2 sm:w-auto sm:justify-end">
                             {!isStaff && (
                                 <>
                                     <ActivityDialog

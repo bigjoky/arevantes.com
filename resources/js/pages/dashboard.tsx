@@ -1,10 +1,21 @@
-import { Head, router, usePage } from '@inertiajs/react';
-import { CalendarDays } from 'lucide-react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
+import {
+    CalendarDays,
+    CircleAlert,
+    CircleDollarSign,
+    ClipboardList,
+    MapPinned,
+    TrendingUp,
+} from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { lazy, Suspense, useEffect } from 'react';
 import type {
     serviceLabels,
     statusLabels,
 } from '@/components/installations/installation-form';
+import { PageHeader, PageShell } from '@/components/page-shell';
+import { Badge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/card';
 import { dashboard } from '@/routes';
 import type { User } from '@/types';
 
@@ -61,6 +72,12 @@ type DashboardProps = {
         active: number;
         completed: number;
     };
+    businessSummary: {
+        open_opportunities: number;
+        active_work_orders: number;
+        overdue_activities: number;
+        outstanding_amount: number;
+    };
     agenda: Array<{
         id: number;
         type: string;
@@ -71,7 +88,13 @@ type DashboardProps = {
     }>;
 };
 
-export default function Dashboard({ installations, agenda }: DashboardProps) {
+export default function Dashboard({
+    installations,
+    peopleSummary,
+    installationSummary,
+    businessSummary,
+    agenda,
+}: DashboardProps) {
     const { user } = usePage<{ auth: { user: User } }>().props.auth;
     const canManageInstallations = user.role !== 'technician';
 
@@ -89,43 +112,145 @@ export default function Dashboard({ installations, agenda }: DashboardProps) {
         <>
             <Head title="Dashboard" />
 
-            <div className="flex h-full flex-1 flex-col p-4">
-                {agenda.length ? (
-                    <div className="mb-3 flex items-center gap-3 overflow-x-auto border-b pb-3">
-                        <CalendarDays className="size-4 shrink-0 text-muted-foreground" />
-                        <div className="flex gap-2">
-                            {agenda.map((item) => (
-                                <a
-                                    key={item.id}
-                                    href="/operations"
-                                    className="min-w-56 border-l px-3 text-sm"
-                                >
-                                    <div className="font-medium">
-                                        {item.title}
-                                    </div>
-                                    <div className="text-xs text-muted-foreground">
-                                        {formatAgendaDate(item.when)} ·{' '}
-                                        {item.installation || item.type}
-                                    </div>
-                                </a>
-                            ))}
-                        </div>
-                    </div>
-                ) : null}
-                <Suspense
-                    fallback={
-                        <div className="min-h-[calc(100vh-7rem)] animate-pulse rounded-lg bg-muted" />
-                    }
-                >
-                    <InstallationMap
-                        installations={installations}
-                        canManageInstallations={canManageInstallations}
+            <PageShell>
+                <PageHeader
+                    title="Workspace overview"
+                    description="Customers, delivery, pipeline and cash position at a glance."
+                />
+
+                <section className="grid gap-px overflow-hidden rounded-lg border bg-border sm:grid-cols-2 xl:grid-cols-4">
+                    <OverviewMetric
+                        href="/installations"
+                        label="Active installations"
+                        value={String(installationSummary.active)}
+                        detail={`${installationSummary.total} total`}
+                        icon={MapPinned}
                     />
-                </Suspense>
-            </div>
+                    <OverviewMetric
+                        href="/opportunities"
+                        label="Open opportunities"
+                        value={String(businessSummary.open_opportunities)}
+                        detail={`${peopleSummary.customers} customers`}
+                        icon={TrendingUp}
+                    />
+                    <OverviewMetric
+                        href="/work-orders"
+                        label="Active work orders"
+                        value={String(businessSummary.active_work_orders)}
+                        detail={`${businessSummary.overdue_activities} overdue activities`}
+                        icon={ClipboardList}
+                        attention={businessSummary.overdue_activities > 0}
+                    />
+                    <OverviewMetric
+                        href="/finance"
+                        label="Outstanding invoices"
+                        value={money(businessSummary.outstanding_amount)}
+                        detail={`${peopleSummary.staff} staff members`}
+                        icon={CircleDollarSign}
+                    />
+                </section>
+
+                <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1fr)_20rem]">
+                    <Suspense
+                        fallback={
+                            <div className="min-h-[34rem] animate-pulse rounded-lg bg-muted" />
+                        }
+                    >
+                        <InstallationMap
+                            installations={installations}
+                            canManageInstallations={canManageInstallations}
+                        />
+                    </Suspense>
+
+                    <Card className="gap-0 overflow-hidden py-0">
+                        <div className="flex items-center justify-between border-b p-4">
+                            <div className="flex items-center gap-2">
+                                <CalendarDays className="size-4 text-muted-foreground" />
+                                <h2 className="font-semibold">Next 7 days</h2>
+                            </div>
+                            <Badge variant="outline">{agenda.length}</Badge>
+                        </div>
+                        <div className="divide-y">
+                            {agenda.length ? (
+                                agenda.map((item) => (
+                                    <Link
+                                        key={item.id}
+                                        href="/operations"
+                                        className="block p-4 transition-colors hover:bg-muted/50"
+                                    >
+                                        <div className="flex items-start justify-between gap-3">
+                                            <div className="font-medium">
+                                                {item.title}
+                                            </div>
+                                            {item.priority === 'urgent' ? (
+                                                <CircleAlert className="size-4 shrink-0 text-destructive" />
+                                            ) : null}
+                                        </div>
+                                        <div className="mt-1 text-xs text-muted-foreground">
+                                            {formatAgendaDate(item.when)}
+                                        </div>
+                                        <div className="mt-1 truncate text-xs text-muted-foreground">
+                                            {item.installation || item.type}
+                                        </div>
+                                    </Link>
+                                ))
+                            ) : (
+                                <div className="grid min-h-40 place-items-center p-6 text-center text-sm text-muted-foreground">
+                                    No scheduled activity in the next 7 days.
+                                </div>
+                            )}
+                        </div>
+                    </Card>
+                </div>
+            </PageShell>
         </>
     );
 }
+
+function OverviewMetric({
+    href,
+    label,
+    value,
+    detail,
+    icon: Icon,
+    attention = false,
+}: {
+    href: string;
+    label: string;
+    value: string;
+    detail: string;
+    icon: LucideIcon;
+    attention?: boolean;
+}) {
+    return (
+        <Link
+            href={href}
+            className="group bg-background p-4 transition-colors hover:bg-muted/50"
+        >
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Icon className="size-4" />
+                {label}
+            </div>
+            <div className="mt-2 flex items-end justify-between gap-3">
+                <div className="text-2xl font-semibold tracking-tight">
+                    {value}
+                </div>
+                <span
+                    className={`text-xs ${attention ? 'text-destructive' : 'text-muted-foreground'}`}
+                >
+                    {detail}
+                </span>
+            </div>
+        </Link>
+    );
+}
+
+const money = (value: number) =>
+    new Intl.NumberFormat(undefined, {
+        style: 'currency',
+        currency: 'EUR',
+        maximumFractionDigits: 0,
+    }).format(value);
 
 function formatAgendaDate(value: string | null) {
     return value

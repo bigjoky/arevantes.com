@@ -1,14 +1,9 @@
 import { Head, Link } from '@inertiajs/react';
 import { KeyRound, Mail, Phone, Wrench } from 'lucide-react';
+import { PageHeader, PageShell } from '@/components/page-shell';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardHeader,
-    CardTitle,
-} from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 
 type Person = {
     id: number;
@@ -47,14 +42,12 @@ export default function PeopleIndex({
         <>
             <Head title={title} />
 
-            <div className="flex h-full flex-1 flex-col gap-4 p-4">
-                <Card className="rounded-lg">
-                    <CardHeader className="flex-row items-center justify-between gap-3">
-                        <div>
-                            <CardTitle>{title}</CardTitle>
-                            <CardDescription>{description}</CardDescription>
-                        </div>
-                        <div className="flex flex-wrap gap-2">
+            <PageShell>
+                <PageHeader
+                    title={title}
+                    description={description}
+                    actions={
+                        <>
                             <Button variant="outline" asChild>
                                 <Link href="/dashboard">Back to dashboard</Link>
                             </Button>
@@ -63,9 +56,11 @@ export default function PeopleIndex({
                                     {createTitle}
                                 </Link>
                             </Button>
-                        </div>
-                    </CardHeader>
-                    <CardContent>
+                        </>
+                    }
+                />
+                <Card className="rounded-lg py-0">
+                    <CardContent className="p-0">
                         {people.length > 0 ? (
                             <div className="overflow-hidden rounded-md border">
                                 <div className="divide-y">
@@ -159,7 +154,7 @@ export default function PeopleIndex({
                         )}
                     </CardContent>
                 </Card>
-            </div>
+            </PageShell>
         </>
     );
 }

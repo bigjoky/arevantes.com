@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { useState } from 'react';
 import type React from 'react';
+import { PageTabs } from '@/components/page-shell';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -230,10 +231,7 @@ export default function AccountingIndex({
                         value={money(summary.credit)}
                     />
                 </section>
-                <nav
-                    className="flex gap-1 overflow-x-auto border-b"
-                    aria-label="Accounting views"
-                >
+                <PageTabs aria-label="Accounting views">
                     {(
                         [
                             ['journal', 'Journal'],
@@ -254,7 +252,7 @@ export default function AccountingIndex({
                             {label}
                         </button>
                     ))}
-                </nav>
+                </PageTabs>
                 {view === 'journal' && (
                     <Journal
                         entries={entries}

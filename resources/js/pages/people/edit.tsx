@@ -1,14 +1,9 @@
 import { Head, Link } from '@inertiajs/react';
+import { PageHeader, PageShell } from '@/components/page-shell';
 import PersonForm from '@/components/people/person-form';
 import type { PersonFormValue } from '@/components/people/person-form';
 import { Button } from '@/components/ui/button';
-import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardHeader,
-    CardTitle,
-} from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 
 type PeopleEditProps = {
     person: PersonFormValue;
@@ -31,19 +26,19 @@ export default function PeopleEdit({
         <>
             <Head title={editTitle} />
 
-            <div className="flex h-full flex-1 flex-col gap-4 p-4">
-                <Card className="rounded-lg">
-                    <CardHeader className="flex-row items-center justify-between gap-3">
-                        <div>
-                            <CardTitle>{editTitle}</CardTitle>
-                            <CardDescription>{editDescription}</CardDescription>
-                        </div>
+            <PageShell>
+                <PageHeader
+                    title={editTitle}
+                    description={editDescription}
+                    actions={
                         <Button variant="outline" asChild>
                             <Link href={`${basePath}/${person.id}`}>
                                 Cancel
                             </Link>
                         </Button>
-                    </CardHeader>
+                    }
+                />
+                <Card className="rounded-lg">
                     <CardContent>
                         <PersonForm
                             action={`${basePath}/${person.id}`}
@@ -54,7 +49,7 @@ export default function PeopleEdit({
                         />
                     </CardContent>
                 </Card>
-            </div>
+            </PageShell>
         </>
     );
 }

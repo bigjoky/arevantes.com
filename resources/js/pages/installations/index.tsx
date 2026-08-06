@@ -5,15 +5,10 @@ import {
     serviceLabels,
     statusLabels,
 } from '@/components/installations/installation-form';
+import { PageHeader, PageShell } from '@/components/page-shell';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardHeader,
-    CardTitle,
-} from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import {
     Select,
@@ -57,22 +52,19 @@ export default function InstallationsIndex({
     return (
         <>
             <Head title="Installations" />
-            <div className="flex h-full flex-1 flex-col gap-4 p-4">
-                <Card className="rounded-lg">
-                    <CardHeader className="flex-row items-start justify-between gap-3">
-                        <div>
-                            <CardTitle>Installations</CardTitle>
-                            <CardDescription>
-                                Solar, EV charging, climate, and electrical
-                                work.
-                            </CardDescription>
-                        </div>
+            <PageShell>
+                <PageHeader
+                    title="Installations"
+                    description="Solar, EV charging, climate, and electrical work."
+                    actions={
                         <Button asChild>
                             <Link href="/installations/create">
                                 Add installation
                             </Link>
                         </Button>
-                    </CardHeader>
+                    }
+                />
+                <Card className="rounded-lg">
                     <CardContent className="space-y-4">
                         <form
                             className="grid gap-3 md:grid-cols-[1fr_14rem_14rem_auto]"
@@ -209,7 +201,7 @@ export default function InstallationsIndex({
                         )}
                     </CardContent>
                 </Card>
-            </div>
+            </PageShell>
         </>
     );
 }
