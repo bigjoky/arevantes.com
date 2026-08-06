@@ -177,7 +177,7 @@ class BankingController extends Controller
         $metadata = $result['metadata'] ?? [];
         BankStatementImport::create(['bank_account_id' => $account->id, 'imported_by' => $request->user()->id, 'filename' => $file->getClientOriginalName(), 'file_hash' => hash_file('sha256', $file->getRealPath()), 'format' => $result['format'], 'period_from' => $metadata['period_from'] ?? null, 'period_to' => $metadata['period_to'] ?? null, 'opening_balance' => $metadata['opening_balance'] ?? null, 'closing_balance' => $metadata['closing_balance'] ?? null, 'created_transactions' => $result['created'], 'duplicate_transactions' => $result['duplicates'], 'control_valid' => $metadata['control_valid'] ?? null, 'control_data' => $metadata['control_data'] ?? null]);
 
-        return back()->with('toast', ['type' => 'success', 'message' => __('Imported :created transactions; :duplicates duplicates skipped.', ['created' => $result['created'], 'duplicates' => $result['duplicates']])]);
+        return back()->with('toast', ['type' => 'success', 'message' => __('Imported :created transactions; :duplicates were already imported.', ['created' => $result['created'], 'duplicates' => $result['duplicates']])]);
     }
 
     private function validatedProduct(Request $request): array
