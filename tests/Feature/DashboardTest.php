@@ -1064,6 +1064,8 @@ class DashboardTest extends TestCase
             ->post(route('knowledge.store'), [
                 'title' => 'Internal service',
                 'source_url' => 'http://127.0.0.1:11434/api/tags',
+                'area' => 'general',
+                'confidentiality' => 'internal',
             ])
             ->assertUnprocessable();
 
@@ -1210,6 +1212,7 @@ class DashboardTest extends TestCase
         ]);
 
         $this->postJson(route('installations.ai.briefing.activities', [$installation, $generation->uuid]), [
+            'confirmed' => true,
             'indexes' => [0],
         ])->assertCreated()
             ->assertJsonPath('created.0.title', 'Programar visita tecnica');

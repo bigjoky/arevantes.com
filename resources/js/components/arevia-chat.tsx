@@ -26,6 +26,20 @@ type Message = {
     content: string | null;
     rating: 'helpful' | 'unhelpful' | null;
     message: string | null;
+    context_module: string;
+    sources: {
+        title: string;
+        version: number;
+        score: number | null;
+        excerpt: string;
+        url: string;
+    }[];
+    metrics: {
+        automated_score: number | null;
+        human_score: number | null;
+        duration_ms: number | null;
+        cost_micros: number | null;
+    } | null;
 };
 type Conversation = { id: number; messages: Message[] };
 
@@ -252,18 +266,72 @@ export function AreviaChat() {
                                                 {message.message}
                                             </span>
                                         ) : (
-                                            <p className="whitespace-pre-wrap">
-                                                {message.content}
-                                            </p>
+                                            <>
+                                                <p className="whitespace-pre-wrap">
+                                                    {message.content}
+                                                </p>
+                                                {message.role === 'assistant' &&
+                                                message.sources.length > 0 ? (
+                                                    <div className="mt-3 space-y-2 border-t pt-2">
+                                                        <div className="text-xs font-medium">
+                                                            Sources used
+                                                        </div>
+                                                        {message.sources.map(
+                                                            (source, index) => (
+                                                                <a
+                                                                    key={`${source.url}-${index}`}
+                                                                    href={
+                                                                        source.url
+                                                                    }
+                                                                    target="_blank"
+                                                                    rel="noreferrer"
+                                                                    className="block rounded border bg-background p-2 text-xs hover:border-foreground/40"
+                                                                >
+                                                                    <span className="font-medium">
+                                                                        [S
+                                                                        {index +
+                                                                            1}
+                                                                        ]{' '}
+                                                                        {
+                                                                            source.title
+                                                                        }{' '}
+                                                                        · v
+                                                                        {
+                                                                            source.version
+                                                                        }
+                                                                    </span>
+                                                                    <span className="mt-1 block text-muted-foreground">
+                                                                        {
+                                                                            source.excerpt
+                                                                        }
+                                                                    </span>
+                                                                </a>
+                                                            ),
+                                                        )}
+                                                    </div>
+                                                ) : null}
+                                            </>
                                         )}
                                     </div>
                                     {message.role === 'assistant' &&
                                     message.status === 'completed' ? (
                                         <div className="mt-1 flex flex-wrap items-center gap-1">
+                                            {message.metrics ? (
+                                                <span className="mr-auto text-[11px] text-muted-foreground">
+                                                    {message.context_module} ·
+                                                    quality{' '}
+                                                    {message.metrics
+                                                        .automated_score ?? '—'}
+                                                    /100 ·{' '}
+                                                    {message.metrics.duration_ms
+                                                        ? `${(message.metrics.duration_ms / 1000).toFixed(1)} s`
+                                                        : '—'}
+                                                </span>
+                                            ) : null}
                                             <Button
                                                 size="icon"
                                                 variant="ghost"
-                                                className="ml-auto size-7"
+                                                className="size-7"
                                                 title="Useful"
                                                 onClick={() =>
                                                     rateMessage(

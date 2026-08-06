@@ -6,6 +6,7 @@ use App\Ai\Agents\AreviaChat;
 use App\Jobs\GenerateAreviaReply;
 use App\Models\AiConversation;
 use App\Models\AiMessage;
+use App\Services\Ai\AreviaContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -35,10 +36,12 @@ class AreviaChatController extends Controller
             ['user_id' => $request->user()->id],
             ['last_message_at' => now()],
         );
+        $module = AreviaContext::module($data['page_url'] ?? null, $data['content']);
         $conversation->messages()->create([
             'role' => 'user', 'status' => 'completed', 'content' => trim($data['content']), 'page_url' => $data['page_url'] ?? null,
+            'context_module' => $module,
         ]);
-        $reply = $conversation->messages()->create(['role' => 'assistant', 'status' => 'queued']);
+        $reply = $conversation->messages()->create(['role' => 'assistant', 'status' => 'queued', 'context_module' => $module]);
         $conversation->update(['last_message_at' => now()]);
         GenerateAreviaReply::dispatch($reply->id);
 
@@ -53,7 +56,13 @@ class AreviaChatController extends Controller
             'rating' => ['required', 'in:helpful,unhelpful'],
             'notes' => ['nullable', 'string', 'max:2000'],
         ]);
-        $aiMessage->update($data);
+        $aiMessage->update([
+            'rating' => $data['rating'],
+            'feedback_notes' => $data['notes'] ?? null,
+            'human_score' => $data['rating'] === 'helpful' ? 100 : 25,
+            'reviewed_by' => $request->user()->id,
+            'reviewed_at' => now(),
+        ]);
 
         return response()->json(['message' => $this->messagePayload($aiMessage)]);
     }
@@ -74,6 +83,14 @@ class AreviaChatController extends Controller
             'status' => $message->status,
             'content' => $message->content,
             'rating' => $message->rating,
+            'context_module' => $message->context_module,
+            'sources' => $message->sources ?? [],
+            'metrics' => $message->role === 'assistant' ? [
+                'automated_score' => $message->automated_score,
+                'human_score' => $message->human_score,
+                'duration_ms' => $message->duration_ms,
+                'cost_micros' => $message->cost_micros,
+            ] : null,
             'created_at' => $message->created_at?->toIso8601String(),
             'message' => $message->status === 'failed'
                 ? (str_contains((string) $message->error, 'timed out') ? __('Arevia needed more time than expected. Please try again.') : __('Arevia could not answer right now.'))

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Ai\Agents\InstallationAdvisor;
 use App\Ai\Agents\InstallationSnapshot;
 use App\Jobs\GenerateInstallationBriefing;
+use App\Models\AiAuditLog;
 use App\Models\AiGeneration;
 use App\Models\CrmActivity;
 use App\Models\Installation;
@@ -43,6 +44,9 @@ class InstallationAiController extends Controller
     {
         abort_unless($aiGeneration->installation_id === $installation->id, 404);
         abort_unless($aiGeneration->status === 'completed', 422);
+        if (! $request->boolean('confirmed')) {
+            return response()->json(['message' => __('Human confirmation is required before Arevia can modify CRM data.')], 422);
+        }
 
         $indexes = collect($request->validate([
             'indexes' => ['nullable', 'array'],
@@ -77,6 +81,17 @@ class InstallationAiController extends Controller
             );
         })->values();
 
+        AiAuditLog::create([
+            'user_id' => $request->user()->id,
+            'event' => 'action_confirmed',
+            'context_module' => 'installations',
+            'sources' => $aiGeneration->sources,
+            'response' => $aiGeneration->raw_response,
+            'action' => 'create_crm_activities',
+            'confirmed_at' => now(),
+            'metadata' => ['generation_uuid' => $aiGeneration->uuid, 'installation_id' => $installation->id, 'created_ids' => $created->pluck('id')->all()],
+        ]);
+
         return response()->json([
             'created' => $created->map(fn (CrmActivity $activity) => [
                 'id' => $activity->id,
@@ -101,6 +116,8 @@ class InstallationAiController extends Controller
             'result' => $generation->structured_response,
             'sources' => collect($generation->sources ?? [])->map(fn (array $source) => [
                 'title' => $source['title'], 'version' => $source['version'], 'score' => $source['score'],
+                'excerpt' => $source['excerpt'] ?? mb_substr(trim(preg_replace('/\s+/u', ' ', $source['content'] ?? '')), 0, 360),
+                'url' => isset($source['document_id']) ? route('arevia.sources.show', [$source['document_id'], $source['version']]) : null,
             ])->all(),
             'model' => $generation->model,
             'duration_ms' => $generation->duration_ms,
