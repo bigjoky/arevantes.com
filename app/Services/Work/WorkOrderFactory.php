@@ -6,11 +6,15 @@ use App\Models\CrmActivity;
 use App\Models\Installation;
 use App\Models\WorkOrder;
 use App\Models\WorkOrderTemplate;
+use App\Services\Operations\FinancialClearanceGuard;
 use Illuminate\Support\Facades\DB;
 
 class WorkOrderFactory
 {
-    public function __construct(private ChecklistTemplate $checklists) {}
+    public function __construct(
+        private ChecklistTemplate $checklists,
+        private FinancialClearanceGuard $financialClearance,
+    ) {}
 
     /** @param array<string, mixed> $data */
     public function create(array $data, ?int $createdBy = null): WorkOrder
@@ -21,6 +25,7 @@ class WorkOrderFactory
                 ? WorkOrderTemplate::where('is_active', true)->findOrFail($data['work_order_template_id'])
                 : null;
             $kind = $data['kind'] ?? $template?->kind ?? 'installation';
+            $this->financialClearance->assertAllows($installation, $kind);
             $order = WorkOrder::create([
                 ...$data,
                 'created_by' => $createdBy,

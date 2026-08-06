@@ -51,6 +51,8 @@ type Quote = {
     installation_id: number | null;
     issue_date: string;
     valid_until: string | null;
+    acceptance_payment_percentage: string;
+    acceptance_payment_due_days: number;
     notes: string | null;
     lines: (Line & { id: number })[];
 };
@@ -72,6 +74,7 @@ export default function QuoteForm({
     quote,
     defaultCustomerId,
     opportunityDraft,
+    acceptancePaymentDefaults,
 }: {
     customers: Customer[];
     installations: Installation[];
@@ -79,6 +82,7 @@ export default function QuoteForm({
     quote?: Quote;
     defaultCustomerId?: number | null;
     opportunityDraft?: OpportunityDraft | null;
+    acceptancePaymentDefaults: { percentage: number; due_days: number };
 }) {
     const form = useForm({
         opportunity_id: String(
@@ -92,6 +96,14 @@ export default function QuoteForm({
             quote?.issue_date?.slice(0, 10) ??
             new Date().toISOString().slice(0, 10),
         valid_until: quote?.valid_until?.slice(0, 10) ?? '',
+        acceptance_payment_percentage: String(
+            quote?.acceptance_payment_percentage ??
+                acceptancePaymentDefaults.percentage,
+        ),
+        acceptance_payment_due_days: String(
+            quote?.acceptance_payment_due_days ??
+                acceptancePaymentDefaults.due_days,
+        ),
         notes:
             quote?.notes ??
             opportunityDraft?.notes ??
@@ -229,6 +241,35 @@ export default function QuoteForm({
                                 form.setData('valid_until', value)
                             }
                         />
+                    </section>
+                    <section className="grid gap-4 border-t pt-5 md:grid-cols-2">
+                        <Field
+                            label="Acceptance payment (%)"
+                            type="number"
+                            value={form.data.acceptance_payment_percentage}
+                            onChange={(value) =>
+                                form.setData(
+                                    'acceptance_payment_percentage',
+                                    value,
+                                )
+                            }
+                        />
+                        <Field
+                            label="Payment term after acceptance (days)"
+                            type="number"
+                            value={form.data.acceptance_payment_due_days}
+                            onChange={(value) =>
+                                form.setData(
+                                    'acceptance_payment_due_days',
+                                    value,
+                                )
+                            }
+                        />
+                        <p className="text-sm text-muted-foreground md:col-span-2">
+                            When the customer accepts, the platform issues this
+                            advance invoice automatically. Use 0% when no
+                            acceptance payment is required.
+                        </p>
                     </section>
                     <section>
                         <div className="mb-3 flex items-center justify-between">

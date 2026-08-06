@@ -37,6 +37,7 @@ use App\Models\SupplierPayment;
 use App\Models\TaxReturnPayment;
 use App\Models\User;
 use App\Models\WorkOrder;
+use App\Observers\AcceptancePaymentObserver;
 use App\Observers\AuditableObserver;
 use App\Observers\BankReconciliationFinancialObserver;
 use App\Observers\CollectionActionHistoryObserver;
@@ -97,6 +98,7 @@ class AppServiceProvider extends ServiceProvider
         AccountingTemplate::observe(AuditableObserver::class);
         AccountingRecurringRun::observe(AuditableObserver::class);
         SalesDocumentPayment::observe(AuditableObserver::class);
+        SalesDocumentPayment::observe(AcceptancePaymentObserver::class);
         SalesDocument::observe(SalesDocumentFinancialObserver::class);
         SupplierPayment::observe(AuditableObserver::class);
         JournalEntry::observe(AuditableObserver::class);

@@ -14,6 +14,7 @@ use App\Models\WorkOrderChecklistItem;
 use App\Models\WorkOrderTemplate;
 use App\Rules\SafeUpload;
 use App\Services\Inventory\ProjectMaterialPlanner;
+use App\Services\Operations\FinancialClearanceGuard;
 use App\Services\Work\TechnicianSchedule;
 use App\Services\Work\WorkOrderCompletionGuard;
 use App\Services\Work\WorkOrderFactory;
@@ -85,9 +86,10 @@ class WorkOrderController extends Controller
         return to_route('work-orders.index', ['work_order' => $order->id])->with('toast', ['type' => 'success', 'message' => __('Work order created.')]);
     }
 
-    public function updateSchedule(Request $request, WorkOrder $workOrder, WorkOrderRescheduler $rescheduler): RedirectResponse
+    public function updateSchedule(Request $request, WorkOrder $workOrder, WorkOrderRescheduler $rescheduler, FinancialClearanceGuard $financialClearance): RedirectResponse
     {
         $data = $this->validatedSchedule($request);
+        $financialClearance->assertAllows($workOrder->loadMissing('installation')->installation, $data['kind'] ?? $workOrder->kind);
         $reason = $request->validate(['reschedule_reason' => ['required', 'string', 'max:1000']])['reschedule_reason'];
         $rescheduler->reschedule($workOrder, $data, $reason, $request->user()->id);
         $this->syncInstallation($workOrder);
@@ -125,9 +127,10 @@ class WorkOrderController extends Controller
         return back()->with('toast', ['type' => 'success', 'message' => __('Work order updated.')]);
     }
 
-    public function start(Request $request, WorkOrder $workOrder): RedirectResponse
+    public function start(Request $request, WorkOrder $workOrder, FinancialClearanceGuard $financialClearance): RedirectResponse
     {
         $this->ensureAccess($request, $workOrder);
+        $financialClearance->assertAllows($workOrder->loadMissing('installation')->installation, $workOrder->kind);
         abort_if(TimeEntry::where('user_id', $request->user()->id)->whereNull('ended_at')->exists(), 422, __('You already have a running timer.'));
         abort_if(in_array($workOrder->status, ['completed', 'cancelled'], true), 422);
         TimeEntry::create(['work_order_id' => $workOrder->id, 'user_id' => $request->user()->id, 'created_by' => $request->user()->id, 'started_at' => now(), 'hourly_cost' => config('work.default_hourly_cost'), 'mileage_rate' => config('work.mileage_rate')]);

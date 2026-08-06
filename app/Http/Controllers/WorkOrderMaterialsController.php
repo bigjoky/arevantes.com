@@ -8,6 +8,7 @@ use App\Models\StockReservation;
 use App\Models\WorkOrder;
 use App\Services\Inventory\ProjectProcurement;
 use App\Services\Inventory\StockLedger;
+use App\Services\Operations\FinancialClearanceGuard;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -29,8 +30,9 @@ class WorkOrderMaterialsController extends Controller
         ]);
     }
 
-    public function reserve(Request $request, WorkOrder $workOrder): RedirectResponse
+    public function reserve(Request $request, WorkOrder $workOrder, FinancialClearanceGuard $financialClearance): RedirectResponse
     {
+        $financialClearance->assertAllows($workOrder->loadMissing('installation')->installation, 'reserve');
         $data = $request->validate([
             'warehouse_id' => ['required', 'exists:warehouses,id'],
             'product_id' => ['required', Rule::exists('products', 'id')->where(fn ($query) => $query->where('track_stock', true)->where('is_active', true))],
@@ -61,9 +63,10 @@ class WorkOrderMaterialsController extends Controller
         return back()->with('toast', ['type' => 'success', 'message' => __('Materials reserved for the work order.')]);
     }
 
-    public function consume(Request $request, WorkOrder $workOrder, StockReservation $reservation, StockLedger $ledger): RedirectResponse
+    public function consume(Request $request, WorkOrder $workOrder, StockReservation $reservation, StockLedger $ledger, FinancialClearanceGuard $financialClearance): RedirectResponse
     {
         $this->ensureAccess($request, $workOrder);
+        $financialClearance->assertAllows($workOrder->loadMissing('installation')->installation, 'reserve');
         abort_unless($reservation->work_order_id === $workOrder->id && $reservation->status === 'active', 422);
         $data = $request->validate([
             'quantity' => ['required', 'numeric', 'gt:0'],
