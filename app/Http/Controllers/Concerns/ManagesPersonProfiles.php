@@ -59,6 +59,7 @@ trait ManagesPersonProfiles
     {
         $validated = $request->validate([
             'customer_type' => ['nullable', Rule::in(['residential', 'business', 'community', 'public_sector'])],
+            'lifecycle_status' => ['nullable', Rule::in(['lead', 'active', 'inactive', 'former'])],
             'first_name' => ['required', 'string', 'max:255'],
             'last_name' => ['nullable', 'string', 'max:255'],
             'company_name' => ['nullable', 'string', 'max:255'],
@@ -77,8 +78,11 @@ trait ManagesPersonProfiles
             'country' => ['nullable', 'string', 'max:255'],
             'date_of_birth' => ['nullable', 'date'],
             'preferred_language' => ['nullable', 'string', 'max:255'],
+            'preferred_contact_channel' => ['nullable', Rule::in(['email', 'phone', 'whatsapp', 'sms'])],
+            'do_not_contact' => ['nullable', 'boolean'],
             'service_interests' => ['nullable', 'string'],
             'lead_source' => ['nullable', 'string', 'max:255'],
+            'data_source' => ['nullable', 'string', 'max:255'],
             'billing_email' => ['nullable', 'email', 'max:255'],
             'emergency_contact_name' => ['nullable', 'string', 'max:255'],
             'emergency_contact_phone' => ['nullable', 'string', 'max:255'],
@@ -87,6 +91,8 @@ trait ManagesPersonProfiles
         ]);
 
         $validated['category'] = $category;
+        $validated['lifecycle_status'] = $category === 'customer' ? ($validated['lifecycle_status'] ?? 'active') : null;
+        $validated['do_not_contact'] = $category === 'customer' && (bool) ($validated['do_not_contact'] ?? false);
         $validated['service_interests'] = $this->parseLines($validated['service_interests'] ?? null);
         $validated['extra_details'] = $this->parseExtraDetails($validated['extra_details'] ?? null);
 
@@ -97,8 +103,11 @@ trait ManagesPersonProfiles
         if ($category === 'staff') {
             $validated['customer_type'] = null;
             $validated['lead_source'] = null;
+            $validated['data_source'] = null;
             $validated['billing_email'] = null;
             $validated['service_interests'] = null;
+            $validated['preferred_contact_channel'] = null;
+            $validated['do_not_contact'] = false;
         }
 
         return $validated;
@@ -172,6 +181,7 @@ trait ManagesPersonProfiles
             'id' => $person->id,
             'category' => $person->category,
             'customer_type' => $person->customer_type,
+            'lifecycle_status' => $person->lifecycle_status,
             'first_name' => $person->first_name,
             'last_name' => $person->last_name,
             'company_name' => $person->company_name,
@@ -185,6 +195,7 @@ trait ManagesPersonProfiles
             'locality' => $person->locality,
             'country' => $person->country,
             'installations_count' => $person->installations_count ?? null,
+            'tags' => $person->relationLoaded('tags') ? $person->tags->map->only(['id', 'name', 'color'])->values() : [],
         ];
     }
 }

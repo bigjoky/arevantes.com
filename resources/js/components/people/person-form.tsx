@@ -18,6 +18,7 @@ export type PersonFormValue = {
     id?: number;
     category?: 'customer' | 'staff';
     customer_type?: string | null;
+    lifecycle_status?: string | null;
     first_name?: string;
     last_name?: string | null;
     company_name?: string | null;
@@ -36,8 +37,11 @@ export type PersonFormValue = {
     postal_code?: string | null;
     country?: string | null;
     preferred_language?: string | null;
+    preferred_contact_channel?: string | null;
+    do_not_contact?: boolean;
     service_interests?: string[] | null;
     lead_source?: string | null;
+    data_source?: string | null;
     emergency_contact_name?: string | null;
     emergency_contact_phone?: string | null;
     notes?: string | null;
@@ -158,6 +162,42 @@ export default function PersonForm({
                             </div>
                         )}
 
+                        {isCustomer && (
+                            <div className={fieldClassName}>
+                                <Label htmlFor="lifecycle_status">
+                                    Estado del cliente
+                                </Label>
+                                <Select
+                                    name="lifecycle_status"
+                                    defaultValue={
+                                        person?.lifecycle_status ?? 'active'
+                                    }
+                                >
+                                    <SelectTrigger
+                                        id="lifecycle_status"
+                                        className="w-full"
+                                    >
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="lead">
+                                            Lead
+                                        </SelectItem>
+                                        <SelectItem value="active">
+                                            Activo
+                                        </SelectItem>
+                                        <SelectItem value="inactive">
+                                            Inactivo
+                                        </SelectItem>
+                                        <SelectItem value="former">
+                                            Antiguo cliente
+                                        </SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                <InputError message={errors.lifecycle_status} />
+                            </div>
+                        )}
+
                         {isStaff && (
                             <Field
                                 id="staff_role"
@@ -241,6 +281,15 @@ export default function PersonForm({
                                 error={errors.lead_source}
                             />
                         )}
+                        {isCustomer && (
+                            <Field
+                                id="data_source"
+                                label="Origen del dato"
+                                placeholder="Formulario web, evento, importación..."
+                                defaultValue={person?.data_source}
+                                error={errors.data_source}
+                            />
+                        )}
                     </div>
 
                     <div className="grid gap-4 md:grid-cols-3">
@@ -271,6 +320,55 @@ export default function PersonForm({
                             />
                         )}
                     </div>
+
+                    {isCustomer && (
+                        <div className="grid gap-4 rounded-md border p-4 md:grid-cols-[1fr_auto]">
+                            <div className={fieldClassName}>
+                                <Label htmlFor="preferred_contact_channel">
+                                    Canal de contacto preferido
+                                </Label>
+                                <Select
+                                    name="preferred_contact_channel"
+                                    defaultValue={
+                                        person?.preferred_contact_channel ?? ''
+                                    }
+                                >
+                                    <SelectTrigger
+                                        id="preferred_contact_channel"
+                                        className="w-full"
+                                    >
+                                        <SelectValue placeholder="Sin preferencia" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="email">
+                                            Email
+                                        </SelectItem>
+                                        <SelectItem value="phone">
+                                            Teléfono
+                                        </SelectItem>
+                                        <SelectItem value="whatsapp">
+                                            WhatsApp
+                                        </SelectItem>
+                                        <SelectItem value="sms">SMS</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                <InputError
+                                    message={errors.preferred_contact_channel}
+                                />
+                            </div>
+                            <label className="flex items-center gap-3 self-end rounded-md border px-4 py-2 text-sm">
+                                <input
+                                    type="checkbox"
+                                    name="do_not_contact"
+                                    value="1"
+                                    defaultChecked={
+                                        person?.do_not_contact ?? false
+                                    }
+                                />
+                                No contactar comercialmente
+                            </label>
+                        </div>
+                    )}
 
                     <div className="grid gap-4 md:grid-cols-2">
                         <Field

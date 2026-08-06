@@ -7,6 +7,7 @@ use App\Models\Person;
 use App\Models\User;
 use App\Notifications\WebsiteLeadNotification;
 use App\Services\Crm\LeadAssignment;
+use App\Services\Crm\OpportunitySalesCycle;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -23,7 +24,7 @@ class WebsiteContactController extends Controller
         'maintenance' => 'Mantenimiento',
     ];
 
-    public function __invoke(Request $request, LeadAssignment $assignment): RedirectResponse
+    public function __invoke(Request $request, LeadAssignment $assignment, OpportunitySalesCycle $salesCycle): RedirectResponse
     {
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
@@ -36,7 +37,7 @@ class WebsiteContactController extends Controller
             'company_url' => ['nullable', 'string', 'max:0'],
         ]);
 
-        $opportunity = DB::transaction(function () use ($data, $assignment): Opportunity {
+        $opportunity = DB::transaction(function () use ($data, $assignment, $salesCycle): Opportunity {
             $email = Str::lower($data['email']);
             $service = self::SERVICES[$data['service']];
             $customer = Person::query()
@@ -90,6 +91,8 @@ class WebsiteContactController extends Controller
             $opportunity->update([
                 'code' => 'OPP-'.now()->format('Y').'-'.str_pad((string) $opportunity->id, 5, '0', STR_PAD_LEFT),
             ]);
+            $salesCycle->ensureNextAction($opportunity, $opportunity->owner);
+            $salesCycle->refreshScore($opportunity);
 
             return $opportunity;
         });

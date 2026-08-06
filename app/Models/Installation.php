@@ -4,11 +4,32 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Installation extends Model
 {
+    protected static function booted(): void
+    {
+        static::saved(function (Installation $installation): void {
+            if (! $installation->person_id) {
+                $installation->people()->wherePivot('is_primary', true)->get()->each(
+                    fn (Person $person) => $installation->people()->updateExistingPivot($person->id, ['is_primary' => false, 'role' => 'co_owner']),
+                );
+
+                return;
+            }
+
+            $installation->people()->wherePivot('is_primary', true)->get()->each(
+                fn (Person $person) => $installation->people()->updateExistingPivot($person->id, ['is_primary' => false, 'role' => 'co_owner']),
+            );
+            $installation->people()->syncWithoutDetaching([
+                $installation->person_id => ['role' => 'owner', 'is_primary' => true],
+            ]);
+        });
+    }
+
     /**
      * The attributes that are mass assignable.
      *
@@ -71,6 +92,15 @@ class Installation extends Model
     public function customer(): BelongsTo
     {
         return $this->belongsTo(Person::class, 'person_id')->withTrashed();
+    }
+
+    public function people(): BelongsToMany
+    {
+        return $this->belongsToMany(Person::class, 'installation_person')
+            ->withPivot(['role', 'ownership_percentage', 'is_primary'])
+            ->withTimestamps()
+            ->orderByPivot('is_primary', 'desc')
+            ->orderBy('people.first_name');
     }
 
     public function remoteStation(): HasOne

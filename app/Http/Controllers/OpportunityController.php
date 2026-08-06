@@ -6,7 +6,9 @@ use App\Models\CrmActivity;
 use App\Models\Installation;
 use App\Models\Opportunity;
 use App\Models\Person;
+use App\Models\SavedCrmFilter;
 use App\Models\User;
+use App\Services\Crm\OpportunitySalesCycle;
 use App\Support\Crm\OpportunityCatalog;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
@@ -79,28 +81,32 @@ class OpportunityController extends Controller
                 'average_cycle_days' => $averageCycleDays !== null ? round($averageCycleDays, 1) : null,
                 'overdue' => $open->filter(fn (Opportunity $item) => $item->expected_close_on?->isPast())->count(),
                 'without_next_action' => $open->whereNull('nextActivity')->count(),
-                'stale' => $open->filter(fn (Opportunity $item) => $item->updated_at->lessThan(now()->subDays(14)))->count(),
+                'stale' => $open->filter(fn (Opportunity $item) => $item->updated_at->lessThan(now()->subDays(config('crm.stale_after_days'))))->count(),
                 'funnel' => collect(self::STAGES)->mapWithKeys(fn (string $stage) => [$stage => $opportunities->where('stage', $stage)->count()]),
+                'stage_days' => $this->averageDaysByStage($opportunities),
             ],
+            'savedFilters' => SavedCrmFilter::query()->where('user_id', $request->user()->id)->where('scope', 'opportunities')->orderByDesc('is_default')->orderBy('name')->get(),
         ]);
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request, OpportunitySalesCycle $salesCycle): RedirectResponse
     {
-        $data = $this->validated($request);
+        $data = $salesCycle->prepareActiveData($this->validated($request), $request->user());
         $this->ensureInstallationBelongsToCustomer($data);
 
-        DB::transaction(function () use ($data, $request) {
+        DB::transaction(function () use ($data, $request, $salesCycle) {
             $opportunity = Opportunity::create([...$data, 'created_by' => $request->user()->id]);
             $opportunity->update(['code' => 'OPP-'.now()->format('Y').'-'.str_pad((string) $opportunity->id, 5, '0', STR_PAD_LEFT)]);
+            $salesCycle->ensureNextAction($opportunity, $request->user());
+            $salesCycle->refreshScore($opportunity);
         });
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Opportunity created.')]);
     }
 
-    public function update(Request $request, Opportunity $opportunity): RedirectResponse
+    public function update(Request $request, Opportunity $opportunity, OpportunitySalesCycle $salesCycle): RedirectResponse
     {
-        $data = $this->validated($request);
+        $data = $salesCycle->prepareActiveData($this->validated($request), $request->user());
         $this->ensureInstallationBelongsToCustomer($data);
         abort_if(
             $opportunity->quote()->exists()
@@ -109,7 +115,11 @@ class OpportunityController extends Controller
             422,
             __('The customer or installation cannot be changed after preparing a quote.'),
         );
-        $opportunity->update($data);
+        DB::transaction(function () use ($opportunity, $data, $salesCycle, $request): void {
+            $opportunity->update($data);
+            $salesCycle->ensureNextAction($opportunity, $request->user());
+            $salesCycle->refreshScore($opportunity);
+        });
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Opportunity updated.')]);
     }
@@ -122,7 +132,7 @@ class OpportunityController extends Controller
         return back()->with('toast', ['type' => 'success', 'message' => __('Opportunity archived.')]);
     }
 
-    public function storeActivity(Request $request, Opportunity $opportunity): RedirectResponse
+    public function storeActivity(Request $request, Opportunity $opportunity, OpportunitySalesCycle $salesCycle): RedirectResponse
     {
         $data = $request->validate([
             'assigned_user_id' => ['nullable', Rule::exists('users', 'id')->where(fn ($query) => $query->whereIn('role', ['admin', 'commercial']))],
@@ -141,6 +151,7 @@ class OpportunityController extends Controller
             'created_by' => $request->user()->id,
             'status' => 'pending',
         ]);
+        $salesCycle->refreshScore($opportunity);
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Next action scheduled.')]);
     }
@@ -224,5 +235,20 @@ class OpportunityController extends Controller
         $changedAt = $opportunity->stageHistory->firstWhere('to_stage', $stage)?->changed_at;
 
         return $changedAt && (! $periodStart || $changedAt->greaterThanOrEqualTo($periodStart));
+    }
+
+    private function averageDaysByStage($opportunities): array
+    {
+        $durations = array_fill_keys(self::STAGES, []);
+
+        foreach ($opportunities as $opportunity) {
+            $history = $opportunity->stageHistory->sortBy('changed_at')->values();
+            foreach ($history as $index => $change) {
+                $end = $history->get($index + 1)?->changed_at ?? now();
+                $durations[$change->to_stage][] = $change->changed_at->diffInHours($end) / 24;
+            }
+        }
+
+        return collect($durations)->map(fn (array $days) => count($days) ? round(collect($days)->average(), 1) : null)->all();
     }
 }

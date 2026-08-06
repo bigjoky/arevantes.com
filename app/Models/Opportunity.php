@@ -21,6 +21,7 @@ class Opportunity extends Model
         'title',
         'stage',
         'probability',
+        'commercial_score',
         'estimated_value',
         'expected_close_on',
         'source',
@@ -75,6 +76,7 @@ class Opportunity extends Model
     {
         return [
             'probability' => 'integer',
+            'commercial_score' => 'integer',
             'estimated_value' => 'decimal:2',
             'expected_close_on' => 'date',
         ];

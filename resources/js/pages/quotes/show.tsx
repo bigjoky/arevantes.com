@@ -29,18 +29,23 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 
 type Quote = {
     id: number;
     number: string;
     version: number;
     status: string;
+    approval_status: string;
+    approval_notes: string | null;
     issue_date: string;
     valid_until: string | null;
     subtotal: string;
     discount_amount: string;
     tax_amount: string;
     amount: string;
+    expected_margin_amount: string | null;
+    actual_margin_amount: string | null;
     notes: string | null;
     customer: {
         first_name: string;
@@ -84,6 +89,16 @@ type Quote = {
         first_viewed_at: string | null;
         responded_at: string | null;
     }[];
+    versions: Array<{
+        id: number;
+        version: number;
+        subtotal: string;
+        discount_amount: string;
+        tax_amount: string;
+        amount: string;
+        expected_margin_amount: string | null;
+        created_at: string;
+    }>;
 };
 type ProjectDefaults = {
     site_name: string | null;
@@ -211,6 +226,84 @@ export default function QuoteShow({
                     />
                     <Info label="Issue date" value={date(quote.issue_date)} />
                     <Info label="Valid until" value={date(quote.valid_until)} />
+                </section>
+                <section className="grid gap-4 rounded-md border p-4 lg:grid-cols-[1fr_1fr]">
+                    <div>
+                        <div className="flex flex-wrap items-center gap-2">
+                            <h2 className="font-semibold">
+                                Commercial control
+                            </h2>
+                            <Badge variant="outline">
+                                Approval: {quote.approval_status}
+                            </Badge>
+                        </div>
+                        <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+                            <Info
+                                label="Expected margin"
+                                value={
+                                    quote.expected_margin_amount
+                                        ? money(quote.expected_margin_amount)
+                                        : '—'
+                                }
+                            />
+                            <Info
+                                label="Actual margin"
+                                value={
+                                    quote.actual_margin_amount
+                                        ? money(quote.actual_margin_amount)
+                                        : 'Pending costs'
+                                }
+                            />
+                        </div>
+                        {quote.approval_status === 'pending' && (
+                            <Form
+                                action={`/quotes/${quote.id}/approval`}
+                                method="post"
+                                className="mt-4 grid gap-2"
+                            >
+                                <Textarea
+                                    name="approval_notes"
+                                    placeholder="Approval notes"
+                                />
+                                <div className="flex gap-2">
+                                    <Button name="decision" value="approved">
+                                        Approve
+                                    </Button>
+                                    <Button
+                                        name="decision"
+                                        value="rejected"
+                                        variant="destructive"
+                                    >
+                                        Reject
+                                    </Button>
+                                </div>
+                            </Form>
+                        )}
+                        {quote.approval_notes && (
+                            <p className="mt-3 text-xs text-muted-foreground">
+                                {quote.approval_notes}
+                            </p>
+                        )}
+                    </div>
+                    <div>
+                        <h2 className="font-semibold">Version comparison</h2>
+                        <div className="mt-2 divide-y border-y text-sm">
+                            {quote.versions.map((version) => (
+                                <div
+                                    key={version.id}
+                                    className="grid grid-cols-[auto_1fr_auto] gap-3 py-2"
+                                >
+                                    <Badge variant="outline">
+                                        v{version.version}
+                                    </Badge>
+                                    <span>{dateTime(version.created_at)}</span>
+                                    <span className="font-medium tabular-nums">
+                                        {money(version.amount)}
+                                    </span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
                 </section>
                 <section className="overflow-x-auto">
                     <table className="w-full min-w-[48rem] text-sm">
@@ -977,6 +1070,12 @@ function date(value: string | null) {
               new Date(`${value.slice(0, 10)}T12:00:00`),
           )
         : '—';
+}
+function dateTime(value: string) {
+    return new Intl.DateTimeFormat(undefined, {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+    }).format(new Date(value));
 }
 QuoteShow.layout = {
     breadcrumbs: [

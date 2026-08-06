@@ -45,6 +45,10 @@ class OpportunityTest extends TestCase
         $opportunity = Opportunity::firstOrFail();
         $this->assertMatchesRegularExpression('/^OPP-\d{4}-\d{5}$/', $opportunity->code);
         $this->assertSame($user->id, $opportunity->created_by);
+        $this->assertSame($user->id, $opportunity->owner_user_id);
+        $this->assertNotNull($opportunity->expected_close_on);
+        $this->assertNotNull($opportunity->nextActivity);
+        $this->assertGreaterThan(0, $opportunity->commercial_score);
 
         $this->get(route('opportunities.index'))->assertOk()->assertInertia(fn (Assert $page) => $page
             ->component('opportunities/index')
@@ -294,6 +298,9 @@ class OpportunityTest extends TestCase
 
         $quote = Quote::firstOrFail();
         $this->assertSame($opportunity->id, $quote->opportunity_id);
+        $this->assertSame(1, $quote->versions()->count());
+        $this->assertSame('not_required', $quote->approval_status);
+        $this->assertSame('10800.00', $quote->expected_margin_amount);
         $this->assertSame('proposal', $opportunity->refresh()->stage);
         $this->assertDatabaseHas('crm_activities', [
             'person_id' => $customer->id,

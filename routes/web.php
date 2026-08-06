@@ -11,7 +11,11 @@ use App\Http\Controllers\BankingController;
 use App\Http\Controllers\CatalogController;
 use App\Http\Controllers\ChartOfAccountsController;
 use App\Http\Controllers\CorporateTaxController;
+use App\Http\Controllers\CustomerConsentController;
+use App\Http\Controllers\CustomerContactController;
+use App\Http\Controllers\CustomerMergeController;
 use App\Http\Controllers\CustomerPortalController;
+use App\Http\Controllers\CustomerTagController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DocumentDeliveryController;
 use App\Http\Controllers\ExpenseController;
@@ -28,6 +32,7 @@ use App\Http\Controllers\InstallationAiController;
 use App\Http\Controllers\InstallationController;
 use App\Http\Controllers\InstallationDeyeController;
 use App\Http\Controllers\InstallationHuaweiController;
+use App\Http\Controllers\InstallationPersonController;
 use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\KnowledgeDocumentController;
 use App\Http\Controllers\LegalController;
@@ -47,6 +52,7 @@ use App\Http\Controllers\RemoteStationController;
 use App\Http\Controllers\ReplenishmentController;
 use App\Http\Controllers\SalesDocumentController;
 use App\Http\Controllers\SalesOperationsController;
+use App\Http\Controllers\SavedCrmFilterController;
 use App\Http\Controllers\SitemapController;
 use App\Http\Controllers\StaffAccessController;
 use App\Http\Controllers\StaffController;
@@ -98,6 +104,15 @@ Route::middleware(['auth'])->group(function () {
         ->middleware('can:manage-customers')
         ->name('people.restore');
     Route::resource('people', PersonController::class)->middleware('can:manage-customers');
+    Route::post('people/{person}/contacts', [CustomerContactController::class, 'store'])->middleware('can:manage-customers')->name('people.contacts.store');
+    Route::patch('people/{person}/contacts/{contact}', [CustomerContactController::class, 'update'])->middleware('can:manage-customers')->name('people.contacts.update');
+    Route::delete('people/{person}/contacts/{contact}', [CustomerContactController::class, 'destroy'])->middleware('can:manage-customers')->name('people.contacts.destroy');
+    Route::post('people/{person}/tags', [CustomerTagController::class, 'store'])->middleware('can:manage-customers')->name('people.tags.store');
+    Route::delete('people/{person}/tags/{tag}', [CustomerTagController::class, 'destroy'])->middleware('can:manage-customers')->name('people.tags.destroy');
+    Route::post('people/{person}/consents', [CustomerConsentController::class, 'store'])->middleware('can:manage-customers')->name('people.consents.store');
+    Route::post('people/{person}/merge', CustomerMergeController::class)->middleware('can:manage-customers')->name('people.merge');
+    Route::post('crm/filters', [SavedCrmFilterController::class, 'store'])->middleware('can:manage-customers')->name('crm-filters.store');
+    Route::delete('crm/filters/{filter}', [SavedCrmFilterController::class, 'destroy'])->middleware('can:manage-customers')->name('crm-filters.destroy');
     Route::post('opportunities/{opportunity}/activities', [OpportunityController::class, 'storeActivity'])
         ->middleware('can:manage-customers')
         ->name('opportunities.activities.store');
@@ -303,6 +318,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('quotes/{quote}/edit', [QuoteController::class, 'edit'])->middleware('can:manage-installations')->name('quotes.edit');
     Route::put('quotes/{quote}', [QuoteController::class, 'updateDocument'])->middleware('can:manage-installations')->name('quotes.document.update');
     Route::patch('quotes/{quote}/status', [QuoteController::class, 'updateStatus'])->middleware('can:manage-installations')->name('quotes.status.update');
+    Route::post('quotes/{quote}/approval', [QuoteController::class, 'approve'])->middleware('can:manage-installations')->name('quotes.approval.store');
     Route::post('quotes/{quote}/project', [QuoteController::class, 'startProject'])->middleware('can:manage-installations')->name('quotes.project.store');
     Route::delete('quotes/{quote}', [QuoteController::class, 'destroy'])->middleware('can:manage-installations')->name('quotes.destroy');
     Route::post('quotes/{quote}/send', [DocumentDeliveryController::class, 'sendQuote'])->middleware('can:manage-installations')->name('quotes.send');
@@ -357,6 +373,12 @@ Route::middleware(['auth'])->group(function () {
     Route::resource('installations', InstallationController::class)
         ->except(['index', 'show'])
         ->middleware('can:manage-installations');
+    Route::post('installations/{installation}/people', [InstallationPersonController::class, 'store'])
+        ->middleware('can:manage-installations')
+        ->name('installations.people.store');
+    Route::delete('installations/{installation}/people/{person}', [InstallationPersonController::class, 'destroy'])
+        ->middleware('can:manage-installations')
+        ->name('installations.people.destroy');
     Route::resource('installations', InstallationController::class)
         ->only(['index', 'show'])
         ->middleware('can:view-installations');
