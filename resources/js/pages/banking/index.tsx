@@ -3,6 +3,7 @@ import {
     ArrowLeft,
     CreditCard,
     Landmark,
+    Link2,
     Pencil,
     Plus,
     RefreshCw,
@@ -706,6 +707,14 @@ function FinancialProducts({
                             product.is_active,
                     )}
                 />
+                <SharedCreditDialog
+                    cards={products.filter(
+                        (product) =>
+                            product.type === 'credit_card' &&
+                            product.is_active &&
+                            !product.shared_credit_facility_id,
+                    )}
+                />
             </div>
             {summaries.length > 0 && (
                 <div className="grid gap-px overflow-hidden rounded-md border bg-border md:grid-cols-3">
@@ -868,6 +877,138 @@ function FinancialProducts({
                 )}
             </div>
         </section>
+    );
+}
+
+function SharedCreditDialog({ cards }: { cards: FinancialProduct[] }) {
+    const [open, setOpen] = useState(false);
+    const [selected, setSelected] = useState<number[]>([]);
+    const suggestedLimit = Math.max(
+        0,
+        ...cards.map((card) => Number(card.credit_limit)),
+    );
+
+    const toggle = (cardId: number) =>
+        setSelected((current) =>
+            current.includes(cardId)
+                ? current.filter((id) => id !== cardId)
+                : [...current, cardId],
+        );
+
+    return (
+        <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+                <Button variant="outline" disabled={cards.length < 2}>
+                    <Link2 /> Create shared limit
+                </Button>
+            </DialogTrigger>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Create shared card credit</DialogTitle>
+                    <DialogDescription>
+                        Select the cards that draw from the same bank limit. The
+                        limit will count only once in treasury.
+                    </DialogDescription>
+                </DialogHeader>
+                <Form
+                    action="/banking/shared-credit-facilities"
+                    method="post"
+                    className="grid gap-4"
+                    onSuccess={() => {
+                        setOpen(false);
+                        setSelected([]);
+                    }}
+                >
+                    {({ errors, processing }) => (
+                        <>
+                            {selected.map((cardId) => (
+                                <input
+                                    key={cardId}
+                                    type="hidden"
+                                    name="card_ids[]"
+                                    value={cardId}
+                                />
+                            ))}
+                            <ProductField label="Shared facility name">
+                                <Input
+                                    name="name"
+                                    defaultValue="Shared corporate card credit"
+                                    required
+                                />
+                            </ProductField>
+                            <div className="grid gap-3 sm:grid-cols-2">
+                                <ProductField label="Single shared limit">
+                                    <Input
+                                        name="credit_limit"
+                                        type="number"
+                                        min="0.01"
+                                        step="0.01"
+                                        defaultValue={suggestedLimit || ''}
+                                        required
+                                    />
+                                </ProductField>
+                                <ProductField label="Bank reference">
+                                    <Input name="contract_reference" />
+                                </ProductField>
+                            </div>
+                            <div className="grid gap-2">
+                                <Label>Select at least two cards</Label>
+                                {cards.map((card) => (
+                                    <button
+                                        key={card.id}
+                                        type="button"
+                                        onClick={() => toggle(card.id)}
+                                        className={`flex items-center justify-between rounded-md border p-3 text-left ${selected.includes(card.id) ? 'border-primary bg-primary/5' : ''}`}
+                                    >
+                                        <span className="flex items-center gap-2">
+                                            <Checkbox
+                                                checked={selected.includes(
+                                                    card.id,
+                                                )}
+                                                tabIndex={-1}
+                                            />
+                                            <span>
+                                                <span className="block text-sm font-medium">
+                                                    {card.name}
+                                                </span>
+                                                <span className="block text-xs text-muted-foreground">
+                                                    {card.identifier_last_four
+                                                        ? `•••• ${card.identifier_last_four} · `
+                                                        : ''}
+                                                    {money(
+                                                        Number(
+                                                            card.used_amount,
+                                                        ),
+                                                        card.currency,
+                                                    )}{' '}
+                                                    used
+                                                </span>
+                                            </span>
+                                        </span>
+                                        <span className="text-sm">
+                                            {money(
+                                                Number(card.credit_limit),
+                                                card.currency,
+                                            )}
+                                        </span>
+                                    </button>
+                                ))}
+                            </div>
+                            {Object.keys(errors).length > 0 && (
+                                <p className="text-sm text-destructive">
+                                    {Object.values(errors)[0]}
+                                </p>
+                            )}
+                            <Button
+                                disabled={processing || selected.length < 2}
+                            >
+                                <Link2 /> Link selected cards
+                            </Button>
+                        </>
+                    )}
+                </Form>
+            </DialogContent>
+        </Dialog>
     );
 }
 

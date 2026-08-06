@@ -8,6 +8,48 @@ use Illuminate\Validation\ValidationException;
 
 class BankFinancialProductManager
 {
+    public function createSharedFacility(array $data, int $userId): BankFinancialProduct
+    {
+        return DB::transaction(function () use ($data, $userId) {
+            $cards = BankFinancialProduct::whereIn('id', $data['card_ids'])->lockForUpdate()->get();
+            if ($cards->count() !== count(array_unique($data['card_ids'])) || $cards->contains(fn ($card) => $card->type !== 'credit_card' || ! $card->is_active)) {
+                throw ValidationException::withMessages(['card_ids' => __('Select at least two active credit cards.')]);
+            }
+            if ($cards->contains(fn ($card) => $card->shared_credit_facility_id !== null)) {
+                throw ValidationException::withMessages(['card_ids' => __('One of the selected cards already uses shared credit.')]);
+            }
+            if ($cards->pluck('currency')->unique()->count() !== 1) {
+                throw ValidationException::withMessages(['card_ids' => __('All cards in a shared facility must use the same currency.')]);
+            }
+            $used = round((float) $cards->sum('used_amount'), 2);
+            if ($used > (float) $data['credit_limit'] + .005) {
+                throw ValidationException::withMessages(['credit_limit' => __('The shared limit cannot be lower than the amount already used by the cards.')]);
+            }
+
+            $primary = $cards->first();
+            $facility = BankFinancialProduct::create([
+                'bank_account_id' => $primary->bank_account_id,
+                'ledger_account_id' => $primary->ledger_account_id,
+                'type' => 'credit_facility',
+                'name' => $data['name'],
+                'provider' => $cards->pluck('provider')->filter()->unique()->count() === 1 ? $primary->provider : null,
+                'currency' => $primary->currency,
+                'contract_reference' => $data['contract_reference'] ?? null,
+                'credit_limit' => $data['credit_limit'],
+                'used_amount' => $used,
+                'annual_fee' => 0,
+                'is_active' => true,
+                'created_by' => $userId,
+            ]);
+            $cards->each(fn (BankFinancialProduct $card) => $card->update([
+                'shared_credit_facility_id' => $facility->id,
+                'credit_limit' => $facility->credit_limit,
+            ]));
+
+            return $facility->refresh();
+        });
+    }
+
     public function create(array $data, int $userId): BankFinancialProduct
     {
         return DB::transaction(fn () => $this->save(new BankFinancialProduct, [...$data, 'created_by' => $userId]));
