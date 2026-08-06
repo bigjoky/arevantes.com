@@ -17,7 +17,7 @@ concurrency:
 jobs:
   recover:
     name: Recover production migrations
-    runs-on: ubuntu-slim
+    runs-on: macos-15
     environment: production
 
     steps:
