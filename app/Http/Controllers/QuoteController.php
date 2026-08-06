@@ -186,6 +186,7 @@ class QuoteController extends Controller
                 'installation_id' => $installation->id,
                 'work_order_id' => $order->id,
                 'person_id' => $lockedQuote->person_id,
+                'opportunity_id' => $opportunity?->id,
                 'assigned_user_id' => $data['technician_user_id'] ?? null,
                 'created_by' => $request->user()->id,
                 'type' => 'visit',
@@ -259,6 +260,7 @@ class QuoteController extends Controller
         CrmActivity::create([
             'person_id' => $quote->person_id,
             'installation_id' => $quote->installation_id,
+            'opportunity_id' => $opportunity->id,
             'assigned_user_id' => $opportunity->owner_user_id,
             'created_by' => $request->user()->id,
             'type' => 'reminder',

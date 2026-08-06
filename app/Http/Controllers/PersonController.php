@@ -18,15 +18,34 @@ class PersonController extends Controller
     /**
      * Show customer profiles.
      */
-    public function index(): Response
+    public function index(Request $request): Response
     {
+        $search = trim((string) $request->input('search'));
+        $query = Person::query()
+            ->when($request->boolean('archived'), fn ($query) => $query->onlyTrashed())
+            ->where('category', 'customer')
+            ->when($search !== '', fn ($query) => $query->where(fn ($query) => $query
+                ->where('first_name', 'like', "%{$search}%")
+                ->orWhere('last_name', 'like', "%{$search}%")
+                ->orWhere('company_name', 'like', "%{$search}%")
+                ->orWhere('email', 'like', "%{$search}%")
+                ->orWhere('phone', 'like', "%{$search}%")
+                ->orWhere('tax_id', 'like', "%{$search}%")))
+            ->when($request->filled('customer_type'), fn ($query) => $query->where('customer_type', (string) $request->input('customer_type')))
+            ->when($request->filled('lead_source'), fn ($query) => $query->where('lead_source', (string) $request->input('lead_source')))
+            ->withCount('installations')
+            ->latest();
+
         return Inertia::render('people/index', [
-            'people' => Person::query()
+            'people' => $query->paginate(20)->withQueryString()->through(fn (Person $person) => $this->personSummary($person)),
+            'filters' => $request->only(['search', 'customer_type', 'lead_source', 'archived']),
+            'leadSources' => Person::query()
+                ->when($request->boolean('archived'), fn ($query) => $query->onlyTrashed())
                 ->where('category', 'customer')
-                ->withCount('installations')
-                ->latest()
-                ->get()
-                ->map(fn (Person $person) => $this->personSummary($person)),
+                ->whereNotNull('lead_source')
+                ->distinct()
+                ->orderBy('lead_source')
+                ->pluck('lead_source'),
             ...$this->sectionProps('customer'),
         ]);
     }
@@ -145,10 +164,25 @@ class PersonController extends Controller
     {
         $this->ensurePersonCategory($person, 'customer');
 
+        $person->portalAccesses()->whereNull('revoked_at')->update(['revoked_at' => now()]);
         $person->delete();
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => __('Customer deleted.')]);
+        Inertia::flash('toast', ['type' => 'success', 'message' => __('Customer archived.')]);
 
         return to_route('people.index');
+    }
+
+    /**
+     * Restore an archived customer.
+     */
+    public function restore(int $person): RedirectResponse
+    {
+        $customer = Person::onlyTrashed()->findOrFail($person);
+        $this->ensurePersonCategory($customer, 'customer');
+        $customer->restore();
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => __('Customer restored.')]);
+
+        return to_route('people.show', $customer);
     }
 }

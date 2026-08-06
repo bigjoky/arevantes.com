@@ -4,10 +4,13 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class CrmActivity extends Model
 {
-    protected $fillable = ['installation_id', 'work_order_id', 'person_id', 'assigned_user_id', 'created_by', 'type', 'title', 'notes', 'priority', 'status', 'starts_at', 'due_at', 'completed_at'];
+    use SoftDeletes;
+
+    protected $fillable = ['installation_id', 'work_order_id', 'person_id', 'opportunity_id', 'assigned_user_id', 'created_by', 'type', 'title', 'notes', 'priority', 'status', 'starts_at', 'due_at', 'completed_at'];
 
     protected function casts(): array
     {
@@ -26,7 +29,12 @@ class CrmActivity extends Model
 
     public function person(): BelongsTo
     {
-        return $this->belongsTo(Person::class);
+        return $this->belongsTo(Person::class)->withTrashed();
+    }
+
+    public function opportunity(): BelongsTo
+    {
+        return $this->belongsTo(Opportunity::class)->withTrashed();
     }
 
     public function assignedUser(): BelongsTo

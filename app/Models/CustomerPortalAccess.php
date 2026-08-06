@@ -16,6 +16,6 @@ class CustomerPortalAccess extends Model
 
     public function customer(): BelongsTo
     {
-        return $this->belongsTo(Person::class, 'person_id');
+        return $this->belongsTo(Person::class, 'person_id')->withTrashed();
     }
 }

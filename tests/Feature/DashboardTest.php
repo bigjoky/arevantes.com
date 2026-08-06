@@ -419,8 +419,8 @@ class DashboardTest extends TestCase
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->component('people/index')
-                ->where('people.0.id', $person->id)
-                ->has('people', 1)
+                ->where('people.data.0.id', $person->id)
+                ->has('people.data', 1)
             );
         $this->get(route('people.show', $person))->assertOk();
         $this->get(route('people.edit', $person))->assertOk();
@@ -463,7 +463,7 @@ class DashboardTest extends TestCase
         $this->delete(route('people.destroy', $person))
             ->assertRedirect(route('people.index'));
 
-        $this->assertDatabaseMissing('people', ['id' => $person->id]);
+        $this->assertSoftDeleted('people', ['id' => $person->id]);
     }
 
     public function test_authenticated_users_can_manage_staff_profiles()
@@ -530,7 +530,7 @@ class DashboardTest extends TestCase
         $this->delete(route('staff.destroy', $staff))
             ->assertRedirect(route('staff.index'));
 
-        $this->assertDatabaseMissing('people', ['id' => $staff->id]);
+        $this->assertSoftDeleted('people', ['id' => $staff->id]);
     }
 
     public function test_admin_can_create_and_manage_crm_access_from_a_staff_profile()
@@ -742,7 +742,7 @@ class DashboardTest extends TestCase
         $this->assertDatabaseCount('installations', 1);
     }
 
-    public function test_deleting_a_customer_keeps_their_installation_unassigned()
+    public function test_archiving_a_customer_preserves_their_installation_history()
     {
         $customer = Person::create([
             'category' => 'customer',
@@ -759,8 +759,10 @@ class DashboardTest extends TestCase
 
         $this->assertDatabaseHas('installations', [
             'id' => $installation->id,
-            'person_id' => null,
+            'person_id' => $customer->id,
         ]);
+        $this->assertSoftDeleted('people', ['id' => $customer->id]);
+        $this->assertSame($customer->id, $installation->fresh()->customer->id);
     }
 
     public function test_authenticated_users_can_open_the_installation_workflow()

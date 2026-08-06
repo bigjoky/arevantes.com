@@ -1,12 +1,19 @@
-import { Head, Link, router, useForm } from '@inertiajs/react';
+import { Form, Head, Link, router, useForm } from '@inertiajs/react';
 import {
+    Archive,
     CalendarClock,
     CircleDollarSign,
+    Clock3,
+    History,
     Pencil,
     Plus,
+    RotateCcw,
+    Search,
     Target,
-    Trash2,
+    Timer,
     TrendingUp,
+    UserPlus,
+    X,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import InputError from '@/components/input-error';
@@ -19,6 +26,7 @@ import {
     DialogFooter,
     DialogHeader,
     DialogTitle,
+    DialogTrigger,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -32,13 +40,13 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 
 const stages = [
-    { value: 'new', label: 'New', probability: 10 },
-    { value: 'qualified', label: 'Qualified', probability: 25 },
-    { value: 'survey', label: 'Survey', probability: 40 },
-    { value: 'proposal', label: 'Proposal', probability: 60 },
-    { value: 'negotiation', label: 'Negotiation', probability: 80 },
-    { value: 'won', label: 'Won', probability: 100 },
-    { value: 'lost', label: 'Lost', probability: 0 },
+    { value: 'new', label: 'Nuevo', probability: 10 },
+    { value: 'qualified', label: 'Cualificado', probability: 25 },
+    { value: 'survey', label: 'Visita técnica', probability: 40 },
+    { value: 'proposal', label: 'Propuesta', probability: 60 },
+    { value: 'negotiation', label: 'Negociación', probability: 80 },
+    { value: 'won', label: 'Ganada', probability: 100 },
+    { value: 'lost', label: 'Perdida', probability: 0 },
 ] as const;
 
 type Customer = {
@@ -54,6 +62,21 @@ type Installation = {
     site_name: string | null;
 };
 type UserOption = { id: number; name: string };
+type Activity = {
+    id: number;
+    title: string;
+    type: string;
+    priority: string;
+    due_at: string;
+    assigned_user: UserOption | null;
+};
+type StageHistory = {
+    id: number;
+    from_stage: string | null;
+    to_stage: string;
+    changed_at: string;
+    changed_by: UserOption | null;
+};
 type Opportunity = {
     id: number;
     code: string;
@@ -63,7 +86,9 @@ type Opportunity = {
     estimated_value: string;
     expected_close_on: string | null;
     source: string | null;
+    source_detail: string | null;
     lost_reason: string | null;
+    lost_reason_detail: string | null;
     notes: string | null;
     person_id: number;
     installation_id: number | null;
@@ -72,6 +97,9 @@ type Opportunity = {
     installation: Installation | null;
     owner: UserOption | null;
     quote: { id: number; number: string; status: string } | null;
+    next_activity: Activity | null;
+    stage_history: StageHistory[];
+    deleted_at: string | null;
 };
 
 type FormData = {
@@ -84,7 +112,9 @@ type FormData = {
     estimated_value: string;
     expected_close_on: string;
     source: string;
+    source_detail: string;
     lost_reason: string;
+    lost_reason_detail: string;
     notes: string;
 };
 
@@ -98,7 +128,9 @@ const emptyForm: FormData = {
     estimated_value: '0',
     expected_close_on: '',
     source: '',
+    source_detail: '',
     lost_reason: '',
+    lost_reason_detail: '',
     notes: '',
 };
 
@@ -107,17 +139,39 @@ export default function OpportunitiesIndex({
     customers,
     installations,
     users,
+    sourceOptions,
+    lostReasonOptions,
+    filters = {},
     metrics,
 }: {
     opportunities: Opportunity[];
     customers: Customer[];
     installations: Installation[];
     users: UserOption[];
+    sourceOptions: Record<string, string>;
+    lostReasonOptions: Record<string, string>;
+    filters: {
+        search?: string;
+        stage?: string;
+        owner?: string;
+        source?: string;
+        attention?: string;
+        archived?: string;
+        period?: string;
+    };
     metrics: {
         pipeline_value: number;
         weighted_forecast: number;
         won_value: number;
+        new_leads: number;
+        won_count: number;
+        lost_count: number;
+        conversion_rate: number;
+        average_cycle_days: number | null;
         overdue: number;
+        without_next_action: number;
+        stale: number;
+        funnel: Record<string, number>;
     };
 }) {
     const [open, setOpen] = useState(false);
@@ -168,7 +222,9 @@ export default function OpportunitiesIndex({
             estimated_value: item.estimated_value,
             expected_close_on: item.expected_close_on || '',
             source: item.source || '',
+            source_detail: item.source_detail || '',
             lost_reason: item.lost_reason || '',
+            lost_reason_detail: item.lost_reason_detail || '',
             notes: item.notes || '',
         });
         setOpen(true);
@@ -211,7 +267,9 @@ export default function OpportunitiesIndex({
                 estimated_value: item.estimated_value,
                 expected_close_on: item.expected_close_on,
                 source: item.source,
+                source_detail: item.source_detail,
                 lost_reason: null,
+                lost_reason_detail: null,
                 notes: item.notes,
             },
             { preserveScroll: true },
@@ -220,42 +278,170 @@ export default function OpportunitiesIndex({
 
     return (
         <>
-            <Head title="Opportunities" />
+            <Head title="Oportunidades" />
             <div className="flex flex-1 flex-col gap-6 p-4">
                 <header className="flex flex-wrap items-center justify-between gap-3">
                     <div>
-                        <h1 className="text-xl font-semibold">Opportunities</h1>
+                        <h1 className="text-xl font-semibold">Oportunidades</h1>
                         <p className="text-sm text-muted-foreground">
-                            Commercial pipeline and weighted sales forecast.
+                            Embudo comercial y previsión ponderada de ventas.
                         </p>
                     </div>
-                    <Button onClick={() => openCreator()}>
-                        <Plus /> New opportunity
-                    </Button>
+                    <div className="flex gap-2">
+                        <Button variant="outline" asChild>
+                            <Link
+                                href={
+                                    filters.archived
+                                        ? '/opportunities'
+                                        : '/opportunities?archived=1'
+                                }
+                            >
+                                {filters.archived ? <RotateCcw /> : <Archive />}
+                                {filters.archived
+                                    ? 'Oportunidades activas'
+                                    : 'Archivadas'}
+                            </Link>
+                        </Button>
+                        {!filters.archived && (
+                            <Button onClick={() => openCreator()}>
+                                <Plus /> Nueva oportunidad
+                            </Button>
+                        )}
+                    </div>
                 </header>
 
                 <section className="grid gap-px overflow-hidden border bg-border sm:grid-cols-2 xl:grid-cols-4">
                     <Metric
                         icon={CircleDollarSign}
-                        label="Open pipeline"
+                        label="Pipeline abierto"
                         value={money(metrics.pipeline_value)}
                     />
                     <Metric
                         icon={TrendingUp}
-                        label="Weighted forecast"
+                        label="Previsión ponderada"
                         value={money(metrics.weighted_forecast)}
                     />
                     <Metric
                         icon={Target}
-                        label="Won"
+                        label={`Ganado · ${periodLabel(filters.period)}`}
                         value={money(metrics.won_value)}
+                        detail={`${metrics.won_count} oportunidades`}
+                    />
+                    <Metric
+                        icon={UserPlus}
+                        label={`Nuevos leads · ${periodLabel(filters.period)}`}
+                        value={String(metrics.new_leads)}
+                    />
+                    <Metric
+                        icon={Target}
+                        label="Conversión"
+                        value={`${metrics.conversion_rate}%`}
+                        detail={`${metrics.won_count} ganadas · ${metrics.lost_count} perdidas`}
+                    />
+                    <Metric
+                        icon={Timer}
+                        label="Ciclo medio"
+                        value={
+                            metrics.average_cycle_days === null
+                                ? '—'
+                                : `${metrics.average_cycle_days} días`
+                        }
                     />
                     <Metric
                         icon={CalendarClock}
-                        label="Overdue closes"
+                        label="Cierres vencidos"
                         value={String(metrics.overdue)}
                     />
+                    <Metric
+                        icon={Clock3}
+                        label="Sin próxima acción"
+                        value={String(metrics.without_next_action)}
+                        detail={`${metrics.stale} estancadas`}
+                    />
                 </section>
+
+                <FunnelSummary funnel={metrics.funnel} />
+
+                <Form
+                    action="/opportunities"
+                    method="get"
+                    className="grid gap-3 rounded-md border p-3 md:grid-cols-2 xl:grid-cols-[minmax(14rem,1fr)_10rem_11rem_12rem_12rem_11rem_auto]"
+                >
+                    {filters.archived && (
+                        <input type="hidden" name="archived" value="1" />
+                    )}
+                    <div className="relative">
+                        <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+                        <Input
+                            name="search"
+                            defaultValue={filters.search}
+                            placeholder="Buscar oportunidad o cliente"
+                            className="pl-9"
+                        />
+                    </div>
+                    <NativeSelect
+                        name="stage"
+                        defaultValue={filters.stage}
+                        options={[
+                            ['', 'Todas las etapas'],
+                            ...stages.map((stage) => [
+                                stage.value,
+                                stage.label,
+                            ]),
+                        ]}
+                    />
+                    <NativeSelect
+                        name="owner"
+                        defaultValue={filters.owner}
+                        options={[
+                            ['', 'Todos los responsables'],
+                            ['me', 'Mis oportunidades'],
+                            ...users.map((user) => [
+                                String(user.id),
+                                user.name,
+                            ]),
+                        ]}
+                    />
+                    <NativeSelect
+                        name="source"
+                        defaultValue={filters.source}
+                        options={[
+                            ['', 'Todos los orígenes'],
+                            ...Object.entries(sourceOptions),
+                        ]}
+                    />
+                    <NativeSelect
+                        name="attention"
+                        defaultValue={filters.attention}
+                        options={[
+                            ['', 'Todas las situaciones'],
+                            ['overdue', 'Cierre vencido'],
+                            ['no_action', 'Sin próxima acción'],
+                        ]}
+                    />
+                    <NativeSelect
+                        name="period"
+                        defaultValue={filters.period || '90'}
+                        options={[
+                            ['30', 'Últimos 30 días'],
+                            ['90', 'Últimos 90 días'],
+                            ['365', 'Último año'],
+                            ['all', 'Todo el histórico'],
+                        ]}
+                    />
+                    <div className="flex gap-2">
+                        <Button variant="outline">
+                            <Search /> Filtrar
+                        </Button>
+                        {Object.values(filters).some(Boolean) && (
+                            <Button type="button" variant="ghost" asChild>
+                                <Link href="/opportunities">
+                                    <X /> Limpiar
+                                </Link>
+                            </Button>
+                        )}
+                    </div>
+                </Form>
 
                 <section className="overflow-x-auto pb-3">
                     <div className="grid min-w-[94rem] grid-cols-7 gap-3">
@@ -303,6 +489,22 @@ export default function OpportunitiesIndex({
                                                             )}
                                                         </span>
                                                     )}
+                                                    {item.source && (
+                                                        <span className="mt-2 block">
+                                                            <Badge
+                                                                variant="outline"
+                                                                title={
+                                                                    item.source_detail ||
+                                                                    undefined
+                                                                }
+                                                            >
+                                                                {sourceOptions[
+                                                                    item.source
+                                                                ] ||
+                                                                    item.source}
+                                                            </Badge>
+                                                        </span>
+                                                    )}
                                                 </button>
                                                 <div className="mt-3 flex items-end justify-between gap-2 border-t pt-2">
                                                     <div>
@@ -334,34 +536,94 @@ export default function OpportunitiesIndex({
                                                         <Pencil className="size-3.5" />
                                                     </Button>
                                                 </div>
-                                                <Select
-                                                    value={item.stage}
-                                                    onValueChange={(value) =>
-                                                        changeStage(item, value)
-                                                    }
+                                                <div
+                                                    className={`mt-2 rounded-md border px-2 py-1.5 text-xs ${
+                                                        item.next_activity &&
+                                                        isOverdue(
+                                                            item.next_activity
+                                                                .due_at,
+                                                        )
+                                                            ? 'border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200'
+                                                            : 'text-muted-foreground'
+                                                    }`}
                                                 >
-                                                    <SelectTrigger className="mt-2 h-8 text-xs">
-                                                        <SelectValue />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        {stages.map(
-                                                            (option) => (
-                                                                <SelectItem
-                                                                    key={
-                                                                        option.value
-                                                                    }
-                                                                    value={
-                                                                        option.value
-                                                                    }
-                                                                >
-                                                                    {
-                                                                        option.label
-                                                                    }
-                                                                </SelectItem>
-                                                            ),
-                                                        )}
-                                                    </SelectContent>
-                                                </Select>
+                                                    {item.next_activity ? (
+                                                        <>
+                                                            <div className="flex items-center gap-1 font-medium">
+                                                                <Clock3 className="size-3" />
+                                                                Próxima acción
+                                                            </div>
+                                                            <div className="mt-1 truncate">
+                                                                {
+                                                                    item
+                                                                        .next_activity
+                                                                        .title
+                                                                }{' '}
+                                                                ·{' '}
+                                                                {dateTime(
+                                                                    item
+                                                                        .next_activity
+                                                                        .due_at,
+                                                                )}
+                                                            </div>
+                                                        </>
+                                                    ) : (
+                                                        <span>
+                                                            Sin próxima acción
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                {!item.deleted_at &&
+                                                    !['won', 'lost'].includes(
+                                                        item.stage,
+                                                    ) && (
+                                                        <OpportunityActivityDialog
+                                                            opportunity={item}
+                                                            users={users}
+                                                        />
+                                                    )}
+                                                {item.deleted_at ? (
+                                                    <Badge
+                                                        variant="secondary"
+                                                        className="mt-2"
+                                                    >
+                                                        Archivada
+                                                    </Badge>
+                                                ) : (
+                                                    <Select
+                                                        value={item.stage}
+                                                        onValueChange={(
+                                                            value,
+                                                        ) =>
+                                                            changeStage(
+                                                                item,
+                                                                value,
+                                                            )
+                                                        }
+                                                    >
+                                                        <SelectTrigger className="mt-2 h-8 text-xs">
+                                                            <SelectValue />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            {stages.map(
+                                                                (option) => (
+                                                                    <SelectItem
+                                                                        key={
+                                                                            option.value
+                                                                        }
+                                                                        value={
+                                                                            option.value
+                                                                        }
+                                                                    >
+                                                                        {
+                                                                            option.label
+                                                                        }
+                                                                    </SelectItem>
+                                                                ),
+                                                            )}
+                                                        </SelectContent>
+                                                    </Select>
+                                                )}
                                             </article>
                                         ))}
                                         {items.length === 0 && (
@@ -525,35 +787,65 @@ export default function OpportunitiesIndex({
                                     }
                                 />
                             </Field>
-                            <Field label="Source" error={form.errors.source}>
-                                <Input
-                                    value={form.data.source}
-                                    placeholder="Referral, web, campaign..."
-                                    onChange={(event) =>
-                                        form.setData(
-                                            'source',
-                                            event.target.value,
-                                        )
-                                    }
-                                />
-                            </Field>
-                            {form.data.stage === 'lost' && (
+                            <SelectField
+                                label="Origen"
+                                value={form.data.source || 'none'}
+                                error={form.errors.source}
+                                onChange={(value) =>
+                                    form.setData(
+                                        'source',
+                                        value === 'none' ? '' : value,
+                                    )
+                                }
+                                options={[
+                                    ['none', 'Sin especificar'],
+                                    ...Object.entries(sourceOptions),
+                                ]}
+                            />
+                            {form.data.source === 'other' && (
                                 <Field
-                                    label="Loss reason"
-                                    error={form.errors.lost_reason}
-                                    className="sm:col-span-2"
+                                    label="Detalle del origen"
+                                    error={form.errors.source_detail}
                                 >
-                                    <Textarea
-                                        value={form.data.lost_reason}
+                                    <Input
+                                        value={form.data.source_detail}
                                         onChange={(event) =>
                                             form.setData(
-                                                'lost_reason',
+                                                'source_detail',
                                                 event.target.value,
                                             )
                                         }
                                     />
                                 </Field>
                             )}
+                            {form.data.stage === 'lost' && (
+                                <SelectField
+                                    label="Motivo de pérdida"
+                                    value={form.data.lost_reason}
+                                    error={form.errors.lost_reason}
+                                    onChange={(value) =>
+                                        form.setData('lost_reason', value)
+                                    }
+                                    options={Object.entries(lostReasonOptions)}
+                                />
+                            )}
+                            {form.data.stage === 'lost' &&
+                                form.data.lost_reason === 'other' && (
+                                    <Field
+                                        label="Detalle del motivo"
+                                        error={form.errors.lost_reason_detail}
+                                    >
+                                        <Textarea
+                                            value={form.data.lost_reason_detail}
+                                            onChange={(event) =>
+                                                form.setData(
+                                                    'lost_reason_detail',
+                                                    event.target.value,
+                                                )
+                                            }
+                                        />
+                                    </Field>
+                                )}
                             <Field
                                 label="Notes"
                                 error={form.errors.notes}
@@ -569,10 +861,45 @@ export default function OpportunitiesIndex({
                                     }
                                 />
                             </Field>
+                            {editing && editing.stage_history.length > 0 && (
+                                <div className="sm:col-span-2">
+                                    <div className="mb-2 flex items-center gap-2 text-sm font-medium">
+                                        <History className="size-4" />
+                                        Historial de etapas
+                                    </div>
+                                    <div className="max-h-36 divide-y overflow-y-auto rounded-md border px-3">
+                                        {editing.stage_history.map((change) => (
+                                            <div
+                                                key={change.id}
+                                                className="flex items-center justify-between gap-3 py-2 text-xs"
+                                            >
+                                                <span>
+                                                    {change.from_stage
+                                                        ? `${stageLabel(change.from_stage)} → `
+                                                        : ''}
+                                                    <strong>
+                                                        {stageLabel(
+                                                            change.to_stage,
+                                                        )}
+                                                    </strong>
+                                                </span>
+                                                <span className="text-right text-muted-foreground">
+                                                    {change.changed_by?.name ||
+                                                        'Sistema'}{' '}
+                                                    ·{' '}
+                                                    {dateTime(
+                                                        change.changed_at,
+                                                    )}
+                                                </span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                         <DialogFooter className="gap-2 sm:justify-between">
                             <div className="flex gap-2">
-                                {editing && !editing.quote && (
+                                {editing && !editing.deleted_at && (
                                     <Button
                                         type="button"
                                         variant="destructive"
@@ -586,10 +913,28 @@ export default function OpportunitiesIndex({
                                             )
                                         }
                                     >
-                                        <Trash2 /> Delete
+                                        <Archive /> Archivar
                                     </Button>
                                 )}
-                                {editing && (
+                                {editing?.deleted_at && (
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        onClick={() =>
+                                            router.post(
+                                                `/opportunities/${editing.id}/restore`,
+                                                {},
+                                                {
+                                                    onSuccess: () =>
+                                                        setOpen(false),
+                                                },
+                                            )
+                                        }
+                                    >
+                                        <RotateCcw /> Restaurar
+                                    </Button>
+                                )}
+                                {editing && !editing.deleted_at && (
                                     <Button
                                         type="button"
                                         variant="outline"
@@ -617,17 +962,187 @@ export default function OpportunitiesIndex({
                                 >
                                     Cancel
                                 </Button>
-                                <Button disabled={form.processing}>
-                                    {editing
-                                        ? 'Save changes'
-                                        : 'Create opportunity'}
-                                </Button>
+                                {!editing?.deleted_at && (
+                                    <Button disabled={form.processing}>
+                                        {editing
+                                            ? 'Save changes'
+                                            : 'Create opportunity'}
+                                    </Button>
+                                )}
                             </div>
                         </DialogFooter>
                     </form>
                 </DialogContent>
             </Dialog>
         </>
+    );
+}
+
+function FunnelSummary({ funnel }: { funnel: Record<string, number> }) {
+    const total = Object.values(funnel).reduce((sum, count) => sum + count, 0);
+
+    return (
+        <section className="rounded-md border">
+            <div className="border-b px-4 py-3">
+                <h2 className="text-sm font-semibold">
+                    Distribución actual del embudo
+                </h2>
+            </div>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
+                {stages.map((stage) => {
+                    const count = funnel[stage.value] || 0;
+                    const percentage = total > 0 ? (count / total) * 100 : 0;
+
+                    return (
+                        <div
+                            key={stage.value}
+                            className="border-b p-3 last:border-b-0 sm:border-r lg:border-b-0"
+                        >
+                            <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                                <span>{stage.label}</span>
+                                <span>{percentage.toFixed(0)}%</span>
+                            </div>
+                            <div className="mt-1 text-lg font-semibold">
+                                {count}
+                            </div>
+                            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
+                                <div
+                                    className="h-full rounded-full bg-primary"
+                                    style={{ width: `${percentage}%` }}
+                                />
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+        </section>
+    );
+}
+
+function OpportunityActivityDialog({
+    opportunity,
+    users,
+}: {
+    opportunity: Opportunity;
+    users: UserOption[];
+}) {
+    const [open, setOpen] = useState(false);
+
+    return (
+        <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+                <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="mt-1 h-7 w-full justify-start px-2 text-xs"
+                >
+                    <Plus className="size-3" /> Programar acción
+                </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-lg">
+                <DialogHeader>
+                    <DialogTitle>Próxima acción</DialogTitle>
+                    <DialogDescription>
+                        Programa el siguiente seguimiento de {opportunity.code}.
+                    </DialogDescription>
+                </DialogHeader>
+                <Form
+                    action={`/opportunities/${opportunity.id}/activities`}
+                    method="post"
+                    resetOnSuccess
+                    onSuccess={() => setOpen(false)}
+                    className="grid gap-4"
+                >
+                    {({ errors, processing }) => (
+                        <>
+                            <Field label="Título" error={errors.title}>
+                                <Input
+                                    name="title"
+                                    placeholder="Llamar para revisar la propuesta"
+                                    required
+                                />
+                            </Field>
+                            <div className="grid gap-4 sm:grid-cols-2">
+                                <Field label="Tipo" error={errors.type}>
+                                    <NativeSelect
+                                        name="type"
+                                        defaultValue="call"
+                                        options={[
+                                            ['call', 'Llamada'],
+                                            ['email', 'Email'],
+                                            ['meeting', 'Reunión'],
+                                            ['visit', 'Visita'],
+                                            ['task', 'Tarea'],
+                                            ['reminder', 'Recordatorio'],
+                                        ]}
+                                    />
+                                </Field>
+                                <Field
+                                    label="Responsable"
+                                    error={errors.assigned_user_id}
+                                >
+                                    <NativeSelect
+                                        name="assigned_user_id"
+                                        defaultValue={
+                                            opportunity.owner_user_id
+                                                ? String(
+                                                      opportunity.owner_user_id,
+                                                  )
+                                                : ''
+                                        }
+                                        options={[
+                                            ['', 'Sin asignar'],
+                                            ...users.map((user) => [
+                                                String(user.id),
+                                                user.name,
+                                            ]),
+                                        ]}
+                                    />
+                                </Field>
+                                <Field
+                                    label="Fecha límite"
+                                    error={errors.due_at}
+                                >
+                                    <Input
+                                        name="due_at"
+                                        type="datetime-local"
+                                        required
+                                    />
+                                </Field>
+                                <Field
+                                    label="Prioridad"
+                                    error={errors.priority}
+                                >
+                                    <NativeSelect
+                                        name="priority"
+                                        defaultValue="normal"
+                                        options={[
+                                            ['low', 'Baja'],
+                                            ['normal', 'Normal'],
+                                            ['high', 'Alta'],
+                                        ]}
+                                    />
+                                </Field>
+                            </div>
+                            <Field label="Notas" error={errors.notes}>
+                                <Textarea name="notes" />
+                            </Field>
+                            <DialogFooter>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={() => setOpen(false)}
+                                >
+                                    Cancelar
+                                </Button>
+                                <Button disabled={processing}>Programar</Button>
+                            </DialogFooter>
+                        </>
+                    )}
+                </Form>
+            </DialogContent>
+        </Dialog>
     );
 }
 
@@ -648,6 +1163,30 @@ function Field({
             {children}
             <InputError message={error} />
         </div>
+    );
+}
+
+function NativeSelect({
+    name,
+    defaultValue,
+    options,
+}: {
+    name: string;
+    defaultValue?: string;
+    options: (readonly [string, string] | string[])[];
+}) {
+    return (
+        <select
+            name={name}
+            defaultValue={defaultValue || ''}
+            className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-xs"
+        >
+            {options.map(([value, label]) => (
+                <option key={value} value={value}>
+                    {label}
+                </option>
+            ))}
+        </select>
     );
 }
 
@@ -686,10 +1225,12 @@ function Metric({
     icon: Icon,
     label,
     value,
+    detail,
 }: {
     icon: typeof Target;
     label: string;
     value: string;
+    detail?: string;
 }) {
     return (
         <div className="flex items-center gap-3 bg-background p-4">
@@ -697,6 +1238,11 @@ function Metric({
             <div>
                 <div className="text-xs text-muted-foreground">{label}</div>
                 <div className="text-lg font-semibold">{value}</div>
+                {detail && (
+                    <div className="text-xs text-muted-foreground">
+                        {detail}
+                    </div>
+                )}
             </div>
         </div>
     );
@@ -725,4 +1271,31 @@ function date(value: string | null) {
               new Date(`${value}T00:00:00`),
           )
         : 'No date';
+}
+function dateTime(value: string) {
+    return new Intl.DateTimeFormat(undefined, {
+        dateStyle: 'short',
+        timeStyle: 'short',
+    }).format(new Date(value));
+}
+function isOverdue(value: string) {
+    return new Date(value).getTime() < Date.now();
+}
+function stageLabel(value: string) {
+    return stages.find((stage) => stage.value === value)?.label || value;
+}
+function periodLabel(value?: string) {
+    if (value === '30') {
+        return '30 días';
+    }
+
+    if (value === '365') {
+        return '1 año';
+    }
+
+    if (value === 'all') {
+        return 'histórico';
+    }
+
+    return '90 días';
 }

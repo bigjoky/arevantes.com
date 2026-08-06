@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\CrmActivity;
 use App\Models\Installation;
+use App\Models\Opportunity;
 use App\Models\Quote;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
@@ -39,6 +40,7 @@ class OperationsController extends Controller
         $data = $request->validate([
             'installation_id' => ['nullable', 'exists:installations,id'],
             'person_id' => ['nullable', Rule::exists('people', 'id')->where('category', 'customer')],
+            'opportunity_id' => ['nullable', 'exists:opportunities,id'],
             'assigned_user_id' => ['nullable', 'exists:users,id'],
             'type' => ['required', Rule::in(['task', 'visit', 'reminder', 'call', 'email', 'meeting'])],
             'title' => ['required', 'string', 'max:255'],
@@ -50,12 +52,16 @@ class OperationsController extends Controller
         ]);
 
         $installation = filled($data['installation_id'] ?? null) ? Installation::find($data['installation_id']) : null;
+        $opportunity = filled($data['opportunity_id'] ?? null) ? Opportunity::find($data['opportunity_id']) : null;
         abort_if($installation?->person_id && filled($data['person_id'] ?? null) && $installation->person_id !== (int) $data['person_id'], 422, __('The installation does not belong to this customer.'));
+        abort_if($opportunity && filled($data['person_id'] ?? null) && $opportunity->person_id !== (int) $data['person_id'], 422, __('The opportunity does not belong to this customer.'));
+        abort_if($opportunity && $installation && $opportunity->installation_id && $opportunity->installation_id !== $installation->id, 422, __('The installation does not belong to this opportunity.'));
 
         $status = $data['status'] ?? 'pending';
         CrmActivity::create([
             ...$data,
-            'person_id' => $data['person_id'] ?? $installation?->person_id,
+            'person_id' => $data['person_id'] ?? $opportunity?->person_id ?? $installation?->person_id,
+            'installation_id' => $data['installation_id'] ?? $opportunity?->installation_id,
             'status' => $status,
             'completed_at' => $status === 'completed' ? now() : null,
             'created_by' => $request->user()->id,

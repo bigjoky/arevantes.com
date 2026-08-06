@@ -132,7 +132,7 @@ type Customer360 = {
     }>;
     timeline: Array<{
         id: string;
-        kind: 'quote' | 'document' | 'activity' | 'work_order';
+        kind: 'quote' | 'document' | 'activity' | 'work_order' | 'opportunity';
         title: string;
         subtitle: string;
         date: string | null;
@@ -688,7 +688,9 @@ export default function PeopleShow({
                                         variant="destructive"
                                         disabled={processing}
                                     >
-                                        Delete {isStaff ? 'staff' : 'customer'}
+                                        {isStaff
+                                            ? 'Delete staff'
+                                            : 'Archive customer'}
                                     </Button>
                                 )}
                             </Form>

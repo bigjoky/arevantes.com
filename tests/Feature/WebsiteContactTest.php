@@ -35,7 +35,8 @@ class WebsiteContactTest extends TestCase
         $this->assertSame(['Instalación fotovoltaica'], $customer->service_interests);
         $this->assertSame($customer->id, $opportunity->person_id);
         $this->assertSame('new', $opportunity->stage);
-        $this->assertSame('Website', $opportunity->source);
+        $this->assertSame('website', $opportunity->source);
+        $this->assertSame($commercial->id, $opportunity->owner_user_id);
         $this->assertStringStartsWith('OPP-'.now()->format('Y').'-', $opportunity->code);
         $this->assertStringContainsString('vivienda unifamiliar', $opportunity->notes);
 
@@ -62,6 +63,28 @@ class WebsiteContactTest extends TestCase
             ['Mantenimiento', 'Instalación fotovoltaica'],
             $customer->service_interests,
         );
+    }
+
+    public function test_a_website_lead_is_assigned_to_the_commercial_with_the_smallest_open_pipeline(): void
+    {
+        Notification::fake();
+        $busy = User::factory()->create(['role' => 'commercial']);
+        $available = User::factory()->create(['role' => 'commercial']);
+        $customer = Person::create(['category' => 'customer', 'first_name' => 'Existing']);
+        Opportunity::create([
+            'person_id' => $customer->id,
+            'owner_user_id' => $busy->id,
+            'code' => 'OPP-BUSY-1',
+            'title' => 'Existing open opportunity',
+            'stage' => 'qualified',
+            'probability' => 25,
+            'estimated_value' => 5000,
+        ]);
+
+        $this->post(route('website.contact'), $this->payload())->assertRedirect();
+
+        $lead = Opportunity::where('source', 'website')->firstOrFail();
+        $this->assertSame($available->id, $lead->owner_user_id);
     }
 
     public function test_contact_validation_and_honeypot_block_invalid_submissions(): void
