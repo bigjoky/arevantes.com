@@ -5,6 +5,7 @@ namespace App\Services\Ai;
 use App\Models\KnowledgeDocument;
 use Illuminate\Support\Facades\File;
 use Laravel\Ai\Embeddings;
+use Throwable;
 
 class KnowledgeIndexer
 {
@@ -59,12 +60,22 @@ class KnowledgeIndexer
         }
 
         $chunks = $this->chunks($content);
-        $vectors = $withEmbeddings && $chunks !== []
-            ? Embeddings::for($chunks)
-                ->dimensions(config('ai.providers.ollama.models.embeddings.dimensions'))
-                ->timeout(120)
-                ->generate(config('ai.default_for_embeddings'))->embeddings
-            : [];
+        $vectors = [];
+        $embeddingFallback = false;
+
+        if ($withEmbeddings && $chunks !== []) {
+            try {
+                $vectors = Embeddings::for($chunks)
+                    ->dimensions(config('ai.providers.ollama.models.embeddings.dimensions'))
+                    ->timeout(120)
+                    ->generate(config('ai.default_for_embeddings'))->embeddings;
+            } catch (Throwable) {
+                // Knowledge remains usable through keyword retrieval when the optional
+                // embedding provider (for example, local Ollama) is unavailable.
+                $embeddingFallback = true;
+                $document->update(['embedding_model' => null]);
+            }
+        }
 
         $document->chunks()->delete();
         foreach ($chunks as $position => $chunk) {
@@ -85,7 +96,11 @@ class KnowledgeIndexer
             ['content_hash' => $hash, 'content' => $content, 'created_by' => $document->user_id, 'indexed_at' => $document->indexed_at],
         );
 
-        return ['document' => $document, 'changed' => true];
+        return [
+            'document' => $document,
+            'changed' => true,
+            'embedding_fallback' => $embeddingFallback,
+        ];
     }
 
     private function chunks(string $content): array
