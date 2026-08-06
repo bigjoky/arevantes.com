@@ -13,6 +13,8 @@ use App\Services\Ai\KnowledgeSourceLoader;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
+use Laravel\Ai\Embeddings;
+use RuntimeException;
 use Tests\TestCase;
 
 class AreviaKnowledgeGovernanceTest extends TestCase
@@ -180,6 +182,56 @@ class AreviaKnowledgeGovernanceTest extends TestCase
         $refreshed = $document->fresh();
         $this->assertSame('indexed', $refreshed->status);
         $this->assertTrue($refreshed->stale_at->isFuture());
+    }
+
+    public function test_embedding_outage_falls_back_to_keyword_indexing(): void
+    {
+        Embeddings::fake(fn () => throw new RuntimeException('Ollama is unavailable.'));
+        $admin = User::factory()->create(['role' => 'admin']);
+        $document = new KnowledgeDocument([
+            'user_id' => $admin->id, 'title' => 'Solar panel datasheet', 'area' => 'general',
+            'allowed_roles' => ['admin', 'commercial', 'technician'], 'confidentiality' => 'internal',
+            'status' => 'pending', 'source' => storage_path('solar-panel-datasheet.md'),
+        ]);
+
+        $result = app(KnowledgeIndexer::class)->indexContent(
+            $document,
+            'LONGi LR7-72HTH-605M rated power is 605 W.',
+            'Solar panel datasheet',
+        );
+
+        $refreshed = $document->fresh();
+        $this->assertSame('indexed', $refreshed->status);
+        $this->assertNull($refreshed->embedding_model);
+        $this->assertNull($refreshed->failure_reason);
+        $this->assertTrue($result['embedding_fallback']);
+        $this->assertSame('LONGi LR7-72HTH-605M rated power is 605 W.', $refreshed->chunks()->firstOrFail()->content);
+        $this->assertNull($refreshed->chunks()->firstOrFail()->embedding);
+    }
+
+    public function test_failed_web_documents_can_be_recovered_without_embeddings(): void
+    {
+        Http::fake([
+            'https://example.com/solar-panel' => Http::response('LONGi solar panel technical data.', 200, ['Content-Type' => 'text/plain']),
+        ]);
+        $admin = User::factory()->create(['role' => 'admin']);
+        $path = 'knowledge/failed-solar-panel.md';
+        $document = KnowledgeDocument::create([
+            'user_id' => $admin->id, 'title' => 'Failed solar panel', 'area' => 'general',
+            'allowed_roles' => ['admin'], 'confidentiality' => 'internal', 'status' => 'failed',
+            'source' => Storage::disk('local')->path($path),
+            'source_url' => 'https://example.com/solar-panel',
+            'content_hash' => hash('sha256', 'previous failed content'),
+            'failure_reason' => 'Ollama is unavailable.',
+        ]);
+
+        $this->artisan('ai:reindex', ['--failed' => true])->assertSuccessful();
+
+        $refreshed = $document->fresh();
+        $this->assertSame('indexed', $refreshed->status);
+        $this->assertNull($refreshed->failure_reason);
+        $this->assertSame('LONGi solar panel technical data.', $refreshed->chunks()->firstOrFail()->content);
+        $this->assertTrue(is_file($refreshed->source));
     }
 
     public function test_arevia_chat_reads_a_public_url_supplied_in_the_message(): void
