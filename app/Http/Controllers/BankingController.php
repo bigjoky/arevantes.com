@@ -21,6 +21,7 @@ use App\Models\TaxReturnPayment;
 use App\Services\Accounting\AccountingSynchronizer;
 use App\Services\Accounting\JournalPoster;
 use App\Services\Banking\BankFinancialProductManager;
+use App\Services\Banking\BankTransactionAnalyzer;
 use App\Services\Banking\CardSettlementSchedule;
 use App\Services\Banking\StatementImporter;
 use App\Services\Finance\OutstandingBalanceCalculator;
@@ -39,6 +40,7 @@ class BankingController extends Controller
     public function __construct(
         private OutstandingBalanceCalculator $balances,
         private CardSettlementSchedule $cardSettlements,
+        private BankTransactionAnalyzer $transactionAnalyzer,
     ) {}
 
     public function index(Request $request): Response
@@ -53,6 +55,10 @@ class BankingController extends Controller
         ];
         $accounts = BankAccount::withSum('transactions as transaction_total', 'amount')->orderByDesc('is_active')->orderBy('name')->get()->map(fn ($account) => [...$account->toArray(), 'balance' => round((float) $account->opening_balance + (float) ($account->transaction_total ?? 0), 2)]);
         $account = BankAccount::with('ledgerAccount')->find($request->integer('account')) ?: BankAccount::with('ledgerAccount')->where('is_active', true)->first();
+        $historicalAmounts = $account
+            ? $account->transactions()->whereDate('booked_on', '>=', today()->subDays(180))->pluck('amount')
+            : collect();
+        $medianAmount = $this->transactionAnalyzer->medianAbsoluteAmount($historicalAmounts);
         $transactions = ($account
             ? $account->transactions()->with(['reconciliation', 'posting.counterpart:id,code,name', 'outgoingTransfer', 'incomingTransfer'])
             : BankTransaction::query()->whereRaw('1 = 0'))
@@ -64,13 +70,26 @@ class BankingController extends Controller
             ->latest('id')
             ->paginate(25)
             ->withQueryString()
-            ->through(fn ($transaction) => [...$transaction->toArray(), 'transfer' => $transaction->outgoingTransfer ?? $transaction->incomingTransfer, 'candidates' => $transaction->status === 'pending' ? $this->candidates($transaction) : []]);
+            ->through(function ($transaction) use ($medianAmount) {
+                $candidates = $transaction->status === 'pending' ? $this->candidates($transaction) : [];
+
+                return [
+                    ...$transaction->toArray(),
+                    'transfer' => $transaction->outgoingTransfer ?? $transaction->incomingTransfer,
+                    'candidates' => $candidates,
+                    ...$this->transactionAnalyzer->analyze($transaction, $candidates, $medianAmount),
+                ];
+            });
 
         $summary = $account ? [
             'pending' => $account->transactions()->where('status', 'pending')->count(),
             'reconciled' => $account->transactions()->whereIn('status', ['reconciled', 'accounted'])->count(),
             'pendingAmount' => round((float) $account->transactions()->where('status', 'pending')->sum('amount'), 2),
-        ] : ['pending' => 0, 'reconciled' => 0, 'pendingAmount' => 0];
+            'stale' => $account->transactions()->where('status', 'pending')->whereDate('booked_on', '<', today()->subDays(7))->count(),
+            'missingReference' => $account->transactions()->where('status', 'pending')->where(fn ($query) => $query->whereNull('reference')->orWhere('reference', ''))->count(),
+            'unusualAmount' => $medianAmount > 0 ? $account->transactions()->where('status', 'pending')->whereRaw('abs(amount) >= ?', [max(1000, $medianAmount * 3)])->count() : 0,
+            'medianAmount' => $medianAmount,
+        ] : ['pending' => 0, 'reconciled' => 0, 'pendingAmount' => 0, 'stale' => 0, 'missingReference' => 0, 'unusualAmount' => 0, 'medianAmount' => 0];
 
         $products = BankFinancialProduct::with(['bankAccount:id,name', 'ledgerAccount:id,code,name', 'sharedCreditFacility:id,type,name,credit_limit,used_amount,currency,bank_account_id,billing_day,payment_day', 'sharedCreditFacility.bankAccount:id,name', 'linkedCards:id,name,shared_credit_facility_id,used_amount'])
             ->orderByDesc('is_active')
@@ -207,16 +226,22 @@ class BankingController extends Controller
 
     public function auto(Request $request, BankAccount $account, JournalPoster $poster, AccountingSynchronizer $accounting): RedirectResponse
     {
+        $data = $request->validate(['minimum_confidence' => ['nullable', 'integer', 'between:80,100']]);
+        $minimumConfidence = (int) ($data['minimum_confidence'] ?? 95);
         $matched = 0;
-        $account->transactions()->where('status', 'pending')->orderBy('booked_on')->each(function ($transaction) use ($request, $poster, $accounting, &$matched) {
+        $reviewed = 0;
+        $account->transactions()->where('status', 'pending')->orderBy('booked_on')->each(function ($transaction) use ($request, $poster, $accounting, $minimumConfidence, &$matched, &$reviewed) {
             $candidates = $this->candidates($transaction, true);
-            if (count($candidates) === 1) {
-                $this->matchSelection($transaction, $candidates[0]['value'], $request->user()->id, 'automatic', $poster, $accounting);
+            $candidate = $this->transactionAnalyzer->automaticCandidate($candidates, $minimumConfidence);
+            if ($candidate) {
+                $this->matchSelection($transaction, $candidate['value'], $request->user()->id, 'automatic', $poster, $accounting);
                 $matched++;
+            } elseif ($candidates !== []) {
+                $reviewed++;
             }
         });
 
-        return back()->with('toast', ['type' => 'success', 'message' => __(':count transactions reconciled automatically.', ['count' => $matched])]);
+        return back()->with('toast', ['type' => 'success', 'message' => __(':count transactions reconciled automatically; :reviewed left for review.', ['count' => $matched, 'reviewed' => $reviewed])]);
     }
 
     public function undo(Request $request, BankReconciliation $reconciliation, JournalPoster $poster): RedirectResponse

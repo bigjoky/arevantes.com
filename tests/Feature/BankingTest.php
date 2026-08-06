@@ -461,4 +461,64 @@ class BankingTest extends TestCase
         $this->assertSame(0, SalesDocumentPayment::count());
         $this->assertSame(0, BankReconciliation::count());
     }
+
+    public function test_reconciliation_workspace_prioritizes_stale_unusual_and_unreferenced_movements(): void
+    {
+        $this->travelTo('2026-08-06');
+        $user = User::factory()->create(['role' => 'commercial']);
+        $account = BankAccount::create(['name' => 'Review account', 'currency' => 'EUR', 'opening_balance' => 0, 'is_active' => true]);
+        foreach (range(1, 5) as $index) {
+            $account->transactions()->create([
+                'booked_on' => today()->subDays($index),
+                'amount' => 100,
+                'currency' => 'EUR',
+                'description' => 'Normal movement '.$index,
+                'reference' => 'NORMAL-'.$index,
+                'import_hash' => hash('sha256', 'normal-'.$index),
+                'status' => 'accounted',
+            ]);
+        }
+        $attention = $account->transactions()->create([
+            'booked_on' => today()->subDays(10),
+            'amount' => -5000,
+            'currency' => 'EUR',
+            'description' => 'Exceptional debit without supporting reference',
+            'reference' => null,
+            'import_hash' => hash('sha256', 'attention-movement'),
+            'status' => 'pending',
+        ]);
+
+        $this->actingAs($user)->get(route('banking.index', ['account' => $account->id, 'status' => 'pending']))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('summary.stale', 1)
+                ->where('summary.missingReference', 1)
+                ->where('summary.unusualAmount', 1)
+                ->where('summary.medianAmount', 100)
+                ->where('transactions.data.0.id', $attention->id)
+                ->where('transactions.data.0.match_quality', 'unmatched')
+                ->where('transactions.data.0.risk_flags.0.code', 'stale')
+                ->where('transactions.data.0.risk_flags.1.code', 'unusual_amount')
+                ->where('transactions.data.0.risk_flags.2.code', 'missing_reference'));
+    }
+
+    public function test_bulk_reconciliation_respects_the_selected_confidence_threshold(): void
+    {
+        $user = User::factory()->create(['role' => 'commercial']);
+        $account = BankAccount::create(['name' => 'Strict reconciliation', 'currency' => 'EUR', 'opening_balance' => 0, 'is_active' => true]);
+        $sale = SalesDocument::create(['type' => 'invoice', 'number' => 'FAC-STRICT-1', 'status' => 'paid', 'issue_date' => now(), 'subtotal' => 100, 'discount_amount' => 0, 'tax_amount' => 0, 'amount' => 100, 'paid_amount' => 100, 'customer_snapshot' => []]);
+        $sale->payments()->create(['created_by' => $user->id, 'paid_at' => now(), 'amount' => 100, 'method' => 'bank_transfer', 'reference' => 'STRICT-REF']);
+        $transaction = $account->transactions()->create(['booked_on' => now(), 'amount' => 100, 'currency' => 'EUR', 'description' => 'Customer transfer', 'reference' => 'STRICT-REF', 'import_hash' => hash('sha256', 'strict-threshold'), 'status' => 'pending']);
+
+        $this->actingAs($user)->post(route('banking.auto', $account), ['minimum_confidence' => 99])
+            ->assertRedirect()
+            ->assertSessionHasNoErrors();
+        $this->assertSame('pending', $transaction->fresh()->status);
+
+        $this->post(route('banking.auto', $account), ['minimum_confidence' => 98])
+            ->assertRedirect()
+            ->assertSessionHasNoErrors();
+        $this->assertSame('reconciled', $transaction->fresh()->status);
+        $this->assertDatabaseHas('bank_reconciliations', ['bank_transaction_id' => $transaction->id, 'method' => 'automatic']);
+    }
 }

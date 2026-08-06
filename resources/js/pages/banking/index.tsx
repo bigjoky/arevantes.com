@@ -130,6 +130,13 @@ type Transaction = {
     description: string;
     status: string;
     candidates: Candidate[];
+    match_quality: 'ready' | 'review' | 'unmatched' | 'completed';
+    recommended_candidate: Candidate | null;
+    risk_flags: {
+        code: string;
+        label: string;
+        severity: 'high' | 'medium';
+    }[];
     reconciliation: {
         id: number;
         method: string;
@@ -169,7 +176,15 @@ export default function BankingIndex({
     products: FinancialProduct[];
     productSummary: ProductSummary[];
     control: BankControl | null;
-    summary: { pending: number; reconciled: number; pendingAmount: number };
+    summary: {
+        pending: number;
+        reconciled: number;
+        pendingAmount: number;
+        stale: number;
+        missingReference: number;
+        unusualAmount: number;
+        medianAmount: number;
+    };
     filters: { search: string; status: string; from: string; to: string };
 }) {
     return (
@@ -234,7 +249,7 @@ export default function BankingIndex({
                 />
                 {selectedAccount && (
                     <>
-                        <section className="grid grid-cols-3 border-y">
+                        <section className="grid grid-cols-2 border-y md:grid-cols-3 xl:grid-cols-6">
                             <Metric
                                 label="Pending"
                                 value={String(summary.pending)}
@@ -249,6 +264,18 @@ export default function BankingIndex({
                                     summary.pendingAmount,
                                     selectedAccount.currency,
                                 )}
+                            />
+                            <Metric
+                                label="Pending over 7 days"
+                                value={String(summary.stale)}
+                            />
+                            <Metric
+                                label="Missing reference"
+                                value={String(summary.missingReference)}
+                            />
+                            <Metric
+                                label="Unusual amount"
+                                value={String(summary.unusualAmount)}
                             />
                         </section>
                         {control && (
@@ -331,10 +358,45 @@ export default function BankingIndex({
                             <Form
                                 action={`/banking/accounts/${selectedAccount.id}/auto-reconcile`}
                                 method="post"
-                                className="flex items-end justify-end"
+                                className="grid gap-2 rounded-md border bg-muted/20 p-3 sm:grid-cols-[1fr_12rem_auto] sm:items-end"
                             >
+                                <div>
+                                    <div className="text-sm font-medium">
+                                        Assisted bulk reconciliation
+                                    </div>
+                                    <div className="text-xs text-muted-foreground">
+                                        Only applies the best candidate when it
+                                        clears the confidence threshold and is
+                                        at least 10 points above the next one.
+                                    </div>
+                                </div>
+                                <div className="grid gap-2">
+                                    <Label>Minimum confidence</Label>
+                                    <Select
+                                        name="minimum_confidence"
+                                        defaultValue="95"
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="98">
+                                                98% · Very strict
+                                            </SelectItem>
+                                            <SelectItem value="95">
+                                                95% · Recommended
+                                            </SelectItem>
+                                            <SelectItem value="90">
+                                                90% · Assisted
+                                            </SelectItem>
+                                            <SelectItem value="80">
+                                                80% · Broad review
+                                            </SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
                                 <Button variant="outline">
-                                    <RefreshCw /> Auto reconcile exact matches
+                                    <RefreshCw /> Reconcile confident matches
                                 </Button>
                             </Form>
                         </section>
@@ -501,6 +563,31 @@ export default function BankingIndex({
                                                 <div className="max-w-sm font-medium">
                                                     {transaction.description}
                                                 </div>
+                                                {transaction.risk_flags.length >
+                                                    0 && (
+                                                    <div className="mt-1 flex max-w-sm flex-wrap gap-1">
+                                                        {transaction.risk_flags.map(
+                                                            (flag) => (
+                                                                <Badge
+                                                                    key={
+                                                                        flag.code
+                                                                    }
+                                                                    variant={
+                                                                        flag.severity ===
+                                                                        'high'
+                                                                            ? 'destructive'
+                                                                            : 'secondary'
+                                                                    }
+                                                                    title={
+                                                                        flag.label
+                                                                    }
+                                                                >
+                                                                    {flag.label}
+                                                                </Badge>
+                                                            ),
+                                                        )}
+                                                    </div>
+                                                )}
                                             </td>
                                             <td className="font-mono text-xs">
                                                 {transaction.reference || '—'}
@@ -514,9 +601,30 @@ export default function BankingIndex({
                                                 )}
                                             </td>
                                             <td>
-                                                <Badge variant="outline">
-                                                    {transaction.status}
-                                                </Badge>
+                                                <div className="grid justify-items-start gap-1">
+                                                    <Badge variant="outline">
+                                                        {transaction.status}
+                                                    </Badge>
+                                                    {transaction.status ===
+                                                        'pending' && (
+                                                        <Badge
+                                                            variant={
+                                                                transaction.match_quality ===
+                                                                'ready'
+                                                                    ? 'secondary'
+                                                                    : 'outline'
+                                                            }
+                                                        >
+                                                            {transaction.match_quality ===
+                                                            'ready'
+                                                                ? `Ready · ${transaction.recommended_candidate?.confidence}%`
+                                                                : transaction.match_quality ===
+                                                                    'review'
+                                                                  ? `Review · ${transaction.recommended_candidate?.confidence}%`
+                                                                  : 'No suggested match'}
+                                                        </Badge>
+                                                    )}
+                                                </div>
                                             </td>
                                             <td>
                                                 {transaction.transfer &&
