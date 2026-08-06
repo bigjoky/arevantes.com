@@ -75,6 +75,10 @@ Route::get('documents/shared/{token}/pdf', [DocumentDeliveryController::class, '
 Route::get('portal/{token}', [CustomerPortalController::class, 'show'])->middleware('throttle:60,1')->name('customer-portal.show');
 Route::post('portal/{token}/tickets', [CustomerPortalController::class, 'storeTicket'])->middleware('throttle:10,1')->name('customer-portal.tickets.store');
 Route::get('portal/{token}/documents/{kind}/{document}/pdf', [CustomerPortalController::class, 'pdf'])->middleware('throttle:30,1')->name('customer-portal.documents.pdf');
+Route::post('portal/{token}/documents/{kind}/{document}/accept', [CustomerPortalController::class, 'accept'])->middleware('throttle:10,1')->name('customer-portal.documents.accept');
+Route::patch('portal/{token}/preferences', [CustomerPortalController::class, 'updatePreferences'])->middleware('throttle:10,1')->name('customer-portal.preferences.update');
+Route::post('portal/{token}/surveys', [CustomerPortalController::class, 'storeSurvey'])->middleware('throttle:10,1')->name('customer-portal.surveys.store');
+Route::get('portal/{token}/certificates/{attachment}', [CustomerPortalController::class, 'certificate'])->middleware('throttle:30,1')->name('customer-portal.certificates.download');
 
 Route::middleware(['auth'])->group(function () {
     Route::get('dashboard', DashboardController::class)->name('dashboard');
@@ -107,6 +111,7 @@ Route::middleware(['auth'])->group(function () {
     Route::resource('opportunities', OpportunityController::class)->only(['index', 'store', 'update', 'destroy'])->middleware('can:manage-customers');
     Route::post('people/{person}/portal', [CustomerPortalController::class, 'invite'])->middleware('can:manage-customers')->name('people.portal.invite');
     Route::delete('people/{person}/portal/{access}', [CustomerPortalController::class, 'revoke'])->middleware('can:manage-customers')->name('people.portal.revoke');
+    Route::delete('document-deliveries/{delivery}', [DocumentDeliveryController::class, 'revoke'])->middleware('can:manage-installations')->name('document-deliveries.revoke');
     Route::resource('staff', StaffController::class)->middleware('can:manage-staff');
     Route::get('human-resources', HumanResourcesController::class)->middleware('can:manage-staff')->name('human-resources.index');
     Route::get('human-resources/employees', [HrEmploymentController::class, 'index'])->middleware('can:manage-staff')->name('human-resources.employees.index');

@@ -3,6 +3,7 @@
 namespace App\Services\Customers;
 
 use App\Models\CrmActivity;
+use App\Models\CustomerPortalEvent;
 use App\Models\Opportunity;
 use App\Models\Person;
 use App\Models\Quote;
@@ -47,6 +48,11 @@ class CustomerProfile
             ->latest()
             ->limit(12)
             ->get();
+        $portalEvents = CustomerPortalEvent::query()
+            ->where('person_id', $customer->id)
+            ->latest('occurred_at')
+            ->limit(20)
+            ->get();
 
         $invoices = SalesDocument::query()->where('person_id', $customer->id)->where('type', 'invoice');
 
@@ -86,12 +92,12 @@ class CustomerProfile
                 'outstanding' => max(0, round((float) $document->amount - (float) $document->paid_amount, 2)),
                 'date' => $document->issue_date?->toDateString(),
             ]),
-            'timeline' => $this->timeline($quotes, $documents, $activities, $workOrders, $opportunities),
+            'timeline' => $this->timeline($quotes, $documents, $activities, $workOrders, $opportunities, $portalEvents),
         ];
     }
 
     /** @return Collection<int, array<string, mixed>> */
-    private function timeline(Collection $quotes, Collection $documents, Collection $activities, Collection $workOrders, Collection $opportunities): Collection
+    private function timeline(Collection $quotes, Collection $documents, Collection $activities, Collection $workOrders, Collection $opportunities, Collection $portalEvents): Collection
     {
         $items = collect();
 
@@ -134,6 +140,25 @@ class CustomerProfile
             'subtitle' => $opportunity->stage.' · '.number_format((float) $opportunity->estimated_value, 2, ',', '.').' EUR · '.$opportunity->probability.'%',
             'date' => $opportunity->updated_at?->toIso8601String(),
             'href' => route('opportunities.index', ['opportunity' => $opportunity->id], false),
+        ]));
+        $portalEvents->each(fn (CustomerPortalEvent $event) => $items->push([
+            'id' => 'portal-event-'.$event->id,
+            'kind' => 'portal',
+            'title' => match ($event->event_type) {
+                'portal_accessed' => __('Portal accessed'),
+                'portal_invited' => __('Portal invitation sent'),
+                'portal_access_revoked' => __('Portal access revoked'),
+                'ticket_opened' => __('Ticket :number opened from portal', ['number' => $event->metadata['number'] ?? '']),
+                'document_downloaded' => __('Document :number downloaded from portal', ['number' => $event->metadata['number'] ?? '']),
+                'certificate_downloaded' => __('Certificate :name downloaded', ['name' => $event->metadata['name'] ?? '']),
+                'document_accepted' => __('Document :number accepted in portal', ['number' => $event->metadata['number'] ?? '']),
+                'preferences_updated' => __('Portal notification preferences updated'),
+                'survey_submitted' => __('Satisfaction survey received (:score/5)', ['score' => $event->metadata['score'] ?? '']),
+                default => str($event->event_type)->headline()->toString(),
+            },
+            'subtitle' => __('Customer portal'),
+            'date' => $event->occurred_at?->toIso8601String(),
+            'href' => route('people.show', $event->person_id, false),
         ]));
 
         return $items->sortByDesc('date')->take(20)->values();

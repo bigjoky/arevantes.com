@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class CustomerPortalAccess extends Model
 {
@@ -17,5 +18,10 @@ class CustomerPortalAccess extends Model
     public function customer(): BelongsTo
     {
         return $this->belongsTo(Person::class, 'person_id')->withTrashed();
+    }
+
+    public function events(): HasMany
+    {
+        return $this->hasMany(CustomerPortalEvent::class);
     }
 }

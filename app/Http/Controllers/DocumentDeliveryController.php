@@ -4,9 +4,12 @@ namespace App\Http\Controllers;
 
 use App\Mail\DocumentSharedMail;
 use App\Models\CompanyProfile;
+use App\Models\CustomerDocumentAcceptance;
+use App\Models\CustomerPortalEvent;
 use App\Models\DocumentDelivery;
 use App\Models\Quote;
 use App\Models\SalesDocument;
+use App\Services\Documents\DocumentFingerprint;
 use App\Services\Documents\DocumentPdf;
 use App\Services\Quotes\QuoteStatusWorkflow;
 use Illuminate\Http\RedirectResponse;
@@ -33,12 +36,15 @@ class DocumentDeliveryController extends Controller
         return $this->send($request, $salesDocument, $salesDocument->type);
     }
 
-    public function show(string $token): Response
+    public function show(Request $request, string $token): Response
     {
         $delivery = $this->delivery($token);
         $document = $delivery->quote ?: $delivery->salesDocument;
         if (! $delivery->first_viewed_at) {
             $delivery->update(['first_viewed_at' => now(), 'status' => $delivery->status === 'sent' ? 'viewed' : $delivery->status]);
+            if ($document->customer) {
+                CustomerPortalEvent::record($document->customer, 'document_viewed', null, $request, $document, ['number' => $document->number, 'delivery_id' => $delivery->id]);
+            }
         }
 
         return Inertia::render('shared/document', ['company' => CompanyProfile::first()?->only(['legal_name', 'trade_name', 'email', 'phone']), 'document' => $document->load('lines'), 'kind' => $delivery->quote_id ? 'quote' : $delivery->salesDocument->type, 'token' => $token, 'canRespond' => (bool) $delivery->quote_id && in_array($delivery->quote->status, ['draft', 'sent'], true) && ! $delivery->responded_at, 'deliveryStatus' => $delivery->status]);
@@ -53,15 +59,36 @@ class DocumentDeliveryController extends Controller
         abort_unless(in_array($quote->status, ['draft', 'sent'], true), 422);
         $workflow->apply($quote, $data['response']);
         $delivery->update(['status' => $data['response'], 'responded_at' => now(), 'response_ip' => $request->ip(), 'response_user_agent' => Str::limit((string) $request->userAgent(), 1000, '')]);
+        if ($data['response'] === 'accepted') {
+            $fingerprint = app(DocumentFingerprint::class)->for($quote);
+            CustomerDocumentAcceptance::firstOrCreate([
+                'person_id' => $quote->person_id,
+                'document_type' => 'quote',
+                'document_id' => $quote->id,
+                'document_version' => $delivery->document_version ?: $fingerprint['version'],
+            ], [
+                'document_hash' => $delivery->document_hash ?: $fingerprint['hash'],
+                'accepted_at' => now(),
+                'ip_address' => $request->ip(),
+                'user_agent' => Str::limit((string) $request->userAgent(), 1000, ''),
+            ]);
+        }
+        if ($quote->customer) {
+            CustomerPortalEvent::record($quote->customer, 'document_'.$data['response'], null, $request, $quote, ['number' => $quote->number, 'version' => $delivery->document_version]);
+        }
 
         return to_route('documents.shared.show', $token);
     }
 
-    public function pdf(string $token, DocumentPdf $pdf): HttpResponse
+    public function pdf(Request $request, string $token, DocumentPdf $pdf): HttpResponse
     {
         $delivery = $this->delivery($token);
         $document = $delivery->quote ?: $delivery->salesDocument;
         $kind = $delivery->quote_id ? 'quote' : $delivery->salesDocument->type;
+        $delivery->update(['last_downloaded_at' => now()]);
+        if ($document->customer) {
+            CustomerPortalEvent::record($document->customer, 'document_downloaded', null, $request, $document, ['number' => $document->number, 'delivery_id' => $delivery->id]);
+        }
 
         return response($pdf->render($document->load('lines'), $kind), 200, ['Content-Type' => 'application/pdf', 'Content-Disposition' => 'inline; filename="'.$document->number.'.pdf"']);
     }
@@ -74,13 +101,17 @@ class DocumentDeliveryController extends Controller
         $token = Str::random(64);
         $expires = now()->addDays($kind === 'quote' ? 30 : 90);
         $relation = $document instanceof Quote ? 'quote_id' : 'sales_document_id';
+        $fingerprint = app(DocumentFingerprint::class)->for($document);
         $document->deliveries()->whereIn('status', ['pending', 'sent', 'viewed'])->update(['status' => 'superseded']);
-        $delivery = DocumentDelivery::create([$relation => $document->id, 'sent_by' => $request->user()->id, 'recipient_email' => $data['recipient_email'] ?: $default, 'token_hash' => hash('sha256', $token), 'status' => 'pending', 'expires_at' => $expires]);
+        $delivery = DocumentDelivery::create([$relation => $document->id, 'sent_by' => $request->user()->id, 'recipient_email' => $data['recipient_email'] ?: $default, 'token_hash' => hash('sha256', $token), 'status' => 'pending', 'document_version' => $fingerprint['version'], 'document_hash' => $fingerprint['hash'], 'expires_at' => $expires]);
         try {
             Mail::to($delivery->recipient_email)->send(new DocumentSharedMail($document, $kind, route('documents.shared.show', $token), $expires->format('d/m/Y')));
             $delivery->update(['status' => 'sent', 'sent_at' => now()]);
             if ($document instanceof Quote && $document->status === 'draft') {
                 $document->update(['status' => 'sent', 'sent_at' => now()]);
+            }
+            if ($document->customer) {
+                CustomerPortalEvent::record($document->customer, 'document_shared', null, $request, $document, ['number' => $document->number, 'recipient_email' => $delivery->recipient_email, 'expires_at' => $expires->toIso8601String()]);
             }
         } catch (\Throwable $exception) {
             report($exception);
@@ -92,10 +123,22 @@ class DocumentDeliveryController extends Controller
         return back()->with('toast', ['type' => 'success', 'message' => __('Document sent.')]);
     }
 
+    public function revoke(Request $request, DocumentDelivery $delivery): RedirectResponse
+    {
+        $document = $delivery->quote ?: $delivery->salesDocument;
+        abort_unless($document, 404);
+        $delivery->update(['status' => 'revoked', 'revoked_at' => now(), 'revoked_by' => $request->user()->id]);
+        if ($document->customer) {
+            CustomerPortalEvent::record($document->customer, 'document_revoked', null, $request, $document, ['number' => $document->number, 'delivery_id' => $delivery->id]);
+        }
+
+        return back()->with('toast', ['type' => 'success', 'message' => __('Shared document revoked.')]);
+    }
+
     private function delivery(string $token): DocumentDelivery
     {
         $delivery = DocumentDelivery::with(['quote', 'salesDocument'])->where('token_hash', hash('sha256', $token))->firstOrFail();
-        abort_if($delivery->expires_at->isPast() || in_array($delivery->status, ['superseded', 'failed'], true), 410, __('This document link has expired.'));
+        abort_if($delivery->revoked_at || $delivery->expires_at->isPast() || in_array($delivery->status, ['superseded', 'failed', 'revoked'], true), 410, __('This document link has expired.'));
 
         return $delivery;
     }

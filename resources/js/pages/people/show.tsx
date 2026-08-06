@@ -132,7 +132,13 @@ type Customer360 = {
     }>;
     timeline: Array<{
         id: string;
-        kind: 'quote' | 'document' | 'activity' | 'work_order' | 'opportunity';
+        kind:
+            | 'quote'
+            | 'document'
+            | 'activity'
+            | 'work_order'
+            | 'opportunity'
+            | 'portal';
         title: string;
         subtitle: string;
         date: string | null;
@@ -724,6 +730,17 @@ export default function PeopleShow({
                                             person.email ||
                                             ''
                                         }
+                                        required
+                                    />
+                                </div>
+                                <div className="grid gap-2">
+                                    <Label>Link validity (days)</Label>
+                                    <Input
+                                        name="expires_days"
+                                        type="number"
+                                        min={1}
+                                        max={365}
+                                        defaultValue={90}
                                         required
                                     />
                                 </div>

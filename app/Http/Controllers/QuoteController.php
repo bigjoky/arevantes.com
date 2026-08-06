@@ -54,7 +54,7 @@ class QuoteController extends Controller
 
     public function show(Quote $quote, QuoteBillingPlan $billing): Response
     {
-        $quote->load(['customer', 'installation', 'opportunity:id,code,title', 'lines', 'deliveries:id,quote_id,recipient_email,status,sent_at,first_viewed_at,responded_at']);
+        $quote->load(['customer', 'installation', 'opportunity:id,code,title', 'lines', 'deliveries:id,quote_id,recipient_email,status,sent_at,first_viewed_at,responded_at,revoked_at']);
         [$street, $streetNumber] = $this->splitStreetAddress($quote->customer?->address_line_1);
 
         return Inertia::render('quotes/show', [
