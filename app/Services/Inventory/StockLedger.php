@@ -35,22 +35,22 @@ class StockLedger
                     $this->line($movement, $data['source_warehouse_id'], $product->id, -$quantity, $input['unit_cost'] ?? null);
                     $this->assertAvailable($data['source_warehouse_id'], $product->id);
                     $this->line($movement, $data['destination_warehouse_id'], $product->id, $quantity, $input['unit_cost'] ?? null);
-                    $this->transferSerials($product->id, $data['source_warehouse_id'], $data['destination_warehouse_id'], $serials);
+                    $this->transferSerials($movement, $product->id, $data['source_warehouse_id'], $data['destination_warehouse_id'], $serials);
                 } else {
                     $signed = $data['type'] === 'receipt' ? $quantity : ($data['type'] === 'issue' ? -$quantity : (float) $input['quantity']);
                     $line = $this->line($movement, $data['warehouse_id'], $product->id, $signed, $input['unit_cost'] ?? null);
                     if ($signed < 0) {
                         $this->assertAvailable($data['warehouse_id'], $product->id, $data['installation_id'] ?? null, $data['reservation_sales_document_id'] ?? null);
                         if ($data['type'] === 'purchase_return') {
-                            $this->returnSerials($product->id, $data['warehouse_id'], $serials, $line);
+                            $this->returnSerials($movement, $product->id, $data['warehouse_id'], $serials, $line);
                         } elseif ($data['type'] === 'adjustment' && $product->track_serials) {
-                            $this->markMissingSerials($product->id, $data['warehouse_id'], $serials, $line);
+                            $this->markMissingSerials($movement, $product->id, $data['warehouse_id'], $serials, $line);
                         } else {
-                            $this->issueSerials($product->id, $data['warehouse_id'], $serials, $line, $data['installation_id'] ?? null);
+                            $this->issueSerials($movement, $product->id, $data['warehouse_id'], $serials, $line, $data['installation_id'] ?? null);
                         }
                     }
                     if ($signed > 0 && $product->track_serials) {
-                        $this->receiveSerials($product->id, $data['warehouse_id'], $serials, $line);
+                        $this->receiveSerials($movement, $product->id, $data['warehouse_id'], $serials, $line);
                     }
                 }
             }
@@ -76,7 +76,7 @@ class StockLedger
         }
     }
 
-    private function receiveSerials(int $productId, int $warehouseId, array $serials, StockMovementLine $line): void
+    private function receiveSerials(StockMovement $movement, int $productId, int $warehouseId, array $serials, StockMovementLine $line): void
     {
         foreach ($serials as $serial) {
             $existing = SerialNumber::where('serial_number', $serial)->first();
@@ -85,14 +85,16 @@ class StockLedger
                     throw ValidationException::withMessages(['lines' => __('Serial number :serial is already registered and cannot be received.', ['serial' => $serial])]);
                 }
                 $existing->update(['warehouse_id' => $warehouseId, 'installation_id' => null, 'received_line_id' => $line->id, 'issued_line_id' => null, 'status' => 'available', 'received_at' => now(), 'issued_at' => null]);
+                $this->recordSerialEvent($existing, $movement, 'recovered', null, $warehouseId);
 
                 continue;
             }
-            SerialNumber::create(['product_id' => $productId, 'warehouse_id' => $warehouseId, 'received_line_id' => $line->id, 'serial_number' => $serial, 'status' => 'available', 'received_at' => now()]);
+            $item = SerialNumber::create(['product_id' => $productId, 'warehouse_id' => $warehouseId, 'received_line_id' => $line->id, 'serial_number' => $serial, 'status' => 'available', 'received_at' => now()]);
+            $this->recordSerialEvent($item, $movement, 'received', null, $warehouseId);
         }
     }
 
-    private function markMissingSerials(int $productId, int $warehouseId, array $serials, StockMovementLine $line): void
+    private function markMissingSerials(StockMovement $movement, int $productId, int $warehouseId, array $serials, StockMovementLine $line): void
     {
         foreach ($serials as $serial) {
             $item = SerialNumber::where('product_id', $productId)->where('warehouse_id', $warehouseId)->where('serial_number', $serial)->where('status', 'available')->first();
@@ -100,20 +102,22 @@ class StockLedger
                 throw ValidationException::withMessages(['lines' => __('Serial number :serial is not available for the stock-count adjustment.', ['serial' => $serial])]);
             }
             $item->update(['warehouse_id' => null, 'issued_line_id' => $line->id, 'status' => 'missing', 'issued_at' => now()]);
+            $this->recordSerialEvent($item, $movement, 'missing', $warehouseId);
         }
     }
 
-    private function issueSerials(int $productId, int $warehouseId, array $serials, StockMovementLine $line, ?int $installationId): void
+    private function issueSerials(StockMovement $movement, int $productId, int $warehouseId, array $serials, StockMovementLine $line, ?int $installationId): void
     {
         foreach ($serials as $serial) {
             $item = SerialNumber::where('product_id', $productId)->where('warehouse_id', $warehouseId)->where('serial_number', $serial)->where('status', 'available')->first();
             if (! $item) {
                 throw ValidationException::withMessages(['lines' => __('Serial number :serial is not available in the selected warehouse.', ['serial' => $serial])]);
             } $item->update(['warehouse_id' => null, 'installation_id' => $installationId, 'issued_line_id' => $line->id, 'status' => $installationId ? 'installed' : 'issued', 'issued_at' => now()]);
+            $this->recordSerialEvent($item, $movement, $installationId ? 'installed' : 'issued', $warehouseId, null, $installationId);
         }
     }
 
-    private function returnSerials(int $productId, int $warehouseId, array $serials, StockMovementLine $line): void
+    private function returnSerials(StockMovement $movement, int $productId, int $warehouseId, array $serials, StockMovementLine $line): void
     {
         foreach ($serials as $serial) {
             $item = SerialNumber::where('product_id', $productId)->where('warehouse_id', $warehouseId)->where('serial_number', $serial)->where('status', 'available')->first();
@@ -121,14 +125,28 @@ class StockLedger
                 throw ValidationException::withMessages(['lines' => __('Serial number :serial is not available for return.', ['serial' => $serial])]);
             }
             $item->update(['warehouse_id' => null, 'issued_line_id' => $line->id, 'status' => 'returned', 'issued_at' => now()]);
+            $this->recordSerialEvent($item, $movement, 'returned', $warehouseId);
         }
     }
 
-    private function transferSerials(int $productId, int $source, int $destination, array $serials): void
+    private function transferSerials(StockMovement $movement, int $productId, int $source, int $destination, array $serials): void
     {
         foreach ($serials as $serial) {
             $item = SerialNumber::where('product_id', $productId)->where('warehouse_id', $source)->where('serial_number', $serial)->where('status', 'available')->firstOrFail();
             $item->update(['warehouse_id' => $destination]);
+            $this->recordSerialEvent($item, $movement, 'transferred', $source, $destination);
         }
+    }
+
+    private function recordSerialEvent(SerialNumber $serial, StockMovement $movement, string $type, ?int $fromWarehouseId = null, ?int $toWarehouseId = null, ?int $installationId = null): void
+    {
+        $serial->events()->create([
+            'stock_movement_id' => $movement->id,
+            'from_warehouse_id' => $fromWarehouseId,
+            'to_warehouse_id' => $toWarehouseId,
+            'installation_id' => $installationId,
+            'event_type' => $type,
+            'occurred_at' => $movement->posted_at,
+        ]);
     }
 }

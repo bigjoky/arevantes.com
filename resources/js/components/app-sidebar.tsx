@@ -75,6 +75,10 @@ export function AppSidebar() {
                           { title: 'Catalog', href: '/catalog' },
                           { title: 'Inventory', href: '/inventory' },
                           {
+                              title: 'Serial traceability',
+                              href: '/inventory/serials',
+                          },
+                          {
                               title: 'Stock counts',
                               href: '/inventory/counts',
                           },
@@ -104,6 +108,10 @@ export function AppSidebar() {
                       ]
                     : [
                           { title: 'Purchases', href: '/purchases' },
+                          {
+                              title: 'Serial traceability',
+                              href: '/inventory/serials',
+                          },
                           {
                               title: 'Order control',
                               href: '/supply-control',

@@ -24,4 +24,24 @@ class StockMovement extends Model
     {
         return $this->belongsTo(WorkOrder::class);
     }
+
+    public function purchaseDocument(): BelongsTo
+    {
+        return $this->belongsTo(PurchaseDocument::class);
+    }
+
+    public function salesDocument(): BelongsTo
+    {
+        return $this->belongsTo(SalesDocument::class);
+    }
+
+    public function installation(): BelongsTo
+    {
+        return $this->belongsTo(Installation::class);
+    }
+
+    public function creator(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
 }
