@@ -289,6 +289,32 @@ class BankingTest extends TestCase
         $this->assertSame(2, BankTransaction::count());
     }
 
+    public function test_norma_43_preserves_legitimate_identical_movements_and_deduplicates_reimports(): void
+    {
+        $user = User::factory()->create(['role' => 'commercial']);
+        $account = BankAccount::create(['name' => 'Annual AEB account', 'currency' => 'EUR', 'opening_balance' => 0, 'is_active' => true]);
+        $header = '11'.'0049'.'1234'.'1234567890'.'260101'.'261231'.'2'.str_pad('0', 14, '0', STR_PAD_LEFT).'978'.'2'.str_repeat(' ', 26);
+        $debit = '22'.'0049'.'1234'.'260715'.'260715'.'02'.'002'.'1'.str_pad('6050', 14, '0', STR_PAD_LEFT).str_pad('SAME-DOC', 10).str_pad('SAME-REF', 12).str_pad('SAME CONCEPT', 16);
+        $footer = '33'.'0049'.'1234'.'1234567890'.'00002'.str_pad('12100', 14, '0', STR_PAD_LEFT).'00000'.str_pad('0', 14, '0', STR_PAD_LEFT).'1'.str_pad('12100', 14, '0', STR_PAD_LEFT).'978'.str_repeat(' ', 4);
+        $file = implode("\r\n", [$header, $debit, $debit, $footer])."\r\n";
+        $this->actingAs($user);
+
+        $this->post(route('banking.import', $account), [
+            'statement' => UploadedFile::fake()->createWithContent('annual-2026.n43', $file),
+        ])->assertRedirect()->assertSessionHasNoErrors();
+
+        $this->assertSame(2, $account->transactions()->count());
+        $this->assertSame(2, $account->transactions()->where('amount', -60.5)->count());
+        $this->assertDatabaseHas('bank_statement_imports', ['filename' => 'annual-2026.n43', 'created_transactions' => 2, 'duplicate_transactions' => 0, 'control_valid' => true]);
+
+        $this->post(route('banking.import', $account), [
+            'statement' => UploadedFile::fake()->createWithContent('annual-2026-reimport.n43', $file),
+        ])->assertRedirect()->assertSessionHasNoErrors();
+
+        $this->assertSame(2, $account->transactions()->count());
+        $this->assertDatabaseHas('bank_statement_imports', ['filename' => 'annual-2026-reimport.n43', 'created_transactions' => 0, 'duplicate_transactions' => 2, 'control_valid' => true]);
+    }
+
     public function test_unmatched_bank_movement_can_be_posted_reversed_and_reclassified(): void
     {
         $user = User::factory()->create(['role' => 'commercial']);
