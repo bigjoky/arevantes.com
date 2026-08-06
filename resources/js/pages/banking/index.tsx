@@ -284,7 +284,7 @@ export default function BankingIndex({
                                                 Created
                                             </th>
                                             <th className="text-right">
-                                                Duplicates
+                                                Already imported
                                             </th>
                                             <th>Control</th>
                                             <th className="text-right">

@@ -43,6 +43,7 @@ class StatementImporter
         $headers = array_map(fn ($value) => Str::of(Str::ascii(trim((string) $value)))->lower()->replace([' ', '-'], '_')->toString(), $headers);
         $columns = $this->columns($headers);
         $created = $duplicates = 0;
+        $occurrences = [];
 
         while (($values = fgetcsv($handle, 0, $delimiter)) !== false) {
             if (count(array_filter($values, fn ($value) => trim((string) $value) !== '')) === 0) {
@@ -65,7 +66,8 @@ class StatementImporter
             $description = trim((string) $row[$columns['description']]);
             $reference = $columns['reference'] ? trim((string) $row[$columns['reference']]) : null;
             $valueDate = $columns['value_date'] && filled($row[$columns['value_date']]) ? $this->date($row[$columns['value_date']]) : null;
-            $createdNow = $this->store($account, $date, $valueDate, $amount, $reference, $description, $row);
+            $occurrence = $this->nextOccurrence($occurrences, $date, $valueDate, $amount, $reference, $description);
+            $createdNow = $this->store($account, $date, $valueDate, $amount, $reference, $description, $row, $occurrence);
             $createdNow ? $created++ : $duplicates++;
         }
 
@@ -151,9 +153,11 @@ class StatementImporter
         }
 
         $created = $duplicates = 0;
+        $occurrences = [];
 
         foreach ($movements as $movement) {
-            $createdNow = $this->store($account, $movement['booked_on'], $movement['value_on'], $movement['amount'], $movement['reference'], $movement['description'], $movement['raw_data']);
+            $occurrence = $this->nextOccurrence($occurrences, $movement['booked_on'], $movement['value_on'], $movement['amount'], $movement['reference'], $movement['description']);
+            $createdNow = $this->store($account, $movement['booked_on'], $movement['value_on'], $movement['amount'], $movement['reference'], $movement['description'], $movement['raw_data'], $occurrence);
             $createdNow ? $created++ : $duplicates++;
         }
 
@@ -164,9 +168,10 @@ class StatementImporter
         return compact('created', 'duplicates') + ['format' => 'norma43', 'metadata' => ['period_from' => $accountHeader['period_from'], 'period_to' => $accountHeader['period_to'], 'opening_balance' => $accountHeader['opening_balance'], 'closing_balance' => $control['closing_balance'] ?? $computed['closing_balance'], 'control_valid' => (bool) $controlValid, 'control_data' => ['declared' => $control, 'computed' => $computed]]];
     }
 
-    private function store(BankAccount $account, string $date, ?string $valueDate, float $amount, ?string $reference, string $description, array $rawData): bool
+    private function store(BankAccount $account, string $date, ?string $valueDate, float $amount, ?string $reference, string $description, array $rawData, int $occurrence): bool
     {
-        $hash = hash('sha256', implode('|', [$date, $valueDate, number_format($amount, 2, '.', ''), $reference, $description]));
+        $baseHash = $this->movementHash($date, $valueDate, $amount, $reference, $description);
+        $hash = $occurrence === 1 ? $baseHash : hash('sha256', $baseHash.'|occurrence:'.$occurrence);
         $transaction = $account->transactions()->firstOrCreate(['import_hash' => $hash], [
             'booked_on' => $date,
             'value_on' => $valueDate,
@@ -179,6 +184,18 @@ class StatementImporter
         ]);
 
         return $transaction->wasRecentlyCreated;
+    }
+
+    private function nextOccurrence(array &$occurrences, string $date, ?string $valueDate, float $amount, ?string $reference, string $description): int
+    {
+        $fingerprint = $this->movementHash($date, $valueDate, $amount, $reference, $description);
+
+        return $occurrences[$fingerprint] = ($occurrences[$fingerprint] ?? 0) + 1;
+    }
+
+    private function movementHash(string $date, ?string $valueDate, float $amount, ?string $reference, string $description): string
+    {
+        return hash('sha256', implode('|', [$date, $valueDate, number_format($amount, 2, '.', ''), $reference, $description]));
     }
 
     private function isNorma43(string $contents): bool
