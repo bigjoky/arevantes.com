@@ -12,7 +12,9 @@ use Throwable;
 
 class ReindexAiKnowledge extends Command
 {
-    protected $signature = 'ai:reindex {--stale : Only refresh indexed documents whose review date has passed}';
+    protected $signature = 'ai:reindex
+        {--stale : Only refresh indexed documents whose review date has passed}
+        {--failed : Only retry documents whose last indexing attempt failed}';
 
     protected $description = 'Regenerate all local knowledge embeddings';
 
@@ -20,10 +22,11 @@ class ReindexAiKnowledge extends Command
     {
         $documents = KnowledgeDocument::query()
             ->when($this->option('stale'), fn ($query) => $query->where('status', 'indexed')->where('stale_at', '<=', now()))
+            ->when($this->option('failed'), fn ($query) => $query->where('status', 'failed'))
             ->get();
         $failed = 0;
         foreach ($documents as $document) {
-            if (! is_file($document->source)) {
+            if (! $document->source_url && ! is_file($document->source)) {
                 $this->warn("Missing source: {$document->source}");
                 $document->update(['status' => 'failed', 'failure_reason' => 'The stored source file is missing.']);
                 $failed++;

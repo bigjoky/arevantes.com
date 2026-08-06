@@ -120,6 +120,7 @@ jobs:
             trap \"'$DEPLOY_PHP_BINARY' artisan up || true\" EXIT
             '$DEPLOY_PHP_BINARY' artisan migrate --force
             '$DEPLOY_PHP_BINARY' artisan storage:link || true
+            '$DEPLOY_PHP_BINARY' artisan ai:reindex --failed || true
             '$DEPLOY_PHP_BINARY' artisan optimize
             '$DEPLOY_PHP_BINARY' artisan up
             trap - EXIT
