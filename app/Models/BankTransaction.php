@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class BankTransaction extends Model
 {
-    protected $fillable = ['bank_account_id', 'booked_on', 'value_on', 'amount', 'currency', 'reference', 'description', 'import_hash', 'status', 'raw_data'];
+    protected $fillable = ['bank_account_id', 'bank_statement_import_id', 'booked_on', 'value_on', 'amount', 'currency', 'reference', 'description', 'import_hash', 'status', 'raw_data'];
 
     protected function casts(): array
     {
@@ -18,6 +18,11 @@ class BankTransaction extends Model
     public function account(): BelongsTo
     {
         return $this->belongsTo(BankAccount::class, 'bank_account_id');
+    }
+
+    public function statementImport(): BelongsTo
+    {
+        return $this->belongsTo(BankStatementImport::class, 'bank_statement_import_id');
     }
 
     public function reconciliation(): HasOne

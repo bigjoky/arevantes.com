@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\BankAccount;
 use App\Models\BankFinancialProduct;
 use App\Models\BankReconciliation;
+use App\Models\BankStatementImport;
 use App\Models\BankTransaction;
 use App\Models\BankTransactionPosting;
 use App\Models\BankTransfer;
@@ -313,6 +314,63 @@ class BankingTest extends TestCase
 
         $this->assertSame(2, $account->transactions()->count());
         $this->assertDatabaseHas('bank_statement_imports', ['filename' => 'annual-2026-reimport.n43', 'created_transactions' => 0, 'duplicate_transactions' => 2, 'control_valid' => true]);
+    }
+
+    public function test_statement_import_can_be_rolled_back_with_audit_and_reimported(): void
+    {
+        $user = User::factory()->create(['role' => 'commercial']);
+        $account = BankAccount::create(['name' => 'Import control account', 'currency' => 'EUR', 'opening_balance' => 0, 'is_active' => true]);
+        $csv = "Fecha;Importe;Concepto;Referencia\n01/08/2026;-25,00;Bank service;FEE-01\n02/08/2026;100,00;Customer receipt;RCPT-01\n";
+        $this->actingAs($user)->post(route('banking.import', $account), [
+            'statement' => UploadedFile::fake()->createWithContent('wrong-account.csv', $csv),
+        ])->assertRedirect()->assertSessionHasNoErrors();
+
+        $statementImport = BankStatementImport::firstOrFail();
+        $this->assertSame(2, $statementImport->transactions()->count());
+        $this->assertSame($statementImport->id, BankTransaction::firstOrFail()->bank_statement_import_id);
+        $this->get(route('banking.index', ['account' => $account->id]))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('imports.0.transactions_count', 2)
+                ->where('imports.0.pending_transactions_count', 2)
+                ->where('imports.0.can_rollback', true));
+
+        $this->delete(route('banking.imports.rollback', $statementImport), [
+            'reason' => 'Imported into the wrong bank account.',
+        ])->assertRedirect()->assertSessionHasNoErrors();
+
+        $this->assertSame(0, BankTransaction::count());
+        $this->assertDatabaseHas('bank_statement_imports', [
+            'id' => $statementImport->id,
+            'rolled_back_by' => $user->id,
+            'rollback_reason' => 'Imported into the wrong bank account.',
+        ]);
+
+        $this->post(route('banking.import', $account), [
+            'statement' => UploadedFile::fake()->createWithContent('correct-account.csv', $csv),
+        ])->assertRedirect()->assertSessionHasNoErrors();
+        $this->assertSame(2, BankTransaction::count());
+        $this->assertDatabaseHas('bank_statement_imports', ['filename' => 'correct-account.csv', 'created_transactions' => 2, 'duplicate_transactions' => 0]);
+    }
+
+    public function test_statement_import_rollback_is_blocked_after_a_movement_is_processed(): void
+    {
+        $user = User::factory()->create(['role' => 'commercial']);
+        $account = BankAccount::create(['name' => 'Protected import account', 'currency' => 'EUR', 'opening_balance' => 0, 'is_active' => true]);
+        $csv = "Fecha;Importe;Concepto;Referencia\n01/08/2026;-25,00;Bank service;FEE-02\n";
+        $this->actingAs($user)->post(route('banking.import', $account), [
+            'statement' => UploadedFile::fake()->createWithContent('protected.csv', $csv),
+        ])->assertRedirect()->assertSessionHasNoErrors();
+        $statementImport = BankStatementImport::firstOrFail();
+        $statementImport->transactions()->firstOrFail()->update(['status' => 'accounted']);
+
+        $this->delete(route('banking.imports.rollback', $statementImport), [
+            'reason' => 'Attempting to remove a processed import.',
+        ])->assertSessionHasErrors('reason');
+
+        $this->assertSame(1, BankTransaction::count());
+        $this->assertNull($statementImport->fresh()->rolled_back_at);
+        $this->get(route('banking.index', ['account' => $account->id]))
+            ->assertInertia(fn (Assert $page) => $page->where('imports.0.can_rollback', false));
     }
 
     public function test_unmatched_bank_movement_can_be_posted_reversed_and_reclassified(): void

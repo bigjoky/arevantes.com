@@ -111,6 +111,14 @@ type StatementImport = {
     created_transactions: number;
     duplicate_transactions: number;
     control_valid: boolean | null;
+    transactions_count: number;
+    pending_transactions_count: number;
+    processed_transactions_count: number;
+    can_rollback: boolean;
+    rolled_back_at: string | null;
+    rollback_reason: string | null;
+    user: { name: string } | null;
+    rolled_back_by: { name: string } | null;
     created_at: string;
 };
 type BankControl = {
@@ -436,6 +444,10 @@ export default function BankingIndex({
                                                 <th className="text-right">
                                                     Closing balance
                                                 </th>
+                                                <th>Status</th>
+                                                <th className="text-right">
+                                                    Action
+                                                </th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -497,6 +509,50 @@ export default function BankingIndex({
                                                                   ),
                                                                   selectedAccount.currency,
                                                               )}
+                                                    </td>
+                                                    <td>
+                                                        {item.rolled_back_at ? (
+                                                            <span
+                                                                className="text-xs text-muted-foreground"
+                                                                title={
+                                                                    item.rollback_reason ??
+                                                                    undefined
+                                                                }
+                                                            >
+                                                                Rolled back by{' '}
+                                                                {item
+                                                                    .rolled_back_by
+                                                                    ?.name ??
+                                                                    'user'}
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-xs">
+                                                                {item.user
+                                                                    ?.name ??
+                                                                    'User'}{' '}
+                                                                ·{' '}
+                                                                {date(
+                                                                    item.created_at,
+                                                                )}
+                                                            </span>
+                                                        )}
+                                                    </td>
+                                                    <td className="text-right">
+                                                        {item.can_rollback ? (
+                                                            <ImportRollbackDialog
+                                                                statementImport={
+                                                                    item
+                                                                }
+                                                            />
+                                                        ) : !item.rolled_back_at &&
+                                                          item.created_transactions >
+                                                              0 ? (
+                                                            <span className="text-xs text-muted-foreground">
+                                                                In use
+                                                            </span>
+                                                        ) : (
+                                                            '—'
+                                                        )}
                                                     </td>
                                                 </tr>
                                             ))}
@@ -827,6 +883,66 @@ export default function BankingIndex({
                 )}
             </div>
         </>
+    );
+}
+
+function ImportRollbackDialog({
+    statementImport,
+}: {
+    statementImport: StatementImport;
+}) {
+    const [open, setOpen] = useState(false);
+
+    return (
+        <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+                <Button size="sm" variant="ghost">
+                    <Trash2 /> Roll back
+                </Button>
+            </DialogTrigger>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Roll back statement import</DialogTitle>
+                    <DialogDescription>
+                        This removes the {statementImport.transactions_count}{' '}
+                        pending movements created by {statementImport.filename}.
+                        The import record and reason remain in the audit trail.
+                    </DialogDescription>
+                </DialogHeader>
+                <Form
+                    action={`/banking/imports/${statementImport.id}`}
+                    method="delete"
+                    className="grid gap-4"
+                    onSuccess={() => setOpen(false)}
+                >
+                    {({ errors, processing }) => (
+                        <>
+                            <div className="grid gap-2">
+                                <Label
+                                    htmlFor={`rollback-${statementImport.id}`}
+                                >
+                                    Reason
+                                </Label>
+                                <Textarea
+                                    id={`rollback-${statementImport.id}`}
+                                    name="reason"
+                                    placeholder="For example: wrong bank account selected"
+                                    required
+                                />
+                                {errors.reason && (
+                                    <p className="text-sm text-destructive">
+                                        {errors.reason}
+                                    </p>
+                                )}
+                            </div>
+                            <Button variant="destructive" disabled={processing}>
+                                <Trash2 /> Remove pending movements
+                            </Button>
+                        </>
+                    )}
+                </Form>
+            </DialogContent>
+        </Dialog>
     );
 }
 

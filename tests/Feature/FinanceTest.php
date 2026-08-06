@@ -6,6 +6,7 @@ use App\Models\AuditLog;
 use App\Models\BankAccount;
 use App\Models\BankFinancialProduct;
 use App\Models\BankReconciliation;
+use App\Models\BankStatementImport;
 use App\Models\CollectionAction;
 use App\Models\CompanyProfile;
 use App\Models\Expense;
@@ -30,6 +31,35 @@ use Tests\TestCase;
 class FinanceTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_finance_exposes_daily_bank_position_and_statement_integrity(): void
+    {
+        $user = User::factory()->create(['role' => 'commercial']);
+        $account = BankAccount::create(['name' => 'Operating EUR', 'bank_name' => 'Arevantes Bank', 'currency' => 'EUR', 'opening_balance' => 1000, 'is_active' => true]);
+        $statementImport = BankStatementImport::create([
+            'bank_account_id' => $account->id,
+            'imported_by' => $user->id,
+            'filename' => 'august.csv',
+            'file_hash' => hash('sha256', 'august-statement'),
+            'format' => 'csv',
+            'created_transactions' => 2,
+            'duplicate_transactions' => 0,
+            'control_valid' => false,
+        ]);
+        $account->transactions()->create(['bank_statement_import_id' => $statementImport->id, 'booked_on' => '2026-08-04', 'amount' => -100, 'currency' => 'EUR', 'description' => 'Pending supplier payment', 'import_hash' => hash('sha256', 'position-pending'), 'status' => 'pending']);
+        $account->transactions()->create(['bank_statement_import_id' => $statementImport->id, 'booked_on' => '2026-08-05', 'amount' => 50, 'currency' => 'EUR', 'description' => 'Reconciled receipt', 'import_hash' => hash('sha256', 'position-reconciled'), 'status' => 'reconciled']);
+
+        $this->actingAs($user)->get(route('finance.index', ['year' => 2026]))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('bankPosition.0.name', 'Operating EUR')
+                ->where('bankPosition.0.bankName', 'Arevantes Bank')
+                ->where('bankPosition.0.balance', 950)
+                ->where('bankPosition.0.pendingTransactions', 1)
+                ->where('bankPosition.0.pendingAmount', -100)
+                ->where('bankPosition.0.lastTransactionOn', '2026-08-05')
+                ->where('bankPosition.0.statementControl', 'mismatch'));
+    }
 
     public function test_financial_dashboard_aggregates_cash_vat_and_outstanding_balances(): void
     {

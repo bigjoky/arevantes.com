@@ -121,7 +121,30 @@ class BankingController extends Controller
             'available' => round((float) $currencyProducts->sum(fn ($product) => (float) $product['available_amount']), 2),
         ])->values();
 
-        return Inertia::render('banking/index', ['accounts' => $accounts, 'selectedAccount' => $account, 'transactions' => $transactions, 'imports' => $account ? $account->statementImports()->latest()->limit(12)->get() : [], 'control' => $account ? $this->bankControl($account) : null, 'ledgerAccounts' => LedgerAccount::where('is_active', true)->where('is_postable', true)->whereNotIn('code', ['430', '400', '410', '472', '477'])->orderBy('code')->get(['id', 'code', 'name', 'type']), 'liabilityAccounts' => LedgerAccount::where('is_active', true)->where('is_postable', true)->where('type', 'liability')->orderBy('code')->get(['id', 'code', 'name']), 'products' => $products, 'productSummary' => $productSummary, 'summary' => $summary, 'filters' => $filters]);
+        $imports = $account ? $account->statementImports()
+            ->with(['user:id,name', 'rolledBackBy:id,name'])
+            ->withCount([
+                'transactions',
+                'transactions as pending_transactions_count' => fn ($query) => $query->where('status', 'pending'),
+                'transactions as processed_transactions_count' => fn ($query) => $query->where(fn ($query) => $query
+                    ->whereHas('reconciliation')
+                    ->orWhereHas('posting')
+                    ->orWhereHas('outgoingTransfer')
+                    ->orWhereHas('incomingTransfer')),
+            ])
+            ->latest()
+            ->limit(12)
+            ->get()
+            ->map(fn (BankStatementImport $import) => [
+                ...$import->toArray(),
+                'can_rollback' => ! $import->rolled_back_at
+                    && $import->created_transactions > 0
+                    && $import->transactions_count === $import->created_transactions
+                    && $import->pending_transactions_count === $import->transactions_count
+                    && $import->processed_transactions_count === 0,
+            ]) : [];
+
+        return Inertia::render('banking/index', ['accounts' => $accounts, 'selectedAccount' => $account, 'transactions' => $transactions, 'imports' => $imports, 'control' => $account ? $this->bankControl($account) : null, 'ledgerAccounts' => LedgerAccount::where('is_active', true)->where('is_postable', true)->whereNotIn('code', ['430', '400', '410', '472', '477'])->orderBy('code')->get(['id', 'code', 'name', 'type']), 'liabilityAccounts' => LedgerAccount::where('is_active', true)->where('is_postable', true)->where('type', 'liability')->orderBy('code')->get(['id', 'code', 'name']), 'products' => $products, 'productSummary' => $productSummary, 'summary' => $summary, 'filters' => $filters]);
     }
 
     public function storeAccount(Request $request): RedirectResponse
@@ -173,11 +196,54 @@ class BankingController extends Controller
     {
         $data = $request->validate(['statement' => ['required', 'file', 'mimetypes:text/plain,text/csv,application/csv,application/octet-stream', 'max:10240']]);
         $file = $data['statement'];
-        $result = $importer->import($account, $file);
-        $metadata = $result['metadata'] ?? [];
-        BankStatementImport::create(['bank_account_id' => $account->id, 'imported_by' => $request->user()->id, 'filename' => $file->getClientOriginalName(), 'file_hash' => hash_file('sha256', $file->getRealPath()), 'format' => $result['format'], 'period_from' => $metadata['period_from'] ?? null, 'period_to' => $metadata['period_to'] ?? null, 'opening_balance' => $metadata['opening_balance'] ?? null, 'closing_balance' => $metadata['closing_balance'] ?? null, 'created_transactions' => $result['created'], 'duplicate_transactions' => $result['duplicates'], 'control_valid' => $metadata['control_valid'] ?? null, 'control_data' => $metadata['control_data'] ?? null]);
+        $result = DB::transaction(function () use ($account, $file, $importer, $request): array {
+            $result = $importer->import($account, $file);
+            $metadata = $result['metadata'] ?? [];
+            $statementImport = BankStatementImport::create(['bank_account_id' => $account->id, 'imported_by' => $request->user()->id, 'filename' => $file->getClientOriginalName(), 'file_hash' => hash_file('sha256', $file->getRealPath()), 'format' => $result['format'], 'period_from' => $metadata['period_from'] ?? null, 'period_to' => $metadata['period_to'] ?? null, 'opening_balance' => $metadata['opening_balance'] ?? null, 'closing_balance' => $metadata['closing_balance'] ?? null, 'created_transactions' => $result['created'], 'duplicate_transactions' => $result['duplicates'], 'control_valid' => $metadata['control_valid'] ?? null, 'control_data' => $metadata['control_data'] ?? null]);
+            if ($result['created_ids'] !== []) {
+                BankTransaction::whereIn('id', $result['created_ids'])->update(['bank_statement_import_id' => $statementImport->id]);
+            }
+
+            return $result;
+        });
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Imported :created transactions; :duplicates were already imported.', ['created' => $result['created'], 'duplicates' => $result['duplicates']])]);
+    }
+
+    public function rollbackImport(Request $request, BankStatementImport $statementImport): RedirectResponse
+    {
+        $data = $request->validate(['reason' => ['required', 'string', 'min:5', 'max:500']]);
+
+        DB::transaction(function () use ($request, $statementImport, $data) {
+            $statementImport = BankStatementImport::lockForUpdate()->findOrFail($statementImport->id);
+            if ($statementImport->rolled_back_at) {
+                throw ValidationException::withMessages(['reason' => __('This statement import was already rolled back.')]);
+            }
+
+            $transactions = $statementImport->transactions()->lockForUpdate()->get();
+            if ($statementImport->created_transactions === 0 || $transactions->count() !== $statementImport->created_transactions) {
+                throw ValidationException::withMessages(['reason' => __('This import cannot be rolled back because its movements are not fully traceable.')]);
+            }
+            if ($transactions->contains(fn (BankTransaction $transaction) => $transaction->status !== 'pending')) {
+                throw ValidationException::withMessages(['reason' => __('Undo reconciliations and accounting postings before rolling back this import.')]);
+            }
+            $transactionIds = $transactions->pluck('id');
+            $hasHistory = BankReconciliation::whereIn('bank_transaction_id', $transactionIds)->exists()
+                || BankTransactionPosting::whereIn('bank_transaction_id', $transactionIds)->exists()
+                || BankTransfer::whereIn('outgoing_transaction_id', $transactionIds)->orWhereIn('incoming_transaction_id', $transactionIds)->exists();
+            if ($hasHistory) {
+                throw ValidationException::withMessages(['reason' => __('This import has reconciliation or accounting history and cannot be removed.')]);
+            }
+
+            $statementImport->transactions()->delete();
+            $statementImport->update([
+                'rolled_back_by' => $request->user()->id,
+                'rolled_back_at' => now(),
+                'rollback_reason' => $data['reason'],
+            ]);
+        });
+
+        return back()->with('toast', ['type' => 'success', 'message' => __('Statement import rolled back; its pending movements were removed.')]);
     }
 
     private function validatedProduct(Request $request): array
@@ -609,7 +675,7 @@ class BankingController extends Controller
 
     private function bankControl(BankAccount $account): array
     {
-        $latest = $account->statementImports()->whereNotNull('closing_balance')->latest('period_to')->latest('id')->first();
+        $latest = $account->statementImports()->whereNull('rolled_back_at')->whereNotNull('closing_balance')->latest('period_to')->latest('id')->first();
         $to = $latest?->period_to ?? now();
         $from = $latest?->period_from;
         $statementMovements = $from ? (float) $account->transactions()->whereBetween('booked_on', [$from, $to])->sum('amount') : (float) $account->transactions()->whereDate('booked_on', '<=', $to)->sum('amount');
