@@ -2,10 +2,12 @@ import { Link, usePage } from '@inertiajs/react';
 import {
     BriefcaseBusiness,
     Building2,
+    CalendarDays,
     ChartNoAxesCombined,
     LayoutGrid,
     Settings2,
     ShoppingCart,
+    UsersRound,
 } from 'lucide-react';
 import AppLogo from '@/components/app-logo';
 import { NavMain } from '@/components/nav-main';
@@ -27,6 +29,11 @@ export function AppSidebar() {
     const commercial = user.role !== 'technician';
     const items: NavItem[] = [
         { title: 'Dashboard', href: dashboard(), icon: LayoutGrid },
+        {
+            title: 'Mi RR. HH.',
+            href: '/my-human-resources',
+            icon: CalendarDays,
+        },
         ...(commercial
             ? [
                   {
@@ -135,11 +142,35 @@ export function AppSidebar() {
         ...(user.role === 'admin'
             ? [
                   {
+                      title: 'Recursos Humanos',
+                      href: '/human-resources',
+                      icon: UsersRound,
+                      children: [
+                          { title: 'Resumen', href: '/human-resources' },
+                          {
+                              title: 'Fichas laborales',
+                              href: '/human-resources/employees',
+                          },
+                          {
+                              title: 'Ausencias',
+                              href: '/human-resources/leave',
+                          },
+                          {
+                              title: 'Tareas y onboarding',
+                              href: '/human-resources/tasks',
+                          },
+                          {
+                              title: 'Departamentos',
+                              href: '/human-resources/departments',
+                          },
+                          { title: 'Equipo y accesos', href: '/staff' },
+                      ],
+                  },
+                  {
                       title: 'Company',
-                      href: '/staff',
+                      href: '/knowledge',
                       icon: Settings2,
                       children: [
-                          { title: 'Staff & access', href: '/staff' },
                           { title: 'Arevia knowledge', href: '/knowledge' },
                           {
                               title: 'Company & fiscal settings',
