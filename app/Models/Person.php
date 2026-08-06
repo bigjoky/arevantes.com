@@ -100,6 +100,16 @@ class Person extends Model
         return $this->hasMany(CustomerPortalAccess::class);
     }
 
+    public function portalEvents(): HasMany
+    {
+        return $this->hasMany(CustomerPortalEvent::class);
+    }
+
+    public function portalPreference(): HasOne
+    {
+        return $this->hasOne(CustomerPortalPreference::class);
+    }
+
     public function opportunities(): HasMany
     {
         return $this->hasMany(Opportunity::class);
