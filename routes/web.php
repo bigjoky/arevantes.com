@@ -32,6 +32,7 @@ use App\Http\Controllers\InstallationDeyeController;
 use App\Http\Controllers\InstallationHuaweiController;
 use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\KnowledgeDocumentController;
+use App\Http\Controllers\KnowledgeSourceController;
 use App\Http\Controllers\LegalController;
 use App\Http\Controllers\MyHumanResourcesController;
 use App\Http\Controllers\OperationsController;
@@ -90,6 +91,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('arevia/conversation', [AreviaChatController::class, 'show'])->middleware('can:use-ai')->name('arevia.conversation');
     Route::post('arevia/messages', [AreviaChatController::class, 'store'])->middleware('can:use-ai')->name('arevia.messages.store');
     Route::post('arevia/messages/{aiMessage}/feedback', [AreviaChatController::class, 'feedback'])->middleware('can:use-ai')->name('arevia.messages.feedback');
+    Route::get('arevia/sources/{knowledgeDocument}/versions/{version}', [KnowledgeSourceController::class, 'show'])->middleware('can:use-ai')->name('arevia.sources.show');
     Route::post('geocoding/search', [GeocodingController::class, 'search'])
         ->middleware('throttle:30,1')
         ->name('geocoding.search');
@@ -125,6 +127,7 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('staff/{staff}/access', [StaffAccessController::class, 'destroy'])->middleware('can:manage-staff')->name('staff.access.destroy');
     Route::get('knowledge', [KnowledgeDocumentController::class, 'index'])->middleware('can:manage-staff')->name('knowledge.index');
     Route::post('knowledge', [KnowledgeDocumentController::class, 'store'])->middleware('can:manage-staff')->name('knowledge.store');
+    Route::patch('knowledge/{knowledgeDocument}', [KnowledgeDocumentController::class, 'update'])->middleware('can:manage-staff')->name('knowledge.update');
     Route::post('knowledge/{knowledgeDocument}/reindex', [KnowledgeDocumentController::class, 'reindex'])->middleware('can:manage-staff')->name('knowledge.reindex');
     Route::delete('knowledge/{knowledgeDocument}', [KnowledgeDocumentController::class, 'destroy'])->middleware('can:manage-staff')->name('knowledge.destroy');
     Route::get('operations', [OperationsController::class, 'index'])->middleware('can:manage-operations')->name('operations.index');

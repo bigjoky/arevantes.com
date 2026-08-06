@@ -321,6 +321,7 @@ export default function InstallationShow({
                                 ?.getAttribute('content') ?? '',
                     },
                     body: JSON.stringify({
+                        confirmed: true,
                         indexes: aiActionItems.map((_, index) => index),
                     }),
                 },
