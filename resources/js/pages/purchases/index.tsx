@@ -82,7 +82,7 @@ export default function PurchasesIndex({
         auth: {
             abilities: {
                 managePurchases: boolean;
-                managePurchaseSettings: boolean;
+                manageStaff: boolean;
             };
         };
     }>();
@@ -181,7 +181,7 @@ export default function PurchasesIndex({
                         </Button>
                     </div>
                 </Form>
-                {page.props.auth.abilities.managePurchaseSettings && (
+                {page.props.auth.abilities.manageStaff && (
                     <details className="border p-4">
                         <summary className="cursor-pointer font-medium">
                             Matching and tax settings

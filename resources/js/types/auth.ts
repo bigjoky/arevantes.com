@@ -11,8 +11,31 @@ export type User = {
     [key: string]: unknown;
 };
 
+export type PlatformAbilities = {
+    manageCustomers: boolean;
+    viewInstallations: boolean;
+    manageInstallations: boolean;
+    syncInstallations: boolean;
+    useAi: boolean;
+    manageOperations: boolean;
+    manageCatalog: boolean;
+    viewFinance: boolean;
+    manageTreasury: boolean;
+    manageAccounting: boolean;
+    approvePayments: boolean;
+    approveBudgets: boolean;
+    manageTax: boolean;
+    viewPurchases: boolean;
+    managePurchases: boolean;
+    receivePurchases: boolean;
+    approvePurchaseInvoices: boolean;
+    managePurchasePayments: boolean;
+    manageStaff: boolean;
+};
+
 export type Auth = {
     user: User;
+    abilities: PlatformAbilities;
 };
 
 /* @chisel-passkeys */
