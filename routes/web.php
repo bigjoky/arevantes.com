@@ -212,6 +212,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('operations/activities', [OperationsController::class, 'store'])->middleware('can:manage-operations')->name('activities.store');
     Route::patch('operations/activities/{activity}', [OperationsController::class, 'update'])->middleware('can:manage-operations')->name('activities.update');
     Route::delete('operations/activities/{activity}', [OperationsController::class, 'destroy'])->middleware('can:manage-operations')->name('activities.destroy');
+    Route::post('operations/activities/{activity}/work-order', [OperationsController::class, 'convertToWorkOrder'])->middleware('can:manage-installations')->name('activities.work-order.store');
     Route::get('quotes/create', [QuoteController::class, 'create'])->middleware('can:manage-installations')->name('quotes.create');
     Route::post('quotes', [QuoteController::class, 'store'])->middleware('can:manage-installations')->name('quotes.store');
     Route::get('quotes/{quote}', [QuoteController::class, 'show'])->middleware('can:manage-installations')->name('quotes.show');

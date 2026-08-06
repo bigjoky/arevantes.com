@@ -72,7 +72,7 @@ class CustomerProfileTest extends TestCase
         $this->assertNotNull($activity->completed_at);
     }
 
-    public function test_technician_operations_page_does_not_receive_quotes(): void
+    public function test_technician_operations_page_only_receives_their_operational_work(): void
     {
         $technician = User::factory()->create(['role' => 'technician']);
         $customer = Person::create(['category' => 'customer', 'first_name' => 'Ana']);
@@ -83,9 +83,9 @@ class CustomerProfileTest extends TestCase
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->component('operations/index')
-                ->where('canManageQuotes', false)
-                ->has('quotes', 0)
-                ->has('activities', 1));
+                ->where('canManage', false)
+                ->has('activities.data', 1)
+                ->where('activities.data.0.title', 'Technical visit'));
     }
 
     public function test_activity_cannot_link_an_installation_from_another_customer(): void

@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class CrmActivity extends Model
 {
-    protected $fillable = ['installation_id', 'work_order_id', 'person_id', 'assigned_user_id', 'created_by', 'type', 'title', 'notes', 'priority', 'status', 'starts_at', 'due_at', 'completed_at'];
+    protected $fillable = ['installation_id', 'work_order_id', 'person_id', 'assigned_user_id', 'created_by', 'type', 'title', 'notes', 'priority', 'status', 'blocked_reason', 'starts_at', 'due_at', 'completed_at'];
 
     protected function casts(): array
     {
