@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\MorphOne;
 
 class SalesDocumentPayment extends Model
 {
-    protected $fillable = ['created_by', 'paid_at', 'amount', 'method', 'reference', 'notes'];
+    protected $fillable = ['created_by', 'origin_bank_transaction_id', 'paid_at', 'amount', 'method', 'reference', 'notes'];
 
     protected function casts(): array
     {

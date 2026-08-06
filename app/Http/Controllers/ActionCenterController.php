@@ -6,10 +6,14 @@ use App\Models\BankTransaction;
 use App\Models\CrmActivity;
 use App\Models\Expense;
 use App\Models\MonitoringAlert;
+use App\Models\PaymentBatch;
+use App\Models\PaymentBatchItem;
 use App\Models\PurchaseDocument;
 use App\Models\PurchaseInboxDocument;
 use App\Models\SalesDocument;
 use App\Models\WorkOrder;
+use App\Services\Finance\FinancialAlertService;
+use App\Services\Finance\OutstandingBalanceCalculator;
 use App\Services\Work\TechnicianSchedule;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -18,6 +22,11 @@ use Illuminate\Support\Facades\Gate;
 
 class ActionCenterController extends Controller
 {
+    public function __construct(
+        private OutstandingBalanceCalculator $balances,
+        private FinancialAlertService $financialAlerts,
+    ) {}
+
     public function __invoke(Request $request, TechnicianSchedule $schedule): JsonResponse
     {
         $groups = collect();
@@ -30,8 +39,8 @@ class ActionCenterController extends Controller
             $groups->push($this->operations($request, $schedule));
         }
 
-        if (Gate::allows('manage-catalog')) {
-            $groups->push($this->purchaseInbox(), $this->collections(), $this->payments(), $this->banking());
+        if (Gate::allows('view-finance')) {
+            $groups->push($this->purchaseInbox(), $this->collections($request), $this->payments(), $this->paymentBatches(), $this->banking(), $this->financialAlertsGroup());
         }
 
         $groups = $groups->filter(fn (array $group) => $group['count'] > 0)->values();
@@ -116,25 +125,58 @@ class ActionCenterController extends Controller
     }
 
     /** @return array<string, mixed> */
-    private function collections(): array
+    private function collections(Request $request): array
     {
         $query = SalesDocument::query()
             ->where('type', 'invoice')
             ->whereIn('status', ['issued', 'partial', 'overdue'])
-            ->where(fn ($query) => $query->whereNull('due_date')->orWhere('due_date', '<=', now()->addDays(14)));
+            ->where(function ($query) {
+                $query->where(function ($query) {
+                    $query->whereDoesntHave('collectionAction')
+                        ->where(fn ($query) => $query->whereNull('due_date')->orWhere('due_date', '<=', now()->addDays(14)));
+                })->orWhereHas('collectionAction', fn ($query) => $query
+                    ->whereNot('status', 'resolved')
+                    ->where(fn ($query) => $query
+                        ->whereNull('next_action_on')
+                        ->orWhere('next_action_on', '<=', now()->addDays(14))
+                        ->orWhere(fn ($query) => $query->where('status', 'promised')->where('promised_on', '<', today()))));
+            });
 
-        $items = (clone $query)->with('customer:id,first_name,last_name,company_name')->orderBy('due_date')->limit(8)->get()
-            ->map(fn (SalesDocument $document) => [
-                'id' => 'sale-'.$document->id,
-                'title' => $document->number.' · '.$this->customerName($document),
-                'subtitle' => __('Collect :amount · due :date', [
-                    'amount' => $this->money((float) $document->amount - (float) $document->paid_amount),
-                    'date' => $document->due_date?->format('d/m/Y') ?: __('No due date'),
-                ]),
-                'href' => '/sales/'.$document->id,
-                'severity' => $this->dateSeverity($document->due_date),
-                'due_at' => $document->due_date?->toIso8601String(),
-            ]);
+        if (! $request->user()->hasRole('admin')) {
+            $query->where(fn ($query) => $query
+                ->whereDoesntHave('collectionAction')
+                ->orWhereHas('collectionAction', fn ($query) => $query
+                    ->whereNull('assigned_to')
+                    ->orWhere('assigned_to', $request->user()->id)));
+        }
+
+        $items = (clone $query)
+            ->with(['customer:id,first_name,last_name,company_name', 'collectionAction'])
+            ->limit(20)
+            ->get()
+            ->map(function (SalesDocument $document) {
+                $action = $document->collectionAction;
+                $actionDate = $action?->next_action_on ?: $document->due_date;
+                $promiseBreached = $action?->status === 'promised' && $action->promised_on?->isBefore(today());
+                $detail = $action
+                    ? __(':status · next action :date', [
+                        'status' => $promiseBreached ? __('Broken promise') : ucfirst($action->status),
+                        'date' => $action->next_action_on?->format('d/m/Y') ?: __('Not scheduled'),
+                    ])
+                    : __('Due :date', ['date' => $document->due_date?->format('d/m/Y') ?: __('No due date')]);
+
+                return [
+                    'id' => 'sale-'.$document->id,
+                    'title' => $document->number.' · '.$this->customerName($document),
+                    'subtitle' => __('Collect :amount', ['amount' => $this->money($this->balances->receivable($document))]).' · '.$detail,
+                    'href' => '/finance?year='.$document->issue_date->year,
+                    'severity' => $action?->status === 'disputed' || $promiseBreached ? 'critical' : $this->dateSeverity($actionDate),
+                    'due_at' => $actionDate?->toIso8601String(),
+                ];
+            })
+            ->sortBy(fn (array $item) => $item['due_at'] ?? '9999')
+            ->take(8)
+            ->values();
 
         return $this->group(__('Collections'), (clone $query)->count(), $items);
     }
@@ -142,13 +184,23 @@ class ActionCenterController extends Controller
     /** @return array<string, mixed> */
     private function payments(): array
     {
+        $batchedInvoices = PaymentBatchItem::query()
+            ->where('payable_type', 'invoice')
+            ->whereHas('batch', fn ($query) => $query->whereIn('status', ['draft', 'approved', 'exported']))
+            ->pluck('payable_id');
+        $batchedExpenses = PaymentBatchItem::query()
+            ->where('payable_type', 'expense')
+            ->whereHas('batch', fn ($query) => $query->whereIn('status', ['draft', 'approved', 'exported']))
+            ->pluck('payable_id');
         $purchasesQuery = PurchaseDocument::query()
             ->withSum('creditNotes as credited_total', 'amount')
             ->where('type', 'supplier_invoice')
             ->whereIn('status', ['registered', 'pending', 'partial', 'overdue'])
+            ->whereNotIn('id', $batchedInvoices)
             ->where(fn ($query) => $query->whereNull('due_date')->orWhere('due_date', '<=', now()->addDays(14)));
         $expensesQuery = Expense::query()
             ->whereIn('status', ['pending', 'partial', 'overdue'])
+            ->whereNotIn('id', $batchedExpenses)
             ->where(fn ($query) => $query->whereNull('due_date')->orWhere('due_date', '<=', now()->addDays(14)));
 
         $purchases = (clone $purchasesQuery)->with('supplier:id,legal_name,trade_name')->orderBy('due_date')->limit(6)->get()
@@ -156,7 +208,7 @@ class ActionCenterController extends Controller
                 'id' => 'purchase-'.$document->id,
                 'title' => $document->number.' · '.($document->supplier?->trade_name ?: $document->supplier?->legal_name ?: __('Supplier')),
                 'subtitle' => __('Pay :amount · due :date', [
-                    'amount' => $this->money((float) $document->amount + (float) $document->credited_total - (float) $document->paid_amount),
+                    'amount' => $this->money($this->balances->purchase($document)),
                     'date' => $document->due_date?->format('d/m/Y') ?: __('No due date'),
                 ]),
                 'href' => '/purchases/'.$document->id,
@@ -168,7 +220,7 @@ class ActionCenterController extends Controller
                 'id' => 'expense-'.$expense->id,
                 'title' => $expense->number.' · '.($expense->merchant_name ?: __('Expense')),
                 'subtitle' => __('Pay :amount · due :date', [
-                    'amount' => $this->money((float) $expense->amount - (float) $expense->paid_amount),
+                    'amount' => $this->money($this->balances->expense($expense)),
                     'date' => $expense->due_date?->format('d/m/Y') ?: __('No due date'),
                 ]),
                 'href' => '/expenses/'.$expense->id,
@@ -178,6 +230,41 @@ class ActionCenterController extends Controller
         $items = $purchases->concat($expenses)->sortBy(fn (array $item) => $item['due_at'] ?? '9999')->take(10)->values();
 
         return $this->group(__('Payments'), (clone $purchasesQuery)->count() + (clone $expensesQuery)->count(), $items);
+    }
+
+    /** @return array<string, mixed> */
+    private function paymentBatches(): array
+    {
+        $query = PaymentBatch::query()->where(function ($query) {
+            $query->where('status', 'draft')
+                ->orWhere(fn ($query) => $query->whereIn('status', ['approved', 'exported'])->where('planned_on', '<=', today()->addDays(14)));
+        });
+        $items = (clone $query)
+            ->with(['account:id,name', 'items'])
+            ->orderByRaw("case when status = 'draft' then 0 else 1 end")
+            ->orderBy('planned_on')
+            ->limit(8)
+            ->get()
+            ->map(fn (PaymentBatch $batch) => [
+                'id' => 'payment-batch-'.$batch->id,
+                'title' => $batch->number.' · '.match ($batch->status) {
+                    'draft' => __('Approval pending'),
+                    'exported' => __('Payment confirmation pending'),
+                    default => __('Ready for payment'),
+                },
+                'subtitle' => __(':amount · planned :date · :account', [
+                    'amount' => $this->money((float) $batch->items->sum('amount')),
+                    'date' => $batch->planned_on->format('d/m/Y'),
+                    'account' => $batch->account?->name ?: __('Default account'),
+                ]),
+                'href' => '/finance?year='.$batch->planned_on->year,
+                'severity' => $batch->status === 'exported' && $batch->planned_on->isPast()
+                    ? 'critical'
+                    : ($batch->status === 'draft' ? 'warning' : $this->dateSeverity($batch->planned_on)),
+                'due_at' => $batch->planned_on->toIso8601String(),
+            ]);
+
+        return $this->group(__('Payment batches'), (clone $query)->count(), $items);
     }
 
     /** @return array<string, mixed> */
@@ -214,6 +301,27 @@ class ActionCenterController extends Controller
             ]);
 
         return $this->group(__('Bank reconciliation'), (clone $query)->count(), $items);
+    }
+
+    /** @return array<string, mixed> */
+    private function financialAlertsGroup(): array
+    {
+        $year = now()->year;
+        $alerts = $this->financialAlerts->forYear($year)->where('status', '!=', 'resolved')->values();
+        $items = $alerts->map(fn (array $alert, int $index) => [
+            'id' => 'financial-alert-'.$alert['type'].'-'.($alert['month'] ?? 'forecast').'-'.$index,
+            'title' => match ($alert['type']) {
+                'operating' => ($alert['monthLabel'].' · ').__('Operating result'),
+                'cash' => ($alert['monthLabel'].' · ').__('Net cash'),
+                default => __('Liquidity buffer'),
+            },
+            'subtitle' => $alert['message'].' '.$this->money(abs((float) $alert['variance'])),
+            'href' => '/finance?year='.$year.($alert['month'] ? '#budget-month-'.$alert['month'] : '#financial-alerts'),
+            'severity' => $alert['severity'],
+            'due_at' => now()->toIso8601String(),
+        ]);
+
+        return $this->group(__('Financial alerts'), $alerts->count(), $items);
     }
 
     /** @param Collection<int, array<string, mixed>> $items
