@@ -214,6 +214,19 @@ type PaymentBatch = {
     }[];
 };
 type FinanceUser = { id: number; name: string };
+type BankPosition = {
+    id: number;
+    name: string;
+    bankName: string | null;
+    currency: string;
+    balance: number;
+    pendingTransactions: number;
+    pendingAmount: number;
+    lastTransactionOn: string | null;
+    lastImportAt: string | null;
+    lastStatementTo: string | null;
+    statementControl: 'valid' | 'mismatch' | 'unavailable';
+};
 export default function FinanceIndex({
     year,
     summary,
@@ -235,6 +248,7 @@ export default function FinanceIndex({
     comparison,
     kpis,
     paymentBatches,
+    bankPosition,
     bankAccounts,
     financeUsers,
     can,
@@ -313,6 +327,7 @@ export default function FinanceIndex({
         brokenPromises: number;
     };
     paymentBatches: PaymentBatch[];
+    bankPosition: BankPosition[];
     bankAccounts: { id: number; name: string; iban: string | null }[];
     financeUsers: FinanceUser[];
     can: {
@@ -760,6 +775,125 @@ export default function FinanceIndex({
                                 Projected liquidity shortfall. Review collection
                                 dates or planned payments.
                             </p>
+                        )}
+                    </div>
+                </section>
+                <section>
+                    <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
+                        <div>
+                            <h2 className="font-semibold">
+                                Daily bank position
+                            </h2>
+                            <p className="text-sm text-muted-foreground">
+                                Current balance, pending reconciliation and
+                                statement control by account.
+                            </p>
+                        </div>
+                        <Button variant="outline" asChild>
+                            <Link href="/banking">
+                                <Landmark /> Open banking workspace
+                            </Link>
+                        </Button>
+                    </div>
+                    <div className="overflow-x-auto rounded-lg border">
+                        <table className="w-full min-w-[48rem] text-sm">
+                            <thead>
+                                <tr className="border-b bg-muted/40 text-left text-muted-foreground">
+                                    <th className="px-3 py-2">Account</th>
+                                    <th className="px-3 py-2 text-right">
+                                        Balance
+                                    </th>
+                                    <th className="px-3 py-2 text-right">
+                                        Pending
+                                    </th>
+                                    <th className="px-3 py-2">Last movement</th>
+                                    <th className="px-3 py-2">
+                                        Statement control
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {bankPosition.map((account) => (
+                                    <tr key={account.id} className="border-b">
+                                        <td className="px-3 py-3">
+                                            <Link
+                                                href={`/banking?account=${account.id}`}
+                                                className="font-medium underline-offset-4 hover:underline"
+                                            >
+                                                {account.name}
+                                            </Link>
+                                            {account.bankName && (
+                                                <div className="text-xs text-muted-foreground">
+                                                    {account.bankName}
+                                                </div>
+                                            )}
+                                        </td>
+                                        <td className="px-3 py-3 text-right font-medium">
+                                            {money(
+                                                account.balance,
+                                                account.currency,
+                                            )}
+                                        </td>
+                                        <td className="px-3 py-3 text-right">
+                                            <span
+                                                className={
+                                                    account.pendingTransactions >
+                                                    0
+                                                        ? 'font-medium text-amber-700 dark:text-amber-400'
+                                                        : ''
+                                                }
+                                            >
+                                                {account.pendingTransactions}
+                                            </span>
+                                            <div className="text-xs text-muted-foreground">
+                                                {money(
+                                                    account.pendingAmount,
+                                                    account.currency,
+                                                )}
+                                            </div>
+                                        </td>
+                                        <td className="px-3 py-3">
+                                            {account.lastTransactionOn
+                                                ? date(
+                                                      account.lastTransactionOn,
+                                                  )
+                                                : 'No movements'}
+                                        </td>
+                                        <td className="px-3 py-3">
+                                            <Badge
+                                                variant={
+                                                    account.statementControl ===
+                                                    'mismatch'
+                                                        ? 'destructive'
+                                                        : account.statementControl ===
+                                                            'valid'
+                                                          ? 'secondary'
+                                                          : 'outline'
+                                                }
+                                            >
+                                                {account.statementControl ===
+                                                'mismatch'
+                                                    ? 'Mismatch'
+                                                    : account.statementControl ===
+                                                        'valid'
+                                                      ? 'Valid'
+                                                      : 'Not available'}
+                                            </Badge>
+                                            {(account.lastStatementTo ||
+                                                account.lastImportAt) && (
+                                                <div className="mt-1 text-xs text-muted-foreground">
+                                                    {account.lastStatementTo
+                                                        ? `Through ${date(account.lastStatementTo)}`
+                                                        : `Imported ${dateTime(account.lastImportAt!)}`}
+                                                </div>
+                                            )}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                        {bankPosition.length === 0 && (
+                            <Empty text="No active bank accounts." />
                         )}
                     </div>
                 </section>
@@ -2369,10 +2503,10 @@ function Empty({ text }: { text: string }) {
         </div>
     );
 }
-const money = (v: number) =>
+const money = (v: number, currency = 'EUR') =>
     new Intl.NumberFormat(undefined, {
         style: 'currency',
-        currency: 'EUR',
+        currency,
     }).format(v);
 const monthLabel = (month: number) =>
     new Intl.DateTimeFormat(undefined, { month: 'short' }).format(

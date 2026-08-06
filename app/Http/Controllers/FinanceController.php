@@ -160,6 +160,30 @@ class FinanceController extends Controller
         $payableTotal = (float) $payables->sum('outstanding');
         $overdueReceivable = (float) $receivableRows->where('days_overdue', '>', 0)->sum('outstanding');
         $overduePayable = (float) $payables->where('days_overdue', '>', 0)->sum('outstanding');
+        $bankPosition = BankAccount::where('is_active', true)
+            ->withSum('transactions as transaction_total', 'amount')
+            ->withSum(['transactions as pending_amount' => fn ($query) => $query->where('status', 'pending')], 'amount')
+            ->withCount(['transactions as pending_transactions' => fn ($query) => $query->where('status', 'pending')])
+            ->withMax('transactions as last_transaction_on', 'booked_on')
+            ->orderBy('name')
+            ->get()
+            ->map(function (BankAccount $account): array {
+                $latestImport = $account->statementImports()->whereNull('rolled_back_at')->latest()->first();
+
+                return [
+                    'id' => $account->id,
+                    'name' => $account->name,
+                    'bankName' => $account->bank_name,
+                    'currency' => $account->currency,
+                    'balance' => round((float) $account->opening_balance + (float) ($account->transaction_total ?? 0), 2),
+                    'pendingTransactions' => (int) $account->pending_transactions,
+                    'pendingAmount' => round((float) ($account->pending_amount ?? 0), 2),
+                    'lastTransactionOn' => $account->last_transaction_on ? substr((string) $account->last_transaction_on, 0, 10) : null,
+                    'lastImportAt' => $latestImport?->created_at?->toIso8601String(),
+                    'lastStatementTo' => $latestImport?->period_to?->toDateString(),
+                    'statementControl' => $latestImport?->control_valid === null ? 'unavailable' : ($latestImport->control_valid ? 'valid' : 'mismatch'),
+                ];
+            });
 
         return Inertia::render('finance/index', [
             'year' => $year,
@@ -229,6 +253,7 @@ class FinanceController extends Controller
             'comparison' => $this->comparison($year, $revenue, $costs),
             'kpis' => $this->kpis($year, $revenue, $costs, $receivableTotal, $payableTotal, $overdueReceivable, $overduePayable, $receivableRows->where('promise_breached', true)->count()),
             'paymentBatches' => $this->paymentBatchRows(),
+            'bankPosition' => $bankPosition,
             'bankAccounts' => BankAccount::where('is_active', true)->orderBy('name')->get(['id', 'name', 'iban']),
             'financeUsers' => User::whereIn('role', ['admin', 'commercial'])->orderBy('name')->get(['id', 'name']),
             'can' => [
