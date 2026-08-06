@@ -4,6 +4,8 @@ namespace App\Providers;
 
 use App\Contracts\PurchaseMailboxClient;
 use App\Models\AccountingPeriod;
+use App\Models\AccountingRecurringRun;
+use App\Models\AccountingTemplate;
 use App\Models\BankAccount;
 use App\Models\BankReconciliation;
 use App\Models\BankTransaction;
@@ -90,6 +92,8 @@ class AppServiceProvider extends ServiceProvider
         BankTransactionPosting::observe(AuditableObserver::class);
         BankTransfer::observe(AuditableObserver::class);
         AccountingPeriod::observe(AuditableObserver::class);
+        AccountingTemplate::observe(AuditableObserver::class);
+        AccountingRecurringRun::observe(AuditableObserver::class);
         SalesDocumentPayment::observe(AuditableObserver::class);
         SalesDocument::observe(SalesDocumentFinancialObserver::class);
         SupplierPayment::observe(AuditableObserver::class);

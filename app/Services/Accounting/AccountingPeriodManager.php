@@ -3,6 +3,8 @@
 namespace App\Services\Accounting;
 
 use App\Models\AccountingPeriod;
+use App\Models\AccountingRecurringRun;
+use App\Models\AccountingTemplate;
 use App\Models\BankTransaction;
 use App\Models\Expense;
 use App\Models\FiscalYear;
@@ -107,7 +109,19 @@ class AccountingPeriodManager
 
     private function unpostedItems(int $year, int $month): int
     {
-        return $this->missing(SalesDocument::query()
+        $periodStart = CarbonImmutable::create($year, $month, 1)->startOfDay();
+        $periodEnd = $periodStart->endOfMonth();
+        $dueRecurring = AccountingTemplate::where('is_active', true)
+            ->whereNotNull('recurrence')
+            ->whereBetween('next_run_on', [$periodStart, $periodEnd])
+            ->where(fn (Builder $query) => $query->whereNull('end_on')->orWhereColumn('next_run_on', '<=', 'end_on'))
+            ->whereDoesntHave('recurringRuns', fn (Builder $query) => $query->whereColumn('scheduled_on', 'accounting_templates.next_run_on'))
+            ->count();
+        $failedRecurring = AccountingRecurringRun::whereNull('journal_entry_id')
+            ->whereBetween('scheduled_on', [$periodStart, $periodEnd])
+            ->count();
+
+        return $dueRecurring + $failedRecurring + $this->missing(SalesDocument::query()
             ->whereIn('type', ['invoice', 'credit_note'])
             ->whereNot('status', 'draft'), 'issue_date', $year, $month, SalesDocument::class, 'document')
             + $this->missing(PurchaseDocument::query()

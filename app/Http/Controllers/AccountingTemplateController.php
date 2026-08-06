@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AccountingRecurringRun;
 use App\Models\AccountingTemplate;
 use App\Models\LedgerAccount;
 use App\Services\Accounting\JournalPoster;
+use App\Services\Accounting\RecurringEntryProcessor;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -17,7 +19,15 @@ class AccountingTemplateController extends Controller
 {
     public function index(): Response
     {
-        return Inertia::render('accounting/templates', ['templates' => AccountingTemplate::with('lines.account:code,name')->orderByDesc('is_system')->orderBy('name')->get(), 'accounts' => LedgerAccount::where('is_active', true)->where('is_postable', true)->orderBy('code')->get(['code', 'name'])]);
+        return Inertia::render('accounting/templates', [
+            'templates' => AccountingTemplate::with('lines.account:code,name')->orderByDesc('is_system')->orderBy('name')->get(),
+            'accounts' => LedgerAccount::where('is_active', true)->where('is_postable', true)->orderBy('code')->get(['code', 'name']),
+            'recurringRuns' => AccountingRecurringRun::with(['template:id,name', 'journalEntry:id,number', 'reversalEntry:id,number'])
+                ->latest('scheduled_on')
+                ->latest('id')
+                ->limit(50)
+                ->get(),
+        ]);
     }
 
     public function store(Request $request): RedirectResponse
@@ -49,6 +59,9 @@ class AccountingTemplateController extends Controller
     public function destroy(AccountingTemplate $template): RedirectResponse
     {
         abort_if($template->is_system, 403);
+        if ($template->recurringRuns()->exists()) {
+            throw ValidationException::withMessages(['template' => __('A template with recurring history cannot be deleted.')]);
+        }
         $template->delete();
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Accounting template deleted.')]);
@@ -58,18 +71,43 @@ class AccountingTemplateController extends Controller
     {
         abort_unless($template->is_active, 422);
         $data = $request->validate(['entry_date' => ['required', 'date'], 'amount' => ['required', 'numeric', 'min:.01'], 'description' => ['required', 'string', 'max:255']]);
-        $template->load('lines');
-        $lines = $template->lines->map(fn ($line) => ['account_code' => $line->account_code, 'description' => $line->description, 'debit' => $line->side === 'debit' ? round($data['amount'] * $line->percentage / 100, 2) : 0, 'credit' => $line->side === 'credit' ? round($data['amount'] * $line->percentage / 100, 2) : 0])->all();
-        foreach (['debit', 'credit'] as $side) {
-            $difference = round((float) $data['amount'] - collect($lines)->sum($side), 2);
-            $index = collect($lines)->search(fn ($line) => $line[$side] > 0);
-            if ($index !== false) {
-                $lines[$index][$side] = round($lines[$index][$side] + $difference, 2);
-            }
-        }
-        $poster->post($data['entry_date'], $data['description'], $lines, $request->user()->id, 'template', null, 'template');
+        $poster->post($data['entry_date'], $data['description'], $template->journalLines((float) $data['amount']), $request->user()->id, 'template', null, 'template');
 
         return redirect()->route('accounting.index', ['year' => substr($data['entry_date'], 0, 4)])->with('toast', ['type' => 'success', 'message' => __('Template posted as a journal entry.')]);
+    }
+
+    public function schedule(Request $request, AccountingTemplate $template): RedirectResponse
+    {
+        $data = $request->validate([
+            'recurrence' => ['required', Rule::in(['disabled', 'monthly', 'quarterly', 'yearly'])],
+            'recurring_amount' => ['exclude_if:recurrence,disabled', 'required', 'numeric', 'min:.01'],
+            'next_run_on' => ['exclude_if:recurrence,disabled', 'required', 'date'],
+            'end_on' => ['nullable', 'date', 'after_or_equal:next_run_on'],
+            'reversal_days' => ['nullable', 'integer', 'min:1', 'max:365'],
+        ]);
+
+        if ($data['recurrence'] === 'disabled') {
+            $template->update(['recurrence' => null, 'recurring_amount' => null, 'next_run_on' => null, 'end_on' => null, 'reversal_days' => null]);
+        } else {
+            $template->update([
+                'recurrence' => $data['recurrence'],
+                'recurring_amount' => $data['recurring_amount'],
+                'next_run_on' => $data['next_run_on'],
+                'end_on' => $data['end_on'] ?? null,
+                'reversal_days' => $data['reversal_days'] ?? null,
+            ]);
+        }
+
+        return back()->with('toast', ['type' => 'success', 'message' => __('Recurring schedule updated.')]);
+    }
+
+    public function runRecurring(Request $request, RecurringEntryProcessor $processor): RedirectResponse
+    {
+        $result = $processor->process(userId: $request->user()->id);
+        $type = $result['failed'] > 0 ? 'error' : 'success';
+        $message = __('Recurring entries processed: :posted posted, :reversed reversed, :failed failed.', $result);
+
+        return back()->with('toast', compact('type', 'message'));
     }
 
     private function validated(Request $request): array
