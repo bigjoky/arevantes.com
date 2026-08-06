@@ -1,5 +1,15 @@
 import { Form, Head } from '@inertiajs/react';
-import { FileText, Gauge, Headphones, Wrench } from 'lucide-react';
+import {
+    Bell,
+    CheckCircle2,
+    Clock3,
+    Download,
+    FileText,
+    Gauge,
+    Headphones,
+    Star,
+    Wrench,
+} from 'lucide-react';
 import { useState } from 'react';
 import BrandLogo from '@/components/brand-logo';
 import { Badge } from '@/components/ui/badge';
@@ -31,6 +41,9 @@ type Quote = {
     issue_date: string;
     valid_until: string | null;
     amount: string;
+    document_version: string;
+    accepted_at: string | null;
+    can_accept: boolean;
 };
 type Document = {
     id: number;
@@ -41,6 +54,9 @@ type Document = {
     due_date: string | null;
     amount: string;
     paid_amount: string;
+    document_version: string;
+    accepted_at: string | null;
+    can_accept: boolean;
 };
 type Ticket = {
     id: number;
@@ -50,7 +66,10 @@ type Ticket = {
     priority: string;
     status: string;
     title: string;
+    description: string | null;
+    resolution: string | null;
     created_at: string;
+    updated_at: string;
     resolved_at: string | null;
 };
 type Maintenance = {
@@ -60,7 +79,26 @@ type Maintenance = {
     next_due_on: string;
     last_completed_on: string | null;
 };
-type Tab = 'overview' | 'documents' | 'support';
+type Certificate = {
+    id: number;
+    name: string;
+    caption: string | null;
+    size: number;
+    work_order: string;
+    created_at: string;
+};
+type TimelineEvent = {
+    id: number;
+    type: string;
+    title: string;
+    occurred_at: string;
+};
+type Preferences = {
+    email_documents: boolean;
+    email_tickets: boolean;
+    email_maintenance: boolean;
+};
+type Tab = 'overview' | 'documents' | 'support' | 'activity' | 'preferences';
 export default function Portal({
     company,
     customer,
@@ -70,6 +108,11 @@ export default function Portal({
     documents,
     tickets,
     maintenance,
+    certificates,
+    timeline,
+    preferences,
+    surveyed_ticket_ids,
+    has_sale_survey,
 }: {
     company: {
         legal_name: string;
@@ -89,6 +132,11 @@ export default function Portal({
     documents: Document[];
     tickets: Ticket[];
     maintenance: Maintenance[];
+    certificates: Certificate[];
+    timeline: TimelineEvent[];
+    preferences: Preferences;
+    surveyed_ticket_ids: number[];
+    has_sale_survey: boolean;
 }) {
     const [tab, setTab] = useState<Tab>('overview');
     const name =
@@ -127,28 +175,42 @@ export default function Portal({
                             onClick={() => setTab('overview')}
                             icon={<Gauge />}
                         >
-                            Overview
+                            Resumen
                         </TabButton>
                         <TabButton
                             active={tab === 'documents'}
                             onClick={() => setTab('documents')}
                             icon={<FileText />}
                         >
-                            Documents
+                            Documentos
                         </TabButton>
                         <TabButton
                             active={tab === 'support'}
                             onClick={() => setTab('support')}
                             icon={<Headphones />}
                         >
-                            Support
+                            Soporte
+                        </TabButton>
+                        <TabButton
+                            active={tab === 'activity'}
+                            onClick={() => setTab('activity')}
+                            icon={<Clock3 />}
+                        >
+                            Actividad
+                        </TabButton>
+                        <TabButton
+                            active={tab === 'preferences'}
+                            onClick={() => setTab('preferences')}
+                            icon={<Bell />}
+                        >
+                            Avisos
                         </TabButton>
                     </div>
                     {tab === 'overview' && (
                         <>
                             <section>
                                 <h1 className="text-xl font-semibold">
-                                    Your installations
+                                    Tus instalaciones
                                 </h1>
                                 <div className="mt-4 grid gap-5 md:grid-cols-2">
                                     {installations.map((item) => (
@@ -232,7 +294,7 @@ export default function Portal({
                             </section>
                             <section className="border-t pt-5">
                                 <h2 className="font-semibold">
-                                    Upcoming maintenance
+                                    Próximos mantenimientos
                                 </h2>
                                 <div className="mt-3 border-y">
                                     {maintenance.map((plan) => (
@@ -249,16 +311,39 @@ export default function Portal({
                                         </div>
                                     ))}
                                     {maintenance.length === 0 && (
-                                        <Empty text="No scheduled maintenance." />
+                                        <Empty text="No hay mantenimientos programados." />
                                     )}
                                 </div>
                             </section>
+                            {!has_sale_survey &&
+                                installations.some(
+                                    (item) => item.status === 'completed',
+                                ) && (
+                                    <section className="border-t pt-5">
+                                        <h2 className="font-semibold">
+                                            ¿Cómo fue tu experiencia de compra?
+                                        </h2>
+                                        <p className="mt-1 text-sm text-muted-foreground">
+                                            Tu opinión nos ayuda a mejorar.
+                                        </p>
+                                        <SaleSurveyForm
+                                            token={token}
+                                            installationId={
+                                                installations.find(
+                                                    (item) =>
+                                                        item.status ===
+                                                        'completed',
+                                                )!.id
+                                            }
+                                        />
+                                    </section>
+                                )}
                         </>
                     )}
                     {tab === 'documents' && (
                         <section className="grid gap-7">
                             <DocumentTable
-                                title="Quotes"
+                                title="Presupuestos"
                                 items={quotes.map((q) => ({
                                     id: q.id,
                                     kind: 'quote',
@@ -266,11 +351,14 @@ export default function Portal({
                                     status: q.status,
                                     date: q.issue_date,
                                     amount: q.amount,
+                                    accepted_at: q.accepted_at,
+                                    can_accept: q.can_accept,
+                                    version: q.document_version,
                                 }))}
                                 token={token}
                             />
                             <DocumentTable
-                                title="Sales documents"
+                                title="Pedidos, albaranes y facturas"
                                 items={documents.map((d) => ({
                                     id: d.id,
                                     kind: d.type,
@@ -278,7 +366,14 @@ export default function Portal({
                                     status: d.status,
                                     date: d.issue_date,
                                     amount: d.amount,
+                                    accepted_at: d.accepted_at,
+                                    can_accept: d.can_accept,
+                                    version: d.document_version,
                                 }))}
+                                token={token}
+                            />
+                            <CertificateList
+                                certificates={certificates}
                                 token={token}
                             />
                         </section>
@@ -293,15 +388,15 @@ export default function Portal({
                             >
                                 <div>
                                     <h2 className="font-semibold">
-                                        Request assistance
+                                        Solicitar asistencia
                                     </h2>
                                     <p className="text-sm text-muted-foreground">
-                                        Describe the issue and our technical
-                                        team will review it.
+                                        Describe la incidencia y nuestro equipo
+                                        técnico la revisará.
                                     </p>
                                 </div>
                                 <div className="grid gap-2">
-                                    <Label>Installation</Label>
+                                    <Label>Instalación</Label>
                                     <select
                                         name="installation_id"
                                         className="h-9 rounded-md border bg-background px-3 text-sm"
@@ -319,22 +414,22 @@ export default function Portal({
                                     </select>
                                 </div>
                                 <div className="grid gap-2">
-                                    <Label>Subject</Label>
+                                    <Label>Asunto</Label>
                                     <Input name="title" required />
                                 </div>
                                 <div className="grid gap-2">
-                                    <Label>Priority</Label>
+                                    <Label>Prioridad</Label>
                                     <select
                                         name="priority"
                                         className="h-9 rounded-md border bg-background px-3 text-sm"
                                     >
                                         <option value="normal">Normal</option>
-                                        <option value="low">Low</option>
-                                        <option value="high">High</option>
+                                        <option value="low">Baja</option>
+                                        <option value="high">Alta</option>
                                     </select>
                                 </div>
                                 <div className="grid gap-2">
-                                    <Label>Description</Label>
+                                    <Label>Descripción</Label>
                                     <textarea
                                         name="description"
                                         required
@@ -342,12 +437,12 @@ export default function Portal({
                                     />
                                 </div>
                                 <Button disabled={installations.length === 0}>
-                                    <Wrench /> Send request
+                                    <Wrench /> Enviar solicitud
                                 </Button>
                             </Form>
                             <div>
                                 <h2 className="mb-3 font-semibold">
-                                    Your requests
+                                    Tus solicitudes
                                 </h2>
                                 <div className="border-y">
                                     {tickets.map((ticket) => (
@@ -361,7 +456,7 @@ export default function Portal({
                                                     {ticket.title}
                                                 </div>
                                                 <div className="text-xs text-muted-foreground">
-                                                    Created{' '}
+                                                    Creada{' '}
                                                     {dateTime(
                                                         ticket.created_at,
                                                     )}{' '}
@@ -371,13 +466,91 @@ export default function Portal({
                                             <Badge variant="outline">
                                                 {ticket.status}
                                             </Badge>
+                                            {ticket.resolved_at &&
+                                                !surveyed_ticket_ids.includes(
+                                                    ticket.id,
+                                                ) && (
+                                                    <SurveyForm
+                                                        token={token}
+                                                        ticket={ticket}
+                                                    />
+                                                )}
                                         </div>
                                     ))}
                                     {tickets.length === 0 && (
-                                        <Empty text="No support requests." />
+                                        <Empty text="No hay solicitudes de soporte." />
                                     )}
                                 </div>
                             </div>
+                        </section>
+                    )}
+                    {tab === 'activity' && (
+                        <section>
+                            <h2 className="font-semibold">
+                                Cronología de comunicaciones
+                            </h2>
+                            <p className="mt-1 text-sm text-muted-foreground">
+                                Accesos, descargas, aceptaciones y solicitudes
+                                realizadas desde el portal.
+                            </p>
+                            <div className="mt-4 divide-y border-y">
+                                {timeline.map((event) => (
+                                    <div
+                                        key={event.id}
+                                        className="flex items-center justify-between gap-4 py-3 text-sm"
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            <span className="flex size-8 items-center justify-center rounded-full bg-muted">
+                                                <Clock3 className="size-4" />
+                                            </span>
+                                            <span>{event.title}</span>
+                                        </div>
+                                        <time className="shrink-0 text-xs text-muted-foreground">
+                                            {dateTime(event.occurred_at)}
+                                        </time>
+                                    </div>
+                                ))}
+                                {timeline.length === 0 && (
+                                    <Empty text="Todavía no hay actividad registrada." />
+                                )}
+                            </div>
+                        </section>
+                    )}
+                    {tab === 'preferences' && (
+                        <section className="max-w-xl">
+                            <h2 className="font-semibold">
+                                Preferencias de notificación
+                            </h2>
+                            <p className="mt-1 text-sm text-muted-foreground">
+                                Elige qué comunicaciones quieres recibir por
+                                correo electrónico.
+                            </p>
+                            <Form
+                                action={`/portal/${token}/preferences`}
+                                method="patch"
+                                className="mt-5 grid gap-4 border-y py-5"
+                            >
+                                <Preference
+                                    name="email_documents"
+                                    label="Nuevos documentos y presupuestos"
+                                    defaultChecked={preferences.email_documents}
+                                />
+                                <Preference
+                                    name="email_tickets"
+                                    label="Cambios en incidencias y solicitudes"
+                                    defaultChecked={preferences.email_tickets}
+                                />
+                                <Preference
+                                    name="email_maintenance"
+                                    label="Mantenimientos e intervenciones"
+                                    defaultChecked={
+                                        preferences.email_maintenance
+                                    }
+                                />
+                                <Button className="mt-2 w-fit">
+                                    <Bell /> Guardar preferencias
+                                </Button>
+                            </Form>
                         </section>
                     )}
                 </div>
@@ -392,6 +565,9 @@ type DocumentRow = {
     status: string;
     date: string;
     amount: string;
+    accepted_at: string | null;
+    can_accept: boolean;
+    version: string;
 };
 function DocumentTable({
     title,
@@ -431,21 +607,34 @@ function DocumentTable({
                                 </td>
                                 <td>{date(item.date)}</td>
                                 <td>
-                                    <Badge variant="outline">
-                                        {item.status}
-                                    </Badge>
+                                    {item.accepted_at ? (
+                                        <Badge variant="outline">
+                                            <CheckCircle2 className="mr-1 size-3" />
+                                            Aceptado
+                                        </Badge>
+                                    ) : (
+                                        <Badge variant="outline">
+                                            {item.status}
+                                        </Badge>
+                                    )}
                                 </td>
                                 <td className="text-right">
                                     {money(item.amount)}
                                 </td>
-                                <td>
+                                <td className="flex justify-end gap-2 py-2">
+                                    {item.can_accept && !item.accepted_at && (
+                                        <Form
+                                            action={`/portal/${token}/documents/${item.kind === 'quote' ? 'quote' : 'sales'}/${item.id}/accept`}
+                                            method="post"
+                                        >
+                                            <Button size="sm">Aceptar</Button>
+                                        </Form>
+                                    )}
                                     <Button size="sm" variant="outline" asChild>
                                         <a
                                             href={`/portal/${token}/documents/${item.kind === 'quote' ? 'quote' : 'sales'}/${item.id}/pdf`}
-                                            target="_blank"
-                                            rel="noreferrer"
                                         >
-                                            PDF
+                                            <Download /> PDF
                                         </a>
                                     </Button>
                                 </td>
@@ -456,6 +645,135 @@ function DocumentTable({
                 {items.length === 0 && <Empty text="No documents available." />}
             </div>
         </div>
+    );
+}
+function CertificateList({
+    certificates,
+    token,
+}: {
+    certificates: Certificate[];
+    token: string;
+}) {
+    return (
+        <div>
+            <h2 className="mb-3 font-semibold">
+                Documentación técnica y certificados
+            </h2>
+            <div className="divide-y border-y">
+                {certificates.map((item) => (
+                    <div
+                        key={item.id}
+                        className="flex items-center justify-between gap-4 py-3 text-sm"
+                    >
+                        <div>
+                            <div className="font-medium">{item.name}</div>
+                            <div className="text-xs text-muted-foreground">
+                                {item.work_order} · {fileSize(item.size)} ·{' '}
+                                {dateTime(item.created_at)}
+                            </div>
+                        </div>
+                        <Button size="sm" variant="outline" asChild>
+                            <a
+                                href={`/portal/${token}/certificates/${item.id}`}
+                            >
+                                <Download /> Descargar
+                            </a>
+                        </Button>
+                    </div>
+                ))}
+                {certificates.length === 0 && (
+                    <Empty text="No hay certificados disponibles." />
+                )}
+            </div>
+        </div>
+    );
+}
+function SurveyForm({ token, ticket }: { token: string; ticket: Ticket }) {
+    return (
+        <Form
+            action={`/portal/${token}/surveys`}
+            method="post"
+            className="mt-3 grid min-w-48 gap-2 border-t pt-3"
+        >
+            <input type="hidden" name="service_ticket_id" value={ticket.id} />
+            <input type="hidden" name="context" value="intervention" />
+            <Label className="text-xs">Valora la intervención</Label>
+            <select
+                name="score"
+                defaultValue="5"
+                className="h-9 rounded-md border bg-background px-3 text-sm"
+            >
+                {[5, 4, 3, 2, 1].map((score) => (
+                    <option key={score} value={score}>
+                        {score} / 5
+                    </option>
+                ))}
+            </select>
+            <Input name="comments" placeholder="Comentario opcional" />
+            <Button size="sm">
+                <Star /> Enviar valoración
+            </Button>
+        </Form>
+    );
+}
+function SaleSurveyForm({
+    token,
+    installationId,
+}: {
+    token: string;
+    installationId: number;
+}) {
+    return (
+        <Form
+            action={`/portal/${token}/surveys`}
+            method="post"
+            className="mt-4 grid max-w-md gap-3"
+        >
+            <input
+                type="hidden"
+                name="installation_id"
+                value={installationId}
+            />
+            <input type="hidden" name="context" value="sale" />
+            <select
+                name="score"
+                defaultValue="5"
+                className="h-9 rounded-md border bg-background px-3 text-sm"
+            >
+                {[5, 4, 3, 2, 1].map((score) => (
+                    <option key={score} value={score}>
+                        {score} / 5
+                    </option>
+                ))}
+            </select>
+            <Input name="comments" placeholder="Comentario opcional" />
+            <Button className="w-fit">
+                <Star /> Enviar valoración
+            </Button>
+        </Form>
+    );
+}
+function Preference({
+    name,
+    label,
+    defaultChecked,
+}: {
+    name: string;
+    label: string;
+    defaultChecked: boolean;
+}) {
+    return (
+        <label className="flex items-center gap-3 text-sm">
+            <input type="hidden" name={name} value="0" />
+            <input
+                type="checkbox"
+                name={name}
+                value="1"
+                defaultChecked={defaultChecked}
+                className="size-4 rounded border"
+            />
+            {label}
+        </label>
     );
 }
 function TabButton({
@@ -517,3 +835,7 @@ const dateTime = (v: string) =>
         dateStyle: 'short',
         timeStyle: 'short',
     }).format(new Date(v));
+const fileSize = (bytes: number) =>
+    bytes < 1024 * 1024
+        ? `${Math.max(1, Math.round(bytes / 1024))} KB`
+        : `${(bytes / 1024 / 1024).toFixed(1)} MB`;

@@ -6,6 +6,7 @@ use App\Http\Controllers\ActionCenterController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AfterSalesController;
 use App\Http\Controllers\AiFeedbackController;
+use App\Http\Controllers\AnalyticsController;
 use App\Http\Controllers\AreviaChatController;
 use App\Http\Controllers\BankingController;
 use App\Http\Controllers\CatalogController;
@@ -19,22 +20,26 @@ use App\Http\Controllers\CustomerTagController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DocumentDeliveryController;
 use App\Http\Controllers\ExpenseController;
+use App\Http\Controllers\FieldServiceSettingsController;
 use App\Http\Controllers\FinanceController;
 use App\Http\Controllers\FiscalSettingsController;
 use App\Http\Controllers\GeocodingController;
 use App\Http\Controllers\GlobalSearchController;
 use App\Http\Controllers\HrDepartmentController;
+use App\Http\Controllers\HrEmployeeDossierController;
 use App\Http\Controllers\HrEmploymentController;
 use App\Http\Controllers\HrLeaveController;
 use App\Http\Controllers\HrTaskController;
 use App\Http\Controllers\HumanResourcesController;
 use App\Http\Controllers\InstallationAiController;
+use App\Http\Controllers\InstallationAssetController;
 use App\Http\Controllers\InstallationController;
 use App\Http\Controllers\InstallationDeyeController;
 use App\Http\Controllers\InstallationHuaweiController;
 use App\Http\Controllers\InstallationPersonController;
 use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\KnowledgeDocumentController;
+use App\Http\Controllers\KnowledgeSourceController;
 use App\Http\Controllers\LegalController;
 use App\Http\Controllers\MyHumanResourcesController;
 use App\Http\Controllers\OperationsController;
@@ -53,6 +58,7 @@ use App\Http\Controllers\ReplenishmentController;
 use App\Http\Controllers\SalesDocumentController;
 use App\Http\Controllers\SalesOperationsController;
 use App\Http\Controllers\SavedCrmFilterController;
+use App\Http\Controllers\SerialTraceabilityController;
 use App\Http\Controllers\SitemapController;
 use App\Http\Controllers\StaffAccessController;
 use App\Http\Controllers\StaffController;
@@ -81,9 +87,20 @@ Route::get('documents/shared/{token}/pdf', [DocumentDeliveryController::class, '
 Route::get('portal/{token}', [CustomerPortalController::class, 'show'])->middleware('throttle:60,1')->name('customer-portal.show');
 Route::post('portal/{token}/tickets', [CustomerPortalController::class, 'storeTicket'])->middleware('throttle:10,1')->name('customer-portal.tickets.store');
 Route::get('portal/{token}/documents/{kind}/{document}/pdf', [CustomerPortalController::class, 'pdf'])->middleware('throttle:30,1')->name('customer-portal.documents.pdf');
+Route::post('portal/{token}/documents/{kind}/{document}/accept', [CustomerPortalController::class, 'accept'])->middleware('throttle:10,1')->name('customer-portal.documents.accept');
+Route::patch('portal/{token}/preferences', [CustomerPortalController::class, 'updatePreferences'])->middleware('throttle:10,1')->name('customer-portal.preferences.update');
+Route::post('portal/{token}/surveys', [CustomerPortalController::class, 'storeSurvey'])->middleware('throttle:10,1')->name('customer-portal.surveys.store');
+Route::get('portal/{token}/certificates/{attachment}', [CustomerPortalController::class, 'certificate'])->middleware('throttle:30,1')->name('customer-portal.certificates.download');
 
 Route::middleware(['auth'])->group(function () {
     Route::get('dashboard', DashboardController::class)->name('dashboard');
+    Route::get('analytics', [AnalyticsController::class, 'index'])->middleware('can:view-analytics')->name('analytics.index');
+    Route::get('analytics/export/{format}', [AnalyticsController::class, 'export'])->middleware('can:view-analytics')->name('analytics.export');
+    Route::post('analytics/alerts', [AnalyticsController::class, 'storeAlert'])->middleware('can:view-analytics')->name('analytics.alerts.store');
+    Route::patch('analytics/alerts/{analyticsAlert}', [AnalyticsController::class, 'updateAlert'])->middleware('can:view-analytics')->name('analytics.alerts.update');
+    Route::delete('analytics/alerts/{analyticsAlert}', [AnalyticsController::class, 'destroyAlert'])->middleware('can:view-analytics')->name('analytics.alerts.destroy');
+    Route::post('analytics/subscriptions', [AnalyticsController::class, 'storeSubscription'])->middleware('can:view-analytics')->name('analytics.subscriptions.store');
+    Route::delete('analytics/subscriptions/{analyticsReportSubscription}', [AnalyticsController::class, 'destroySubscription'])->middleware('can:view-analytics')->name('analytics.subscriptions.destroy');
     Route::get('search', GlobalSearchController::class)->middleware('throttle:60,1')->name('global-search');
     Route::get('action-center', ActionCenterController::class)->middleware('throttle:60,1')->name('action-center');
     Route::post('notifications/read', function (Request $request) {
@@ -94,6 +111,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('arevia/conversation', [AreviaChatController::class, 'show'])->middleware('can:use-ai')->name('arevia.conversation');
     Route::post('arevia/messages', [AreviaChatController::class, 'store'])->middleware('can:use-ai')->name('arevia.messages.store');
     Route::post('arevia/messages/{aiMessage}/feedback', [AreviaChatController::class, 'feedback'])->middleware('can:use-ai')->name('arevia.messages.feedback');
+    Route::get('arevia/sources/{knowledgeDocument}/versions/{version}', [KnowledgeSourceController::class, 'show'])->middleware('can:use-ai')->name('arevia.sources.show');
     Route::post('geocoding/search', [GeocodingController::class, 'search'])
         ->middleware('throttle:30,1')
         ->name('geocoding.search');
@@ -122,22 +140,37 @@ Route::middleware(['auth'])->group(function () {
     Route::resource('opportunities', OpportunityController::class)->only(['index', 'store', 'update', 'destroy'])->middleware('can:manage-customers');
     Route::post('people/{person}/portal', [CustomerPortalController::class, 'invite'])->middleware('can:manage-customers')->name('people.portal.invite');
     Route::delete('people/{person}/portal/{access}', [CustomerPortalController::class, 'revoke'])->middleware('can:manage-customers')->name('people.portal.revoke');
+    Route::delete('document-deliveries/{delivery}', [DocumentDeliveryController::class, 'revoke'])->middleware('can:manage-installations')->name('document-deliveries.revoke');
     Route::resource('staff', StaffController::class)->middleware('can:manage-staff');
     Route::get('human-resources', HumanResourcesController::class)->middleware('can:manage-staff')->name('human-resources.index');
     Route::get('human-resources/employees', [HrEmploymentController::class, 'index'])->middleware('can:manage-staff')->name('human-resources.employees.index');
+    Route::get('human-resources/employees/{staff}', [HrEmployeeDossierController::class, 'show'])->middleware('can:manage-staff')->name('human-resources.employees.show');
     Route::put('human-resources/employees/{staff}', [HrEmploymentController::class, 'update'])->middleware('can:manage-staff')->name('human-resources.employees.update');
+    Route::put('human-resources/employees/{staff}/sensitive', [HrEmploymentController::class, 'updateSensitive'])->middleware('can:manage-sensitive-hr')->name('human-resources.employees.sensitive.update');
+    Route::post('human-resources/employees/{staff}/emergency-contacts', [HrEmployeeDossierController::class, 'storeContact'])->middleware('can:manage-sensitive-hr')->name('human-resources.employees.contacts.store');
+    Route::delete('human-resources/employees/{staff}/emergency-contacts/{contact}', [HrEmployeeDossierController::class, 'destroyContact'])->middleware('can:manage-sensitive-hr')->name('human-resources.employees.contacts.destroy');
+    Route::post('human-resources/employees/{staff}/documents', [HrEmployeeDossierController::class, 'storeDocument'])->middleware('can:manage-staff')->name('human-resources.employees.documents.store');
+    Route::get('human-resources/employees/{staff}/documents/{document}', [HrEmployeeDossierController::class, 'downloadDocument'])->middleware('can:manage-staff')->name('human-resources.employees.documents.download');
+    Route::delete('human-resources/employees/{staff}/documents/{document}', [HrEmployeeDossierController::class, 'destroyDocument'])->middleware('can:manage-staff')->name('human-resources.employees.documents.destroy');
+    Route::get('human-resources/employees/{staff}/export', [HrEmployeeDossierController::class, 'export'])->middleware('can:view-sensitive-hr')->name('human-resources.employees.export');
     Route::resource('human-resources/departments', HrDepartmentController::class)->only(['index', 'store', 'update', 'destroy'])->middleware('can:manage-staff')->names('human-resources.departments');
     Route::resource('human-resources/leave', HrLeaveController::class)->only(['index', 'store', 'update', 'destroy'])->middleware('can:manage-staff')->names('human-resources.leave');
+    Route::put('human-resources/leave/policies/{policy}', [HrLeaveController::class, 'updatePolicy'])->middleware('can:manage-staff')->name('human-resources.leave.policies.update');
+    Route::put('human-resources/leave/balances/{staff}/{policy}', [HrLeaveController::class, 'updateBalance'])->middleware('can:manage-staff')->name('human-resources.leave.balances.update');
+    Route::get('human-resources/leave/{leave}/attachments/{attachment}', [HrLeaveController::class, 'downloadAttachment'])->middleware('can:manage-staff')->name('human-resources.leave.attachments.download');
     Route::resource('human-resources/tasks', HrTaskController::class)->only(['index', 'store', 'update', 'destroy'])->middleware('can:manage-staff')->names('human-resources.tasks');
     Route::get('my-human-resources', [MyHumanResourcesController::class, 'index'])->name('my-human-resources.index');
     Route::post('my-human-resources/leave', [MyHumanResourcesController::class, 'store'])->name('my-human-resources.leave.store');
     Route::patch('my-human-resources/leave/{leave}/cancel', [MyHumanResourcesController::class, 'cancel'])->name('my-human-resources.leave.cancel');
     Route::patch('my-human-resources/tasks/{task}/complete', [MyHumanResourcesController::class, 'completeTask'])->name('my-human-resources.tasks.complete');
+    Route::get('my-human-resources/documents/{document}', [MyHumanResourcesController::class, 'downloadDocument'])->name('my-human-resources.documents.download');
+    Route::get('my-human-resources/leave/{leave}/attachments/{attachment}', [MyHumanResourcesController::class, 'downloadLeaveAttachment'])->name('my-human-resources.leave.attachments.download');
     Route::post('staff/{staff}/access', [StaffAccessController::class, 'store'])->middleware('can:manage-staff')->name('staff.access.store');
     Route::patch('staff/{staff}/access', [StaffAccessController::class, 'update'])->middleware('can:manage-staff')->name('staff.access.update');
     Route::delete('staff/{staff}/access', [StaffAccessController::class, 'destroy'])->middleware('can:manage-staff')->name('staff.access.destroy');
     Route::get('knowledge', [KnowledgeDocumentController::class, 'index'])->middleware('can:manage-staff')->name('knowledge.index');
     Route::post('knowledge', [KnowledgeDocumentController::class, 'store'])->middleware('can:manage-staff')->name('knowledge.store');
+    Route::patch('knowledge/{knowledgeDocument}', [KnowledgeDocumentController::class, 'update'])->middleware('can:manage-staff')->name('knowledge.update');
     Route::post('knowledge/{knowledgeDocument}/reindex', [KnowledgeDocumentController::class, 'reindex'])->middleware('can:manage-staff')->name('knowledge.reindex');
     Route::delete('knowledge/{knowledgeDocument}', [KnowledgeDocumentController::class, 'destroy'])->middleware('can:manage-staff')->name('knowledge.destroy');
     Route::get('operations', [OperationsController::class, 'index'])->middleware('can:manage-operations')->name('operations.index');
@@ -149,6 +182,8 @@ Route::middleware(['auth'])->group(function () {
     Route::post('after-sales/plans', [AfterSalesController::class, 'storePlan'])->middleware('can:manage-installations')->name('after-sales.plans.store');
     Route::patch('after-sales/plans/{plan}', [AfterSalesController::class, 'updatePlan'])->middleware('can:manage-installations')->name('after-sales.plans.update');
     Route::patch('after-sales/warranties/{serial}', [AfterSalesController::class, 'updateWarranty'])->middleware('can:manage-installations')->name('after-sales.warranties.update');
+    Route::post('after-sales/sla-policies', [AfterSalesController::class, 'storeSlaPolicy'])->middleware('can:manage-installations')->name('after-sales.sla-policies.store');
+    Route::patch('work-orders/bulk-reschedule', [WorkOrderController::class, 'bulkReschedule'])->middleware('can:manage-installations')->name('work-orders.bulk-reschedule');
     Route::post('work-orders', [WorkOrderController::class, 'store'])->middleware('can:manage-installations')->name('work-orders.store');
     Route::patch('work-orders/{workOrder}', [WorkOrderController::class, 'update'])->middleware('can:manage-operations')->name('work-orders.update');
     Route::patch('work-orders/{workOrder}/schedule', [WorkOrderController::class, 'updateSchedule'])->middleware('can:manage-installations')->name('work-orders.schedule.update');
@@ -168,6 +203,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('work-orders/{workOrder}/signature', [WorkOrderController::class, 'signature'])->middleware('can:manage-operations')->name('work-orders.signature.show');
     Route::get('catalog', [CatalogController::class, 'index'])->middleware('can:manage-catalog')->name('catalog.index');
     Route::get('inventory', [InventoryController::class, 'index'])->middleware('can:manage-catalog')->name('inventory.index');
+    Route::get('inventory/serials', [SerialTraceabilityController::class, 'index'])->middleware('can:view-purchases')->name('inventory.serials.index');
     Route::get('inventory/counts', [StockCountController::class, 'index'])->middleware('can:manage-catalog')->name('stock-counts.index');
     Route::post('inventory/counts', [StockCountController::class, 'store'])->middleware('can:manage-catalog')->name('stock-counts.store');
     Route::get('inventory/counts/{stockCount}', [StockCountController::class, 'show'])->middleware('can:manage-catalog')->name('stock-counts.show');
@@ -211,6 +247,8 @@ Route::middleware(['auth'])->group(function () {
     Route::post('accounting/entries/{entry}/reverse', [AccountingController::class, 'reverse'])->middleware('can:manage-accounting')->name('accounting.entries.reverse');
     Route::post('accounting/years/{fiscalYear}/close', [AccountingController::class, 'close'])->middleware('can:manage-staff')->name('accounting.years.close');
     Route::post('accounting/years/{fiscalYear}/opening', [AccountingController::class, 'opening'])->middleware('can:manage-staff')->name('accounting.years.opening');
+    Route::post('accounting/periods/{year}/{month}/close', [AccountingController::class, 'closePeriod'])->middleware('can:manage-staff')->name('accounting.periods.close');
+    Route::post('accounting/periods/{year}/{month}/reopen', [AccountingController::class, 'reopenPeriod'])->middleware('can:manage-staff')->name('accounting.periods.reopen');
     Route::patch('accounting/mappings/expense-categories/{category}', [AccountingController::class, 'updateExpenseCategory'])->middleware('can:manage-accounting')->name('accounting.mappings.expense-categories.update');
     Route::patch('accounting/mappings/tax-rates/{taxRate}', [AccountingController::class, 'updateTaxRate'])->middleware('can:manage-accounting')->name('accounting.mappings.tax-rates.update');
     Route::get('accounting/accounts', [ChartOfAccountsController::class, 'index'])->middleware('can:view-finance')->name('accounting.accounts.index');
@@ -222,6 +260,8 @@ Route::middleware(['auth'])->group(function () {
     Route::patch('accounting/templates/{template}', [AccountingTemplateController::class, 'update'])->middleware('can:manage-accounting')->name('accounting.templates.update');
     Route::delete('accounting/templates/{template}', [AccountingTemplateController::class, 'destroy'])->middleware('can:manage-accounting')->name('accounting.templates.destroy');
     Route::post('accounting/templates/{template}/execute', [AccountingTemplateController::class, 'execute'])->middleware('can:manage-accounting')->name('accounting.templates.execute');
+    Route::patch('accounting/templates/{template}/schedule', [AccountingTemplateController::class, 'schedule'])->middleware('can:manage-accounting')->name('accounting.templates.schedule');
+    Route::post('accounting/recurring/run', [AccountingTemplateController::class, 'runRecurring'])->middleware('can:manage-accounting')->name('accounting.recurring.run');
     Route::get('corporate-tax', [CorporateTaxController::class, 'index'])->middleware('can:view-finance')->name('corporate-tax.index');
     Route::post('corporate-tax/returns', [CorporateTaxController::class, 'prepare'])->middleware('can:manage-tax')->name('corporate-tax.prepare');
     Route::post('corporate-tax/returns/{corporateTaxReturn}/file', [CorporateTaxController::class, 'file'])->middleware('can:manage-tax')->name('corporate-tax.file');
@@ -312,6 +352,10 @@ Route::middleware(['auth'])->group(function () {
     Route::patch('operations/activities/{activity}', [OperationsController::class, 'update'])->middleware('can:manage-operations')->name('activities.update');
     Route::delete('operations/activities/{activity}', [OperationsController::class, 'destroy'])->middleware('can:manage-operations')->name('activities.destroy');
     Route::post('operations/activities/{activity}/work-order', [OperationsController::class, 'convertToWorkOrder'])->middleware('can:manage-installations')->name('activities.work-order.store');
+    Route::get('operations/field-service', [FieldServiceSettingsController::class, 'index'])->middleware('can:manage-installations')->name('field-service.index');
+    Route::put('operations/field-service/users/{user}', [FieldServiceSettingsController::class, 'updateProfile'])->middleware('can:manage-installations')->name('field-service.profiles.update');
+    Route::post('operations/work-order-templates', [FieldServiceSettingsController::class, 'storeTemplate'])->middleware('can:manage-installations')->name('work-order-templates.store');
+    Route::patch('operations/work-order-templates/{template}', [FieldServiceSettingsController::class, 'updateTemplate'])->middleware('can:manage-installations')->name('work-order-templates.update');
     Route::get('quotes/create', [QuoteController::class, 'create'])->middleware('can:manage-installations')->name('quotes.create');
     Route::post('quotes', [QuoteController::class, 'store'])->middleware('can:manage-installations')->name('quotes.store');
     Route::get('quotes/{quote}', [QuoteController::class, 'show'])->middleware('can:manage-installations')->name('quotes.show');
@@ -342,13 +386,18 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('sales/{salesDocument}/payments/{payment}', [SalesDocumentController::class, 'destroyPayment'])->middleware('can:manage-installations')->name('sales-documents.payments.destroy');
     Route::post('sales/{salesDocument}/credit-note', [SalesDocumentController::class, 'creditNote'])->middleware('can:manage-installations')->name('sales-documents.credit-note');
     Route::post('sales/{salesDocument}/dispatch', [SalesDocumentController::class, 'dispatch'])->middleware('can:manage-installations')->name('sales-documents.dispatch');
-    Route::get('admin', [AdminController::class, 'index'])->middleware('can:manage-staff')->name('admin.index');
-    Route::get('admin/users', [AdminController::class, 'users'])->middleware('can:manage-staff')->name('admin.users.index');
-    Route::get('admin/backups', [AdminController::class, 'backups'])->middleware('can:manage-staff')->name('admin.backups.index');
-    Route::get('admin/audit', [AdminController::class, 'audit'])->middleware('can:manage-staff')->name('admin.audit.index');
-    Route::patch('admin/users/{user}', [AdminController::class, 'updateUser'])->middleware('can:manage-staff')->name('admin.users.update');
-    Route::post('admin/backups', [AdminController::class, 'backup'])->middleware('can:manage-staff')->name('admin.backups.store');
-    Route::get('admin/backups/{backup}', [AdminController::class, 'downloadBackup'])->middleware('can:manage-staff')->name('admin.backups.download');
+    Route::get('admin', [AdminController::class, 'index'])->middleware('can:manage-admin')->name('admin.index');
+    Route::get('admin/users', [AdminController::class, 'users'])->middleware('can:manage-access')->name('admin.users.index');
+    Route::get('admin/access', [AdminController::class, 'access'])->middleware('can:manage-access')->name('admin.access.index');
+    Route::patch('admin/users/{user}', [AdminController::class, 'updateUser'])->middleware('can:manage-access')->name('admin.users.update');
+    Route::post('admin/users/{user}/review', [AdminController::class, 'reviewAccess'])->middleware('can:manage-access')->name('admin.users.review');
+    Route::patch('admin/profiles/{profile}', [AdminController::class, 'updateProfile'])->middleware('can:manage-access')->name('admin.profiles.update');
+    Route::get('admin/backups', [AdminController::class, 'backups'])->middleware('can:manage-admin')->name('admin.backups.index');
+    Route::post('admin/backups', [AdminController::class, 'backup'])->middleware('can:manage-admin')->name('admin.backups.store');
+    Route::get('admin/backups/{backup}', [AdminController::class, 'downloadBackup'])->middleware('can:manage-admin')->name('admin.backups.download');
+    Route::get('admin/audit', [AdminController::class, 'audit'])->middleware('can:export-audit')->name('admin.audit.index');
+    Route::get('admin/audit/export', [AdminController::class, 'exportAudit'])->middleware('can:export-audit')->name('admin.audit.export');
+    Route::get('admin/health', [AdminController::class, 'health'])->middleware('can:view-system-health')->name('admin.health.index');
     Route::post('installations/{installation}/ai/briefing', [InstallationAiController::class, 'briefing'])
         ->middleware('can:use-ai')
         ->name('installations.ai.briefing');
@@ -370,6 +419,10 @@ Route::middleware(['auth'])->group(function () {
     Route::post('installations/{installation}/huawei/sync', [InstallationHuaweiController::class, 'sync'])
         ->middleware('can:sync-installations')
         ->name('installations.huawei.sync');
+    Route::post('installations/{installation}/assets', [InstallationAssetController::class, 'store'])->middleware('can:manage-installations')->name('installations.assets.store');
+    Route::patch('installations/{installation}/assets/{asset}', [InstallationAssetController::class, 'update'])->middleware('can:manage-installations')->name('installations.assets.update');
+    Route::post('installations/{installation}/assets/{asset}/events', [InstallationAssetController::class, 'storeEvent'])->middleware('can:manage-operations')->name('installations.assets.events.store');
+    Route::post('installations/{installation}/assets/{asset}/replacement', [InstallationAssetController::class, 'replace'])->middleware('can:manage-installations')->name('installations.assets.replace');
     Route::resource('installations', InstallationController::class)
         ->except(['index', 'show'])
         ->middleware('can:manage-installations');

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\PurchaseDocument;
 use App\Models\PurchaseDocumentAttachment;
+use App\Rules\SafeUpload;
 use App\Services\Documents\SupplierInvoiceExtraction;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -17,7 +18,7 @@ class SupplierInvoiceDocumentController extends Controller
     {
         $this->assertSupported($purchaseDocument);
         abort_if($purchaseDocument->attachment()->exists(), 422, __('This document already has an original file.'));
-        $file = $request->validate(['document_file' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png,webp', 'max:15360']])['document_file'];
+        $file = $request->validate(['document_file' => ['required', 'file', new SafeUpload(['pdf', 'jpg', 'jpeg', 'png', 'webp'])]])['document_file'];
         $hash = hash_file('sha256', $file->getRealPath());
         if (PurchaseDocumentAttachment::where('file_hash', $hash)->exists()) {
             throw ValidationException::withMessages(['document_file' => __('This file is already attached to another purchase document.')]);

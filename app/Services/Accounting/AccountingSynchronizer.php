@@ -17,6 +17,8 @@ use Illuminate\Validation\ValidationException;
 
 class AccountingSynchronizer
 {
+    public function __construct(private AccountingPeriodManager $periods) {}
+
     private array $accounts = [];
 
     private array $taxAccounts = [];
@@ -161,6 +163,8 @@ class AccountingSynchronizer
         if ($debit !== $credit) {
             throw ValidationException::withMessages(['accounting' => __('Unbalanced journal entry for :source.', ['source' => $description])]);
         }
+
+        $this->periods->assertOpen($date);
 
         DB::transaction(function () use ($source, $event, $date, $description, $userId, $lines) {
             $year = FiscalYear::whereDate('starts_on', '<=', $date)->whereDate('ends_on', '>=', $date)->first();

@@ -1,0 +1,150 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Models\HrLeaveAttachment;
+use App\Models\HrLeavePolicy;
+use App\Models\HrLeaveRequest;
+use App\Models\Installation;
+use App\Models\Person;
+use App\Models\User;
+use App\Models\WorkOrder;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
+use Inertia\Testing\AssertableInertia as Assert;
+use Tests\TestCase;
+
+class HumanResourcesLeavePolicyTest extends TestCase
+{
+    use RefreshDatabase;
+
+    public function test_policy_requires_protected_evidence_and_employee_can_only_download_their_own(): void
+    {
+        Storage::fake('local');
+        $person = $this->staff('Julia', 'Nieto');
+        $user = User::factory()->create(['person_id' => $person->id, 'role' => 'technician']);
+        $other = $this->staff('Pedro', 'Ríos');
+        $otherUser = User::factory()->create(['person_id' => $other->id, 'role' => 'technician']);
+
+        $this->actingAs($user)->post(route('my-human-resources.leave.store'), [
+            'type' => 'sick',
+            'start_date' => '2026-08-10',
+            'end_date' => '2026-08-11',
+        ])->assertSessionHasErrors('attachment');
+
+        $this->post(route('my-human-resources.leave.store'), [
+            'type' => 'sick',
+            'start_date' => '2026-08-10',
+            'end_date' => '2026-08-11',
+            'attachment' => UploadedFile::fake()->create('parte-medico.pdf', 80, 'application/pdf'),
+        ])->assertRedirect();
+
+        $leave = HrLeaveRequest::firstOrFail();
+        $attachment = HrLeaveAttachment::firstOrFail();
+        Storage::disk('local')->assertExists($attachment->path);
+        $this->get(route('my-human-resources.leave.attachments.download', [$leave, $attachment]))->assertOk();
+        $this->actingAs($otherUser)
+            ->get(route('my-human-resources.leave.attachments.download', [$leave, $attachment]))
+            ->assertNotFound();
+    }
+
+    public function test_absence_with_scheduled_work_requires_a_traceable_substitute(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $person = $this->staff('Iván', 'Campo');
+        $technician = User::factory()->create(['person_id' => $person->id, 'role' => 'technician']);
+        $substitute = $this->staff('Sara', 'Luz');
+        $installation = Installation::create([
+            'service_type' => 'solar',
+            'status' => 'scheduled',
+            'site_address_line_1' => 'Calle Sol 8',
+        ]);
+        WorkOrder::create([
+            'installation_id' => $installation->id,
+            'assigned_user_id' => $technician->id,
+            'created_by' => $admin->id,
+            'number' => 'WO-COVERAGE-1',
+            'title' => 'Puesta en marcha',
+            'status' => 'scheduled',
+            'scheduled_start' => '2026-08-12 09:00:00',
+            'scheduled_end' => '2026-08-12 13:00:00',
+        ]);
+        $leave = HrLeaveRequest::create([
+            'person_id' => $person->id,
+            'type' => 'vacation',
+            'start_date' => '2026-08-12',
+            'end_date' => '2026-08-13',
+            'requested_days' => 2,
+            'status' => 'pending',
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('human-resources.leave.index'))
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('requests.0.coverageConflicts', 1)
+                ->where('requests.0.coverageConflicts.0.number', 'WO-COVERAGE-1'));
+
+        $this->put(route('human-resources.leave.update', $leave), [
+            'status' => 'approved',
+        ])->assertSessionHasErrors('substitute_person_id');
+
+        $this->put(route('human-resources.leave.update', $leave), [
+            'status' => 'approved',
+            'substitute_person_id' => $substitute->id,
+        ])->assertRedirect();
+        $this->assertDatabaseHas('hr_leave_requests', [
+            'id' => $leave->id,
+            'status' => 'approved',
+            'substitute_person_id' => $substitute->id,
+        ]);
+    }
+
+    public function test_monthly_accrual_used_days_and_policy_changes_are_exposed(): void
+    {
+        $this->travelTo('2026-08-06 12:00:00');
+        $admin = User::factory()->create(['role' => 'admin']);
+        $person = $this->staff('Noa', 'Rey');
+        HrLeaveRequest::create([
+            'person_id' => $person->id,
+            'type' => 'vacation',
+            'start_date' => '2026-07-01',
+            'end_date' => '2026-07-05',
+            'requested_days' => 5,
+            'status' => 'approved',
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('human-resources.leave.index'))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('staff.0.balances.3.name', 'Vacaciones')
+                ->where('staff.0.balances.3.accrued', 14.67)
+                ->where('staff.0.balances.3.used', 5)
+                ->where('staff.0.balances.3.available', 9.67));
+
+        $policy = HrLeavePolicy::where('type', 'vacation')->firstOrFail();
+        $this->put(route('human-resources.leave.policies.update', $policy), [
+            'name' => 'Vacaciones laborables',
+            'annual_allowance_days' => 24,
+            'accrual_method' => 'monthly',
+            'carryover_limit_days' => 6,
+            'requires_attachment' => false,
+            'is_active' => true,
+        ])->assertRedirect();
+        $this->assertDatabaseHas('hr_leave_policies', [
+            'id' => $policy->id,
+            'name' => 'Vacaciones laborables',
+            'annual_allowance_days' => 24,
+        ]);
+    }
+
+    private function staff(string $firstName, string $lastName): Person
+    {
+        return Person::create([
+            'category' => 'staff',
+            'first_name' => $firstName,
+            'last_name' => $lastName,
+            'email' => strtolower($firstName.'.'.$lastName).'@example.com',
+        ]);
+    }
+}

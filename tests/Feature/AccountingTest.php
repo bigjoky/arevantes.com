@@ -2,7 +2,10 @@
 
 namespace Tests\Feature;
 
+use App\Models\AccountingPeriod;
+use App\Models\AccountingRecurringRun;
 use App\Models\AccountingTemplate;
+use App\Models\AuditLog;
 use App\Models\CorporateTaxReturn;
 use App\Models\Expense;
 use App\Models\ExpenseCategory;
@@ -18,6 +21,7 @@ use App\Models\SupplierPayment;
 use App\Models\User;
 use App\Services\Accounting\AccountingSynchronizer;
 use App\Services\Accounting\JournalPoster;
+use App\Services\Accounting\RecurringEntryProcessor;
 use App\Services\Ai\BusinessContextBuilder;
 use App\Services\Ai\RelevantBusinessContext;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -77,6 +81,99 @@ class AccountingTest extends TestCase
         $entry = JournalEntry::where('entry_kind', 'template')->with('lines')->firstOrFail();
         $this->assertEqualsWithDelta(10.01, $entry->lines->sum('debit'), .001);
         $this->assertEqualsWithDelta(10.01, $entry->lines->sum('credit'), .001);
+    }
+
+    public function test_recurring_templates_post_and_reverse_accruals_idempotently(): void
+    {
+        $this->travelTo('2026-08-01 08:00:00');
+        $admin = User::factory()->create(['role' => 'admin']);
+        $template = AccountingTemplate::create([
+            'name' => 'Monthly insurance accrual',
+            'description' => 'Accrued insurance expense',
+            'created_by' => $admin->id,
+        ]);
+        $template->lines()->createMany([
+            ['account_code' => '625', 'side' => 'debit', 'percentage' => 100, 'position' => 0],
+            ['account_code' => '410', 'side' => 'credit', 'percentage' => 100, 'position' => 1],
+        ]);
+
+        $this->actingAs($admin)->patch(route('accounting.templates.schedule', $template), [
+            'recurrence' => 'monthly',
+            'recurring_amount' => 1200,
+            'next_run_on' => '2026-07-31',
+            'reversal_days' => 1,
+        ])->assertSessionHasNoErrors();
+
+        $this->get(route('accounting.index', ['year' => 2026, 'month' => 7]))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page->where('periodSummary.unpostedItems', 1));
+
+        $this->post(route('accounting.recurring.run'))->assertSessionHasNoErrors();
+        $run = AccountingRecurringRun::with(['journalEntry.lines', 'reversalEntry.lines'])->firstOrFail();
+        $this->assertSame('reversed', $run->status);
+        $this->assertSame('2026-07-31', $run->scheduled_on->toDateString());
+        $this->assertSame('2026-08-01', $run->reversal_due_on->toDateString());
+        $this->assertSame('accrual', $run->journalEntry->entry_kind);
+        $this->assertSame('reversal', $run->reversalEntry->entry_kind);
+        $this->assertSame($run->journal_entry_id, $run->reversalEntry->reverses_entry_id);
+        $this->assertEqualsWithDelta(1200, $run->journalEntry->lines->sum('debit'), .001);
+        $this->assertEqualsWithDelta(1200, $run->journalEntry->lines->sum('credit'), .001);
+        $this->assertEqualsWithDelta(1200, $run->reversalEntry->lines->sum('debit'), .001);
+        $this->assertSame('2026-08-31', $template->fresh()->next_run_on->toDateString());
+
+        $result = app(RecurringEntryProcessor::class)->process(userId: $admin->id);
+        $this->assertSame(['posted' => 0, 'reversed' => 0, 'failed' => 0], $result);
+        $this->assertSame(2, JournalEntry::count());
+
+        $this->get(route('accounting.templates.index'))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('accounting/templates')
+                ->has('templates')
+                ->has('recurringRuns', 1)
+                ->where('recurringRuns.0.status', 'reversed')
+                ->where('recurringRuns.0.journal_entry.number', $run->journalEntry->number)
+                ->where('recurringRuns.0.reversal_entry.number', $run->reversalEntry->number));
+
+        $this->delete(route('accounting.templates.destroy', $template))->assertSessionHasErrors('template');
+        $this->assertModelExists($template);
+    }
+
+    public function test_recurring_processor_records_failure_without_advancing_a_closed_period(): void
+    {
+        $this->travelTo('2026-08-01 08:00:00');
+        $admin = User::factory()->create(['role' => 'admin']);
+        $year = FiscalYear::where('year', 2026)->firstOrFail();
+        AccountingPeriod::create([
+            'fiscal_year_id' => $year->id,
+            'year' => 2026,
+            'month' => 7,
+            'status' => 'closed',
+            'closed_by' => $admin->id,
+            'closed_at' => now(),
+        ]);
+        $template = AccountingTemplate::create([
+            'name' => 'Locked period rent',
+            'recurring_amount' => 500,
+            'recurrence' => 'monthly',
+            'next_run_on' => '2026-07-31',
+            'created_by' => $admin->id,
+        ]);
+        $template->lines()->createMany([
+            ['account_code' => '621', 'side' => 'debit', 'percentage' => 100, 'position' => 0],
+            ['account_code' => '410', 'side' => 'credit', 'percentage' => 100, 'position' => 1],
+        ]);
+
+        $result = app(RecurringEntryProcessor::class)->process(userId: $admin->id);
+
+        $this->assertSame(['posted' => 0, 'reversed' => 0, 'failed' => 1], $result);
+        $this->assertDatabaseHas('accounting_recurring_runs', [
+            'accounting_template_id' => $template->id,
+            'status' => 'failed',
+            'journal_entry_id' => null,
+        ]);
+        $this->assertSame('2026-07-31', $template->fresh()->next_run_on->toDateString());
+        $this->assertSame(0, JournalEntry::count());
     }
 
     public function test_corporate_tax_uses_2026_micro_company_bands_and_can_be_prepared(): void
@@ -192,6 +289,106 @@ class AccountingTest extends TestCase
         $this->assertSame(2, JournalEntry::count());
         $this->assertSame($entry->id, JournalEntry::where('entry_kind', 'reversal')->firstOrFail()->reverses_entry_id);
         $this->actingAs($user)->post(route('accounting.entries.reverse', $entry), ['entry_date' => now()->toDateString()])->assertSessionHasErrors('entry');
+    }
+
+    public function test_monthly_close_blocks_posting_until_an_audited_reopening(): void
+    {
+        $this->travelTo('2026-08-06 10:00:00');
+        $admin = User::factory()->create(['role' => 'admin']);
+        $commercial = User::factory()->create(['role' => 'commercial']);
+        $invoice = SalesDocument::create([
+            'type' => 'invoice',
+            'number' => 'FAC-PERIOD-1',
+            'status' => 'issued',
+            'issue_date' => '2026-07-15',
+            'subtotal' => 100,
+            'discount_amount' => 0,
+            'tax_amount' => 21,
+            'amount' => 121,
+            'paid_amount' => 0,
+            'customer_snapshot' => [],
+        ]);
+        $checklist = [
+            'confirmation' => '2026-07',
+            'bank_reconciled' => '1',
+            'receivables_reviewed' => '1',
+            'payables_reviewed' => '1',
+            'tax_reviewed' => '1',
+            'closure_notes' => 'July reviewed by finance.',
+        ];
+
+        $this->actingAs($admin)
+            ->post(route('accounting.periods.close', ['year' => 2026, 'month' => 7]), $checklist)
+            ->assertSessionHasErrors('period');
+
+        $this->post(route('accounting.sync'))->assertSessionHasNoErrors();
+        $this->assertDatabaseHas('journal_entries', [
+            'source_type' => $invoice->getMorphClass(),
+            'source_id' => $invoice->id,
+            'event' => 'document',
+        ]);
+
+        $this->post(route('accounting.periods.close', ['year' => 2026, 'month' => 7]), $checklist)
+            ->assertSessionHasNoErrors();
+        $period = AccountingPeriod::firstOrFail();
+        $this->assertSame('closed', $period->status);
+        $this->assertSame($admin->id, $period->closed_by);
+        $this->assertTrue($period->checklist['bankReconciled']);
+
+        $entry = [
+            'entry_date' => '2026-07-31',
+            'description' => 'Late July adjustment',
+            'lines' => [
+                ['account_code' => '572', 'debit' => 10, 'credit' => 0],
+                ['account_code' => '129', 'debit' => 0, 'credit' => 10],
+            ],
+        ];
+        $this->post(route('accounting.entries.store'), $entry)
+            ->assertSessionHasErrors('accounting_period');
+        SalesDocument::create([
+            'type' => 'invoice',
+            'number' => 'FAC-PERIOD-LATE',
+            'status' => 'issued',
+            'issue_date' => '2026-07-31',
+            'subtotal' => 20,
+            'discount_amount' => 0,
+            'tax_amount' => 0,
+            'amount' => 20,
+            'paid_amount' => 0,
+            'customer_snapshot' => [],
+        ]);
+        $this->post(route('accounting.sync'))
+            ->assertSessionHasErrors('accounting_period');
+        $this->actingAs($commercial)
+            ->post(route('accounting.periods.reopen', ['year' => 2026, 'month' => 7]), ['reopen_reason' => 'Late adjustment required.'])
+            ->assertForbidden();
+
+        $this->actingAs($admin)
+            ->post(route('accounting.periods.reopen', ['year' => 2026, 'month' => 7]), ['reopen_reason' => 'Late adjustment required.'])
+            ->assertSessionHasNoErrors();
+        $this->assertDatabaseHas('accounting_periods', [
+            'id' => $period->id,
+            'status' => 'open',
+            'reopened_by' => $admin->id,
+            'reopen_reason' => 'Late adjustment required.',
+        ]);
+        $this->post(route('accounting.entries.store'), $entry)->assertSessionHasNoErrors();
+        $this->post(route('accounting.sync'))->assertSessionHasNoErrors();
+        $this->assertGreaterThanOrEqual(
+            2,
+            AuditLog::where('auditable_type', $period->getMorphClass())
+                ->where('auditable_id', $period->id)
+                ->count(),
+        );
+
+        $this->get(route('accounting.index', ['year' => 2026, 'month' => 7]))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('selectedMonth', 7)
+                ->where('periodSummary.unpostedItems', 0)
+                ->where('periodSummary.unbalancedEntries', 0)
+                ->where('accountingPeriods.0.status', 'open')
+                ->where('canClosePeriods', true));
     }
 
     public function test_closing_regularizes_income_and_generates_next_year_opening(): void

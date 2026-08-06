@@ -6,6 +6,7 @@ use App\Models\Country;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Str;
 use RuntimeException;
 use ZipArchive;
 
@@ -127,7 +128,7 @@ class SyncSpainLocations extends Command
             DB::table('provinces')->where('country_id', $country->id)->delete();
             DB::table('postal_codes')->where('country_id', $country->id)->delete();
 
-            $provinceRows = collect($rows)->unique('province')->map(fn (array $row) => [
+            $provinceRows = collect($rows)->unique(fn (array $row) => $this->locationKey($row['province']))->map(fn (array $row) => [
                 'country_id' => $country->id,
                 'name' => $row['province'],
                 'code' => $row['province_code'] ?: null,
@@ -135,20 +136,21 @@ class SyncSpainLocations extends Command
                 'updated_at' => $now,
             ])->values()->all();
             DB::table('provinces')->upsert($provinceRows, ['country_id', 'name'], ['code', 'updated_at']);
-            $provinces = DB::table('provinces')->where('country_id', $country->id)->pluck('id', 'name');
+            $provinces = DB::table('provinces')->where('country_id', $country->id)->get(['id', 'name'])
+                ->mapWithKeys(fn ($province) => [$this->locationKey($province->name) => $province->id]);
 
             $municipalityRows = collect($rows)->map(fn (array $row) => [
-                'province_id' => $provinces[$row['province']],
+                'province_id' => $provinces[$this->locationKey($row['province'])],
                 'name' => $row['municipality'],
                 'code' => $row['municipality_code'] ?: null,
                 'created_at' => $now,
                 'updated_at' => $now,
-            ])->unique(fn (array $row) => $row['province_id'].'|'.$row['name'])->values()->all();
+            ])->unique(fn (array $row) => $row['province_id'].'|'.$this->locationKey($row['name']))->values()->all();
             foreach (array_chunk($municipalityRows, 1000) as $chunk) {
                 DB::table('municipalities')->upsert($chunk, ['province_id', 'name'], ['code', 'updated_at']);
             }
             $municipalities = DB::table('municipalities')->get(['id', 'province_id', 'name'])
-                ->keyBy(fn ($row) => $row->province_id.'|'.$row->name);
+                ->keyBy(fn ($row) => $row->province_id.'|'.$this->locationKey($row->name));
 
             $postalRows = collect($rows)->unique('postal_code')->map(fn (array $row) => [
                 'country_id' => $country->id,
@@ -162,7 +164,8 @@ class SyncSpainLocations extends Command
             $postalCodes = DB::table('postal_codes')->where('country_id', $country->id)->pluck('id', 'code');
 
             $localityRows = collect($rows)->map(function (array $row) use ($provinces, $municipalities, $now): array {
-                $municipality = $municipalities[$provinces[$row['province']].'|'.$row['municipality']];
+                $provinceId = $provinces[$this->locationKey($row['province'])];
+                $municipality = $municipalities[$provinceId.'|'.$this->locationKey($row['municipality'])];
 
                 return [
                     'municipality_id' => $municipality->id,
@@ -170,16 +173,17 @@ class SyncSpainLocations extends Command
                     'created_at' => $now,
                     'updated_at' => $now,
                 ];
-            })->unique(fn (array $row) => $row['municipality_id'].'|'.$row['name'])->values()->all();
+            })->unique(fn (array $row) => $row['municipality_id'].'|'.$this->locationKey($row['name']))->values()->all();
             foreach (array_chunk($localityRows, 1000) as $chunk) {
                 DB::table('localities')->upsert($chunk, ['municipality_id', 'name'], ['updated_at']);
             }
             $localities = DB::table('localities')->get(['id', 'municipality_id', 'name'])
-                ->keyBy(fn ($row) => $row->municipality_id.'|'.$row->name);
+                ->keyBy(fn ($row) => $row->municipality_id.'|'.$this->locationKey($row->name));
 
             $links = collect($rows)->map(function (array $row) use ($provinces, $municipalities, $localities, $postalCodes): array {
-                $municipality = $municipalities[$provinces[$row['province']].'|'.$row['municipality']];
-                $locality = $localities[$municipality->id.'|'.$row['locality']];
+                $provinceId = $provinces[$this->locationKey($row['province'])];
+                $municipality = $municipalities[$provinceId.'|'.$this->locationKey($row['municipality'])];
+                $locality = $localities[$municipality->id.'|'.$this->locationKey($row['locality'])];
 
                 return [
                     'locality_id' => $locality->id,
@@ -197,5 +201,10 @@ class SyncSpainLocations extends Command
                 'links' => count($links),
             ];
         });
+    }
+
+    private function locationKey(string $value): string
+    {
+        return Str::lower(Str::ascii(preg_replace('/\s+/', ' ', trim($value)) ?? trim($value)));
     }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AccountingPeriod;
 use App\Models\Expense;
 use App\Models\ExpenseCategory;
 use App\Models\FiscalYear;
@@ -13,20 +14,23 @@ use App\Models\PurchaseDocument;
 use App\Models\SalesDocument;
 use App\Models\Supplier;
 use App\Models\TaxRate;
+use App\Services\Accounting\AccountingPeriodManager;
 use App\Services\Accounting\AccountingSynchronizer;
 use App\Services\Accounting\FiscalYearClosing;
 use App\Services\Accounting\JournalPoster;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class AccountingController extends Controller
 {
-    public function index(Request $request): Response
+    public function index(Request $request, AccountingPeriodManager $periods): Response
     {
         $year = $request->integer('year', now()->year);
+        $month = min(12, max(1, $request->integer('month', $year === now()->year ? now()->month : 12)));
         $entries = JournalEntry::with(['lines.account:id,code,name', 'reversal:id,reverses_entry_id'])->whereYear('entry_date', $year)->latest('entry_date')->latest('id')->limit(250)->get();
         $accounts = LedgerAccount::where('is_postable', true)->withSum(['lines as debit' => fn ($query) => $query->whereHas('entry', fn ($entry) => $entry->whereYear('entry_date', $year))], 'debit')->withSum(['lines as credit' => fn ($query) => $query->whereHas('entry', fn ($entry) => $entry->whereYear('entry_date', $year))], 'credit')->orderBy('code')->get()->map(function ($account) {
             $debit = round((float) $account->debit, 2);
@@ -55,6 +59,13 @@ class AccountingController extends Controller
         return Inertia::render('accounting/index', [
             'year' => $year,
             'fiscalYear' => FiscalYear::where('year', $year)->first(),
+            'selectedMonth' => $month,
+            'accountingPeriods' => AccountingPeriod::with(['closer:id,name', 'reopener:id,name'])
+                ->where('year', $year)
+                ->orderBy('month')
+                ->get()
+                ->values(),
+            'periodSummary' => $periods->summary($year, $month),
             'entries' => $entries,
             'accounts' => $accounts,
             'selectedAccount' => $selectedAccount,
@@ -67,6 +78,7 @@ class AccountingController extends Controller
             'expenseCategories' => ExpenseCategory::orderBy('name')->get(['id', 'code', 'name', 'expense_account_code', 'is_active']),
             'taxRates' => TaxRate::orderByDesc('rate')->get(['id', 'name', 'rate', 'kind', 'output_account_code', 'input_account_code', 'is_active']),
             'thirdParties' => $this->thirdParties($accounts),
+            'canClosePeriods' => Gate::allows('manage-staff'),
         ]);
     }
 
@@ -114,6 +126,36 @@ class AccountingController extends Controller
         $closing->openNext($fiscalYear, $request->user()->id);
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Opening entry generated.')]);
+    }
+
+    public function closePeriod(Request $request, int $year, int $month, AccountingPeriodManager $periods): RedirectResponse
+    {
+        abort_unless($year >= 2020 && $year <= 2100 && $month >= 1 && $month <= 12, 404);
+        $data = $request->validate([
+            'confirmation' => ['required', Rule::in([sprintf('%04d-%02d', $year, $month)])],
+            'bank_reconciled' => ['accepted'],
+            'receivables_reviewed' => ['accepted'],
+            'payables_reviewed' => ['accepted'],
+            'tax_reviewed' => ['accepted'],
+            'closure_notes' => ['nullable', 'string', 'max:2000'],
+        ]);
+        $periods->close($year, $month, $request->user()->id, [
+            'bankReconciled' => (bool) $data['bank_reconciled'],
+            'receivablesReviewed' => (bool) $data['receivables_reviewed'],
+            'payablesReviewed' => (bool) $data['payables_reviewed'],
+            'taxReviewed' => (bool) $data['tax_reviewed'],
+        ], $data['closure_notes'] ?? null);
+
+        return back()->with('toast', ['type' => 'success', 'message' => __('Accounting period closed and locked.')]);
+    }
+
+    public function reopenPeriod(Request $request, int $year, int $month, AccountingPeriodManager $periods): RedirectResponse
+    {
+        abort_unless($year >= 2020 && $year <= 2100 && $month >= 1 && $month <= 12, 404);
+        $data = $request->validate(['reopen_reason' => ['required', 'string', 'min:5', 'max:2000']]);
+        $periods->reopen($year, $month, $request->user()->id, $data['reopen_reason']);
+
+        return back()->with('toast', ['type' => 'success', 'message' => __('Accounting period reopened.')]);
     }
 
     public function updateExpenseCategory(Request $request, ExpenseCategory $category): RedirectResponse

@@ -18,6 +18,24 @@ class AfterSalesTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_a_commercial_can_define_an_sla_policy(): void
+    {
+        $commercial = User::factory()->create(['role' => 'commercial']);
+
+        $this->actingAs($commercial)->post(route('after-sales.sla-policies.store'), [
+            'name' => 'Urgent customer outage',
+            'priority' => 'urgent',
+            'first_response_minutes' => 15,
+            'resolution_minutes' => 240,
+            'escalation_minutes' => 30,
+        ])->assertRedirect();
+
+        $this->assertDatabaseHas('service_sla_policies', [
+            'name' => 'Urgent customer outage',
+            'first_response_minutes' => 15,
+        ]);
+    }
+
     public function test_a_service_ticket_creates_a_work_order_with_the_correct_checklist(): void
     {
         $commercial = User::factory()->create(['role' => 'commercial']);
@@ -27,13 +45,14 @@ class AfterSalesTest extends TestCase
         $ticket = ServiceTicket::firstOrFail();
         $this->assertSame('SAT-2026-00001', $ticket->number);
 
-        $this->post(route('after-sales.tickets.work-order', $ticket))->assertRedirect();
         $order = WorkOrder::firstOrFail();
         $this->assertSame($order->id, $ticket->refresh()->work_order_id);
         $this->assertSame($technician->id, $order->assigned_user_id);
         $this->assertGreaterThanOrEqual(8, $order->checklistItems()->count());
         $this->assertTrue($order->checklistItems()->where('label', 'Complete charging test')->exists());
         $this->post(route('after-sales.tickets.work-order', $ticket))->assertUnprocessable();
+        $this->assertNotNull($ticket->refresh()->first_response_due_at);
+        $this->assertNotNull($ticket->resolution_due_at);
     }
 
     public function test_resolving_maintenance_advances_the_plan_and_warranty_dates_are_tracked(): void

@@ -1,4 +1,4 @@
-import { Form, Head, Link, usePage } from '@inertiajs/react';
+import { Form, Head, Link, router, usePage } from '@inertiajs/react';
 import {
     AlertTriangle,
     CalendarClock,
@@ -183,6 +183,7 @@ export default function WorkOrdersIndex({
     products: Product[];
     suppliers: Supplier[];
 }) {
+    const [selectedOrderIds, setSelectedOrderIds] = useState<number[]>([]);
     const quickCreate =
         new URLSearchParams(usePage().url.split('?')[1] || '').get('create') ===
         '1';
@@ -199,11 +200,21 @@ export default function WorkOrdersIndex({
                         </p>
                     </div>
                     {canManage && (
-                        <WorkOrderDialog
-                            installations={installations}
-                            users={users}
-                            initialOpen={quickCreate}
-                        />
+                        <div className="flex gap-2">
+                            {selectedOrderIds.length > 0 && (
+                                <BulkRescheduleDialog
+                                    orders={workOrders.filter((order) =>
+                                        selectedOrderIds.includes(order.id),
+                                    )}
+                                    onSuccess={() => setSelectedOrderIds([])}
+                                />
+                            )}
+                            <WorkOrderDialog
+                                installations={installations}
+                                users={users}
+                                initialOpen={quickCreate}
+                            />
+                        </div>
                     )}
                 </header>
                 {runningEntry && (
@@ -245,6 +256,7 @@ export default function WorkOrdersIndex({
                         <table className="w-full min-w-[38rem] text-sm">
                             <thead>
                                 <tr className="border-b text-left text-muted-foreground">
+                                    {canManage && <th className="w-10 py-2" />}
                                     <th className="py-2">Work order</th>
                                     <th>Schedule</th>
                                     <th>Technician</th>
@@ -258,6 +270,35 @@ export default function WorkOrdersIndex({
                                         key={order.id}
                                         className={`border-b ${selected?.id === order.id ? 'bg-muted/40' : ''}`}
                                     >
+                                        {canManage && (
+                                            <td className="py-3">
+                                                <input
+                                                    type="checkbox"
+                                                    aria-label={`Select ${order.number}`}
+                                                    checked={selectedOrderIds.includes(
+                                                        order.id,
+                                                    )}
+                                                    onChange={(event) =>
+                                                        setSelectedOrderIds(
+                                                            (current) =>
+                                                                event.target
+                                                                    .checked
+                                                                    ? [
+                                                                          ...current,
+                                                                          order.id,
+                                                                      ]
+                                                                    : current.filter(
+                                                                          (
+                                                                              id,
+                                                                          ) =>
+                                                                              id !==
+                                                                              order.id,
+                                                                      ),
+                                                        )
+                                                    }
+                                                />
+                                            </td>
+                                        )}
                                         <td className="py-3">
                                             <Link
                                                 className="font-medium underline underline-offset-2"
@@ -1414,10 +1455,119 @@ function ScheduleDialog({ order, users }: { order: Selected; users: User[] }) {
                                 />
                                 <InputError message={errors.instructions} />
                             </div>
+                            <div className="grid gap-2">
+                                <Label>Reason for rescheduling</Label>
+                                <textarea
+                                    name="reschedule_reason"
+                                    required
+                                    className="min-h-20 rounded-md border bg-transparent p-3 text-sm"
+                                />
+                                <InputError
+                                    message={errors.reschedule_reason}
+                                />
+                            </div>
                             <Button disabled={processing}>Save schedule</Button>
                         </>
                     )}
                 </Form>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+function BulkRescheduleDialog({
+    orders,
+    onSuccess,
+}: {
+    orders: Order[];
+    onSuccess: () => void;
+}) {
+    const [open, setOpen] = useState(false);
+    const [date, setDate] = useState('');
+    const [reason, setReason] = useState('');
+    const [processing, setProcessing] = useState(false);
+
+    const submit = () => {
+        if (!date || !reason.trim()) {
+            return;
+        }
+
+        setProcessing(true);
+        router.patch(
+            '/work-orders/bulk-reschedule',
+            {
+                reason,
+                items: orders.map((order, index) => {
+                    const startTime = order.scheduled_start
+                        ? order.scheduled_start.slice(11, 19)
+                        : `${String(8 + index).padStart(2, '0')}:00:00`;
+                    const start = `${date}T${startTime}`;
+                    const duration =
+                        order.scheduled_start && order.scheduled_end
+                            ? new Date(order.scheduled_end).getTime() -
+                              new Date(order.scheduled_start).getTime()
+                            : 60 * 60 * 1000;
+
+                    return {
+                        work_order_id: order.id,
+                        assigned_user_id: order.assigned_user?.id || null,
+                        scheduled_start: start,
+                        scheduled_end: localIso(
+                            new Date(new Date(start).getTime() + duration),
+                        ),
+                    };
+                }),
+            },
+            {
+                preserveScroll: true,
+                onFinish: () => setProcessing(false),
+                onSuccess: () => {
+                    setOpen(false);
+                    onSuccess();
+                },
+            },
+        );
+    };
+
+    return (
+        <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+                <Button variant="outline">
+                    <CalendarClock /> Reschedule {orders.length}
+                </Button>
+            </DialogTrigger>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Bulk rescheduling</DialogTitle>
+                </DialogHeader>
+                <div className="grid gap-4">
+                    <div className="rounded border p-3 text-sm">
+                        {orders.map((order) => order.number).join(', ')}
+                    </div>
+                    <div className="grid gap-2">
+                        <Label>New date</Label>
+                        <Input
+                            type="date"
+                            value={date}
+                            onChange={(event) => setDate(event.target.value)}
+                        />
+                    </div>
+                    <div className="grid gap-2">
+                        <Label>Reason</Label>
+                        <textarea
+                            value={reason}
+                            onChange={(event) => setReason(event.target.value)}
+                            className="min-h-24 rounded-md border bg-transparent p-3 text-sm"
+                        />
+                    </div>
+                    <Button
+                        type="button"
+                        disabled={processing || !date || !reason.trim()}
+                        onClick={submit}
+                    >
+                        Apply changes
+                    </Button>
+                </div>
             </DialogContent>
         </Dialog>
     );
@@ -1769,6 +1919,11 @@ const localDateTime = (value: string | null) => {
     const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
 
     return local.toISOString().slice(0, 16);
+};
+const localIso = (date: Date) => {
+    const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+
+    return local.toISOString().slice(0, 19);
 };
 const minutes = (v: number) => `${Math.floor(v / 60)}h ${v % 60}m`;
 const money = (v: number) =>

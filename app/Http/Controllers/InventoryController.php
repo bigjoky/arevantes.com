@@ -10,6 +10,7 @@ use App\Models\StockMovementLine;
 use App\Models\StockReservation;
 use App\Models\Warehouse;
 use App\Services\Inventory\StockLedger;
+use App\Services\Inventory\StockPositionService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -19,12 +20,12 @@ use Inertia\Response;
 
 class InventoryController extends Controller
 {
-    public function index(): Response
+    public function index(StockPositionService $positions): Response
     {
         return Inertia::render('inventory/index', [
             'warehouses' => Warehouse::orderByDesc('is_default')->orderBy('name')->get(),
             'products' => Product::where('track_stock', true)->where('is_active', true)->orderBy('name')->get(['id', 'sku', 'name', 'cost_price', 'track_serials']),
-            'balances' => StockMovementLine::query()->select('warehouse_id', 'product_id', DB::raw('sum(quantity) as quantity'))->with(['warehouse:id,code,name', 'product:id,sku,name,track_serials'])->groupBy('warehouse_id', 'product_id')->havingRaw('sum(quantity) != 0')->get(),
+            'positions' => $positions->positions(),
             'movements' => StockMovement::with(['workOrder:id,number', 'lines.product:id,name,sku', 'lines.warehouse:id,code,name'])->latest('posted_at')->limit(100)->get(),
             'serials' => SerialNumber::with(['product:id,name,sku'])->where('status', 'available')->orderBy('serial_number')->get(),
             'reservations' => StockReservation::with(['workOrder:id,number', 'salesDocument:id,number', 'installation:id,project_reference,site_name', 'warehouse:id,code,name', 'product:id,sku,name'])->where('status', 'active')->latest()->get(),

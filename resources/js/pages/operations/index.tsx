@@ -1,4 +1,4 @@
-import { Form, Head, Link, usePage } from '@inertiajs/react';
+import { Form, Head, Link, router, usePage } from '@inertiajs/react';
 import {
     AlertTriangle,
     ArrowLeft,
@@ -13,6 +13,7 @@ import {
     Pencil,
     Plus,
     Search,
+    Settings2,
     Trash2,
     UserRoundX,
     Wrench,
@@ -46,7 +47,16 @@ type InstallationOption = {
     site_name: string | null;
     status: string;
 };
-type UserOption = { id: number; name: string; role: string };
+type UserOption = {
+    id: number;
+    name: string;
+    role: string;
+    field_service_profile?: {
+        daily_capacity_minutes: number;
+        service_zones: string[];
+        skills: string[];
+    } | null;
+};
 type WorkOrderLink = { id: number; number: string; status: string };
 type Activity = {
     id: number;
@@ -72,6 +82,7 @@ type WorkOrder = {
     scheduled_start: string | null;
     scheduled_end: string | null;
     has_schedule_conflict: boolean;
+    planning_issues: { type: string; message: string }[];
     installation: InstallationOption;
     assigned_user: UserOption | null;
 };
@@ -91,7 +102,7 @@ type Filters = {
     priority?: string;
     type?: string;
     owner?: number;
-    view: 'today' | 'board' | 'week';
+    view: 'today' | 'board' | 'week' | 'month';
     week: string;
     focus?: number;
 };
@@ -179,12 +190,21 @@ export default function OperationsIndex({
                             exceptions.
                         </p>
                     </div>
-                    <ActivityDialog
-                        installations={installations}
-                        users={users}
-                        canManage={canManage}
-                        currentUserId={currentUserId}
-                    />
+                    <div className="flex gap-2">
+                        {canManage && (
+                            <Button asChild variant="outline">
+                                <Link href="/operations/field-service">
+                                    <Settings2 /> Field service
+                                </Link>
+                            </Button>
+                        )}
+                        <ActivityDialog
+                            installations={installations}
+                            users={users}
+                            canManage={canManage}
+                            currentUserId={currentUserId}
+                        />
+                    </div>
                 </header>
 
                 <section className="grid gap-px overflow-hidden rounded-lg border bg-border sm:grid-cols-3 xl:grid-cols-6">
@@ -235,6 +255,7 @@ export default function OperationsIndex({
                         ['today', 'Today'],
                         ['board', 'Board'],
                         ['week', 'Week'],
+                        ['month', 'Month'],
                     ].map(([value, label]) => (
                         <Button
                             key={value}
@@ -275,6 +296,14 @@ export default function OperationsIndex({
                 {filters.view === 'week' && (
                     <Week
                         week={filters.week}
+                        filters={filters}
+                        activities={weekActivities}
+                        orders={planningOrders}
+                    />
+                )}
+                {filters.view === 'month' && (
+                    <Month
+                        month={filters.week}
                         filters={filters}
                         activities={weekActivities}
                         orders={planningOrders}
@@ -798,7 +827,12 @@ function Week({
                     );
 
                     return (
-                        <div key={day} className="min-h-80 p-2">
+                        <div
+                            key={day}
+                            className="min-h-80 p-2"
+                            onDragOver={(event) => event.preventDefault()}
+                            onDrop={(event) => dropOrder(event, day)}
+                        >
                             <div className="mb-2 border-b pb-2 text-sm font-medium">
                                 {new Intl.DateTimeFormat('en', {
                                     weekday: 'short',
@@ -810,6 +844,13 @@ function Week({
                                 {dayOrders.map((order) => (
                                     <Link
                                         key={`order-${order.id}`}
+                                        draggable
+                                        onDragStart={(event) =>
+                                            event.dataTransfer.setData(
+                                                'application/x-work-order',
+                                                JSON.stringify(order),
+                                            )
+                                        }
                                         href={`/work-orders?work_order=${order.id}`}
                                         className={`rounded border p-2 text-xs hover:bg-muted ${order.has_schedule_conflict ? 'border-destructive bg-destructive/5' : 'border-blue-300 bg-blue-50 dark:bg-blue-950/20'}`}
                                     >
@@ -824,11 +865,14 @@ function Week({
                                             {order.assigned_user?.name ||
                                                 'Unassigned'}
                                         </div>
-                                        {order.has_schedule_conflict && (
-                                            <div className="mt-1 text-destructive">
-                                                Schedule conflict
+                                        {order.planning_issues?.map((issue) => (
+                                            <div
+                                                key={`${issue.type}-${issue.message}`}
+                                                className="mt-1 text-destructive"
+                                            >
+                                                {issue.message}
                                             </div>
-                                        )}
+                                        ))}
                                     </Link>
                                 ))}
                                 {dayActivities.map((activity) => (
@@ -888,6 +932,141 @@ function Week({
                 </div>
             )}
         </section>
+    );
+}
+
+function Month({
+    month,
+    filters,
+    activities,
+    orders,
+}: {
+    month: string;
+    filters: Filters;
+    activities: Activity[];
+    orders: WorkOrder[];
+}) {
+    const first = new Date(`${month}T12:00:00`);
+    const offset = (first.getDay() + 6) % 7;
+    const gridStart = addDays(month, -offset);
+    const days = Array.from({ length: 42 }, (_, index) =>
+        addDays(gridStart, index),
+    );
+
+    return (
+        <section className="overflow-hidden rounded-lg border">
+            <div className="flex items-center justify-between border-b px-4 py-3">
+                <h2 className="font-semibold">
+                    {new Intl.DateTimeFormat('en', {
+                        month: 'long',
+                        year: 'numeric',
+                    }).format(first)}
+                </h2>
+                <div className="flex gap-1">
+                    {[-1, 1].map((direction) => (
+                        <Button
+                            key={direction}
+                            asChild
+                            size="sm"
+                            variant="outline"
+                        >
+                            <Link
+                                href={operationsUrl({
+                                    ...filters,
+                                    week: addMonths(month, direction),
+                                    view: 'month',
+                                })}
+                            >
+                                {direction < 0 ? <ArrowLeft /> : <ArrowRight />}
+                            </Link>
+                        </Button>
+                    ))}
+                </div>
+            </div>
+            <div className="grid min-w-[60rem] grid-cols-7 divide-x divide-y overflow-x-auto">
+                {days.map((day) => {
+                    const dayOrders = orders.filter(
+                        (order) => dateKey(order.scheduled_start) === day,
+                    );
+                    const count = activities.filter(
+                        (activity) =>
+                            dateKey(activity.starts_at || activity.due_at) ===
+                            day,
+                    ).length;
+
+                    return (
+                        <div
+                            key={day}
+                            className="min-h-28 p-2"
+                            onDragOver={(event) => event.preventDefault()}
+                            onDrop={(event) => dropOrder(event, day)}
+                        >
+                            <div className="mb-1 text-xs font-medium">
+                                {day.slice(8)}
+                            </div>
+                            {dayOrders.slice(0, 3).map((order) => (
+                                <Link
+                                    key={order.id}
+                                    draggable
+                                    onDragStart={(event) =>
+                                        event.dataTransfer.setData(
+                                            'application/x-work-order',
+                                            JSON.stringify(order),
+                                        )
+                                    }
+                                    href={`/work-orders?work_order=${order.id}`}
+                                    className="mb-1 block truncate rounded bg-blue-50 px-1 py-0.5 text-xs dark:bg-blue-950/30"
+                                >
+                                    {formatTime(order.scheduled_start)}{' '}
+                                    {order.number}
+                                </Link>
+                            ))}
+                            {count > 0 && (
+                                <div className="text-xs text-muted-foreground">
+                                    {count} activities
+                                </div>
+                            )}
+                        </div>
+                    );
+                })}
+            </div>
+        </section>
+    );
+}
+
+function dropOrder(event: React.DragEvent, day: string) {
+    const raw = event.dataTransfer.getData('application/x-work-order');
+
+    if (!raw) {
+        return;
+    }
+
+    const order = JSON.parse(raw) as WorkOrder;
+    const reason = window.prompt('Reason for rescheduling');
+
+    if (!reason?.trim()) {
+        return;
+    }
+
+    const start = order.scheduled_start
+        ? `${day}T${order.scheduled_start.slice(11, 19)}`
+        : `${day}T08:00:00`;
+    const duration =
+        order.scheduled_start && order.scheduled_end
+            ? new Date(order.scheduled_end).getTime() -
+              new Date(order.scheduled_start).getTime()
+            : 60 * 60 * 1000;
+    const end = new Date(new Date(start).getTime() + duration)
+        .toISOString()
+        .slice(0, 19);
+    router.patch(
+        `/work-orders/${order.id}/schedule`,
+        {
+            scheduled_start: start,
+            scheduled_end: end,
+            reschedule_reason: reason,
+        },
+        { preserveScroll: true },
     );
 }
 
@@ -1545,6 +1724,13 @@ function dateKey(value: string | null) {
 function addDays(value: string, amount: number) {
     const date = new Date(`${value}T12:00:00`);
     date.setDate(date.getDate() + amount);
+
+    return date.toISOString().slice(0, 10);
+}
+function addMonths(value: string, amount: number) {
+    const date = new Date(`${value}T12:00:00`);
+    date.setDate(1);
+    date.setMonth(date.getMonth() + amount);
 
     return date.toISOString().slice(0, 10);
 }

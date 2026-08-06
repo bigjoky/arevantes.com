@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\CorrelateRequests;
 use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
 use Illuminate\Foundation\Application;
@@ -19,6 +20,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->encryptCookies(except: ['appearance', 'sidebar_state']);
 
         $middleware->web(append: [
+            CorrelateRequests::class,
             HandleAppearance::class,
             HandleInertiaRequests::class,
         ]);
@@ -27,4 +29,14 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*'),
         );
+        $exceptions->report(function (Throwable $exception) {
+            if (app()->bound('request')) {
+                logger()->error('Unhandled application error', [
+                    'correlation_id' => request()->attributes->get('correlation_id'),
+                    'user_id' => request()->user()?->id,
+                    'operation' => request()->route()?->getName(),
+                    'exception' => $exception::class,
+                ]);
+            }
+        });
     })->create();

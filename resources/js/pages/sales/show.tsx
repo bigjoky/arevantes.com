@@ -67,6 +67,7 @@ type Document = {
         sent_at: string | null;
         first_viewed_at: string | null;
         responded_at: string | null;
+        revoked_at: string | null;
     }[];
     accounting_entry: { number: string; status: string } | null;
 };
@@ -321,9 +322,29 @@ export default function SalesShow({
                                                 : ''}
                                         </div>
                                     </div>
-                                    <Badge variant="outline">
-                                        {delivery.status}
-                                    </Badge>
+                                    <div className="flex items-center gap-2">
+                                        <Badge variant="outline">
+                                            {delivery.status}
+                                        </Badge>
+                                        {!delivery.revoked_at &&
+                                            ![
+                                                'revoked',
+                                                'superseded',
+                                                'failed',
+                                            ].includes(delivery.status) && (
+                                                <Form
+                                                    action={`/document-deliveries/${delivery.id}`}
+                                                    method="delete"
+                                                >
+                                                    <Button
+                                                        size="sm"
+                                                        variant="outline"
+                                                    >
+                                                        Revoke
+                                                    </Button>
+                                                </Form>
+                                            )}
+                                    </div>
                                 </div>
                             ))}
                             {document.deliveries.length === 0 && (

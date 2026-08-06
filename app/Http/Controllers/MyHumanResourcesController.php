@@ -3,22 +3,28 @@
 namespace App\Http\Controllers;
 
 use App\Models\HrEmployeeTask;
+use App\Models\HrEmploymentDocument;
+use App\Models\HrLeaveAttachment;
+use App\Models\HrLeavePolicy;
 use App\Models\HrLeaveRequest;
 use App\Models\Person;
 use App\Models\User;
 use App\Notifications\HrTaskCompletedNotification;
 use App\Notifications\LeaveRequestSubmittedNotification;
+use App\Services\HumanResources\LeaveBalanceCalculator;
 use App\Services\HumanResources\LeaveRequestCreator;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class MyHumanResourcesController extends Controller
 {
-    public function index(Request $request): Response
+    public function index(Request $request, LeaveBalanceCalculator $balances): Response
     {
         $person = $request->user()
             ->staffProfile()
@@ -29,7 +35,7 @@ class MyHumanResourcesController extends Controller
             'employee' => $person ? $this->employeeData($person) : null,
             'requests' => $person
                 ? $person->leaveRequests()
-                    ->with('reviewer:id,name')
+                    ->with(['reviewer:id,name', 'attachments'])
                     ->latest('start_date')
                     ->get()
                     ->map(fn (HrLeaveRequest $leave) => [
@@ -42,7 +48,18 @@ class MyHumanResourcesController extends Controller
                         'notes' => $leave->notes,
                         'decisionNotes' => $leave->decision_notes,
                         'reviewerName' => $leave->reviewer?->name,
+                        'attachments' => $leave->attachments->map(fn (HrLeaveAttachment $attachment) => [
+                            'id' => $attachment->id,
+                            'name' => $attachment->original_name,
+                        ]),
                     ])
+                : [],
+            'balances' => $person
+                ? HrLeavePolicy::query()
+                    ->where('is_active', true)
+                    ->orderBy('name')
+                    ->get()
+                    ->map(fn (HrLeavePolicy $policy) => $balances->calculate($person, $policy, now()->year))
                 : [],
             'tasks' => $person
                 ? $person->hrTasks()
@@ -63,6 +80,21 @@ class MyHumanResourcesController extends Controller
                         'completedAt' => $task->completed_at?->toIso8601String(),
                     ])
                 : [],
+            'documents' => $person
+                ? $person->employmentDocuments()
+                    ->where('visibility', 'employee')
+                    ->latest()
+                    ->get()
+                    ->map(fn (HrEmploymentDocument $document) => [
+                        'id' => $document->id,
+                        'title' => $document->title,
+                        'category' => $document->category,
+                        'originalName' => $document->original_name,
+                        'size' => $document->size,
+                        'expiresAt' => $document->expires_at?->toDateString(),
+                        'isExpired' => $document->expires_at?->isPast() ?? false,
+                    ])
+                : [],
         ]);
     }
 
@@ -74,6 +106,7 @@ class MyHumanResourcesController extends Controller
             'start_date' => ['required', 'date'],
             'end_date' => ['required', 'date', 'after_or_equal:start_date'],
             'notes' => ['nullable', 'string', 'max:2000'],
+            'attachment' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:12288'],
         ]);
 
         $leave = $creator->create($person, $validated)->load('person');
@@ -121,6 +154,30 @@ class MyHumanResourcesController extends Controller
         );
 
         return back()->with('success', __('HR task completed.'));
+    }
+
+    public function downloadDocument(Request $request, HrEmploymentDocument $document): StreamedResponse
+    {
+        $person = $this->staffProfile($request);
+        abort_unless($document->person_id === $person->id && $document->visibility === 'employee', 404);
+        abort_unless(Storage::disk('local')->exists($document->path), 404);
+
+        return Storage::disk('local')->download($document->path, $document->original_name, [
+            'Content-Type' => $document->mime_type,
+            'Cache-Control' => 'private, no-store',
+        ]);
+    }
+
+    public function downloadLeaveAttachment(Request $request, HrLeaveRequest $leave, HrLeaveAttachment $attachment): StreamedResponse
+    {
+        $person = $this->staffProfile($request);
+        abort_unless($leave->person_id === $person->id && $attachment->leave_request_id === $leave->id, 404);
+        abort_unless(Storage::disk('local')->exists($attachment->path), 404);
+
+        return Storage::disk('local')->download($attachment->path, $attachment->original_name, [
+            'Content-Type' => $attachment->mime_type,
+            'Cache-Control' => 'private, no-store',
+        ]);
     }
 
     /**

@@ -8,11 +8,11 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class WorkOrder extends Model
 {
-    protected $fillable = ['installation_id', 'assigned_user_id', 'created_by', 'number', 'title', 'kind', 'status', 'scheduled_start', 'scheduled_end', 'instructions', 'completion_notes', 'signed_by_name', 'signature_path', 'signed_at', 'completed_at'];
+    protected $fillable = ['installation_id', 'work_order_template_id', 'assigned_user_id', 'created_by', 'number', 'title', 'kind', 'status', 'estimated_duration_minutes', 'required_skills', 'service_zone', 'scheduled_start', 'scheduled_end', 'instructions', 'completion_notes', 'signed_by_name', 'signature_path', 'signed_at', 'completed_at'];
 
     protected function casts(): array
     {
-        return ['scheduled_start' => 'datetime', 'scheduled_end' => 'datetime', 'signed_at' => 'datetime', 'completed_at' => 'datetime'];
+        return ['required_skills' => 'array', 'scheduled_start' => 'datetime', 'scheduled_end' => 'datetime', 'signed_at' => 'datetime', 'completed_at' => 'datetime'];
     }
 
     public function installation(): BelongsTo
@@ -23,6 +23,11 @@ class WorkOrder extends Model
     public function assignedUser(): BelongsTo
     {
         return $this->belongsTo(User::class, 'assigned_user_id');
+    }
+
+    public function template(): BelongsTo
+    {
+        return $this->belongsTo(WorkOrderTemplate::class, 'work_order_template_id');
     }
 
     public function timeEntries(): HasMany
@@ -58,5 +63,15 @@ class WorkOrder extends Model
     public function visits(): HasMany
     {
         return $this->hasMany(WorkOrderVisit::class)->latest('arrived_at');
+    }
+
+    public function reschedules(): HasMany
+    {
+        return $this->hasMany(WorkOrderReschedule::class)->latest();
+    }
+
+    public function assetEvents(): HasMany
+    {
+        return $this->hasMany(AssetEvent::class);
     }
 }
