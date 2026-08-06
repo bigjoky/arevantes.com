@@ -2,6 +2,7 @@ import { Form, Link, router, usePage } from '@inertiajs/react';
 import {
     Bell,
     BookOpen,
+    CalendarDays,
     DatabaseBackup,
     LogOut,
     ScrollText,
@@ -68,8 +69,8 @@ export function UserMenuContent({ user }: Props) {
                                 href="/company-fiscal"
                                 onClick={cleanup}
                             >
-                                <Landmark className="mr-2" /> Empresa y
-                                fiscalidad
+                                <Landmark className="mr-2" /> Company & fiscal
+                                settings
                             </Link>
                         </DropdownMenuItem>
                         <DropdownMenuItem asChild>
@@ -133,6 +134,16 @@ export function UserMenuContent({ user }: Props) {
                 </>
             ) : null}
             <DropdownMenuGroup>
+                <DropdownMenuItem asChild>
+                    <Link
+                        className="block w-full cursor-pointer"
+                        href="/my-human-resources"
+                        onClick={cleanup}
+                    >
+                        <CalendarDays className="mr-2" />
+                        Mi RR. HH.
+                    </Link>
+                </DropdownMenuItem>
                 <DropdownMenuItem asChild>
                     <Link
                         className="block w-full cursor-pointer"

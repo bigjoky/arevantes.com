@@ -5,9 +5,12 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Person extends Model
 {
+    use SoftDeletes;
+
     /**
      * The attributes that are mass assignable.
      *
@@ -55,6 +58,21 @@ class Person extends Model
     public function user(): HasOne
     {
         return $this->hasOne(User::class);
+    }
+
+    public function employmentProfile(): HasOne
+    {
+        return $this->hasOne(HrEmploymentProfile::class);
+    }
+
+    public function leaveRequests(): HasMany
+    {
+        return $this->hasMany(HrLeaveRequest::class);
+    }
+
+    public function hrTasks(): HasMany
+    {
+        return $this->hasMany(HrEmployeeTask::class);
     }
 
     public function portalAccesses(): HasMany

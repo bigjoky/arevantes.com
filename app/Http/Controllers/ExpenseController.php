@@ -5,10 +5,12 @@ namespace App\Http\Controllers;
 use App\Models\Expense;
 use App\Models\ExpenseAttachment;
 use App\Models\ExpenseCategory;
+use App\Models\Installation;
 use App\Models\PurchaseDocument;
 use App\Models\Supplier;
 use App\Models\SupplierPayment;
 use App\Services\Accounting\AccountingSynchronizer;
+use App\Services\Finance\OutstandingBalanceCalculator;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -21,6 +23,8 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ExpenseController extends Controller
 {
+    public function __construct(private OutstandingBalanceCalculator $balances) {}
+
     public function index(): Response
     {
         return Inertia::render('expenses/index', [
@@ -28,6 +32,7 @@ class ExpenseController extends Controller
             'supplierInvoices' => PurchaseDocument::with('supplier:id,legal_name,trade_name')->whereIn('type', ['supplier_invoice', 'supplier_credit_note'])->latest('issue_date')->get(),
             'categories' => ExpenseCategory::where('is_active', true)->orderBy('name')->get(),
             'suppliers' => Supplier::where('is_active', true)->orderBy('legal_name')->get(['id', 'legal_name', 'trade_name']),
+            'installations' => Installation::orderByDesc('created_at')->get(['id', 'project_reference', 'site_name']),
             'summary' => ['pending' => $this->pendingTotal(), 'paidThisMonth' => SupplierPayment::whereBetween('paid_at', [now()->startOfMonth(), now()->endOfMonth()])->sum('amount'), 'expensesThisMonth' => Expense::whereBetween('expense_date', [now()->startOfMonth(), now()->endOfMonth()])->sum('amount')],
         ]);
     }
@@ -42,7 +47,10 @@ class ExpenseController extends Controller
         if ($request->input('supplier_id') === 'none') {
             $request->merge(['supplier_id' => null]);
         }
-        $data = $request->validate(['expense_category_id' => ['required', 'exists:expense_categories,id'], 'supplier_id' => ['nullable', 'exists:suppliers,id'], 'type' => ['required', Rule::in(['receipt', 'invoice', 'other'])], 'document_number' => ['nullable', 'string', 'max:255'], 'merchant_name' => ['nullable', 'string', 'max:255'], 'expense_date' => ['required', 'date'], 'due_date' => ['nullable', 'date', 'after_or_equal:expense_date'], 'subtotal' => ['required', 'numeric', 'min:0'], 'tax_amount' => ['required', 'numeric', 'min:0'], 'notes' => ['nullable', 'string'], 'attachments' => ['nullable', 'array', 'max:10'], 'attachments.*' => ['file', 'mimes:pdf,jpg,jpeg,png,webp', 'max:10240']]);
+        if ($request->input('installation_id') === 'none') {
+            $request->merge(['installation_id' => null]);
+        }
+        $data = $request->validate(['expense_category_id' => ['required', 'exists:expense_categories,id'], 'supplier_id' => ['nullable', 'exists:suppliers,id'], 'installation_id' => ['nullable', 'exists:installations,id'], 'type' => ['required', Rule::in(['receipt', 'invoice', 'other'])], 'document_number' => ['nullable', 'string', 'max:255'], 'merchant_name' => ['nullable', 'string', 'max:255'], 'expense_date' => ['required', 'date'], 'due_date' => ['nullable', 'date', 'after_or_equal:expense_date'], 'subtotal' => ['required', 'numeric', 'min:0'], 'tax_amount' => ['required', 'numeric', 'min:0'], 'notes' => ['nullable', 'string'], 'attachments' => ['nullable', 'array', 'max:10'], 'attachments.*' => ['file', 'mimes:pdf,jpg,jpeg,png,webp', 'max:10240']]);
         $files = $data['attachments'] ?? [];
         unset($data['attachments']);
         $expense = DB::transaction(function () use ($request, $data, $files, $accounting) {
@@ -120,9 +128,7 @@ class ExpenseController extends Controller
 
     private function storePayment(Request $request, ?Expense $expense, ?PurchaseDocument $invoice, AccountingSynchronizer $accounting): void
     {
-        $payable = $expense ?? $invoice;
-        $creditAmount = $invoice ? abs((float) $invoice->creditNotes()->sum('amount')) : 0;
-        $outstanding = round((float) $payable->amount - $creditAmount - (float) $payable->paid_amount, 2);
+        $outstanding = $invoice ? $this->balances->purchase($invoice) : $this->balances->expense($expense);
         abort_if($outstanding <= 0, 422, __('This document has no outstanding balance.'));
         $data = $request->validate(['paid_at' => ['required', 'date'], 'amount' => ['required', 'numeric', 'gt:0', 'max:'.$outstanding], 'method' => ['required', Rule::in(['bank_transfer', 'card', 'cash', 'direct_debit', 'other'])], 'reference' => ['nullable', 'string', 'max:255'], 'notes' => ['nullable', 'string']]);
         DB::transaction(function () use ($request, $expense, $invoice, $accounting, $data) {

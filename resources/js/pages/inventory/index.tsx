@@ -8,6 +8,7 @@ import {
     Warehouse as WarehouseIcon,
 } from 'lucide-react';
 import { useState } from 'react';
+import { PageTabs } from '@/components/page-shell';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -144,7 +145,7 @@ export default function InventoryIndex({
                         <WarehouseDialog />
                     ) : null}
                 </header>
-                <div className="flex gap-1 border-b">
+                <PageTabs aria-label="Inventory views">
                     <TabButton
                         active={tab === 'reservations'}
                         onClick={() => setTab('reservations')}
@@ -173,7 +174,7 @@ export default function InventoryIndex({
                     >
                         Warehouses
                     </TabButton>
-                </div>
+                </PageTabs>
                 {tab === 'stock' && (
                     <>
                         <section className="overflow-x-auto">

@@ -6,14 +6,9 @@ import type {
     InstallationFormValue,
     RemoteStationOption,
 } from '@/components/installations/installation-form';
+import { PageHeader, PageShell } from '@/components/page-shell';
 import { Button } from '@/components/ui/button';
-import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardHeader,
-    CardTitle,
-} from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 
 export default function InstallationCreate({
     customers,
@@ -30,20 +25,17 @@ export default function InstallationCreate({
         <>
             <Head title="Add installation" />
 
-            <div className="flex h-full flex-1 flex-col gap-4 p-4">
-                <Card className="rounded-lg">
-                    <CardHeader className="flex-row items-start justify-between gap-3">
-                        <div>
-                            <CardTitle>Add installation</CardTitle>
-                            <CardDescription>
-                                Define the site and technical scope. Assigning a
-                                customer is optional.
-                            </CardDescription>
-                        </div>
+            <PageShell>
+                <PageHeader
+                    title="Add installation"
+                    description="Define the site and technical scope. Assigning a customer is optional."
+                    actions={
                         <Button variant="outline" asChild>
                             <Link href="/installations">Cancel</Link>
                         </Button>
-                    </CardHeader>
+                    }
+                />
+                <Card className="rounded-lg">
                     <CardContent>
                         <InstallationForm
                             action="/installations"
@@ -54,7 +46,7 @@ export default function InstallationCreate({
                         />
                     </CardContent>
                 </Card>
-            </div>
+            </PageShell>
         </>
     );
 }

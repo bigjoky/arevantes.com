@@ -67,6 +67,8 @@ type Supplier = {
     city: string | null;
     province: string | null;
     country: string;
+    iban: string | null;
+    bic: string | null;
     payment_terms_days: number;
     notes: string | null;
     is_active: boolean;
@@ -620,6 +622,16 @@ function SupplierDialog({ supplier }: { supplier?: Supplier }) {
                                     value={String(
                                         supplier?.payment_terms_days ?? 30,
                                     )}
+                                />
+                                <Field
+                                    label="IBAN"
+                                    name="iban"
+                                    value={supplier?.iban}
+                                />
+                                <Field
+                                    label="BIC"
+                                    name="bic"
+                                    value={supplier?.bic}
                                 />
                                 <Field
                                     label="Address"

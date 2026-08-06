@@ -1,8 +1,8 @@
-import { Form, Head, Link, router, usePage } from '@inertiajs/react';
+import { Form, Head, Link, router } from '@inertiajs/react';
 import {
     ArrowLeft,
+    CalendarRange,
     Landmark,
-    LockKeyhole,
     Plus,
     RefreshCw,
     RotateCcw,
@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { useState } from 'react';
 import type React from 'react';
+import { PageTabs } from '@/components/page-shell';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -132,9 +133,6 @@ export default function AccountingIndex({
     const [view, setView] = useState<View>(
         selectedAccount ? 'ledger' : 'journal',
     );
-    const isAdmin =
-        usePage<{ auth: { user: { role: string } } }>().props.auth.user.role ===
-        'admin';
     const navigate = (params: Record<string, string | number>) =>
         router.get('/accounting', { year, ...params }, { preserveState: true });
 
@@ -161,6 +159,11 @@ export default function AccountingIndex({
                                 <Landmark /> VAT
                             </Link>
                         </Button>
+                        <Button variant="outline" asChild>
+                            <Link href="/company-fiscal">
+                                <CalendarRange /> Fiscal years
+                            </Link>
+                        </Button>
                         <Form action="/accounting/sync" method="post">
                             <Button>
                                 <RefreshCw /> Sync now
@@ -171,26 +174,6 @@ export default function AccountingIndex({
                                 accounts={accounts}
                                 year={year}
                             />
-                        )}
-                        {isAdmin && fiscalYear?.status === 'open' && (
-                            <Form
-                                action={`/accounting/years/${fiscalYear.id}/close`}
-                                method="post"
-                            >
-                                <Button variant="outline">
-                                    <LockKeyhole /> Close year
-                                </Button>
-                            </Form>
-                        )}
-                        {isAdmin && fiscalYear?.status === 'closed' && (
-                            <Form
-                                action={`/accounting/years/${fiscalYear.id}/opening`}
-                                method="post"
-                            >
-                                <Button variant="outline">
-                                    <RefreshCw /> Generate opening
-                                </Button>
-                            </Form>
                         )}
                         <Select
                             value={String(year)}
@@ -230,10 +213,7 @@ export default function AccountingIndex({
                         value={money(summary.credit)}
                     />
                 </section>
-                <nav
-                    className="flex gap-1 overflow-x-auto border-b"
-                    aria-label="Accounting views"
-                >
+                <PageTabs aria-label="Accounting views">
                     {(
                         [
                             ['journal', 'Journal'],
@@ -254,7 +234,7 @@ export default function AccountingIndex({
                             {label}
                         </button>
                     ))}
-                </nav>
+                </PageTabs>
                 {view === 'journal' && (
                     <Journal
                         entries={entries}

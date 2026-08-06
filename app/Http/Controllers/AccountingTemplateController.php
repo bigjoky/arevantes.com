@@ -82,7 +82,7 @@ class AccountingTemplateController extends Controller
             }
         }
 
-return $data;
+        return $data;
     }
 
     private function replaceLines(AccountingTemplate $template, array $lines): void

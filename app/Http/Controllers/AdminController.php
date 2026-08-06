@@ -41,7 +41,7 @@ class AdminController extends Controller
     {
         return Inertia::render('admin/index', [
             'section' => 'audit',
-            'audits' => AuditLog::with('user:id,name')->latest()->limit(100)->get(),
+            'audits' => AuditLog::with('user:id,name')->latest()->paginate(25),
         ]);
     }
 

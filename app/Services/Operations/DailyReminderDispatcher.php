@@ -6,15 +6,20 @@ use App\Models\ActionReminder;
 use App\Models\BankTransaction;
 use App\Models\CrmActivity;
 use App\Models\Expense;
+use App\Models\PaymentBatch;
+use App\Models\PaymentBatchItem;
 use App\Models\PurchaseDocument;
 use App\Models\SalesDocument;
 use App\Models\User;
 use App\Models\WorkOrder;
 use App\Notifications\ActionSummaryNotification;
+use App\Services\Finance\FinancialAlertService;
 use Illuminate\Support\Collection;
 
 class DailyReminderDispatcher
 {
+    public function __construct(private FinancialAlertService $financialAlerts) {}
+
     public function dispatch(): int
     {
         $sent = 0;
@@ -27,30 +32,61 @@ class DailyReminderDispatcher
             }
         });
 
+        $batchedInvoices = PaymentBatchItem::query()
+            ->where('payable_type', 'invoice')
+            ->whereHas('batch', fn ($query) => $query->whereIn('status', ['draft', 'approved', 'exported']))
+            ->pluck('payable_id');
+        $batchedExpenses = PaymentBatchItem::query()
+            ->where('payable_type', 'expense')
+            ->whereHas('batch', fn ($query) => $query->whereIn('status', ['draft', 'approved', 'exported']))
+            ->pluck('payable_id');
+        $budgetAlerts = $this->financialAlerts->forYear(now()->year)->where('status', '!=', 'resolved');
+
         $financial = [
             'collections' => [
                 SalesDocument::query()
                     ->where('type', 'invoice')
                     ->whereIn('status', ['issued', 'partial', 'overdue'])
-                    ->whereDate('due_date', '<=', today()->addDays(3))
+                    ->where(function ($query) {
+                        $query->where(function ($query) {
+                            $query->whereDoesntHave('collectionAction')
+                                ->whereDate('due_date', '<=', today()->addDays(3));
+                        })->orWhereHas('collectionAction', fn ($query) => $query
+                            ->whereNot('status', 'resolved')
+                            ->where(fn ($query) => $query
+                                ->whereNull('next_action_on')
+                                ->orWhereDate('next_action_on', '<=', today()->addDays(3))
+                                ->orWhere(fn ($query) => $query->where('status', 'promised')->whereDate('promised_on', '<', today()))));
+                    })
                     ->count(),
-                route('sales.index'),
+                route('finance.index'),
             ],
             'payments' => [
                 PurchaseDocument::query()
                     ->where('type', 'supplier_invoice')
                     ->whereIn('status', ['registered', 'pending', 'partial', 'overdue'])
+                    ->whereNotIn('id', $batchedInvoices)
                     ->whereDate('due_date', '<=', today()->addDays(3))
                     ->count()
                     + Expense::query()
                         ->whereIn('status', ['pending', 'partial', 'overdue'])
+                        ->whereNotIn('id', $batchedExpenses)
                         ->whereDate('due_date', '<=', today()->addDays(3))
+                        ->count()
+                    + PaymentBatch::query()
+                        ->where(fn ($query) => $query
+                            ->where('status', 'draft')
+                            ->orWhere(fn ($query) => $query->whereIn('status', ['approved', 'exported'])->whereDate('planned_on', '<=', today()->addDays(3))))
                         ->count(),
-                route('purchases.index'),
+                route('finance.index'),
             ],
             'banking' => [
                 BankTransaction::query()->where('status', 'pending')->whereDate('booked_on', '<=', today()->subDays(2))->count(),
                 route('banking.index'),
+            ],
+            'financial_alerts' => [
+                $budgetAlerts->count(),
+                route('finance.index', ['year' => now()->year]).'#financial-alerts',
             ],
         ];
 

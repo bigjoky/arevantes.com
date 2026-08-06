@@ -1,6 +1,8 @@
 import { Form, Head, Link, usePage } from '@inertiajs/react';
 import { ArrowLeft, Pencil, Plus, Search, Trash2 } from 'lucide-react';
 import { useState } from 'react';
+import { PaginationBar, TableViewport } from '@/components/page-shell';
+import type { PaginationLink } from '@/components/page-shell';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -32,7 +34,7 @@ type Account = {
 };
 type Page<T> = {
     data: T[];
-    links: { url: string | null; label: string; active: boolean }[];
+    links: PaginationLink[];
     total: number;
 };
 const types = ['asset', 'liability', 'equity', 'income', 'expense'];
@@ -63,7 +65,7 @@ export default function Accounts({
                             Official PGC structure and company subaccounts.
                         </p>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2">
                         <Button variant="outline" asChild>
                             <Link href="/accounting">
                                 <ArrowLeft /> Accounting
@@ -86,7 +88,7 @@ export default function Accounts({
                         <Search /> Search
                     </Button>
                 </Form>
-                <div className="overflow-x-auto">
+                <TableViewport>
                     <table className="w-full min-w-[60rem] text-sm">
                         <thead>
                             <tr className="border-b text-left text-muted-foreground">
@@ -154,35 +156,12 @@ export default function Accounts({
                             ))}
                         </tbody>
                     </table>
-                </div>
-                <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
-                    <span className="text-muted-foreground">
-                        {accounts.total} accounts
-                    </span>
-                    <div className="flex gap-1">
-                        {accounts.links.map(
-                            (link, i) =>
-                                link.url && (
-                                    <Button
-                                        key={i}
-                                        size="sm"
-                                        variant={
-                                            link.active ? 'default' : 'outline'
-                                        }
-                                        asChild
-                                    >
-                                        <Link
-                                            href={link.url}
-                                            preserveScroll
-                                            dangerouslySetInnerHTML={{
-                                                __html: link.label,
-                                            }}
-                                        />
-                                    </Button>
-                                ),
-                        )}
-                    </div>
-                </div>
+                </TableViewport>
+                <PaginationBar
+                    links={accounts.links}
+                    total={accounts.total}
+                    noun="accounts"
+                />
             </div>
         </>
     );

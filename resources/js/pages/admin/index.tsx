@@ -1,5 +1,7 @@
 import { Form, Head, Link } from '@inertiajs/react';
 import { DatabaseBackup, Download, ShieldCheck, Users } from 'lucide-react';
+import { PaginationBar } from '@/components/page-shell';
+import type { PaginationLink } from '@/components/page-shell';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -28,22 +30,27 @@ type Audit = {
     user: { name: string } | null;
 };
 type Backup = { name: string; size: number; created_at: string };
+type AuditPage = {
+    data: Audit[];
+    links: PaginationLink[];
+    total: number;
+};
 
 export default function AdminIndex({
     section,
     users = [],
-    audits = [],
+    audits = { data: [], links: [], total: 0 },
     backups = [],
 }: {
     section: 'users' | 'backups' | 'audit';
     users?: UserRow[];
-    audits?: Audit[];
+    audits?: AuditPage;
     backups?: Backup[];
 }) {
     return (
         <>
             <Head title="Administration" />
-            <div className="flex flex-1 flex-col gap-8 p-4">
+            <div className="flex min-w-0 flex-1 flex-col gap-8 p-4 md:p-6">
                 <header>
                     <h1 className="text-xl font-semibold">
                         {section === 'users'
@@ -63,7 +70,7 @@ export default function AdminIndex({
                             <Users className="size-4" />
                             <h2 className="font-semibold">Users and roles</h2>
                         </div>
-                        <table className="w-full text-sm">
+                        <table className="w-full min-w-[56rem] text-sm">
                             <thead>
                                 <tr className="border-b text-left text-muted-foreground">
                                     <th className="py-2">User</th>
@@ -184,7 +191,7 @@ export default function AdminIndex({
                                 Recent audit trail
                             </h2>
                         </div>
-                        <table className="w-full text-sm">
+                        <table className="w-full min-w-[56rem] text-sm">
                             <thead>
                                 <tr className="border-b text-left text-muted-foreground">
                                     <th className="py-2">When</th>
@@ -195,7 +202,7 @@ export default function AdminIndex({
                                 </tr>
                             </thead>
                             <tbody>
-                                {audits.map((audit) => (
+                                {audits.data.map((audit) => (
                                     <tr
                                         key={audit.id}
                                         className="border-b align-top"
@@ -226,6 +233,13 @@ export default function AdminIndex({
                                 ))}
                             </tbody>
                         </table>
+                        <div className="mt-5">
+                            <PaginationBar
+                                links={audits.links}
+                                total={audits.total}
+                                noun="audit events"
+                            />
+                        </div>
                     </section>
                 ) : null}
             </div>

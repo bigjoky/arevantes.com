@@ -103,6 +103,8 @@ class CatalogController extends Controller
             'city' => ['nullable', 'string', 'max:255'],
             'province' => ['nullable', 'string', 'max:255'],
             'country' => ['required', 'string', 'size:2'],
+            'iban' => ['nullable', 'string', 'max:34'],
+            'bic' => ['nullable', 'string', 'max:11'],
             'payment_terms_days' => ['required', 'integer', 'min:0', 'max:365'],
             'notes' => ['nullable', 'string'],
             'is_active' => ['boolean'],

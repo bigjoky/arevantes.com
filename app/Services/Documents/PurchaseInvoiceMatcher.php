@@ -3,6 +3,7 @@
 namespace App\Services\Documents;
 
 use App\Models\PurchaseDocument;
+use App\Models\PurchaseSetting;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
 
@@ -48,6 +49,7 @@ class PurchaseInvoiceMatcher
                 'subtotal' => $base,
                 'tax_amount' => $tax,
                 'total' => $base + $tax,
+                'expected_total' => $expectedBase + $expectedTax,
                 'quantity_variance' => round(max(0, $quantity - (float) $progress['pending_quantity']), 3),
                 'price_variance' => round($unitPrice - (float) $line->unit_price, 2),
                 'amount_variance' => round(($base + $tax) - ($expectedBase + $expectedTax), 2),
@@ -64,21 +66,25 @@ class PurchaseInvoiceMatcher
         }
 
         $shippingVariance = round($shippingCost - $expectedShippingCost, 2);
-        $shippingTax = round($shippingCost * 0.21 + 1e-9, 2);
-        $hasVariance = abs($shippingVariance) > 0.005 || $lines->contains(fn (array $line) => abs($line['quantity_variance']) > 0.0005 || abs($line['price_variance']) > 0.005);
+        $settings = PurchaseSetting::current();
+        $shippingTaxRate = (float) $settings->shipping_tax_percent;
+        $shippingTax = round($shippingCost * $shippingTaxRate / 100 + 1e-9, 2);
+        $hasVariance = $this->exceedsTolerance($shippingVariance, $expectedShippingCost, $settings)
+            || $lines->contains(fn (array $line) => abs($line['quantity_variance']) > 0.0005
+                || $this->exceedsTolerance($line['amount_variance'], ($line['total'] ?? 0) - $line['amount_variance'], $settings));
         $lineSubtotal = round((float) $lines->sum('subtotal'), 2);
         $lineTax = round((float) $lines->sum('tax_amount'), 2);
 
         return [
             'matching_status' => $hasVariance ? 'review_required' : 'matched',
-            'variance_amount' => round((float) $lines->sum('amount_variance') + $shippingVariance * 1.21, 2),
+            'variance_amount' => round((float) $lines->sum('amount_variance') + $shippingVariance * (1 + $shippingTaxRate / 100), 2),
             'totals' => [
                 'subtotal' => round($lineSubtotal + $shippingCost, 2),
                 'tax_amount' => round($lineTax + $shippingTax, 2),
                 'shipping_cost' => $shippingCost,
                 'amount' => round($lineSubtotal + $shippingCost + $lineTax + $shippingTax, 2),
             ],
-            'lines' => $lines->map(fn (array $line) => collect($line)->except(['quantity_variance', 'price_variance', 'amount_variance'])->all())->all(),
+            'lines' => $lines->map(fn (array $line) => collect($line)->except(['quantity_variance', 'price_variance', 'amount_variance', 'expected_total'])->all())->all(),
         ];
     }
 
@@ -184,5 +190,15 @@ class PurchaseInvoiceMatcher
                 'price_variance' => round((float) $line->unit_price - (float) ($orderLine?->unit_price ?? 0), 2),
             ];
         });
+    }
+
+    private function exceedsTolerance(float $variance, float $expectedAmount, PurchaseSetting $settings): bool
+    {
+        $allowed = max(
+            (float) $settings->matching_amount_tolerance,
+            abs($expectedAmount) * (float) $settings->matching_percent_tolerance / 100,
+        );
+
+        return abs($variance) > $allowed + 0.005;
     }
 }

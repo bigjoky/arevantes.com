@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Inertia\Middleware;
 
 class HandleInertiaRequests extends Middleware
@@ -40,6 +41,12 @@ class HandleInertiaRequests extends Middleware
             'name' => config('app.name'),
             'auth' => [
                 'user' => $request->user(),
+                'abilities' => fn () => $request->user() ? [
+                    'managePurchases' => Gate::allows('manage-purchases'),
+                    'receivePurchases' => Gate::allows('receive-purchases'),
+                    'approvePurchaseInvoices' => Gate::allows('approve-purchase-invoices'),
+                    'managePurchaseSettings' => Gate::allows('manage-staff'),
+                ] : [],
                 'notifications' => fn () => $request->user()?->unreadNotifications()->latest()->limit(5)->get()->map(fn ($notification) => [
                     'id' => $notification->id,
                     'message' => $notification->data['message'] ?? __('New notification'),

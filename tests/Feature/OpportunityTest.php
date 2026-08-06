@@ -3,8 +3,10 @@
 namespace Tests\Feature;
 
 use App\Jobs\GeocodeInstallation;
+use App\Models\CrmActivity;
 use App\Models\Installation;
 use App\Models\Opportunity;
+use App\Models\OpportunityStageHistory;
 use App\Models\Person;
 use App\Models\Product;
 use App\Models\Quote;
@@ -37,7 +39,7 @@ class OpportunityTest extends TestCase
             'probability' => 25,
             'estimated_value' => 15000,
             'expected_close_on' => today()->addMonth()->toDateString(),
-            'source' => 'Referral',
+            'source' => 'referral',
         ])->assertRedirect();
 
         $opportunity = Opportunity::firstOrFail();
@@ -63,7 +65,25 @@ class OpportunityTest extends TestCase
 
         $this->assertDatabaseHas('opportunities', ['id' => $opportunity->id, 'stage' => 'won', 'probability' => 100]);
         $this->delete(route('opportunities.destroy', $opportunity))->assertRedirect();
-        $this->assertDatabaseMissing('opportunities', ['id' => $opportunity->id]);
+        $this->assertSoftDeleted('opportunities', ['id' => $opportunity->id]);
+        $this->get(route('opportunities.index', ['archived' => 1]))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('opportunities', 1)
+                ->where('opportunities.0.id', $opportunity->id));
+        $this->post(route('opportunities.restore', $opportunity->id))->assertRedirect(route('opportunities.index'));
+        $this->assertDatabaseHas('opportunities', ['id' => $opportunity->id, 'deleted_at' => null]);
+        $this->assertSame(
+            [
+                ['from_stage' => null, 'to_stage' => 'qualified'],
+                ['from_stage' => 'qualified', 'to_stage' => 'won'],
+            ],
+            OpportunityStageHistory::query()
+                ->where('opportunity_id', $opportunity->id)
+                ->oldest('id')
+                ->get(['from_stage', 'to_stage'])
+                ->toArray(),
+        );
     }
 
     public function test_opportunity_rejects_an_installation_from_another_customer(): void
@@ -99,11 +119,134 @@ class OpportunityTest extends TestCase
         ])->assertSessionHasErrors('lost_reason');
     }
 
+    public function test_other_source_and_loss_reason_preserve_their_details(): void
+    {
+        $user = User::factory()->create(['role' => 'commercial']);
+        $customer = Person::create(['category' => 'customer', 'first_name' => 'Ana']);
+        $payload = [
+            'person_id' => $customer->id,
+            'title' => 'Custom source lead',
+            'stage' => 'lost',
+            'probability' => 0,
+            'estimated_value' => 1000,
+            'source' => 'other',
+            'lost_reason' => 'other',
+        ];
+
+        $this->actingAs($user)->post(route('opportunities.store'), $payload)
+            ->assertSessionHasErrors(['source_detail', 'lost_reason_detail']);
+
+        $this->post(route('opportunities.store'), [
+            ...$payload,
+            'source_detail' => 'Feria local',
+            'lost_reason_detail' => 'Proyecto aplazado por licencia',
+        ])->assertRedirect();
+
+        $this->assertDatabaseHas('opportunities', [
+            'source' => 'other',
+            'source_detail' => 'Feria local',
+            'lost_reason' => 'other',
+            'lost_reason_detail' => 'Proyecto aplazado por licencia',
+        ]);
+    }
+
     public function test_technician_cannot_access_opportunities(): void
     {
         $user = User::factory()->create(['role' => 'technician']);
 
         $this->actingAs($user)->get(route('opportunities.index'))->assertForbidden();
+    }
+
+    public function test_commercial_user_can_schedule_and_filter_next_actions(): void
+    {
+        $user = User::factory()->create(['role' => 'commercial']);
+        $otherUser = User::factory()->create(['role' => 'commercial']);
+        $customer = Person::create(['category' => 'customer', 'first_name' => 'Ana']);
+        $opportunity = Opportunity::create([
+            'person_id' => $customer->id,
+            'owner_user_id' => $user->id,
+            'code' => 'OPP-ACTION-1',
+            'title' => 'Solar follow-up',
+            'stage' => 'qualified',
+            'probability' => 25,
+            'estimated_value' => 5000,
+        ]);
+        Opportunity::create([
+            'person_id' => $customer->id,
+            'owner_user_id' => $otherUser->id,
+            'code' => 'OPP-OTHER-1',
+            'title' => 'Other owner',
+            'stage' => 'new',
+            'probability' => 10,
+            'estimated_value' => 1000,
+        ]);
+
+        $this->actingAs($user)->post(route('opportunities.activities.store', $opportunity), [
+            'assigned_user_id' => $user->id,
+            'type' => 'call',
+            'title' => 'Call customer',
+            'priority' => 'high',
+            'due_at' => now()->addDay()->format('Y-m-d H:i:s'),
+        ])->assertRedirect();
+
+        $activity = CrmActivity::firstWhere('opportunity_id', $opportunity->id);
+        $this->assertNotNull($activity);
+        $this->assertSame($customer->id, $activity->person_id);
+
+        $this->get(route('opportunities.index', ['owner' => 'me', 'search' => 'follow-up']))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('opportunities', 1)
+                ->where('opportunities.0.id', $opportunity->id)
+                ->where('opportunities.0.next_activity.title', 'Call customer')
+                ->where('filters.owner', 'me'));
+
+        $this->get(route('opportunities.index', ['attention' => 'no_action']))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('opportunities', 1)
+                ->where('opportunities.0.code', 'OPP-OTHER-1'));
+    }
+
+    public function test_pipeline_metrics_use_the_selected_commercial_period(): void
+    {
+        $user = User::factory()->create(['role' => 'commercial']);
+        $customer = Person::create(['category' => 'customer', 'first_name' => 'Ana']);
+
+        $this->travelTo(now()->subDays(40));
+        $won = Opportunity::create([
+            'person_id' => $customer->id,
+            'owner_user_id' => $user->id,
+            'code' => 'OPP-METRIC-WON',
+            'title' => 'Won project',
+            'stage' => 'new',
+            'probability' => 10,
+            'estimated_value' => 12000,
+        ]);
+        $lost = Opportunity::create([
+            'person_id' => $customer->id,
+            'owner_user_id' => $user->id,
+            'code' => 'OPP-METRIC-LOST',
+            'title' => 'Lost project',
+            'stage' => 'new',
+            'probability' => 10,
+            'estimated_value' => 4000,
+        ]);
+        $this->travelBack();
+
+        $won->update(['stage' => 'won', 'probability' => 100]);
+        $lost->update(['stage' => 'lost', 'probability' => 0, 'lost_reason' => 'price']);
+
+        $this->actingAs($user)->get(route('opportunities.index', ['period' => '30']))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('metrics.won_value', 12000)
+                ->where('metrics.new_leads', 0)
+                ->where('metrics.won_count', 1)
+                ->where('metrics.lost_count', 1)
+                ->where('metrics.conversion_rate', 50)
+                ->where('metrics.average_cycle_days', 40)
+                ->where('filters.period', '30'));
     }
 
     public function test_opportunity_can_prepare_one_quote_and_sync_its_result(): void

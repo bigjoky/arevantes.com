@@ -37,9 +37,17 @@ type Document = {
     number: string;
     status: string;
     issue_date: string;
+    expected_delivery_date: string | null;
     amount: string;
     supplier: { legal_name: string; trade_name: string | null };
     sales_order: { id: number; number: string } | null;
+};
+type Page<T> = {
+    data: T[];
+    links: { url: string | null; label: string; active: boolean }[];
+    from: number | null;
+    to: number | null;
+    total: number;
 };
 type Line = {
     product_id: string;
@@ -52,17 +60,34 @@ type Line = {
 export default function PurchasesIndex({
     documents,
     counts,
+    attention,
+    filters,
+    settings,
     suppliers,
     products,
 }: {
-    documents: Document[];
+    documents: Page<Document>;
     counts: Record<string, number>;
+    attention: { late: number; receiving: number; review: number };
+    filters: { search?: string; type?: string; status?: string };
+    settings: {
+        matching_amount_tolerance: string;
+        matching_percent_tolerance: string;
+        shipping_tax_percent: string;
+    };
     suppliers: Supplier[];
     products: Product[];
 }) {
+    const page = usePage<{
+        auth: {
+            abilities: {
+                managePurchases: boolean;
+                managePurchaseSettings: boolean;
+            };
+        };
+    }>();
     const quickCreate =
-        new URLSearchParams(usePage().url.split('?')[1] || '').get('create') ===
-        '1';
+        new URLSearchParams(page.url.split('?')[1] || '').get('create') === '1';
 
     return (
         <>
@@ -76,11 +101,13 @@ export default function PurchasesIndex({
                             returns.
                         </p>
                     </div>
-                    <PurchaseDialog
-                        suppliers={suppliers}
-                        products={products}
-                        initialOpen={quickCreate}
-                    />
+                    {page.props.auth.abilities.managePurchases && (
+                        <PurchaseDialog
+                            suppliers={suppliers}
+                            products={products}
+                            initialOpen={quickCreate}
+                        />
+                    )}
                 </header>
                 <section className="grid grid-cols-2 border-y sm:grid-cols-4">
                     {[
@@ -99,6 +126,93 @@ export default function PurchasesIndex({
                         </div>
                     ))}
                 </section>
+                <section className="grid gap-3 sm:grid-cols-3">
+                    {[
+                        ['late', 'Late orders', attention.late],
+                        ['receiving', 'Awaiting receipt', attention.receiving],
+                        ['review', 'Invoices to review', attention.review],
+                    ].map(([key, label, value]) => (
+                        <Link
+                            key={String(key)}
+                            href={`/purchases?attention=${key}`}
+                            className="border p-4 transition-colors hover:bg-muted/40"
+                        >
+                            <div className="text-sm text-muted-foreground">
+                                {label}
+                            </div>
+                            <div className="mt-1 text-2xl font-semibold">
+                                {value}
+                            </div>
+                        </Link>
+                    ))}
+                </section>
+                <Form
+                    action="/purchases"
+                    method="get"
+                    className="grid gap-3 border-y py-4 md:grid-cols-[2fr_1fr_1fr_auto]"
+                >
+                    <Input
+                        name="search"
+                        defaultValue={filters.search}
+                        placeholder="Search number or supplier"
+                    />
+                    <select
+                        name="type"
+                        defaultValue={filters.type || ''}
+                        className="h-9 border bg-transparent px-3 text-sm"
+                    >
+                        <option value="">All document types</option>
+                        <option value="purchase_rfq">Requests</option>
+                        <option value="purchase_order">Orders</option>
+                        <option value="supplier_invoice">Invoices</option>
+                        <option value="supplier_credit_note">Credits</option>
+                    </select>
+                    <Input
+                        name="status"
+                        defaultValue={filters.status}
+                        placeholder="Status"
+                    />
+                    <div className="flex gap-2">
+                        <Button type="submit" variant="outline">
+                            Filter
+                        </Button>
+                        <Button variant="ghost" asChild>
+                            <Link href="/purchases">Clear</Link>
+                        </Button>
+                    </div>
+                </Form>
+                {page.props.auth.abilities.managePurchaseSettings && (
+                    <details className="border p-4">
+                        <summary className="cursor-pointer font-medium">
+                            Matching and tax settings
+                        </summary>
+                        <Form
+                            action="/purchase-settings"
+                            method="patch"
+                            className="mt-4 grid gap-4 sm:grid-cols-4"
+                        >
+                            <Field
+                                label="Amount tolerance"
+                                name="matching_amount_tolerance"
+                                type="number"
+                                value={settings.matching_amount_tolerance}
+                            />
+                            <Field
+                                label="Percent tolerance"
+                                name="matching_percent_tolerance"
+                                type="number"
+                                value={settings.matching_percent_tolerance}
+                            />
+                            <Field
+                                label="Transport tax percent"
+                                name="shipping_tax_percent"
+                                type="number"
+                                value={settings.shipping_tax_percent}
+                            />
+                            <Button className="self-end">Save settings</Button>
+                        </Form>
+                    </details>
+                )}
                 <section className="overflow-x-auto">
                     <table className="w-full min-w-[48rem] text-sm">
                         <thead>
@@ -109,11 +223,12 @@ export default function PurchasesIndex({
                                 <th>Sales order</th>
                                 <th>Date</th>
                                 <th>Status</th>
+                                <th>Expected</th>
                                 <th className="text-right">Total</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {documents.map((document) => (
+                            {documents.data.map((document) => (
                                 <tr key={document.id} className="border-b">
                                     <td className="py-3 font-medium">
                                         <Link
@@ -148,6 +263,13 @@ export default function PurchasesIndex({
                                             {document.status}
                                         </Badge>
                                     </td>
+                                    <td>
+                                        {document.expected_delivery_date
+                                            ? date(
+                                                  document.expected_delivery_date,
+                                              )
+                                            : '—'}
+                                    </td>
                                     <td className="text-right font-medium">
                                         {money(document.amount)}
                                     </td>
@@ -155,13 +277,42 @@ export default function PurchasesIndex({
                             ))}
                         </tbody>
                     </table>
-                    {documents.length === 0 && (
+                    {documents.data.length === 0 && (
                         <div className="flex flex-col items-center gap-2 py-12 text-sm text-muted-foreground">
                             <ShoppingCart className="size-6" />
                             No purchase documents yet.
                         </div>
                     )}
                 </section>
+                {documents.links.length > 3 && (
+                    <nav className="flex flex-wrap items-center justify-between gap-3 text-sm">
+                        <span className="text-muted-foreground">
+                            {documents.from ?? 0}–{documents.to ?? 0} of{' '}
+                            {documents.total}
+                        </span>
+                        <div className="flex flex-wrap gap-1">
+                            {documents.links.map((link, index) =>
+                                link.url ? (
+                                    <Button
+                                        key={index}
+                                        size="sm"
+                                        variant={
+                                            link.active ? 'default' : 'outline'
+                                        }
+                                        asChild
+                                    >
+                                        <Link
+                                            href={link.url}
+                                            dangerouslySetInnerHTML={{
+                                                __html: link.label,
+                                            }}
+                                        />
+                                    </Button>
+                                ) : null,
+                            )}
+                        </div>
+                    </nav>
+                )}
             </div>
         </>
     );
@@ -227,7 +378,13 @@ function PurchaseDialog({
                             error={errors.issue_date}
                         />
                         <Field
-                            label="Transport cost (before tax, VAT 21%)"
+                            label="Expected delivery"
+                            name="expected_delivery_date"
+                            type="date"
+                            error={errors.expected_delivery_date}
+                        />
+                        <Field
+                            label="Transport cost (before tax)"
                             name="shipping_cost"
                             type="number"
                             value="0"
@@ -307,9 +464,7 @@ function PurchaseDialog({
                                                 update(i, { description: v })
                                             }
                                             error={
-                                                errors[
-                                                    `lines.${i}.description`
-                                                ]
+                                                errors[`lines.${i}.description`]
                                             }
                                         />
                                         <Cell
@@ -331,9 +486,7 @@ function PurchaseDialog({
                                                 update(i, { unit_price: v })
                                             }
                                             error={
-                                                errors[
-                                                    `lines.${i}.unit_price`
-                                                ]
+                                                errors[`lines.${i}.unit_price`]
                                             }
                                         />
                                         <Cell
@@ -359,9 +512,7 @@ function PurchaseDialog({
                                                 update(i, { tax_percent: v })
                                             }
                                             error={
-                                                errors[
-                                                    `lines.${i}.tax_percent`
-                                                ]
+                                                errors[`lines.${i}.tax_percent`]
                                             }
                                         />
                                         <td className="p-2">

@@ -66,7 +66,7 @@ export default function PurchaseComparison({
                                 : `Procurement round ${batch.slice(0, 8)}`}
                         </p>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2">
                         {salesOrder && (
                             <Button variant="outline" asChild>
                                 <Link href={`/sales/${salesOrder.id}`}>
@@ -221,7 +221,7 @@ export default function PurchaseComparison({
                                                 )}
                                             />
                                             <Field
-                                                label="Transport cost (before tax, VAT 21%)"
+                                                label="Transport cost (before tax)"
                                                 name="shipping_cost"
                                                 type="number"
                                                 step="0.01"

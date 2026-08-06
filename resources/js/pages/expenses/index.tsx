@@ -21,6 +21,11 @@ import {
 } from '@/components/ui/select';
 type Category = { id: number; name: string };
 type Supplier = { id: number; legal_name: string; trade_name: string | null };
+type Installation = {
+    id: number;
+    project_reference: string | null;
+    site_name: string | null;
+};
 type Expense = {
     id: number;
     number: string;
@@ -50,12 +55,14 @@ export default function ExpensesIndex({
     supplierInvoices,
     categories,
     suppliers,
+    installations,
     summary,
 }: {
     expenses: Expense[];
     supplierInvoices: Invoice[];
     categories: Category[];
     suppliers: Supplier[];
+    installations: Installation[];
     summary: {
         pending: number;
         paidThisMonth: number;
@@ -84,6 +91,7 @@ export default function ExpensesIndex({
                         <ExpenseDialog
                             categories={categories}
                             suppliers={suppliers}
+                            installations={installations}
                             initialOpen={quickCreate}
                         />
                     )}
@@ -245,10 +253,12 @@ export default function ExpensesIndex({
 function ExpenseDialog({
     categories,
     suppliers,
+    installations,
     initialOpen = false,
 }: {
     categories: Category[];
     suppliers: Supplier[];
+    installations: Installation[];
     initialOpen?: boolean;
 }) {
     const [open, setOpen] = useState(initialOpen);
@@ -296,6 +306,19 @@ function ExpenseDialog({
                                 ...suppliers.map((s) => [
                                     String(s.id),
                                     s.trade_name || s.legal_name,
+                                ]),
+                            ]}
+                        />
+                        <SelectField
+                            label="Installation (optional)"
+                            name="installation_id"
+                            options={[
+                                ['none', 'No linked installation'],
+                                ...installations.map((installation) => [
+                                    String(installation.id),
+                                    installation.project_reference ||
+                                        installation.site_name ||
+                                        `#${installation.id}`,
                                 ]),
                             ]}
                         />

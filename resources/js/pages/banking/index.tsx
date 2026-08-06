@@ -1,12 +1,15 @@
 import { Form, Head, Link } from '@inertiajs/react';
 import { ArrowLeft, Landmark, Plus, RefreshCw, Upload } from 'lucide-react';
 import { useState } from 'react';
+import { PaginationBar, TableViewport } from '@/components/page-shell';
+import type { PaginationLink } from '@/components/page-shell';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
     Dialog,
     DialogContent,
+    DialogDescription,
     DialogHeader,
     DialogTitle,
     DialogTrigger,
@@ -30,7 +33,13 @@ type Account = {
     is_active: boolean;
     balance: number;
 };
-type Candidate = { value: string; label: string; reference_match: boolean };
+type Candidate = {
+    value: string;
+    label: string;
+    reference_match: boolean;
+    creates_payment: boolean;
+    confidence: number;
+};
 type LedgerAccount = { id: number; code: string; name: string; type: string };
 type StatementImport = {
     id: number;
@@ -76,6 +85,11 @@ type Transaction = {
     } | null;
     transfer: { id: number; reversed_at: string | null } | null;
 };
+type TransactionPage = {
+    data: Transaction[];
+    links: PaginationLink[];
+    total: number;
+};
 export default function BankingIndex({
     accounts,
     selectedAccount,
@@ -84,14 +98,16 @@ export default function BankingIndex({
     ledgerAccounts,
     control,
     summary,
+    filters,
 }: {
     accounts: Account[];
     selectedAccount: Account | null;
-    transactions: Transaction[];
+    transactions: TransactionPage;
     imports: StatementImport[];
     ledgerAccounts: LedgerAccount[];
     control: BankControl | null;
     summary: { pending: number; reconciled: number; pendingAmount: number };
+    filters: { search: string; status: string; from: string; to: string };
 }) {
     return (
         <>
@@ -110,11 +126,11 @@ export default function BankingIndex({
                             Bank reconciliation
                         </h1>
                         <p className="text-sm text-muted-foreground">
-                            Import statements and match bank movements with
-                            recorded payments.
+                            Import statements and reconcile movements directly
+                            with payments or outstanding documents.
                         </p>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2">
                         <Button variant="outline" asChild>
                             <Link href="/finance">
                                 <ArrowLeft /> Finance
@@ -254,7 +270,7 @@ export default function BankingIndex({
                             </Form>
                         </section>
                         {imports.length > 0 && (
-                            <section className="overflow-x-auto">
+                            <TableViewport>
                                 <h2 className="mb-2 text-sm font-semibold">
                                     Recent statement imports
                                 </h2>
@@ -338,9 +354,60 @@ export default function BankingIndex({
                                         ))}
                                     </tbody>
                                 </table>
-                            </section>
+                            </TableViewport>
                         )}
-                        <section className="overflow-x-auto">
+                        <Form
+                            action="/banking"
+                            method="get"
+                            className="grid gap-3 rounded-lg border bg-muted/20 p-3 sm:grid-cols-2 xl:grid-cols-[minmax(14rem,1fr)_10rem_10rem_10rem_auto]"
+                        >
+                            <input
+                                type="hidden"
+                                name="account"
+                                value={selectedAccount.id}
+                            />
+                            <Input
+                                name="search"
+                                defaultValue={filters.search}
+                                placeholder="Search description or reference"
+                            />
+                            <Select
+                                name="status"
+                                defaultValue={filters.status || 'all'}
+                            >
+                                <SelectTrigger>
+                                    <SelectValue placeholder="All statuses" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">
+                                        All statuses
+                                    </SelectItem>
+                                    <SelectItem value="pending">
+                                        Pending
+                                    </SelectItem>
+                                    <SelectItem value="reconciled">
+                                        Reconciled
+                                    </SelectItem>
+                                    <SelectItem value="accounted">
+                                        Accounted
+                                    </SelectItem>
+                                </SelectContent>
+                            </Select>
+                            <Input
+                                name="from"
+                                type="date"
+                                defaultValue={filters.from}
+                                aria-label="From date"
+                            />
+                            <Input
+                                name="to"
+                                type="date"
+                                defaultValue={filters.to}
+                                aria-label="To date"
+                            />
+                            <Button variant="outline">Apply filters</Button>
+                        </Form>
+                        <TableViewport>
                             <table className="w-full min-w-[68rem] text-sm">
                                 <thead>
                                     <tr className="border-b text-left text-muted-foreground">
@@ -353,7 +420,7 @@ export default function BankingIndex({
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {transactions.map((transaction) => (
+                                    {transactions.data.map((transaction) => (
                                         <tr
                                             key={transaction.id}
                                             className="border-b align-top"
@@ -479,6 +546,13 @@ export default function BankingIndex({
                                                                             {candidate.reference_match
                                                                                 ? 'Exact ref · '
                                                                                 : ''}
+                                                                            {candidate.creates_payment
+                                                                                ? 'New payment · '
+                                                                                : ''}
+                                                                            {
+                                                                                candidate.confidence
+                                                                            }
+                                                                            % ·{' '}
                                                                             {
                                                                                 candidate.label
                                                                             }
@@ -517,12 +591,17 @@ export default function BankingIndex({
                                     ))}
                                 </tbody>
                             </table>
-                            {transactions.length === 0 && (
+                            {transactions.data.length === 0 && (
                                 <div className="py-12 text-center text-sm text-muted-foreground">
                                     No bank transactions imported.
                                 </div>
                             )}
-                        </section>
+                        </TableViewport>
+                        <PaginationBar
+                            links={transactions.links}
+                            total={transactions.total}
+                            noun="bank transactions"
+                        />
                     </>
                 )}
             </div>
@@ -542,6 +621,10 @@ function AccountDialog() {
             <DialogContent>
                 <DialogHeader>
                     <DialogTitle>New bank account</DialogTitle>
+                    <DialogDescription>
+                        Add the account used to import and reconcile bank
+                        movements.
+                    </DialogDescription>
                 </DialogHeader>
                 <Form
                     action="/banking/accounts"

@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\CrmActivity;
+use App\Models\CustomerPortalAccess;
 use App\Models\Installation;
 use App\Models\Person;
 use App\Models\Quote;
@@ -52,6 +53,65 @@ class CustomerProfileTest extends TestCase
                 ->where('defaultCustomerId', $customer->id));
     }
 
+    public function test_customer_list_can_be_searched_filtered_and_paginated(): void
+    {
+        $user = User::factory()->create(['role' => 'commercial']);
+        $match = Person::create([
+            'category' => 'customer',
+            'customer_type' => 'business',
+            'first_name' => 'Ana',
+            'company_name' => 'Solar Córdoba SL',
+            'lead_source' => 'Referral',
+        ]);
+        Person::create([
+            'category' => 'customer',
+            'customer_type' => 'residential',
+            'first_name' => 'Luis',
+            'lead_source' => 'Website',
+        ]);
+
+        $this->actingAs($user)->get(route('people.index', [
+            'search' => 'Córdoba',
+            'customer_type' => 'business',
+            'lead_source' => 'Referral',
+        ]))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('people.data.0.id', $match->id)
+                ->has('people.data', 1)
+                ->where('people.total', 1)
+                ->where('filters.customer_type', 'business')
+                ->has('leadSources', 2));
+    }
+
+    public function test_archived_customer_can_be_restored_and_portal_access_is_revoked(): void
+    {
+        $user = User::factory()->create(['role' => 'commercial']);
+        $customer = Person::create(['category' => 'customer', 'first_name' => 'Ana']);
+        $access = CustomerPortalAccess::create([
+            'person_id' => $customer->id,
+            'created_by' => $user->id,
+            'recipient_email' => 'ana@example.test',
+            'token_hash' => hash('sha256', 'portal-token'),
+            'expires_at' => now()->addMonth(),
+        ]);
+
+        $this->actingAs($user)->delete(route('people.destroy', $customer))
+            ->assertRedirect(route('people.index'));
+        $this->assertSoftDeleted('people', ['id' => $customer->id]);
+        $this->assertNotNull($access->refresh()->revoked_at);
+
+        $this->get(route('people.index', ['archived' => 1]))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('people.data', 1)
+                ->where('people.data.0.id', $customer->id));
+
+        $this->post(route('people.restore', $customer->id))
+            ->assertRedirect(route('people.show', $customer->id));
+        $this->assertDatabaseHas('people', ['id' => $customer->id, 'deleted_at' => null]);
+    }
+
     public function test_user_can_log_a_completed_customer_interaction(): void
     {
         $user = User::factory()->create(['role' => 'commercial']);
@@ -72,7 +132,7 @@ class CustomerProfileTest extends TestCase
         $this->assertNotNull($activity->completed_at);
     }
 
-    public function test_technician_operations_page_does_not_receive_quotes(): void
+    public function test_technician_operations_page_only_receives_their_operational_work(): void
     {
         $technician = User::factory()->create(['role' => 'technician']);
         $customer = Person::create(['category' => 'customer', 'first_name' => 'Ana']);
@@ -83,9 +143,9 @@ class CustomerProfileTest extends TestCase
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->component('operations/index')
-                ->where('canManageQuotes', false)
-                ->has('quotes', 0)
-                ->has('activities', 1));
+                ->where('canManage', false)
+                ->has('activities.data', 1)
+                ->where('activities.data.0.title', 'Technical visit'));
     }
 
     public function test_activity_cannot_link_an_installation_from_another_customer(): void

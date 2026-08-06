@@ -128,12 +128,17 @@ class PurchaseTest extends TestCase
         ])->assertStatus(422);
 
         $this->post(route('supplier-invoices.approve', $invoice), [
+            'approval_notes' => 'The creator cannot approve their own variance.',
+        ])->assertForbidden();
+
+        $approver = User::factory()->create(['role' => 'commercial']);
+        $this->actingAs($approver)->post(route('supplier-invoices.approve', $invoice), [
             'approval_notes' => 'Supplier confirmed an urgent price surcharge and the second unit is in transit.',
         ])->assertRedirect();
         $invoice->refresh();
         $this->assertSame('registered', $invoice->status);
         $this->assertSame('approved', $invoice->matching_status);
-        $this->assertSame($user->id, $invoice->approved_by);
+        $this->assertSame($approver->id, $invoice->approved_by);
         $this->assertNotNull($invoice->approved_at);
         $this->assertNotNull($invoice->accountingEntry()->first());
     }

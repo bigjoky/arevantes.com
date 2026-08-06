@@ -2,10 +2,12 @@ import { Link, usePage } from '@inertiajs/react';
 import {
     BriefcaseBusiness,
     Building2,
+    CalendarDays,
     ChartNoAxesCombined,
     LayoutGrid,
     Settings2,
     ShoppingCart,
+    UsersRound,
 } from 'lucide-react';
 import AppLogo from '@/components/app-logo';
 import { NavMain } from '@/components/nav-main';
@@ -27,6 +29,11 @@ export function AppSidebar() {
     const commercial = user.role !== 'technician';
     const items: NavItem[] = [
         { title: 'Dashboard', href: dashboard(), icon: LayoutGrid },
+        {
+            title: 'Mi RR. HH.',
+            href: '/my-human-resources',
+            icon: CalendarDays,
+        },
         ...(commercial
             ? [
                   {
@@ -58,20 +65,58 @@ export function AppSidebar() {
                 { title: 'After-sales', href: '/after-sales' },
             ],
         },
-        ...(commercial
-            ? [
-                  {
-                      title: 'Supply',
-                      href: '/catalog',
-                      icon: ShoppingCart,
-                      children: [
+        ...[
+            {
+                title: 'Supply',
+                href: commercial ? '/catalog' : '/purchases',
+                icon: ShoppingCart,
+                children: commercial
+                    ? [
                           { title: 'Catalog', href: '/catalog' },
                           { title: 'Inventory', href: '/inventory' },
+                          {
+                              title: 'Stock counts',
+                              href: '/inventory/counts',
+                          },
                           { title: 'Document inbox', href: '/purchase-inbox' },
                           { title: 'Purchases', href: '/purchases' },
+                          {
+                              title: 'Order control',
+                              href: '/supply-control',
+                          },
+                          {
+                              title: 'Supply analytics',
+                              href: '/supply-analytics',
+                          },
+                          {
+                              title: 'Supplier intelligence',
+                              href: '/supplier-intelligence',
+                          },
+                          {
+                              title: 'Replenishment',
+                              href: '/replenishment',
+                          },
+                          {
+                              title: 'Quality claims',
+                              href: '/supplier-quality',
+                          },
                           { title: 'Expenses', href: '/expenses' },
+                      ]
+                    : [
+                          { title: 'Purchases', href: '/purchases' },
+                          {
+                              title: 'Order control',
+                              href: '/supply-control',
+                          },
+                          {
+                              title: 'Quality claims',
+                              href: '/supplier-quality',
+                          },
                       ],
-                  },
+            },
+        ],
+        ...(commercial
+            ? [
                   {
                       title: 'Finance',
                       href: '/finance',
@@ -97,14 +142,38 @@ export function AppSidebar() {
         ...(user.role === 'admin'
             ? [
                   {
+                      title: 'Recursos Humanos',
+                      href: '/human-resources',
+                      icon: UsersRound,
+                      children: [
+                          { title: 'Resumen', href: '/human-resources' },
+                          {
+                              title: 'Fichas laborales',
+                              href: '/human-resources/employees',
+                          },
+                          {
+                              title: 'Ausencias',
+                              href: '/human-resources/leave',
+                          },
+                          {
+                              title: 'Tareas y onboarding',
+                              href: '/human-resources/tasks',
+                          },
+                          {
+                              title: 'Departamentos',
+                              href: '/human-resources/departments',
+                          },
+                          { title: 'Equipo y accesos', href: '/staff' },
+                      ],
+                  },
+                  {
                       title: 'Company',
-                      href: '/staff',
+                      href: '/knowledge',
                       icon: Settings2,
                       children: [
-                          { title: 'Staff & access', href: '/staff' },
                           { title: 'Arevia knowledge', href: '/knowledge' },
                           {
-                              title: 'Empresa y fiscalidad',
+                              title: 'Company & fiscal settings',
                               href: '/company-fiscal',
                           },
                           { title: 'Backups', href: '/admin/backups' },

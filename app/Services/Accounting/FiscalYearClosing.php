@@ -17,6 +17,9 @@ class FiscalYearClosing
         if ($year->status !== 'open') {
             throw ValidationException::withMessages(['year' => __('The fiscal year is already closed.')]);
         }
+        if (! $year->ends_on->isBefore(today())) {
+            throw ValidationException::withMessages(['year' => __('A fiscal year cannot be closed before its end date.')]);
+        }
         $this->synchronizer->sync($userId);
 
         DB::transaction(function () use ($year, $userId) {
@@ -43,6 +46,36 @@ class FiscalYearClosing
                 $this->poster->post($year->ends_on->toDateString(), __('Closing entry :year', ['year' => $year->year]), $lines, $userId, 'closing', $year, 'closing');
             }
             $year->update(['status' => 'closed', 'closed_by' => $userId, 'closed_at' => now()]);
+        });
+    }
+
+    public function reopen(FiscalYear $year): void
+    {
+        if ($year->status !== 'closed') {
+            throw ValidationException::withMessages(['year' => __('Only a closed fiscal year can be reopened.')]);
+        }
+        if (FiscalYear::where('year', '>', $year->year)->where('status', 'closed')->exists()) {
+            throw ValidationException::withMessages(['year' => __('Reopen later closed fiscal years first.')]);
+        }
+
+        DB::transaction(function () use ($year) {
+            $year = FiscalYear::lockForUpdate()->findOrFail($year->id);
+            $entries = JournalEntry::whereMorphedTo('source', $year)
+                ->whereIn('entry_kind', ['closing', 'opening'])
+                ->with(['reversal:id,reverses_entry_id', 'fiscalYear:id,status'])
+                ->get()
+                ->sortByDesc(fn (JournalEntry $entry) => $entry->entry_kind === 'opening');
+
+            $blockedOpening = $entries->first(fn (JournalEntry $entry) => $entry->entry_kind === 'opening' && $entry->fiscalYear?->status !== 'open');
+            if ($blockedOpening) {
+                throw ValidationException::withMessages(['year' => __('The following fiscal year must be open before deleting its opening entry.')]);
+            }
+
+            foreach ($entries as $entry) {
+                $entry->reversal?->delete();
+                $entry->delete();
+            }
+            $year->update(['status' => 'open', 'closed_by' => null, 'closed_at' => null]);
         });
     }
 

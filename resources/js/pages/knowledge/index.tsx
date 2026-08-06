@@ -46,7 +46,7 @@ export default function KnowledgeIndex({
     return (
         <>
             <Head title="Knowledge" />
-            <div className="flex flex-1 flex-col gap-8 p-4">
+            <div className="flex min-w-0 flex-1 flex-col gap-8 p-4 md:p-6">
                 <header>
                     <div className="flex items-center gap-2">
                         <BookOpen className="size-5" />

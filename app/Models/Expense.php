@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\MorphOne;
 
 class Expense extends Model
 {
-    protected $fillable = ['expense_category_id', 'supplier_id', 'created_by', 'number', 'type', 'document_number', 'merchant_name', 'expense_date', 'due_date', 'subtotal', 'tax_amount', 'amount', 'paid_amount', 'status', 'notes'];
+    protected $fillable = ['expense_category_id', 'supplier_id', 'installation_id', 'created_by', 'number', 'type', 'document_number', 'merchant_name', 'expense_date', 'due_date', 'subtotal', 'tax_amount', 'amount', 'paid_amount', 'status', 'notes'];
 
     protected function casts(): array
     {
@@ -24,6 +24,11 @@ class Expense extends Model
     public function supplier(): BelongsTo
     {
         return $this->belongsTo(Supplier::class);
+    }
+
+    public function installation(): BelongsTo
+    {
+        return $this->belongsTo(Installation::class);
     }
 
     public function attachments(): HasMany

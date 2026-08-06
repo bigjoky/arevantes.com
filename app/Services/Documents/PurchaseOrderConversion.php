@@ -19,6 +19,7 @@ class PurchaseOrderConversion
             if ($existing) {
                 return $existing;
             }
+            $fromStatus = $request->status;
 
             $issued = $this->numbers->next('purchase_order', now());
             $order = PurchaseDocument::create([
@@ -29,12 +30,14 @@ class PurchaseOrderConversion
                 'sales_document_id' => $request->sales_document_id,
                 'procurement_batch_id' => $request->procurement_batch_id,
                 'supplier_id' => $request->supplier_id,
+                'destination_warehouse_id' => $request->destination_warehouse_id,
                 'document_series_id' => $issued['series']->id,
                 'created_by' => $userId,
                 'number' => $issued['number'],
                 'status' => 'ordered',
                 'issue_date' => now()->toDateString(),
                 'delivery_days' => $request->delivery_days,
+                'expected_delivery_date' => $request->expected_delivery_date,
                 'subtotal' => $request->subtotal,
                 'tax_amount' => $request->tax_amount,
                 'shipping_cost' => $request->shipping_cost,
@@ -45,6 +48,8 @@ class PurchaseOrderConversion
             ]);
             $order->lines()->createMany($request->lines->map(fn ($line) => $line->only(['product_id', 'position', 'description', 'quantity', 'unit_price', 'estimated_unit_price', 'discount_percent', 'tax_percent', 'subtotal', 'tax_amount', 'total']))->all());
             $request->update(['status' => 'accepted', 'is_selected' => true, 'locked_at' => now()]);
+            app(PurchaseWorkflow::class)->record($request, 'converted_to_order', $userId, $fromStatus, 'accepted', ['order' => $order->number]);
+            app(PurchaseWorkflow::class)->record($order, 'created_from_request', $userId, null, 'ordered', ['request' => $request->number]);
             if ($request->procurement_batch_id) {
                 PurchaseDocument::where('type', 'purchase_rfq')
                     ->where('procurement_batch_id', $request->procurement_batch_id)

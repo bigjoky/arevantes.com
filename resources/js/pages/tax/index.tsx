@@ -7,6 +7,7 @@ import {
     Scale,
 } from 'lucide-react';
 import { useState } from 'react';
+import { PageTabs } from '@/components/page-shell';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -121,7 +122,7 @@ export default function TaxIndex({
                             settlement preview.
                         </p>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2">
                         <Button variant="outline" asChild>
                             <Link href="/accounting">
                                 <ArrowLeft /> Accounting
@@ -213,7 +214,7 @@ export default function TaxIndex({
                         }
                     />
                 )}
-                <nav className="flex gap-1 border-b">
+                <PageTabs aria-label="VAT views">
                     {(
                         [
                             ['summary', 'Settlement'],
@@ -230,7 +231,7 @@ export default function TaxIndex({
                             {label}
                         </button>
                     ))}
-                </nav>
+                </PageTabs>
                 {tab === 'summary' && (
                     <SummaryView
                         summary={summary}

@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
 
 class SalesDocument extends Model
@@ -23,7 +24,7 @@ class SalesDocument extends Model
 
     public function customer(): BelongsTo
     {
-        return $this->belongsTo(Person::class, 'person_id');
+        return $this->belongsTo(Person::class, 'person_id')->withTrashed();
     }
 
     public function installation(): BelongsTo
@@ -69,5 +70,10 @@ class SalesDocument extends Model
     public function accountingEntry(): MorphOne
     {
         return $this->morphOne(JournalEntry::class, 'source')->where('event', 'document');
+    }
+
+    public function collectionAction(): HasOne
+    {
+        return $this->hasOne(CollectionAction::class);
     }
 }

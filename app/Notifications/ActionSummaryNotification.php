@@ -37,6 +37,7 @@ class ActionSummaryNotification extends Notification
             'collections' => '{1} :count customer invoice is due or overdue|[2,*] :count customer invoices are due or overdue',
             'payments' => '{1} :count supplier payment is due or overdue|[2,*] :count supplier payments are due or overdue',
             'banking' => '{1} :count bank movement is pending reconciliation|[2,*] :count bank movements are pending reconciliation',
+            'financial_alerts' => '{1} :count financial alert requires attention|[2,*] :count financial alerts require attention',
             default => '{1} :count action requires attention|[2,*] :count actions require attention',
         };
     }

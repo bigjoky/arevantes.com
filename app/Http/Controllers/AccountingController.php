@@ -103,6 +103,7 @@ class AccountingController extends Controller
 
     public function close(Request $request, FiscalYear $fiscalYear, FiscalYearClosing $closing): RedirectResponse
     {
+        $request->validate(['confirmation' => ['required', Rule::in([(string) $fiscalYear->year])]]);
         $closing->close($fiscalYear, $request->user()->id);
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Fiscal year closed with its closing entry.')]);

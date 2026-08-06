@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Fortify\Contracts\PasskeyUser;
@@ -30,6 +31,11 @@ class User extends Authenticatable implements PasskeyUser
     public function staffProfile(): BelongsTo
     {
         return $this->belongsTo(Person::class, 'person_id');
+    }
+
+    public function ownedOpportunities(): HasMany
+    {
+        return $this->hasMany(Opportunity::class, 'owner_user_id');
     }
 
     /**
