@@ -78,6 +78,9 @@ type FinancialProduct = {
     is_active: boolean;
     expires_soon: boolean;
     expired: boolean;
+    next_closing_on: string | null;
+    next_payment_on: string | null;
+    payment_bank_account: { id: number; name: string } | null;
     bank_account: { name: string };
     ledger_account: { code: string; name: string } | null;
     shared_credit_facility: {
@@ -708,6 +711,7 @@ function FinancialProducts({
                     )}
                 />
                 <SharedCreditDialog
+                    accounts={accounts}
                     cards={products.filter(
                         (product) =>
                             product.type === 'credit_card' &&
@@ -757,7 +761,9 @@ function FinancialProducts({
                                     <Badge variant="outline">
                                         {product.type === 'credit_card'
                                             ? 'Credit card'
-                                            : 'Credit facility'}
+                                            : product.linked_cards.length > 0
+                                              ? 'Shared card credit'
+                                              : 'Credit facility'}
                                     </Badge>
                                     {product.expired && (
                                         <Badge variant="destructive">
@@ -847,12 +853,17 @@ function FinancialProducts({
                         </div>
                         <div className="mt-2 flex flex-wrap justify-between gap-2 text-xs text-muted-foreground">
                             <span>{product.utilization}% utilized</span>
-                            <span>
-                                Settlement: {product.bank_account.name}
-                                {product.ledger_account
-                                    ? ` · ${product.ledger_account.code}`
-                                    : ''}
-                            </span>
+                            {!product.shared_credit_facility_id && (
+                                <span>
+                                    {product.linked_cards.length > 0
+                                        ? 'Debit account'
+                                        : 'Settlement'}
+                                    : {product.bank_account.name}
+                                    {product.ledger_account
+                                        ? ` · ${product.ledger_account.code}`
+                                        : ''}
+                                </span>
+                            )}
                             {product.expires_on && (
                                 <span>
                                     Maturity: {date(product.expires_on)}
@@ -867,6 +878,22 @@ function FinancialProducts({
                                 </span>
                             )}
                         </div>
+                        {product.next_closing_on && product.next_payment_on && (
+                            <div className="mt-3 rounded-md bg-muted/60 px-3 py-2 text-xs">
+                                <span className="font-medium">
+                                    {product.shared_credit_facility_id
+                                        ? 'This card feeds the shared receipt'
+                                        : `${product.linked_cards.length} cards feed one shared receipt`}
+                                </span>
+                                <span className="mt-1 block text-muted-foreground">
+                                    Closes {date(product.next_closing_on)} ·
+                                    charged {date(product.next_payment_on)}
+                                    {product.payment_bank_account
+                                        ? ` to ${product.payment_bank_account.name}`
+                                        : ''}
+                                </span>
+                            </div>
+                        )}
                     </article>
                 ))}
                 {products.length === 0 && (
@@ -880,7 +907,13 @@ function FinancialProducts({
     );
 }
 
-function SharedCreditDialog({ cards }: { cards: FinancialProduct[] }) {
+function SharedCreditDialog({
+    cards,
+    accounts,
+}: {
+    cards: FinancialProduct[];
+    accounts: Account[];
+}) {
     const [open, setOpen] = useState(false);
     const [selected, setSelected] = useState<number[]>([]);
     const suggestedLimit = Math.max(
@@ -906,8 +939,9 @@ function SharedCreditDialog({ cards }: { cards: FinancialProduct[] }) {
                 <DialogHeader>
                     <DialogTitle>Create shared card credit</DialogTitle>
                     <DialogDescription>
-                        Select the cards that draw from the same bank limit. The
-                        limit will count only once in treasury.
+                        The cards draw from one limit, close into one monthly
+                        receipt and charge it to your bank account on the chosen
+                        payment day.
                     </DialogDescription>
                 </DialogHeader>
                 <Form
@@ -950,7 +984,48 @@ function SharedCreditDialog({ cards }: { cards: FinancialProduct[] }) {
                                 <ProductField label="Bank reference">
                                     <Input name="contract_reference" />
                                 </ProductField>
+                                <ProductField label="Account charged for the receipt">
+                                    <Select
+                                        name="bank_account_id"
+                                        defaultValue={String(accounts[0]?.id)}
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {accounts.map((account) => (
+                                                <SelectItem
+                                                    key={account.id}
+                                                    value={String(account.id)}
+                                                >
+                                                    {account.name}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </ProductField>
+                                <ProductField label="Receipt charge day">
+                                    <Input
+                                        name="payment_day"
+                                        type="number"
+                                        min="1"
+                                        max="31"
+                                        defaultValue="5"
+                                        required
+                                    />
+                                </ProductField>
                             </div>
+                            <input
+                                type="hidden"
+                                name="billing_day"
+                                value="31"
+                            />
+                            <p className="rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">
+                                Monthly cycle: card charges → month-end close →
+                                one receipt → debit from the selected account.
+                                The intermediate credit is not treated as a bank
+                                account.
+                            </p>
                             <div className="grid gap-2">
                                 <Label>Select at least two cards</Label>
                                 {cards.map((card) => (

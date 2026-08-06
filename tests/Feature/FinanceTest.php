@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\AuditLog;
 use App\Models\BankAccount;
+use App\Models\BankFinancialProduct;
 use App\Models\BankReconciliation;
 use App\Models\CollectionAction;
 use App\Models\CompanyProfile;
@@ -638,5 +639,42 @@ class FinanceTest extends TestCase
         $this->assertSame(900.0, $forecast['openingBalance']);
         $this->assertGreaterThanOrEqual(300, $forecast['weeks']->sum('out'));
         $this->assertSame($forecast['openingBalance'] - $forecast['weeks']->sum('out'), $forecast['closingBalance']);
+    }
+
+    public function test_shared_card_receipt_is_forecast_once_on_its_payment_day(): void
+    {
+        $this->travelTo('2026-08-06');
+        $account = BankAccount::create(['name' => 'Card debit account', 'currency' => 'EUR', 'opening_balance' => 1000, 'is_active' => true]);
+        $facility = BankFinancialProduct::create([
+            'bank_account_id' => $account->id,
+            'type' => 'credit_facility',
+            'name' => 'Shared card credit',
+            'currency' => 'EUR',
+            'credit_limit' => 4800,
+            'used_amount' => 500,
+            'billing_day' => 31,
+            'payment_day' => 5,
+            'is_active' => true,
+        ]);
+        foreach ([300, 200] as $index => $used) {
+            BankFinancialProduct::create([
+                'bank_account_id' => $account->id,
+                'shared_credit_facility_id' => $facility->id,
+                'type' => 'credit_card',
+                'name' => 'Card '.($index + 1),
+                'currency' => 'EUR',
+                'credit_limit' => 4800,
+                'used_amount' => $used,
+                'is_active' => true,
+            ]);
+        }
+
+        $forecast = app(TreasuryForecast::class)->build(2026, 'optimistic');
+        $paymentWeek = $forecast['weeks']->first(fn (array $week) => $week['from'] <= '2026-09-05' && $week['to'] >= '2026-09-05');
+
+        $this->assertNotNull($paymentWeek);
+        $this->assertSame(500.0, $paymentWeek['out']);
+        $this->assertSame(500.0, $forecast['weeks']->sum('out'));
+        $this->assertSame(500.0, $forecast['closingBalance']);
     }
 }

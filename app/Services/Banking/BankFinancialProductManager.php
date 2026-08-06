@@ -28,7 +28,7 @@ class BankFinancialProductManager
 
             $primary = $cards->first();
             $facility = BankFinancialProduct::create([
-                'bank_account_id' => $primary->bank_account_id,
+                'bank_account_id' => $data['bank_account_id'],
                 'ledger_account_id' => $primary->ledger_account_id,
                 'type' => 'credit_facility',
                 'name' => $data['name'],
@@ -38,6 +38,8 @@ class BankFinancialProductManager
                 'credit_limit' => $data['credit_limit'],
                 'used_amount' => $used,
                 'annual_fee' => 0,
+                'billing_day' => $data['billing_day'],
+                'payment_day' => $data['payment_day'],
                 'is_active' => true,
                 'created_by' => $userId,
             ]);
