@@ -2,12 +2,14 @@
 
 namespace Tests\Feature;
 
+use App\Ai\Agents\AreviaChat;
 use App\Models\AiAuditLog;
 use App\Models\Installation;
 use App\Models\KnowledgeDocument;
 use App\Models\User;
 use App\Services\Ai\KnowledgeIndexer;
 use App\Services\Ai\KnowledgeRetriever;
+use App\Services\Ai\KnowledgeSourceLoader;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
@@ -178,5 +180,34 @@ class AreviaKnowledgeGovernanceTest extends TestCase
         $refreshed = $document->fresh();
         $this->assertSame('indexed', $refreshed->status);
         $this->assertTrue($refreshed->stale_at->isFuture());
+    }
+
+    public function test_arevia_chat_reads_a_public_url_supplied_in_the_message(): void
+    {
+        Http::fake([
+            'https://example.com/article' => Http::response('<html><body>Solar maintenance interval is twelve months.</body></html>', 200, ['Content-Type' => 'text/html']),
+        ]);
+        $user = User::factory()->create(['role' => 'commercial']);
+        AreviaChat::fake(['El intervalo indicado es de doce meses [S1].']);
+
+        $response = $this->actingAs($user)->postJson(route('arevia.messages.store'), [
+            'content' => 'Analiza https://example.com/article',
+            'page_url' => '/dashboard',
+        ])->assertAccepted();
+
+        $response->assertJsonPath('conversation.messages.1.sources.0.url', 'https://example.com/article')
+            ->assertJsonPath('conversation.messages.1.sources.0.title', 'example.com');
+        AreviaChat::assertPrompted(fn ($prompt) => $prompt->contains('Solar maintenance interval is twelve months.'));
+    }
+
+    public function test_web_source_loader_follows_a_public_redirect(): void
+    {
+        Http::fake([
+            'https://example.com/start' => Http::response('', 302, ['Location' => '/final']),
+            'https://example.com/final' => Http::response('Final public content.', 200, ['Content-Type' => 'text/plain']),
+        ]);
+
+        $this->assertSame('Final public content.', app(KnowledgeSourceLoader::class)->fromUrl('https://example.com/start'));
+        Http::assertSentCount(2);
     }
 }
