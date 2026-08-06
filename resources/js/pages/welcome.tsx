@@ -1,17 +1,23 @@
 import { Form, Head, Link, usePage } from '@inertiajs/react';
 import {
+    Activity,
     ArrowRight,
+    ArrowUpRight,
     BatteryCharging,
     Check,
     ChevronRight,
     Gauge,
     Leaf,
     MapPin,
+    Menu,
     ShieldCheck,
+    Sparkles,
     Sun,
     Wrench,
+    X,
     Zap,
 } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { dashboard, login } from '@/routes';
 
 const services = [
@@ -68,6 +74,33 @@ const steps = [
     },
 ];
 
+const solutionModes = [
+    {
+        icon: Sun,
+        label: 'Autoconsumo',
+        title: 'Genera tu propia energía',
+        description:
+            'Diseño solar adaptado a la cubierta, los hábitos de consumo y los objetivos de cada proyecto.',
+        accent: 'Producción',
+    },
+    {
+        icon: BatteryCharging,
+        label: 'Movilidad',
+        title: 'Carga cuando más conviene',
+        description:
+            'Recarga y almacenamiento coordinados para aprovechar mejor la energía disponible.',
+        accent: 'Flexibilidad',
+    },
+    {
+        icon: Wrench,
+        label: 'Continuidad',
+        title: 'Rendimiento que permanece',
+        description:
+            'Monitorización y mantenimiento para detectar necesidades y cuidar la instalación a largo plazo.',
+        accent: 'Seguimiento',
+    },
+];
+
 const siteUrl = 'https://www.arevantes.com';
 const siteDescription =
     'Arevantes diseña, instala y mantiene soluciones fotovoltaicas, eléctricas y de recarga en Córdoba y Andalucía.';
@@ -75,6 +108,26 @@ const siteDescription =
 export default function Welcome() {
     const { auth } = usePage().props;
     const privateArea = auth.user ? dashboard() : login();
+    const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const [activeModeIndex, setActiveModeIndex] = useState(0);
+    const activeMode = solutionModes[activeModeIndex];
+    const ActiveModeIcon = activeMode.icon;
+
+    useEffect(() => {
+        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+            return;
+        }
+
+        const interval = window.setInterval(() => {
+            setActiveModeIndex(
+                (currentIndex) => (currentIndex + 1) % solutionModes.length,
+            );
+        }, 5000);
+
+        return () => window.clearInterval(interval);
+    }, []);
+
+    const closeMenu = () => setIsMenuOpen(false);
 
     return (
         <>
@@ -134,9 +187,13 @@ export default function Welcome() {
             </Head>
 
             <div className="min-h-screen bg-[#f7f8f4] text-zinc-950 antialiased">
-                <header className="sticky top-0 z-50 border-b border-zinc-200/80 bg-[#f7f8f4]/90 backdrop-blur-xl">
+                <header className="sticky top-0 z-50 border-b border-zinc-200/70 bg-[#f7f8f4]/85 backdrop-blur-2xl">
                     <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-5 sm:px-8 lg:px-10">
-                        <a href="#inicio" aria-label="Arevantes, inicio">
+                        <a
+                            href="#inicio"
+                            aria-label="Arevantes, inicio"
+                            onClick={closeMenu}
+                        >
                             <img
                                 src="/brand/arevantes-logo-light.svg"
                                 alt="Arevantes"
@@ -165,14 +222,66 @@ export default function Welcome() {
                             </a>
                         </nav>
 
-                        <Link
-                            href={privateArea}
-                            className="inline-flex items-center gap-2 rounded-full border border-zinc-300 bg-white px-4 py-2 text-sm font-semibold shadow-sm transition hover:border-[#289548] hover:text-[#217a3b]"
-                        >
-                            {auth.user ? 'Ir al panel' : 'Área privada'}
-                            <ChevronRight className="size-4" />
-                        </Link>
+                        <div className="flex items-center gap-2">
+                            <Link
+                                href={privateArea}
+                                className="hidden items-center gap-2 rounded-full border border-zinc-300 bg-white px-4 py-2 text-sm font-semibold shadow-sm transition hover:border-[#289548] hover:text-[#217a3b] sm:inline-flex"
+                            >
+                                {auth.user ? 'Ir al panel' : 'Área privada'}
+                                <ChevronRight className="size-4" />
+                            </Link>
+                            <button
+                                type="button"
+                                className="grid size-11 place-items-center rounded-full border border-zinc-300 bg-white text-zinc-900 shadow-sm transition hover:border-[#289548] hover:text-[#217a3b] md:hidden"
+                                aria-label={
+                                    isMenuOpen
+                                        ? 'Cerrar navegación'
+                                        : 'Abrir navegación'
+                                }
+                                aria-expanded={isMenuOpen}
+                                aria-controls="mobile-navigation"
+                                onClick={() => setIsMenuOpen((open) => !open)}
+                            >
+                                {isMenuOpen ? (
+                                    <X className="size-5" />
+                                ) : (
+                                    <Menu className="size-5" />
+                                )}
+                            </button>
+                        </div>
                     </div>
+
+                    {isMenuOpen && (
+                        <div
+                            id="mobile-navigation"
+                            className="website-menu-enter border-t border-zinc-200/80 bg-[#f7f8f4] px-5 py-5 md:hidden"
+                        >
+                            <nav className="mx-auto grid max-w-7xl gap-1 text-lg font-semibold">
+                                {[
+                                    ['Servicios', '#servicios'],
+                                    ['Cómo trabajamos', '#metodo'],
+                                    ['Contacto', '#contacto'],
+                                ].map(([label, href]) => (
+                                    <a
+                                        key={href}
+                                        href={href}
+                                        onClick={closeMenu}
+                                        className="flex items-center justify-between rounded-2xl px-4 py-3 transition hover:bg-white hover:text-[#217a3b]"
+                                    >
+                                        {label}
+                                        <ArrowUpRight className="size-4" />
+                                    </a>
+                                ))}
+                                <Link
+                                    href={privateArea}
+                                    className="mt-3 inline-flex items-center justify-center gap-2 rounded-full bg-zinc-950 px-5 py-3 text-sm text-white sm:hidden"
+                                >
+                                    {auth.user ? 'Ir al panel' : 'Área privada'}
+                                    <ChevronRight className="size-4" />
+                                </Link>
+                            </nav>
+                        </div>
+                    )}
                 </header>
 
                 <main>
@@ -180,11 +289,11 @@ export default function Welcome() {
                         id="inicio"
                         className="relative isolate overflow-hidden bg-zinc-950 text-white"
                     >
-                        <div className="absolute inset-0 -z-20 bg-[radial-gradient(circle_at_78%_28%,rgba(40,149,72,0.28),transparent_34%),radial-gradient(circle_at_15%_85%,rgba(135,181,80,0.14),transparent_30%)]" />
+                        <div className="website-aurora absolute inset-0 -z-20 bg-[radial-gradient(circle_at_78%_28%,rgba(40,149,72,0.30),transparent_34%),radial-gradient(circle_at_15%_85%,rgba(135,181,80,0.16),transparent_30%)]" />
                         <div className="absolute inset-0 -z-10 [background-image:linear-gradient(rgba(255,255,255,.6)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.6)_1px,transparent_1px)] [background-size:56px_56px] opacity-[0.08]" />
 
-                        <div className="mx-auto grid min-h-[calc(100svh-5rem)] max-w-7xl items-center gap-16 px-5 py-20 sm:px-8 lg:grid-cols-[1.08fr_.92fr] lg:px-10 lg:py-24">
-                            <div className="max-w-3xl">
+                        <div className="mx-auto grid min-h-[calc(100svh-5rem)] max-w-7xl items-center gap-14 px-5 py-16 sm:px-8 sm:py-20 lg:grid-cols-[1.04fr_.96fr] lg:px-10 lg:py-24">
+                            <div className="website-rise max-w-3xl">
                                 <div className="mb-7 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-4 py-2 text-sm text-zinc-300">
                                     <span className="size-2 rounded-full bg-[#87b550] shadow-[0_0_16px_#87b550]" />
                                     Energía, electricidad y mantenimiento
@@ -204,10 +313,10 @@ export default function Welcome() {
                                 <div className="mt-10 flex flex-col gap-4 sm:flex-row">
                                     <a
                                         href="#contacto"
-                                        className="inline-flex items-center justify-center gap-2 rounded-full bg-[#289548] px-6 py-3.5 font-semibold text-white shadow-[0_14px_40px_rgba(40,149,72,.28)] transition hover:bg-[#237f3e]"
+                                        className="group inline-flex items-center justify-center gap-2 rounded-full bg-[#289548] px-6 py-3.5 font-semibold text-white shadow-[0_14px_40px_rgba(40,149,72,.28)] transition hover:-translate-y-0.5 hover:bg-[#237f3e]"
                                     >
                                         Cuéntanos tu proyecto
-                                        <ArrowRight className="size-5" />
+                                        <ArrowRight className="size-5 transition-transform group-hover:translate-x-1" />
                                     </a>
                                     <a
                                         href="#servicios"
@@ -233,44 +342,109 @@ export default function Welcome() {
                                 </div>
                             </div>
 
-                            <div className="relative mx-auto hidden w-full max-w-xl lg:block">
-                                <div className="absolute -inset-16 rounded-full bg-[#289548]/15 blur-3xl" />
-                                <div className="relative rotate-[-4deg] rounded-[2.25rem] border border-white/15 bg-white/[0.06] p-5 shadow-2xl backdrop-blur-sm">
-                                    <div className="grid aspect-[5/4] grid-cols-4 gap-2 rounded-[1.5rem] bg-gradient-to-br from-[#17231b] to-[#08100b] p-4">
-                                        {Array.from({ length: 16 }).map(
-                                            (_, index) => (
-                                                <div
-                                                    key={index}
-                                                    className="relative overflow-hidden rounded-md border border-[#87b550]/20 bg-gradient-to-br from-[#193824] via-[#102819] to-[#091a10] shadow-inner"
-                                                >
-                                                    <div className="absolute inset-x-0 top-1/2 h-px bg-[#87b550]/20" />
-                                                    <div className="absolute inset-y-0 left-1/2 w-px bg-[#87b550]/15" />
-                                                    <div className="absolute -top-5 -left-5 size-12 rounded-full bg-white/10 blur-xl" />
-                                                </div>
-                                            ),
-                                        )}
+                            <div className="website-rise relative mx-auto w-full max-w-xl [animation-delay:160ms]">
+                                <div className="absolute -inset-12 rounded-full bg-[#289548]/20 blur-3xl" />
+                                <div className="relative overflow-hidden rounded-[2rem] border border-white/15 bg-white/[0.07] p-4 shadow-2xl backdrop-blur-xl sm:p-5">
+                                    <div className="flex items-center justify-between px-1 pb-4">
+                                        <div className="flex items-center gap-2 text-xs font-medium tracking-[0.12em] text-zinc-300 uppercase">
+                                            <Activity className="size-4 text-[#87b550]" />
+                                            Solución conectada
+                                        </div>
+                                        <span className="flex items-center gap-2 rounded-full bg-[#87b550]/10 px-3 py-1 text-xs text-[#b8df8c]">
+                                            <span className="website-status-dot size-1.5 rounded-full bg-[#87b550]" />
+                                            En evolución
+                                        </span>
                                     </div>
-                                    <div className="mt-5 grid grid-cols-2 gap-3">
-                                        <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
-                                            <Gauge className="mb-5 size-5 text-[#87b550]" />
-                                            <p className="text-xs tracking-wide text-zinc-400 uppercase">
-                                                Control
+
+                                    <div className="relative overflow-hidden rounded-[1.5rem] border border-white/10 bg-[#08110c]/80 p-5 sm:p-7">
+                                        <div className="website-energy-orbit absolute -top-16 -right-16 size-52 rounded-full border border-[#87b550]/25" />
+                                        <div className="website-energy-orbit absolute -top-3 -right-3 size-28 rounded-full border border-[#289548]/20 [animation-direction:reverse]" />
+                                        <div
+                                            key={activeMode.label}
+                                            className="website-mode-enter relative min-h-64"
+                                        >
+                                            <div className="flex items-start justify-between gap-6">
+                                                <span className="grid size-14 shrink-0 place-items-center rounded-2xl border border-[#87b550]/25 bg-[#87b550]/10 text-[#a8d878] shadow-[0_0_36px_rgba(135,181,80,.12)]">
+                                                    <ActiveModeIcon className="size-7" />
+                                                </span>
+                                                <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-zinc-300">
+                                                    {activeMode.accent}
+                                                </span>
+                                            </div>
+                                            <p className="mt-10 text-xs font-semibold tracking-[0.16em] text-[#87b550] uppercase">
+                                                {activeMode.label}
                                             </p>
-                                            <p className="mt-1 font-medium">
-                                                Monitorización conectada
+                                            <h2 className="mt-3 max-w-sm text-2xl leading-tight font-semibold tracking-[-0.03em] sm:text-3xl">
+                                                {activeMode.title}
+                                            </h2>
+                                            <p className="mt-3 max-w-md text-sm leading-6 text-zinc-400 sm:text-base">
+                                                {activeMode.description}
+                                            </p>
+                                        </div>
+
+                                        <div className="relative mt-5 grid grid-cols-3 gap-2 border-t border-white/10 pt-5">
+                                            {solutionModes.map(
+                                                (mode, index) => (
+                                                    <button
+                                                        key={mode.label}
+                                                        type="button"
+                                                        onClick={() =>
+                                                            setActiveModeIndex(
+                                                                index,
+                                                            )
+                                                        }
+                                                        aria-pressed={
+                                                            activeModeIndex ===
+                                                            index
+                                                        }
+                                                        className={`rounded-xl px-2 py-2.5 text-xs font-medium transition sm:text-sm ${
+                                                            activeModeIndex ===
+                                                            index
+                                                                ? 'bg-[#289548] text-white shadow-lg'
+                                                                : 'bg-white/5 text-zinc-400 hover:bg-white/10 hover:text-white'
+                                                        }`}
+                                                    >
+                                                        {mode.label}
+                                                    </button>
+                                                ),
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <div className="mt-3 grid grid-cols-2 gap-3">
+                                        <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                                            <Gauge className="mb-4 size-5 text-[#87b550]" />
+                                            <p className="text-sm font-medium">
+                                                Control sencillo
                                             </p>
                                         </div>
                                         <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
-                                            <ShieldCheck className="mb-5 size-5 text-[#87b550]" />
-                                            <p className="text-xs tracking-wide text-zinc-400 uppercase">
-                                                Confianza
-                                            </p>
-                                            <p className="mt-1 font-medium">
-                                                Soporte después de instalar
+                                            <ShieldCheck className="mb-4 size-5 text-[#87b550]" />
+                                            <p className="text-sm font-medium">
+                                                Soporte cercano
                                             </p>
                                         </div>
                                     </div>
                                 </div>
+                            </div>
+                        </div>
+
+                        <div className="border-t border-white/10 bg-black/15">
+                            <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-x-8 gap-y-3 px-5 py-4 text-xs font-medium tracking-[0.13em] text-zinc-400 uppercase sm:px-8 lg:justify-between lg:px-10">
+                                {[
+                                    'Fotovoltaica',
+                                    'Recarga',
+                                    'Electricidad',
+                                    'Mantenimiento',
+                                ].map((item) => (
+                                    <span
+                                        key={item}
+                                        className="flex items-center gap-2"
+                                    >
+                                        <Sparkles className="size-3 text-[#87b550]" />
+                                        {item}
+                                    </span>
+                                ))}
                             </div>
                         </div>
                     </section>
@@ -301,10 +475,11 @@ export default function Welcome() {
                                 {services.map((service, index) => (
                                     <article
                                         key={service.title}
-                                        className="group flex min-h-72 flex-col rounded-[1.75rem] border border-zinc-200 bg-white p-7 shadow-[0_12px_40px_rgba(24,24,27,.04)] transition duration-300 hover:-translate-y-1 hover:border-[#289548]/40 hover:shadow-[0_20px_50px_rgba(40,149,72,.10)]"
+                                        className="group relative flex min-h-72 flex-col overflow-hidden rounded-[1.75rem] border border-zinc-200 bg-white p-7 shadow-[0_12px_40px_rgba(24,24,27,.04)] transition duration-500 hover:-translate-y-2 hover:border-[#289548]/40 hover:shadow-[0_24px_60px_rgba(40,149,72,.12)]"
                                     >
+                                        <div className="absolute -right-16 -bottom-20 size-44 rounded-full bg-[#87b550]/0 blur-2xl transition duration-500 group-hover:bg-[#87b550]/15" />
                                         <div className="flex items-start justify-between">
-                                            <span className="grid size-12 place-items-center rounded-2xl bg-[#eaf5ec] text-[#217a3b]">
+                                            <span className="grid size-12 place-items-center rounded-2xl bg-[#eaf5ec] text-[#217a3b] transition duration-500 group-hover:scale-110 group-hover:rotate-3">
                                                 <service.icon className="size-6" />
                                             </span>
                                             <span className="text-sm text-zinc-400">
@@ -318,6 +493,13 @@ export default function Welcome() {
                                             <p className="mt-3 leading-7 text-zinc-600">
                                                 {service.description}
                                             </p>
+                                            <a
+                                                href="#contacto"
+                                                className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-[#217a3b] opacity-80 transition group-hover:opacity-100"
+                                            >
+                                                Consultar proyecto
+                                                <ArrowUpRight className="size-4 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+                                            </a>
                                         </div>
                                     </article>
                                 ))}
@@ -407,9 +589,9 @@ export default function Welcome() {
                                 {steps.map((step) => (
                                     <article
                                         key={step.number}
-                                        className="bg-white p-7 sm:p-8"
+                                        className="group relative bg-white p-7 transition duration-300 hover:bg-[#f5f9f2] sm:p-8"
                                     >
-                                        <span className="text-sm font-bold text-[#289548]">
+                                        <span className="inline-flex size-9 items-center justify-center rounded-full bg-[#eaf5ec] text-sm font-bold text-[#289548] transition group-hover:bg-[#289548] group-hover:text-white">
                                             {step.number}
                                         </span>
                                         <h3 className="mt-12 text-2xl font-semibold tracking-tight">
