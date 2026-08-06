@@ -42,6 +42,16 @@ type Installation = {
     person_id: number | null;
     customer_name: string | null;
     customer_company: string | null;
+    people: Array<{
+        id: number;
+        name: string;
+        company_name: string | null;
+        email: string | null;
+        phone: string | null;
+        role: string;
+        ownership_percentage: string | null;
+        is_primary: boolean;
+    }>;
     service_type: keyof typeof serviceLabels;
     deye_station_id: string | null;
     deye_station_name: string | null;
@@ -145,6 +155,11 @@ type AssetOptions = {
     }[];
     purchases: { id: number; number: string }[];
 };
+type CustomerOption = {
+    id: number;
+    name: string;
+    company_name: string | null;
+};
 type AiGeneration = {
     uuid: string;
     status: 'queued' | 'processing' | 'completed' | 'failed';
@@ -185,6 +200,7 @@ export default function InstallationShow({
     profitability,
     canManageAssets,
     latestAiGeneration,
+    customers,
 }: {
     installation: Installation;
     monitoringHistory: MonitoringPoint[];
@@ -196,6 +212,7 @@ export default function InstallationShow({
     profitability: Profitability;
     canManageAssets: boolean;
     latestAiGeneration: AiGeneration | null;
+    customers: CustomerOption[];
 }) {
     const { locale } = useLocale();
     const title =
@@ -504,6 +521,163 @@ export default function InstallationShow({
                             title="Technical"
                             items={technicalItems(installation)}
                         />
+                    </CardContent>
+                </Card>
+
+                <Card className="rounded-lg">
+                    <CardHeader>
+                        <CardTitle>Personas vinculadas</CardTitle>
+                        <CardDescription>
+                            Propietarios, copropietarios y contactos autorizados
+                            de esta instalación.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="grid gap-5 lg:grid-cols-[1fr_24rem]">
+                        <div className="divide-y border-y">
+                            {installation.people.map((person) => (
+                                <div
+                                    key={person.id}
+                                    className="flex flex-wrap items-center justify-between gap-3 py-3"
+                                >
+                                    <div className="min-w-0 text-sm">
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            <Link
+                                                href={`/people/${person.id}`}
+                                                className="font-medium hover:underline"
+                                            >
+                                                {person.company_name ||
+                                                    person.name}
+                                            </Link>
+                                            <Badge variant="outline">
+                                                {personRoleLabel(person.role)}
+                                            </Badge>
+                                            {person.is_primary && (
+                                                <Badge>Titular principal</Badge>
+                                            )}
+                                        </div>
+                                        <div className="mt-1 text-xs text-muted-foreground">
+                                            {[
+                                                person.email,
+                                                person.phone,
+                                                person.ownership_percentage
+                                                    ? `${person.ownership_percentage}% propiedad`
+                                                    : null,
+                                            ]
+                                                .filter(Boolean)
+                                                .join(' · ') ||
+                                                'Sin datos de contacto'}
+                                        </div>
+                                    </div>
+                                    {!person.is_primary && (
+                                        <Form
+                                            action={`/installations/${installation.id}/people/${person.id}`}
+                                            method="delete"
+                                        >
+                                            {({ processing }) => (
+                                                <Button
+                                                    size="sm"
+                                                    variant="ghost"
+                                                    disabled={processing}
+                                                >
+                                                    Quitar
+                                                </Button>
+                                            )}
+                                        </Form>
+                                    )}
+                                </div>
+                            ))}
+                            {installation.people.length === 0 && (
+                                <div className="py-6 text-sm text-muted-foreground">
+                                    No hay personas vinculadas.
+                                </div>
+                            )}
+                        </div>
+                        <Form
+                            action={`/installations/${installation.id}/people`}
+                            method="post"
+                            className="grid content-start gap-3 rounded-md border p-4"
+                        >
+                            {({ processing, errors }) => (
+                                <>
+                                    <label className="grid gap-1 text-sm">
+                                        <span className="font-medium">
+                                            Persona
+                                        </span>
+                                        <select
+                                            name="person_id"
+                                            required
+                                            className="h-9 rounded-md border border-input bg-background px-3"
+                                        >
+                                            <option value="">
+                                                Seleccionar cliente
+                                            </option>
+                                            {customers
+                                                .filter(
+                                                    (customer) =>
+                                                        !installation.people.some(
+                                                            (person) =>
+                                                                person.id ===
+                                                                customer.id,
+                                                        ),
+                                                )
+                                                .map((customer) => (
+                                                    <option
+                                                        key={customer.id}
+                                                        value={customer.id}
+                                                    >
+                                                        {customer.company_name ||
+                                                            customer.name}
+                                                    </option>
+                                                ))}
+                                        </select>
+                                        {errors.person_id && (
+                                            <span className="text-xs text-destructive">
+                                                {errors.person_id}
+                                            </span>
+                                        )}
+                                    </label>
+                                    <label className="grid gap-1 text-sm">
+                                        <span className="font-medium">
+                                            Relación
+                                        </span>
+                                        <select
+                                            name="role"
+                                            defaultValue="co_owner"
+                                            className="h-9 rounded-md border border-input bg-background px-3"
+                                        >
+                                            <option value="owner">
+                                                Propietario
+                                            </option>
+                                            <option value="co_owner">
+                                                Copropietario
+                                            </option>
+                                            <option value="tenant">
+                                                Inquilino
+                                            </option>
+                                            <option value="authorized_contact">
+                                                Contacto autorizado
+                                            </option>
+                                        </select>
+                                    </label>
+                                    <label className="grid gap-1 text-sm">
+                                        <span className="font-medium">
+                                            Porcentaje de propiedad (opcional)
+                                        </span>
+                                        <input
+                                            name="ownership_percentage"
+                                            type="number"
+                                            min="0.01"
+                                            max="100"
+                                            step="0.01"
+                                            className="h-9 rounded-md border border-input bg-background px-3"
+                                        />
+                                    </label>
+                                    <Button disabled={processing}>
+                                        Asignar persona
+                                    </Button>
+                                </>
+                            )}
+                        </Form>
                     </CardContent>
                 </Card>
 
@@ -1566,6 +1740,17 @@ function ServiceIcon({ service }: { service: keyof typeof serviceLabels }) {
     const Icon = icons[service];
 
     return <Icon className="size-5 text-muted-foreground" />;
+}
+
+function personRoleLabel(role: string) {
+    return (
+        {
+            owner: 'Propietario',
+            co_owner: 'Copropietario',
+            tenant: 'Inquilino',
+            authorized_contact: 'Contacto autorizado',
+        }[role] || role
+    );
 }
 
 InstallationShow.layout = {

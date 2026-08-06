@@ -24,6 +24,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -54,7 +55,7 @@ class QuoteController extends Controller
 
     public function show(Quote $quote, QuoteBillingPlan $billing): Response
     {
-        $quote->load(['customer', 'installation', 'opportunity:id,code,title', 'lines', 'deliveries:id,quote_id,recipient_email,status,sent_at,first_viewed_at,responded_at,revoked_at']);
+        $quote->load(['customer', 'installation', 'opportunity:id,code,title', 'lines', 'versions', 'deliveries:id,quote_id,recipient_email,status,sent_at,first_viewed_at,responded_at,revoked_at']);
         [$street, $streetNumber] = $this->splitStreetAddress($quote->customer?->address_line_1);
 
         return Inertia::render('quotes/show', [
@@ -87,7 +88,7 @@ class QuoteController extends Controller
         $data = $this->validateDocument($request);
         $quote = DB::transaction(function () use ($request, $data, $calculator, $numbers) {
             $issued = $numbers->next('quote', $data['issue_date']);
-            $quote = $this->persist(new Quote, $data, $calculator, ['number' => $issued['number'], 'document_series_id' => $issued['series']->id, 'created_by' => $request->user()->id]);
+            $quote = $this->persist(new Quote, $data, $calculator, ['number' => $issued['number'], 'version' => 1, 'document_series_id' => $issued['series']->id, 'created_by' => $request->user()->id], $request->user()->id);
             $this->syncOpportunity($quote, $request);
 
             return $quote;
@@ -99,7 +100,7 @@ class QuoteController extends Controller
     public function updateDocument(Request $request, Quote $quote, QuoteCalculator $calculator): RedirectResponse
     {
         abort_unless($quote->status === 'draft', 422, __('Only draft quotes can be edited.'));
-        DB::transaction(fn () => $this->persist($quote, $this->validateDocument($request, $quote), $calculator));
+        DB::transaction(fn () => $this->persist($quote, $this->validateDocument($request, $quote), $calculator, ['version' => $quote->version + 1], $request->user()->id));
 
         return to_route('quotes.show', $quote)->with('toast', ['type' => 'success', 'message' => __('Quote updated.')]);
     }
@@ -107,6 +108,9 @@ class QuoteController extends Controller
     public function updateStatus(Request $request, Quote $quote, QuoteStatusWorkflow $workflow): RedirectResponse
     {
         $data = $request->validate(['status' => ['required', Rule::in(['draft', 'sent', 'accepted', 'rejected', 'expired'])]]);
+        if (in_array($data['status'], ['sent', 'accepted'], true) && $quote->approval_status === 'pending') {
+            throw ValidationException::withMessages(['status' => __('This quote requires commercial approval before it can be sent or accepted.')]);
+        }
         $workflow->apply($quote, $data['status']);
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Quote updated.')]);
@@ -117,6 +121,21 @@ class QuoteController extends Controller
         $quote->delete();
 
         return to_route('operations.index')->with('toast', ['type' => 'success', 'message' => __('Quote deleted.')]);
+    }
+
+    public function approve(Request $request, Quote $quote): RedirectResponse
+    {
+        $data = $request->validate(['decision' => ['required', Rule::in(['approved', 'rejected'])], 'approval_notes' => ['nullable', 'string', 'max:2000']]);
+        abort_unless($quote->approval_status === 'pending', 422, __('This quote is not pending approval.'));
+
+        $quote->update([
+            'approval_status' => $data['decision'],
+            'approved_by' => $request->user()->id,
+            'approved_at' => now(),
+            'approval_notes' => $data['approval_notes'] ?? null,
+        ]);
+
+        return back()->with('toast', ['type' => 'success', 'message' => __('Approval decision recorded.')]);
     }
 
     public function startProject(Request $request, Quote $quote, ChecklistTemplate $template, TechnicianSchedule $schedule, ProjectMaterialPlanner $materials): RedirectResponse
@@ -230,7 +249,7 @@ class QuoteController extends Controller
         ]);
     }
 
-    private function persist(Quote $quote, array $data, QuoteCalculator $calculator, array $extra = []): Quote
+    private function persist(Quote $quote, array $data, QuoteCalculator $calculator, array $extra = [], ?int $actorId = null): Quote
     {
         $installation = isset($data['installation_id']) ? Installation::find($data['installation_id']) : null;
         abort_if($installation?->person_id && $installation->person_id !== (int) $data['person_id'], 422, __('The installation does not belong to the selected customer.'));
@@ -238,10 +257,30 @@ class QuoteController extends Controller
         $opportunity = isset($data['opportunity_id']) ? Opportunity::find($data['opportunity_id']) : null;
         abort_if($opportunity && ((int) $opportunity->person_id !== (int) $data['person_id'] || ($opportunity->installation_id && (int) $opportunity->installation_id !== (int) ($data['installation_id'] ?? 0))), 422, __('The quote does not match the selected opportunity.'));
         $totals = $calculator->calculate($data['lines']);
+        $productCosts = Product::whereIn('id', collect($data['lines'])->pluck('product_id')->filter())->pluck('cost_price', 'id');
+        $cost = collect($data['lines'])->sum(fn (array $line) => (float) ($productCosts[$line['product_id'] ?? 0] ?? 0) * (float) $line['quantity']);
+        $netRevenue = (float) $totals['subtotal'] - (float) $totals['discount_amount'];
+        $margin = round($netRevenue - $cost, 2);
+        $marginPercent = $netRevenue > 0 ? $margin / $netRevenue * 100 : 0;
+        $maxDiscount = (float) collect($data['lines'])->max('discount_percent');
+        $approval = config('crm.quote_approval');
+        $requiresApproval = (float) $totals['amount'] >= $approval['amount_threshold']
+            || $maxDiscount >= $approval['discount_threshold']
+            || $marginPercent < $approval['margin_threshold'];
         unset($data['lines']);
-        $quote->fill([...$data, ...$extra, ...array_diff_key($totals, ['lines' => true]), 'customer_snapshot' => $customer->only(['first_name', 'last_name', 'company_name', 'tax_id', 'document_number', 'billing_email', 'email', 'address_line_1', 'address_line_2', 'postal_code', 'city', 'province_state', 'country'])])->save();
+        $quote->fill([...$data, ...$extra, ...array_diff_key($totals, ['lines' => true]), 'expected_margin_amount' => $margin, 'approval_status' => $requiresApproval ? 'pending' : 'not_required', 'approved_by' => null, 'approved_at' => null, 'approval_notes' => null, 'customer_snapshot' => $customer->only(['first_name', 'last_name', 'company_name', 'tax_id', 'document_number', 'billing_email', 'email', 'address_line_1', 'address_line_2', 'postal_code', 'city', 'province_state', 'country'])])->save();
         $quote->lines()->delete();
         $quote->lines()->createMany($totals['lines']);
+        $quote->versions()->updateOrCreate(['version' => $quote->version], [
+            'created_by' => $actorId,
+            'subtotal' => $quote->subtotal,
+            'discount_amount' => $quote->discount_amount,
+            'tax_amount' => $quote->tax_amount,
+            'amount' => $quote->amount,
+            'expected_margin_amount' => $quote->expected_margin_amount,
+            'lines' => $totals['lines'],
+            'notes' => $quote->notes,
+        ]);
 
         return $quote;
     }

@@ -30,7 +30,7 @@ class InstallationController extends Controller
         ]);
 
         $installations = Installation::query()
-            ->with(['customer:id,first_name,last_name,company_name', 'remoteStation'])
+            ->with(['customer:id,first_name,last_name,company_name', 'people:id,first_name,last_name,company_name,email,phone', 'remoteStation'])
             ->when($filters['search'] ?? null, function ($query, string $search): void {
                 $query->where(function ($query) use ($search): void {
                     $query
@@ -38,6 +38,10 @@ class InstallationController extends Controller
                         ->orWhere('site_name', 'like', "%{$search}%")
                         ->orWhere('site_address_line_1', 'like', "%{$search}%")
                         ->orWhereHas('customer', fn ($query) => $query
+                            ->where('first_name', 'like', "%{$search}%")
+                            ->orWhere('last_name', 'like', "%{$search}%")
+                            ->orWhere('company_name', 'like', "%{$search}%"))
+                        ->orWhereHas('people', fn ($query) => $query
                             ->where('first_name', 'like', "%{$search}%")
                             ->orWhere('last_name', 'like', "%{$search}%")
                             ->orWhere('company_name', 'like', "%{$search}%"));
@@ -92,7 +96,7 @@ class InstallationController extends Controller
      */
     public function show(Request $request, Installation $installation, ProjectProfitability $profitability): Response
     {
-        $installation->load(['customer', 'remoteStation', 'assets.product:id,name,sku', 'assets.serial:id,serial_number', 'assets.sourcePurchase:id,number', 'assets.replacement:id,asset_tag,name', 'assets.events']);
+        $installation->load(['customer', 'people', 'remoteStation', 'assets.product:id,name,sku', 'assets.serial:id,serial_number', 'assets.sourcePurchase:id,number', 'assets.replacement:id,asset_tag,name', 'assets.events']);
 
         return Inertia::render('installations/show', [
             'installation' => $this->installationPayload($installation),
@@ -116,6 +120,7 @@ class InstallationController extends Controller
             'profitability' => $profitability->for($installation),
             'canManageAssets' => $request->user()->can('manage-installations'),
             'latestAiGeneration' => InstallationAiController::payload($installation->aiGenerations()->latest()->first()),
+            'customers' => $this->customerOptions(),
         ]);
     }
 
@@ -124,7 +129,7 @@ class InstallationController extends Controller
      */
     public function edit(Installation $installation): Response
     {
-        $installation->load(['customer', 'remoteStation']);
+        $installation->load(['customer', 'people', 'remoteStation']);
 
         return Inertia::render('installations/edit', [
             'installation' => $this->installationPayload($installation),
@@ -402,6 +407,16 @@ class InstallationController extends Controller
                 ? trim($installation->customer->first_name.' '.($installation->customer->last_name ?? ''))
                 : null,
             'customer_company' => $installation->customer?->company_name,
+            'people' => $installation->people->map(fn (Person $person) => [
+                'id' => $person->id,
+                'name' => trim($person->first_name.' '.($person->last_name ?? '')),
+                'company_name' => $person->company_name,
+                'email' => $person->email,
+                'phone' => $person->phone,
+                'role' => $person->pivot->role,
+                'ownership_percentage' => $person->pivot->ownership_percentage,
+                'is_primary' => (bool) $person->pivot->is_primary,
+            ])->values(),
             'service_type' => $installation->service_type,
             'monitoring_provider' => $installation->remoteStation?->provider,
             'remote_station_id' => $installation->remoteStation?->id,

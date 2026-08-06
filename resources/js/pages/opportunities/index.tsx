@@ -1,10 +1,13 @@
 import { Form, Head, Link, router, useForm } from '@inertiajs/react';
 import {
     Archive,
+    Bookmark,
     CalendarClock,
     CircleDollarSign,
     Clock3,
     History,
+    LayoutGrid,
+    List,
     Pencil,
     Plus,
     RotateCcw,
@@ -83,6 +86,7 @@ type Opportunity = {
     title: string;
     stage: string;
     probability: number;
+    commercial_score: number;
     estimated_value: string;
     expected_close_on: string | null;
     source: string | null;
@@ -143,6 +147,7 @@ export default function OpportunitiesIndex({
     lostReasonOptions,
     filters = {},
     metrics,
+    savedFilters = [],
 }: {
     opportunities: Opportunity[];
     customers: Customer[];
@@ -158,6 +163,7 @@ export default function OpportunitiesIndex({
         attention?: string;
         archived?: string;
         period?: string;
+        view?: string;
     };
     metrics: {
         pipeline_value: number;
@@ -172,7 +178,14 @@ export default function OpportunitiesIndex({
         without_next_action: number;
         stale: number;
         funnel: Record<string, number>;
+        stage_days: Record<string, number | null>;
     };
+    savedFilters?: Array<{
+        id: number;
+        name: string;
+        filters: Record<string, string>;
+        is_default: boolean;
+    }>;
 }) {
     const [open, setOpen] = useState(false);
     const [editing, setEditing] = useState<Opportunity | null>(null);
@@ -362,6 +375,79 @@ export default function OpportunitiesIndex({
 
                 <FunnelSummary funnel={metrics.funnel} />
 
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                        {savedFilters.length > 0 && (
+                            <span className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground">
+                                <Bookmark className="size-3.5" /> Vistas
+                                guardadas
+                            </span>
+                        )}
+                        {savedFilters.map((filter) => (
+                            <div key={filter.id} className="inline-flex">
+                                <Button size="sm" variant="outline" asChild>
+                                    <Link
+                                        href={opportunityFilterUrl(
+                                            filter.filters,
+                                        )}
+                                    >
+                                        {filter.name}
+                                        {filter.is_default
+                                            ? ' · predeterminada'
+                                            : ''}
+                                    </Link>
+                                </Button>
+                                <Form
+                                    action={`/crm/filters/${filter.id}`}
+                                    method="delete"
+                                >
+                                    <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        aria-label={`Eliminar filtro ${filter.name}`}
+                                    >
+                                        <X />
+                                    </Button>
+                                </Form>
+                            </div>
+                        ))}
+                    </div>
+                    <div className="flex gap-1 rounded-md border p-1">
+                        <Button
+                            size="sm"
+                            variant={
+                                filters.view === 'table' ? 'ghost' : 'secondary'
+                            }
+                            asChild
+                        >
+                            <Link
+                                href={opportunityFilterUrl({
+                                    ...filters,
+                                    view: 'kanban',
+                                })}
+                            >
+                                <LayoutGrid /> Kanban
+                            </Link>
+                        </Button>
+                        <Button
+                            size="sm"
+                            variant={
+                                filters.view === 'table' ? 'secondary' : 'ghost'
+                            }
+                            asChild
+                        >
+                            <Link
+                                href={opportunityFilterUrl({
+                                    ...filters,
+                                    view: 'table',
+                                })}
+                            >
+                                <List /> Tabla
+                            </Link>
+                        </Button>
+                    </div>
+                </div>
+
                 <Form
                     action="/opportunities"
                     method="get"
@@ -443,200 +529,277 @@ export default function OpportunitiesIndex({
                     </div>
                 </Form>
 
-                <section className="overflow-x-auto pb-3">
-                    <div className="grid min-w-[94rem] grid-cols-7 gap-3">
-                        {stages.map((stage) => {
-                            const items = opportunities.filter(
-                                (item) => item.stage === stage.value,
-                            );
+                {Object.values(filters).some(Boolean) && (
+                    <Form
+                        action="/crm/filters"
+                        method="post"
+                        className="flex flex-wrap items-end gap-2"
+                    >
+                        <input
+                            type="hidden"
+                            name="scope"
+                            value="opportunities"
+                        />
+                        {Object.entries(filters).map(([key, value]) =>
+                            value && key !== 'archived' ? (
+                                <input
+                                    key={key}
+                                    type="hidden"
+                                    name={`filters[${key}]`}
+                                    value={value}
+                                />
+                            ) : null,
+                        )}
+                        <div className="grid gap-1">
+                            <Label
+                                htmlFor="opportunity_filter_name"
+                                className="text-xs text-muted-foreground"
+                            >
+                                Guardar vista actual
+                            </Label>
+                            <Input
+                                id="opportunity_filter_name"
+                                name="name"
+                                required
+                                placeholder="Nombre de la vista"
+                            />
+                        </div>
+                        <label className="flex h-9 items-center gap-2 rounded-md border px-3 text-xs">
+                            <input
+                                type="checkbox"
+                                name="is_default"
+                                value="1"
+                            />{' '}
+                            Predeterminada
+                        </label>
+                        <Button size="sm" variant="outline">
+                            <Bookmark /> Guardar
+                        </Button>
+                    </Form>
+                )}
 
-                            return (
-                                <div
-                                    key={stage.value}
-                                    className="min-w-0 border-t-2 pt-3"
-                                >
-                                    <div className="mb-3 flex items-center justify-between px-1">
-                                        <div className="text-sm font-semibold">
-                                            {stage.label}
+                {filters.view === 'table' ? (
+                    <OpportunityTable
+                        opportunities={opportunities}
+                        sourceOptions={sourceOptions}
+                        onEdit={openEditor}
+                    />
+                ) : (
+                    <section className="overflow-x-auto pb-3">
+                        <div className="grid min-w-[94rem] grid-cols-7 gap-3">
+                            {stages.map((stage) => {
+                                const items = opportunities.filter(
+                                    (item) => item.stage === stage.value,
+                                );
+
+                                return (
+                                    <div
+                                        key={stage.value}
+                                        className="min-w-0 border-t-2 pt-3"
+                                    >
+                                        <div className="mb-3 flex items-center justify-between px-1">
+                                            <div className="text-sm font-semibold">
+                                                {stage.label}
+                                            </div>
+                                            <Badge variant="secondary">
+                                                {items.length}
+                                            </Badge>
                                         </div>
-                                        <Badge variant="secondary">
-                                            {items.length}
-                                        </Badge>
-                                    </div>
-                                    <div className="grid content-start gap-2">
-                                        {items.map((item) => (
-                                            <article
-                                                key={item.id}
-                                                className="rounded-md border bg-card p-3 shadow-xs"
-                                            >
-                                                <button
-                                                    type="button"
-                                                    onClick={() =>
-                                                        openEditor(item)
-                                                    }
-                                                    className="w-full text-left"
+                                        <div className="grid content-start gap-2">
+                                            {items.map((item) => (
+                                                <article
+                                                    key={item.id}
+                                                    className="rounded-md border bg-card p-3 shadow-xs"
                                                 >
-                                                    <span className="text-xs text-muted-foreground">
-                                                        {item.code}
-                                                    </span>
-                                                    <span className="mt-1 block text-sm leading-snug font-medium">
-                                                        {item.title}
-                                                    </span>
-                                                    {item.customer && (
-                                                        <span className="mt-1 block truncate text-xs text-muted-foreground">
-                                                            {customerName(
-                                                                item.customer,
-                                                            )}
-                                                        </span>
-                                                    )}
-                                                    {item.source && (
-                                                        <span className="mt-2 block">
-                                                            <Badge
-                                                                variant="outline"
-                                                                title={
-                                                                    item.source_detail ||
-                                                                    undefined
-                                                                }
-                                                            >
-                                                                {sourceOptions[
-                                                                    item.source
-                                                                ] ||
-                                                                    item.source}
-                                                            </Badge>
-                                                        </span>
-                                                    )}
-                                                </button>
-                                                <div className="mt-3 flex items-end justify-between gap-2 border-t pt-2">
-                                                    <div>
-                                                        <div className="text-sm font-semibold">
-                                                            {money(
-                                                                Number(
-                                                                    item.estimated_value,
-                                                                ),
-                                                            )}
-                                                        </div>
-                                                        <div className="text-xs text-muted-foreground">
-                                                            {item.probability}%
-                                                            ·{' '}
-                                                            {date(
-                                                                item.expected_close_on,
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                    <Button
+                                                    <button
                                                         type="button"
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        className="size-8"
                                                         onClick={() =>
                                                             openEditor(item)
                                                         }
-                                                        aria-label={`Edit ${item.title}`}
+                                                        className="w-full text-left"
                                                     >
-                                                        <Pencil className="size-3.5" />
-                                                    </Button>
-                                                </div>
-                                                <div
-                                                    className={`mt-2 rounded-md border px-2 py-1.5 text-xs ${
-                                                        item.next_activity &&
-                                                        isOverdue(
-                                                            item.next_activity
-                                                                .due_at,
-                                                        )
-                                                            ? 'border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200'
-                                                            : 'text-muted-foreground'
-                                                    }`}
-                                                >
-                                                    {item.next_activity ? (
-                                                        <>
-                                                            <div className="flex items-center gap-1 font-medium">
-                                                                <Clock3 className="size-3" />
-                                                                Próxima acción
-                                                            </div>
-                                                            <div className="mt-1 truncate">
-                                                                {
-                                                                    item
-                                                                        .next_activity
-                                                                        .title
-                                                                }{' '}
-                                                                ·{' '}
-                                                                {dateTime(
-                                                                    item
-                                                                        .next_activity
-                                                                        .due_at,
+                                                        <span className="text-xs text-muted-foreground">
+                                                            {item.code}
+                                                        </span>
+                                                        <span className="mt-1 block text-sm leading-snug font-medium">
+                                                            {item.title}
+                                                        </span>
+                                                        {item.customer && (
+                                                            <span className="mt-1 block truncate text-xs text-muted-foreground">
+                                                                {customerName(
+                                                                    item.customer,
+                                                                )}
+                                                            </span>
+                                                        )}
+                                                        {item.source && (
+                                                            <span className="mt-2 block">
+                                                                <Badge
+                                                                    variant="outline"
+                                                                    title={
+                                                                        item.source_detail ||
+                                                                        undefined
+                                                                    }
+                                                                >
+                                                                    {sourceOptions[
+                                                                        item
+                                                                            .source
+                                                                    ] ||
+                                                                        item.source}
+                                                                </Badge>
+                                                            </span>
+                                                        )}
+                                                        <span className="mt-2 block text-xs text-muted-foreground">
+                                                            Scoring{' '}
+                                                            {
+                                                                item.commercial_score
+                                                            }
+                                                            /100
+                                                        </span>
+                                                    </button>
+                                                    <div className="mt-3 flex items-end justify-between gap-2 border-t pt-2">
+                                                        <div>
+                                                            <div className="text-sm font-semibold">
+                                                                {money(
+                                                                    Number(
+                                                                        item.estimated_value,
+                                                                    ),
                                                                 )}
                                                             </div>
-                                                        </>
-                                                    ) : (
-                                                        <span>
-                                                            Sin próxima acción
-                                                        </span>
-                                                    )}
-                                                </div>
-                                                {!item.deleted_at &&
-                                                    !['won', 'lost'].includes(
-                                                        item.stage,
-                                                    ) && (
-                                                        <OpportunityActivityDialog
-                                                            opportunity={item}
-                                                            users={users}
-                                                        />
-                                                    )}
-                                                {item.deleted_at ? (
-                                                    <Badge
-                                                        variant="secondary"
-                                                        className="mt-2"
-                                                    >
-                                                        Archivada
-                                                    </Badge>
-                                                ) : (
-                                                    <Select
-                                                        value={item.stage}
-                                                        onValueChange={(
-                                                            value,
-                                                        ) =>
-                                                            changeStage(
-                                                                item,
-                                                                value,
+                                                            <div className="text-xs text-muted-foreground">
+                                                                {
+                                                                    item.probability
+                                                                }
+                                                                % ·{' '}
+                                                                {date(
+                                                                    item.expected_close_on,
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                        <Button
+                                                            type="button"
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="size-8"
+                                                            onClick={() =>
+                                                                openEditor(item)
+                                                            }
+                                                            aria-label={`Edit ${item.title}`}
+                                                        >
+                                                            <Pencil className="size-3.5" />
+                                                        </Button>
+                                                    </div>
+                                                    <div
+                                                        className={`mt-2 rounded-md border px-2 py-1.5 text-xs ${
+                                                            item.next_activity &&
+                                                            isOverdue(
+                                                                item
+                                                                    .next_activity
+                                                                    .due_at,
                                                             )
-                                                        }
+                                                                ? 'border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200'
+                                                                : 'text-muted-foreground'
+                                                        }`}
                                                     >
-                                                        <SelectTrigger className="mt-2 h-8 text-xs">
-                                                            <SelectValue />
-                                                        </SelectTrigger>
-                                                        <SelectContent>
-                                                            {stages.map(
-                                                                (option) => (
-                                                                    <SelectItem
-                                                                        key={
-                                                                            option.value
-                                                                        }
-                                                                        value={
-                                                                            option.value
-                                                                        }
-                                                                    >
-                                                                        {
-                                                                            option.label
-                                                                        }
-                                                                    </SelectItem>
-                                                                ),
-                                                            )}
-                                                        </SelectContent>
-                                                    </Select>
-                                                )}
-                                            </article>
-                                        ))}
-                                        {items.length === 0 && (
-                                            <div className="rounded-md border border-dashed p-4 text-center text-xs text-muted-foreground">
-                                                No opportunities
-                                            </div>
-                                        )}
+                                                        {item.next_activity ? (
+                                                            <>
+                                                                <div className="flex items-center gap-1 font-medium">
+                                                                    <Clock3 className="size-3" />
+                                                                    Próxima
+                                                                    acción
+                                                                </div>
+                                                                <div className="mt-1 truncate">
+                                                                    {
+                                                                        item
+                                                                            .next_activity
+                                                                            .title
+                                                                    }{' '}
+                                                                    ·{' '}
+                                                                    {dateTime(
+                                                                        item
+                                                                            .next_activity
+                                                                            .due_at,
+                                                                    )}
+                                                                </div>
+                                                            </>
+                                                        ) : (
+                                                            <span>
+                                                                Sin próxima
+                                                                acción
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    {!item.deleted_at &&
+                                                        ![
+                                                            'won',
+                                                            'lost',
+                                                        ].includes(
+                                                            item.stage,
+                                                        ) && (
+                                                            <OpportunityActivityDialog
+                                                                opportunity={
+                                                                    item
+                                                                }
+                                                                users={users}
+                                                            />
+                                                        )}
+                                                    {item.deleted_at ? (
+                                                        <Badge
+                                                            variant="secondary"
+                                                            className="mt-2"
+                                                        >
+                                                            Archivada
+                                                        </Badge>
+                                                    ) : (
+                                                        <Select
+                                                            value={item.stage}
+                                                            onValueChange={(
+                                                                value,
+                                                            ) =>
+                                                                changeStage(
+                                                                    item,
+                                                                    value,
+                                                                )
+                                                            }
+                                                        >
+                                                            <SelectTrigger className="mt-2 h-8 text-xs">
+                                                                <SelectValue />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                {stages.map(
+                                                                    (
+                                                                        option,
+                                                                    ) => (
+                                                                        <SelectItem
+                                                                            key={
+                                                                                option.value
+                                                                            }
+                                                                            value={
+                                                                                option.value
+                                                                            }
+                                                                        >
+                                                                            {
+                                                                                option.label
+                                                                            }
+                                                                        </SelectItem>
+                                                                    ),
+                                                                )}
+                                                            </SelectContent>
+                                                        </Select>
+                                                    )}
+                                                </article>
+                                            ))}
+                                            {items.length === 0 && (
+                                                <div className="rounded-md border border-dashed p-4 text-center text-xs text-muted-foreground">
+                                                    No opportunities
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-                </section>
+                                );
+                            })}
+                        </div>
+                    </section>
+                )}
             </div>
 
             <Dialog open={open} onOpenChange={setOpen}>
@@ -1146,6 +1309,85 @@ function OpportunityActivityDialog({
     );
 }
 
+function OpportunityTable({
+    opportunities,
+    sourceOptions,
+    onEdit,
+}: {
+    opportunities: Opportunity[];
+    sourceOptions: Record<string, string>;
+    onEdit: (opportunity: Opportunity) => void;
+}) {
+    return (
+        <div className="overflow-x-auto rounded-md border">
+            <table className="w-full min-w-[70rem] text-sm">
+                <thead className="border-b bg-muted/40 text-left text-xs text-muted-foreground">
+                    <tr>
+                        <th className="p-3">Oportunidad</th>
+                        <th className="p-3">Cliente</th>
+                        <th className="p-3">Etapa</th>
+                        <th className="p-3">Responsable</th>
+                        <th className="p-3 text-right">Importe</th>
+                        <th className="p-3 text-right">Forecast</th>
+                        <th className="p-3">Próxima acción</th>
+                        <th className="p-3 text-right">Score</th>
+                    </tr>
+                </thead>
+                <tbody className="divide-y">
+                    {opportunities.map((item) => (
+                        <tr key={item.id} className="hover:bg-muted/30">
+                            <td className="p-3">
+                                <button
+                                    type="button"
+                                    onClick={() => onEdit(item)}
+                                    className="text-left font-medium hover:underline"
+                                >
+                                    {item.code} · {item.title}
+                                </button>
+                                {item.source && (
+                                    <div className="text-xs text-muted-foreground">
+                                        {sourceOptions[item.source] ||
+                                            item.source}
+                                    </div>
+                                )}
+                            </td>
+                            <td className="p-3">
+                                {item.customer
+                                    ? customerName(item.customer)
+                                    : '—'}
+                            </td>
+                            <td className="p-3">
+                                <Badge variant="outline">
+                                    {stageLabel(item.stage)}
+                                </Badge>
+                            </td>
+                            <td className="p-3">{item.owner?.name || '—'}</td>
+                            <td className="p-3 text-right tabular-nums">
+                                {money(Number(item.estimated_value))}
+                            </td>
+                            <td className="p-3 text-right tabular-nums">
+                                {money(
+                                    (Number(item.estimated_value) *
+                                        item.probability) /
+                                        100,
+                                )}
+                            </td>
+                            <td className="p-3">
+                                {item.next_activity
+                                    ? `${item.next_activity.title} · ${dateTime(item.next_activity.due_at)}`
+                                    : '—'}
+                            </td>
+                            <td className="p-3 text-right font-medium tabular-nums">
+                                {item.commercial_score}/100
+                            </td>
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+        </div>
+    );
+}
+
 function Field({
     label,
     error,
@@ -1298,4 +1540,16 @@ function periodLabel(value?: string) {
     }
 
     return '90 días';
+}
+
+function opportunityFilterUrl(filters: Record<string, string | undefined>) {
+    const params = new URLSearchParams();
+
+    Object.entries(filters).forEach(([key, value]) => {
+        if (value && key !== 'archived') {
+            params.set(key, value);
+        }
+    });
+
+    return `/opportunities?${params.toString()}`;
 }

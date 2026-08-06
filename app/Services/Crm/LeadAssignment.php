@@ -17,6 +17,7 @@ class LeadAssignment
             ->orderBy('open_opportunities_count')
             ->orderBy('id')
             ->lockForUpdate()
-            ->first();
+            ->first()
+            ?? User::query()->where('role', 'admin')->orderBy('id')->lockForUpdate()->first();
     }
 }

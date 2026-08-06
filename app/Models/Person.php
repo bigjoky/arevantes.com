@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -19,6 +20,7 @@ class Person extends Model
     protected $fillable = [
         'category',
         'customer_type',
+        'lifecycle_status',
         'first_name',
         'last_name',
         'company_name',
@@ -38,8 +40,11 @@ class Person extends Model
         'country',
         'date_of_birth',
         'preferred_language',
+        'preferred_contact_channel',
+        'do_not_contact',
         'service_interests',
         'lead_source',
+        'data_source',
         'billing_email',
         'emergency_contact_name',
         'emergency_contact_phone',
@@ -53,6 +58,13 @@ class Person extends Model
     public function installations(): HasMany
     {
         return $this->hasMany(Installation::class);
+    }
+
+    public function sharedInstallations(): BelongsToMany
+    {
+        return $this->belongsToMany(Installation::class, 'installation_person')
+            ->withPivot(['role', 'ownership_percentage', 'is_primary'])
+            ->withTimestamps();
     }
 
     public function user(): HasOne
@@ -115,6 +127,21 @@ class Person extends Model
         return $this->hasMany(Opportunity::class);
     }
 
+    public function contacts(): HasMany
+    {
+        return $this->hasMany(CustomerContact::class)->orderByDesc('is_primary')->orderBy('first_name');
+    }
+
+    public function tags(): BelongsToMany
+    {
+        return $this->belongsToMany(CrmTag::class, 'crm_tag_person')->withTimestamps();
+    }
+
+    public function consents(): HasMany
+    {
+        return $this->hasMany(CustomerConsent::class)->latest('captured_at');
+    }
+
     /**
      * Get the attributes that should be cast.
      *
@@ -126,6 +153,7 @@ class Person extends Model
             'date_of_birth' => 'date',
             'service_interests' => 'array',
             'extra_details' => 'array',
+            'do_not_contact' => 'boolean',
         ];
     }
 }

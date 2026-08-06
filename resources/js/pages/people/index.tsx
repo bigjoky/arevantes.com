@@ -1,6 +1,7 @@
 import { Form, Head, Link } from '@inertiajs/react';
 import {
     Archive,
+    Bookmark,
     KeyRound,
     Mail,
     Phone,
@@ -27,6 +28,8 @@ type Person = {
     city: string | null;
     country: string | null;
     installations_count: number | null;
+    lifecycle_status: string | null;
+    tags: Array<{ id: number; name: string; color: string }>;
     access?: { email: string; role: string } | null;
 };
 
@@ -46,9 +49,27 @@ type PeopleIndexProps = {
         search?: string;
         customer_type?: string;
         lead_source?: string;
+        lifecycle_status?: string;
+        tag?: string;
         archived?: string;
     };
     leadSources?: string[];
+    tags?: Array<{ id: number; name: string; color: string }>;
+    savedFilters?: Array<{
+        id: number;
+        name: string;
+        filters: Record<string, string>;
+        is_default: boolean;
+    }>;
+    duplicateGroups?: Array<
+        Array<{
+            id: number;
+            name: string;
+            email: string | null;
+            phone: string | null;
+            tax_id: string | null;
+        }>
+    >;
     basePath?: string;
     title?: string;
     description?: string;
@@ -59,6 +80,9 @@ export default function PeopleIndex({
     people,
     filters = {},
     leadSources = [],
+    tags = [],
+    savedFilters = [],
+    duplicateGroups = [],
     basePath = '/people',
     title = 'People',
     description = 'Customer profiles for residential, business, community, and public-sector work.',
@@ -111,11 +135,109 @@ export default function PeopleIndex({
                 />
                 <Card className="rounded-lg py-0">
                     <CardContent className="p-4">
+                        {!isStaff && savedFilters.length > 0 && (
+                            <div className="mb-4 flex flex-wrap items-center gap-2">
+                                <span className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground">
+                                    <Bookmark className="size-3.5" /> Vistas
+                                    guardadas
+                                </span>
+                                {savedFilters.map((filter) => (
+                                    <div
+                                        key={filter.id}
+                                        className="inline-flex"
+                                    >
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            asChild
+                                        >
+                                            <Link
+                                                href={customerFilterUrl(
+                                                    filter.filters,
+                                                )}
+                                            >
+                                                {filter.name}
+                                                {filter.is_default
+                                                    ? ' · predeterminada'
+                                                    : ''}
+                                            </Link>
+                                        </Button>
+                                        <Form
+                                            action={`/crm/filters/${filter.id}`}
+                                            method="delete"
+                                        >
+                                            <Button
+                                                size="sm"
+                                                variant="ghost"
+                                                aria-label={`Eliminar filtro ${filter.name}`}
+                                            >
+                                                <X />
+                                            </Button>
+                                        </Form>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                        {!isStaff && duplicateGroups.length > 0 && (
+                            <div className="mb-4 rounded-md border border-amber-300 bg-amber-50 p-3 text-amber-950 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-100">
+                                <div className="text-sm font-medium">
+                                    Posibles clientes duplicados
+                                </div>
+                                <div className="mt-2 grid gap-2">
+                                    {duplicateGroups.map((group) => {
+                                        const target = group[0];
+
+                                        return (
+                                            <div
+                                                key={group
+                                                    .map((item) => item.id)
+                                                    .join('-')}
+                                                className="flex flex-wrap items-center justify-between gap-2 text-xs"
+                                            >
+                                                <span>
+                                                    {group
+                                                        .map(
+                                                            (item) =>
+                                                                `${item.name} (#${item.id})`,
+                                                        )
+                                                        .join(' · ')}
+                                                </span>
+                                                {group
+                                                    .slice(1)
+                                                    .map((duplicate) => (
+                                                        <Form
+                                                            key={duplicate.id}
+                                                            action={`/people/${target.id}/merge`}
+                                                            method="post"
+                                                        >
+                                                            <input
+                                                                type="hidden"
+                                                                name="duplicate_id"
+                                                                value={
+                                                                    duplicate.id
+                                                                }
+                                                            />
+                                                            <Button
+                                                                size="sm"
+                                                                variant="outline"
+                                                            >
+                                                                Fusionar #
+                                                                {duplicate.id}{' '}
+                                                                en #{target.id}
+                                                            </Button>
+                                                        </Form>
+                                                    ))}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
                         {!isStaff && (
                             <Form
                                 action={basePath}
                                 method="get"
-                                className="mb-5 grid gap-3 lg:grid-cols-[minmax(16rem,1fr)_13rem_13rem_auto]"
+                                className="mb-3 grid gap-3 lg:grid-cols-[minmax(16rem,1fr)_12rem_12rem_12rem_12rem_auto]"
                             >
                                 {filters.archived && (
                                     <input
@@ -160,6 +282,35 @@ export default function PeopleIndex({
                                         </option>
                                     ))}
                                 </select>
+                                <select
+                                    name="lifecycle_status"
+                                    defaultValue={
+                                        filters.lifecycle_status || ''
+                                    }
+                                    className="h-9 rounded-md border border-input bg-background px-3 text-sm shadow-xs"
+                                >
+                                    <option value="">Todos los estados</option>
+                                    <option value="lead">Lead</option>
+                                    <option value="active">Activo</option>
+                                    <option value="inactive">Inactivo</option>
+                                    <option value="former">
+                                        Antiguo cliente
+                                    </option>
+                                </select>
+                                <select
+                                    name="tag"
+                                    defaultValue={filters.tag || ''}
+                                    className="h-9 rounded-md border border-input bg-background px-3 text-sm shadow-xs"
+                                >
+                                    <option value="">
+                                        Todas las etiquetas
+                                    </option>
+                                    {tags.map((tag) => (
+                                        <option key={tag.id} value={tag.id}>
+                                            {tag.name}
+                                        </option>
+                                    ))}
+                                </select>
                                 <div className="flex gap-2">
                                     <Button variant="outline">
                                         <Search /> Filtrar
@@ -176,6 +327,55 @@ export default function PeopleIndex({
                                         </Button>
                                     )}
                                 </div>
+                            </Form>
+                        )}
+                        {!isStaff && Object.values(filters).some(Boolean) && (
+                            <Form
+                                action="/crm/filters"
+                                method="post"
+                                className="mb-5 flex flex-wrap items-end gap-2"
+                            >
+                                <input
+                                    type="hidden"
+                                    name="scope"
+                                    value="customers"
+                                />
+                                {Object.entries(filters).map(([key, value]) =>
+                                    value && key !== 'archived' ? (
+                                        <input
+                                            key={key}
+                                            type="hidden"
+                                            name={`filters[${key}]`}
+                                            value={value}
+                                        />
+                                    ) : null,
+                                )}
+                                <div className="grid gap-1">
+                                    <label
+                                        htmlFor="saved_filter_name"
+                                        className="text-xs text-muted-foreground"
+                                    >
+                                        Guardar filtros actuales
+                                    </label>
+                                    <input
+                                        id="saved_filter_name"
+                                        name="name"
+                                        required
+                                        placeholder="Nombre de la vista"
+                                        className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+                                    />
+                                </div>
+                                <label className="flex h-9 items-center gap-2 rounded-md border px-3 text-xs">
+                                    <input
+                                        type="checkbox"
+                                        name="is_default"
+                                        value="1"
+                                    />{' '}
+                                    Predeterminada
+                                </label>
+                                <Button size="sm" variant="outline">
+                                    <Bookmark /> Guardar
+                                </Button>
                             </Form>
                         )}
                         {peopleData.length > 0 ? (
@@ -220,6 +420,25 @@ export default function PeopleIndex({
                                                                     person.customer_type
                                                                 }
                                                             </Badge>
+                                                        )}
+                                                    {!isStaff &&
+                                                        person.lifecycle_status && (
+                                                            <Badge variant="secondary">
+                                                                {
+                                                                    person.lifecycle_status
+                                                                }
+                                                            </Badge>
+                                                        )}
+                                                    {!isStaff &&
+                                                        person.tags.map(
+                                                            (tag) => (
+                                                                <Badge
+                                                                    key={tag.id}
+                                                                    variant="outline"
+                                                                >
+                                                                    {tag.name}
+                                                                </Badge>
+                                                            ),
                                                         )}
                                                     {isStaff && (
                                                         <Badge
@@ -339,3 +558,15 @@ export default function PeopleIndex({
 PeopleIndex.layout = {
     breadcrumbs: [{ title: 'People', href: '/people' }],
 };
+
+function customerFilterUrl(filters: Record<string, string>) {
+    const params = new URLSearchParams();
+
+    Object.entries(filters).forEach(([key, value]) => {
+        if (value) {
+            params.set(key, String(value));
+        }
+    });
+
+    return `/people?${params.toString()}`;
+}

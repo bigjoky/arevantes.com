@@ -53,6 +53,7 @@ type Installation = {
     site_city: string | null;
     site_country: string | null;
     scheduled_date: string | null;
+    relationship?: string;
 };
 
 type Person = {
@@ -78,7 +79,31 @@ type Person = {
     country: string | null;
     service_interests: string[] | null;
     lead_source: string | null;
+    lifecycle_status: string | null;
+    preferred_contact_channel: string | null;
+    do_not_contact: boolean;
+    data_source: string | null;
     notes: string | null;
+    contacts: Array<{
+        id: number;
+        first_name: string;
+        last_name: string | null;
+        position: string | null;
+        email: string | null;
+        phone: string | null;
+        preferred_channel: string | null;
+        is_primary: boolean;
+    }>;
+    tags: Array<{ id: number; name: string; color: string }>;
+    consents: Array<{
+        id: number;
+        channel: string;
+        status: string;
+        lawful_basis: string;
+        source: string | null;
+        captured_at: string;
+        recorded_by?: { name: string } | null;
+    }>;
     installations: Installation[];
     portal_accesses?: {
         id: number;
@@ -101,6 +126,7 @@ type PeopleShowProps = {
     person: Person;
     customer360?: Customer360;
     activityUsers?: Array<{ id: number; name: string; role: string }>;
+    availableTags?: Array<{ id: number; name: string; color: string }>;
     basePath?: string;
     showBackLabel?: string;
 };
@@ -112,6 +138,8 @@ type Customer360 = {
         open_activities: number;
         active_work_orders: number;
         open_pipeline: number;
+        open_tickets: number;
+        collected: number;
     };
     quotes: Array<{
         id: number;
@@ -138,6 +166,9 @@ type Customer360 = {
             | 'activity'
             | 'work_order'
             | 'opportunity'
+            | 'payment'
+            | 'ticket'
+            | 'communication'
             | 'portal';
         title: string;
         subtitle: string;
@@ -150,6 +181,7 @@ export default function PeopleShow({
     person,
     customer360,
     activityUsers = [],
+    availableTags = [],
     basePath = '/people',
     showBackLabel = 'All customers',
 }: PeopleShowProps) {
@@ -241,7 +273,7 @@ export default function PeopleShow({
 
                 {!isStaff && customer360 && (
                     <>
-                        <section className="grid grid-cols-2 border-y xl:grid-cols-5">
+                        <section className="grid grid-cols-2 border-y xl:grid-cols-7">
                             <ProfileMetric
                                 icon={CircleDollarSign}
                                 label="Total billed"
@@ -271,6 +303,16 @@ export default function PeopleShow({
                                 icon={CircleDollarSign}
                                 label="Open pipeline"
                                 value={money(customer360.metrics.open_pipeline)}
+                            />
+                            <ProfileMetric
+                                icon={CircleDollarSign}
+                                label="Collected"
+                                value={money(customer360.metrics.collected)}
+                            />
+                            <ProfileMetric
+                                icon={ClipboardList}
+                                label="Open tickets"
+                                value={String(customer360.metrics.open_tickets)}
                             />
                         </section>
 
@@ -416,6 +458,13 @@ export default function PeopleShow({
                     </>
                 )}
 
+                {!isStaff && (
+                    <CustomerCrmDetails
+                        person={person}
+                        availableTags={availableTags}
+                    />
+                )}
+
                 <div className="grid gap-4 lg:grid-cols-[1fr_0.4fr]">
                     {!isStaff && (
                         <Card className="rounded-lg">
@@ -468,6 +517,14 @@ export default function PeopleShow({
                                                                         ]
                                                                     }
                                                                 </Badge>
+                                                                {installation.relationship && (
+                                                                    <Badge variant="secondary">
+                                                                        {installation.relationship.replace(
+                                                                            '_',
+                                                                            ' ',
+                                                                        )}
+                                                                    </Badge>
+                                                                )}
                                                             </div>
                                                             <div className="mt-1 text-sm text-muted-foreground">
                                                                 {[
@@ -802,6 +859,290 @@ export default function PeopleShow({
                 )}
             </div>
         </>
+    );
+}
+
+function CustomerCrmDetails({
+    person,
+    availableTags,
+}: {
+    person: Person;
+    availableTags: Array<{ id: number; name: string; color: string }>;
+}) {
+    const unassignedTags = availableTags.filter(
+        (tag) => !person.tags.some((assigned) => assigned.id === tag.id),
+    );
+
+    return (
+        <div className="grid gap-4 xl:grid-cols-3">
+            <Card className="rounded-lg">
+                <CardHeader>
+                    <CardTitle>Commercial profile</CardTitle>
+                    <CardDescription>
+                        Segmentation, preferences and origin of the record.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4 text-sm">
+                    <InfoBlock
+                        title="Preferences"
+                        items={[
+                            ['Lifecycle', person.lifecycle_status],
+                            [
+                                'Preferred channel',
+                                person.preferred_contact_channel,
+                            ],
+                            ['Data source', person.data_source],
+                            [
+                                'Commercial contact',
+                                person.do_not_contact ? 'Blocked' : 'Allowed',
+                            ],
+                        ]}
+                    />
+                    <div className="flex flex-wrap gap-2">
+                        {person.tags.map((tag) => (
+                            <Form
+                                key={tag.id}
+                                action={`/people/${person.id}/tags/${tag.id}`}
+                                method="delete"
+                            >
+                                {({ processing }) => (
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        disabled={processing}
+                                        title="Remove tag"
+                                    >
+                                        {tag.name} ×
+                                    </Button>
+                                )}
+                            </Form>
+                        ))}
+                    </div>
+                    <Form
+                        action={`/people/${person.id}/tags`}
+                        method="post"
+                        className="flex gap-2"
+                    >
+                        {({ processing }) => (
+                            <>
+                                <Select name="tag_id">
+                                    <SelectTrigger className="w-full">
+                                        <SelectValue placeholder="Add tag" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {unassignedTags.map((tag) => (
+                                            <SelectItem
+                                                key={tag.id}
+                                                value={String(tag.id)}
+                                            >
+                                                {tag.name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                <Input
+                                    name="name"
+                                    placeholder="or create a tag"
+                                />
+                                <Button disabled={processing}>Add</Button>
+                            </>
+                        )}
+                    </Form>
+                </CardContent>
+            </Card>
+
+            <Card className="rounded-lg">
+                <CardHeader>
+                    <CardTitle>Company contacts</CardTitle>
+                    <CardDescription>
+                        Multiple contacts with one designated as primary.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    <div className="divide-y border-y">
+                        {person.contacts.map((contact) => (
+                            <div
+                                key={contact.id}
+                                className="flex items-start justify-between gap-3 py-3"
+                            >
+                                <div className="text-sm">
+                                    <div className="font-medium">
+                                        {contact.first_name} {contact.last_name}
+                                        {contact.is_primary && (
+                                            <Badge className="ml-2">
+                                                Primary
+                                            </Badge>
+                                        )}
+                                    </div>
+                                    <div className="text-muted-foreground">
+                                        {[
+                                            contact.position,
+                                            contact.email,
+                                            contact.phone,
+                                        ]
+                                            .filter(Boolean)
+                                            .join(' · ')}
+                                    </div>
+                                </div>
+                                <Form
+                                    action={`/people/${person.id}/contacts/${contact.id}`}
+                                    method="delete"
+                                >
+                                    {({ processing }) => (
+                                        <Button
+                                            size="sm"
+                                            variant="ghost"
+                                            disabled={processing}
+                                        >
+                                            Remove
+                                        </Button>
+                                    )}
+                                </Form>
+                            </div>
+                        ))}
+                    </div>
+                    <Form
+                        action={`/people/${person.id}/contacts`}
+                        method="post"
+                        className="grid gap-2 sm:grid-cols-2"
+                    >
+                        {({ processing }) => (
+                            <>
+                                <Input
+                                    name="first_name"
+                                    placeholder="First name"
+                                    required
+                                />
+                                <Input
+                                    name="last_name"
+                                    placeholder="Last name"
+                                />
+                                <Input name="position" placeholder="Position" />
+                                <Input
+                                    name="email"
+                                    type="email"
+                                    placeholder="Email"
+                                />
+                                <Input name="phone" placeholder="Phone" />
+                                <label className="flex items-center gap-2 text-sm">
+                                    <input
+                                        type="hidden"
+                                        name="is_primary"
+                                        value="0"
+                                    />
+                                    <input
+                                        type="checkbox"
+                                        name="is_primary"
+                                        value="1"
+                                    />
+                                    Primary contact
+                                </label>
+                                <Button
+                                    className="sm:col-span-2"
+                                    disabled={processing}
+                                >
+                                    Add contact
+                                </Button>
+                            </>
+                        )}
+                    </Form>
+                </CardContent>
+            </Card>
+
+            <Card className="rounded-lg">
+                <CardHeader>
+                    <CardTitle>Commercial consent</CardTitle>
+                    <CardDescription>
+                        Auditable preference by communication channel.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    <div className="divide-y border-y">
+                        {person.consents.slice(0, 5).map((consent) => (
+                            <div key={consent.id} className="py-3 text-sm">
+                                <div className="flex items-center gap-2">
+                                    <Badge variant="outline">
+                                        {consent.channel}
+                                    </Badge>
+                                    <span className="font-medium">
+                                        {consent.status}
+                                    </span>
+                                </div>
+                                <div className="mt-1 text-xs text-muted-foreground">
+                                    {formatDate(consent.captured_at)}
+                                    {consent.lawful_basis
+                                        ? ` · ${consent.lawful_basis}`
+                                        : ''}
+                                    {consent.source
+                                        ? ` · ${consent.source}`
+                                        : ''}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                    <Form
+                        action={`/people/${person.id}/consents`}
+                        method="post"
+                        className="grid gap-2 sm:grid-cols-2"
+                    >
+                        {({ processing }) => (
+                            <>
+                                <ActivitySelect
+                                    label="Channel"
+                                    name="channel"
+                                    options={[
+                                        ['email', 'Email'],
+                                        ['phone', 'Phone'],
+                                        ['sms', 'SMS'],
+                                        ['whatsapp', 'WhatsApp'],
+                                    ]}
+                                    defaultValue="email"
+                                />
+                                <ActivitySelect
+                                    label="Status"
+                                    name="status"
+                                    options={[
+                                        ['granted', 'Granted'],
+                                        ['denied', 'Denied'],
+                                        ['withdrawn', 'Withdrawn'],
+                                    ]}
+                                    defaultValue="granted"
+                                />
+                                <Input
+                                    type="hidden"
+                                    name="captured_at"
+                                    value={new Date().toISOString()}
+                                />
+                                <ActivitySelect
+                                    label="Legal basis"
+                                    name="lawful_basis"
+                                    options={[
+                                        ['consent', 'Consent'],
+                                        ['contract', 'Contract'],
+                                        [
+                                            'legitimate_interest',
+                                            'Legitimate interest',
+                                        ],
+                                        [
+                                            'legal_obligation',
+                                            'Legal obligation',
+                                        ],
+                                    ]}
+                                    defaultValue="consent"
+                                />
+                                <Input name="source" placeholder="Source" />
+                                <Button
+                                    className="sm:col-span-2"
+                                    disabled={processing}
+                                >
+                                    Record consent
+                                </Button>
+                            </>
+                        )}
+                    </Form>
+                </CardContent>
+            </Card>
+        </div>
     );
 }
 

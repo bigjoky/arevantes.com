@@ -4,10 +4,13 @@ namespace App\Services\Customers;
 
 use App\Models\CrmActivity;
 use App\Models\CustomerPortalEvent;
+use App\Models\DocumentDelivery;
 use App\Models\Opportunity;
 use App\Models\Person;
 use App\Models\Quote;
 use App\Models\SalesDocument;
+use App\Models\SalesDocumentPayment;
+use App\Models\ServiceTicket;
 use App\Models\WorkOrder;
 use Illuminate\Support\Collection;
 
@@ -53,6 +56,26 @@ class CustomerProfile
             ->latest('occurred_at')
             ->limit(20)
             ->get();
+        $payments = SalesDocumentPayment::query()
+            ->with('document:id,person_id,number')
+            ->whereHas('document', fn ($query) => $query->where('person_id', $customer->id))
+            ->latest('paid_at')
+            ->limit(12)
+            ->get();
+        $tickets = ServiceTicket::query()
+            ->with('installation:id,person_id,project_reference,site_name')
+            ->whereHas('installation', fn ($query) => $query->where('person_id', $customer->id))
+            ->latest()
+            ->limit(12)
+            ->get();
+        $communications = DocumentDelivery::query()
+            ->with(['quote:id,person_id,number', 'salesDocument:id,person_id,number'])
+            ->where(fn ($query) => $query
+                ->whereHas('quote', fn ($quote) => $quote->where('person_id', $customer->id))
+                ->orWhereHas('salesDocument', fn ($document) => $document->where('person_id', $customer->id)))
+            ->latest()
+            ->limit(12)
+            ->get();
 
         $invoices = SalesDocument::query()->where('person_id', $customer->id)->where('type', 'invoice');
 
@@ -74,6 +97,13 @@ class CustomerProfile
                     ->where('person_id', $customer->id)
                     ->whereNotIn('stage', ['won', 'lost'])
                     ->sum('estimated_value'), 2),
+                'open_tickets' => ServiceTicket::query()
+                    ->whereHas('installation', fn ($query) => $query->where('person_id', $customer->id))
+                    ->whereNotIn('status', ['resolved', 'closed', 'cancelled'])
+                    ->count(),
+                'collected' => round((float) SalesDocumentPayment::query()
+                    ->whereHas('document', fn ($query) => $query->where('person_id', $customer->id))
+                    ->sum('amount'), 2),
             ],
             'quotes' => $quotes->map(fn (Quote $quote) => [
                 'id' => $quote->id,
@@ -92,12 +122,12 @@ class CustomerProfile
                 'outstanding' => max(0, round((float) $document->amount - (float) $document->paid_amount, 2)),
                 'date' => $document->issue_date?->toDateString(),
             ]),
-            'timeline' => $this->timeline($quotes, $documents, $activities, $workOrders, $opportunities, $portalEvents),
+            'timeline' => $this->timeline($quotes, $documents, $activities, $workOrders, $opportunities, $payments, $tickets, $communications, $portalEvents),
         ];
     }
 
     /** @return Collection<int, array<string, mixed>> */
-    private function timeline(Collection $quotes, Collection $documents, Collection $activities, Collection $workOrders, Collection $opportunities, Collection $portalEvents): Collection
+    private function timeline(Collection $quotes, Collection $documents, Collection $activities, Collection $workOrders, Collection $opportunities, Collection $payments, Collection $tickets, Collection $communications, Collection $portalEvents): Collection
     {
         $items = collect();
 
@@ -160,6 +190,35 @@ class CustomerProfile
             'date' => $event->occurred_at?->toIso8601String(),
             'href' => route('people.show', $event->person_id, false),
         ]));
+        $payments->each(fn (SalesDocumentPayment $payment) => $items->push([
+            'id' => 'payment-'.$payment->id,
+            'kind' => 'payment',
+            'title' => __('Payment for :number', ['number' => $payment->document?->number]),
+            'subtitle' => number_format((float) $payment->amount, 2, ',', '.').' EUR · '.$payment->method,
+            'date' => $payment->paid_at?->toIso8601String(),
+            'href' => $payment->document ? route('sales-documents.show', $payment->document, false) : route('finance.index', [], false),
+        ]));
+        $tickets->each(fn (ServiceTicket $ticket) => $items->push([
+            'id' => 'ticket-'.$ticket->id,
+            'kind' => 'ticket',
+            'title' => $ticket->number.' · '.$ticket->title,
+            'subtitle' => $ticket->priority.' · '.$ticket->status,
+            'date' => ($ticket->resolved_at ?? $ticket->created_at)?->toIso8601String(),
+            'href' => route('after-sales.index', [], false),
+        ]));
+        $communications->each(function (DocumentDelivery $delivery) use ($items): void {
+            $document = $delivery->quote ?? $delivery->salesDocument;
+            $items->push([
+                'id' => 'communication-'.$delivery->id,
+                'kind' => 'communication',
+                'title' => __('Commercial communication to :email', ['email' => $delivery->recipient_email]),
+                'subtitle' => ($document?->number ?? __('Document')).' · '.$delivery->status,
+                'date' => ($delivery->responded_at ?? $delivery->sent_at ?? $delivery->created_at)?->toIso8601String(),
+                'href' => $delivery->quote
+                    ? route('quotes.show', $delivery->quote, false)
+                    : ($delivery->salesDocument ? route('sales-documents.show', $delivery->salesDocument, false) : route('people.index', [], false)),
+            ]);
+        });
 
         return $items->sortByDesc('date')->take(20)->values();
     }
