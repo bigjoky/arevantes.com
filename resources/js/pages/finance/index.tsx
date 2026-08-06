@@ -158,10 +158,16 @@ type ForecastItem = {
     category: string;
     description: string;
     amount: string;
+    baseline_amount: string | null;
     due_on: string;
+    baseline_due_on: string | null;
     probability: number;
     recurrence: string | null;
     status: string;
+    actual_amount: string | null;
+    settled_on: string | null;
+    settlement_notes: string | null;
+    settler: { name: string } | null;
 };
 type Budget = {
     id: number;
@@ -220,6 +226,7 @@ export default function FinanceIndex({
     profitability,
     treasuryForecast,
     forecastItems,
+    forecastAccuracy,
     budgets,
     budgetPeriod,
     budgetSummary,
@@ -261,6 +268,14 @@ export default function FinanceIndex({
         weeks: TreasuryWeek[];
     };
     forecastItems: ForecastItem[];
+    forecastAccuracy: {
+        settledCount: number;
+        plannedTotal: number;
+        actualTotal: number;
+        amountVariance: number;
+        meanAbsolutePercentageError: number | null;
+        averageDaysVariance: number | null;
+    };
     budgets: Budget[];
     budgetPeriod: BudgetPeriod;
     budgetSummary: {
@@ -936,67 +951,156 @@ export default function FinanceIndex({
                             </h2>
                         </div>
                         {can.manageTreasury && <ForecastForm />}
+                        {forecastAccuracy.settledCount > 0 && (
+                            <div className="mt-4 grid grid-cols-2 border-y text-sm sm:grid-cols-4">
+                                <ForecastMetric
+                                    label="Settled"
+                                    value={String(
+                                        forecastAccuracy.settledCount,
+                                    )}
+                                />
+                                <ForecastMetric
+                                    label="Amount variance"
+                                    value={money(
+                                        forecastAccuracy.amountVariance,
+                                    )}
+                                />
+                                <ForecastMetric
+                                    label="Mean error"
+                                    value={
+                                        forecastAccuracy.meanAbsolutePercentageError ===
+                                        null
+                                            ? '—'
+                                            : `${forecastAccuracy.meanAbsolutePercentageError}%`
+                                    }
+                                />
+                                <ForecastMetric
+                                    label="Average timing"
+                                    value={formatDaysVariance(
+                                        forecastAccuracy.averageDaysVariance,
+                                    )}
+                                />
+                            </div>
+                        )}
                         <div className="mt-4 max-h-72 overflow-auto border-y text-sm">
                             {forecastItems.map((item) => (
                                 <div
                                     key={item.id}
-                                    className="flex items-center justify-between gap-3 border-b py-3 last:border-0"
+                                    className="border-b py-3 last:border-0"
                                 >
-                                    <div className="min-w-0">
-                                        <div className="truncate font-medium">
-                                            {item.description}
+                                    <div className="flex items-center justify-between gap-3">
+                                        <div className="min-w-0">
+                                            <div className="truncate font-medium">
+                                                {item.description}
+                                            </div>
+                                            <div className="text-xs text-muted-foreground">
+                                                {date(item.due_on)} ·{' '}
+                                                {item.probability}% ·{' '}
+                                                {item.status}
+                                            </div>
                                         </div>
-                                        <div className="text-xs text-muted-foreground">
-                                            {date(item.due_on)} ·{' '}
-                                            {item.probability}% · {item.status}
+                                        <div className="flex items-center gap-2">
+                                            <div
+                                                className={
+                                                    item.direction === 'in'
+                                                        ? 'font-medium text-green-700 dark:text-green-400'
+                                                        : 'font-medium text-destructive'
+                                                }
+                                            >
+                                                {item.direction === 'in'
+                                                    ? '+'
+                                                    : '−'}
+                                                {money(Number(item.amount))}
+                                            </div>
+                                            {can.manageTreasury &&
+                                                item.status !== 'settled' && (
+                                                    <Form
+                                                        action={`/finance/forecast-items/${item.id}`}
+                                                        method="delete"
+                                                    >
+                                                        <Button
+                                                            size="sm"
+                                                            variant="ghost"
+                                                        >
+                                                            Remove
+                                                        </Button>
+                                                    </Form>
+                                                )}
                                         </div>
                                     </div>
-                                    <div className="flex items-center gap-2">
-                                        <div
-                                            className={
-                                                item.direction === 'in'
-                                                    ? 'font-medium text-green-700 dark:text-green-400'
-                                                    : 'font-medium text-destructive'
-                                            }
-                                        >
-                                            {item.direction === 'in'
-                                                ? '+'
-                                                : '−'}
-                                            {money(Number(item.amount))}
-                                        </div>
-                                        {can.manageTreasury &&
-                                            item.status === 'planned' && (
+                                    {item.status === 'settled' &&
+                                        item.actual_amount &&
+                                        item.settled_on && (
+                                            <div className="mt-2 text-xs text-muted-foreground">
+                                                Actual{' '}
+                                                {money(
+                                                    Number(item.actual_amount),
+                                                )}{' '}
+                                                · variance{' '}
+                                                {money(forecastVariance(item))}{' '}
+                                                ·{' '}
+                                                {formatDaysVariance(
+                                                    forecastDaysVariance(item),
+                                                )}
+                                                {item.settler
+                                                    ? ` · ${item.settler.name}`
+                                                    : ''}
+                                                {item.settlement_notes
+                                                    ? ` · ${item.settlement_notes}`
+                                                    : ''}
+                                            </div>
+                                        )}
+                                    {can.manageTreasury &&
+                                        item.status === 'planned' && (
+                                            <details className="mt-2 border-t pt-2">
+                                                <summary className="cursor-pointer text-xs font-medium underline underline-offset-2">
+                                                    Settle with actual values
+                                                </summary>
                                                 <Form
                                                     action={`/finance/forecast-items/${item.id}`}
                                                     method="patch"
+                                                    className="mt-2 grid gap-3 sm:grid-cols-[9rem_10rem_1fr_auto]"
                                                 >
                                                     <input
                                                         type="hidden"
                                                         name="status"
                                                         value="settled"
                                                     />
-                                                    <Button
-                                                        size="sm"
-                                                        variant="ghost"
-                                                    >
-                                                        Settle
-                                                    </Button>
+                                                    <Field label="Actual amount">
+                                                        <Input
+                                                            name="actual_amount"
+                                                            type="number"
+                                                            min="0.01"
+                                                            step="0.01"
+                                                            defaultValue={
+                                                                item.amount
+                                                            }
+                                                            required
+                                                        />
+                                                    </Field>
+                                                    <Field label="Settled on">
+                                                        <Input
+                                                            name="settled_on"
+                                                            type="date"
+                                                            defaultValue={today()}
+                                                            required
+                                                        />
+                                                    </Field>
+                                                    <Field label="Settlement note">
+                                                        <Input
+                                                            name="settlement_notes"
+                                                            maxLength={1000}
+                                                            placeholder="Reference or explanation"
+                                                        />
+                                                    </Field>
+                                                    <div className="flex items-end">
+                                                        <Button size="sm">
+                                                            Settle
+                                                        </Button>
+                                                    </div>
                                                 </Form>
-                                            )}
-                                        {can.manageTreasury && (
-                                            <Form
-                                                action={`/finance/forecast-items/${item.id}`}
-                                                method="delete"
-                                            >
-                                                <Button
-                                                    size="sm"
-                                                    variant="ghost"
-                                                >
-                                                    Remove
-                                                </Button>
-                                            </Form>
+                                            </details>
                                         )}
-                                    </div>
                                 </div>
                             ))}
                             {forecastItems.length === 0 && (
@@ -2250,6 +2354,14 @@ function Total({
         </div>
     );
 }
+function ForecastMetric({ label, value }: { label: string; value: string }) {
+    return (
+        <div className="border-r p-3 last:border-0">
+            <div className="text-xs text-muted-foreground">{label}</div>
+            <div className="mt-1 font-semibold">{value}</div>
+        </div>
+    );
+}
 function Empty({ text }: { text: string }) {
     return (
         <div className="py-10 text-center text-sm text-muted-foreground">
@@ -2274,6 +2386,27 @@ const tooltipStyle = {
 const nativeSelectClass =
     'h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50';
 const today = () => new Date().toISOString().slice(0, 10);
+const forecastVariance = (item: ForecastItem) =>
+    Number(item.actual_amount) - Number(item.baseline_amount ?? item.amount);
+const forecastDaysVariance = (item: ForecastItem) => {
+    const baseline = new Date(
+        `${(item.baseline_due_on ?? item.due_on).slice(0, 10)}T12:00:00`,
+    );
+    const actual = new Date(`${item.settled_on?.slice(0, 10)}T12:00:00`);
+
+    return Math.round((actual.getTime() - baseline.getTime()) / 86_400_000);
+};
+const formatDaysVariance = (value: number | null) => {
+    if (value === null) {
+        return '—';
+    }
+
+    if (value === 0) {
+        return 'on time';
+    }
+
+    return `${Math.abs(value)}d ${value > 0 ? 'late' : 'early'}`;
+};
 const date = (v: string) =>
     new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(
         new Date(`${v.slice(0, 10)}T12:00:00`),

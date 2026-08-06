@@ -53,6 +53,13 @@ class FinanceController extends Controller
         $purchases = PurchaseDocument::whereIn('type', ['supplier_invoice', 'supplier_credit_note'])->whereNot('status', 'review_required')->whereYear('issue_date', $year)->get();
         $expenses = Expense::whereYear('expense_date', $year)->get();
         $budgets = FinancialBudget::where('year', $year)->orderBy('month')->orderBy('category')->get();
+        $forecastItems = FinancialForecastItem::with(['installation:id,project_reference,site_name', 'settler:id,name'])
+            ->where(function ($query) use ($year) {
+                $query->whereYear('due_on', $year)->orWhereYear('settled_on', $year);
+            })
+            ->latest('due_on')
+            ->limit(100)
+            ->get();
         $budgetPeriod = FinancialBudgetPeriod::with(['approver:id,name', 'versions.approver:id,name'])->where('year', $year)->first();
         $receivables = SalesDocument::with(['customer:id,first_name,last_name,company_name', 'collectionAction.assignee:id,name', 'collectionAction.events.creator:id,name'])->where('type', 'invoice')->whereIn('status', ['issued', 'partial', 'overdue'])->get();
         $payableInvoices = PurchaseDocument::with('supplier:id,legal_name,trade_name')->withSum('creditNotes as credited_total', 'amount')->where('type', 'supplier_invoice')->whereIn('status', ['registered', 'pending', 'partial', 'overdue'])->get();
@@ -180,7 +187,11 @@ class FinanceController extends Controller
             'payables' => $payables,
             'profitability' => $profitability->forYear($year),
             'treasuryForecast' => $treasuryForecast,
-            'forecastItems' => FinancialForecastItem::with('installation:id,project_reference,site_name')->whereYear('due_on', $year)->latest('due_on')->limit(100)->get(),
+            'forecastItems' => $forecastItems,
+            'forecastAccuracy' => $this->forecastAccuracy($forecastItems
+                ->where('status', 'settled')
+                ->filter(fn (FinancialForecastItem $item) => $item->settled_on?->year === $year)
+                ->values()),
             'budgets' => $budgets,
             'budgetPeriod' => [
                 'status' => $budgetPeriod?->status ?? 'draft',
@@ -241,7 +252,13 @@ class FinanceController extends Controller
             'recurrence' => ['nullable', Rule::in(['monthly', 'quarterly', 'annual'])],
             'installation_id' => ['nullable', 'exists:installations,id'],
         ]);
-        FinancialForecastItem::create([...$data, 'status' => 'planned', 'created_by' => $request->user()->id]);
+        FinancialForecastItem::create([
+            ...$data,
+            'baseline_amount' => $data['amount'],
+            'baseline_due_on' => $data['due_on'],
+            'status' => 'planned',
+            'created_by' => $request->user()->id,
+        ]);
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Forecast item added.')]);
     }
@@ -253,14 +270,30 @@ class FinanceController extends Controller
             'amount' => ['nullable', 'numeric', 'gt:0'],
             'due_on' => ['nullable', 'date'],
             'probability' => ['nullable', 'integer', 'between:0,100'],
+            'actual_amount' => ['required_if:status,settled', 'nullable', 'numeric', 'gt:0'],
+            'settled_on' => ['required_if:status,settled', 'nullable', 'date', 'before_or_equal:today'],
+            'settlement_notes' => ['nullable', 'string', 'max:1000'],
         ]);
-        $forecastItem->update(array_filter($data, fn ($value) => $value !== null));
+        if ($data['status'] === 'settled') {
+            $data['settled_by'] = $request->user()->id;
+        } else {
+            $data['actual_amount'] = null;
+            $data['settled_on'] = null;
+            $data['settlement_notes'] = null;
+            $data['settled_by'] = null;
+        }
+        $forecastItem->update(array_filter($data, fn ($value, string $key) => $value !== null || in_array($key, ['actual_amount', 'settled_on', 'settlement_notes', 'settled_by'], true), ARRAY_FILTER_USE_BOTH));
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Forecast item updated.')]);
     }
 
     public function destroyForecast(FinancialForecastItem $forecastItem): RedirectResponse
     {
+        if ($forecastItem->status === 'settled') {
+            throw ValidationException::withMessages([
+                'forecast_item' => __('Settled forecast items are retained for accuracy reporting.'),
+            ]);
+        }
         $forecastItem->delete();
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Forecast item removed.')]);
@@ -712,6 +745,39 @@ class FinanceController extends Controller
         $validated = $request->validate(['year' => ['nullable', 'integer', 'between:2020,2100']]);
 
         return (int) ($validated['year'] ?? now()->year);
+    }
+
+    /** @param Collection<int, FinancialForecastItem> $items */
+    private function forecastAccuracy(Collection $items): array
+    {
+        if ($items->isEmpty()) {
+            return [
+                'settledCount' => 0,
+                'plannedTotal' => 0,
+                'actualTotal' => 0,
+                'amountVariance' => 0,
+                'meanAbsolutePercentageError' => null,
+                'averageDaysVariance' => null,
+            ];
+        }
+
+        $plannedTotal = (float) $items->sum(fn (FinancialForecastItem $item) => (float) ($item->baseline_amount ?? $item->amount));
+        $actualTotal = (float) $items->sum(fn (FinancialForecastItem $item) => (float) $item->actual_amount);
+        $percentageErrors = $items->map(function (FinancialForecastItem $item) {
+            $baseline = (float) ($item->baseline_amount ?? $item->amount);
+
+            return $baseline > 0 ? abs((float) $item->actual_amount - $baseline) / $baseline * 100 : null;
+        })->filter(fn (?float $value) => $value !== null);
+        $dayVariances = $items->map(fn (FinancialForecastItem $item) => ($item->baseline_due_on ?? $item->due_on)->diffInDays($item->settled_on, false));
+
+        return [
+            'settledCount' => $items->count(),
+            'plannedTotal' => round($plannedTotal, 2),
+            'actualTotal' => round($actualTotal, 2),
+            'amountVariance' => round($actualTotal - $plannedTotal, 2),
+            'meanAbsolutePercentageError' => $percentageErrors->isEmpty() ? null : round((float) $percentageErrors->average(), 1),
+            'averageDaysVariance' => round((float) $dayVariances->average(), 1),
+        ];
     }
 
     private function assertBudgetEditable(int $year): void

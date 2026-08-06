@@ -318,6 +318,69 @@ class FinanceTest extends TestCase
         ])->assertRedirect()->assertSessionHasErrors('alert_key');
     }
 
+    public function test_forecast_settlement_preserves_baseline_and_reports_accuracy(): void
+    {
+        $this->travelTo('2026-08-06');
+        $user = User::factory()->create(['role' => 'commercial']);
+
+        $this->actingAs($user)->post(route('finance.forecast-items.store'), [
+            'direction' => 'out',
+            'category' => 'insurance',
+            'description' => 'Annual insurance premium',
+            'amount' => 1000,
+            'due_on' => '2026-08-01',
+            'probability' => 100,
+        ])->assertRedirect()->assertSessionHasNoErrors();
+
+        $item = FinancialForecastItem::firstOrFail();
+        $this->assertSame('1000.00', $item->baseline_amount);
+        $this->assertSame('2026-08-01', $item->baseline_due_on->toDateString());
+
+        $this->patch(route('finance.forecast-items.update', $item), [
+            'status' => 'planned',
+            'amount' => 1200,
+            'due_on' => '2026-08-05',
+            'probability' => 100,
+        ])->assertRedirect()->assertSessionHasNoErrors();
+        $this->assertSame('1200.00', $item->fresh()->amount);
+        $this->assertSame('1000.00', $item->fresh()->baseline_amount);
+        $this->assertSame('2026-08-01', $item->fresh()->baseline_due_on->toDateString());
+
+        $this->patch(route('finance.forecast-items.update', $item), [
+            'status' => 'settled',
+        ])->assertRedirect()->assertSessionHasErrors(['actual_amount', 'settled_on']);
+
+        $this->patch(route('finance.forecast-items.update', $item), [
+            'status' => 'settled',
+            'actual_amount' => 1100,
+            'settled_on' => '2026-08-06',
+            'settlement_notes' => 'Paid by direct debit.',
+        ])->assertRedirect()->assertSessionHasNoErrors();
+
+        $item->refresh();
+        $this->assertSame('settled', $item->status);
+        $this->assertSame('1100.00', $item->actual_amount);
+        $this->assertSame('2026-08-06', $item->settled_on->toDateString());
+        $this->assertSame($user->id, $item->settled_by);
+        $this->get(route('finance.index', ['year' => 2026]))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('forecastItems.0.baseline_amount', '1000.00')
+                ->where('forecastItems.0.actual_amount', '1100.00')
+                ->where('forecastItems.0.settler.name', $user->name)
+                ->where('forecastAccuracy.settledCount', 1)
+                ->where('forecastAccuracy.plannedTotal', 1000)
+                ->where('forecastAccuracy.actualTotal', 1100)
+                ->where('forecastAccuracy.amountVariance', 100)
+                ->where('forecastAccuracy.meanAbsolutePercentageError', 10)
+                ->where('forecastAccuracy.averageDaysVariance', 5));
+
+        $this->delete(route('finance.forecast-items.destroy', $item))
+            ->assertRedirect()
+            ->assertSessionHasErrors('forecast_item');
+        $this->assertDatabaseHas('financial_forecast_items', ['id' => $item->id, 'status' => 'settled']);
+    }
+
     public function test_annual_budget_approval_locks_every_mutation_until_reopened(): void
     {
         $commercial = User::factory()->create(['role' => 'commercial']);
