@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Contracts\PurchaseMailboxClient;
+use App\Models\AccountingPeriod;
 use App\Models\BankAccount;
 use App\Models\BankReconciliation;
 use App\Models\BankTransaction;
@@ -83,6 +84,7 @@ class AppServiceProvider extends ServiceProvider
         BankReconciliation::observe(BankReconciliationFinancialObserver::class);
         BankTransactionPosting::observe(AuditableObserver::class);
         BankTransfer::observe(AuditableObserver::class);
+        AccountingPeriod::observe(AuditableObserver::class);
         SalesDocumentPayment::observe(AuditableObserver::class);
         SalesDocument::observe(SalesDocumentFinancialObserver::class);
         SupplierPayment::observe(AuditableObserver::class);

@@ -11,6 +11,8 @@ use Illuminate\Validation\ValidationException;
 
 class JournalPoster
 {
+    public function __construct(private AccountingPeriodManager $periods) {}
+
     public function post(string $date, string $description, array $lines, ?int $userId, string $kind = 'manual', ?Model $source = null, string $event = 'manual', ?JournalEntry $reverses = null): JournalEntry
     {
         $debit = round(collect($lines)->sum(fn ($line) => (float) $line['debit']), 2);
@@ -24,6 +26,10 @@ class JournalPoster
             if (((float) $line['debit'] > 0) === ((float) $line['credit'] > 0)) {
                 throw ValidationException::withMessages(['lines' => __('Each journal line must contain either a debit or a credit amount.')]);
             }
+        }
+
+        if ($kind !== 'closing') {
+            $this->periods->assertOpen($date);
         }
 
         return DB::transaction(function () use ($date, $description, $lines, $userId, $kind, $source, $event, $reverses) {
