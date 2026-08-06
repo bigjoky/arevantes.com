@@ -17,6 +17,8 @@ type Department = { id: number; name: string };
 type StaffOption = { id: number; name: string };
 type Employment = {
     employeeNumber: string | null;
+    jobTitle: string | null;
+    professionalCategory: string | null;
     departmentId: number | null;
     departmentName: string | null;
     managerPersonId: number | null;
@@ -24,6 +26,7 @@ type Employment = {
     employmentType: string;
     status: string;
     workLocation: string | null;
+    scheduleType: string | null;
     weeklyHours: string | null;
     startDate: string | null;
     probationEndDate: string | null;
@@ -103,9 +106,9 @@ export default function Employees({
                                             asChild
                                         >
                                             <Link
-                                                href={`/staff/${employee.id}`}
+                                                href={`/human-resources/employees/${employee.id}`}
                                             >
-                                                Contacto
+                                                Abrir expediente
                                                 <ChevronRight />
                                             </Link>
                                         </Button>
@@ -137,6 +140,29 @@ export default function Employees({
                                                     }
                                                     error={
                                                         errors.employee_number
+                                                    }
+                                                />
+                                                <Field
+                                                    id={`job-title-${employee.id}`}
+                                                    label="Puesto"
+                                                    name="job_title"
+                                                    defaultValue={
+                                                        employee.employment
+                                                            ?.jobTitle ?? ''
+                                                    }
+                                                    error={errors.job_title}
+                                                />
+                                                <Field
+                                                    id={`professional-category-${employee.id}`}
+                                                    label="Categoría profesional"
+                                                    name="professional_category"
+                                                    defaultValue={
+                                                        employee.employment
+                                                            ?.professionalCategory ??
+                                                        ''
+                                                    }
+                                                    error={
+                                                        errors.professional_category
                                                     }
                                                 />
                                                 <div className="grid gap-2">
@@ -294,6 +320,42 @@ export default function Employees({
                                                     }
                                                     error={errors.work_location}
                                                 />
+                                                <div className="grid gap-2">
+                                                    <Label
+                                                        htmlFor={`schedule-${employee.id}`}
+                                                    >
+                                                        Modalidad de jornada
+                                                    </Label>
+                                                    <select
+                                                        id={`schedule-${employee.id}`}
+                                                        name="schedule_type"
+                                                        className={selectClass}
+                                                        defaultValue={
+                                                            employee.employment
+                                                                ?.scheduleType ??
+                                                            ''
+                                                        }
+                                                    >
+                                                        <option value="">
+                                                            Sin definir
+                                                        </option>
+                                                        <option value="full_time">
+                                                            Completa
+                                                        </option>
+                                                        <option value="part_time">
+                                                            Parcial
+                                                        </option>
+                                                        <option value="shift">
+                                                            Turnos
+                                                        </option>
+                                                        <option value="flexible">
+                                                            Flexible
+                                                        </option>
+                                                        <option value="other">
+                                                            Otra
+                                                        </option>
+                                                    </select>
+                                                </div>
                                                 <Field
                                                     id={`hours-${employee.id}`}
                                                     label="Horas semanales"
@@ -307,6 +369,22 @@ export default function Employees({
                                                             ?.weeklyHours ?? ''
                                                     }
                                                     error={errors.weekly_hours}
+                                                />
+                                                <Field
+                                                    id={`change-effective-${employee.id}`}
+                                                    label="Fecha efectiva del cambio"
+                                                    name="change_effective_date"
+                                                    type="date"
+                                                    error={
+                                                        errors.change_effective_date
+                                                    }
+                                                />
+                                                <Field
+                                                    id={`change-reason-${employee.id}`}
+                                                    label="Motivo del cambio"
+                                                    name="change_reason"
+                                                    placeholder="Alta o actualización contractual"
+                                                    error={errors.change_reason}
                                                 />
                                                 <Field
                                                     id={`start-${employee.id}`}
