@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\BankAccount;
+use App\Models\BankFinancialProduct;
 use App\Models\BankReconciliation;
 use App\Models\BankStatementImport;
 use App\Models\BankTransaction;
@@ -26,6 +27,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -65,7 +67,26 @@ class BankingController extends Controller
             'pendingAmount' => round((float) $account->transactions()->where('status', 'pending')->sum('amount'), 2),
         ] : ['pending' => 0, 'reconciled' => 0, 'pendingAmount' => 0];
 
-        return Inertia::render('banking/index', ['accounts' => $accounts, 'selectedAccount' => $account, 'transactions' => $transactions, 'imports' => $account ? $account->statementImports()->latest()->limit(12)->get() : [], 'control' => $account ? $this->bankControl($account) : null, 'ledgerAccounts' => LedgerAccount::where('is_active', true)->where('is_postable', true)->whereNotIn('code', ['430', '400', '410', '472', '477'])->orderBy('code')->get(['id', 'code', 'name', 'type']), 'summary' => $summary, 'filters' => $filters]);
+        $products = BankFinancialProduct::with(['bankAccount:id,name', 'ledgerAccount:id,code,name'])
+            ->orderByDesc('is_active')
+            ->orderBy('type')
+            ->orderBy('name')
+            ->get()
+            ->map(fn (BankFinancialProduct $product) => [
+                ...$product->toArray(),
+                'available_amount' => round((float) $product->credit_limit - (float) $product->used_amount, 2),
+                'utilization' => (float) $product->credit_limit > 0 ? round((float) $product->used_amount / (float) $product->credit_limit * 100, 1) : 0,
+                'expires_soon' => $product->expires_on?->between(today(), today()->addDays(60)) ?? false,
+                'expired' => $product->expires_on?->isBefore(today()) ?? false,
+            ]);
+        $productSummary = $products->where('is_active', true)->groupBy('currency')->map(fn (Collection $currencyProducts, string $currency) => [
+            'currency' => $currency,
+            'limit' => round((float) $currencyProducts->sum(fn ($product) => (float) $product['credit_limit']), 2),
+            'used' => round((float) $currencyProducts->sum(fn ($product) => (float) $product['used_amount']), 2),
+            'available' => round((float) $currencyProducts->sum(fn ($product) => (float) $product['available_amount']), 2),
+        ])->values();
+
+        return Inertia::render('banking/index', ['accounts' => $accounts, 'selectedAccount' => $account, 'transactions' => $transactions, 'imports' => $account ? $account->statementImports()->latest()->limit(12)->get() : [], 'control' => $account ? $this->bankControl($account) : null, 'ledgerAccounts' => LedgerAccount::where('is_active', true)->where('is_postable', true)->whereNotIn('code', ['430', '400', '410', '472', '477'])->orderBy('code')->get(['id', 'code', 'name', 'type']), 'liabilityAccounts' => LedgerAccount::where('is_active', true)->where('is_postable', true)->where('type', 'liability')->orderBy('code')->get(['id', 'code', 'name']), 'products' => $products, 'productSummary' => $productSummary, 'summary' => $summary, 'filters' => $filters]);
     }
 
     public function storeAccount(Request $request): RedirectResponse
@@ -82,6 +103,20 @@ class BankingController extends Controller
         return to_route('banking.index', ['account' => $account->id])->with('toast', ['type' => 'success', 'message' => __('Bank account created.')]);
     }
 
+    public function storeProduct(Request $request): RedirectResponse
+    {
+        BankFinancialProduct::create([...$this->validatedProduct($request), 'created_by' => $request->user()->id]);
+
+        return back()->with('toast', ['type' => 'success', 'message' => __('Bank financial product created.')]);
+    }
+
+    public function updateProduct(Request $request, BankFinancialProduct $product): RedirectResponse
+    {
+        $product->update($this->validatedProduct($request));
+
+        return back()->with('toast', ['type' => 'success', 'message' => __('Bank financial product updated.')]);
+    }
+
     public function import(Request $request, BankAccount $account, StatementImporter $importer): RedirectResponse
     {
         $data = $request->validate(['statement' => ['required', 'file', 'mimetypes:text/plain,text/csv,application/csv,application/octet-stream', 'max:10240']]);
@@ -91,6 +126,38 @@ class BankingController extends Controller
         BankStatementImport::create(['bank_account_id' => $account->id, 'imported_by' => $request->user()->id, 'filename' => $file->getClientOriginalName(), 'file_hash' => hash_file('sha256', $file->getRealPath()), 'format' => $result['format'], 'period_from' => $metadata['period_from'] ?? null, 'period_to' => $metadata['period_to'] ?? null, 'opening_balance' => $metadata['opening_balance'] ?? null, 'closing_balance' => $metadata['closing_balance'] ?? null, 'created_transactions' => $result['created'], 'duplicate_transactions' => $result['duplicates'], 'control_valid' => $metadata['control_valid'] ?? null, 'control_data' => $metadata['control_data'] ?? null]);
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Imported :created transactions; :duplicates duplicates skipped.', ['created' => $result['created'], 'duplicates' => $result['duplicates']])]);
+    }
+
+    private function validatedProduct(Request $request): array
+    {
+        $data = $request->validate([
+            'type' => ['required', Rule::in(['credit_card', 'credit_facility'])],
+            'bank_account_id' => ['required', 'exists:bank_accounts,id'],
+            'ledger_account_id' => ['required', Rule::exists('ledger_accounts', 'id')->where(fn ($query) => $query->where('type', 'liability')->where('is_active', true)->where('is_postable', true))],
+            'name' => ['required', 'string', 'max:255'],
+            'provider' => ['nullable', 'string', 'max:255'],
+            'currency' => ['required', 'string', 'size:3'],
+            'identifier_last_four' => ['nullable', 'digits:4'],
+            'contract_reference' => ['nullable', 'string', 'max:100'],
+            'credit_limit' => ['required', 'numeric', 'gt:0'],
+            'used_amount' => ['required', 'numeric', 'min:0', 'lte:credit_limit'],
+            'annual_interest_rate' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'annual_fee' => ['nullable', 'numeric', 'min:0'],
+            'billing_day' => ['nullable', 'integer', 'between:1,31'],
+            'payment_day' => ['nullable', 'integer', 'between:1,31'],
+            'starts_on' => ['nullable', 'date'],
+            'expires_on' => ['nullable', 'date', 'after_or_equal:starts_on'],
+            'notes' => ['nullable', 'string', 'max:2000'],
+            'is_active' => ['required', 'boolean'],
+        ]);
+        $data['currency'] = Str::upper($data['currency']);
+        if ($data['type'] === 'credit_card') {
+            $data['contract_reference'] = null;
+        } else {
+            $data['identifier_last_four'] = null;
+        }
+
+        return $data;
     }
 
     public function reconcile(Request $request, BankTransaction $transaction, JournalPoster $poster, AccountingSynchronizer $accounting): RedirectResponse

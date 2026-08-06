@@ -7,6 +7,7 @@ use App\Models\AccountingPeriod;
 use App\Models\AccountingRecurringRun;
 use App\Models\AccountingTemplate;
 use App\Models\BankAccount;
+use App\Models\BankFinancialProduct;
 use App\Models\BankReconciliation;
 use App\Models\BankTransaction;
 use App\Models\BankTransactionPosting;
@@ -86,6 +87,7 @@ class AppServiceProvider extends ServiceProvider
         FiscalYear::observe(AuditableObserver::class);
         DocumentSeries::observe(AuditableObserver::class);
         BankAccount::observe(AuditableObserver::class);
+        BankFinancialProduct::observe(AuditableObserver::class);
         BankTransaction::observe(AuditableObserver::class);
         BankReconciliation::observe(AuditableObserver::class);
         BankReconciliation::observe(BankReconciliationFinancialObserver::class);
