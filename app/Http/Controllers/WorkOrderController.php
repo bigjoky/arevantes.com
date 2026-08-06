@@ -31,7 +31,7 @@ class WorkOrderController extends Controller
 {
     public function index(Request $request, TechnicianSchedule $schedule, ProjectMaterialPlanner $materials): Response
     {
-        $query = WorkOrder::with(['installation:id,project_reference,site_name,status,site_postal_code', 'installation.materialRequirements:id,installation_id', 'assignedUser:id,name', 'assignedUser.fieldServiceProfile', 'stockReservations:id,work_order_id,status', 'template:id,name,allowed_transitions'])->withSum('timeEntries as duration_minutes', 'duration_minutes')->withSum('timeEntries as travel_km', 'travel_km');
+        $query = WorkOrder::with(['installation:id,project_reference,site_name,status,site_postal_code,site_latitude,site_longitude', 'installation.materialRequirements:id,installation_id', 'assignedUser:id,name', 'assignedUser.fieldServiceProfile', 'stockReservations:id,work_order_id,status', 'template:id,name,allowed_transitions'])->withSum('timeEntries as duration_minutes', 'duration_minutes')->withSum('timeEntries as travel_km', 'travel_km');
         if ($request->user()->hasRole('technician')) {
             $query->where('assigned_user_id', $request->user()->id);
         }

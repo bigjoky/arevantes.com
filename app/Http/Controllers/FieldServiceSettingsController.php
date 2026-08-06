@@ -8,9 +8,19 @@ use App\Models\WorkOrderTemplate;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Inertia\Inertia;
+use Inertia\Response;
 
 class FieldServiceSettingsController extends Controller
 {
+    public function index(): Response
+    {
+        return Inertia::render('operations/field-service', [
+            'users' => User::with('fieldServiceProfile')->whereIn('role', ['technician', 'admin'])->orderBy('name')->get(['id', 'name', 'role']),
+            'templates' => WorkOrderTemplate::orderBy('kind')->orderBy('name')->get(),
+        ]);
+    }
+
     public function updateProfile(Request $request, User $user): RedirectResponse
     {
         abort_unless($user->hasRole('technician', 'admin'), 422);

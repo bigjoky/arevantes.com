@@ -90,7 +90,7 @@ class InstallationController extends Controller
     /**
      * Show an installation profile.
      */
-    public function show(Installation $installation, ProjectProfitability $profitability): Response
+    public function show(Request $request, Installation $installation, ProjectProfitability $profitability): Response
     {
         $installation->load(['customer', 'remoteStation', 'assets.product:id,name,sku', 'assets.serial:id,serial_number', 'assets.sourcePurchase:id,number', 'assets.replacement:id,asset_tag,name', 'assets.events']);
 
@@ -114,6 +114,7 @@ class InstallationController extends Controller
                 'purchases' => $installation->purchaseDocuments()->latest()->get(['id', 'number']),
             ],
             'profitability' => $profitability->for($installation),
+            'canManageAssets' => $request->user()->can('manage-installations'),
             'latestAiGeneration' => InstallationAiController::payload($installation->aiGenerations()->latest()->first()),
         ]);
     }

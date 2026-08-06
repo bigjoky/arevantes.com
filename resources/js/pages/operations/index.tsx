@@ -13,6 +13,7 @@ import {
     Pencil,
     Plus,
     Search,
+    Settings2,
     Trash2,
     UserRoundX,
     Wrench,
@@ -189,12 +190,21 @@ export default function OperationsIndex({
                             exceptions.
                         </p>
                     </div>
-                    <ActivityDialog
-                        installations={installations}
-                        users={users}
-                        canManage={canManage}
-                        currentUserId={currentUserId}
-                    />
+                    <div className="flex gap-2">
+                        {canManage && (
+                            <Button asChild variant="outline">
+                                <Link href="/operations/field-service">
+                                    <Settings2 /> Field service
+                                </Link>
+                            </Button>
+                        )}
+                        <ActivityDialog
+                            installations={installations}
+                            users={users}
+                            canManage={canManage}
+                            currentUserId={currentUserId}
+                        />
+                    </div>
                 </header>
 
                 <section className="grid gap-px overflow-hidden rounded-lg border bg-border sm:grid-cols-3 xl:grid-cols-6">

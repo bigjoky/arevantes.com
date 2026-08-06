@@ -42,6 +42,82 @@ class FieldServiceOperationsTest extends TestCase
         );
     }
 
+    public function test_field_service_profiles_and_templates_can_be_configured(): void
+    {
+        $commercial = User::factory()->create(['role' => 'commercial']);
+        $technician = User::factory()->create(['role' => 'technician']);
+
+        $this->actingAs($commercial)->get(route('field-service.index'))->assertOk();
+        $this->put(route('field-service.profiles.update', $technician), [
+            'daily_capacity_minutes' => 420,
+            'max_travel_km' => 100,
+            'home_postal_code' => '28001',
+            'service_zones' => ['Madrid centro'],
+            'skills' => ['solar', 'commissioning'],
+            'is_available' => true,
+        ])->assertRedirect();
+        $this->post(route('work-order-templates.store'), [
+            'name' => 'Solar commissioning',
+            'kind' => 'commissioning',
+            'title' => 'Commission solar installation',
+            'estimated_duration_minutes' => 180,
+            'required_skills' => ['solar', 'commissioning'],
+            'checklist' => [
+                ['label' => 'Verify protections', 'is_required' => true],
+                ['label' => 'Capture production evidence', 'is_required' => true],
+            ],
+        ])->assertRedirect();
+
+        $this->assertDatabaseHas('field_service_profiles', [
+            'user_id' => $technician->id,
+            'daily_capacity_minutes' => 420,
+        ]);
+        $this->assertDatabaseHas('work_order_templates', [
+            'name' => 'Solar commissioning',
+            'estimated_duration_minutes' => 180,
+        ]);
+    }
+
+    public function test_planning_flags_excessive_travel_between_consecutive_jobs(): void
+    {
+        $technician = User::factory()->create(['role' => 'technician']);
+        FieldServiceProfile::create([
+            'user_id' => $technician->id,
+            'daily_capacity_minutes' => 480,
+            'max_travel_km' => 10,
+            'skills' => [],
+            'service_zones' => [],
+            'is_available' => true,
+        ]);
+        $firstInstallation = $this->installation();
+        $firstInstallation->update(['site_latitude' => 40.4168, 'site_longitude' => -3.7038]);
+        $secondInstallation = $this->installation();
+        $secondInstallation->update(['site_latitude' => 41.3874, 'site_longitude' => 2.1686]);
+        $factory = app(WorkOrderFactory::class);
+        $first = $factory->create([
+            'installation_id' => $firstInstallation->id,
+            'assigned_user_id' => $technician->id,
+            'title' => 'Madrid visit',
+            'kind' => 'maintenance',
+            'scheduled_start' => '2026-08-10 08:00:00',
+            'scheduled_end' => '2026-08-10 09:00:00',
+        ]);
+        $second = $factory->create([
+            'installation_id' => $secondInstallation->id,
+            'assigned_user_id' => $technician->id,
+            'title' => 'Barcelona visit',
+            'kind' => 'maintenance',
+            'scheduled_start' => '2026-08-10 10:00:00',
+            'scheduled_end' => '2026-08-10 11:00:00',
+        ]);
+        $orders = WorkOrder::with('installation')->whereKey([$first->id, $second->id])->get();
+
+        $issues = app(TechnicianSchedule::class)->planningIssues($orders);
+
+        $this->assertSame('travel', collect($issues[$first->id])->firstWhere('type', 'travel')['type']);
+        $this->assertSame('travel', collect($issues[$second->id])->firstWhere('type', 'travel')['type']);
+    }
+
     public function test_bulk_rescheduling_requires_a_reason_and_keeps_an_audit_trail(): void
     {
         $commercial = User::factory()->create(['role' => 'commercial']);

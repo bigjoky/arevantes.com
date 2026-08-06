@@ -8,6 +8,7 @@ import {
     Sun,
     ThumbsUp,
     PencilLine,
+    Plus,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { lazy, Suspense, useState } from 'react';
@@ -25,6 +26,15 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { useLocale } from '@/hooks/use-locale';
 
 type Installation = {
@@ -127,6 +137,14 @@ type Profitability = {
     planned_margin: number;
     actual_margin: number;
 };
+type AssetOptions = {
+    serials: {
+        id: number;
+        serial_number: string;
+        product: { name: string; sku: string | null };
+    }[];
+    purchases: { id: number; number: string }[];
+};
 type AiGeneration = {
     uuid: string;
     status: 'queued' | 'processing' | 'completed' | 'failed';
@@ -163,7 +181,9 @@ export default function InstallationShow({
     activities,
     quotes,
     assets,
+    assetOptions,
     profitability,
+    canManageAssets,
     latestAiGeneration,
 }: {
     installation: Installation;
@@ -172,7 +192,9 @@ export default function InstallationShow({
     activities: Activity[];
     quotes: Quote[];
     assets: Asset[];
+    assetOptions: AssetOptions;
     profitability: Profitability;
+    canManageAssets: boolean;
     latestAiGeneration: AiGeneration | null;
 }) {
     const { locale } = useLocale();
@@ -725,11 +747,20 @@ export default function InstallationShow({
 
                 <section className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
                     <Card className="rounded-lg">
-                        <CardHeader>
-                            <CardTitle>Installed assets</CardTitle>
-                            <CardDescription>
-                                Equipment, warranty and technical traceability.
-                            </CardDescription>
+                        <CardHeader className="flex-row items-start justify-between gap-3">
+                            <div>
+                                <CardTitle>Installed assets</CardTitle>
+                                <CardDescription>
+                                    Equipment, warranty and technical
+                                    traceability.
+                                </CardDescription>
+                            </div>
+                            {canManageAssets && (
+                                <AssetDialog
+                                    installationId={installation.id}
+                                    options={assetOptions}
+                                />
+                            )}
                         </CardHeader>
                         <CardContent className="grid gap-3">
                             {assets.map((asset) => (
@@ -763,6 +794,91 @@ export default function InstallationShow({
                                     {asset.events[0] && (
                                         <div className="mt-1 text-xs text-muted-foreground">
                                             Latest: {asset.events[0].summary}
+                                        </div>
+                                    )}
+                                    {canManageAssets && (
+                                        <div className="mt-2 flex flex-wrap gap-4">
+                                            <details>
+                                                <summary className="cursor-pointer text-xs underline underline-offset-2">
+                                                    Add technical event
+                                                </summary>
+                                                <Form
+                                                    action={`/installations/${installation.id}/assets/${asset.id}/events`}
+                                                    method="post"
+                                                    className="mt-2 grid gap-2"
+                                                >
+                                                    <input
+                                                        type="hidden"
+                                                        name="type"
+                                                        value="note"
+                                                    />
+                                                    <input
+                                                        type="hidden"
+                                                        name="occurred_at"
+                                                        value={localDateTimeNow()}
+                                                    />
+                                                    <Input
+                                                        name="summary"
+                                                        required
+                                                        placeholder="Event summary"
+                                                    />
+                                                    <Button
+                                                        size="sm"
+                                                        variant="outline"
+                                                    >
+                                                        Save event
+                                                    </Button>
+                                                </Form>
+                                            </details>
+                                            {!asset.replacement &&
+                                                asset.status !== 'replaced' && (
+                                                    <details>
+                                                        <summary className="cursor-pointer text-xs underline underline-offset-2">
+                                                            Register replacement
+                                                        </summary>
+                                                        <Form
+                                                            action={`/installations/${installation.id}/assets/${asset.id}/replacement`}
+                                                            method="post"
+                                                            className="mt-2 grid gap-2"
+                                                        >
+                                                            <input
+                                                                type="hidden"
+                                                                name="name"
+                                                                value={
+                                                                    asset.name
+                                                                }
+                                                            />
+                                                            <input
+                                                                type="hidden"
+                                                                name="category"
+                                                                value={
+                                                                    asset.category
+                                                                }
+                                                            />
+                                                            <input
+                                                                type="hidden"
+                                                                name="status"
+                                                                value="active"
+                                                            />
+                                                            <input
+                                                                type="hidden"
+                                                                name="commissioned_at"
+                                                                value={localDateTimeNow()}
+                                                            />
+                                                            <Input
+                                                                name="serial_number"
+                                                                required
+                                                                placeholder="Replacement serial"
+                                                            />
+                                                            <Button
+                                                                size="sm"
+                                                                variant="outline"
+                                                            >
+                                                                Replace asset
+                                                            </Button>
+                                                        </Form>
+                                                    </details>
+                                                )}
                                         </div>
                                     )}
                                 </div>
@@ -1316,11 +1432,127 @@ function Value({ label, value }: { label: string; value: string }) {
     );
 }
 
+function AssetDialog({
+    installationId,
+    options,
+}: {
+    installationId: number;
+    options: AssetOptions;
+}) {
+    const [open, setOpen] = useState(false);
+
+    return (
+        <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+                <Button size="sm">
+                    <Plus /> Add asset
+                </Button>
+            </DialogTrigger>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Register installed asset</DialogTitle>
+                </DialogHeader>
+                <Form
+                    action={`/installations/${installationId}/assets`}
+                    method="post"
+                    onSuccess={() => setOpen(false)}
+                    className="grid gap-4"
+                >
+                    <div className="grid gap-2">
+                        <Label>Name</Label>
+                        <Input name="name" required />
+                    </div>
+                    <div className="grid gap-2">
+                        <Label>Category</Label>
+                        <Input
+                            name="category"
+                            required
+                            placeholder="inverter, charger, HVAC…"
+                        />
+                    </div>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                        <div className="grid gap-2">
+                            <Label>Manufacturer</Label>
+                            <Input name="manufacturer" />
+                        </div>
+                        <div className="grid gap-2">
+                            <Label>Model</Label>
+                            <Input name="model" />
+                        </div>
+                    </div>
+                    {options.serials.length > 0 ? (
+                        <div className="grid gap-2">
+                            <Label>Inventory serial</Label>
+                            <select
+                                name="serial_number_id"
+                                className="h-9 rounded-md border bg-transparent px-3 text-sm"
+                            >
+                                <option value="">Manual / no serial</option>
+                                {options.serials.map((serial) => (
+                                    <option key={serial.id} value={serial.id}>
+                                        {serial.product.name} ·{' '}
+                                        {serial.serial_number}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                    ) : (
+                        <div className="grid gap-2">
+                            <Label>Serial number</Label>
+                            <Input name="serial_number" />
+                        </div>
+                    )}
+                    {options.purchases.length > 0 && (
+                        <div className="grid gap-2">
+                            <Label>Source purchase</Label>
+                            <select
+                                name="source_purchase_document_id"
+                                className="h-9 rounded-md border bg-transparent px-3 text-sm"
+                            >
+                                <option value="">Not linked</option>
+                                {options.purchases.map((purchase) => (
+                                    <option
+                                        key={purchase.id}
+                                        value={purchase.id}
+                                    >
+                                        {purchase.number}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
+                    <div className="grid gap-4 sm:grid-cols-2">
+                        <div className="grid gap-2">
+                            <Label>Commissioned</Label>
+                            <Input
+                                name="commissioned_at"
+                                type="datetime-local"
+                            />
+                        </div>
+                        <div className="grid gap-2">
+                            <Label>Warranty ends</Label>
+                            <Input name="warranty_ends_on" type="date" />
+                        </div>
+                    </div>
+                    <Button>Register asset</Button>
+                </Form>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
 function money(value: number) {
     return new Intl.NumberFormat('es-ES', {
         style: 'currency',
         currency: 'EUR',
     }).format(value);
+}
+
+function localDateTimeNow() {
+    const date = new Date();
+    date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
+
+    return date.toISOString().slice(0, 16);
 }
 
 function ServiceIcon({ service }: { service: keyof typeof serviceLabels }) {

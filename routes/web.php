@@ -301,6 +301,7 @@ Route::middleware(['auth'])->group(function () {
     Route::patch('operations/activities/{activity}', [OperationsController::class, 'update'])->middleware('can:manage-operations')->name('activities.update');
     Route::delete('operations/activities/{activity}', [OperationsController::class, 'destroy'])->middleware('can:manage-operations')->name('activities.destroy');
     Route::post('operations/activities/{activity}/work-order', [OperationsController::class, 'convertToWorkOrder'])->middleware('can:manage-installations')->name('activities.work-order.store');
+    Route::get('operations/field-service', [FieldServiceSettingsController::class, 'index'])->middleware('can:manage-installations')->name('field-service.index');
     Route::put('operations/field-service/users/{user}', [FieldServiceSettingsController::class, 'updateProfile'])->middleware('can:manage-installations')->name('field-service.profiles.update');
     Route::post('operations/work-order-templates', [FieldServiceSettingsController::class, 'storeTemplate'])->middleware('can:manage-installations')->name('work-order-templates.store');
     Route::patch('operations/work-order-templates/{template}', [FieldServiceSettingsController::class, 'updateTemplate'])->middleware('can:manage-installations')->name('work-order-templates.update');

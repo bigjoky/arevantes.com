@@ -81,7 +81,7 @@ class OperationsController extends Controller
         $rangeStart = $filters['view'] === 'month' ? $anchor->copy()->startOfWeek() : $anchor;
         $rangeEnd = $filters['view'] === 'month' ? $anchor->copy()->endOfMonth()->endOfWeek() : $anchor->copy()->endOfWeek();
         $workOrdersQuery = WorkOrder::query()
-            ->with(['installation:id,project_reference,site_name,status,site_postal_code', 'installation.materialRequirements:id,installation_id', 'assignedUser:id,name,role', 'assignedUser.fieldServiceProfile', 'stockReservations:id,work_order_id,status'])
+            ->with(['installation:id,project_reference,site_name,status,site_postal_code,site_latitude,site_longitude', 'installation.materialRequirements:id,installation_id', 'assignedUser:id,name,role', 'assignedUser.fieldServiceProfile', 'stockReservations:id,work_order_id,status'])
             ->whereNotIn('status', ['completed', 'cancelled']);
         if ($request->user()->hasRole('technician')) {
             $workOrdersQuery->where('assigned_user_id', $request->user()->id);

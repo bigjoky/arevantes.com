@@ -112,6 +112,18 @@ class TechnicianSchedule
                         $issues[$order->id][] = ['type' => 'capacity', 'severity' => 'warning', 'message' => __('Daily capacity exceeded')];
                     }
                 }
+                $dayOrders->sortBy('scheduled_start')->values()->each(function (WorkOrder $order, int $index) use ($dayOrders, $profile, &$issues): void {
+                    if ($index === 0) {
+                        return;
+                    }
+                    $previous = $dayOrders->sortBy('scheduled_start')->values()->get($index - 1);
+                    $distance = $this->distanceKm($previous->installation, $order->installation);
+                    if ($distance !== null && $distance > $profile->max_travel_km) {
+                        $message = __('Excessive travel: :distance km between consecutive jobs', ['distance' => round($distance)]);
+                        $issues[$previous->id][] = ['type' => 'travel', 'severity' => 'warning', 'message' => $message];
+                        $issues[$order->id][] = ['type' => 'travel', 'severity' => 'warning', 'message' => $message];
+                    }
+                });
             });
         foreach ($orders as $order) {
             $profile = $profiles->get($order->assigned_user_id);
@@ -125,5 +137,19 @@ class TechnicianSchedule
         }
 
         return $issues;
+    }
+
+    private function distanceKm(mixed $from, mixed $to): ?float
+    {
+        if (! $from?->site_latitude || ! $from?->site_longitude || ! $to?->site_latitude || ! $to?->site_longitude) {
+            return null;
+        }
+        $earthRadius = 6371;
+        $latitudeDelta = deg2rad((float) $to->site_latitude - (float) $from->site_latitude);
+        $longitudeDelta = deg2rad((float) $to->site_longitude - (float) $from->site_longitude);
+        $a = sin($latitudeDelta / 2) ** 2
+            + cos(deg2rad((float) $from->site_latitude)) * cos(deg2rad((float) $to->site_latitude)) * sin($longitudeDelta / 2) ** 2;
+
+        return $earthRadius * 2 * atan2(sqrt($a), sqrt(1 - $a));
     }
 }

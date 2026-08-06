@@ -1,0 +1,424 @@
+import { Form, Head, Link } from '@inertiajs/react';
+import { ArrowLeft, Plus, Save } from 'lucide-react';
+import { useState } from 'react';
+import InputError from '@/components/input-error';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
+
+type Profile = {
+    daily_capacity_minutes: number;
+    max_travel_km: number;
+    home_postal_code: string | null;
+    service_zones: string[];
+    skills: string[];
+    is_available: boolean;
+};
+type User = {
+    id: number;
+    name: string;
+    role: string;
+    field_service_profile: Profile | null;
+};
+type Template = {
+    id: number;
+    name: string;
+    kind: string;
+    title: string;
+    estimated_duration_minutes: number;
+    required_skills: string[];
+    checklist: { label: string; is_required: boolean }[];
+    is_active: boolean;
+};
+
+export default function FieldServiceSettings({
+    users,
+    templates,
+}: {
+    users: User[];
+    templates: Template[];
+}) {
+    return (
+        <>
+            <Head title="Field service settings" />
+            <div className="flex flex-1 flex-col gap-6 p-4 md:p-6">
+                <header className="flex items-center gap-3">
+                    <Button asChild size="icon" variant="outline">
+                        <Link href="/operations">
+                            <ArrowLeft />
+                        </Link>
+                    </Button>
+                    <div>
+                        <h1 className="text-xl font-semibold">
+                            Field service settings
+                        </h1>
+                        <p className="text-sm text-muted-foreground">
+                            Technician capacity, coverage, skills and reusable
+                            work templates.
+                        </p>
+                    </div>
+                </header>
+                <section>
+                    <h2 className="mb-3 font-semibold">Technicians</h2>
+                    <div className="grid gap-4 xl:grid-cols-2">
+                        {users.map((user) => (
+                            <ProfileForm key={user.id} user={user} />
+                        ))}
+                    </div>
+                </section>
+                <section className="grid gap-6 xl:grid-cols-[1fr_1.2fr]">
+                    <TemplateForm />
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Work templates</CardTitle>
+                        </CardHeader>
+                        <CardContent className="grid gap-3">
+                            {templates.map((template) => (
+                                <div
+                                    key={template.id}
+                                    className="border-t pt-3 text-sm"
+                                >
+                                    <div className="flex items-center justify-between gap-2">
+                                        <div className="font-medium">
+                                            {template.name}
+                                        </div>
+                                        <Badge
+                                            variant={
+                                                template.is_active
+                                                    ? 'outline'
+                                                    : 'secondary'
+                                            }
+                                        >
+                                            {template.is_active
+                                                ? 'Active'
+                                                : 'Inactive'}
+                                        </Badge>
+                                    </div>
+                                    <div className="text-muted-foreground">
+                                        {template.kind} ·{' '}
+                                        {template.estimated_duration_minutes}{' '}
+                                        min · {template.checklist.length} checks
+                                    </div>
+                                    {template.required_skills.length > 0 && (
+                                        <div className="mt-1">
+                                            Skills:{' '}
+                                            {template.required_skills.join(
+                                                ', ',
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                            {templates.length === 0 && (
+                                <p className="text-sm text-muted-foreground">
+                                    No templates yet.
+                                </p>
+                            )}
+                        </CardContent>
+                    </Card>
+                </section>
+            </div>
+        </>
+    );
+}
+
+function ProfileForm({ user }: { user: User }) {
+    const profile = user.field_service_profile;
+    const [skills, setSkills] = useState((profile?.skills || []).join(', '));
+    const [zones, setZones] = useState(
+        (profile?.service_zones || []).join(', '),
+    );
+
+    return (
+        <Card>
+            <CardHeader className="pb-3">
+                <CardTitle className="flex items-center justify-between text-base">
+                    {user.name}
+                    <Badge variant="outline">{user.role}</Badge>
+                </CardTitle>
+            </CardHeader>
+            <CardContent>
+                <Form
+                    action={`/operations/field-service/users/${user.id}`}
+                    method="put"
+                    className="grid gap-4"
+                >
+                    {({ errors, processing }) => (
+                        <>
+                            <div className="grid gap-4 sm:grid-cols-2">
+                                <Field
+                                    label="Daily capacity (minutes)"
+                                    name="daily_capacity_minutes"
+                                    type="number"
+                                    value={String(
+                                        profile?.daily_capacity_minutes || 480,
+                                    )}
+                                />
+                                <Field
+                                    label="Maximum travel (km)"
+                                    name="max_travel_km"
+                                    type="number"
+                                    value={String(
+                                        profile?.max_travel_km || 150,
+                                    )}
+                                />
+                            </div>
+                            <Field
+                                label="Home postal code"
+                                name="home_postal_code"
+                                value={profile?.home_postal_code || ''}
+                            />
+                            <TextList
+                                label="Skills"
+                                value={skills}
+                                onChange={setSkills}
+                                name="skills"
+                            />
+                            <TextList
+                                label="Service zones"
+                                value={zones}
+                                onChange={setZones}
+                                name="service_zones"
+                            />
+                            <input
+                                type="hidden"
+                                name="is_available"
+                                value="0"
+                            />
+                            <label className="flex items-center gap-2 text-sm">
+                                <input
+                                    type="checkbox"
+                                    name="is_available"
+                                    value="1"
+                                    defaultChecked={
+                                        profile?.is_available ?? true
+                                    }
+                                />{' '}
+                                Available for assignment
+                            </label>
+                            <InputError
+                                message={
+                                    errors.daily_capacity_minutes ||
+                                    errors.skills ||
+                                    errors.service_zones
+                                }
+                            />
+                            <Button disabled={processing}>
+                                <Save /> Save profile
+                            </Button>
+                        </>
+                    )}
+                </Form>
+            </CardContent>
+        </Card>
+    );
+}
+
+function TemplateForm() {
+    const [skills, setSkills] = useState('');
+    const [checklist, setChecklist] = useState(
+        'Prepare work area\nPerform technical checks\nCapture completion evidence',
+    );
+    const [transitions, setTransitions] = useState(
+        'planned: in_progress, blocked, cancelled\nin_progress: blocked, completed, cancelled\nblocked: planned, in_progress, cancelled\ncompleted:\ncancelled: planned',
+    );
+
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle>New work template</CardTitle>
+            </CardHeader>
+            <CardContent>
+                <Form
+                    action="/operations/work-order-templates"
+                    method="post"
+                    className="grid gap-4"
+                >
+                    {({ errors, processing }) => (
+                        <>
+                            <Field label="Template name" name="name" />
+                            <div className="grid gap-4 sm:grid-cols-2">
+                                <div className="grid gap-2">
+                                    <Label>Work type</Label>
+                                    <Select
+                                        name="kind"
+                                        defaultValue="installation"
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {[
+                                                'survey',
+                                                'installation',
+                                                'commissioning',
+                                                'maintenance',
+                                                'repair',
+                                            ].map((kind) => (
+                                                <SelectItem
+                                                    key={kind}
+                                                    value={kind}
+                                                >
+                                                    {kind}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <Field
+                                    label="Estimated duration (minutes)"
+                                    name="estimated_duration_minutes"
+                                    type="number"
+                                    value="120"
+                                />
+                            </div>
+                            <Field label="Default title" name="title" />
+                            <TextList
+                                label="Required skills"
+                                value={skills}
+                                onChange={setSkills}
+                                name="required_skills"
+                            />
+                            <div className="grid gap-2">
+                                <Label>Checklist (one item per line)</Label>
+                                <textarea
+                                    value={checklist}
+                                    onChange={(event) =>
+                                        setChecklist(event.target.value)
+                                    }
+                                    className="min-h-32 rounded-md border bg-transparent p-3 text-sm"
+                                />
+                                {lines(checklist).map((item, index) => (
+                                    <span key={`${item}-${index}`}>
+                                        <input
+                                            type="hidden"
+                                            name={`checklist[${index}][label]`}
+                                            value={item}
+                                        />
+                                        <input
+                                            type="hidden"
+                                            name={`checklist[${index}][is_required]`}
+                                            value="1"
+                                        />
+                                    </span>
+                                ))}
+                            </div>
+                            <div className="grid gap-2">
+                                <Label>Allowed transitions</Label>
+                                <textarea
+                                    value={transitions}
+                                    onChange={(event) =>
+                                        setTransitions(event.target.value)
+                                    }
+                                    className="min-h-32 rounded-md border bg-transparent p-3 font-mono text-xs"
+                                />
+                                {Object.entries(
+                                    parseTransitions(transitions),
+                                ).flatMap(([from, targets]) =>
+                                    targets.map((target, index) => (
+                                        <input
+                                            key={`${from}-${target}`}
+                                            type="hidden"
+                                            name={`allowed_transitions[${from}][${index}]`}
+                                            value={target}
+                                        />
+                                    )),
+                                )}
+                            </div>
+                            <InputError
+                                message={errors.name || errors.checklist}
+                            />
+                            <Button disabled={processing}>
+                                <Plus /> Create template
+                            </Button>
+                        </>
+                    )}
+                </Form>
+            </CardContent>
+        </Card>
+    );
+}
+
+function TextList({
+    label,
+    value,
+    onChange,
+    name,
+}: {
+    label: string;
+    value: string;
+    onChange: (value: string) => void;
+    name: string;
+}) {
+    return (
+        <div className="grid gap-2">
+            <Label>{label} (comma separated)</Label>
+            <Input
+                value={value}
+                onChange={(event) => onChange(event.target.value)}
+            />
+            {csv(value).map((item, index) => (
+                <input
+                    key={`${item}-${index}`}
+                    type="hidden"
+                    name={`${name}[${index}]`}
+                    value={item}
+                />
+            ))}
+        </div>
+    );
+}
+
+function Field({
+    label,
+    name,
+    type = 'text',
+    value,
+}: {
+    label: string;
+    name: string;
+    type?: string;
+    value?: string;
+}) {
+    return (
+        <div className="grid gap-2">
+            <Label>{label}</Label>
+            <Input name={name} type={type} defaultValue={value} />
+        </div>
+    );
+}
+
+const csv = (value: string) =>
+    value
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean);
+const lines = (value: string) =>
+    value
+        .split('\n')
+        .map((item) => item.trim())
+        .filter(Boolean);
+const parseTransitions = (value: string) =>
+    Object.fromEntries(
+        lines(value).map((line) => {
+            const [from, destinations = ''] = line.split(':', 2);
+
+            return [from.trim(), csv(destinations)];
+        }),
+    ) as Record<string, string[]>;
+
+FieldServiceSettings.layout = {
+    breadcrumbs: [
+        { title: 'Operations', href: '/operations' },
+        { title: 'Field service', href: '/operations/field-service' },
+    ],
+};
