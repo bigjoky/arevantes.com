@@ -14,6 +14,7 @@ use App\Models\Supplier;
 use App\Models\User;
 use App\Models\WorkOrder;
 use App\Observers\AuditableObserver;
+use App\Observers\OpportunityStageObserver;
 use App\Observers\PartyLedgerObserver;
 use App\Observers\WorkOrderObserver;
 use App\Policies\CrmActivityPolicy;
@@ -48,6 +49,7 @@ class AppServiceProvider extends ServiceProvider
         Installation::observe(AuditableObserver::class);
         WorkOrder::observe(WorkOrderObserver::class);
         Opportunity::observe(AuditableObserver::class);
+        Opportunity::observe(OpportunityStageObserver::class);
         CompanyProfile::observe(AuditableObserver::class);
         FiscalYear::observe(AuditableObserver::class);
         DocumentSeries::observe(AuditableObserver::class);

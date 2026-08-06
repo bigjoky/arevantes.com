@@ -6,6 +6,7 @@ use App\Models\Opportunity;
 use App\Models\Person;
 use App\Models\User;
 use App\Notifications\WebsiteLeadNotification;
+use App\Services\Crm\LeadAssignment;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -22,7 +23,7 @@ class WebsiteContactController extends Controller
         'maintenance' => 'Mantenimiento',
     ];
 
-    public function __invoke(Request $request): RedirectResponse
+    public function __invoke(Request $request, LeadAssignment $assignment): RedirectResponse
     {
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
@@ -35,7 +36,7 @@ class WebsiteContactController extends Controller
             'company_url' => ['nullable', 'string', 'max:0'],
         ]);
 
-        $opportunity = DB::transaction(function () use ($data): Opportunity {
+        $opportunity = DB::transaction(function () use ($data, $assignment): Opportunity {
             $email = Str::lower($data['email']);
             $service = self::SERVICES[$data['service']];
             $customer = Person::query()
@@ -78,11 +79,12 @@ class WebsiteContactController extends Controller
 
             $opportunity = Opportunity::create([
                 'person_id' => $customer->id,
+                'owner_user_id' => $assignment->nextOwner()?->id,
                 'title' => 'Solicitud web · '.$service,
                 'stage' => 'new',
                 'probability' => 10,
                 'estimated_value' => 0,
-                'source' => 'Website',
+                'source' => 'website',
                 'notes' => $notes,
             ]);
             $opportunity->update([

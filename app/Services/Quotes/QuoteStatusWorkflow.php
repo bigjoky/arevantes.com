@@ -29,12 +29,13 @@ class QuoteStatusWorkflow
             }
 
             if ($status === 'accepted') {
-                $quote->opportunity->update(['stage' => 'won', 'probability' => 100, 'lost_reason' => null]);
+                $quote->opportunity->update(['stage' => 'won', 'probability' => 100, 'lost_reason' => null, 'lost_reason_detail' => null]);
             } elseif ($status === 'rejected') {
                 $quote->opportunity->update([
                     'stage' => 'lost',
                     'probability' => 0,
-                    'lost_reason' => __('Quote :number rejected.', ['number' => $quote->number]),
+                    'lost_reason' => 'other',
+                    'lost_reason_detail' => __('Quote :number rejected.', ['number' => $quote->number]),
                 ]);
             }
         });
