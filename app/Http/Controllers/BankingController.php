@@ -20,6 +20,7 @@ use App\Models\SupplierPayment;
 use App\Models\TaxReturnPayment;
 use App\Services\Accounting\AccountingSynchronizer;
 use App\Services\Accounting\JournalPoster;
+use App\Services\Accounting\LedgerAccountResolver;
 use App\Services\Banking\BankFinancialProductManager;
 use App\Services\Banking\BankTransactionAnalyzer;
 use App\Services\Banking\CardSettlementSchedule;
@@ -277,18 +278,47 @@ class BankingController extends Controller
         return back()->with('toast', ['type' => 'success', 'message' => __('Reconciliation removed.')]);
     }
 
-    public function postTransaction(Request $request, BankTransaction $transaction, JournalPoster $poster): RedirectResponse
+    public function postTransaction(Request $request, BankTransaction $transaction, JournalPoster $poster, LedgerAccountResolver $accounts): RedirectResponse
     {
         abort_unless($transaction->status === 'pending', 422);
-        $data = $request->validate(['counterpart_account' => ['required', 'exists:ledger_accounts,code']]);
+        if (! $request->has('allocations') && $request->filled('counterpart_account')) {
+            $request->merge(['allocations' => [['account_code' => $request->input('counterpart_account'), 'amount' => abs((float) $transaction->amount)]]]);
+        }
+        $data = $request->validate([
+            'allocations' => ['required', 'array', 'min:1', 'max:20'],
+            'allocations.*.account_code' => ['required', 'string', 'max:12'],
+            'allocations.*.account_name' => ['nullable', 'string', 'max:255'],
+            'allocations.*.amount' => ['required', 'numeric', 'gt:0'],
+        ]);
         $transaction->load('account.ledgerAccount');
         $bankCode = $transaction->account->ledgerAccount?->code ?? '572';
-        abort_if($data['counterpart_account'] === $bankCode, 422, __('Select a different counterpart account.'));
         $amount = abs((float) $transaction->amount);
+        $allocated = round((float) collect($data['allocations'])->sum('amount'), 2);
+        if (abs($allocated - $amount) > .005) {
+            throw ValidationException::withMessages(['allocations' => __('The allocation total must exactly match the bank movement amount.')]);
+        }
         $incoming = (float) $transaction->amount > 0;
-        $lines = $incoming ? [['account_code' => $bankCode, 'debit' => $amount, 'credit' => 0], ['account_code' => $data['counterpart_account'], 'debit' => 0, 'credit' => $amount]] : [['account_code' => $data['counterpart_account'], 'debit' => $amount, 'credit' => 0], ['account_code' => $bankCode, 'debit' => 0, 'credit' => $amount]];
-        DB::transaction(function () use ($request, $transaction, $poster, $data, $lines) {
-            $posting = BankTransactionPosting::create(['bank_transaction_id' => $transaction->id, 'counterpart_account_id' => LedgerAccount::where('code', $data['counterpart_account'])->value('id'), 'posted_by' => $request->user()->id]);
+        DB::transaction(function () use ($request, $transaction, $poster, $accounts, $data, $bankCode, $amount, $incoming) {
+            $allocations = collect($data['allocations'])->values()->map(function (array $allocation, int $index) use ($accounts, $bankCode) {
+                $account = $accounts->resolveOrCreate($allocation['account_code'], $allocation['account_name'] ?? null, "allocations.{$index}.account_code");
+                abort_if($account->code === $bankCode, 422, __('Select a different counterpart account.'));
+
+                return ['account' => $account, 'amount' => round((float) $allocation['amount'], 2)];
+            });
+            $counterpartLines = $allocations->map(fn (array $allocation) => [
+                'account_code' => $allocation['account']->code,
+                'description' => $allocation['account']->name,
+                'debit' => $incoming ? 0 : $allocation['amount'],
+                'credit' => $incoming ? $allocation['amount'] : 0,
+            ])->all();
+            $bankLine = ['account_code' => $bankCode, 'debit' => $incoming ? $amount : 0, 'credit' => $incoming ? 0 : $amount];
+            $lines = $incoming ? [$bankLine, ...$counterpartLines] : [...$counterpartLines, $bankLine];
+            $posting = BankTransactionPosting::create([
+                'bank_transaction_id' => $transaction->id,
+                'counterpart_account_id' => $allocations->count() === 1 ? $allocations->first()['account']->id : null,
+                'allocation_data' => $allocations->map(fn (array $allocation) => ['account_id' => $allocation['account']->id, 'code' => $allocation['account']->code, 'name' => $allocation['account']->name, 'amount' => $allocation['amount']])->all(),
+                'posted_by' => $request->user()->id,
+            ]);
             $entry = $poster->post($transaction->booked_on->toDateString(), $transaction->description, $lines, $request->user()->id, 'bank_posting', $posting, 'bank_posting');
             $posting->update(['journal_entry_id' => $entry->id]);
             $transaction->update(['status' => 'accounted']);

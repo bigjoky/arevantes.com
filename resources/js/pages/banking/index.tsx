@@ -3,10 +3,12 @@ import {
     ArrowLeft,
     CreditCard,
     Landmark,
+    ListPlus,
     Link2,
     Pencil,
     Plus,
     RefreshCw,
+    Trash2,
     Upload,
     WalletCards,
 } from 'lucide-react';
@@ -145,7 +147,15 @@ type Transaction = {
     posting: {
         id: number;
         reversed_at: string | null;
-        counterpart: { code: string; name: string };
+        counterpart: { code: string; name: string } | null;
+        allocation_data:
+            | {
+                  account_id: number;
+                  code: string;
+                  name: string;
+                  amount: number;
+              }[]
+            | null;
     } | null;
     transfer: { id: number; reversed_at: string | null } | null;
 };
@@ -401,91 +411,99 @@ export default function BankingIndex({
                             </Form>
                         </section>
                         {imports.length > 0 && (
-                            <TableViewport>
-                                <h2 className="mb-2 text-sm font-semibold">
-                                    Recent statement imports
-                                </h2>
-                                <table className="w-full min-w-[52rem] text-sm">
-                                    <thead>
-                                        <tr className="border-b text-left text-muted-foreground">
-                                            <th className="py-2">File</th>
-                                            <th>Format</th>
-                                            <th>Period</th>
-                                            <th className="text-right">
-                                                Created
-                                            </th>
-                                            <th className="text-right">
-                                                Duplicates
-                                            </th>
-                                            <th>Control</th>
-                                            <th className="text-right">
-                                                Closing balance
-                                            </th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {imports.map((item) => (
-                                            <tr
-                                                key={item.id}
-                                                className="border-b"
-                                            >
-                                                <td
-                                                    className="max-w-xs truncate py-2"
-                                                    title={item.filename}
-                                                >
-                                                    {item.filename}
-                                                </td>
-                                                <td>
-                                                    <Badge variant="outline">
-                                                        {item.format ===
-                                                        'norma43'
-                                                            ? 'Norma 43'
-                                                            : 'CSV'}
-                                                    </Badge>
-                                                </td>
-                                                <td>
-                                                    {item.period_from
-                                                        ? `${date(item.period_from)} – ${date(item.period_to!)}`
-                                                        : '—'}
-                                                </td>
-                                                <td className="text-right">
-                                                    {item.created_transactions}
-                                                </td>
-                                                <td className="text-right">
-                                                    {
-                                                        item.duplicate_transactions
-                                                    }
-                                                </td>
-                                                <td>
-                                                    {item.control_valid ===
-                                                    null ? (
-                                                        'Not available'
-                                                    ) : item.control_valid ? (
-                                                        <span className="text-green-700 dark:text-green-400">
-                                                            Valid
-                                                        </span>
-                                                    ) : (
-                                                        <span className="text-destructive">
-                                                            Mismatch
-                                                        </span>
-                                                    )}
-                                                </td>
-                                                <td className="text-right">
-                                                    {item.closing_balance ===
-                                                    null
-                                                        ? '—'
-                                                        : money(
-                                                              Number(
-                                                                  item.closing_balance,
-                                                              ),
-                                                              selectedAccount.currency,
-                                                          )}
-                                                </td>
+                            <details className="group rounded-md border">
+                                <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-semibold">
+                                    <span>Recent statement imports</span>
+                                    <span className="text-xs font-normal text-muted-foreground">
+                                        {imports.length} imports · click to
+                                        expand
+                                    </span>
+                                </summary>
+                                <TableViewport className="border-t">
+                                    <table className="w-full min-w-[52rem] text-sm">
+                                        <thead>
+                                            <tr className="border-b text-left text-muted-foreground">
+                                                <th className="py-2">File</th>
+                                                <th>Format</th>
+                                                <th>Period</th>
+                                                <th className="text-right">
+                                                    Created
+                                                </th>
+                                                <th className="text-right">
+                                                    Duplicates
+                                                </th>
+                                                <th>Control</th>
+                                                <th className="text-right">
+                                                    Closing balance
+                                                </th>
                                             </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </TableViewport>
+                                        </thead>
+                                        <tbody>
+                                            {imports.map((item) => (
+                                                <tr
+                                                    key={item.id}
+                                                    className="border-b"
+                                                >
+                                                    <td
+                                                        className="max-w-xs truncate py-2"
+                                                        title={item.filename}
+                                                    >
+                                                        {item.filename}
+                                                    </td>
+                                                    <td>
+                                                        <Badge variant="outline">
+                                                            {item.format ===
+                                                            'norma43'
+                                                                ? 'Norma 43'
+                                                                : 'CSV'}
+                                                        </Badge>
+                                                    </td>
+                                                    <td>
+                                                        {item.period_from
+                                                            ? `${date(item.period_from)} – ${date(item.period_to!)}`
+                                                            : '—'}
+                                                    </td>
+                                                    <td className="text-right">
+                                                        {
+                                                            item.created_transactions
+                                                        }
+                                                    </td>
+                                                    <td className="text-right">
+                                                        {
+                                                            item.duplicate_transactions
+                                                        }
+                                                    </td>
+                                                    <td>
+                                                        {item.control_valid ===
+                                                        null ? (
+                                                            'Not available'
+                                                        ) : item.control_valid ? (
+                                                            <span className="text-green-700 dark:text-green-400">
+                                                                Valid
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-destructive">
+                                                                Mismatch
+                                                            </span>
+                                                        )}
+                                                    </td>
+                                                    <td className="text-right">
+                                                        {item.closing_balance ===
+                                                        null
+                                                            ? '—'
+                                                            : money(
+                                                                  Number(
+                                                                      item.closing_balance,
+                                                                  ),
+                                                                  selectedAccount.currency,
+                                                              )}
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </TableViewport>
+                            </details>
                         )}
                         <Form
                             action="/banking"
@@ -650,20 +668,39 @@ export default function BankingIndex({
                                                         className="flex items-center gap-2"
                                                     >
                                                         <span className="text-xs">
-                                                            <span className="font-mono">
-                                                                {
-                                                                    transaction
-                                                                        .posting
-                                                                        .counterpart
-                                                                        .code
-                                                                }
-                                                            </span>{' '}
-                                                            {
-                                                                transaction
-                                                                    .posting
-                                                                    .counterpart
-                                                                    .name
-                                                            }
+                                                            {(transaction
+                                                                .posting
+                                                                .allocation_data
+                                                                ?.length ?? 0) >
+                                                            1 ? (
+                                                                <>
+                                                                    Split across{' '}
+                                                                    {
+                                                                        transaction
+                                                                            .posting
+                                                                            .allocation_data
+                                                                            ?.length
+                                                                    }{' '}
+                                                                    accounts
+                                                                </>
+                                                            ) : (
+                                                                <>
+                                                                    <span className="font-mono">
+                                                                        {
+                                                                            transaction
+                                                                                .posting
+                                                                                .counterpart
+                                                                                ?.code
+                                                                        }
+                                                                    </span>{' '}
+                                                                    {
+                                                                        transaction
+                                                                            .posting
+                                                                            .counterpart
+                                                                            ?.name
+                                                                    }
+                                                                </>
+                                                            )}
                                                         </span>
                                                         <Button
                                                             size="sm"
@@ -691,77 +728,84 @@ export default function BankingIndex({
                                                     </Form>
                                                 ) : transaction.candidates
                                                       .length ? (
-                                                    <Form
-                                                        action={`/banking/transactions/${transaction.id}/reconcile`}
-                                                        method="post"
-                                                        className="flex gap-2"
-                                                    >
-                                                        <Select
-                                                            name="payment"
-                                                            defaultValue={
+                                                    <div className="flex flex-wrap gap-2">
+                                                        <Form
+                                                            action={`/banking/transactions/${transaction.id}/reconcile`}
+                                                            method="post"
+                                                            className="flex gap-2"
+                                                        >
+                                                            <Select
+                                                                name="payment"
+                                                                defaultValue={
+                                                                    transaction
+                                                                        .candidates[0]
+                                                                        .value
+                                                                }
+                                                            >
+                                                                <SelectTrigger className="min-w-72">
+                                                                    <SelectValue />
+                                                                </SelectTrigger>
+                                                                <SelectContent>
+                                                                    {transaction.candidates.map(
+                                                                        (
+                                                                            candidate,
+                                                                        ) => (
+                                                                            <SelectItem
+                                                                                key={
+                                                                                    candidate.value
+                                                                                }
+                                                                                value={
+                                                                                    candidate.value
+                                                                                }
+                                                                            >
+                                                                                {candidate.reference_match
+                                                                                    ? 'Exact ref · '
+                                                                                    : ''}
+                                                                                {candidate.creates_payment
+                                                                                    ? 'New payment · '
+                                                                                    : ''}
+                                                                                {
+                                                                                    candidate.confidence
+                                                                                }
+
+                                                                                %
+                                                                                ·{' '}
+                                                                                {
+                                                                                    candidate.label
+                                                                                }
+                                                                            </SelectItem>
+                                                                        ),
+                                                                    )}
+                                                                </SelectContent>
+                                                            </Select>
+                                                            <Button size="sm">
+                                                                Match
+                                                            </Button>
+                                                        </Form>
+                                                        <PostingDialog
+                                                            transaction={
                                                                 transaction
-                                                                    .candidates[0]
-                                                                    .value
                                                             }
-                                                        >
-                                                            <SelectTrigger className="min-w-72">
-                                                                <SelectValue />
-                                                            </SelectTrigger>
-                                                            <SelectContent>
-                                                                {transaction.candidates.map(
-                                                                    (
-                                                                        candidate,
-                                                                    ) => (
-                                                                        <SelectItem
-                                                                            key={
-                                                                                candidate.value
-                                                                            }
-                                                                            value={
-                                                                                candidate.value
-                                                                            }
-                                                                        >
-                                                                            {candidate.reference_match
-                                                                                ? 'Exact ref · '
-                                                                                : ''}
-                                                                            {candidate.creates_payment
-                                                                                ? 'New payment · '
-                                                                                : ''}
-                                                                            {
-                                                                                candidate.confidence
-                                                                            }
-                                                                            % ·{' '}
-                                                                            {
-                                                                                candidate.label
-                                                                            }
-                                                                        </SelectItem>
-                                                                    ),
-                                                                )}
-                                                            </SelectContent>
-                                                        </Select>
-                                                        <Button size="sm">
-                                                            Match
-                                                        </Button>
-                                                    </Form>
-                                                ) : (
-                                                    <Form
-                                                        action={`/banking/transactions/${transaction.id}/post`}
-                                                        method="post"
-                                                        className="flex gap-2"
-                                                    >
-                                                        <Input
-                                                            name="counterpart_account"
-                                                            list="ledger-account-options"
-                                                            className="min-w-64"
-                                                            placeholder="Account code or name"
-                                                            required
+                                                            currency={
+                                                                selectedAccount.currency
+                                                            }
+                                                            ledgerAccounts={
+                                                                ledgerAccounts
+                                                            }
                                                         />
-                                                        <Button
-                                                            size="sm"
-                                                            variant="outline"
-                                                        >
-                                                            Post
-                                                        </Button>
-                                                    </Form>
+                                                    </div>
+                                                ) : (
+                                                    <PostingDialog
+                                                        transaction={
+                                                            transaction
+                                                        }
+                                                        currency={
+                                                            selectedAccount.currency
+                                                        }
+                                                        ledgerAccounts={
+                                                            ledgerAccounts
+                                                        }
+                                                    />
                                                 )}
                                             </td>
                                         </tr>
@@ -783,6 +827,301 @@ export default function BankingIndex({
                 )}
             </div>
         </>
+    );
+}
+
+type AllocationDraft = {
+    key: number;
+    accountCode: string;
+    accountName: string;
+    amount: string;
+};
+
+function PostingDialog({
+    transaction,
+    currency,
+    ledgerAccounts,
+}: {
+    transaction: Transaction;
+    currency: string;
+    ledgerAccounts: LedgerAccount[];
+}) {
+    const total = Math.abs(Number(transaction.amount));
+    const initialAllocation = (): AllocationDraft[] => [
+        {
+            key: Date.now(),
+            accountCode: '',
+            accountName: '',
+            amount: total.toFixed(2),
+        },
+    ];
+    const [open, setOpen] = useState(false);
+    const [allocations, setAllocations] =
+        useState<AllocationDraft[]>(initialAllocation);
+    const allocated = allocations.reduce(
+        (sum, allocation) => sum + (Number(allocation.amount) || 0),
+        0,
+    );
+    const remaining = Math.round((total - allocated) * 100) / 100;
+    const valid =
+        Math.abs(remaining) < 0.005 &&
+        allocations.every((allocation) => {
+            const existing = ledgerAccounts.some(
+                (account) => account.code === allocation.accountCode,
+            );
+
+            return (
+                /^\d{3,12}$/.test(allocation.accountCode) &&
+                Number(allocation.amount) > 0 &&
+                (existing || allocation.accountName.trim().length > 0)
+            );
+        });
+
+    const updateAllocation = (
+        key: number,
+        field: keyof Omit<AllocationDraft, 'key'>,
+        value: string,
+    ) =>
+        setAllocations((current) =>
+            current.map((allocation) =>
+                allocation.key === key
+                    ? {
+                          ...allocation,
+                          [field]: value,
+                          ...(field === 'accountCode' &&
+                          ledgerAccounts.some(
+                              (account) => account.code === value,
+                          )
+                              ? { accountName: '' }
+                              : {}),
+                      }
+                    : allocation,
+            ),
+        );
+
+    const addAllocation = () =>
+        setAllocations((current) => {
+            if (current.length === 1 && Math.abs(allocated - total) < 0.005) {
+                const firstAmount = Math.round((total / 2) * 100) / 100;
+
+                return [
+                    { ...current[0], amount: firstAmount.toFixed(2) },
+                    {
+                        key: Date.now(),
+                        accountCode: '',
+                        accountName: '',
+                        amount: (total - firstAmount).toFixed(2),
+                    },
+                ];
+            }
+
+            return [
+                ...current,
+                {
+                    key: Date.now(),
+                    accountCode: '',
+                    accountName: '',
+                    amount: '',
+                },
+            ];
+        });
+
+    return (
+        <Dialog
+            open={open}
+            onOpenChange={(nextOpen) => {
+                setOpen(nextOpen);
+
+                if (nextOpen) {
+                    setAllocations(initialAllocation());
+                }
+            }}
+        >
+            <DialogTrigger asChild>
+                <Button size="sm" variant="outline">
+                    <ListPlus /> Post / split
+                </Button>
+            </DialogTrigger>
+            <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
+                <DialogHeader>
+                    <DialogTitle>Post bank movement</DialogTitle>
+                    <DialogDescription>
+                        Allocate {money(total, currency)} across one or more
+                        ledger accounts. The total must match the bank movement
+                        exactly.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="rounded-md bg-muted px-3 py-2 text-sm">
+                    <div className="font-medium">{transaction.description}</div>
+                    <div className="text-xs text-muted-foreground">
+                        {date(transaction.booked_on)} ·{' '}
+                        {Number(transaction.amount) >= 0
+                            ? 'Incoming movement'
+                            : 'Outgoing movement'}
+                    </div>
+                </div>
+                <Form
+                    action={`/banking/transactions/${transaction.id}/post`}
+                    method="post"
+                    className="grid gap-4"
+                    onSuccess={() => setOpen(false)}
+                >
+                    {({ errors, processing }) => (
+                        <>
+                            <div className="grid gap-3">
+                                {allocations.map((allocation, index) => {
+                                    const existingAccount = ledgerAccounts.find(
+                                        (account) =>
+                                            account.code ===
+                                            allocation.accountCode,
+                                    );
+                                    const creating =
+                                        allocation.accountCode.length >= 3 &&
+                                        !existingAccount;
+
+                                    return (
+                                        <div
+                                            key={allocation.key}
+                                            className="grid gap-2 rounded-md border p-3 md:grid-cols-[9rem_minmax(12rem,1fr)_9rem_auto] md:items-end"
+                                        >
+                                            <ProductField label="Account code">
+                                                <Input
+                                                    name={`allocations[${index}][account_code]`}
+                                                    list="ledger-account-options"
+                                                    value={
+                                                        allocation.accountCode
+                                                    }
+                                                    onChange={(event) =>
+                                                        updateAllocation(
+                                                            allocation.key,
+                                                            'accountCode',
+                                                            event.target.value,
+                                                        )
+                                                    }
+                                                    placeholder="6290001"
+                                                    inputMode="numeric"
+                                                    required
+                                                />
+                                            </ProductField>
+                                            <ProductField
+                                                label={
+                                                    creating
+                                                        ? 'New subaccount name'
+                                                        : 'Account'
+                                                }
+                                            >
+                                                {creating ? (
+                                                    <Input
+                                                        name={`allocations[${index}][account_name]`}
+                                                        value={
+                                                            allocation.accountName
+                                                        }
+                                                        onChange={(event) =>
+                                                            updateAllocation(
+                                                                allocation.key,
+                                                                'accountName',
+                                                                event.target
+                                                                    .value,
+                                                            )
+                                                        }
+                                                        placeholder="Name for the new subaccount"
+                                                        required
+                                                    />
+                                                ) : (
+                                                    <div className="flex h-9 items-center rounded-md border bg-muted/30 px-3 text-sm text-muted-foreground">
+                                                        {existingAccount?.name ??
+                                                            'Enter an account code'}
+                                                    </div>
+                                                )}
+                                            </ProductField>
+                                            <ProductField label="Amount">
+                                                <Input
+                                                    name={`allocations[${index}][amount]`}
+                                                    type="number"
+                                                    min="0.01"
+                                                    step="0.01"
+                                                    value={allocation.amount}
+                                                    onChange={(event) =>
+                                                        updateAllocation(
+                                                            allocation.key,
+                                                            'amount',
+                                                            event.target.value,
+                                                        )
+                                                    }
+                                                    required
+                                                />
+                                            </ProductField>
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="icon"
+                                                title="Remove allocation"
+                                                disabled={
+                                                    allocations.length === 1
+                                                }
+                                                onClick={() =>
+                                                    setAllocations((current) =>
+                                                        current.filter(
+                                                            (item) =>
+                                                                item.key !==
+                                                                allocation.key,
+                                                        ),
+                                                    )
+                                                }
+                                            >
+                                                <Trash2 />
+                                            </Button>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                            <div className="flex flex-wrap items-center justify-between gap-3">
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={addAllocation}
+                                    disabled={allocations.length >= 20}
+                                >
+                                    <Plus /> Add allocation
+                                </Button>
+                                <div className="text-right text-sm">
+                                    <div>
+                                        Allocated:{' '}
+                                        <strong>
+                                            {money(allocated, currency)}
+                                        </strong>
+                                    </div>
+                                    <div
+                                        className={
+                                            Math.abs(remaining) < 0.005
+                                                ? 'text-green-700 dark:text-green-400'
+                                                : 'text-destructive'
+                                        }
+                                    >
+                                        Remaining: {money(remaining, currency)}
+                                    </div>
+                                </div>
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                                If the code does not exist, enter its name. A
+                                custom subaccount will be created under the
+                                closest existing parent in the company chart of
+                                accounts.
+                            </p>
+                            {Object.keys(errors).length > 0 && (
+                                <p className="text-sm text-destructive">
+                                    {Object.values(errors)[0]}
+                                </p>
+                            )}
+                            <Button disabled={processing || !valid}>
+                                Post {allocations.length} allocation
+                                {allocations.length === 1 ? '' : 's'}
+                            </Button>
+                        </>
+                    )}
+                </Form>
+            </DialogContent>
+        </Dialog>
     );
 }
 
