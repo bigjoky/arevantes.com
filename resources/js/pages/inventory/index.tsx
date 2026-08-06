@@ -46,12 +46,21 @@ type Product = {
     cost_price: string;
     track_serials: boolean;
 };
-type Balance = {
-    warehouse_id: number;
-    product_id: number;
-    quantity: string;
-    warehouse: { code: string; name: string };
-    product: { sku: string | null; name: string; track_serials: boolean };
+type StockPosition = {
+    warehouse: { id: number; code: string; name: string };
+    product: {
+        id: number;
+        sku: string | null;
+        name: string;
+        track_serials: boolean;
+    };
+    on_hand: number;
+    reserved: number;
+    available: number;
+    in_transit: number;
+    projected: number;
+    inbound_order_count: number;
+    next_delivery_date: string | null;
 };
 type Movement = {
     id: number;
@@ -102,7 +111,7 @@ type Tab = 'stock' | 'reservations' | 'movements' | 'warehouses';
 export default function InventoryIndex({
     warehouses,
     products,
-    balances,
+    positions,
     movements,
     serials,
     reservations,
@@ -110,7 +119,7 @@ export default function InventoryIndex({
 }: {
     warehouses: Warehouse[];
     products: Product[];
-    balances: Balance[];
+    positions: StockPosition[];
     movements: Movement[];
     serials: Serial[];
     reservations: Reservation[];
@@ -178,39 +187,114 @@ export default function InventoryIndex({
                 {tab === 'stock' && (
                     <>
                         <section className="overflow-x-auto">
-                            <table className="w-full min-w-[42rem] text-sm">
+                            <div className="mb-3 flex flex-wrap gap-x-5 gap-y-1 text-xs text-muted-foreground">
+                                <span>
+                                    <strong className="text-foreground">
+                                        On hand
+                                    </strong>{' '}
+                                    physically counted
+                                </span>
+                                <span>
+                                    <strong className="text-foreground">
+                                        Reserved
+                                    </strong>{' '}
+                                    committed to jobs or sales
+                                </span>
+                                <span>
+                                    <strong className="text-foreground">
+                                        Available
+                                    </strong>{' '}
+                                    on hand minus reservations
+                                </span>
+                                <span>
+                                    <strong className="text-foreground">
+                                        In transit
+                                    </strong>{' '}
+                                    confirmed purchase orders pending receipt
+                                </span>
+                            </div>
+                            <table className="w-full min-w-[68rem] text-sm">
                                 <thead>
                                     <tr className="border-b text-left text-muted-foreground">
                                         <th className="py-2">Product</th>
                                         <th>SKU</th>
                                         <th>Warehouse</th>
                                         <th className="text-right">On hand</th>
+                                        <th className="text-right">Reserved</th>
+                                        <th className="text-right">
+                                            Available
+                                        </th>
+                                        <th className="text-right">
+                                            In transit
+                                        </th>
+                                        <th className="text-right">
+                                            Projected
+                                        </th>
+                                        <th>Next receipt</th>
                                         <th>Tracking</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {balances.map((balance) => (
+                                    {positions.map((position) => (
                                         <tr
-                                            key={`${balance.warehouse_id}-${balance.product_id}`}
+                                            key={`${position.warehouse.id}-${position.product.id}`}
                                             className="border-b"
                                         >
                                             <td className="py-3 font-medium">
-                                                {balance.product.name}
+                                                {position.product.name}
                                             </td>
                                             <td className="font-mono text-xs">
-                                                {balance.product.sku || '—'}
+                                                {position.product.sku || '—'}
                                             </td>
                                             <td>
-                                                {balance.warehouse.name}{' '}
+                                                {position.warehouse.name}{' '}
                                                 <span className="text-xs text-muted-foreground">
-                                                    ({balance.warehouse.code})
+                                                    ({position.warehouse.code})
                                                 </span>
                                             </td>
-                                            <td className="text-right text-base font-semibold">
-                                                {Number(balance.quantity)}
+                                            <td className="text-right font-medium">
+                                                {number(position.on_hand)}
+                                            </td>
+                                            <td className="text-right">
+                                                {number(position.reserved)}
+                                            </td>
+                                            <td
+                                                className={`text-right text-base font-semibold ${position.available < 0 ? 'text-destructive' : ''}`}
+                                            >
+                                                {number(position.available)}
+                                            </td>
+                                            <td className="text-right">
+                                                {number(position.in_transit)}
+                                            </td>
+                                            <td className="text-right font-medium">
+                                                {number(position.projected)}
+                                            </td>
+                                            <td className="text-xs">
+                                                {position.inbound_order_count >
+                                                0 ? (
+                                                    <>
+                                                        {position.next_delivery_date
+                                                            ? calendarDate(
+                                                                  position.next_delivery_date,
+                                                              )
+                                                            : 'Date pending'}
+                                                        <div className="text-muted-foreground">
+                                                            {
+                                                                position.inbound_order_count
+                                                            }{' '}
+                                                            order
+                                                            {position.inbound_order_count ===
+                                                            1
+                                                                ? ''
+                                                                : 's'}
+                                                        </div>
+                                                    </>
+                                                ) : (
+                                                    '—'
+                                                )}
                                             </td>
                                             <td>
-                                                {balance.product
+                                                {position.product
                                                     .track_serials ? (
                                                     <Badge variant="outline">
                                                         Serials
@@ -223,7 +307,7 @@ export default function InventoryIndex({
                                     ))}
                                 </tbody>
                             </table>
-                            {balances.length === 0 && (
+                            {positions.length === 0 && (
                                 <Empty text="No stock yet. Post a receipt or adjustment to begin." />
                             )}
                         </section>
@@ -911,11 +995,19 @@ const blankLine = (): Line => ({
     unit_cost: '0',
     serials: '',
 });
+const number = (value: number) =>
+    new Intl.NumberFormat(undefined, { maximumFractionDigits: 3 }).format(
+        value,
+    );
 const date = (value: string) =>
     new Intl.DateTimeFormat(undefined, {
         dateStyle: 'short',
         timeStyle: 'short',
     }).format(new Date(value));
+const calendarDate = (value: string) =>
+    new Intl.DateTimeFormat(undefined, { dateStyle: 'short' }).format(
+        new Date(`${value}T00:00:00`),
+    );
 InventoryIndex.layout = {
     breadcrumbs: [{ title: 'Inventory', href: '/inventory' }],
 };

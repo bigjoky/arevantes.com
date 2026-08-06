@@ -88,6 +88,7 @@ type Quote = {
         sent_at: string | null;
         first_viewed_at: string | null;
         responded_at: string | null;
+        revoked_at: string | null;
     }[];
     versions: Array<{
         id: number;
@@ -1020,7 +1021,22 @@ function DeliveryHistory({ deliveries }: { deliveries: Quote['deliveries'] }) {
                                 {delivery.first_viewed_at ? ' · viewed' : ''}
                             </div>
                         </div>
-                        <Badge variant="outline">{delivery.status}</Badge>
+                        <div className="flex items-center gap-2">
+                            <Badge variant="outline">{delivery.status}</Badge>
+                            {!delivery.revoked_at &&
+                                !['revoked', 'superseded', 'failed'].includes(
+                                    delivery.status,
+                                ) && (
+                                    <Form
+                                        action={`/document-deliveries/${delivery.id}`}
+                                        method="delete"
+                                    >
+                                        <Button size="sm" variant="outline">
+                                            Revoke
+                                        </Button>
+                                    </Form>
+                                )}
+                        </div>
                     </div>
                 ))}
                 {deliveries.length === 0 && (

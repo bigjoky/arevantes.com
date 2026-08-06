@@ -6,6 +6,8 @@ import {
     Check,
     ClipboardCheck,
     Clock3,
+    Download,
+    FileText,
     MapPin,
     UserRound,
     X,
@@ -51,6 +53,17 @@ type LeaveRequest = {
     notes: string | null;
     decisionNotes: string | null;
     reviewerName: string | null;
+    attachments: { id: number; name: string }[];
+};
+type LeaveBalance = {
+    type: string;
+    name: string;
+    year: number;
+    accrued: number;
+    carryover: number;
+    adjustment: number;
+    used: number;
+    available: number;
 };
 type EmployeeTask = {
     id: number;
@@ -63,6 +76,15 @@ type EmployeeTask = {
     notes: string | null;
     completedAt: string | null;
 };
+type EmploymentDocument = {
+    id: number;
+    title: string;
+    category: string;
+    originalName: string;
+    size: number;
+    expiresAt: string | null;
+    isExpired: boolean;
+};
 
 const selectClass =
     'border-input bg-background h-9 w-full rounded-md border px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]';
@@ -71,10 +93,14 @@ export default function MySpace({
     employee,
     requests,
     tasks,
+    documents,
+    balances,
 }: {
     employee: Employee | null;
     requests: LeaveRequest[];
     tasks: EmployeeTask[];
+    documents: EmploymentDocument[];
+    balances: LeaveBalance[];
 }) {
     return (
         <>
@@ -248,6 +274,22 @@ export default function MySpace({
                                                         </option>
                                                     </select>
                                                 </div>
+                                                <div className="grid gap-2">
+                                                    <Label htmlFor="my-leave-attachment">
+                                                        Justificante
+                                                    </Label>
+                                                    <Input
+                                                        id="my-leave-attachment"
+                                                        name="attachment"
+                                                        type="file"
+                                                        accept=".pdf,.jpg,.jpeg,.png"
+                                                    />
+                                                    <InputError
+                                                        message={
+                                                            errors.attachment
+                                                        }
+                                                    />
+                                                </div>
                                                 <div className="grid grid-cols-2 gap-3">
                                                     <div className="grid gap-2">
                                                         <Label htmlFor="my-leave-start">
@@ -301,6 +343,36 @@ export default function MySpace({
                                 </CardContent>
                             </Card>
                         </div>
+
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Saldos de ausencia</CardTitle>
+                                <CardDescription>
+                                    Devengo, arrastre, consumo y disponibilidad
+                                    del año en curso.
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                                {balances.map((balance) => (
+                                    <div
+                                        key={balance.type}
+                                        className="rounded-lg border p-4"
+                                    >
+                                        <div className="text-sm font-medium">
+                                            {balance.name}
+                                        </div>
+                                        <div className="mt-2 text-2xl font-semibold">
+                                            {balance.available}
+                                        </div>
+                                        <div className="text-xs text-muted-foreground">
+                                            días disponibles · {balance.used}{' '}
+                                            usados · {balance.accrued}{' '}
+                                            devengados
+                                        </div>
+                                    </div>
+                                ))}
+                            </CardContent>
+                        </Card>
 
                         <Card>
                             <CardHeader>
@@ -388,6 +460,70 @@ export default function MySpace({
 
                         <Card>
                             <CardHeader>
+                                <CardTitle className="flex items-center gap-2">
+                                    <FileText className="size-4" /> Mis
+                                    documentos
+                                </CardTitle>
+                                <CardDescription>
+                                    Documentación laboral que RR. HH. ha
+                                    compartido contigo.
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                {documents.length ? (
+                                    <div className="divide-y">
+                                        {documents.map((document) => (
+                                            <div
+                                                key={document.id}
+                                                className="flex flex-wrap items-center justify-between gap-3 py-3 first:pt-0 last:pb-0"
+                                            >
+                                                <div>
+                                                    <div className="font-medium">
+                                                        {document.title}
+                                                    </div>
+                                                    <div className="text-xs text-muted-foreground">
+                                                        {document.originalName}{' '}
+                                                        ·{' '}
+                                                        {formatBytes(
+                                                            document.size,
+                                                        )}
+                                                        {document.expiresAt
+                                                            ? ` · Caduca ${formatDate(document.expiresAt)}`
+                                                            : ''}
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    {document.isExpired ? (
+                                                        <Badge variant="destructive">
+                                                            Caducado
+                                                        </Badge>
+                                                    ) : null}
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        asChild
+                                                    >
+                                                        <a
+                                                            href={`/my-human-resources/documents/${document.id}`}
+                                                        >
+                                                            <Download />
+                                                            Descargar
+                                                        </a>
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="py-8 text-center text-sm text-muted-foreground">
+                                        No tienes documentos compartidos.
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+
+                        <Card>
+                            <CardHeader>
                                 <CardTitle>Mis solicitudes</CardTitle>
                                 <CardDescription>
                                     Historial de ausencias y decisiones.
@@ -437,6 +573,28 @@ export default function MySpace({
                                                                 : ''}
                                                         </p>
                                                     ) : null}
+                                                    {request.attachments.map(
+                                                        (attachment) => (
+                                                            <Button
+                                                                key={
+                                                                    attachment.id
+                                                                }
+                                                                variant="outline"
+                                                                size="sm"
+                                                                className="mt-2"
+                                                                asChild
+                                                            >
+                                                                <a
+                                                                    href={`/my-human-resources/leave/${request.id}/attachments/${attachment.id}`}
+                                                                >
+                                                                    <Download />
+                                                                    {
+                                                                        attachment.name
+                                                                    }
+                                                                </a>
+                                                            </Button>
+                                                        ),
+                                                    )}
                                                 </div>
                                                 <div className="flex items-center gap-2">
                                                     <Badge
@@ -611,4 +769,10 @@ function formatDate(value: string) {
         year: 'numeric',
         timeZone: 'UTC',
     }).format(new Date(value));
+}
+
+function formatBytes(value: number) {
+    return value < 1024 * 1024
+        ? `${Math.round(value / 1024)} KB`
+        : `${(value / 1024 / 1024).toFixed(1)} MB`;
 }

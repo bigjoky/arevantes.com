@@ -1,5 +1,12 @@
 import { Form, Head, Link } from '@inertiajs/react';
-import { ArrowLeft, Play, Plus, Trash2 } from 'lucide-react';
+import {
+    ArrowLeft,
+    CalendarClock,
+    Play,
+    Plus,
+    RefreshCw,
+    Trash2,
+} from 'lucide-react';
 import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -31,14 +38,33 @@ type Template = {
     description: string | null;
     is_system: boolean;
     is_active: boolean;
+    recurring_amount: string | null;
+    recurrence: 'monthly' | 'quarterly' | 'yearly' | null;
+    next_run_on: string | null;
+    end_on: string | null;
+    reversal_days: number | null;
+    last_run_on: string | null;
     lines: (Line & { account: Account })[];
+};
+type RecurringRun = {
+    id: number;
+    scheduled_on: string;
+    amount: string;
+    reversal_due_on: string | null;
+    status: string;
+    failure_message: string | null;
+    template: { name: string };
+    journal_entry: { number: string } | null;
+    reversal_entry: { number: string } | null;
 };
 export default function Templates({
     templates,
     accounts,
+    recurringRuns,
 }: {
     templates: Template[];
     accounts: Account[];
+    recurringRuns: RecurringRun[];
 }) {
     return (
         <>
@@ -59,6 +85,13 @@ export default function Templates({
                                 <ArrowLeft /> Accounting
                             </Link>
                         </Button>
+                        <Form action="/accounting/recurring/run" method="post">
+                            {({ processing }) => (
+                                <Button variant="outline" disabled={processing}>
+                                    <RefreshCw /> Process due entries
+                                </Button>
+                            )}
+                        </Form>
                         <TemplateDialog accounts={accounts} />
                     </div>
                 </header>
@@ -74,6 +107,12 @@ export default function Templates({
                                     {t.is_system && (
                                         <Badge variant="outline">System</Badge>
                                     )}
+                                    {t.recurrence && (
+                                        <Badge>
+                                            {t.recurrence} ·{' '}
+                                            {money(Number(t.recurring_amount))}
+                                        </Badge>
+                                    )}
                                 </div>
                                 <p className="text-sm text-muted-foreground">
                                     {t.description}
@@ -86,8 +125,20 @@ export default function Templates({
                                         )
                                         .join(' · ')}
                                 </p>
+                                {t.recurrence && (
+                                    <p className="mt-1 text-xs text-muted-foreground">
+                                        Next: {shortDate(t.next_run_on!)}
+                                        {t.reversal_days
+                                            ? ` · reverses after ${t.reversal_days} day${t.reversal_days === 1 ? '' : 's'}`
+                                            : ''}
+                                        {t.end_on
+                                            ? ` · ends ${shortDate(t.end_on)}`
+                                            : ''}
+                                    </p>
+                                )}
                             </div>
                             <div className="flex gap-1">
+                                <ScheduleDialog template={t} />
                                 <Execute template={t} />
                                 {!t.is_system && (
                                     <Form
@@ -107,8 +158,194 @@ export default function Templates({
                         </section>
                     ))}
                 </div>
+                <RecurringHistory runs={recurringRuns} />
             </div>
         </>
+    );
+}
+
+function ScheduleDialog({ template }: { template: Template }) {
+    const [open, setOpen] = useState(false);
+    const [recurrence, setRecurrence] = useState<string>(
+        template.recurrence ?? 'monthly',
+    );
+
+    return (
+        <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+                <Button variant="outline" title="Recurring schedule">
+                    <CalendarClock /> Schedule
+                </Button>
+            </DialogTrigger>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Schedule {template.name}</DialogTitle>
+                </DialogHeader>
+                <Form
+                    action={`/accounting/templates/${template.id}/schedule`}
+                    method="patch"
+                    className="grid gap-4"
+                    onSuccess={() => setOpen(false)}
+                >
+                    {({ errors, processing }) => (
+                        <>
+                            <Field label="Frequency">
+                                <Select
+                                    name="recurrence"
+                                    value={recurrence}
+                                    onValueChange={setRecurrence}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="monthly">
+                                            Monthly
+                                        </SelectItem>
+                                        <SelectItem value="quarterly">
+                                            Quarterly
+                                        </SelectItem>
+                                        <SelectItem value="yearly">
+                                            Yearly
+                                        </SelectItem>
+                                        <SelectItem value="disabled">
+                                            Disable schedule
+                                        </SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </Field>
+                            {recurrence !== 'disabled' && (
+                                <>
+                                    <div className="grid gap-3 sm:grid-cols-2">
+                                        <Field label="Amount">
+                                            <Input
+                                                name="recurring_amount"
+                                                type="number"
+                                                min="0.01"
+                                                step="0.01"
+                                                defaultValue={
+                                                    template.recurring_amount ??
+                                                    ''
+                                                }
+                                                required
+                                            />
+                                        </Field>
+                                        <Field label="Next posting date">
+                                            <Input
+                                                name="next_run_on"
+                                                type="date"
+                                                defaultValue={dateInput(
+                                                    template.next_run_on,
+                                                )}
+                                                required
+                                            />
+                                        </Field>
+                                        <Field label="End date (optional)">
+                                            <Input
+                                                name="end_on"
+                                                type="date"
+                                                defaultValue={dateInput(
+                                                    template.end_on,
+                                                )}
+                                            />
+                                        </Field>
+                                        <Field label="Reverse after days">
+                                            <Input
+                                                name="reversal_days"
+                                                type="number"
+                                                min="1"
+                                                max="365"
+                                                defaultValue={
+                                                    template.reversal_days ?? ''
+                                                }
+                                                placeholder="Leave empty if permanent"
+                                            />
+                                        </Field>
+                                    </div>
+                                    <p className="text-xs text-muted-foreground">
+                                        A reversal turns this schedule into an
+                                        accrual: the original entry is cancelled
+                                        automatically after the chosen number of
+                                        days.
+                                    </p>
+                                </>
+                            )}
+                            {Object.keys(errors).length > 0 && (
+                                <p className="text-sm text-destructive">
+                                    {Object.values(errors)[0]}
+                                </p>
+                            )}
+                            <Button disabled={processing}>Save schedule</Button>
+                        </>
+                    )}
+                </Form>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+function RecurringHistory({ runs }: { runs: RecurringRun[] }) {
+    return (
+        <section className="overflow-x-auto">
+            <div className="mb-3">
+                <h2 className="font-semibold">Recurring execution history</h2>
+                <p className="text-sm text-muted-foreground">
+                    Every scheduled posting and accrual reversal remains linked
+                    to its journal entries.
+                </p>
+            </div>
+            <table className="w-full min-w-[48rem] text-sm">
+                <thead>
+                    <tr className="border-b text-left text-muted-foreground">
+                        <th className="py-2">Scheduled</th>
+                        <th>Template</th>
+                        <th className="text-right">Amount</th>
+                        <th>Journal entry</th>
+                        <th>Reversal</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {runs.map((run) => (
+                        <tr key={run.id} className="border-b">
+                            <td className="py-2">
+                                {shortDate(run.scheduled_on)}
+                            </td>
+                            <td>{run.template.name}</td>
+                            <td className="text-right">
+                                {money(Number(run.amount))}
+                            </td>
+                            <td className="font-mono text-xs">
+                                {run.journal_entry?.number ?? '—'}
+                            </td>
+                            <td className="font-mono text-xs">
+                                {run.reversal_entry?.number ??
+                                    (run.reversal_due_on
+                                        ? `Due ${shortDate(run.reversal_due_on)}`
+                                        : '—')}
+                            </td>
+                            <td>
+                                <Badge
+                                    variant={
+                                        run.status.includes('failed')
+                                            ? 'destructive'
+                                            : 'outline'
+                                    }
+                                    title={run.failure_message ?? undefined}
+                                >
+                                    {run.status.replace('_', ' ')}
+                                </Badge>
+                            </td>
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+            {runs.length === 0 && (
+                <p className="border-b py-8 text-center text-sm text-muted-foreground">
+                    No recurring entries have been processed yet.
+                </p>
+            )}
+        </section>
     );
 }
 function Execute({ template }: { template: Template }) {
@@ -318,6 +555,20 @@ function Field({
             {children}
         </div>
     );
+}
+function dateInput(value: string | null) {
+    return value?.slice(0, 10) ?? '';
+}
+function shortDate(value: string) {
+    return new Intl.DateTimeFormat(undefined, { dateStyle: 'short' }).format(
+        new Date(`${value.slice(0, 10)}T00:00:00`),
+    );
+}
+function money(value: number) {
+    return new Intl.NumberFormat(undefined, {
+        style: 'currency',
+        currency: 'EUR',
+    }).format(value);
 }
 Templates.layout = {
     breadcrumbs: [

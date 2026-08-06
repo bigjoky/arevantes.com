@@ -3,16 +3,19 @@ import {
     ArrowLeft,
     CalendarRange,
     Landmark,
+    LockKeyhole,
     Plus,
     RefreshCw,
     RotateCcw,
     Trash2,
+    UnlockKeyhole,
 } from 'lucide-react';
 import { useState } from 'react';
 import type React from 'react';
 import { PageTabs } from '@/components/page-shell';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
     Dialog,
     DialogContent,
@@ -29,6 +32,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 
 type Line = {
     id: number;
@@ -58,6 +62,24 @@ type Account = {
     balance: number;
 };
 type FiscalYear = { id: number; year: number; status: string };
+type AccountingPeriod = {
+    id: number;
+    month: number;
+    status: 'open' | 'closed';
+    checklist: Record<string, boolean | number> | null;
+    closure_notes: string | null;
+    closed_at: string | null;
+    closer: { name: string } | null;
+    reopened_at: string | null;
+    reopen_reason: string | null;
+    reopener: { name: string } | null;
+};
+type PeriodSummary = {
+    journalEntries: number;
+    unbalancedEntries: number;
+    unpostedItems: number;
+    unreconciledBankTransactions: number;
+};
 type Reports = {
     profitAndLoss: { income: number; expenses: number; result: number };
     balanceSheet: {
@@ -108,6 +130,10 @@ type View =
 export default function AccountingIndex({
     year,
     fiscalYear,
+    selectedMonth,
+    accountingPeriods,
+    periodSummary,
+    canClosePeriods,
     entries,
     accounts,
     selectedAccount,
@@ -120,6 +146,10 @@ export default function AccountingIndex({
 }: {
     year: number;
     fiscalYear: FiscalYear | null;
+    selectedMonth: number;
+    accountingPeriods: AccountingPeriod[];
+    periodSummary: PeriodSummary;
+    canClosePeriods: boolean;
     entries: Entry[];
     accounts: Account[];
     selectedAccount: Account | null;
@@ -173,6 +203,7 @@ export default function AccountingIndex({
                             <ManualEntryDialog
                                 accounts={accounts}
                                 year={year}
+                                month={selectedMonth}
                             />
                         )}
                         <Select
@@ -213,6 +244,14 @@ export default function AccountingIndex({
                         value={money(summary.credit)}
                     />
                 </section>
+                <MonthlyClose
+                    year={year}
+                    month={selectedMonth}
+                    periods={accountingPeriods}
+                    summary={periodSummary}
+                    canManage={canClosePeriods}
+                    fiscalYearOpen={fiscalYear?.status === 'open'}
+                />
                 <PageTabs aria-label="Accounting views">
                     {(
                         [
@@ -289,12 +328,283 @@ export default function AccountingIndex({
     );
 }
 
+function MonthlyClose({
+    year,
+    month,
+    periods,
+    summary,
+    canManage,
+    fiscalYearOpen,
+}: {
+    year: number;
+    month: number;
+    periods: AccountingPeriod[];
+    summary: PeriodSummary;
+    canManage: boolean;
+    fiscalYearOpen: boolean;
+}) {
+    const period = periods.find((item) => item.month === month);
+    const isClosed = period?.status === 'closed';
+    const hasExceptions =
+        summary.unbalancedEntries > 0 ||
+        summary.unpostedItems > 0 ||
+        summary.unreconciledBankTransactions > 0;
+    const periodLabel = `${year}-${String(month).padStart(2, '0')}`;
+
+    return (
+        <section className="grid gap-4 rounded-lg border p-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                    <div className="flex items-center gap-2">
+                        <h2 className="font-semibold">Monthly close</h2>
+                        <Badge variant={isClosed ? 'secondary' : 'outline'}>
+                            {isClosed ? 'Closed and locked' : 'Open'}
+                        </Badge>
+                    </div>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                        Review accounting exceptions and preserve an audited
+                        closing trail.
+                    </p>
+                </div>
+                {period?.reopened_at && (
+                    <p className="max-w-md text-xs text-muted-foreground">
+                        Last reopened by {period.reopener?.name ?? 'Unknown'} on{' '}
+                        {dateTime(period.reopened_at)}: {period.reopen_reason}
+                    </p>
+                )}
+            </div>
+            <div className="flex flex-wrap gap-1">
+                {Array.from({ length: 12 }, (_, index) => index + 1).map(
+                    (value) => {
+                        const item = periods.find(
+                            (candidate) => candidate.month === value,
+                        );
+
+                        return (
+                            <button
+                                key={value}
+                                type="button"
+                                onClick={() =>
+                                    router.get(
+                                        '/accounting',
+                                        { year, month: value },
+                                        {
+                                            preserveState: true,
+                                            preserveScroll: true,
+                                        },
+                                    )
+                                }
+                                className={`rounded-md border px-3 py-1.5 text-xs font-medium transition-colors ${month === value ? 'border-primary bg-primary text-primary-foreground' : item?.status === 'closed' ? 'bg-muted text-muted-foreground' : 'hover:bg-muted'}`}
+                            >
+                                {monthName(value)}
+                                {item?.status === 'closed' ? ' · locked' : ''}
+                            </button>
+                        );
+                    },
+                )}
+            </div>
+            <div className="grid gap-px overflow-hidden rounded-md border bg-border sm:grid-cols-2 lg:grid-cols-4">
+                <CloseMetric
+                    label="Journal entries"
+                    value={summary.journalEntries}
+                />
+                <CloseMetric
+                    label="Unposted items"
+                    value={summary.unpostedItems}
+                    exception={summary.unpostedItems > 0}
+                />
+                <CloseMetric
+                    label="Unbalanced entries"
+                    value={summary.unbalancedEntries}
+                    exception={summary.unbalancedEntries > 0}
+                />
+                <CloseMetric
+                    label="Bank items pending"
+                    value={summary.unreconciledBankTransactions}
+                    exception={summary.unreconciledBankTransactions > 0}
+                />
+            </div>
+            {isClosed ? (
+                <div className="grid gap-4 lg:grid-cols-2">
+                    <div className="rounded-md bg-muted/50 p-4 text-sm">
+                        <p className="flex items-center gap-2 font-medium">
+                            <LockKeyhole className="size-4" /> {periodLabel} is
+                            locked
+                        </p>
+                        <p className="mt-2 text-muted-foreground">
+                            Closed by {period.closer?.name ?? 'Unknown'} on{' '}
+                            {period.closed_at
+                                ? dateTime(period.closed_at)
+                                : 'Unknown'}
+                            .
+                        </p>
+                        {period.closure_notes && (
+                            <p className="mt-2">{period.closure_notes}</p>
+                        )}
+                    </div>
+                    {canManage && (
+                        <Form
+                            action={`/accounting/periods/${year}/${month}/reopen`}
+                            method="post"
+                            className="grid gap-3"
+                        >
+                            {({ errors, processing }) => (
+                                <>
+                                    <div className="grid gap-1">
+                                        <Label htmlFor="reopen_reason">
+                                            Audited reopening reason
+                                        </Label>
+                                        <Textarea
+                                            id="reopen_reason"
+                                            name="reopen_reason"
+                                            required
+                                            minLength={5}
+                                            placeholder="Explain why this period must be changed"
+                                        />
+                                        {(errors.reopen_reason ||
+                                            errors.period) && (
+                                            <p className="text-xs text-destructive">
+                                                {errors.reopen_reason ??
+                                                    errors.period}
+                                            </p>
+                                        )}
+                                    </div>
+                                    <Button
+                                        variant="outline"
+                                        disabled={processing}
+                                    >
+                                        <UnlockKeyhole /> Reopen period
+                                    </Button>
+                                </>
+                            )}
+                        </Form>
+                    )}
+                </div>
+            ) : canManage && fiscalYearOpen ? (
+                <Form
+                    action={`/accounting/periods/${year}/${month}/close`}
+                    method="post"
+                    className="grid gap-4"
+                >
+                    {({ errors, processing }) => (
+                        <>
+                            <div className="grid gap-2 md:grid-cols-2">
+                                <CloseCheck
+                                    id="bank_reconciled"
+                                    label="Bank reconciliation reviewed"
+                                />
+                                <CloseCheck
+                                    id="receivables_reviewed"
+                                    label="Customer receivables reviewed"
+                                />
+                                <CloseCheck
+                                    id="payables_reviewed"
+                                    label="Supplier payables reviewed"
+                                />
+                                <CloseCheck
+                                    id="tax_reviewed"
+                                    label="Tax accounts reviewed"
+                                />
+                            </div>
+                            <div className="grid gap-3 lg:grid-cols-[12rem_1fr_auto] lg:items-end">
+                                <div className="grid gap-1">
+                                    <Label htmlFor="confirmation">
+                                        Type {periodLabel}
+                                    </Label>
+                                    <Input
+                                        id="confirmation"
+                                        name="confirmation"
+                                        required
+                                        placeholder={periodLabel}
+                                    />
+                                </div>
+                                <div className="grid gap-1">
+                                    <Label htmlFor="closure_notes">
+                                        Closing notes
+                                    </Label>
+                                    <Input
+                                        id="closure_notes"
+                                        name="closure_notes"
+                                        placeholder="Optional context for the audit trail"
+                                    />
+                                </div>
+                                <Button
+                                    disabled={processing || hasExceptions}
+                                    title={
+                                        hasExceptions
+                                            ? 'Resolve every exception before closing'
+                                            : undefined
+                                    }
+                                >
+                                    <LockKeyhole /> Close and lock
+                                </Button>
+                            </div>
+                            {Object.keys(errors).length > 0 && (
+                                <p className="text-sm text-destructive">
+                                    {Object.values(errors)[0]}
+                                </p>
+                            )}
+                            {hasExceptions && (
+                                <p className="text-sm text-destructive">
+                                    Resolve every unposted, unbalanced and bank
+                                    reconciliation exception before closing.
+                                </p>
+                            )}
+                        </>
+                    )}
+                </Form>
+            ) : (
+                <p className="text-sm text-muted-foreground">
+                    {fiscalYearOpen
+                        ? 'Only administrators can close or reopen accounting periods.'
+                        : 'The fiscal year is closed.'}
+                </p>
+            )}
+        </section>
+    );
+}
+
+function CloseMetric({
+    label,
+    value,
+    exception = false,
+}: {
+    label: string;
+    value: number;
+    exception?: boolean;
+}) {
+    return (
+        <div className="bg-background p-3">
+            <p className="text-xs text-muted-foreground">{label}</p>
+            <p
+                className={`mt-1 text-lg font-semibold ${exception ? 'text-destructive' : ''}`}
+            >
+                {value}
+            </p>
+        </div>
+    );
+}
+
+function CloseCheck({ id, label }: { id: string; label: string }) {
+    return (
+        <label
+            htmlFor={id}
+            className="flex items-center gap-2 rounded-md border p-3 text-sm"
+        >
+            <Checkbox id={id} name={id} value="1" />
+            {label}
+        </label>
+    );
+}
+
 function ManualEntryDialog({
     accounts,
     year,
+    month,
 }: {
     accounts: Account[];
     year: number;
+    month: number;
 }) {
     const [lines, setLines] = useState([0, 1]);
 
@@ -320,7 +630,7 @@ function ManualEntryDialog({
                             <Input
                                 name="entry_date"
                                 type="date"
-                                defaultValue={`${year}-01-01`}
+                                defaultValue={`${year}-${String(month).padStart(2, '0')}-01`}
                                 required
                             />
                         </div>
@@ -1015,6 +1325,17 @@ function money(value: number) {
 function date(value: string) {
     return new Intl.DateTimeFormat(undefined, { dateStyle: 'short' }).format(
         new Date(`${value.slice(0, 10)}T00:00:00`),
+    );
+}
+function dateTime(value: string) {
+    return new Intl.DateTimeFormat(undefined, {
+        dateStyle: 'short',
+        timeStyle: 'short',
+    }).format(new Date(value));
+}
+function monthName(month: number) {
+    return new Intl.DateTimeFormat(undefined, { month: 'short' }).format(
+        new Date(2026, month - 1, 1),
     );
 }
 

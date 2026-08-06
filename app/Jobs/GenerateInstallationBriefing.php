@@ -28,12 +28,13 @@ class GenerateInstallationBriefing implements ShouldQueue
             'installation.monitoringReadings',
             'installation.activities.assignedUser',
             'installation.quotes',
+            'user',
         ])->findOrFail($this->generationId);
         $generation->update(['status' => 'processing', 'started_at' => now(), 'error' => null]);
         $started = hrtime(true);
 
         try {
-            $built = $promptBuilder->build($generation->installation, $generation->mode);
+            $built = $promptBuilder->build($generation->installation, $generation->mode, $generation->user);
             $generation->update(['prompt' => $built['prompt'], 'sources' => $built['sources']]);
             $response = ($generation->mode === 'quick' ? InstallationSnapshot::make() : InstallationAdvisor::make())
                 ->prompt($built['prompt'], timeout: $generation->mode === 'quick' ? 90 : 180);

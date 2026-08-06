@@ -38,6 +38,15 @@ type Installation = {
     } | null;
 };
 type User = { id: number; name: string };
+type WorkTemplate = { id: number; name: string; kind: string };
+type SlaPolicy = {
+    id: number;
+    name: string;
+    priority: string;
+    first_response_minutes: number;
+    resolution_minutes: number;
+    escalation_minutes: number;
+};
 type Ticket = {
     id: number;
     number: string;
@@ -47,6 +56,9 @@ type Ticket = {
     title: string;
     description: string | null;
     resolution: string | null;
+    first_response_due_at: string | null;
+    resolution_due_at: string | null;
+    escalation_level: number;
     installation: Installation;
     assigned_user: User | null;
     work_order: { id: number; number: string; status: string } | null;
@@ -78,6 +90,9 @@ export default function AfterSalesIndex({
     installations,
     users,
     warranties,
+    metrics,
+    slaPolicies,
+    templates,
     canManage,
 }: {
     tickets: Ticket[];
@@ -85,6 +100,17 @@ export default function AfterSalesIndex({
     installations: Installation[];
     users: User[];
     warranties: Warranty[];
+    metrics: {
+        open: number;
+        response_breaches: number;
+        resolution_breaches: number;
+        average_first_response_minutes: number;
+        average_resolution_minutes: number;
+        recurrences: number;
+        satisfaction: number;
+    };
+    slaPolicies: SlaPolicy[];
+    templates: WorkTemplate[];
     canManage: boolean;
 }) {
     const [tab, setTab] = useState<Tab>('tickets');
@@ -102,24 +128,46 @@ export default function AfterSalesIndex({
                         </p>
                     </div>
                     {tab === 'tickets' ? (
-                        <TicketDialog
+                        <div className="flex gap-2">
+                            {canManage && <SlaDialog policies={slaPolicies} />}
+                            <TicketDialog
+                                installations={installations}
+                                users={users}
+                            />
+                        </div>
+                    ) : tab === 'maintenance' && canManage ? (
+                        <PlanDialog
                             installations={installations}
                             users={users}
+                            templates={templates}
                         />
-                    ) : tab === 'maintenance' && canManage ? (
-                        <PlanDialog installations={installations} />
                     ) : null}
                 </header>
-                <section className="grid grid-cols-3 border-y">
+                <section className="grid grid-cols-2 border-y md:grid-cols-4 xl:grid-cols-7">
+                    <Metric label="Open tickets" value={metrics.open} />
                     <Metric
-                        label="Open tickets"
-                        value={
-                            tickets.filter(
-                                (t) =>
-                                    !['resolved', 'closed'].includes(t.status),
-                            ).length
-                        }
+                        label="Response breaches"
+                        value={metrics.response_breaches}
                     />
+                    <Metric
+                        label="Resolution breaches"
+                        value={metrics.resolution_breaches}
+                    />
+                    <Metric
+                        label="Avg response"
+                        value={`${metrics.average_first_response_minutes} min`}
+                    />
+                    <Metric
+                        label="Avg resolution"
+                        value={`${metrics.average_resolution_minutes} min`}
+                    />
+                    <Metric label="Recurrences" value={metrics.recurrences} />
+                    <Metric
+                        label="Satisfaction"
+                        value={`${metrics.satisfaction}/5`}
+                    />
+                </section>
+                <section className="grid grid-cols-2 border-y">
                     <Metric
                         label="Maintenance due"
                         value={
@@ -183,6 +231,12 @@ export default function AfterSalesIndex({
                                         <Badge variant="outline">
                                             {ticket.status}
                                         </Badge>
+                                        {ticket.escalation_level > 0 && (
+                                            <Badge variant="destructive">
+                                                Escalation{' '}
+                                                {ticket.escalation_level}
+                                            </Badge>
+                                        )}
                                     </div>
                                     <Link
                                         href={`/installations/${ticket.installation.id}`}
@@ -197,6 +251,18 @@ export default function AfterSalesIndex({
                                             {ticket.description}
                                         </p>
                                     )}
+                                    <div className="mt-2 text-xs text-muted-foreground">
+                                        Response due{' '}
+                                        {ticket.first_response_due_at
+                                            ? dateTime(
+                                                  ticket.first_response_due_at,
+                                              )
+                                            : '—'}{' '}
+                                        · Resolution due{' '}
+                                        {ticket.resolution_due_at
+                                            ? dateTime(ticket.resolution_due_at)
+                                            : '—'}
+                                    </div>
                                     {ticket.work_order && (
                                         <Button
                                             className="mt-3"
@@ -556,7 +622,15 @@ function TicketDialog({
         </Dialog>
     );
 }
-function PlanDialog({ installations }: { installations: Installation[] }) {
+function PlanDialog({
+    installations,
+    users,
+    templates,
+}: {
+    installations: Installation[];
+    users: User[];
+    templates: WorkTemplate[];
+}) {
     const [open, setOpen] = useState(false);
 
     return (
@@ -585,11 +659,35 @@ function PlanDialog({ installations }: { installations: Installation[] }) {
                         ])}
                     />
                     <Field label="Plan name" name="name" />
+                    <div className="grid gap-4 sm:grid-cols-2">
+                        <SelectField
+                            label="Technician"
+                            name="assigned_user_id"
+                            options={users.map((user) => [
+                                String(user.id),
+                                user.name,
+                            ])}
+                        />
+                        <SelectField
+                            label="Work template"
+                            name="work_order_template_id"
+                            options={templates.map((template) => [
+                                String(template.id),
+                                template.name,
+                            ])}
+                        />
+                    </div>
                     <Field
                         label="Frequency (months)"
                         name="interval_months"
                         type="number"
                         value="12"
+                    />
+                    <Field
+                        label="Generation lead time (days)"
+                        name="lead_days"
+                        type="number"
+                        value="14"
                     />
                     <div className="grid gap-4 sm:grid-cols-2">
                         <Field
@@ -612,13 +710,95 @@ function PlanDialog({ installations }: { installations: Installation[] }) {
                             className="min-h-24 rounded-md border bg-transparent p-3 text-sm"
                         />
                     </div>
+                    <input type="hidden" name="generate_work_order" value="0" />
+                    <label className="flex items-center gap-2 text-sm">
+                        <input
+                            type="checkbox"
+                            name="generate_work_order"
+                            value="1"
+                            defaultChecked
+                        />
+                        Generate work order automatically
+                    </label>
                     <Button>Create plan</Button>
                 </Form>
             </DialogContent>
         </Dialog>
     );
 }
-function Metric({ label, value }: { label: string; value: number }) {
+
+function SlaDialog({ policies }: { policies: SlaPolicy[] }) {
+    const [open, setOpen] = useState(false);
+
+    return (
+        <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+                <Button variant="outline">
+                    <ShieldCheck /> SLA policies
+                </Button>
+            </DialogTrigger>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Service-level policies</DialogTitle>
+                </DialogHeader>
+                <div className="grid gap-2">
+                    {policies.map((policy) => (
+                        <div
+                            key={policy.id}
+                            className="rounded border p-3 text-sm"
+                        >
+                            <div className="font-medium">
+                                {policy.name} · {policy.priority}
+                            </div>
+                            <div className="text-muted-foreground">
+                                Response {policy.first_response_minutes} min ·
+                                Resolution {policy.resolution_minutes} min ·
+                                Escalate {policy.escalation_minutes} min
+                            </div>
+                        </div>
+                    ))}
+                </div>
+                <Form
+                    action="/after-sales/sla-policies"
+                    method="post"
+                    onSuccess={() => setOpen(false)}
+                    className="grid gap-3 border-t pt-4"
+                >
+                    <Field label="Policy name" name="name" />
+                    <SelectField
+                        label="Priority"
+                        name="priority"
+                        options={['low', 'normal', 'high', 'urgent'].map(
+                            (priority) => [priority, priority],
+                        )}
+                    />
+                    <div className="grid grid-cols-3 gap-3">
+                        <Field
+                            label="Response min"
+                            name="first_response_minutes"
+                            type="number"
+                            value="60"
+                        />
+                        <Field
+                            label="Resolution min"
+                            name="resolution_minutes"
+                            type="number"
+                            value="480"
+                        />
+                        <Field
+                            label="Escalation min"
+                            name="escalation_minutes"
+                            type="number"
+                            value="30"
+                        />
+                    </div>
+                    <Button>Create policy</Button>
+                </Form>
+            </DialogContent>
+        </Dialog>
+    );
+}
+function Metric({ label, value }: { label: string; value: number | string }) {
     return (
         <div className="border-r p-4 last:border-0">
             <div className="text-sm text-muted-foreground">{label}</div>
@@ -706,6 +886,11 @@ const date = (v: string) =>
     new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(
         new Date(`${v.slice(0, 10)}T12:00:00`),
     );
+const dateTime = (v: string) =>
+    new Intl.DateTimeFormat(undefined, {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+    }).format(new Date(v));
 const daysUntil = (v: string) =>
     Math.ceil(
         (new Date(`${v.slice(0, 10)}T12:00:00`).getTime() - Date.now()) /

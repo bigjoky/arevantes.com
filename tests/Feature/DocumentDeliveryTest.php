@@ -30,6 +30,8 @@ class DocumentDeliveryTest extends TestCase
         $this->actingAs($user)->post(route('quotes.send', $quote), ['recipient_email' => 'ana@example.com'])->assertRedirect();
         $delivery = DocumentDelivery::firstOrFail();
         $this->assertSame('sent', $delivery->status);
+        $this->assertNotNull($delivery->document_version);
+        $this->assertSame(64, strlen($delivery->document_hash));
         $this->assertSame('sent', $quote->refresh()->status);
         $token = null;
         Mail::assertSent(DocumentSharedMail::class, function (DocumentSharedMail $mail) use (&$token) {
@@ -49,6 +51,7 @@ class DocumentDeliveryTest extends TestCase
         $this->assertSame('won', $opportunity->refresh()->stage);
         $this->assertSame(100, $opportunity->probability);
         $this->assertSame('accepted', $delivery->refresh()->status);
+        $this->assertDatabaseHas('customer_document_acceptances', ['person_id' => $customer->id, 'document_type' => 'quote', 'document_id' => $quote->id, 'document_version' => $delivery->document_version]);
         $this->post(route('documents.shared.respond', $token), ['response' => 'rejected'])->assertUnprocessable();
     }
 
@@ -56,5 +59,17 @@ class DocumentDeliveryTest extends TestCase
     {
         $delivery = DocumentDelivery::create(['recipient_email' => 'test@example.com', 'token_hash' => hash('sha256', 'expired-token'), 'status' => 'sent', 'expires_at' => now()->subMinute()]);
         $this->get(route('documents.shared.show', 'expired-token'))->assertGone();
+    }
+
+    public function test_shared_document_can_be_revoked(): void
+    {
+        $user = User::factory()->create(['role' => 'commercial']);
+        $customer = Person::create(['category' => 'customer', 'first_name' => 'Ana', 'email' => 'ana@example.com']);
+        $quote = Quote::create(['person_id' => $customer->id, 'number' => 'PRE-2026-00003', 'status' => 'sent', 'issue_date' => '2026-08-06', 'subtotal' => 100, 'discount_amount' => 0, 'tax_amount' => 21, 'amount' => 121]);
+        $delivery = DocumentDelivery::create(['quote_id' => $quote->id, 'recipient_email' => 'ana@example.com', 'token_hash' => hash('sha256', 'revocable-token'), 'status' => 'sent', 'expires_at' => now()->addWeek()]);
+
+        $this->actingAs($user)->delete(route('document-deliveries.revoke', $delivery))->assertRedirect();
+        $this->assertNotNull($delivery->refresh()->revoked_at);
+        $this->get(route('documents.shared.show', 'revocable-token'))->assertGone();
     }
 }

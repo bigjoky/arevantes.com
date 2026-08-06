@@ -8,6 +8,8 @@ use Laravel\Ai\Embeddings;
 
 class KnowledgeIndexer
 {
+    public function __construct(private KnowledgeSafetyScanner $safetyScanner) {}
+
     public function index(string $path, bool $force = false, bool $withEmbeddings = true): array
     {
         $content = trim(File::get($path));
@@ -25,16 +27,36 @@ class KnowledgeIndexer
             return ['document' => $document, 'changed' => false];
         }
 
-        if ($document->exists && $document->content_hash !== $hash) {
-            $document->version++;
+        $changed = ! $document->exists || $document->content_hash !== $hash;
+        if ($document->exists && $changed) {
+            $document->version = ((int) $document->version) + 1;
         }
 
         $document->fill([
             'title' => $title,
+            'version' => $document->version ?: 1,
             'content_hash' => $hash,
             'embedding_model' => $withEmbeddings ? config('ai.providers.ollama.models.embeddings.default') : null,
             'indexed_at' => null,
+            'stale_at' => null,
+            'status' => 'processing',
+            'failure_reason' => null,
         ])->save();
+
+        $findings = $this->safetyScanner->findings($content);
+        if ($findings !== []) {
+            $document->chunks()->delete();
+            $document->update([
+                'status' => 'quarantined',
+                'failure_reason' => 'Potential malicious document instructions: '.implode(', ', $findings).'.',
+            ]);
+            $document->versions()->updateOrCreate(
+                ['version' => $document->version],
+                ['content_hash' => $hash, 'content' => $content, 'created_by' => $document->user_id],
+            );
+
+            return ['document' => $document, 'changed' => $changed, 'quarantined' => true];
+        }
 
         $chunks = $this->chunks($content);
         $vectors = $withEmbeddings && $chunks !== []
@@ -53,7 +75,15 @@ class KnowledgeIndexer
             ]);
         }
 
-        $document->update(['indexed_at' => now()]);
+        $document->update([
+            'indexed_at' => now(),
+            'stale_at' => now()->addDays((int) config('arevia.stale_after_days', 30)),
+            'status' => 'indexed',
+        ]);
+        $document->versions()->updateOrCreate(
+            ['version' => $document->version],
+            ['content_hash' => $hash, 'content' => $content, 'created_by' => $document->user_id, 'indexed_at' => $document->indexed_at],
+        );
 
         return ['document' => $document, 'changed' => true];
     }

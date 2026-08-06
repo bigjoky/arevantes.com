@@ -118,12 +118,14 @@ class WorkOrderTest extends TestCase
             'scheduled_start' => $newStart->format('Y-m-d H:i:s'),
             'scheduled_end' => $newStart->copy()->addHours(6)->format('Y-m-d H:i:s'),
             'instructions' => 'Bring lifting equipment.',
+            'reschedule_reason' => 'Customer requested a later date.',
         ])->assertRedirect();
 
         $this->assertSame('Install panels and inverter', $order->refresh()->title);
         $activity = $order->activities()->firstOrFail();
         $this->assertTrue($activity->starts_at->equalTo($newStart));
         $this->assertSame('Bring lifting equipment.', $order->instructions);
+        $this->assertDatabaseHas('work_order_reschedules', ['work_order_id' => $order->id, 'reason' => 'Customer requested a later date.']);
     }
 
     public function test_completed_survey_moves_the_installation_to_approved(): void
@@ -139,8 +141,9 @@ class WorkOrderTest extends TestCase
         $order = WorkOrder::firstOrFail();
         $order->checklistItems()->update(['completed_at' => now(), 'completed_by' => $commercial->id]);
         $order->update(['signed_by_name' => 'Ana Customer', 'signed_at' => now()]);
+        $order->attachments()->create(['uploaded_by' => $commercial->id, 'kind' => 'photo', 'original_name' => 'survey.jpg', 'path' => 'work-orders/survey.jpg', 'mime_type' => 'image/jpeg', 'size' => 100]);
 
-        $this->patch(route('work-orders.update', $order), ['status' => 'completed'])->assertRedirect();
+        $this->patch(route('work-orders.update', $order), ['status' => 'completed', 'completion_notes' => 'Survey completed and documented.'])->assertRedirect();
 
         $this->assertSame('approved', $installation->refresh()->status);
         $this->assertDatabaseHas('crm_activities', ['work_order_id' => $order->id, 'status' => 'completed']);
