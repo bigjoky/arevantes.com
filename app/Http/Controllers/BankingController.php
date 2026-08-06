@@ -21,6 +21,7 @@ use App\Models\TaxReturnPayment;
 use App\Services\Accounting\AccountingSynchronizer;
 use App\Services\Accounting\JournalPoster;
 use App\Services\Banking\BankFinancialProductManager;
+use App\Services\Banking\CardSettlementSchedule;
 use App\Services\Banking\StatementImporter;
 use App\Services\Finance\OutstandingBalanceCalculator;
 use Illuminate\Http\RedirectResponse;
@@ -35,7 +36,10 @@ use Inertia\Response;
 
 class BankingController extends Controller
 {
-    public function __construct(private OutstandingBalanceCalculator $balances) {}
+    public function __construct(
+        private OutstandingBalanceCalculator $balances,
+        private CardSettlementSchedule $cardSettlements,
+    ) {}
 
     public function index(Request $request): Response
     {
@@ -68,13 +72,16 @@ class BankingController extends Controller
             'pendingAmount' => round((float) $account->transactions()->where('status', 'pending')->sum('amount'), 2),
         ] : ['pending' => 0, 'reconciled' => 0, 'pendingAmount' => 0];
 
-        $products = BankFinancialProduct::with(['bankAccount:id,name', 'ledgerAccount:id,code,name', 'sharedCreditFacility:id,name,credit_limit,used_amount,currency', 'linkedCards:id,name,shared_credit_facility_id,used_amount'])
+        $products = BankFinancialProduct::with(['bankAccount:id,name', 'ledgerAccount:id,code,name', 'sharedCreditFacility:id,type,name,credit_limit,used_amount,currency,bank_account_id,billing_day,payment_day', 'sharedCreditFacility.bankAccount:id,name', 'linkedCards:id,name,shared_credit_facility_id,used_amount'])
             ->orderByDesc('is_active')
             ->orderBy('type')
             ->orderBy('name')
             ->get()
             ->map(function (BankFinancialProduct $product) {
                 $creditPool = $product->sharedCreditFacility ?? $product;
+                $settlement = $creditPool->type === 'credit_facility' && ($product->shared_credit_facility_id || $creditPool->linkedCards->isNotEmpty())
+                    ? $this->cardSettlements->next($creditPool)
+                    : null;
 
                 return [
                     ...$product->toArray(),
@@ -82,6 +89,9 @@ class BankingController extends Controller
                     'utilization' => (float) $creditPool->credit_limit > 0 ? round((float) $creditPool->used_amount / (float) $creditPool->credit_limit * 100, 1) : 0,
                     'expires_soon' => $product->expires_on?->between(today(), today()->addDays(60)) ?? false,
                     'expired' => $product->expires_on?->isBefore(today()) ?? false,
+                    'next_closing_on' => $settlement ? $settlement['closingOn']->toDateString() : null,
+                    'next_payment_on' => $settlement ? $settlement['paymentOn']->toDateString() : null,
+                    'payment_bank_account' => $settlement ? $creditPool->bankAccount?->only(['id', 'name']) : null,
                 ];
             });
         $productSummary = $products->where('is_active', true)->whereNull('shared_credit_facility_id')->groupBy('currency')->map(fn (Collection $currencyProducts, string $currency) => [
@@ -128,6 +138,9 @@ class BankingController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'contract_reference' => ['nullable', 'string', 'max:100'],
             'credit_limit' => ['required', 'numeric', 'gt:0'],
+            'bank_account_id' => ['required', 'integer', 'exists:bank_accounts,id'],
+            'billing_day' => ['required', 'integer', 'between:1,31'],
+            'payment_day' => ['required', 'integer', 'between:1,31'],
             'card_ids' => ['required', 'array', 'min:2'],
             'card_ids.*' => ['required', 'integer', 'distinct', 'exists:bank_financial_products,id'],
         ]);

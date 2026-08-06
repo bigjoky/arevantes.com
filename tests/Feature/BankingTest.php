@@ -175,6 +175,7 @@ class BankingTest extends TestCase
 
     public function test_existing_independent_cards_can_be_grouped_into_a_new_shared_limit(): void
     {
+        $this->travelTo('2026-08-06');
         $user = User::factory()->create(['role' => 'commercial']);
         $this->actingAs($user)->post(route('banking.accounts.store'), [
             'name' => 'Existing cards settlement',
@@ -207,11 +208,17 @@ class BankingTest extends TestCase
             'name' => 'BBVA shared card limit',
             'contract_reference' => 'BBVA-POOL',
             'credit_limit' => 4800,
+            'bank_account_id' => $account->id,
+            'billing_day' => 31,
+            'payment_day' => 5,
             'card_ids' => $cards->pluck('id')->all(),
         ])->assertSessionHasNoErrors();
 
         $facility = BankFinancialProduct::where('type', 'credit_facility')->firstOrFail();
         $this->assertSame('311.10', $facility->used_amount);
+        $this->assertSame(31, $facility->billing_day);
+        $this->assertSame(5, $facility->payment_day);
+        $this->assertSame($account->id, $facility->bank_account_id);
         $this->assertSame(2, $facility->linkedCards()->count());
         $this->assertSame([$facility->id], $cards->map(fn ($card) => $card->fresh()->shared_credit_facility_id)->unique()->values()->all());
         $this->get(route('banking.index', ['account' => $account->id]))
@@ -219,7 +226,11 @@ class BankingTest extends TestCase
             ->assertInertia(fn (Assert $page) => $page
                 ->where('productSummary.0.limit', 4800)
                 ->where('productSummary.0.used', 311.1)
-                ->where('productSummary.0.available', 4488.9));
+                ->where('productSummary.0.available', 4488.9)
+                ->where('products.0.next_closing_on', '2026-08-31')
+                ->where('products.0.next_payment_on', '2026-09-05')
+                ->where('products.0.payment_bank_account.name', 'Existing cards settlement')
+                ->where('products.2.next_payment_on', '2026-09-05'));
     }
 
     public function test_european_csv_is_deduplicated_and_reconciled_with_recorded_payments(): void
