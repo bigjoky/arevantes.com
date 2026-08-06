@@ -9,13 +9,13 @@ use App\Models\Opportunity;
 use App\Models\ServiceTicket;
 use App\Models\User;
 use App\Models\WorkOrder;
-use App\Services\Work\ChecklistTemplate;
+use App\Models\WorkOrderTemplate;
 use App\Services\Work\TechnicianSchedule;
+use App\Services\Work\WorkOrderFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
@@ -31,7 +31,7 @@ class OperationsController extends Controller
             'priority' => ['nullable', Rule::in(['low', 'normal', 'high'])],
             'type' => ['nullable', Rule::in(['task', 'visit', 'reminder', 'call', 'email', 'meeting'])],
             'owner' => ['nullable', 'integer'],
-            'view' => ['nullable', Rule::in(['today', 'board', 'week'])],
+            'view' => ['nullable', Rule::in(['today', 'board', 'week', 'month'])],
             'week' => ['nullable', 'date_format:Y-m-d'],
             'focus' => ['nullable', 'integer'],
         ]);
@@ -72,12 +72,16 @@ class OperationsController extends Controller
             ->limit(200)
             ->get();
 
-        $weekStart = isset($filters['week'])
-            ? Carbon::createFromFormat('Y-m-d', $filters['week'])->startOfWeek()
-            : now()->startOfWeek();
-        $weekEnd = $weekStart->copy()->endOfWeek();
+        $selectedDate = isset($filters['week'])
+            ? Carbon::createFromFormat('Y-m-d', $filters['week'])
+            : now();
+        $anchor = $filters['view'] === 'month'
+            ? $selectedDate->copy()->startOfMonth()
+            : $selectedDate->copy()->startOfWeek();
+        $rangeStart = $filters['view'] === 'month' ? $anchor->copy()->startOfWeek() : $anchor;
+        $rangeEnd = $filters['view'] === 'month' ? $anchor->copy()->endOfMonth()->endOfWeek() : $anchor->copy()->endOfWeek();
         $workOrdersQuery = WorkOrder::query()
-            ->with(['installation:id,project_reference,site_name,status', 'assignedUser:id,name,role'])
+            ->with(['installation:id,project_reference,site_name,status,site_postal_code', 'installation.materialRequirements:id,installation_id', 'assignedUser:id,name,role', 'assignedUser.fieldServiceProfile', 'stockReservations:id,work_order_id,status'])
             ->whereNotIn('status', ['completed', 'cancelled']);
         if ($request->user()->hasRole('technician')) {
             $workOrdersQuery->where('assigned_user_id', $request->user()->id);
@@ -86,18 +90,21 @@ class OperationsController extends Controller
             ->when($filters['owner'] ?? null, fn (Builder $query, int $owner) => $query->where('assigned_user_id', $owner))
             ->when($filters['q'] ?? null, fn (Builder $query, string $search) => $query->where(fn (Builder $query) => $query->where('title', 'like', "%{$search}%")->orWhere('number', 'like', "%{$search}%")));
         $planningOrders = $planningOrdersQuery
-            ->where(fn (Builder $query) => $query->whereNull('scheduled_start')->orWhereBetween('scheduled_start', [$weekStart, $weekEnd]))
+            ->where(fn (Builder $query) => $query->whereNull('scheduled_start')->orWhereBetween('scheduled_start', [$rangeStart, $rangeEnd]))
             ->orderByRaw('case when scheduled_start is null then 1 else 0 end')
             ->orderBy('scheduled_start')
             ->limit(200)
             ->get();
-        $conflicts = $schedule->conflictIds($planningOrders);
-        $planningOrders->each(fn (WorkOrder $order) => $order->setAttribute('has_schedule_conflict', isset($conflicts[$order->id])));
+        $planningIssues = $schedule->planningIssues($planningOrders);
+        $planningOrders->each(function (WorkOrder $order) use ($planningIssues): void {
+            $order->setAttribute('planning_issues', $planningIssues[$order->id] ?? []);
+            $order->setAttribute('has_schedule_conflict', collect($planningIssues[$order->id] ?? [])->contains('type', 'overlap'));
+        });
 
         $weekActivities = CrmActivity::query()
             ->with(['installation:id,project_reference,site_name', 'assignedUser:id,name,role', 'workOrder:id,number,status'])
             ->whereIn('status', ['pending', 'in_progress', 'blocked'])
-            ->where(fn (Builder $query) => $query->whereBetween('starts_at', [$weekStart, $weekEnd])->orWhereBetween('due_at', [$weekStart, $weekEnd]));
+            ->where(fn (Builder $query) => $query->whereBetween('starts_at', [$rangeStart, $rangeEnd])->orWhereBetween('due_at', [$rangeStart, $rangeEnd]));
         $this->scopeForUser($weekActivities, $request);
         $this->applyFilters($weekActivities, [...$filters, 'status' => 'active']);
 
@@ -109,8 +116,9 @@ class OperationsController extends Controller
             'metrics' => $this->metrics($request, $workOrdersQuery),
             'exceptions' => $this->operationalExceptions($request, $workOrdersQuery),
             'installations' => Installation::where('status', '!=', 'cancelled')->orderBy('project_reference')->get(['id', 'project_reference', 'site_name', 'status']),
-            'users' => User::whereIn('role', ['commercial', 'technician', 'admin'])->orderBy('name')->get(['id', 'name', 'role']),
-            'filters' => [...$filters, 'week' => $weekStart->toDateString()],
+            'users' => User::with('fieldServiceProfile')->whereIn('role', ['commercial', 'technician', 'admin'])->orderBy('name')->get(['id', 'name', 'role']),
+            'templates' => WorkOrderTemplate::where('is_active', true)->orderBy('name')->get(),
+            'filters' => [...$filters, 'week' => $anchor->toDateString()],
             'canManage' => $request->user()->can('manage-installations'),
             'currentUserId' => $request->user()->id,
         ]);
@@ -176,7 +184,7 @@ class OperationsController extends Controller
         return back()->with('toast', ['type' => 'success', 'message' => __('Activity deleted.')]);
     }
 
-    public function convertToWorkOrder(Request $request, CrmActivity $activity, ChecklistTemplate $template, TechnicianSchedule $schedule): RedirectResponse
+    public function convertToWorkOrder(Request $request, CrmActivity $activity, WorkOrderFactory $factory, TechnicianSchedule $schedule): RedirectResponse
     {
         Gate::authorize('convert', $activity);
         abort_if($activity->work_order_id !== null || $activity->installation_id === null || in_array($activity->status, ['completed', 'cancelled'], true), 422);
@@ -191,35 +199,21 @@ class OperationsController extends Controller
             $schedule->assertAvailable($activity->assigned_user_id, $start, $end);
         }
 
-        $order = DB::transaction(function () use ($activity, $data, $template, $request, $start, $end): WorkOrder {
-            $order = WorkOrder::create([
-                'installation_id' => $activity->installation_id,
-                'assigned_user_id' => $activity->assigned_user_id,
-                'created_by' => $request->user()->id,
-                'number' => 'TMP-'.str()->uuid(),
-                'title' => $activity->title,
-                'kind' => $data['kind'],
-                'status' => 'planned',
-                'scheduled_start' => $start,
-                'scheduled_end' => $end,
-                'instructions' => $activity->notes,
+        $order = $factory->create([
+            'installation_id' => $activity->installation_id,
+            'activity_id' => $activity->id,
+            'assigned_user_id' => $activity->assigned_user_id,
+            'title' => $activity->title,
+            'kind' => $data['kind'],
+            'scheduled_start' => $start,
+            'scheduled_end' => $end,
+            'instructions' => $activity->notes,
+        ], $request->user()->id);
+        if ($start && $order->installation->status !== 'cancelled') {
+            $order->installation->update([
+                'status' => $data['kind'] === 'survey' ? 'survey_booked' : (in_array($data['kind'], ['installation', 'commissioning'], true) ? 'scheduled' : $order->installation->status),
             ]);
-            $order->update(['number' => 'WO-'.now()->format('Y').'-'.str_pad((string) $order->id, 5, '0', STR_PAD_LEFT)]);
-            $order->checklistItems()->createMany(
-                collect($template->for($order->installation->service_type))
-                    ->map(fn ($item, $position) => [...$item, 'position' => $position + 1])
-                    ->all()
-            );
-            $activity->update(['work_order_id' => $order->id]);
-
-            if ($start && $order->installation->status !== 'cancelled') {
-                $order->installation->update([
-                    'status' => $data['kind'] === 'survey' ? 'survey_booked' : (in_array($data['kind'], ['installation', 'commissioning'], true) ? 'scheduled' : $order->installation->status),
-                ]);
-            }
-
-            return $order;
-        });
+        }
 
         return to_route('work-orders.index', ['work_order' => $order->id])
             ->with('toast', ['type' => 'success', 'message' => __('Work order created from activity.')]);

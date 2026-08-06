@@ -101,6 +101,32 @@ type Quote = {
     amount: string;
     valid_until: string | null;
 };
+type Asset = {
+    id: number;
+    asset_tag: string;
+    name: string;
+    category: string;
+    manufacturer: string | null;
+    model: string | null;
+    serial_number: string | null;
+    status: string;
+    warranty_ends_on: string | null;
+    replacement: { asset_tag: string; name: string } | null;
+    events: {
+        id: number;
+        type: string;
+        summary: string;
+        occurred_at: string;
+    }[];
+};
+type Profitability = {
+    planned_revenue: number;
+    actual_revenue: number;
+    planned_cost: number;
+    actual_cost: number;
+    planned_margin: number;
+    actual_margin: number;
+};
 type AiGeneration = {
     uuid: string;
     status: 'queued' | 'processing' | 'completed' | 'failed';
@@ -136,6 +162,8 @@ export default function InstallationShow({
     monitoringAlerts,
     activities,
     quotes,
+    assets,
+    profitability,
     latestAiGeneration,
 }: {
     installation: Installation;
@@ -143,6 +171,8 @@ export default function InstallationShow({
     monitoringAlerts: MonitoringAlert[];
     activities: Activity[];
     quotes: Quote[];
+    assets: Asset[];
+    profitability: Profitability;
     latestAiGeneration: AiGeneration | null;
 }) {
     const { locale } = useLocale();
@@ -693,6 +723,93 @@ export default function InstallationShow({
                     </div>
                 </section>
 
+                <section className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
+                    <Card className="rounded-lg">
+                        <CardHeader>
+                            <CardTitle>Installed assets</CardTitle>
+                            <CardDescription>
+                                Equipment, warranty and technical traceability.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="grid gap-3">
+                            {assets.map((asset) => (
+                                <div
+                                    key={asset.id}
+                                    className="border-t pt-3 text-sm"
+                                >
+                                    <div className="flex flex-wrap items-center justify-between gap-2">
+                                        <div className="font-medium">
+                                            {asset.asset_tag} · {asset.name}
+                                        </div>
+                                        <Badge variant="outline">
+                                            {asset.status}
+                                        </Badge>
+                                    </div>
+                                    <div className="mt-1 text-muted-foreground">
+                                        {[
+                                            asset.manufacturer,
+                                            asset.model,
+                                            asset.serial_number,
+                                        ]
+                                            .filter(Boolean)
+                                            .join(' · ') || asset.category}
+                                    </div>
+                                    {asset.replacement && (
+                                        <div className="mt-1 text-xs">
+                                            Replaced by{' '}
+                                            {asset.replacement.asset_tag}
+                                        </div>
+                                    )}
+                                    {asset.events[0] && (
+                                        <div className="mt-1 text-xs text-muted-foreground">
+                                            Latest: {asset.events[0].summary}
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                            {assets.length === 0 && (
+                                <p className="text-sm text-muted-foreground">
+                                    No installed assets registered.
+                                </p>
+                            )}
+                        </CardContent>
+                    </Card>
+                    <Card className="rounded-lg">
+                        <CardHeader>
+                            <CardTitle>Project profitability</CardTitle>
+                            <CardDescription>
+                                Plan compared with actual execution.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="grid grid-cols-2 gap-4 text-sm">
+                            <Value
+                                label="Planned revenue"
+                                value={money(profitability.planned_revenue)}
+                            />
+                            <Value
+                                label="Actual revenue"
+                                value={money(profitability.actual_revenue)}
+                            />
+                            <Value
+                                label="Planned cost"
+                                value={money(profitability.planned_cost)}
+                            />
+                            <Value
+                                label="Actual cost"
+                                value={money(profitability.actual_cost)}
+                            />
+                            <Value
+                                label="Planned margin"
+                                value={money(profitability.planned_margin)}
+                            />
+                            <Value
+                                label="Actual margin"
+                                value={money(profitability.actual_margin)}
+                            />
+                        </CardContent>
+                    </Card>
+                </section>
+
                 <Card className="rounded-lg">
                     <CardHeader className="flex-row items-start justify-between gap-3">
                         <div>
@@ -1188,6 +1305,22 @@ function InfoBlock({
             </dl>
         </div>
     );
+}
+
+function Value({ label, value }: { label: string; value: string }) {
+    return (
+        <div>
+            <div className="text-muted-foreground">{label}</div>
+            <div className="font-semibold">{value}</div>
+        </div>
+    );
+}
+
+function money(value: number) {
+    return new Intl.NumberFormat('es-ES', {
+        style: 'currency',
+        currency: 'EUR',
+    }).format(value);
 }
 
 function ServiceIcon({ service }: { service: keyof typeof serviceLabels }) {

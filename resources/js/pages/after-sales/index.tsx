@@ -47,6 +47,9 @@ type Ticket = {
     title: string;
     description: string | null;
     resolution: string | null;
+    first_response_due_at: string | null;
+    resolution_due_at: string | null;
+    escalation_level: number;
     installation: Installation;
     assigned_user: User | null;
     work_order: { id: number; number: string; status: string } | null;
@@ -78,6 +81,7 @@ export default function AfterSalesIndex({
     installations,
     users,
     warranties,
+    metrics,
     canManage,
 }: {
     tickets: Ticket[];
@@ -85,6 +89,15 @@ export default function AfterSalesIndex({
     installations: Installation[];
     users: User[];
     warranties: Warranty[];
+    metrics: {
+        open: number;
+        response_breaches: number;
+        resolution_breaches: number;
+        average_first_response_minutes: number;
+        average_resolution_minutes: number;
+        recurrences: number;
+        satisfaction: number;
+    };
     canManage: boolean;
 }) {
     const [tab, setTab] = useState<Tab>('tickets');
@@ -110,16 +123,31 @@ export default function AfterSalesIndex({
                         <PlanDialog installations={installations} />
                     ) : null}
                 </header>
-                <section className="grid grid-cols-3 border-y">
+                <section className="grid grid-cols-2 border-y md:grid-cols-4 xl:grid-cols-7">
+                    <Metric label="Open tickets" value={metrics.open} />
                     <Metric
-                        label="Open tickets"
-                        value={
-                            tickets.filter(
-                                (t) =>
-                                    !['resolved', 'closed'].includes(t.status),
-                            ).length
-                        }
+                        label="Response breaches"
+                        value={metrics.response_breaches}
                     />
+                    <Metric
+                        label="Resolution breaches"
+                        value={metrics.resolution_breaches}
+                    />
+                    <Metric
+                        label="Avg response"
+                        value={`${metrics.average_first_response_minutes} min`}
+                    />
+                    <Metric
+                        label="Avg resolution"
+                        value={`${metrics.average_resolution_minutes} min`}
+                    />
+                    <Metric label="Recurrences" value={metrics.recurrences} />
+                    <Metric
+                        label="Satisfaction"
+                        value={`${metrics.satisfaction}/5`}
+                    />
+                </section>
+                <section className="grid grid-cols-2 border-y">
                     <Metric
                         label="Maintenance due"
                         value={
@@ -183,6 +211,12 @@ export default function AfterSalesIndex({
                                         <Badge variant="outline">
                                             {ticket.status}
                                         </Badge>
+                                        {ticket.escalation_level > 0 && (
+                                            <Badge variant="destructive">
+                                                Escalation{' '}
+                                                {ticket.escalation_level}
+                                            </Badge>
+                                        )}
                                     </div>
                                     <Link
                                         href={`/installations/${ticket.installation.id}`}
@@ -197,6 +231,18 @@ export default function AfterSalesIndex({
                                             {ticket.description}
                                         </p>
                                     )}
+                                    <div className="mt-2 text-xs text-muted-foreground">
+                                        Response due{' '}
+                                        {ticket.first_response_due_at
+                                            ? dateTime(
+                                                  ticket.first_response_due_at,
+                                              )
+                                            : '—'}{' '}
+                                        · Resolution due{' '}
+                                        {ticket.resolution_due_at
+                                            ? dateTime(ticket.resolution_due_at)
+                                            : '—'}
+                                    </div>
                                     {ticket.work_order && (
                                         <Button
                                             className="mt-3"
@@ -618,7 +664,7 @@ function PlanDialog({ installations }: { installations: Installation[] }) {
         </Dialog>
     );
 }
-function Metric({ label, value }: { label: string; value: number }) {
+function Metric({ label, value }: { label: string; value: number | string }) {
     return (
         <div className="border-r p-4 last:border-0">
             <div className="text-sm text-muted-foreground">{label}</div>
@@ -706,6 +752,11 @@ const date = (v: string) =>
     new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(
         new Date(`${v.slice(0, 10)}T12:00:00`),
     );
+const dateTime = (v: string) =>
+    new Intl.DateTimeFormat(undefined, {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+    }).format(new Date(v));
 const daysUntil = (v: string) =>
     Math.ceil(
         (new Date(`${v.slice(0, 10)}T12:00:00`).getTime() - Date.now()) /

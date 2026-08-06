@@ -7,11 +7,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ServiceTicket extends Model
 {
-    protected $fillable = ['installation_id', 'maintenance_plan_id', 'assigned_user_id', 'created_by', 'work_order_id', 'number', 'kind', 'priority', 'status', 'title', 'description', 'resolution', 'resolved_at'];
+    protected $fillable = ['installation_id', 'maintenance_plan_id', 'assigned_user_id', 'created_by', 'work_order_id', 'sla_policy_id', 'number', 'kind', 'priority', 'status', 'title', 'description', 'resolution', 'first_response_due_at', 'resolution_due_at', 'first_responded_at', 'escalated_at', 'escalation_level', 'reopened_count', 'satisfaction_rating', 'resolved_at'];
 
     protected function casts(): array
     {
-        return ['resolved_at' => 'datetime'];
+        return ['first_response_due_at' => 'datetime', 'resolution_due_at' => 'datetime', 'first_responded_at' => 'datetime', 'escalated_at' => 'datetime', 'resolved_at' => 'datetime'];
     }
 
     public function installation(): BelongsTo
@@ -32,5 +32,10 @@ class ServiceTicket extends Model
     public function workOrder(): BelongsTo
     {
         return $this->belongsTo(WorkOrder::class);
+    }
+
+    public function slaPolicy(): BelongsTo
+    {
+        return $this->belongsTo(ServiceSlaPolicy::class, 'sla_policy_id');
     }
 }

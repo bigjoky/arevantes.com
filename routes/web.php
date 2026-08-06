@@ -15,6 +15,7 @@ use App\Http\Controllers\CustomerPortalController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DocumentDeliveryController;
 use App\Http\Controllers\ExpenseController;
+use App\Http\Controllers\FieldServiceSettingsController;
 use App\Http\Controllers\FinanceController;
 use App\Http\Controllers\FiscalSettingsController;
 use App\Http\Controllers\GeocodingController;
@@ -25,6 +26,7 @@ use App\Http\Controllers\HrLeaveController;
 use App\Http\Controllers\HrTaskController;
 use App\Http\Controllers\HumanResourcesController;
 use App\Http\Controllers\InstallationAiController;
+use App\Http\Controllers\InstallationAssetController;
 use App\Http\Controllers\InstallationController;
 use App\Http\Controllers\InstallationDeyeController;
 use App\Http\Controllers\InstallationHuaweiController;
@@ -134,6 +136,8 @@ Route::middleware(['auth'])->group(function () {
     Route::post('after-sales/plans', [AfterSalesController::class, 'storePlan'])->middleware('can:manage-installations')->name('after-sales.plans.store');
     Route::patch('after-sales/plans/{plan}', [AfterSalesController::class, 'updatePlan'])->middleware('can:manage-installations')->name('after-sales.plans.update');
     Route::patch('after-sales/warranties/{serial}', [AfterSalesController::class, 'updateWarranty'])->middleware('can:manage-installations')->name('after-sales.warranties.update');
+    Route::post('after-sales/sla-policies', [AfterSalesController::class, 'storeSlaPolicy'])->middleware('can:manage-installations')->name('after-sales.sla-policies.store');
+    Route::patch('work-orders/bulk-reschedule', [WorkOrderController::class, 'bulkReschedule'])->middleware('can:manage-installations')->name('work-orders.bulk-reschedule');
     Route::post('work-orders', [WorkOrderController::class, 'store'])->middleware('can:manage-installations')->name('work-orders.store');
     Route::patch('work-orders/{workOrder}', [WorkOrderController::class, 'update'])->middleware('can:manage-operations')->name('work-orders.update');
     Route::patch('work-orders/{workOrder}/schedule', [WorkOrderController::class, 'updateSchedule'])->middleware('can:manage-installations')->name('work-orders.schedule.update');
@@ -297,6 +301,9 @@ Route::middleware(['auth'])->group(function () {
     Route::patch('operations/activities/{activity}', [OperationsController::class, 'update'])->middleware('can:manage-operations')->name('activities.update');
     Route::delete('operations/activities/{activity}', [OperationsController::class, 'destroy'])->middleware('can:manage-operations')->name('activities.destroy');
     Route::post('operations/activities/{activity}/work-order', [OperationsController::class, 'convertToWorkOrder'])->middleware('can:manage-installations')->name('activities.work-order.store');
+    Route::put('operations/field-service/users/{user}', [FieldServiceSettingsController::class, 'updateProfile'])->middleware('can:manage-installations')->name('field-service.profiles.update');
+    Route::post('operations/work-order-templates', [FieldServiceSettingsController::class, 'storeTemplate'])->middleware('can:manage-installations')->name('work-order-templates.store');
+    Route::patch('operations/work-order-templates/{template}', [FieldServiceSettingsController::class, 'updateTemplate'])->middleware('can:manage-installations')->name('work-order-templates.update');
     Route::get('quotes/create', [QuoteController::class, 'create'])->middleware('can:manage-installations')->name('quotes.create');
     Route::post('quotes', [QuoteController::class, 'store'])->middleware('can:manage-installations')->name('quotes.store');
     Route::get('quotes/{quote}', [QuoteController::class, 'show'])->middleware('can:manage-installations')->name('quotes.show');
@@ -354,6 +361,10 @@ Route::middleware(['auth'])->group(function () {
     Route::post('installations/{installation}/huawei/sync', [InstallationHuaweiController::class, 'sync'])
         ->middleware('can:sync-installations')
         ->name('installations.huawei.sync');
+    Route::post('installations/{installation}/assets', [InstallationAssetController::class, 'store'])->middleware('can:manage-installations')->name('installations.assets.store');
+    Route::patch('installations/{installation}/assets/{asset}', [InstallationAssetController::class, 'update'])->middleware('can:manage-installations')->name('installations.assets.update');
+    Route::post('installations/{installation}/assets/{asset}/events', [InstallationAssetController::class, 'storeEvent'])->middleware('can:manage-operations')->name('installations.assets.events.store');
+    Route::post('installations/{installation}/assets/{asset}/replacement', [InstallationAssetController::class, 'replace'])->middleware('can:manage-installations')->name('installations.assets.replace');
     Route::resource('installations', InstallationController::class)
         ->except(['index', 'show'])
         ->middleware('can:manage-installations');

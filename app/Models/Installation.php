@@ -98,6 +98,21 @@ class Installation extends Model
         return $this->hasMany(WorkOrder::class);
     }
 
+    public function assets(): HasMany
+    {
+        return $this->hasMany(InstallationAsset::class);
+    }
+
+    public function maintenancePlans(): HasMany
+    {
+        return $this->hasMany(MaintenancePlan::class);
+    }
+
+    public function serviceTickets(): HasMany
+    {
+        return $this->hasMany(ServiceTicket::class);
+    }
+
     public function materialRequirements(): HasMany
     {
         return $this->hasMany(InstallationMaterialRequirement::class);

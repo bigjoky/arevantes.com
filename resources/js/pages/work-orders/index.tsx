@@ -1414,6 +1414,17 @@ function ScheduleDialog({ order, users }: { order: Selected; users: User[] }) {
                                 />
                                 <InputError message={errors.instructions} />
                             </div>
+                            <div className="grid gap-2">
+                                <Label>Reason for rescheduling</Label>
+                                <textarea
+                                    name="reschedule_reason"
+                                    required
+                                    className="min-h-20 rounded-md border bg-transparent p-3 text-sm"
+                                />
+                                <InputError
+                                    message={errors.reschedule_reason}
+                                />
+                            </div>
                             <Button disabled={processing}>Save schedule</Button>
                         </>
                     )}

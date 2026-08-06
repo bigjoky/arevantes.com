@@ -11,6 +11,8 @@ use App\Models\Person;
 use App\Models\Quote;
 use App\Models\SalesDocument;
 use App\Models\ServiceTicket;
+use App\Services\AfterSales\ServiceWorkGenerator;
+use App\Services\AfterSales\SlaManager;
 use App\Services\Documents\DocumentPdf;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -70,12 +72,14 @@ class CustomerPortalController extends Controller
         ]);
     }
 
-    public function storeTicket(Request $request, string $token): RedirectResponse
+    public function storeTicket(Request $request, string $token, SlaManager $sla, ServiceWorkGenerator $work): RedirectResponse
     {
         $access = $this->access($token);
         $data = $request->validate(['installation_id' => ['required', 'integer'], 'title' => ['required', 'string', 'max:255'], 'description' => ['required', 'string', 'max:3000'], 'priority' => ['required', 'in:low,normal,high']]);
         abort_unless($access->customer->installations()->whereKey($data['installation_id'])->exists(), 403);
-        ServiceTicket::create([...$data, 'number' => 'SAT-'.now()->format('Y').'-'.str_pad((string) (ServiceTicket::count() + 1), 5, '0', STR_PAD_LEFT), 'kind' => 'incident', 'status' => 'open']);
+        $ticket = ServiceTicket::create([...$data, 'number' => 'SAT-'.now()->format('Y').'-'.str_pad((string) (ServiceTicket::count() + 1), 5, '0', STR_PAD_LEFT), 'kind' => 'incident', 'status' => 'open']);
+        $sla->apply($ticket);
+        $work->createForTicket($ticket);
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Support request created.')]);
     }

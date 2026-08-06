@@ -27,13 +27,14 @@ class AfterSalesTest extends TestCase
         $ticket = ServiceTicket::firstOrFail();
         $this->assertSame('SAT-2026-00001', $ticket->number);
 
-        $this->post(route('after-sales.tickets.work-order', $ticket))->assertRedirect();
         $order = WorkOrder::firstOrFail();
         $this->assertSame($order->id, $ticket->refresh()->work_order_id);
         $this->assertSame($technician->id, $order->assigned_user_id);
         $this->assertGreaterThanOrEqual(8, $order->checklistItems()->count());
         $this->assertTrue($order->checklistItems()->where('label', 'Complete charging test')->exists());
         $this->post(route('after-sales.tickets.work-order', $ticket))->assertUnprocessable();
+        $this->assertNotNull($ticket->refresh()->first_response_due_at);
+        $this->assertNotNull($ticket->resolution_due_at);
     }
 
     public function test_resolving_maintenance_advances_the_plan_and_warranty_dates_are_tracked(): void

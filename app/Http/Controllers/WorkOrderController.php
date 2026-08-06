@@ -11,9 +11,13 @@ use App\Models\Warehouse;
 use App\Models\WorkOrder;
 use App\Models\WorkOrderAttachment;
 use App\Models\WorkOrderChecklistItem;
+use App\Models\WorkOrderTemplate;
 use App\Services\Inventory\ProjectMaterialPlanner;
-use App\Services\Work\ChecklistTemplate;
 use App\Services\Work\TechnicianSchedule;
+use App\Services\Work\WorkOrderCompletionGuard;
+use App\Services\Work\WorkOrderFactory;
+use App\Services\Work\WorkOrderRescheduler;
+use App\Services\Work\WorkOrderWorkflow;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -27,25 +31,33 @@ class WorkOrderController extends Controller
 {
     public function index(Request $request, TechnicianSchedule $schedule, ProjectMaterialPlanner $materials): Response
     {
-        $query = WorkOrder::with(['installation:id,project_reference,site_name,status', 'assignedUser:id,name'])->withSum('timeEntries as duration_minutes', 'duration_minutes')->withSum('timeEntries as travel_km', 'travel_km');
+        $query = WorkOrder::with(['installation:id,project_reference,site_name,status,site_postal_code', 'installation.materialRequirements:id,installation_id', 'assignedUser:id,name', 'assignedUser.fieldServiceProfile', 'stockReservations:id,work_order_id,status', 'template:id,name,allowed_transitions'])->withSum('timeEntries as duration_minutes', 'duration_minutes')->withSum('timeEntries as travel_km', 'travel_km');
         if ($request->user()->hasRole('technician')) {
             $query->where('assigned_user_id', $request->user()->id);
         }
         $orders = $query->orderByRaw("case when status = 'completed' then 1 else 0 end")->orderBy('scheduled_start')->latest('id')->get();
-        $conflicts = $schedule->conflictIds($orders);
-        $orders->each(fn (WorkOrder $order) => $order->setAttribute('has_schedule_conflict', isset($conflicts[$order->id])));
+        $planningIssues = $schedule->planningIssues($orders);
+        $orders->each(function (WorkOrder $order) use ($planningIssues): void {
+            $order->setAttribute('planning_issues', $planningIssues[$order->id] ?? []);
+            $order->setAttribute('has_schedule_conflict', collect($planningIssues[$order->id] ?? [])->contains('type', 'overlap'));
+            $order->setAttribute('planned_minutes', $order->scheduled_start && $order->scheduled_end ? $order->scheduled_start->diffInMinutes($order->scheduled_end) : $order->estimated_duration_minutes);
+            $order->setAttribute('time_variance_minutes', $order->duration_minutes !== null && $order->estimated_duration_minutes !== null ? (int) $order->duration_minutes - $order->estimated_duration_minutes : null);
+        });
         $selectedId = (int) $request->integer('work_order');
         $selected = $selectedId ? WorkOrder::with(['installation', 'assignedUser:id,name', 'timeEntries.user:id,name', 'checklistItems', 'attachments', 'stockReservations.product:id,sku,name,track_serials', 'stockReservations.warehouse:id,code,name', 'purchaseDocuments.supplier:id,legal_name,trade_name'])->find($selectedId) : null;
         if ($selected) {
             $this->ensureAccess($request, $selected);
-            $selected->setAttribute('has_schedule_conflict', isset($conflicts[$selected->id]));
+            $selected->setAttribute('planning_issues', $planningIssues[$selected->id] ?? []);
+            $selected->setAttribute('has_schedule_conflict', collect($planningIssues[$selected->id] ?? [])->contains('type', 'overlap'));
             $selected->setAttribute('material_plan', $materials->summary($selected->installation));
+            $selected->setAttribute('completion_readiness', $this->completionReadiness($selected));
         }
 
         return Inertia::render('work-orders/index', [
             'workOrders' => $orders, 'selected' => $selected,
             'installations' => Installation::whereNotIn('status', ['completed', 'cancelled'])->orderBy('project_reference')->get(['id', 'project_reference', 'site_name']),
-            'users' => User::whereIn('role', ['technician', 'admin'])->orderBy('name')->get(['id', 'name', 'role']),
+            'users' => User::with('fieldServiceProfile')->whereIn('role', ['technician', 'admin'])->orderBy('name')->get(['id', 'name', 'role']),
+            'templates' => WorkOrderTemplate::where('is_active', true)->orderBy('name')->get(),
             'runningEntry' => TimeEntry::with('workOrder:id,number,title')->where('user_id', $request->user()->id)->whereNull('ended_at')->first(),
             'canManage' => $request->user()->can('manage-installations'), 'currentUserId' => $request->user()->id,
             'defaults' => ['hourlyCost' => config('work.default_hourly_cost'), 'mileageRate' => config('work.mileage_rate')],
@@ -55,46 +67,58 @@ class WorkOrderController extends Controller
             'planningMetrics' => [
                 'scheduled' => $orders->whereNotNull('scheduled_start')->whereNotIn('status', ['completed', 'cancelled'])->count(),
                 'unscheduled' => $orders->whereNull('scheduled_start')->whereNotIn('status', ['completed', 'cancelled'])->count(),
-                'conflicts' => count($conflicts),
+                'conflicts' => collect($planningIssues)->filter(fn (array $issues) => collect($issues)->contains('type', 'overlap'))->count(),
                 'planned_hours' => round($orders->whereNotIn('status', ['completed', 'cancelled'])->sum(fn (WorkOrder $order) => $order->scheduled_start && $order->scheduled_end ? $order->scheduled_start->diffInMinutes($order->scheduled_end) / 60 : 0), 1),
             ],
         ]);
     }
 
-    public function store(Request $request, ChecklistTemplate $template, TechnicianSchedule $schedule): RedirectResponse
+    public function store(Request $request, WorkOrderFactory $factory, TechnicianSchedule $schedule): RedirectResponse
     {
         $data = $this->validatedSchedule($request, true);
         $data['kind'] ??= 'installation';
-        $schedule->assertAvailable(isset($data['assigned_user_id']) ? (int) $data['assigned_user_id'] : null, $data['scheduled_start'] ?? null, $data['scheduled_end'] ?? null);
-        $order = WorkOrder::create([...$data, 'created_by' => $request->user()->id, 'number' => 'TMP-'.str()->uuid(), 'status' => 'planned']);
-        $order->update(['number' => 'WO-'.now()->format('Y').'-'.str_pad((string) $order->id, 5, '0', STR_PAD_LEFT)]);
-        $order->checklistItems()->createMany(collect($template->for($order->installation->service_type))->map(fn ($item, $position) => [...$item, 'position' => $position + 1])->all());
-        $this->syncActivity($order, $request->user()->id);
+        $schedule->assertAvailable(isset($data['assigned_user_id']) ? (int) $data['assigned_user_id'] : null, $data['scheduled_start'] ?? null, $data['scheduled_end'] ?? null, null, $data['required_skills'] ?? [], $data['service_zone'] ?? null);
+        $order = $factory->create($data, $request->user()->id);
         $this->syncInstallation($order);
 
         return to_route('work-orders.index', ['work_order' => $order->id])->with('toast', ['type' => 'success', 'message' => __('Work order created.')]);
     }
 
-    public function updateSchedule(Request $request, WorkOrder $workOrder, TechnicianSchedule $schedule): RedirectResponse
+    public function updateSchedule(Request $request, WorkOrder $workOrder, WorkOrderRescheduler $rescheduler): RedirectResponse
     {
         $data = $this->validatedSchedule($request);
-        $schedule->assertAvailable(isset($data['assigned_user_id']) ? (int) $data['assigned_user_id'] : null, $data['scheduled_start'] ?? null, $data['scheduled_end'] ?? null, $workOrder->id);
-        $workOrder->update($data);
-        $this->syncActivity($workOrder, $request->user()->id);
+        $reason = $request->validate(['reschedule_reason' => ['required', 'string', 'max:1000']])['reschedule_reason'];
+        $rescheduler->reschedule($workOrder, $data, $reason, $request->user()->id);
         $this->syncInstallation($workOrder);
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Work order schedule updated.')]);
     }
 
-    public function update(Request $request, WorkOrder $workOrder): RedirectResponse
+    public function bulkReschedule(Request $request, WorkOrderRescheduler $rescheduler): RedirectResponse
+    {
+        $data = $request->validate([
+            'reason' => ['required', 'string', 'max:1000'],
+            'items' => ['required', 'array', 'min:1', 'max:100'],
+            'items.*.work_order_id' => ['required', 'exists:work_orders,id'],
+            'items.*.assigned_user_id' => ['nullable', 'exists:users,id'],
+            'items.*.scheduled_start' => ['required', 'date'],
+            'items.*.scheduled_end' => ['required', 'date', 'after:items.*.scheduled_start'],
+        ]);
+        $batch = $rescheduler->bulk($data['items'], $data['reason'], $request->user()->id);
+
+        return back()->with('toast', ['type' => 'success', 'message' => __('Work orders rescheduled. Batch: :batch', ['batch' => $batch])]);
+    }
+
+    public function update(Request $request, WorkOrder $workOrder, WorkOrderWorkflow $workflow, WorkOrderCompletionGuard $completion): RedirectResponse
     {
         $this->ensureAccess($request, $workOrder);
-        $data = $request->validate(['status' => ['required', Rule::in(['planned', 'in_progress', 'completed', 'cancelled'])], 'completion_notes' => ['nullable', 'string']]);
-        abort_if($data['status'] === 'completed' && $workOrder->timeEntries()->whereNull('ended_at')->exists(), 422, __('Stop the active timer before completing the work order.'));
-        abort_if($data['status'] === 'completed' && $workOrder->checklistItems()->where('is_required', true)->whereNull('completed_at')->exists(), 422, __('Complete all required checklist items first.'));
-        abort_if($data['status'] === 'completed' && ! $workOrder->signed_at, 422, __('Capture the customer signature before completing the work order.'));
+        $data = $request->validate(['status' => ['required', Rule::in(['planned', 'in_progress', 'blocked', 'completed', 'cancelled'])], 'completion_notes' => ['nullable', 'string']]);
+        $workflow->assertTransition($workOrder->loadMissing('template'), $data['status']);
+        if ($data['status'] === 'completed') {
+            $completion->assertCanComplete($workOrder->loadMissing('installation'), $data['completion_notes'] ?? null);
+        }
         $workOrder->update([...$data, 'completed_at' => $data['status'] === 'completed' ? now() : null]);
-        $workOrder->activities()->update(['status' => $data['status'] === 'completed' ? 'completed' : ($data['status'] === 'cancelled' ? 'cancelled' : 'in_progress'), 'completed_at' => $data['status'] === 'completed' ? now() : null]);
+        $workOrder->activities()->update(['status' => $data['status'] === 'completed' ? 'completed' : ($data['status'] === 'cancelled' ? 'cancelled' : ($data['status'] === 'blocked' ? 'blocked' : 'in_progress')), 'completed_at' => $data['status'] === 'completed' ? now() : null]);
         $this->syncInstallation($workOrder);
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Work order updated.')]);
@@ -225,6 +249,11 @@ class WorkOrderController extends Controller
             'assigned_user_id' => ['nullable', Rule::exists('users', 'id')->where(fn ($query) => $query->whereIn('role', ['technician', 'admin']))],
             'title' => [$creating ? 'required' : 'sometimes', 'string', 'max:255'],
             'kind' => ['sometimes', Rule::in(['survey', 'installation', 'commissioning', 'maintenance', 'repair'])],
+            'work_order_template_id' => ['nullable', 'exists:work_order_templates,id'],
+            'estimated_duration_minutes' => ['nullable', 'integer', 'between:1,1440'],
+            'required_skills' => ['nullable', 'array', 'max:20'],
+            'required_skills.*' => ['string', 'max:100'],
+            'service_zone' => ['nullable', 'string', 'max:100'],
             'scheduled_start' => ['nullable', 'date', 'required_with:scheduled_end'],
             'scheduled_end' => ['nullable', 'date', 'required_with:scheduled_start', 'after:scheduled_start'],
             'instructions' => ['nullable', 'string'],
@@ -270,5 +299,17 @@ class WorkOrderController extends Controller
         if ($status && $order->installation->status !== 'cancelled') {
             $order->installation->update(['status' => $status]);
         }
+    }
+
+    /** @return array<string, bool> */
+    private function completionReadiness(WorkOrder $order): array
+    {
+        return [
+            'timer_stopped' => ! $order->timeEntries()->whereNull('ended_at')->exists(),
+            'checklist_complete' => ! $order->checklistItems()->where('is_required', true)->whereNull('completed_at')->exists(),
+            'has_signature' => (bool) $order->signed_at,
+            'has_photo' => $order->attachments()->where('kind', 'photo')->exists(),
+            'has_observations' => filled($order->completion_notes),
+        ];
     }
 }

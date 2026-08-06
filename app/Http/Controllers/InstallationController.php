@@ -5,7 +5,9 @@ namespace App\Http\Controllers;
 use App\Models\Installation;
 use App\Models\Person;
 use App\Models\RemoteStation;
+use App\Models\SerialNumber;
 use App\Models\User;
+use App\Services\Operations\ProjectProfitability;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -88,9 +90,9 @@ class InstallationController extends Controller
     /**
      * Show an installation profile.
      */
-    public function show(Installation $installation): Response
+    public function show(Installation $installation, ProjectProfitability $profitability): Response
     {
-        $installation->load(['customer', 'remoteStation']);
+        $installation->load(['customer', 'remoteStation', 'assets.product:id,name,sku', 'assets.serial:id,serial_number', 'assets.sourcePurchase:id,number', 'assets.replacement:id,asset_tag,name', 'assets.events']);
 
         return Inertia::render('installations/show', [
             'installation' => $this->installationPayload($installation),
@@ -104,6 +106,14 @@ class InstallationController extends Controller
             'monitoringAlerts' => $installation->monitoringAlerts()->latest('started_at')->limit(20)->get(),
             'activities' => $installation->activities()->with('assignedUser:id,name')->latest()->limit(20)->get(),
             'quotes' => $installation->quotes()->latest()->get(),
+            'assets' => $installation->assets,
+            'assetOptions' => [
+                'serials' => SerialNumber::with('product:id,name,sku')->where('installation_id', $installation->id)->whereDoesntHave('installationAsset')->get(),
+                'workOrders' => $installation->workOrders()->latest()->get(['id', 'number', 'title']),
+                'tickets' => $installation->serviceTickets()->latest()->get(['id', 'number', 'title']),
+                'purchases' => $installation->purchaseDocuments()->latest()->get(['id', 'number']),
+            ],
+            'profitability' => $profitability->for($installation),
             'latestAiGeneration' => InstallationAiController::payload($installation->aiGenerations()->latest()->first()),
         ]);
     }
