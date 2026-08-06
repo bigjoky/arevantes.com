@@ -24,6 +24,8 @@ use App\Models\Opportunity;
 use App\Models\PaymentBatch;
 use App\Models\PaymentBatchItem;
 use App\Models\Person;
+use App\Models\PurchaseDocument;
+use App\Models\PurchaseDocumentLine;
 use App\Models\SalesDocument;
 use App\Models\SalesDocumentPayment;
 use App\Models\Supplier;
@@ -37,6 +39,7 @@ use App\Observers\CollectionActionHistoryObserver;
 use App\Observers\OpportunityStageObserver;
 use App\Observers\PartyLedgerObserver;
 use App\Observers\SalesDocumentFinancialObserver;
+use App\Observers\SupplierPriceObserver;
 use App\Observers\WorkOrderObserver;
 use App\Policies\CrmActivityPolicy;
 use App\Services\Mailbox\NativeImapPurchaseMailboxClient;
@@ -94,6 +97,8 @@ class AppServiceProvider extends ServiceProvider
         PaymentBatch::observe(AuditableObserver::class);
         PaymentBatchItem::observe(AuditableObserver::class);
         TaxReturnPayment::observe(AuditableObserver::class);
+        PurchaseDocument::observe(AuditableObserver::class);
+        PurchaseDocumentLine::observe(SupplierPriceObserver::class);
     }
 
     private function configureAuthorization(): void
@@ -113,6 +118,11 @@ class AppServiceProvider extends ServiceProvider
         Gate::define('approve-payments', fn (User $user) => false);
         Gate::define('approve-budgets', fn (User $user) => false);
         Gate::define('manage-tax', fn (User $user) => false);
+        Gate::define('view-purchases', fn (User $user) => $user->hasRole('commercial', 'technician'));
+        Gate::define('manage-purchases', fn (User $user) => $user->hasRole('commercial'));
+        Gate::define('receive-purchases', fn (User $user) => $user->hasRole('commercial', 'technician'));
+        Gate::define('approve-purchase-invoices', fn (User $user) => $user->hasRole('commercial'));
+        Gate::define('manage-purchase-payments', fn (User $user) => $user->hasRole('commercial'));
         Gate::define('manage-staff', fn (User $user) => false);
     }
 

@@ -43,6 +43,8 @@ class StockLedger
                         $this->assertAvailable($data['warehouse_id'], $product->id, $data['installation_id'] ?? null, $data['reservation_sales_document_id'] ?? null);
                         if ($data['type'] === 'purchase_return') {
                             $this->returnSerials($product->id, $data['warehouse_id'], $serials, $line);
+                        } elseif ($data['type'] === 'adjustment' && $product->track_serials) {
+                            $this->markMissingSerials($product->id, $data['warehouse_id'], $serials, $line);
                         } else {
                             $this->issueSerials($product->id, $data['warehouse_id'], $serials, $line, $data['installation_id'] ?? null);
                         }
@@ -77,7 +79,27 @@ class StockLedger
     private function receiveSerials(int $productId, int $warehouseId, array $serials, StockMovementLine $line): void
     {
         foreach ($serials as $serial) {
+            $existing = SerialNumber::where('serial_number', $serial)->first();
+            if ($existing) {
+                if ($existing->product_id !== $productId || $existing->status !== 'missing') {
+                    throw ValidationException::withMessages(['lines' => __('Serial number :serial is already registered and cannot be received.', ['serial' => $serial])]);
+                }
+                $existing->update(['warehouse_id' => $warehouseId, 'installation_id' => null, 'received_line_id' => $line->id, 'issued_line_id' => null, 'status' => 'available', 'received_at' => now(), 'issued_at' => null]);
+
+                continue;
+            }
             SerialNumber::create(['product_id' => $productId, 'warehouse_id' => $warehouseId, 'received_line_id' => $line->id, 'serial_number' => $serial, 'status' => 'available', 'received_at' => now()]);
+        }
+    }
+
+    private function markMissingSerials(int $productId, int $warehouseId, array $serials, StockMovementLine $line): void
+    {
+        foreach ($serials as $serial) {
+            $item = SerialNumber::where('product_id', $productId)->where('warehouse_id', $warehouseId)->where('serial_number', $serial)->where('status', 'available')->first();
+            if (! $item) {
+                throw ValidationException::withMessages(['lines' => __('Serial number :serial is not available for the stock-count adjustment.', ['serial' => $serial])]);
+            }
+            $item->update(['warehouse_id' => null, 'issued_line_id' => $line->id, 'status' => 'missing', 'issued_at' => now()]);
         }
     }
 

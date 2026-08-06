@@ -3,7 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\PurchaseDocument;
+use App\Models\PurchaseSetting;
 use App\Services\Documents\PurchaseOrderConversion;
+use App\Services\Documents\PurchaseWorkflow;
+use App\Services\Supply\SupplierCatalogRecorder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -55,7 +58,7 @@ class PurchaseComparisonController extends Controller
                 $amount += $base + $lineTax;
             }
             $shippingCost = round((float) ($data['shipping_cost'] ?? 0), 2);
-            $shippingTax = round($shippingCost * 0.21 + 1e-9, 2);
+            $shippingTax = round($shippingCost * (float) PurchaseSetting::current()->shipping_tax_percent / 100 + 1e-9, 2);
             $purchaseDocument->update([
                 'supplier_number' => $data['supplier_number'] ?? null,
                 'delivery_days' => $data['delivery_days'],
@@ -68,6 +71,8 @@ class PurchaseComparisonController extends Controller
                 'shipping_cost' => $shippingCost,
                 'amount' => round($amount + $shippingCost + $shippingTax, 2),
             ]);
+            app(PurchaseWorkflow::class)->record($purchaseDocument, 'supplier_quote_registered', auth()->id(), $purchaseDocument->getOriginal('status'), 'quoted');
+            app(SupplierCatalogRecorder::class)->recordDocument($purchaseDocument);
         });
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Supplier quote registered.')]);
