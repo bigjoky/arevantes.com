@@ -1,5 +1,13 @@
 import { Form, Head } from '@inertiajs/react';
-import { CalendarDays, Check, Trash2, X } from 'lucide-react';
+import {
+    AlertTriangle,
+    CalendarDays,
+    Check,
+    Download,
+    Settings2,
+    Trash2,
+    X,
+} from 'lucide-react';
 import InputError from '@/components/input-error';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -14,9 +22,27 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 
-type StaffOption = { id: number; name: string };
+type Balance = {
+    type: string;
+    name: string;
+    accrued: number;
+    used: number;
+    available: number;
+};
+type StaffOption = { id: number; name: string; balances: Balance[] };
+type Policy = {
+    id: number;
+    type: string;
+    name: string;
+    annualAllowanceDays: string;
+    accrualMethod: string;
+    carryoverLimitDays: string;
+    requiresAttachment: boolean;
+    isActive: boolean;
+};
 type LeaveRequest = {
     id: number;
+    personId: number;
     personName: string;
     type: string;
     startDate: string;
@@ -27,6 +53,15 @@ type LeaveRequest = {
     decisionNotes: string | null;
     reviewerName: string | null;
     reviewedAt: string | null;
+    substitutePersonId: number | null;
+    substituteName: string | null;
+    attachments: { id: number; name: string }[];
+    coverageConflicts: {
+        id: number;
+        number: string;
+        title: string;
+        scheduledStart: string | null;
+    }[];
 };
 
 const selectClass =
@@ -35,9 +70,11 @@ const selectClass =
 export default function Leave({
     staff,
     requests,
+    policies,
 }: {
     staff: StaffOption[];
     requests: LeaveRequest[];
+    policies: Policy[];
 }) {
     return (
         <>
@@ -50,6 +87,126 @@ export default function Leave({
                         estado de aprobación.
                     </p>
                 </header>
+
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <Settings2 className="size-4" /> Políticas y devengo
+                        </CardTitle>
+                        <CardDescription>
+                            Días anuales, forma de devengo, arrastre y
+                            justificantes exigidos.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                        {policies.map((policy) => (
+                            <details
+                                key={policy.id}
+                                className="rounded-lg border p-3"
+                            >
+                                <summary className="cursor-pointer font-medium">
+                                    {policy.name}
+                                    {!policy.isActive ? (
+                                        <Badge
+                                            variant="secondary"
+                                            className="ml-2"
+                                        >
+                                            Inactiva
+                                        </Badge>
+                                    ) : null}
+                                </summary>
+                                <Form
+                                    action={`/human-resources/leave/policies/${policy.id}`}
+                                    method="put"
+                                    className="mt-4 grid gap-3"
+                                >
+                                    {({ processing }) => (
+                                        <>
+                                            <Input
+                                                name="name"
+                                                defaultValue={policy.name}
+                                            />
+                                            <Label>Días anuales</Label>
+                                            <Input
+                                                name="annual_allowance_days"
+                                                type="number"
+                                                step="0.5"
+                                                defaultValue={
+                                                    policy.annualAllowanceDays
+                                                }
+                                            />
+                                            <Label>Devengo</Label>
+                                            <select
+                                                name="accrual_method"
+                                                className={selectClass}
+                                                defaultValue={
+                                                    policy.accrualMethod
+                                                }
+                                            >
+                                                <option value="annual">
+                                                    Anual
+                                                </option>
+                                                <option value="monthly">
+                                                    Mensual
+                                                </option>
+                                                <option value="none">
+                                                    Sin saldo
+                                                </option>
+                                            </select>
+                                            <Label>Límite de arrastre</Label>
+                                            <Input
+                                                name="carryover_limit_days"
+                                                type="number"
+                                                step="0.5"
+                                                defaultValue={
+                                                    policy.carryoverLimitDays
+                                                }
+                                            />
+                                            <label className="flex items-center gap-2 text-sm">
+                                                <input
+                                                    type="hidden"
+                                                    name="requires_attachment"
+                                                    value="0"
+                                                />
+                                                <input
+                                                    type="checkbox"
+                                                    name="requires_attachment"
+                                                    value="1"
+                                                    defaultChecked={
+                                                        policy.requiresAttachment
+                                                    }
+                                                />
+                                                Exige justificante
+                                            </label>
+                                            <label className="flex items-center gap-2 text-sm">
+                                                <input
+                                                    type="hidden"
+                                                    name="is_active"
+                                                    value="0"
+                                                />
+                                                <input
+                                                    type="checkbox"
+                                                    name="is_active"
+                                                    value="1"
+                                                    defaultChecked={
+                                                        policy.isActive
+                                                    }
+                                                />
+                                                Política activa
+                                            </label>
+                                            <Button
+                                                size="sm"
+                                                disabled={processing}
+                                            >
+                                                Guardar política
+                                            </Button>
+                                        </>
+                                    )}
+                                </Form>
+                            </details>
+                        ))}
+                    </CardContent>
+                </Card>
 
                 <div className="grid gap-6 xl:grid-cols-[22rem_minmax(0,1fr)]">
                     <Card>
@@ -93,6 +250,20 @@ export default function Leave({
                                             </select>
                                             <InputError
                                                 message={errors.person_id}
+                                            />
+                                        </div>
+                                        <div className="grid gap-2">
+                                            <Label htmlFor="leave-attachment">
+                                                Justificante protegido
+                                            </Label>
+                                            <Input
+                                                id="leave-attachment"
+                                                name="attachment"
+                                                type="file"
+                                                accept=".pdf,.jpg,.jpeg,.png"
+                                            />
+                                            <InputError
+                                                message={errors.attachment}
                                             />
                                         </div>
                                         <div className="grid gap-2">
@@ -215,6 +386,56 @@ export default function Leave({
                                                 : ''}
                                         </p>
                                     ) : null}
+                                    {request.attachments.map((attachment) => (
+                                        <Button
+                                            key={attachment.id}
+                                            variant="outline"
+                                            size="sm"
+                                            asChild
+                                        >
+                                            <a
+                                                href={`/human-resources/leave/${request.id}/attachments/${attachment.id}`}
+                                            >
+                                                <Download /> {attachment.name}
+                                            </a>
+                                        </Button>
+                                    ))}
+                                    {request.coverageConflicts.length ? (
+                                        <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950 dark:bg-amber-950/30 dark:text-amber-100">
+                                            <div className="flex items-center gap-2 font-medium">
+                                                <AlertTriangle className="size-4" />
+                                                Falta de cobertura
+                                            </div>
+                                            <p className="mt-1">
+                                                {
+                                                    request.coverageConflicts
+                                                        .length
+                                                }{' '}
+                                                {request.coverageConflicts
+                                                    .length === 1
+                                                    ? 'orden programada queda'
+                                                    : 'órdenes programadas quedan'}{' '}
+                                                afectada. Asigna una sustitución
+                                                antes de aprobar.
+                                            </p>
+                                            <ul className="mt-2 list-disc pl-5">
+                                                {request.coverageConflicts.map(
+                                                    (order) => (
+                                                        <li key={order.id}>
+                                                            {order.number} ·{' '}
+                                                            {order.title}
+                                                        </li>
+                                                    ),
+                                                )}
+                                            </ul>
+                                        </div>
+                                    ) : null}
+                                    {request.substituteName ? (
+                                        <p className="text-sm">
+                                            Sustitución:{' '}
+                                            {request.substituteName}
+                                        </p>
+                                    ) : null}
                                     {request.status === 'pending' ? (
                                         <div className="flex flex-wrap gap-2 border-t pt-4">
                                             <DecisionForm
@@ -222,6 +443,15 @@ export default function Leave({
                                                 status="approved"
                                                 label="Aprobar"
                                                 icon={<Check />}
+                                                staff={staff.filter(
+                                                    (person) =>
+                                                        person.id !==
+                                                        request.personId,
+                                                )}
+                                                needsSubstitute={
+                                                    request.coverageConflicts
+                                                        .length > 0
+                                                }
                                             />
                                             <DecisionForm
                                                 requestId={request.id}
@@ -267,20 +497,52 @@ function DecisionForm({
     label,
     icon,
     variant = 'default',
+    staff = [],
+    needsSubstitute = false,
 }: {
     requestId: number;
     status: 'approved' | 'rejected';
     label: string;
     icon: React.ReactNode;
     variant?: 'default' | 'outline';
+    staff?: StaffOption[];
+    needsSubstitute?: boolean;
 }) {
     return (
-        <Form action={`/human-resources/leave/${requestId}`} method="put">
-            <input type="hidden" name="status" value={status} />
-            <Button size="sm" variant={variant}>
-                {icon}
-                {label}
-            </Button>
+        <Form
+            action={`/human-resources/leave/${requestId}`}
+            method="put"
+            className="flex flex-wrap gap-2"
+        >
+            {({ errors }) => (
+                <>
+                    <input type="hidden" name="status" value={status} />
+                    {status === 'approved' && needsSubstitute ? (
+                        <div>
+                            <select
+                                name="substitute_person_id"
+                                className={selectClass}
+                                defaultValue=""
+                                required
+                            >
+                                <option value="" disabled>
+                                    Selecciona sustitución
+                                </option>
+                                {staff.map((person) => (
+                                    <option key={person.id} value={person.id}>
+                                        {person.name}
+                                    </option>
+                                ))}
+                            </select>
+                            <InputError message={errors.substitute_person_id} />
+                        </div>
+                    ) : null}
+                    <Button size="sm" variant={variant}>
+                        {icon}
+                        {label}
+                    </Button>
+                </>
+            )}
         </Form>
     );
 }

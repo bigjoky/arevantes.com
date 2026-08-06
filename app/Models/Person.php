@@ -70,9 +70,29 @@ class Person extends Model
         return $this->hasMany(HrLeaveRequest::class);
     }
 
+    public function leaveBalances(): HasMany
+    {
+        return $this->hasMany(HrLeaveBalance::class);
+    }
+
     public function hrTasks(): HasMany
     {
         return $this->hasMany(HrEmployeeTask::class);
+    }
+
+    public function contractChanges(): HasMany
+    {
+        return $this->hasMany(HrContractChange::class);
+    }
+
+    public function emergencyContacts(): HasMany
+    {
+        return $this->hasMany(HrEmergencyContact::class);
+    }
+
+    public function employmentDocuments(): HasMany
+    {
+        return $this->hasMany(HrEmploymentDocument::class);
     }
 
     public function portalAccesses(): HasMany

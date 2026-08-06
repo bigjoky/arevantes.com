@@ -2,37 +2,60 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\HrLeaveAttachment;
+use App\Models\HrLeaveBalance;
+use App\Models\HrLeavePolicy;
 use App\Models\HrLeaveRequest;
 use App\Models\Person;
 use App\Notifications\LeaveRequestDecisionNotification;
+use App\Services\HumanResources\LeaveBalanceCalculator;
+use App\Services\HumanResources\LeaveCoverageService;
 use App\Services\HumanResources\LeaveRequestCreator;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class HrLeaveController extends Controller
 {
-    public function index(): Response
+    public function index(LeaveBalanceCalculator $balances, LeaveCoverageService $coverage): Response
     {
+        $staff = Person::query()
+            ->where('category', 'staff')
+            ->with('user:id,person_id')
+            ->orderBy('first_name')
+            ->orderBy('last_name')
+            ->get();
+        $policies = HrLeavePolicy::query()->orderBy('name')->get();
+
         return Inertia::render('human-resources/leave', [
-            'staff' => Person::query()
-                ->where('category', 'staff')
-                ->orderBy('first_name')
-                ->orderBy('last_name')
-                ->get()
-                ->map(fn (Person $person) => [
-                    'id' => $person->id,
-                    'name' => $this->displayName($person),
-                ]),
+            'staff' => $staff->map(fn (Person $person) => [
+                'id' => $person->id,
+                'name' => $this->displayName($person),
+                'balances' => $policies->where('is_active', true)->map(fn (HrLeavePolicy $policy) => $balances->calculate($person, $policy, now()->year))->values(),
+            ]),
+            'policies' => $policies->map(fn (HrLeavePolicy $policy) => [
+                'id' => $policy->id,
+                'type' => $policy->type,
+                'name' => $policy->name,
+                'annualAllowanceDays' => $policy->annual_allowance_days,
+                'accrualMethod' => $policy->accrual_method,
+                'carryoverLimitDays' => $policy->carryover_limit_days,
+                'requiresAttachment' => $policy->requires_attachment,
+                'isActive' => $policy->is_active,
+            ]),
             'requests' => HrLeaveRequest::query()
-                ->with(['person', 'reviewer:id,name'])
+                ->with(['person.user', 'reviewer:id,name', 'substitute', 'attachments'])
                 ->orderByRaw("case when status = 'pending' then 0 else 1 end")
                 ->orderByDesc('start_date')
                 ->get()
                 ->map(fn (HrLeaveRequest $leave) => [
                     'id' => $leave->id,
+                    'personId' => $leave->person_id,
                     'personName' => $this->displayName($leave->person),
                     'type' => $leave->type,
                     'startDate' => $leave->start_date->toDateString(),
@@ -43,6 +66,18 @@ class HrLeaveController extends Controller
                     'decisionNotes' => $leave->decision_notes,
                     'reviewerName' => $leave->reviewer?->name,
                     'reviewedAt' => $leave->reviewed_at?->toIso8601String(),
+                    'substitutePersonId' => $leave->substitute_person_id,
+                    'substituteName' => $leave->substitute ? $this->displayName($leave->substitute) : null,
+                    'attachments' => $leave->attachments->map(fn (HrLeaveAttachment $attachment) => [
+                        'id' => $attachment->id,
+                        'name' => $attachment->original_name,
+                    ]),
+                    'coverageConflicts' => $coverage->conflicts($leave)->map(fn ($order) => [
+                        'id' => $order->id,
+                        'number' => $order->number,
+                        'title' => $order->title,
+                        'scheduledStart' => $order->scheduled_start?->toIso8601String(),
+                    ]),
                 ]),
         ]);
     }
@@ -55,6 +90,7 @@ class HrLeaveController extends Controller
             'start_date' => ['required', 'date'],
             'end_date' => ['required', 'date', 'after_or_equal:start_date'],
             'notes' => ['nullable', 'string', 'max:2000'],
+            'attachment' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:12288'],
         ]);
 
         $person = Person::findOrFail($validated['person_id']);
@@ -63,12 +99,23 @@ class HrLeaveController extends Controller
         return back()->with('success', __('Leave request created.'));
     }
 
-    public function update(Request $request, HrLeaveRequest $leave): RedirectResponse
+    public function update(Request $request, HrLeaveRequest $leave, LeaveCoverageService $coverage): RedirectResponse
     {
         $validated = $request->validate([
             'status' => ['required', Rule::in(['pending', 'approved', 'rejected', 'cancelled'])],
             'decision_notes' => ['nullable', 'string', 'max:2000'],
+            'substitute_person_id' => [
+                'nullable',
+                Rule::exists('people', 'id')->where('category', 'staff'),
+                Rule::notIn([$leave->person_id]),
+            ],
         ]);
+
+        if ($validated['status'] === 'approved' && $coverage->conflicts($leave)->isNotEmpty() && empty($validated['substitute_person_id'])) {
+            throw ValidationException::withMessages([
+                'substitute_person_id' => __('A substitute is required because this absence leaves scheduled work orders uncovered.'),
+            ]);
+        }
 
         $reviewed = in_array($validated['status'], ['approved', 'rejected'], true);
         $leave->update([
@@ -81,6 +128,49 @@ class HrLeaveController extends Controller
         }
 
         return back()->with('success', __('Leave request updated.'));
+    }
+
+    public function updatePolicy(Request $request, HrLeavePolicy $policy): RedirectResponse
+    {
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'annual_allowance_days' => ['required', 'numeric', 'min:0', 'max:366'],
+            'accrual_method' => ['required', Rule::in(['annual', 'monthly', 'none'])],
+            'carryover_limit_days' => ['required', 'numeric', 'min:0', 'max:366'],
+            'requires_attachment' => ['boolean'],
+            'is_active' => ['boolean'],
+        ]);
+        $policy->update($data);
+
+        return back()->with('success', __('Leave policy updated.'));
+    }
+
+    public function updateBalance(Request $request, Person $staff, HrLeavePolicy $policy): RedirectResponse
+    {
+        abort_unless($staff->category === 'staff', 404);
+        $data = $request->validate([
+            'year' => ['required', 'integer', 'min:2020', 'max:2100'],
+            'carryover_days' => ['required', 'numeric', 'min:0', 'max:366'],
+            'adjustment_days' => ['required', 'numeric', 'min:-366', 'max:366'],
+            'notes' => ['nullable', 'string', 'max:1000'],
+        ]);
+        $data['carryover_days'] = min((float) $data['carryover_days'], (float) $policy->carryover_limit_days);
+        HrLeaveBalance::updateOrCreate(
+            ['person_id' => $staff->id, 'policy_id' => $policy->id, 'year' => $data['year']],
+            $data,
+        );
+
+        return back()->with('success', __('Leave balance updated.'));
+    }
+
+    public function downloadAttachment(HrLeaveRequest $leave, HrLeaveAttachment $attachment): StreamedResponse
+    {
+        abort_unless($attachment->leave_request_id === $leave->id && Storage::disk('local')->exists($attachment->path), 404);
+
+        return Storage::disk('local')->download($attachment->path, $attachment->original_name, [
+            'Content-Type' => $attachment->mime_type,
+            'Cache-Control' => 'private, no-store',
+        ]);
     }
 
     public function destroy(HrLeaveRequest $leave): RedirectResponse
