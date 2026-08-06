@@ -4,7 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Models\CrmActivity;
 use App\Models\Installation;
+use App\Models\Opportunity;
 use App\Models\Person;
+use App\Models\SalesDocument;
+use App\Models\WorkOrder;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -60,6 +63,12 @@ class DashboardController extends Controller
                 'total' => Installation::count(),
                 'active' => Installation::whereNotIn('status', ['completed', 'cancelled'])->count(),
                 'completed' => Installation::where('status', 'completed')->count(),
+            ],
+            'businessSummary' => [
+                'open_opportunities' => Opportunity::whereNotIn('stage', ['won', 'lost'])->count(),
+                'active_work_orders' => WorkOrder::whereNotIn('status', ['completed', 'cancelled'])->count(),
+                'overdue_activities' => CrmActivity::whereIn('status', ['pending', 'in_progress'])->whereNotNull('due_at')->where('due_at', '<', now())->count(),
+                'outstanding_amount' => round((float) SalesDocument::where('type', 'invoice')->whereIn('status', ['issued', 'partial', 'overdue'])->selectRaw('coalesce(sum(amount - paid_amount), 0) as total')->value('total'), 2),
             ],
             'agenda' => CrmActivity::query()
                 ->with(['installation:id,project_reference,site_name', 'assignedUser:id,name'])

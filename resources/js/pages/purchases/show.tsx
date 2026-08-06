@@ -226,7 +226,7 @@ export default function PurchaseShow({
                                 document.supplier.legal_name}
                         </p>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2">
                         {document.procurement_batch_id && (
                             <Button variant="outline" asChild>
                                 <Link

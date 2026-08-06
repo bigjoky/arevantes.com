@@ -79,7 +79,7 @@ export default function CorporateTax({
                             Calculation workspace and Modelo 200 filing record.
                         </p>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2">
                         <Button variant="outline" asChild>
                             <Link href="/accounting">
                                 <ArrowLeft /> Accounting
@@ -115,7 +115,7 @@ export default function CorporateTax({
                                 Calculation for {fiscalYear.year}
                             </span>
                         </div>
-                        <div className="flex gap-2">
+                        <div className="flex flex-wrap gap-2">
                             {taxReturn.status === 'prepared' && admin && (
                                 <Filing taxReturn={taxReturn} />
                             )}{' '}

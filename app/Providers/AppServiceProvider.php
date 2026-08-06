@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Contracts\PurchaseMailboxClient;
 use App\Models\CompanyProfile;
+use App\Models\CrmActivity;
 use App\Models\DocumentSeries;
 use App\Models\FiscalYear;
 use App\Models\Installation;
@@ -15,6 +16,7 @@ use App\Models\WorkOrder;
 use App\Observers\AuditableObserver;
 use App\Observers\PartyLedgerObserver;
 use App\Observers\WorkOrderObserver;
+use App\Policies\CrmActivityPolicy;
 use App\Services\Mailbox\NativeImapPurchaseMailboxClient;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Date;
@@ -53,6 +55,7 @@ class AppServiceProvider extends ServiceProvider
 
     private function configureAuthorization(): void
     {
+        Gate::policy(CrmActivity::class, CrmActivityPolicy::class);
         Gate::before(fn (User $user) => $user->hasRole('admin') ? true : null);
         Gate::define('manage-customers', fn (User $user) => $user->hasRole('commercial'));
         Gate::define('view-installations', fn (User $user) => $user->hasRole('commercial', 'technician'));

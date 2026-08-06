@@ -1,6 +1,7 @@
 import { Form, Head, usePage } from '@inertiajs/react';
 import { Building2, CalendarPlus, LockKeyhole, Save } from 'lucide-react';
 import InputError from '@/components/input-error';
+import { PageHeader, PageShell, TableViewport } from '@/components/page-shell';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -52,21 +53,16 @@ export default function FiscalSettings({
 }) {
     return (
         <>
-            <Head title="Empresa y fiscalidad" />
-            <div className="flex flex-1 flex-col gap-8 p-4 md:p-6">
-                <header>
-                    <h1 className="text-xl font-semibold">
-                        Empresa y fiscalidad
-                    </h1>
-                    <p className="text-sm text-muted-foreground">
-                        Identidad legal, datos de pago, ejercicios fiscales y
-                        numeración documental.
-                    </p>
-                </header>
+            <Head title="Company & fiscal settings" />
+            <PageShell className="gap-8">
+                <PageHeader
+                    title="Company & fiscal settings"
+                    description="Legal identity, payment details, fiscal years and document numbering."
+                />
                 <section>
                     <div className="mb-4 flex items-center gap-2">
                         <Building2 className="size-4" />
-                        <h2 className="font-semibold">Datos de la empresa</h2>
+                        <h2 className="font-semibold">Company details</h2>
                     </div>
                     <Form
                         action="/company-fiscal/company"
@@ -146,12 +142,12 @@ export default function FiscalSettings({
                                         value={company.bic}
                                     />
                                     <Field
-                                        label="Datos del Registro Mercantil"
+                                        label="Commercial registry details"
                                         name="commercial_registry"
                                         value={company.commercial_registry}
                                         className="xl:col-span-2"
-                                        placeholder="Ej.: Registro Mercantil de Córdoba, tomo…, folio…, hoja…, inscripción…"
-                                        help="Introduce los datos tal como figuran en la escritura o nota simple de la sociedad. Se mostrarán automáticamente en el aviso legal."
+                                        placeholder="E.g. Commercial Registry of Córdoba, volume…, page…, entry…"
+                                        help="Enter the details exactly as they appear in the incorporation deed or registry extract. They will be shown automatically in the legal notice."
                                     />
                                     <div className="grid gap-2 xl:col-span-2">
                                         <Label>Logo</Label>
@@ -188,11 +184,11 @@ export default function FiscalSettings({
                                         className="w-fit"
                                         disabled={processing}
                                     >
-                                        <Save /> Guardar datos de la empresa
+                                        <Save /> Save company details
                                     </Button>
                                     {recentlySuccessful && (
                                         <span className="text-sm text-green-700 dark:text-green-400">
-                                            Guardado
+                                            Saved
                                         </span>
                                     )}
                                 </div>
@@ -229,8 +225,8 @@ export default function FiscalSettings({
                     </div>
                     <div className="grid gap-8">
                         {fiscalYears.map((year) => (
-                            <div key={year.id}>
-                                <div className="mb-3 flex items-center justify-between border-y py-3">
+                            <div key={year.id} className="min-w-0">
+                                <div className="mb-3 flex flex-wrap items-center justify-between gap-3 border-y py-3">
                                     <div className="flex items-center gap-2">
                                         <h3 className="font-semibold">
                                             Fiscal year {year.year}
@@ -258,7 +254,7 @@ export default function FiscalSettings({
                                         </Form>
                                     )}
                                 </div>
-                                <div className="overflow-x-auto">
+                                <TableViewport>
                                     <table className="w-full min-w-[58rem] text-sm">
                                         <thead>
                                             <tr className="border-b text-left text-muted-foreground">
@@ -371,12 +367,12 @@ export default function FiscalSettings({
                                             ))}
                                         </tbody>
                                     </table>
-                                </div>
+                                </TableViewport>
                             </div>
                         ))}
                     </div>
                 </section>
-            </div>
+            </PageShell>
         </>
     );
 }
@@ -423,5 +419,7 @@ const dateTime = (value: string) =>
         timeStyle: 'short',
     }).format(new Date(value));
 FiscalSettings.layout = {
-    breadcrumbs: [{ title: 'Empresa y fiscalidad', href: '/company-fiscal' }],
+    breadcrumbs: [
+        { title: 'Company & fiscal settings', href: '/company-fiscal' },
+    ],
 };

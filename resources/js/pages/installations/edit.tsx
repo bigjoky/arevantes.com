@@ -6,14 +6,9 @@ import type {
     InstallationFormValue,
     RemoteStationOption,
 } from '@/components/installations/installation-form';
+import { PageHeader, PageShell } from '@/components/page-shell';
 import { Button } from '@/components/ui/button';
-import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardHeader,
-    CardTitle,
-} from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 
 export default function InstallationEdit({
     installation,
@@ -30,22 +25,19 @@ export default function InstallationEdit({
         <>
             <Head title="Edit installation" />
 
-            <div className="flex h-full flex-1 flex-col gap-4 p-4">
-                <Card className="rounded-lg">
-                    <CardHeader className="flex-row items-center justify-between gap-3">
-                        <div>
-                            <CardTitle>Edit installation</CardTitle>
-                            <CardDescription>
-                                Update project status, site details, and the
-                                service-specific technical fields.
-                            </CardDescription>
-                        </div>
+            <PageShell>
+                <PageHeader
+                    title="Edit installation"
+                    description="Update project status, site details, and the service-specific technical fields."
+                    actions={
                         <Button variant="outline" asChild>
                             <Link href={`/installations/${installation.id}`}>
                                 Cancel
                             </Link>
                         </Button>
-                    </CardHeader>
+                    }
+                />
+                <Card className="rounded-lg">
                     <CardContent>
                         <InstallationForm
                             action={`/installations/${installation.id}`}
@@ -58,7 +50,7 @@ export default function InstallationEdit({
                         />
                     </CardContent>
                 </Card>
-            </div>
+            </PageShell>
         </>
     );
 }

@@ -68,8 +68,8 @@ export function UserMenuContent({ user }: Props) {
                                 href="/company-fiscal"
                                 onClick={cleanup}
                             >
-                                <Landmark className="mr-2" /> Empresa y
-                                fiscalidad
+                                <Landmark className="mr-2" /> Company & fiscal
+                                settings
                             </Link>
                         </DropdownMenuItem>
                         <DropdownMenuItem asChild>

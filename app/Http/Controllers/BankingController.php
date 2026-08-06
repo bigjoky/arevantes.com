@@ -26,11 +26,36 @@ class BankingController extends Controller
 {
     public function index(Request $request): Response
     {
+        $from = $request->string('from')->toString();
+        $to = $request->string('to')->toString();
+        $filters = [
+            'search' => trim($request->string('search')->toString()),
+            'status' => in_array($request->string('status')->toString(), ['pending', 'reconciled', 'accounted'], true) ? $request->string('status')->toString() : '',
+            'from' => preg_match('/^\d{4}-\d{2}-\d{2}$/', $from) ? $from : '',
+            'to' => preg_match('/^\d{4}-\d{2}-\d{2}$/', $to) ? $to : '',
+        ];
         $accounts = BankAccount::withSum('transactions as transaction_total', 'amount')->orderByDesc('is_active')->orderBy('name')->get()->map(fn ($account) => [...$account->toArray(), 'balance' => round((float) $account->opening_balance + (float) ($account->transaction_total ?? 0), 2)]);
         $account = BankAccount::with('ledgerAccount')->find($request->integer('account')) ?: BankAccount::with('ledgerAccount')->where('is_active', true)->first();
-        $transactions = $account ? $account->transactions()->with(['reconciliation', 'posting.counterpart:id,code,name', 'outgoingTransfer', 'incomingTransfer'])->latest('booked_on')->latest('id')->limit(250)->get()->map(fn ($transaction) => [...$transaction->toArray(), 'transfer' => $transaction->outgoingTransfer ?? $transaction->incomingTransfer, 'candidates' => $transaction->status === 'pending' ? $this->candidates($transaction) : []]) : collect();
+        $transactions = ($account
+            ? $account->transactions()->with(['reconciliation', 'posting.counterpart:id,code,name', 'outgoingTransfer', 'incomingTransfer'])
+            : BankTransaction::query()->whereRaw('1 = 0'))
+            ->when($filters['search'], fn ($query, $search) => $query->where(fn ($query) => $query->where('description', 'like', "%{$search}%")->orWhere('reference', 'like', "%{$search}%")))
+            ->when($filters['status'], fn ($query, $status) => $query->where('status', $status))
+            ->when($filters['from'], fn ($query, $from) => $query->whereDate('booked_on', '>=', $from))
+            ->when($filters['to'], fn ($query, $to) => $query->whereDate('booked_on', '<=', $to))
+            ->latest('booked_on')
+            ->latest('id')
+            ->paginate(25)
+            ->withQueryString()
+            ->through(fn ($transaction) => [...$transaction->toArray(), 'transfer' => $transaction->outgoingTransfer ?? $transaction->incomingTransfer, 'candidates' => $transaction->status === 'pending' ? $this->candidates($transaction) : []]);
 
-        return Inertia::render('banking/index', ['accounts' => $accounts, 'selectedAccount' => $account, 'transactions' => $transactions, 'imports' => $account ? $account->statementImports()->latest()->limit(12)->get() : [], 'control' => $account ? $this->bankControl($account) : null, 'ledgerAccounts' => LedgerAccount::where('is_active', true)->where('is_postable', true)->whereNotIn('code', ['430', '400', '410', '472', '477'])->orderBy('code')->get(['id', 'code', 'name', 'type']), 'summary' => ['pending' => $transactions->where('status', 'pending')->count(), 'reconciled' => $transactions->whereIn('status', ['reconciled', 'accounted'])->count(), 'pendingAmount' => round((float) $transactions->where('status', 'pending')->sum('amount'), 2)]]);
+        $summary = $account ? [
+            'pending' => $account->transactions()->where('status', 'pending')->count(),
+            'reconciled' => $account->transactions()->whereIn('status', ['reconciled', 'accounted'])->count(),
+            'pendingAmount' => round((float) $account->transactions()->where('status', 'pending')->sum('amount'), 2),
+        ] : ['pending' => 0, 'reconciled' => 0, 'pendingAmount' => 0];
+
+        return Inertia::render('banking/index', ['accounts' => $accounts, 'selectedAccount' => $account, 'transactions' => $transactions, 'imports' => $account ? $account->statementImports()->latest()->limit(12)->get() : [], 'control' => $account ? $this->bankControl($account) : null, 'ledgerAccounts' => LedgerAccount::where('is_active', true)->where('is_postable', true)->whereNotIn('code', ['430', '400', '410', '472', '477'])->orderBy('code')->get(['id', 'code', 'name', 'type']), 'summary' => $summary, 'filters' => $filters]);
     }
 
     public function storeAccount(Request $request): RedirectResponse

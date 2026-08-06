@@ -15,7 +15,7 @@ class ChartOfAccountsController extends Controller
     public function index(Request $request): Response
     {
         $search = trim($request->string('search')->toString());
-        $accounts = LedgerAccount::query()->when($search, fn ($q) => $q->where(fn ($q) => $q->where('code', 'like', "%$search%")->orWhere('name', 'like', "%$search%")))->orderBy('code')->paginate(100)->withQueryString();
+        $accounts = LedgerAccount::query()->when($search, fn ($q) => $q->where(fn ($q) => $q->where('code', 'like', "%$search%")->orWhere('name', 'like', "%$search%")))->orderBy('code')->paginate(25)->withQueryString();
 
         return Inertia::render('accounting/accounts', ['accounts' => $accounts, 'search' => $search, 'parents' => LedgerAccount::where('is_active', true)->orderBy('code')->get(['code', 'name', 'type'])]);
     }
