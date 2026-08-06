@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\AiFeedback;
 use App\Models\AiMessage;
 use App\Models\KnowledgeDocument;
+use App\Rules\SafeUpload;
 use App\Services\Ai\KnowledgeIndexer;
 use App\Services\Ai\KnowledgeSourceLoader;
 use Illuminate\Http\RedirectResponse;
@@ -79,7 +80,7 @@ class KnowledgeDocumentController extends Controller
         $data = $request->validate([
             'title' => ['required', 'string', 'max:160'],
             'content' => ['nullable', 'string', 'max:200000'],
-            'document' => ['nullable', 'file', 'mimes:txt,md', 'max:10240'],
+            'document' => ['nullable', 'file', new SafeUpload(['txt', 'md'], 10240)],
             'source_url' => ['nullable', 'url:http,https', 'max:2000'],
             'area' => ['required', 'in:general,crm,installations,finance,operations'],
             'confidentiality' => ['required', 'in:internal,restricted'],

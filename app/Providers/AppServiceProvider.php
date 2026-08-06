@@ -44,10 +44,15 @@ use App\Observers\SupplierPriceObserver;
 use App\Observers\WorkOrderObserver;
 use App\Policies\CrmActivityPolicy;
 use App\Services\Mailbox\NativeImapPurchaseMailboxClient;
+use App\Services\Security\PermissionResolver;
+use App\Services\Security\SecurityEventRecorder;
 use Carbon\CarbonImmutable;
+use Illuminate\Auth\Events\Login;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
 
@@ -101,34 +106,31 @@ class AppServiceProvider extends ServiceProvider
         TaxReturnPayment::observe(AuditableObserver::class);
         PurchaseDocument::observe(AuditableObserver::class);
         PurchaseDocumentLine::observe(SupplierPriceObserver::class);
+        User::observe(AuditableObserver::class);
+        Event::listen(Login::class, function (Login $event): void {
+            if (Schema::hasTable('security_events')) {
+                app(SecurityEventRecorder::class)->record('login_succeeded', $event->user, [
+                    'user_agent' => request()->userAgent(),
+                ], 'info', true);
+            }
+        });
     }
 
     private function configureAuthorization(): void
     {
         Gate::policy(CrmActivity::class, CrmActivityPolicy::class);
-        Gate::before(fn (User $user) => $user->hasRole('admin') ? true : null);
-        Gate::define('manage-customers', fn (User $user) => $user->hasRole('commercial'));
-        Gate::define('view-installations', fn (User $user) => $user->hasRole('commercial', 'technician'));
-        Gate::define('manage-installations', fn (User $user) => $user->hasRole('commercial'));
-        Gate::define('sync-installations', fn (User $user) => $user->hasRole('technician'));
-        Gate::define('use-ai', fn (User $user) => $user->hasRole('commercial', 'technician'));
-        Gate::define('manage-operations', fn (User $user) => $user->hasRole('commercial', 'technician'));
-        Gate::define('manage-catalog', fn (User $user) => $user->hasRole('commercial'));
-        Gate::define('view-finance', fn (User $user) => $user->hasRole('commercial'));
-        Gate::define('manage-treasury', fn (User $user) => $user->hasRole('commercial'));
-        Gate::define('manage-accounting', fn (User $user) => $user->hasRole('commercial'));
-        Gate::define('approve-payments', fn (User $user) => false);
-        Gate::define('approve-budgets', fn (User $user) => false);
-        Gate::define('manage-tax', fn (User $user) => false);
-        Gate::define('view-purchases', fn (User $user) => $user->hasRole('commercial', 'technician'));
-        Gate::define('manage-purchases', fn (User $user) => $user->hasRole('commercial'));
-        Gate::define('receive-purchases', fn (User $user) => $user->hasRole('commercial', 'technician'));
-        Gate::define('approve-purchase-invoices', fn (User $user) => $user->hasRole('commercial'));
-        Gate::define('manage-purchase-payments', fn (User $user) => $user->hasRole('commercial'));
-        Gate::define('manage-staff', fn (User $user) => false);
-        Gate::define('view-sensitive-hr', fn (User $user) => false);
-        Gate::define('manage-sensitive-hr', fn (User $user) => false);
-        Gate::define('view-analytics', fn (User $user) => $user->hasRole('commercial', 'technician'));
+        $permissions = [
+            'manage-admin', 'manage-access', 'export-audit', 'view-system-health',
+            'manage-customers', 'view-installations', 'manage-installations', 'sync-installations',
+            'use-ai', 'manage-operations', 'manage-catalog', 'view-finance', 'manage-treasury',
+            'manage-accounting', 'approve-payments', 'approve-budgets', 'manage-tax',
+            'view-purchases', 'manage-purchases', 'receive-purchases', 'approve-purchase-invoices',
+            'manage-purchase-payments', 'manage-staff', 'view-sensitive-hr', 'manage-sensitive-hr',
+            'view-analytics',
+        ];
+        foreach ($permissions as $permission) {
+            Gate::define($permission, fn (User $user) => app(PermissionResolver::class)->allows($user, $permission));
+        }
     }
 
     /**

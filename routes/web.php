@@ -361,13 +361,18 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('sales/{salesDocument}/payments/{payment}', [SalesDocumentController::class, 'destroyPayment'])->middleware('can:manage-installations')->name('sales-documents.payments.destroy');
     Route::post('sales/{salesDocument}/credit-note', [SalesDocumentController::class, 'creditNote'])->middleware('can:manage-installations')->name('sales-documents.credit-note');
     Route::post('sales/{salesDocument}/dispatch', [SalesDocumentController::class, 'dispatch'])->middleware('can:manage-installations')->name('sales-documents.dispatch');
-    Route::get('admin', [AdminController::class, 'index'])->middleware('can:manage-staff')->name('admin.index');
-    Route::get('admin/users', [AdminController::class, 'users'])->middleware('can:manage-staff')->name('admin.users.index');
-    Route::get('admin/backups', [AdminController::class, 'backups'])->middleware('can:manage-staff')->name('admin.backups.index');
-    Route::get('admin/audit', [AdminController::class, 'audit'])->middleware('can:manage-staff')->name('admin.audit.index');
-    Route::patch('admin/users/{user}', [AdminController::class, 'updateUser'])->middleware('can:manage-staff')->name('admin.users.update');
-    Route::post('admin/backups', [AdminController::class, 'backup'])->middleware('can:manage-staff')->name('admin.backups.store');
-    Route::get('admin/backups/{backup}', [AdminController::class, 'downloadBackup'])->middleware('can:manage-staff')->name('admin.backups.download');
+    Route::get('admin', [AdminController::class, 'index'])->middleware('can:manage-admin')->name('admin.index');
+    Route::get('admin/users', [AdminController::class, 'users'])->middleware('can:manage-access')->name('admin.users.index');
+    Route::get('admin/access', [AdminController::class, 'access'])->middleware('can:manage-access')->name('admin.access.index');
+    Route::patch('admin/users/{user}', [AdminController::class, 'updateUser'])->middleware('can:manage-access')->name('admin.users.update');
+    Route::post('admin/users/{user}/review', [AdminController::class, 'reviewAccess'])->middleware('can:manage-access')->name('admin.users.review');
+    Route::patch('admin/profiles/{profile}', [AdminController::class, 'updateProfile'])->middleware('can:manage-access')->name('admin.profiles.update');
+    Route::get('admin/backups', [AdminController::class, 'backups'])->middleware('can:manage-admin')->name('admin.backups.index');
+    Route::post('admin/backups', [AdminController::class, 'backup'])->middleware('can:manage-admin')->name('admin.backups.store');
+    Route::get('admin/backups/{backup}', [AdminController::class, 'downloadBackup'])->middleware('can:manage-admin')->name('admin.backups.download');
+    Route::get('admin/audit', [AdminController::class, 'audit'])->middleware('can:export-audit')->name('admin.audit.index');
+    Route::get('admin/audit/export', [AdminController::class, 'exportAudit'])->middleware('can:export-audit')->name('admin.audit.export');
+    Route::get('admin/health', [AdminController::class, 'health'])->middleware('can:view-system-health')->name('admin.health.index');
     Route::post('installations/{installation}/ai/briefing', [InstallationAiController::class, 'briefing'])
         ->middleware('can:use-ai')
         ->name('installations.ai.briefing');

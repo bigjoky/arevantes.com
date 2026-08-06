@@ -2,11 +2,13 @@
 
 namespace App\Console\Commands;
 
+use App\Models\SecurityEvent;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Schema;
 use Throwable;
 
 class RestoreDatabase extends Command
@@ -51,6 +53,10 @@ class RestoreDatabase extends Command
         Artisan::call('database:backup');
         DB::disconnect();
         File::put(DB::getDatabaseName(), $contents);
+        DB::reconnect();
+        if (Schema::hasTable('security_events')) {
+            SecurityEvent::create(['type' => 'backup_restored', 'severity' => 'critical', 'context' => ['backup' => basename($path), 'environment' => app()->environment()]]);
+        }
         $this->info('Database restored. Restart queue and scheduler workers before continuing.');
 
         return self::SUCCESS;

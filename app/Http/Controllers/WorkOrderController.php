@@ -12,6 +12,7 @@ use App\Models\WorkOrder;
 use App\Models\WorkOrderAttachment;
 use App\Models\WorkOrderChecklistItem;
 use App\Models\WorkOrderTemplate;
+use App\Rules\SafeUpload;
 use App\Services\Inventory\ProjectMaterialPlanner;
 use App\Services\Work\TechnicianSchedule;
 use App\Services\Work\WorkOrderCompletionGuard;
@@ -179,7 +180,7 @@ class WorkOrderController extends Controller
     public function storeAttachments(Request $request, WorkOrder $workOrder): RedirectResponse
     {
         $this->ensureAccess($request, $workOrder);
-        $data = $request->validate(['files' => ['required', 'array', 'min:1', 'max:12'], 'files.*' => ['file', 'mimes:jpg,jpeg,png,webp,pdf', 'max:12288'], 'caption' => ['nullable', 'string', 'max:500']]);
+        $data = $request->validate(['files' => ['required', 'array', 'min:1', 'max:12'], 'files.*' => ['file', new SafeUpload(['jpg', 'jpeg', 'png', 'webp', 'pdf'], 12288)], 'caption' => ['nullable', 'string', 'max:500']]);
         foreach ($data['files'] as $file) {
             $path = $file->store("work-orders/{$workOrder->id}", 'local');
             $workOrder->attachments()->create(['uploaded_by' => $request->user()->id, 'kind' => str_starts_with($file->getMimeType() ?: '', 'image/') ? 'photo' : 'document', 'original_name' => $file->getClientOriginalName(), 'path' => $path, 'mime_type' => $file->getMimeType() ?: 'application/octet-stream', 'size' => $file->getSize(), 'caption' => $data['caption'] ?? null]);
