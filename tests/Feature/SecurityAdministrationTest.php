@@ -93,6 +93,25 @@ class SecurityAdministrationTest extends TestCase
         $this->assertTrue(SystemHealthCheck::where('component', 'queue')->exists());
     }
 
+    public function test_deye_health_uses_the_credentials_required_by_the_client(): void
+    {
+        config()->set([
+            'services.deye.app_id' => 'app-id',
+            'services.deye.app_secret' => 'app-secret',
+            'services.deye.email' => 'solar@example.com',
+            'services.deye.password' => 'password',
+        ]);
+        Cache::put('system.scheduler.heartbeat', now());
+
+        $this->artisan('system:health-check')->assertSuccessful();
+
+        $this->assertDatabaseHas('system_health_checks', [
+            'component' => 'integration:deye',
+            'status' => 'healthy',
+            'message' => 'Integration is configured.',
+        ]);
+    }
+
     public function test_backup_is_really_restored_and_checked_in_an_isolated_database(): void
     {
         $directory = storage_path('app/private/backups');
