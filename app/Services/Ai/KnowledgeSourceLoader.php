@@ -8,18 +8,26 @@ class KnowledgeSourceLoader
 {
     public function fromUrl(string $url): string
     {
-        $host = parse_url($url, PHP_URL_HOST);
-        if (! is_string($host) || ! $this->isPublicHost($host)) {
-            abort(422, __('Only public web sources can be indexed.'));
+        $currentUrl = $url;
+        $response = null;
+        for ($redirects = 0; $redirects <= 3; $redirects++) {
+            $this->assertPublicUrl($currentUrl);
+            $response = Http::timeout(20)
+                ->connectTimeout(5)
+                ->withOptions(['allow_redirects' => false])
+                ->withUserAgent('Arevantes-Arevia-Knowledge/1.0')
+                ->get($currentUrl);
+            if (! $response->redirect()) {
+                break;
+            }
+            $location = $response->header('Location');
+            if (! is_string($location) || $location === '' || $redirects === 3) {
+                abort(422, __('The source has too many or invalid redirects.'));
+            }
+            $currentUrl = $this->redirectUrl($currentUrl, $location);
         }
-
-        $response = Http::timeout(20)
-            ->connectTimeout(5)
-            ->withOptions(['allow_redirects' => false])
-            ->withUserAgent('Arevantes-Arevia-Knowledge/1.0')
-            ->get($url);
         if (! $response->successful()) {
-            abort(422, __('The source could not be downloaded. Use its final public URL if it redirects.'));
+            abort(422, __('The source could not be downloaded.'));
         }
         if (strlen($response->body()) > 5_000_000) {
             abort(422, __('The web source is too large.'));
@@ -34,6 +42,32 @@ class KnowledgeSourceLoader
             : $response->body();
 
         return trim(preg_replace('/[\t ]+/', ' ', preg_replace('/\R{3,}/', "\n\n", $text)));
+    }
+
+    private function assertPublicUrl(string $url): void
+    {
+        $scheme = strtolower((string) parse_url($url, PHP_URL_SCHEME));
+        $host = parse_url($url, PHP_URL_HOST);
+        if (! in_array($scheme, ['http', 'https'], true) || ! is_string($host) || ! $this->isPublicHost($host)) {
+            abort(422, __('Only public web sources can be indexed.'));
+        }
+    }
+
+    private function redirectUrl(string $currentUrl, string $location): string
+    {
+        if (preg_match('#^https?://#i', $location)) {
+            return $location;
+        }
+        $scheme = (string) parse_url($currentUrl, PHP_URL_SCHEME);
+        if (str_starts_with($location, '//')) {
+            return $scheme.':'.$location;
+        }
+        $authority = $scheme.'://'.parse_url($currentUrl, PHP_URL_HOST).
+            (($port = parse_url($currentUrl, PHP_URL_PORT)) ? ':'.$port : '');
+
+        return str_starts_with($location, '/')
+            ? $authority.$location
+            : $authority.rtrim(dirname((string) parse_url($currentUrl, PHP_URL_PATH)), '/').'/'.$location;
     }
 
     private function isPublicHost(string $host): bool
