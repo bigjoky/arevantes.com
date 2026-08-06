@@ -10,6 +10,7 @@ use App\Models\Opportunity;
 use App\Models\Person;
 use App\Models\Product;
 use App\Models\Quote;
+use App\Models\SalesDocument;
 use App\Models\TaxRate;
 use App\Models\User;
 use App\Models\WorkOrder;
@@ -199,6 +200,8 @@ class QuoteController extends Controller
                 'site_country' => $data['site_country'],
                 'survey_date' => $scheduledAt->toDateString(),
                 'estimated_budget' => $lockedQuote->amount,
+                'financial_status' => $lockedQuote->financial_status,
+                'financially_cleared_at' => $lockedQuote->financially_cleared_at,
                 'site_notes' => __('Created from accepted quote :number.', ['number' => $lockedQuote->number]),
             ]);
             $installation->update(['project_reference' => 'PRJ-'.now()->format('Y').'-'.str_pad((string) $installation->id, 5, '0', STR_PAD_LEFT)]);
@@ -236,6 +239,7 @@ class QuoteController extends Controller
 
             $lockedQuote->update(['installation_id' => $installation->id]);
             $opportunity?->update(['installation_id' => $installation->id]);
+            SalesDocument::where('quote_id', $lockedQuote->id)->update(['installation_id' => $installation->id]);
             $materials->syncFromQuote($lockedQuote, $installation);
             $operations->sync($lockedQuote, $installation, $request->user()->id);
 
@@ -256,6 +260,7 @@ class QuoteController extends Controller
             'customers' => Person::where('category', 'customer')->orderBy('company_name')->orderBy('first_name')->get(['id', 'first_name', 'last_name', 'company_name']),
             'installations' => Installation::orderBy('project_reference')->get(['id', 'person_id', 'project_reference', 'site_name']),
             'products' => $products,
+            'acceptancePaymentDefaults' => config('crm.acceptance_payment'),
         ];
     }
 
@@ -265,6 +270,8 @@ class QuoteController extends Controller
             'opportunity_id' => ['nullable', 'exists:opportunities,id', Rule::unique('quotes', 'opportunity_id')->ignore($quote?->id)],
             'person_id' => ['required', 'exists:people,id'], 'installation_id' => ['nullable', 'exists:installations,id'],
             'issue_date' => ['required', 'date'], 'valid_until' => ['nullable', 'date', 'after_or_equal:issue_date'], 'notes' => ['nullable', 'string'],
+            'acceptance_payment_percentage' => ['sometimes', 'numeric', 'between:0,100'],
+            'acceptance_payment_due_days' => ['sometimes', 'integer', 'between:0,365'],
             'lines' => ['required', 'array', 'min:1'], 'lines.*.product_id' => ['nullable', 'exists:products,id'], 'lines.*.unit_id' => ['nullable', 'exists:units,id'],
             'lines.*.tax_rate_id' => ['nullable', 'exists:tax_rates,id'], 'lines.*.description' => ['required', 'string'], 'lines.*.quantity' => ['required', 'numeric', 'gt:0'],
             'lines.*.unit_price' => ['required', 'numeric', 'min:0'], 'lines.*.discount_percent' => ['required', 'numeric', 'between:0,100'], 'lines.*.tax_percent' => ['required', 'numeric', 'between:0,100'],
@@ -286,6 +293,8 @@ class QuoteController extends Controller
 
     private function persist(Quote $quote, array $data, QuoteCalculator $calculator, array $extra = [], ?int $actorId = null): Quote
     {
+        $data['acceptance_payment_percentage'] ??= config('crm.acceptance_payment.percentage');
+        $data['acceptance_payment_due_days'] ??= config('crm.acceptance_payment.due_days');
         $data['lines'] = collect($data['lines'])->map(function (array $line): array {
             $mode = $line['selection_mode'] ?? 'included';
 

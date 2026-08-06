@@ -15,6 +15,7 @@ use App\Models\WorkOrderTemplate;
 use App\Rules\SafeUpload;
 use App\Services\Inventory\ProjectMaterialPlanner;
 use App\Services\Work\InstallationWorkOrderSynchronizer;
+use App\Services\Operations\FinancialClearanceGuard;
 use App\Services\Work\TechnicianSchedule;
 use App\Services\Work\WorkOrderFactory;
 use App\Services\Work\WorkOrderRescheduler;
@@ -92,9 +93,10 @@ class WorkOrderController extends Controller
         return to_route('work-orders.index', ['work_order' => $order->id])->with('toast', ['type' => 'success', 'message' => __('Work order created.')]);
     }
 
-    public function updateSchedule(Request $request, WorkOrder $workOrder, WorkOrderRescheduler $rescheduler, InstallationWorkOrderSynchronizer $installations): RedirectResponse
+    public function updateSchedule(Request $request, WorkOrder $workOrder, WorkOrderRescheduler $rescheduler, InstallationWorkOrderSynchronizer $installations, FinancialClearanceGuard $financialClearance): RedirectResponse
     {
         $data = $this->validatedSchedule($request);
+        $financialClearance->assertAllows($workOrder->loadMissing('installation')->installation, $data['kind'] ?? $workOrder->kind);
         $reason = $request->validate(['reschedule_reason' => ['required', 'string', 'max:1000']])['reschedule_reason'];
         $rescheduler->reschedule($workOrder, $data, $reason, $request->user()->id);
         $installations->sync($workOrder);
@@ -164,9 +166,10 @@ class WorkOrderController extends Controller
         return back()->with('toast', ['type' => 'success', 'message' => __('Work order details updated.')]);
     }
 
-    public function start(Request $request, WorkOrder $workOrder, WorkOrderStateManager $states): RedirectResponse
+    public function start(Request $request, WorkOrder $workOrder, WorkOrderStateManager $states, FinancialClearanceGuard $financialClearance): RedirectResponse
     {
         $this->ensureAccess($request, $workOrder);
+        $financialClearance->assertAllows($workOrder->loadMissing('installation')->installation, $workOrder->kind);
         DB::transaction(function () use ($request, $workOrder, $states): void {
             User::query()->whereKey($request->user()->id)->lockForUpdate()->firstOrFail();
             $locked = WorkOrder::query()->lockForUpdate()->findOrFail($workOrder->id);

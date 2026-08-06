@@ -6,6 +6,7 @@ use App\Models\Product;
 use App\Models\PurchaseDocument;
 use App\Models\WorkOrder;
 use App\Services\Documents\DocumentNumber;
+use App\Services\Operations\FinancialClearanceGuard;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -14,12 +15,14 @@ class ProjectProcurement
     public function __construct(
         private readonly ProjectMaterialPlanner $materials,
         private readonly DocumentNumber $numbers,
+        private readonly FinancialClearanceGuard $financialClearance,
     ) {}
 
     public function createRfq(WorkOrder $workOrder, int $supplierId, int $userId): PurchaseDocument
     {
         return DB::transaction(function () use ($workOrder, $supplierId, $userId): PurchaseDocument {
             $workOrder = WorkOrder::with('installation')->lockForUpdate()->findOrFail($workOrder->id);
+            $this->financialClearance->assertAllows($workOrder->installation, 'procure');
             $shortages = collect($this->materials->summary($workOrder->installation)['rows'])
                 ->where('shortage_quantity', '>', 0)
                 ->values();
