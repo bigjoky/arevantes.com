@@ -173,6 +173,55 @@ class BankingTest extends TestCase
                 ->has('products.2.linked_cards', 2));
     }
 
+    public function test_existing_independent_cards_can_be_grouped_into_a_new_shared_limit(): void
+    {
+        $user = User::factory()->create(['role' => 'commercial']);
+        $this->actingAs($user)->post(route('banking.accounts.store'), [
+            'name' => 'Existing cards settlement',
+            'currency' => 'EUR',
+            'opening_balance' => 0,
+            'is_active' => true,
+        ])->assertSessionHasNoErrors();
+        $account = BankAccount::where('name', 'Existing cards settlement')->firstOrFail();
+        $liability = LedgerAccount::where('code', '5201')->firstOrFail();
+        $common = [
+            'type' => 'credit_card',
+            'bank_account_id' => $account->id,
+            'ledger_account_id' => $liability->id,
+            'provider' => 'BBVA',
+            'currency' => 'EUR',
+            'credit_limit' => 4800,
+            'annual_fee' => 0,
+            'is_active' => true,
+        ];
+        foreach ([['Card one', '1111', 311.10], ['Card two', '2222', 0]] as [$name, $lastFour, $used]) {
+            $this->post(route('banking.products.store'), [...$common,
+                'name' => $name,
+                'identifier_last_four' => $lastFour,
+                'used_amount' => $used,
+            ])->assertSessionHasNoErrors();
+        }
+        $cards = BankFinancialProduct::where('type', 'credit_card')->get();
+
+        $this->post(route('banking.shared-credit-facilities.store'), [
+            'name' => 'BBVA shared card limit',
+            'contract_reference' => 'BBVA-POOL',
+            'credit_limit' => 4800,
+            'card_ids' => $cards->pluck('id')->all(),
+        ])->assertSessionHasNoErrors();
+
+        $facility = BankFinancialProduct::where('type', 'credit_facility')->firstOrFail();
+        $this->assertSame('311.10', $facility->used_amount);
+        $this->assertSame(2, $facility->linkedCards()->count());
+        $this->assertSame([$facility->id], $cards->map(fn ($card) => $card->fresh()->shared_credit_facility_id)->unique()->values()->all());
+        $this->get(route('banking.index', ['account' => $account->id]))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('productSummary.0.limit', 4800)
+                ->where('productSummary.0.used', 311.1)
+                ->where('productSummary.0.available', 4488.9));
+    }
+
     public function test_european_csv_is_deduplicated_and_reconciled_with_recorded_payments(): void
     {
         $user = User::factory()->create(['role' => 'commercial']);

@@ -122,6 +122,20 @@ class BankingController extends Controller
         return back()->with('toast', ['type' => 'success', 'message' => __('Bank financial product updated.')]);
     }
 
+    public function storeSharedFacility(Request $request, BankFinancialProductManager $manager): RedirectResponse
+    {
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'contract_reference' => ['nullable', 'string', 'max:100'],
+            'credit_limit' => ['required', 'numeric', 'gt:0'],
+            'card_ids' => ['required', 'array', 'min:2'],
+            'card_ids.*' => ['required', 'integer', 'distinct', 'exists:bank_financial_products,id'],
+        ]);
+        $manager->createSharedFacility($data, $request->user()->id);
+
+        return back()->with('toast', ['type' => 'success', 'message' => __('Shared credit facility created and cards linked.')]);
+    }
+
     public function import(Request $request, BankAccount $account, StatementImporter $importer): RedirectResponse
     {
         $data = $request->validate(['statement' => ['required', 'file', 'mimetypes:text/plain,text/csv,application/csv,application/octet-stream', 'max:10240']]);
