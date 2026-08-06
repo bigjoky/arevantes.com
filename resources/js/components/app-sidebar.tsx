@@ -3,6 +3,7 @@ import {
     BriefcaseBusiness,
     Building2,
     CalendarDays,
+    ChartSpline,
     ChartNoAxesCombined,
     LayoutGrid,
     Settings2,
@@ -29,6 +30,7 @@ export function AppSidebar() {
     const commercial = user.role !== 'technician';
     const items: NavItem[] = [
         { title: 'Dashboard', href: dashboard(), icon: LayoutGrid },
+        { title: 'Analítica', href: '/analytics', icon: ChartSpline },
         {
             title: 'Mi RR. HH.',
             href: '/my-human-resources',

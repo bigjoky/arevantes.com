@@ -128,6 +128,7 @@ class AppServiceProvider extends ServiceProvider
         Gate::define('manage-staff', fn (User $user) => false);
         Gate::define('view-sensitive-hr', fn (User $user) => false);
         Gate::define('manage-sensitive-hr', fn (User $user) => false);
+        Gate::define('view-analytics', fn (User $user) => $user->hasRole('commercial', 'technician'));
     }
 
     /**
