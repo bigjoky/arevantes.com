@@ -3,16 +3,21 @@
 namespace App\Services\Finance;
 
 use App\Models\BankAccount;
+use App\Models\BankFinancialProduct;
 use App\Models\BankTransaction;
 use App\Models\Expense;
 use App\Models\FinancialForecastItem;
 use App\Models\PurchaseDocument;
 use App\Models\SalesDocument;
+use App\Services\Banking\CardSettlementSchedule;
 use Carbon\CarbonImmutable;
 
 class TreasuryForecast
 {
-    public function __construct(private OutstandingBalanceCalculator $balances) {}
+    public function __construct(
+        private OutstandingBalanceCalculator $balances,
+        private CardSettlementSchedule $cardSettlements,
+    ) {}
 
     public function build(int $year, string $scenario = 'probable'): array
     {
@@ -48,6 +53,17 @@ class TreasuryForecast
                         'direction' => $item->direction,
                         'amount' => (float) $item->amount * $this->probabilityFactor($item->probability, $scenario),
                     ]);
+                }
+            });
+        BankFinancialProduct::where('type', 'credit_facility')
+            ->where('is_active', true)
+            ->where('used_amount', '>', 0)
+            ->whereHas('linkedCards')
+            ->get()
+            ->each(function (BankFinancialProduct $facility) use ($events, $start, $end) {
+                $paymentOn = $this->cardSettlements->next($facility, $start)['paymentOn'];
+                if ($paymentOn->lessThanOrEqualTo($end)) {
+                    $events->push(['date' => $paymentOn, 'direction' => 'out', 'amount' => (float) $facility->used_amount]);
                 }
             });
 

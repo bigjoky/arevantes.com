@@ -3,12 +3,15 @@
 namespace Tests\Feature;
 
 use App\Models\BankAccount;
+use App\Models\BankFinancialProduct;
 use App\Models\BankReconciliation;
+use App\Models\BankStatementImport;
 use App\Models\BankTransaction;
 use App\Models\BankTransactionPosting;
 use App\Models\BankTransfer;
 use App\Models\Expense;
 use App\Models\ExpenseCategory;
+use App\Models\LedgerAccount;
 use App\Models\PurchaseDocument;
 use App\Models\SalesDocument;
 use App\Models\SalesDocumentPayment;
@@ -23,6 +26,213 @@ use Tests\TestCase;
 class BankingTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_credit_cards_and_facilities_are_managed_in_the_treasury_position(): void
+    {
+        $user = User::factory()->create(['role' => 'commercial']);
+        $technician = User::factory()->create(['role' => 'technician']);
+        $this->actingAs($user)->post(route('banking.accounts.store'), [
+            'name' => 'Main settlement account',
+            'currency' => 'EUR',
+            'opening_balance' => 0,
+            'is_active' => true,
+        ])->assertSessionHasNoErrors();
+        $account = BankAccount::where('name', 'Main settlement account')->firstOrFail();
+        $liability = LedgerAccount::where('code', '5201')->firstOrFail();
+        $base = [
+            'bank_account_id' => $account->id,
+            'ledger_account_id' => $liability->id,
+            'provider' => 'Arevantes Bank',
+            'currency' => 'eur',
+            'annual_fee' => 0,
+            'is_active' => true,
+        ];
+
+        $this->post(route('banking.products.store'), [...$base,
+            'type' => 'credit_card',
+            'name' => 'Purchasing card',
+            'identifier_last_four' => '4242',
+            'credit_limit' => 10000,
+            'used_amount' => 2500,
+            'billing_day' => 25,
+            'payment_day' => 5,
+            'expires_on' => now()->addDays(30)->toDateString(),
+        ])->assertSessionHasNoErrors();
+        $this->post(route('banking.products.store'), [...$base,
+            'type' => 'credit_facility',
+            'name' => 'Working capital facility',
+            'contract_reference' => 'POL-2026-01',
+            'credit_limit' => 50000,
+            'used_amount' => 60000,
+            'annual_interest_rate' => 4.25,
+        ])->assertSessionHasErrors('used_amount');
+        $this->post(route('banking.products.store'), [...$base,
+            'type' => 'credit_facility',
+            'name' => 'Working capital facility',
+            'contract_reference' => 'POL-2026-01',
+            'credit_limit' => 50000,
+            'used_amount' => 20000,
+            'annual_interest_rate' => 4.25,
+        ])->assertSessionHasNoErrors();
+
+        $card = BankFinancialProduct::where('type', 'credit_card')->firstOrFail();
+        $this->assertSame('EUR', $card->currency);
+        $this->assertSame('4242', $card->identifier_last_four);
+        $this->assertNull($card->contract_reference);
+        $this->patch(route('banking.products.update', $card), [...$base,
+            'type' => 'credit_card',
+            'name' => 'Purchasing card',
+            'identifier_last_four' => '4242',
+            'credit_limit' => 10000,
+            'used_amount' => 3000,
+            'expires_on' => now()->addDays(30)->toDateString(),
+        ])->assertSessionHasNoErrors();
+        $this->assertSame('3000.00', $card->fresh()->used_amount);
+
+        $this->get(route('banking.index', ['account' => $account->id]))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('products', 2)
+                ->where('products.0.available_amount', 7000)
+                ->where('products.0.utilization', 30)
+                ->where('products.0.expires_soon', true)
+                ->where('productSummary.0.currency', 'EUR')
+                ->where('productSummary.0.limit', 60000)
+                ->where('productSummary.0.used', 23000)
+                ->where('productSummary.0.available', 37000));
+
+        $this->actingAs($technician)->post(route('banking.products.store'), [...$base,
+            'type' => 'credit_card',
+            'name' => 'Forbidden card',
+            'credit_limit' => 1000,
+            'used_amount' => 0,
+        ])->assertForbidden();
+    }
+
+    public function test_multiple_cards_can_draw_from_one_shared_credit_facility(): void
+    {
+        $user = User::factory()->create(['role' => 'commercial']);
+        $this->actingAs($user)->post(route('banking.accounts.store'), [
+            'name' => 'Shared cards settlement',
+            'currency' => 'EUR',
+            'opening_balance' => 0,
+            'is_active' => true,
+        ])->assertSessionHasNoErrors();
+        $account = BankAccount::where('name', 'Shared cards settlement')->firstOrFail();
+        $liability = LedgerAccount::where('code', '5201')->firstOrFail();
+        $common = [
+            'bank_account_id' => $account->id,
+            'ledger_account_id' => $liability->id,
+            'provider' => 'Shared Bank',
+            'currency' => 'EUR',
+            'annual_fee' => 0,
+            'is_active' => true,
+        ];
+        $this->post(route('banking.products.store'), [...$common,
+            'type' => 'credit_facility',
+            'name' => 'Corporate card pool',
+            'contract_reference' => 'POOL-10K',
+            'credit_limit' => 10000,
+            'used_amount' => 0,
+        ])->assertSessionHasNoErrors();
+        $facility = BankFinancialProduct::where('type', 'credit_facility')->firstOrFail();
+
+        foreach ([['Operations card', '1111', 3000], ['Purchasing card', '2222', 2000]] as [$name, $lastFour, $used]) {
+            $this->post(route('banking.products.store'), [...$common,
+                'type' => 'credit_card',
+                'name' => $name,
+                'identifier_last_four' => $lastFour,
+                'shared_credit_facility_id' => $facility->id,
+                'used_amount' => $used,
+            ])->assertSessionHasNoErrors();
+        }
+
+        $this->assertSame('5000.00', $facility->fresh()->used_amount);
+        $this->assertSame(2, $facility->linkedCards()->count());
+        $this->assertTrue($facility->linkedCards->every(fn ($card) => $card->credit_limit === '10000.00'));
+
+        $purchasing = BankFinancialProduct::where('name', 'Purchasing card')->firstOrFail();
+        $this->patch(route('banking.products.update', $purchasing), [...$common,
+            'type' => 'credit_card',
+            'name' => $purchasing->name,
+            'identifier_last_four' => '2222',
+            'shared_credit_facility_id' => $facility->id,
+            'used_amount' => 8000,
+        ])->assertSessionHasErrors('used_amount');
+        $this->assertSame('2000.00', $purchasing->fresh()->used_amount);
+        $this->assertSame('5000.00', $facility->fresh()->used_amount);
+
+        $this->get(route('banking.index', ['account' => $account->id]))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('productSummary.0.limit', 10000)
+                ->where('productSummary.0.used', 5000)
+                ->where('productSummary.0.available', 5000)
+                ->where('products.0.shared_credit_facility.name', 'Corporate card pool')
+                ->where('products.0.available_amount', 5000)
+                ->where('products.1.available_amount', 5000)
+                ->has('products.2.linked_cards', 2));
+    }
+
+    public function test_existing_independent_cards_can_be_grouped_into_a_new_shared_limit(): void
+    {
+        $this->travelTo('2026-08-06');
+        $user = User::factory()->create(['role' => 'commercial']);
+        $this->actingAs($user)->post(route('banking.accounts.store'), [
+            'name' => 'Existing cards settlement',
+            'currency' => 'EUR',
+            'opening_balance' => 0,
+            'is_active' => true,
+        ])->assertSessionHasNoErrors();
+        $account = BankAccount::where('name', 'Existing cards settlement')->firstOrFail();
+        $liability = LedgerAccount::where('code', '5201')->firstOrFail();
+        $common = [
+            'type' => 'credit_card',
+            'bank_account_id' => $account->id,
+            'ledger_account_id' => $liability->id,
+            'provider' => 'BBVA',
+            'currency' => 'EUR',
+            'credit_limit' => 4800,
+            'annual_fee' => 0,
+            'is_active' => true,
+        ];
+        foreach ([['Card one', '1111', 311.10], ['Card two', '2222', 0]] as [$name, $lastFour, $used]) {
+            $this->post(route('banking.products.store'), [...$common,
+                'name' => $name,
+                'identifier_last_four' => $lastFour,
+                'used_amount' => $used,
+            ])->assertSessionHasNoErrors();
+        }
+        $cards = BankFinancialProduct::where('type', 'credit_card')->get();
+
+        $this->post(route('banking.shared-credit-facilities.store'), [
+            'name' => 'BBVA shared card limit',
+            'contract_reference' => 'BBVA-POOL',
+            'credit_limit' => 4800,
+            'bank_account_id' => $account->id,
+            'billing_day' => 31,
+            'payment_day' => 5,
+            'card_ids' => $cards->pluck('id')->all(),
+        ])->assertSessionHasNoErrors();
+
+        $facility = BankFinancialProduct::where('type', 'credit_facility')->firstOrFail();
+        $this->assertSame('311.10', $facility->used_amount);
+        $this->assertSame(31, $facility->billing_day);
+        $this->assertSame(5, $facility->payment_day);
+        $this->assertSame($account->id, $facility->bank_account_id);
+        $this->assertSame(2, $facility->linkedCards()->count());
+        $this->assertSame([$facility->id], $cards->map(fn ($card) => $card->fresh()->shared_credit_facility_id)->unique()->values()->all());
+        $this->get(route('banking.index', ['account' => $account->id]))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('productSummary.0.limit', 4800)
+                ->where('productSummary.0.used', 311.1)
+                ->where('productSummary.0.available', 4488.9)
+                ->where('products.0.next_closing_on', '2026-08-31')
+                ->where('products.0.next_payment_on', '2026-09-05')
+                ->where('products.0.payment_bank_account.name', 'Existing cards settlement')
+                ->where('products.2.next_payment_on', '2026-09-05'));
+    }
 
     public function test_european_csv_is_deduplicated_and_reconciled_with_recorded_payments(): void
     {
@@ -106,6 +316,63 @@ class BankingTest extends TestCase
         $this->assertDatabaseHas('bank_statement_imports', ['filename' => 'annual-2026-reimport.n43', 'created_transactions' => 0, 'duplicate_transactions' => 2, 'control_valid' => true]);
     }
 
+    public function test_statement_import_can_be_rolled_back_with_audit_and_reimported(): void
+    {
+        $user = User::factory()->create(['role' => 'commercial']);
+        $account = BankAccount::create(['name' => 'Import control account', 'currency' => 'EUR', 'opening_balance' => 0, 'is_active' => true]);
+        $csv = "Fecha;Importe;Concepto;Referencia\n01/08/2026;-25,00;Bank service;FEE-01\n02/08/2026;100,00;Customer receipt;RCPT-01\n";
+        $this->actingAs($user)->post(route('banking.import', $account), [
+            'statement' => UploadedFile::fake()->createWithContent('wrong-account.csv', $csv),
+        ])->assertRedirect()->assertSessionHasNoErrors();
+
+        $statementImport = BankStatementImport::firstOrFail();
+        $this->assertSame(2, $statementImport->transactions()->count());
+        $this->assertSame($statementImport->id, BankTransaction::firstOrFail()->bank_statement_import_id);
+        $this->get(route('banking.index', ['account' => $account->id]))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('imports.0.transactions_count', 2)
+                ->where('imports.0.pending_transactions_count', 2)
+                ->where('imports.0.can_rollback', true));
+
+        $this->delete(route('banking.imports.rollback', $statementImport), [
+            'reason' => 'Imported into the wrong bank account.',
+        ])->assertRedirect()->assertSessionHasNoErrors();
+
+        $this->assertSame(0, BankTransaction::count());
+        $this->assertDatabaseHas('bank_statement_imports', [
+            'id' => $statementImport->id,
+            'rolled_back_by' => $user->id,
+            'rollback_reason' => 'Imported into the wrong bank account.',
+        ]);
+
+        $this->post(route('banking.import', $account), [
+            'statement' => UploadedFile::fake()->createWithContent('correct-account.csv', $csv),
+        ])->assertRedirect()->assertSessionHasNoErrors();
+        $this->assertSame(2, BankTransaction::count());
+        $this->assertDatabaseHas('bank_statement_imports', ['filename' => 'correct-account.csv', 'created_transactions' => 2, 'duplicate_transactions' => 0]);
+    }
+
+    public function test_statement_import_rollback_is_blocked_after_a_movement_is_processed(): void
+    {
+        $user = User::factory()->create(['role' => 'commercial']);
+        $account = BankAccount::create(['name' => 'Protected import account', 'currency' => 'EUR', 'opening_balance' => 0, 'is_active' => true]);
+        $csv = "Fecha;Importe;Concepto;Referencia\n01/08/2026;-25,00;Bank service;FEE-02\n";
+        $this->actingAs($user)->post(route('banking.import', $account), [
+            'statement' => UploadedFile::fake()->createWithContent('protected.csv', $csv),
+        ])->assertRedirect()->assertSessionHasNoErrors();
+        $statementImport = BankStatementImport::firstOrFail();
+        $statementImport->transactions()->firstOrFail()->update(['status' => 'accounted']);
+
+        $this->delete(route('banking.imports.rollback', $statementImport), [
+            'reason' => 'Attempting to remove a processed import.',
+        ])->assertSessionHasErrors('reason');
+
+        $this->assertSame(1, BankTransaction::count());
+        $this->assertNull($statementImport->fresh()->rolled_back_at);
+        $this->get(route('banking.index', ['account' => $account->id]))
+            ->assertInertia(fn (Assert $page) => $page->where('imports.0.can_rollback', false));
+    }
+
     public function test_unmatched_bank_movement_can_be_posted_reversed_and_reclassified(): void
     {
         $user = User::factory()->create(['role' => 'commercial']);
@@ -124,6 +391,57 @@ class BankingTest extends TestCase
         $this->post(route('banking.transactions.post', $transaction), ['counterpart_account' => '623'])->assertRedirect()->assertSessionHasNoErrors();
         $this->assertSame(2, BankTransactionPosting::count());
         $this->assertSame('accounted', $transaction->fresh()->status);
+    }
+
+    public function test_bank_movement_can_be_split_and_create_a_missing_custom_subaccount(): void
+    {
+        $user = User::factory()->create(['role' => 'commercial']);
+        $account = BankAccount::create(['name' => 'Split posting account', 'currency' => 'EUR', 'opening_balance' => 0, 'is_active' => true]);
+        $transaction = $account->transactions()->create(['booked_on' => now(), 'amount' => -100, 'currency' => 'EUR', 'description' => 'Unified bank charge', 'import_hash' => hash('sha256', 'split-bank-charge'), 'status' => 'pending']);
+
+        $this->actingAs($user)->post(route('banking.transactions.post', $transaction), [
+            'allocations' => [
+                ['account_code' => '623', 'amount' => 40],
+                ['account_code' => '6290009', 'account_name' => 'Other online services', 'amount' => 60],
+            ],
+        ])->assertRedirect()->assertSessionHasNoErrors();
+
+        $custom = LedgerAccount::where('code', '6290009')->firstOrFail();
+        $this->assertSame('Other online services', $custom->name);
+        $this->assertSame('629', $custom->parent_code);
+        $this->assertSame('expense', $custom->type);
+        $this->assertSame('custom', $custom->source);
+        $posting = BankTransactionPosting::with('journalEntry.lines.account')->firstOrFail();
+        $this->assertNull($posting->counterpart_account_id);
+        $this->assertCount(2, $posting->allocation_data);
+        $this->assertSame('40.00', $posting->journalEntry->lines->firstWhere('account.code', '623')->debit);
+        $this->assertSame('60.00', $posting->journalEntry->lines->firstWhere('account.code', '6290009')->debit);
+        $this->assertSame('100.00', $posting->journalEntry->lines->firstWhere('account.code', '572')->credit);
+        $this->assertSame('accounted', $transaction->fresh()->status);
+
+        $this->post(route('banking.postings.reverse', $posting))->assertRedirect()->assertSessionHasNoErrors();
+        $this->assertSame('pending', $transaction->fresh()->status);
+    }
+
+    public function test_split_posting_rejects_an_unbalanced_allocation_and_unnamed_new_account(): void
+    {
+        $user = User::factory()->create(['role' => 'commercial']);
+        $account = BankAccount::create(['name' => 'Protected split account', 'currency' => 'EUR', 'opening_balance' => 0, 'is_active' => true]);
+        $transaction = $account->transactions()->create(['booked_on' => now(), 'amount' => -100, 'currency' => 'EUR', 'description' => 'Protected charge', 'import_hash' => hash('sha256', 'protected-split-charge'), 'status' => 'pending']);
+        $this->actingAs($user);
+
+        $this->post(route('banking.transactions.post', $transaction), ['allocations' => [
+            ['account_code' => '623', 'amount' => 40],
+            ['account_code' => '629', 'amount' => 50],
+        ]])->assertSessionHasErrors('allocations');
+        $this->assertSame('pending', $transaction->fresh()->status);
+        $this->assertSame(0, BankTransactionPosting::count());
+
+        $this->post(route('banking.transactions.post', $transaction), ['allocations' => [
+            ['account_code' => '9990001', 'amount' => 100],
+        ]])->assertSessionHasErrors('allocations.0.account_name');
+        $this->assertDatabaseMissing('ledger_accounts', ['code' => '9990001']);
+        $this->assertSame(0, BankTransactionPosting::count());
     }
 
     public function test_own_account_transfers_use_distinct_bank_subaccounts_and_can_be_reversed(): void
@@ -277,5 +595,65 @@ class BankingTest extends TestCase
         $this->assertSame('pending', $transaction->fresh()->status);
         $this->assertSame(0, SalesDocumentPayment::count());
         $this->assertSame(0, BankReconciliation::count());
+    }
+
+    public function test_reconciliation_workspace_prioritizes_stale_unusual_and_unreferenced_movements(): void
+    {
+        $this->travelTo('2026-08-06');
+        $user = User::factory()->create(['role' => 'commercial']);
+        $account = BankAccount::create(['name' => 'Review account', 'currency' => 'EUR', 'opening_balance' => 0, 'is_active' => true]);
+        foreach (range(1, 5) as $index) {
+            $account->transactions()->create([
+                'booked_on' => today()->subDays($index),
+                'amount' => 100,
+                'currency' => 'EUR',
+                'description' => 'Normal movement '.$index,
+                'reference' => 'NORMAL-'.$index,
+                'import_hash' => hash('sha256', 'normal-'.$index),
+                'status' => 'accounted',
+            ]);
+        }
+        $attention = $account->transactions()->create([
+            'booked_on' => today()->subDays(10),
+            'amount' => -5000,
+            'currency' => 'EUR',
+            'description' => 'Exceptional debit without supporting reference',
+            'reference' => null,
+            'import_hash' => hash('sha256', 'attention-movement'),
+            'status' => 'pending',
+        ]);
+
+        $this->actingAs($user)->get(route('banking.index', ['account' => $account->id, 'status' => 'pending']))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('summary.stale', 1)
+                ->where('summary.missingReference', 1)
+                ->where('summary.unusualAmount', 1)
+                ->where('summary.medianAmount', 100)
+                ->where('transactions.data.0.id', $attention->id)
+                ->where('transactions.data.0.match_quality', 'unmatched')
+                ->where('transactions.data.0.risk_flags.0.code', 'stale')
+                ->where('transactions.data.0.risk_flags.1.code', 'unusual_amount')
+                ->where('transactions.data.0.risk_flags.2.code', 'missing_reference'));
+    }
+
+    public function test_bulk_reconciliation_respects_the_selected_confidence_threshold(): void
+    {
+        $user = User::factory()->create(['role' => 'commercial']);
+        $account = BankAccount::create(['name' => 'Strict reconciliation', 'currency' => 'EUR', 'opening_balance' => 0, 'is_active' => true]);
+        $sale = SalesDocument::create(['type' => 'invoice', 'number' => 'FAC-STRICT-1', 'status' => 'paid', 'issue_date' => now(), 'subtotal' => 100, 'discount_amount' => 0, 'tax_amount' => 0, 'amount' => 100, 'paid_amount' => 100, 'customer_snapshot' => []]);
+        $sale->payments()->create(['created_by' => $user->id, 'paid_at' => now(), 'amount' => 100, 'method' => 'bank_transfer', 'reference' => 'STRICT-REF']);
+        $transaction = $account->transactions()->create(['booked_on' => now(), 'amount' => 100, 'currency' => 'EUR', 'description' => 'Customer transfer', 'reference' => 'STRICT-REF', 'import_hash' => hash('sha256', 'strict-threshold'), 'status' => 'pending']);
+
+        $this->actingAs($user)->post(route('banking.auto', $account), ['minimum_confidence' => 99])
+            ->assertRedirect()
+            ->assertSessionHasNoErrors();
+        $this->assertSame('pending', $transaction->fresh()->status);
+
+        $this->post(route('banking.auto', $account), ['minimum_confidence' => 98])
+            ->assertRedirect()
+            ->assertSessionHasNoErrors();
+        $this->assertSame('reconciled', $transaction->fresh()->status);
+        $this->assertDatabaseHas('bank_reconciliations', ['bank_transaction_id' => $transaction->id, 'method' => 'automatic']);
     }
 }

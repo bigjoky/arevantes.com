@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\BankAccount;
+use App\Models\BankFinancialProduct;
 use App\Models\BankReconciliation;
 use App\Models\BankStatementImport;
 use App\Models\BankTransaction;
@@ -19,6 +20,10 @@ use App\Models\SupplierPayment;
 use App\Models\TaxReturnPayment;
 use App\Services\Accounting\AccountingSynchronizer;
 use App\Services\Accounting\JournalPoster;
+use App\Services\Accounting\LedgerAccountResolver;
+use App\Services\Banking\BankFinancialProductManager;
+use App\Services\Banking\BankTransactionAnalyzer;
+use App\Services\Banking\CardSettlementSchedule;
 use App\Services\Banking\StatementImporter;
 use App\Services\Finance\OutstandingBalanceCalculator;
 use Illuminate\Http\RedirectResponse;
@@ -26,13 +31,18 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class BankingController extends Controller
 {
-    public function __construct(private OutstandingBalanceCalculator $balances) {}
+    public function __construct(
+        private OutstandingBalanceCalculator $balances,
+        private CardSettlementSchedule $cardSettlements,
+        private BankTransactionAnalyzer $transactionAnalyzer,
+    ) {}
 
     public function index(Request $request): Response
     {
@@ -46,6 +56,10 @@ class BankingController extends Controller
         ];
         $accounts = BankAccount::withSum('transactions as transaction_total', 'amount')->orderByDesc('is_active')->orderBy('name')->get()->map(fn ($account) => [...$account->toArray(), 'balance' => round((float) $account->opening_balance + (float) ($account->transaction_total ?? 0), 2)]);
         $account = BankAccount::with('ledgerAccount')->find($request->integer('account')) ?: BankAccount::with('ledgerAccount')->where('is_active', true)->first();
+        $historicalAmounts = $account
+            ? $account->transactions()->whereDate('booked_on', '>=', today()->subDays(180))->pluck('amount')
+            : collect();
+        $medianAmount = $this->transactionAnalyzer->medianAbsoluteAmount($historicalAmounts);
         $transactions = ($account
             ? $account->transactions()->with(['reconciliation', 'posting.counterpart:id,code,name', 'outgoingTransfer', 'incomingTransfer'])
             : BankTransaction::query()->whereRaw('1 = 0'))
@@ -57,15 +71,80 @@ class BankingController extends Controller
             ->latest('id')
             ->paginate(25)
             ->withQueryString()
-            ->through(fn ($transaction) => [...$transaction->toArray(), 'transfer' => $transaction->outgoingTransfer ?? $transaction->incomingTransfer, 'candidates' => $transaction->status === 'pending' ? $this->candidates($transaction) : []]);
+            ->through(function ($transaction) use ($medianAmount) {
+                $candidates = $transaction->status === 'pending' ? $this->candidates($transaction) : [];
+
+                return [
+                    ...$transaction->toArray(),
+                    'transfer' => $transaction->outgoingTransfer ?? $transaction->incomingTransfer,
+                    'candidates' => $candidates,
+                    ...$this->transactionAnalyzer->analyze($transaction, $candidates, $medianAmount),
+                ];
+            });
 
         $summary = $account ? [
             'pending' => $account->transactions()->where('status', 'pending')->count(),
             'reconciled' => $account->transactions()->whereIn('status', ['reconciled', 'accounted'])->count(),
             'pendingAmount' => round((float) $account->transactions()->where('status', 'pending')->sum('amount'), 2),
-        ] : ['pending' => 0, 'reconciled' => 0, 'pendingAmount' => 0];
+            'stale' => $account->transactions()->where('status', 'pending')->whereDate('booked_on', '<', today()->subDays(7))->count(),
+            'missingReference' => $account->transactions()->where('status', 'pending')->where(fn ($query) => $query->whereNull('reference')->orWhere('reference', ''))->count(),
+            'unusualAmount' => $medianAmount > 0 ? $account->transactions()->where('status', 'pending')->whereRaw('abs(amount) >= ?', [max(1000, $medianAmount * 3)])->count() : 0,
+            'medianAmount' => $medianAmount,
+        ] : ['pending' => 0, 'reconciled' => 0, 'pendingAmount' => 0, 'stale' => 0, 'missingReference' => 0, 'unusualAmount' => 0, 'medianAmount' => 0];
 
-        return Inertia::render('banking/index', ['accounts' => $accounts, 'selectedAccount' => $account, 'transactions' => $transactions, 'imports' => $account ? $account->statementImports()->latest()->limit(12)->get() : [], 'control' => $account ? $this->bankControl($account) : null, 'ledgerAccounts' => LedgerAccount::where('is_active', true)->where('is_postable', true)->whereNotIn('code', ['430', '400', '410', '472', '477'])->orderBy('code')->get(['id', 'code', 'name', 'type']), 'summary' => $summary, 'filters' => $filters]);
+        $products = BankFinancialProduct::with(['bankAccount:id,name', 'ledgerAccount:id,code,name', 'sharedCreditFacility:id,type,name,credit_limit,used_amount,currency,bank_account_id,billing_day,payment_day', 'sharedCreditFacility.bankAccount:id,name', 'linkedCards:id,name,shared_credit_facility_id,used_amount'])
+            ->orderByDesc('is_active')
+            ->orderBy('type')
+            ->orderBy('name')
+            ->get()
+            ->map(function (BankFinancialProduct $product) {
+                $creditPool = $product->sharedCreditFacility ?? $product;
+                $settlement = $creditPool->type === 'credit_facility' && ($product->shared_credit_facility_id || $creditPool->linkedCards->isNotEmpty())
+                    ? $this->cardSettlements->next($creditPool)
+                    : null;
+
+                return [
+                    ...$product->toArray(),
+                    'available_amount' => round((float) $creditPool->credit_limit - (float) $creditPool->used_amount, 2),
+                    'utilization' => (float) $creditPool->credit_limit > 0 ? round((float) $creditPool->used_amount / (float) $creditPool->credit_limit * 100, 1) : 0,
+                    'expires_soon' => $product->expires_on?->between(today(), today()->addDays(60)) ?? false,
+                    'expired' => $product->expires_on?->isBefore(today()) ?? false,
+                    'next_closing_on' => $settlement ? $settlement['closingOn']->toDateString() : null,
+                    'next_payment_on' => $settlement ? $settlement['paymentOn']->toDateString() : null,
+                    'payment_bank_account' => $settlement ? $creditPool->bankAccount?->only(['id', 'name']) : null,
+                ];
+            });
+        $productSummary = $products->where('is_active', true)->whereNull('shared_credit_facility_id')->groupBy('currency')->map(fn (Collection $currencyProducts, string $currency) => [
+            'currency' => $currency,
+            'limit' => round((float) $currencyProducts->sum(fn ($product) => (float) $product['credit_limit']), 2),
+            'used' => round((float) $currencyProducts->sum(fn ($product) => (float) $product['used_amount']), 2),
+            'available' => round((float) $currencyProducts->sum(fn ($product) => (float) $product['available_amount']), 2),
+        ])->values();
+
+        $imports = $account ? $account->statementImports()
+            ->with(['user:id,name', 'rolledBackBy:id,name'])
+            ->withCount([
+                'transactions',
+                'transactions as pending_transactions_count' => fn ($query) => $query->where('status', 'pending'),
+                'transactions as processed_transactions_count' => fn ($query) => $query->where(fn ($query) => $query
+                    ->whereHas('reconciliation')
+                    ->orWhereHas('posting')
+                    ->orWhereHas('outgoingTransfer')
+                    ->orWhereHas('incomingTransfer')),
+            ])
+            ->latest()
+            ->limit(12)
+            ->get()
+            ->map(fn (BankStatementImport $import) => [
+                ...$import->toArray(),
+                'can_rollback' => ! $import->rolled_back_at
+                    && $import->created_transactions > 0
+                    && $import->transactions_count === $import->created_transactions
+                    && $import->pending_transactions_count === $import->transactions_count
+                    && $import->processed_transactions_count === 0,
+            ]) : [];
+
+        return Inertia::render('banking/index', ['accounts' => $accounts, 'selectedAccount' => $account, 'transactions' => $transactions, 'imports' => $imports, 'control' => $account ? $this->bankControl($account) : null, 'ledgerAccounts' => LedgerAccount::where('is_active', true)->where('is_postable', true)->whereNotIn('code', ['430', '400', '410', '472', '477'])->orderBy('code')->get(['id', 'code', 'name', 'type']), 'liabilityAccounts' => LedgerAccount::where('is_active', true)->where('is_postable', true)->where('type', 'liability')->orderBy('code')->get(['id', 'code', 'name']), 'products' => $products, 'productSummary' => $productSummary, 'summary' => $summary, 'filters' => $filters]);
     }
 
     public function storeAccount(Request $request): RedirectResponse
@@ -82,15 +161,125 @@ class BankingController extends Controller
         return to_route('banking.index', ['account' => $account->id])->with('toast', ['type' => 'success', 'message' => __('Bank account created.')]);
     }
 
+    public function storeProduct(Request $request, BankFinancialProductManager $manager): RedirectResponse
+    {
+        $manager->create($this->validatedProduct($request), $request->user()->id);
+
+        return back()->with('toast', ['type' => 'success', 'message' => __('Bank financial product created.')]);
+    }
+
+    public function updateProduct(Request $request, BankFinancialProduct $product, BankFinancialProductManager $manager): RedirectResponse
+    {
+        $manager->update($product, $this->validatedProduct($request));
+
+        return back()->with('toast', ['type' => 'success', 'message' => __('Bank financial product updated.')]);
+    }
+
+    public function storeSharedFacility(Request $request, BankFinancialProductManager $manager): RedirectResponse
+    {
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'contract_reference' => ['nullable', 'string', 'max:100'],
+            'credit_limit' => ['required', 'numeric', 'gt:0'],
+            'bank_account_id' => ['required', 'integer', 'exists:bank_accounts,id'],
+            'billing_day' => ['required', 'integer', 'between:1,31'],
+            'payment_day' => ['required', 'integer', 'between:1,31'],
+            'card_ids' => ['required', 'array', 'min:2'],
+            'card_ids.*' => ['required', 'integer', 'distinct', 'exists:bank_financial_products,id'],
+        ]);
+        $manager->createSharedFacility($data, $request->user()->id);
+
+        return back()->with('toast', ['type' => 'success', 'message' => __('Shared credit facility created and cards linked.')]);
+    }
+
     public function import(Request $request, BankAccount $account, StatementImporter $importer): RedirectResponse
     {
         $data = $request->validate(['statement' => ['required', 'file', 'mimetypes:text/plain,text/csv,application/csv,application/octet-stream', 'max:10240']]);
         $file = $data['statement'];
-        $result = $importer->import($account, $file);
-        $metadata = $result['metadata'] ?? [];
-        BankStatementImport::create(['bank_account_id' => $account->id, 'imported_by' => $request->user()->id, 'filename' => $file->getClientOriginalName(), 'file_hash' => hash_file('sha256', $file->getRealPath()), 'format' => $result['format'], 'period_from' => $metadata['period_from'] ?? null, 'period_to' => $metadata['period_to'] ?? null, 'opening_balance' => $metadata['opening_balance'] ?? null, 'closing_balance' => $metadata['closing_balance'] ?? null, 'created_transactions' => $result['created'], 'duplicate_transactions' => $result['duplicates'], 'control_valid' => $metadata['control_valid'] ?? null, 'control_data' => $metadata['control_data'] ?? null]);
+        $result = DB::transaction(function () use ($account, $file, $importer, $request): array {
+            $result = $importer->import($account, $file);
+            $metadata = $result['metadata'] ?? [];
+            $statementImport = BankStatementImport::create(['bank_account_id' => $account->id, 'imported_by' => $request->user()->id, 'filename' => $file->getClientOriginalName(), 'file_hash' => hash_file('sha256', $file->getRealPath()), 'format' => $result['format'], 'period_from' => $metadata['period_from'] ?? null, 'period_to' => $metadata['period_to'] ?? null, 'opening_balance' => $metadata['opening_balance'] ?? null, 'closing_balance' => $metadata['closing_balance'] ?? null, 'created_transactions' => $result['created'], 'duplicate_transactions' => $result['duplicates'], 'control_valid' => $metadata['control_valid'] ?? null, 'control_data' => $metadata['control_data'] ?? null]);
+            if ($result['created_ids'] !== []) {
+                BankTransaction::whereIn('id', $result['created_ids'])->update(['bank_statement_import_id' => $statementImport->id]);
+            }
+
+            return $result;
+        });
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Imported :created transactions; :duplicates were already imported.', ['created' => $result['created'], 'duplicates' => $result['duplicates']])]);
+    }
+
+    public function rollbackImport(Request $request, BankStatementImport $statementImport): RedirectResponse
+    {
+        $data = $request->validate(['reason' => ['required', 'string', 'min:5', 'max:500']]);
+
+        DB::transaction(function () use ($request, $statementImport, $data) {
+            $statementImport = BankStatementImport::lockForUpdate()->findOrFail($statementImport->id);
+            if ($statementImport->rolled_back_at) {
+                throw ValidationException::withMessages(['reason' => __('This statement import was already rolled back.')]);
+            }
+
+            $transactions = $statementImport->transactions()->lockForUpdate()->get();
+            if ($statementImport->created_transactions === 0 || $transactions->count() !== $statementImport->created_transactions) {
+                throw ValidationException::withMessages(['reason' => __('This import cannot be rolled back because its movements are not fully traceable.')]);
+            }
+            if ($transactions->contains(fn (BankTransaction $transaction) => $transaction->status !== 'pending')) {
+                throw ValidationException::withMessages(['reason' => __('Undo reconciliations and accounting postings before rolling back this import.')]);
+            }
+            $transactionIds = $transactions->pluck('id');
+            $hasHistory = BankReconciliation::whereIn('bank_transaction_id', $transactionIds)->exists()
+                || BankTransactionPosting::whereIn('bank_transaction_id', $transactionIds)->exists()
+                || BankTransfer::whereIn('outgoing_transaction_id', $transactionIds)->orWhereIn('incoming_transaction_id', $transactionIds)->exists();
+            if ($hasHistory) {
+                throw ValidationException::withMessages(['reason' => __('This import has reconciliation or accounting history and cannot be removed.')]);
+            }
+
+            $statementImport->transactions()->delete();
+            $statementImport->update([
+                'rolled_back_by' => $request->user()->id,
+                'rolled_back_at' => now(),
+                'rollback_reason' => $data['reason'],
+            ]);
+        });
+
+        return back()->with('toast', ['type' => 'success', 'message' => __('Statement import rolled back; its pending movements were removed.')]);
+    }
+
+    private function validatedProduct(Request $request): array
+    {
+        if ($request->input('shared_credit_facility_id') === 'independent') {
+            $request->merge(['shared_credit_facility_id' => null]);
+        }
+        $data = $request->validate([
+            'type' => ['required', Rule::in(['credit_card', 'credit_facility'])],
+            'bank_account_id' => ['required', 'exists:bank_accounts,id'],
+            'shared_credit_facility_id' => ['nullable', 'integer', 'exists:bank_financial_products,id'],
+            'ledger_account_id' => ['required', Rule::exists('ledger_accounts', 'id')->where(fn ($query) => $query->where('type', 'liability')->where('is_active', true)->where('is_postable', true))],
+            'name' => ['required', 'string', 'max:255'],
+            'provider' => ['nullable', 'string', 'max:255'],
+            'currency' => ['required', 'string', 'size:3'],
+            'identifier_last_four' => ['nullable', 'digits:4'],
+            'contract_reference' => ['nullable', 'string', 'max:100'],
+            'credit_limit' => ['nullable', 'numeric', 'gt:0'],
+            'used_amount' => ['required', 'numeric', 'min:0'],
+            'annual_interest_rate' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'annual_fee' => ['nullable', 'numeric', 'min:0'],
+            'billing_day' => ['nullable', 'integer', 'between:1,31'],
+            'payment_day' => ['nullable', 'integer', 'between:1,31'],
+            'starts_on' => ['nullable', 'date'],
+            'expires_on' => ['nullable', 'date', 'after_or_equal:starts_on'],
+            'notes' => ['nullable', 'string', 'max:2000'],
+            'is_active' => ['required', 'boolean'],
+        ]);
+        $data['currency'] = Str::upper($data['currency']);
+        if ($data['type'] === 'credit_card') {
+            $data['contract_reference'] = null;
+        } else {
+            $data['identifier_last_four'] = null;
+        }
+
+        return $data;
     }
 
     public function reconcile(Request $request, BankTransaction $transaction, JournalPoster $poster, AccountingSynchronizer $accounting): RedirectResponse
@@ -104,16 +293,22 @@ class BankingController extends Controller
 
     public function auto(Request $request, BankAccount $account, JournalPoster $poster, AccountingSynchronizer $accounting): RedirectResponse
     {
+        $data = $request->validate(['minimum_confidence' => ['nullable', 'integer', 'between:80,100']]);
+        $minimumConfidence = (int) ($data['minimum_confidence'] ?? 95);
         $matched = 0;
-        $account->transactions()->where('status', 'pending')->orderBy('booked_on')->each(function ($transaction) use ($request, $poster, $accounting, &$matched) {
+        $reviewed = 0;
+        $account->transactions()->where('status', 'pending')->orderBy('booked_on')->each(function ($transaction) use ($request, $poster, $accounting, $minimumConfidence, &$matched, &$reviewed) {
             $candidates = $this->candidates($transaction, true);
-            if (count($candidates) === 1) {
-                $this->matchSelection($transaction, $candidates[0]['value'], $request->user()->id, 'automatic', $poster, $accounting);
+            $candidate = $this->transactionAnalyzer->automaticCandidate($candidates, $minimumConfidence);
+            if ($candidate) {
+                $this->matchSelection($transaction, $candidate['value'], $request->user()->id, 'automatic', $poster, $accounting);
                 $matched++;
+            } elseif ($candidates !== []) {
+                $reviewed++;
             }
         });
 
-        return back()->with('toast', ['type' => 'success', 'message' => __(':count transactions reconciled automatically.', ['count' => $matched])]);
+        return back()->with('toast', ['type' => 'success', 'message' => __(':count transactions reconciled automatically; :reviewed left for review.', ['count' => $matched, 'reviewed' => $reviewed])]);
     }
 
     public function undo(Request $request, BankReconciliation $reconciliation, JournalPoster $poster): RedirectResponse
@@ -149,18 +344,47 @@ class BankingController extends Controller
         return back()->with('toast', ['type' => 'success', 'message' => __('Reconciliation removed.')]);
     }
 
-    public function postTransaction(Request $request, BankTransaction $transaction, JournalPoster $poster): RedirectResponse
+    public function postTransaction(Request $request, BankTransaction $transaction, JournalPoster $poster, LedgerAccountResolver $accounts): RedirectResponse
     {
         abort_unless($transaction->status === 'pending', 422);
-        $data = $request->validate(['counterpart_account' => ['required', 'exists:ledger_accounts,code']]);
+        if (! $request->has('allocations') && $request->filled('counterpart_account')) {
+            $request->merge(['allocations' => [['account_code' => $request->input('counterpart_account'), 'amount' => abs((float) $transaction->amount)]]]);
+        }
+        $data = $request->validate([
+            'allocations' => ['required', 'array', 'min:1', 'max:20'],
+            'allocations.*.account_code' => ['required', 'string', 'max:12'],
+            'allocations.*.account_name' => ['nullable', 'string', 'max:255'],
+            'allocations.*.amount' => ['required', 'numeric', 'gt:0'],
+        ]);
         $transaction->load('account.ledgerAccount');
         $bankCode = $transaction->account->ledgerAccount?->code ?? '572';
-        abort_if($data['counterpart_account'] === $bankCode, 422, __('Select a different counterpart account.'));
         $amount = abs((float) $transaction->amount);
+        $allocated = round((float) collect($data['allocations'])->sum('amount'), 2);
+        if (abs($allocated - $amount) > .005) {
+            throw ValidationException::withMessages(['allocations' => __('The allocation total must exactly match the bank movement amount.')]);
+        }
         $incoming = (float) $transaction->amount > 0;
-        $lines = $incoming ? [['account_code' => $bankCode, 'debit' => $amount, 'credit' => 0], ['account_code' => $data['counterpart_account'], 'debit' => 0, 'credit' => $amount]] : [['account_code' => $data['counterpart_account'], 'debit' => $amount, 'credit' => 0], ['account_code' => $bankCode, 'debit' => 0, 'credit' => $amount]];
-        DB::transaction(function () use ($request, $transaction, $poster, $data, $lines) {
-            $posting = BankTransactionPosting::create(['bank_transaction_id' => $transaction->id, 'counterpart_account_id' => LedgerAccount::where('code', $data['counterpart_account'])->value('id'), 'posted_by' => $request->user()->id]);
+        DB::transaction(function () use ($request, $transaction, $poster, $accounts, $data, $bankCode, $amount, $incoming) {
+            $allocations = collect($data['allocations'])->values()->map(function (array $allocation, int $index) use ($accounts, $bankCode) {
+                $account = $accounts->resolveOrCreate($allocation['account_code'], $allocation['account_name'] ?? null, "allocations.{$index}.account_code");
+                abort_if($account->code === $bankCode, 422, __('Select a different counterpart account.'));
+
+                return ['account' => $account, 'amount' => round((float) $allocation['amount'], 2)];
+            });
+            $counterpartLines = $allocations->map(fn (array $allocation) => [
+                'account_code' => $allocation['account']->code,
+                'description' => $allocation['account']->name,
+                'debit' => $incoming ? 0 : $allocation['amount'],
+                'credit' => $incoming ? $allocation['amount'] : 0,
+            ])->all();
+            $bankLine = ['account_code' => $bankCode, 'debit' => $incoming ? $amount : 0, 'credit' => $incoming ? 0 : $amount];
+            $lines = $incoming ? [$bankLine, ...$counterpartLines] : [...$counterpartLines, $bankLine];
+            $posting = BankTransactionPosting::create([
+                'bank_transaction_id' => $transaction->id,
+                'counterpart_account_id' => $allocations->count() === 1 ? $allocations->first()['account']->id : null,
+                'allocation_data' => $allocations->map(fn (array $allocation) => ['account_id' => $allocation['account']->id, 'code' => $allocation['account']->code, 'name' => $allocation['account']->name, 'amount' => $allocation['amount']])->all(),
+                'posted_by' => $request->user()->id,
+            ]);
             $entry = $poster->post($transaction->booked_on->toDateString(), $transaction->description, $lines, $request->user()->id, 'bank_posting', $posting, 'bank_posting');
             $posting->update(['journal_entry_id' => $entry->id]);
             $transaction->update(['status' => 'accounted']);
@@ -451,7 +675,7 @@ class BankingController extends Controller
 
     private function bankControl(BankAccount $account): array
     {
-        $latest = $account->statementImports()->whereNotNull('closing_balance')->latest('period_to')->latest('id')->first();
+        $latest = $account->statementImports()->whereNull('rolled_back_at')->whereNotNull('closing_balance')->latest('period_to')->latest('id')->first();
         $to = $latest?->period_to ?? now();
         $from = $latest?->period_from;
         $statementMovements = $from ? (float) $account->transactions()->whereBetween('booked_on', [$from, $to])->sum('amount') : (float) $account->transactions()->whereDate('booked_on', '<=', $to)->sum('amount');

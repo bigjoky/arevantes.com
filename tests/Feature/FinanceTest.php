@@ -4,7 +4,9 @@ namespace Tests\Feature;
 
 use App\Models\AuditLog;
 use App\Models\BankAccount;
+use App\Models\BankFinancialProduct;
 use App\Models\BankReconciliation;
+use App\Models\BankStatementImport;
 use App\Models\CollectionAction;
 use App\Models\CompanyProfile;
 use App\Models\Expense;
@@ -29,6 +31,35 @@ use Tests\TestCase;
 class FinanceTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_finance_exposes_daily_bank_position_and_statement_integrity(): void
+    {
+        $user = User::factory()->create(['role' => 'commercial']);
+        $account = BankAccount::create(['name' => 'Operating EUR', 'bank_name' => 'Arevantes Bank', 'currency' => 'EUR', 'opening_balance' => 1000, 'is_active' => true]);
+        $statementImport = BankStatementImport::create([
+            'bank_account_id' => $account->id,
+            'imported_by' => $user->id,
+            'filename' => 'august.csv',
+            'file_hash' => hash('sha256', 'august-statement'),
+            'format' => 'csv',
+            'created_transactions' => 2,
+            'duplicate_transactions' => 0,
+            'control_valid' => false,
+        ]);
+        $account->transactions()->create(['bank_statement_import_id' => $statementImport->id, 'booked_on' => '2026-08-04', 'amount' => -100, 'currency' => 'EUR', 'description' => 'Pending supplier payment', 'import_hash' => hash('sha256', 'position-pending'), 'status' => 'pending']);
+        $account->transactions()->create(['bank_statement_import_id' => $statementImport->id, 'booked_on' => '2026-08-05', 'amount' => 50, 'currency' => 'EUR', 'description' => 'Reconciled receipt', 'import_hash' => hash('sha256', 'position-reconciled'), 'status' => 'reconciled']);
+
+        $this->actingAs($user)->get(route('finance.index', ['year' => 2026]))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('bankPosition.0.name', 'Operating EUR')
+                ->where('bankPosition.0.bankName', 'Arevantes Bank')
+                ->where('bankPosition.0.balance', 950)
+                ->where('bankPosition.0.pendingTransactions', 1)
+                ->where('bankPosition.0.pendingAmount', -100)
+                ->where('bankPosition.0.lastTransactionOn', '2026-08-05')
+                ->where('bankPosition.0.statementControl', 'mismatch'));
+    }
 
     public function test_financial_dashboard_aggregates_cash_vat_and_outstanding_balances(): void
     {
@@ -638,5 +669,42 @@ class FinanceTest extends TestCase
         $this->assertSame(900.0, $forecast['openingBalance']);
         $this->assertGreaterThanOrEqual(300, $forecast['weeks']->sum('out'));
         $this->assertSame($forecast['openingBalance'] - $forecast['weeks']->sum('out'), $forecast['closingBalance']);
+    }
+
+    public function test_shared_card_receipt_is_forecast_once_on_its_payment_day(): void
+    {
+        $this->travelTo('2026-08-06');
+        $account = BankAccount::create(['name' => 'Card debit account', 'currency' => 'EUR', 'opening_balance' => 1000, 'is_active' => true]);
+        $facility = BankFinancialProduct::create([
+            'bank_account_id' => $account->id,
+            'type' => 'credit_facility',
+            'name' => 'Shared card credit',
+            'currency' => 'EUR',
+            'credit_limit' => 4800,
+            'used_amount' => 500,
+            'billing_day' => 31,
+            'payment_day' => 5,
+            'is_active' => true,
+        ]);
+        foreach ([300, 200] as $index => $used) {
+            BankFinancialProduct::create([
+                'bank_account_id' => $account->id,
+                'shared_credit_facility_id' => $facility->id,
+                'type' => 'credit_card',
+                'name' => 'Card '.($index + 1),
+                'currency' => 'EUR',
+                'credit_limit' => 4800,
+                'used_amount' => $used,
+                'is_active' => true,
+            ]);
+        }
+
+        $forecast = app(TreasuryForecast::class)->build(2026, 'optimistic');
+        $paymentWeek = $forecast['weeks']->first(fn (array $week) => $week['from'] <= '2026-09-05' && $week['to'] >= '2026-09-05');
+
+        $this->assertNotNull($paymentWeek);
+        $this->assertSame(500.0, $paymentWeek['out']);
+        $this->assertSame(500.0, $forecast['weeks']->sum('out'));
+        $this->assertSame(500.0, $forecast['closingBalance']);
     }
 }
