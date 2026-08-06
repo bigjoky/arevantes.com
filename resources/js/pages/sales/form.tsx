@@ -118,8 +118,8 @@ export default function SalesForm({
         const product = products.find((item) => item.id === Number(value));
 
         if (!product) {
-return;
-}
+            return;
+        }
 
         updateLine(index, {
             product_id: product.id,

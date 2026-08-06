@@ -275,10 +275,7 @@ function DecisionForm({
     variant?: 'default' | 'outline';
 }) {
     return (
-        <Form
-            action={`/human-resources/leave/${requestId}`}
-            method="put"
-        >
+        <Form action={`/human-resources/leave/${requestId}`} method="put">
             <input type="hidden" name="status" value={status} />
             <Button size="sm" variant={variant}>
                 {icon}

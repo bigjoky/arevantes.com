@@ -292,9 +292,7 @@ export default function Employees({
                                                         employee.employment
                                                             ?.workLocation ?? ''
                                                     }
-                                                    error={
-                                                        errors.work_location
-                                                    }
+                                                    error={errors.work_location}
                                                 />
                                                 <Field
                                                     id={`hours-${employee.id}`}

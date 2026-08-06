@@ -66,9 +66,7 @@ export default function Departments({
                                                 name="name"
                                                 required
                                             />
-                                            <InputError
-                                                message={errors.name}
-                                            />
+                                            <InputError message={errors.name} />
                                         </div>
                                         <div className="grid gap-2">
                                             <Label htmlFor="department-code">
@@ -79,9 +77,7 @@ export default function Departments({
                                                 name="code"
                                                 placeholder="OPS"
                                             />
-                                            <InputError
-                                                message={errors.code}
-                                            />
+                                            <InputError message={errors.code} />
                                         </div>
                                         <div className="grid gap-2">
                                             <Label htmlFor="department-description">
@@ -139,7 +135,7 @@ export default function Departments({
                                     <Form
                                         action={`/human-resources/departments/${department.id}`}
                                         method="put"
-                                        className="grid gap-4 md:grid-cols-[minmax(0,1fr)_9rem] "
+                                        className="grid gap-4 md:grid-cols-[minmax(0,1fr)_9rem]"
                                     >
                                         {({ processing, errors }) => (
                                             <>
@@ -171,7 +167,8 @@ export default function Departments({
                                                         id={`code-${department.id}`}
                                                         name="code"
                                                         defaultValue={
-                                                            department.code ?? ''
+                                                            department.code ??
+                                                            ''
                                                         }
                                                     />
                                                     <InputError

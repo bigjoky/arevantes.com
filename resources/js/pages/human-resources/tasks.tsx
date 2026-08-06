@@ -335,10 +335,7 @@ export default function Tasks({
                                             method="delete"
                                             className="ml-auto"
                                         >
-                                            <Button
-                                                size="sm"
-                                                variant="ghost"
-                                            >
+                                            <Button size="sm" variant="ghost">
                                                 <Trash2 />
                                                 Eliminar
                                             </Button>
@@ -376,7 +373,9 @@ function Metric({ label, value }: { label: string; value: number }) {
             <CardHeader>
                 <CardDescription>{label}</CardDescription>
             </CardHeader>
-            <CardContent className="text-3xl font-semibold">{value}</CardContent>
+            <CardContent className="text-3xl font-semibold">
+                {value}
+            </CardContent>
         </Card>
     );
 }

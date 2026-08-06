@@ -155,7 +155,8 @@ export default function HumanResourcesIndex({
                             <div>
                                 <CardTitle>Últimas incorporaciones</CardTitle>
                                 <CardDescription>
-                                    Perfiles añadidos recientemente al directorio.
+                                    Perfiles añadidos recientemente al
+                                    directorio.
                                 </CardDescription>
                             </div>
                             <Button variant="outline" size="sm" asChild>

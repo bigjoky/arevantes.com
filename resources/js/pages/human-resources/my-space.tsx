@@ -190,7 +190,8 @@ export default function MySpace({
                                                     employee.employment
                                                         .startDate
                                                         ? formatDate(
-                                                              employee.employment
+                                                              employee
+                                                                  .employment
                                                                   .startDate,
                                                           )
                                                         : 'Sin definir'
