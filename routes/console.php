@@ -7,6 +7,7 @@ use App\Models\PurchaseDocument;
 use App\Models\SalesDocument;
 use App\Models\ServiceTicket;
 use App\Services\Accounting\AccountingSynchronizer;
+use App\Services\Accounting\RecurringEntryProcessor;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
@@ -16,6 +17,11 @@ Artisan::command('accounting:sync', function (AccountingSynchronizer $synchroniz
     $this->info("{$count} accounting entries generated.");
 })->purpose('Generate missing accounting entries from financial records');
 
+Artisan::command('accounting:recurring', function (RecurringEntryProcessor $processor) {
+    $result = $processor->process();
+    $this->info("{$result['posted']} recurring entries posted, {$result['reversed']} reversed, {$result['failed']} failed.");
+})->purpose('Post due recurring entries and accrual reversals');
+
 Schedule::command('deye:sync')->everyMinute()->withoutOverlapping();
 Schedule::command('huawei:sync')->everyFiveMinutes()->withoutOverlapping();
 Schedule::command('monitoring:discover deye')->everyFiveMinutes()->withoutOverlapping();
@@ -23,6 +29,7 @@ Schedule::command('monitoring:discover huawei')->cron('2 */6 * * *')->withoutOve
 Schedule::command('locations:sync-spain')->monthly()->withoutOverlapping();
 Schedule::command('database:backup')->dailyAt('02:30')->withoutOverlapping();
 Schedule::command('accounting:sync')->everyFiveMinutes()->withoutOverlapping();
+Schedule::command('accounting:recurring')->everyFiveMinutes()->withoutOverlapping();
 Schedule::command('purchase-inbox:sync')->everyFiveMinutes()->withoutOverlapping();
 Schedule::command('purchase-inbox:extract --limit=3')->everyFiveMinutes()->withoutOverlapping();
 Schedule::command('crm:send-reminders')->dailyAt('07:30')->timezone('Europe/Madrid')->withoutOverlapping();

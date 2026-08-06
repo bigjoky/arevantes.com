@@ -209,6 +209,8 @@ Route::middleware(['auth'])->group(function () {
     Route::patch('accounting/templates/{template}', [AccountingTemplateController::class, 'update'])->middleware('can:manage-accounting')->name('accounting.templates.update');
     Route::delete('accounting/templates/{template}', [AccountingTemplateController::class, 'destroy'])->middleware('can:manage-accounting')->name('accounting.templates.destroy');
     Route::post('accounting/templates/{template}/execute', [AccountingTemplateController::class, 'execute'])->middleware('can:manage-accounting')->name('accounting.templates.execute');
+    Route::patch('accounting/templates/{template}/schedule', [AccountingTemplateController::class, 'schedule'])->middleware('can:manage-accounting')->name('accounting.templates.schedule');
+    Route::post('accounting/recurring/run', [AccountingTemplateController::class, 'runRecurring'])->middleware('can:manage-accounting')->name('accounting.recurring.run');
     Route::get('corporate-tax', [CorporateTaxController::class, 'index'])->middleware('can:view-finance')->name('corporate-tax.index');
     Route::post('corporate-tax/returns', [CorporateTaxController::class, 'prepare'])->middleware('can:manage-tax')->name('corporate-tax.prepare');
     Route::post('corporate-tax/returns/{corporateTaxReturn}/file', [CorporateTaxController::class, 'file'])->middleware('can:manage-tax')->name('corporate-tax.file');
