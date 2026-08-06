@@ -124,6 +124,7 @@ class AppServiceProvider extends ServiceProvider
         Gate::define('approve-purchase-invoices', fn (User $user) => $user->hasRole('commercial'));
         Gate::define('manage-purchase-payments', fn (User $user) => $user->hasRole('commercial'));
         Gate::define('manage-staff', fn (User $user) => false);
+        Gate::define('view-analytics', fn (User $user) => $user->hasRole('commercial', 'technician'));
     }
 
     /**

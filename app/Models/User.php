@@ -38,6 +38,16 @@ class User extends Authenticatable implements PasskeyUser
         return $this->hasMany(Opportunity::class, 'owner_user_id');
     }
 
+    public function analyticsAlerts(): HasMany
+    {
+        return $this->hasMany(AnalyticsAlert::class);
+    }
+
+    public function analyticsReportSubscriptions(): HasMany
+    {
+        return $this->hasMany(AnalyticsReportSubscription::class);
+    }
+
     /**
      * Get the attributes that should be cast.
      *

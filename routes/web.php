@@ -6,6 +6,7 @@ use App\Http\Controllers\ActionCenterController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AfterSalesController;
 use App\Http\Controllers\AiFeedbackController;
+use App\Http\Controllers\AnalyticsController;
 use App\Http\Controllers\AreviaChatController;
 use App\Http\Controllers\BankingController;
 use App\Http\Controllers\CatalogController;
@@ -78,6 +79,13 @@ Route::get('portal/{token}/documents/{kind}/{document}/pdf', [CustomerPortalCont
 
 Route::middleware(['auth'])->group(function () {
     Route::get('dashboard', DashboardController::class)->name('dashboard');
+    Route::get('analytics', [AnalyticsController::class, 'index'])->middleware('can:view-analytics')->name('analytics.index');
+    Route::get('analytics/export/{format}', [AnalyticsController::class, 'export'])->middleware('can:view-analytics')->name('analytics.export');
+    Route::post('analytics/alerts', [AnalyticsController::class, 'storeAlert'])->middleware('can:view-analytics')->name('analytics.alerts.store');
+    Route::patch('analytics/alerts/{analyticsAlert}', [AnalyticsController::class, 'updateAlert'])->middleware('can:view-analytics')->name('analytics.alerts.update');
+    Route::delete('analytics/alerts/{analyticsAlert}', [AnalyticsController::class, 'destroyAlert'])->middleware('can:view-analytics')->name('analytics.alerts.destroy');
+    Route::post('analytics/subscriptions', [AnalyticsController::class, 'storeSubscription'])->middleware('can:view-analytics')->name('analytics.subscriptions.store');
+    Route::delete('analytics/subscriptions/{analyticsReportSubscription}', [AnalyticsController::class, 'destroySubscription'])->middleware('can:view-analytics')->name('analytics.subscriptions.destroy');
     Route::get('search', GlobalSearchController::class)->middleware('throttle:60,1')->name('global-search');
     Route::get('action-center', ActionCenterController::class)->middleware('throttle:60,1')->name('action-center');
     Route::post('notifications/read', function (Request $request) {
