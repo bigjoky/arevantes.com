@@ -52,6 +52,7 @@ use App\Http\Controllers\RemoteStationController;
 use App\Http\Controllers\ReplenishmentController;
 use App\Http\Controllers\SalesDocumentController;
 use App\Http\Controllers\SalesOperationsController;
+use App\Http\Controllers\SerialTraceabilityController;
 use App\Http\Controllers\SitemapController;
 use App\Http\Controllers\StaffAccessController;
 use App\Http\Controllers\StaffController;
@@ -182,6 +183,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('work-orders/{workOrder}/signature', [WorkOrderController::class, 'signature'])->middleware('can:manage-operations')->name('work-orders.signature.show');
     Route::get('catalog', [CatalogController::class, 'index'])->middleware('can:manage-catalog')->name('catalog.index');
     Route::get('inventory', [InventoryController::class, 'index'])->middleware('can:manage-catalog')->name('inventory.index');
+    Route::get('inventory/serials', [SerialTraceabilityController::class, 'index'])->middleware('can:view-purchases')->name('inventory.serials.index');
     Route::get('inventory/counts', [StockCountController::class, 'index'])->middleware('can:manage-catalog')->name('stock-counts.index');
     Route::post('inventory/counts', [StockCountController::class, 'store'])->middleware('can:manage-catalog')->name('stock-counts.store');
     Route::get('inventory/counts/{stockCount}', [StockCountController::class, 'show'])->middleware('can:manage-catalog')->name('stock-counts.show');

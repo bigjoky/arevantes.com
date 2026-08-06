@@ -69,6 +69,69 @@ class InventoryTest extends TestCase
         $this->assertSame(0, StockMovementLine::count());
     }
 
+    public function test_stock_position_distinguishes_on_hand_reservations_availability_and_transit(): void
+    {
+        $user = User::factory()->create(['role' => 'commercial']);
+        $supplier = Supplier::create(['legal_name' => 'Inbound Supply SL', 'country' => 'ES']);
+        $warehouse = Warehouse::create(['code' => 'MAIN', 'name' => 'Main warehouse']);
+        $product = $this->product(false);
+        $installation = Installation::create(['service_type' => 'solar', 'status' => 'scheduled', 'site_address_line_1' => 'Calle Stock 1']);
+        $this->actingAs($user)->post(route('inventory.movements.store'), [
+            'type' => 'receipt',
+            'warehouse_id' => $warehouse->id,
+            'lines' => [['product_id' => $product->id, 'quantity' => 10, 'unit_cost' => 500]],
+        ])->assertRedirect();
+        $this->post(route('inventory.reservations.store'), [
+            'installation_id' => $installation->id,
+            'warehouse_id' => $warehouse->id,
+            'product_id' => $product->id,
+            'quantity' => 3,
+        ])->assertRedirect();
+
+        $order = PurchaseDocument::create([
+            'type' => 'purchase_order',
+            'supplier_id' => $supplier->id,
+            'destination_warehouse_id' => $warehouse->id,
+            'created_by' => $user->id,
+            'number' => 'PC-STOCK-1',
+            'status' => 'ordered',
+            'issue_date' => '2026-08-01',
+            'expected_delivery_date' => '2026-08-10',
+            'subtotal' => 2500,
+            'tax_amount' => 525,
+            'amount' => 3025,
+        ]);
+        $line = $order->lines()->create([
+            'product_id' => $product->id,
+            'position' => 1,
+            'description' => $product->name,
+            'quantity' => 5,
+            'unit_price' => 500,
+            'discount_percent' => 0,
+            'tax_percent' => 21,
+            'subtotal' => 2500,
+            'tax_amount' => 525,
+            'total' => 3025,
+        ]);
+        $this->post(route('purchases.receive', $order), [
+            'warehouse_id' => $warehouse->id,
+            'quantities' => [$line->id => 2],
+        ])->assertRedirect();
+
+        $this->get(route('inventory.index'))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('inventory/index')
+                ->has('positions', 1)
+                ->where('positions.0.on_hand', 12)
+                ->where('positions.0.reserved', 3)
+                ->where('positions.0.available', 9)
+                ->where('positions.0.in_transit', 3)
+                ->where('positions.0.projected', 12)
+                ->where('positions.0.inbound_order_count', 1)
+                ->where('positions.0.next_delivery_date', '2026-08-10'));
+    }
+
     public function test_a_reserved_serialized_item_is_dispatched_to_its_installation(): void
     {
         $user = User::factory()->create(['role' => 'commercial']);

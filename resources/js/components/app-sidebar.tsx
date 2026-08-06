@@ -34,7 +34,9 @@ export function AppSidebar() {
     const commercial = abilities.manageCustomers;
     const items: NavItem[] = [
         { title: 'Dashboard', href: dashboard(), icon: LayoutGrid },
-        { title: 'Analítica', href: '/analytics', icon: ChartSpline },
+        ...(abilities.viewAnalytics
+            ? [{ title: 'Analítica', href: '/analytics', icon: ChartSpline }]
+            : []),
         {
             title: 'Mi RR. HH.',
             href: '/my-human-resources',
@@ -88,6 +90,10 @@ export function AppSidebar() {
                                 { title: 'Catalog', href: '/catalog' },
                                 { title: 'Inventory', href: '/inventory' },
                                 {
+                                    title: 'Serial traceability',
+                                    href: '/inventory/serials',
+                                },
+                                {
                                     title: 'Stock counts',
                                     href: '/inventory/counts',
                                 },
@@ -120,6 +126,10 @@ export function AppSidebar() {
                             ]
                           : [
                                 { title: 'Purchases', href: '/purchases' },
+                                {
+                                    title: 'Serial traceability',
+                                    href: '/inventory/serials',
+                                },
                                 {
                                     title: 'Order control',
                                     href: '/supply-control',
