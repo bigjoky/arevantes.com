@@ -954,18 +954,18 @@ function SharedCreditDialog({ cards }: { cards: FinancialProduct[] }) {
                             <div className="grid gap-2">
                                 <Label>Select at least two cards</Label>
                                 {cards.map((card) => (
-                                    <button
+                                    <label
                                         key={card.id}
-                                        type="button"
-                                        onClick={() => toggle(card.id)}
-                                        className={`flex items-center justify-between rounded-md border p-3 text-left ${selected.includes(card.id) ? 'border-primary bg-primary/5' : ''}`}
+                                        className={`flex cursor-pointer items-center justify-between rounded-md border p-3 text-left ${selected.includes(card.id) ? 'border-primary bg-primary/5' : ''}`}
                                     >
                                         <span className="flex items-center gap-2">
-                                            <Checkbox
+                                            <input
+                                                type="checkbox"
                                                 checked={selected.includes(
                                                     card.id,
                                                 )}
-                                                tabIndex={-1}
+                                                onChange={() => toggle(card.id)}
+                                                className="size-4 rounded border-input accent-primary"
                                             />
                                             <span>
                                                 <span className="block text-sm font-medium">
@@ -991,7 +991,7 @@ function SharedCreditDialog({ cards }: { cards: FinancialProduct[] }) {
                                                 card.currency,
                                             )}
                                         </span>
-                                    </button>
+                                    </label>
                                 ))}
                             </div>
                             {Object.keys(errors).length > 0 && (
