@@ -309,6 +309,57 @@ class BankingTest extends TestCase
         $this->assertSame('accounted', $transaction->fresh()->status);
     }
 
+    public function test_bank_movement_can_be_split_and_create_a_missing_custom_subaccount(): void
+    {
+        $user = User::factory()->create(['role' => 'commercial']);
+        $account = BankAccount::create(['name' => 'Split posting account', 'currency' => 'EUR', 'opening_balance' => 0, 'is_active' => true]);
+        $transaction = $account->transactions()->create(['booked_on' => now(), 'amount' => -100, 'currency' => 'EUR', 'description' => 'Unified bank charge', 'import_hash' => hash('sha256', 'split-bank-charge'), 'status' => 'pending']);
+
+        $this->actingAs($user)->post(route('banking.transactions.post', $transaction), [
+            'allocations' => [
+                ['account_code' => '623', 'amount' => 40],
+                ['account_code' => '6290009', 'account_name' => 'Other online services', 'amount' => 60],
+            ],
+        ])->assertRedirect()->assertSessionHasNoErrors();
+
+        $custom = LedgerAccount::where('code', '6290009')->firstOrFail();
+        $this->assertSame('Other online services', $custom->name);
+        $this->assertSame('629', $custom->parent_code);
+        $this->assertSame('expense', $custom->type);
+        $this->assertSame('custom', $custom->source);
+        $posting = BankTransactionPosting::with('journalEntry.lines.account')->firstOrFail();
+        $this->assertNull($posting->counterpart_account_id);
+        $this->assertCount(2, $posting->allocation_data);
+        $this->assertSame('40.00', $posting->journalEntry->lines->firstWhere('account.code', '623')->debit);
+        $this->assertSame('60.00', $posting->journalEntry->lines->firstWhere('account.code', '6290009')->debit);
+        $this->assertSame('100.00', $posting->journalEntry->lines->firstWhere('account.code', '572')->credit);
+        $this->assertSame('accounted', $transaction->fresh()->status);
+
+        $this->post(route('banking.postings.reverse', $posting))->assertRedirect()->assertSessionHasNoErrors();
+        $this->assertSame('pending', $transaction->fresh()->status);
+    }
+
+    public function test_split_posting_rejects_an_unbalanced_allocation_and_unnamed_new_account(): void
+    {
+        $user = User::factory()->create(['role' => 'commercial']);
+        $account = BankAccount::create(['name' => 'Protected split account', 'currency' => 'EUR', 'opening_balance' => 0, 'is_active' => true]);
+        $transaction = $account->transactions()->create(['booked_on' => now(), 'amount' => -100, 'currency' => 'EUR', 'description' => 'Protected charge', 'import_hash' => hash('sha256', 'protected-split-charge'), 'status' => 'pending']);
+        $this->actingAs($user);
+
+        $this->post(route('banking.transactions.post', $transaction), ['allocations' => [
+            ['account_code' => '623', 'amount' => 40],
+            ['account_code' => '629', 'amount' => 50],
+        ]])->assertSessionHasErrors('allocations');
+        $this->assertSame('pending', $transaction->fresh()->status);
+        $this->assertSame(0, BankTransactionPosting::count());
+
+        $this->post(route('banking.transactions.post', $transaction), ['allocations' => [
+            ['account_code' => '9990001', 'amount' => 100],
+        ]])->assertSessionHasErrors('allocations.0.account_name');
+        $this->assertDatabaseMissing('ledger_accounts', ['code' => '9990001']);
+        $this->assertSame(0, BankTransactionPosting::count());
+    }
+
     public function test_own_account_transfers_use_distinct_bank_subaccounts_and_can_be_reversed(): void
     {
         $user = User::factory()->create(['role' => 'commercial']);

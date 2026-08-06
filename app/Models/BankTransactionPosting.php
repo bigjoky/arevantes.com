@@ -7,11 +7,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class BankTransactionPosting extends Model
 {
-    protected $fillable = ['bank_transaction_id', 'counterpart_account_id', 'journal_entry_id', 'reversal_entry_id', 'posted_by', 'reversed_at'];
+    protected $fillable = ['bank_transaction_id', 'counterpart_account_id', 'allocation_data', 'journal_entry_id', 'reversal_entry_id', 'posted_by', 'reversed_at'];
 
     protected function casts(): array
     {
-        return ['reversed_at' => 'datetime'];
+        return ['allocation_data' => 'array', 'reversed_at' => 'datetime'];
     }
 
     public function transaction(): BelongsTo
