@@ -1,5 +1,14 @@
 import { Form, Head, Link } from '@inertiajs/react';
-import { ArrowLeft, Landmark, Plus, RefreshCw, Upload } from 'lucide-react';
+import {
+    ArrowLeft,
+    CreditCard,
+    Landmark,
+    Pencil,
+    Plus,
+    RefreshCw,
+    Upload,
+    WalletCards,
+} from 'lucide-react';
 import { useState } from 'react';
 import { PaginationBar, TableViewport } from '@/components/page-shell';
 import type { PaginationLink } from '@/components/page-shell';
@@ -23,6 +32,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 type Account = {
     id: number;
     name: string;
@@ -41,6 +51,40 @@ type Candidate = {
     confidence: number;
 };
 type LedgerAccount = { id: number; code: string; name: string; type: string };
+type LiabilityAccount = { id: number; code: string; name: string };
+type FinancialProduct = {
+    id: number;
+    bank_account_id: number;
+    ledger_account_id: number;
+    type: 'credit_card' | 'credit_facility';
+    name: string;
+    provider: string | null;
+    currency: string;
+    identifier_last_four: string | null;
+    contract_reference: string | null;
+    credit_limit: string;
+    used_amount: string;
+    available_amount: number;
+    utilization: number;
+    annual_interest_rate: string | null;
+    annual_fee: string;
+    billing_day: number | null;
+    payment_day: number | null;
+    starts_on: string | null;
+    expires_on: string | null;
+    notes: string | null;
+    is_active: boolean;
+    expires_soon: boolean;
+    expired: boolean;
+    bank_account: { name: string };
+    ledger_account: { code: string; name: string } | null;
+};
+type ProductSummary = {
+    currency: string;
+    limit: number;
+    used: number;
+    available: number;
+};
 type StatementImport = {
     id: number;
     filename: string;
@@ -96,6 +140,9 @@ export default function BankingIndex({
     transactions,
     imports,
     ledgerAccounts,
+    liabilityAccounts,
+    products,
+    productSummary,
     control,
     summary,
     filters,
@@ -105,6 +152,9 @@ export default function BankingIndex({
     transactions: TransactionPage;
     imports: StatementImport[];
     ledgerAccounts: LedgerAccount[];
+    liabilityAccounts: LiabilityAccount[];
+    products: FinancialProduct[];
+    productSummary: ProductSummary[];
     control: BankControl | null;
     summary: { pending: number; reconciled: number; pendingAmount: number };
     filters: { search: string; status: string; from: string; to: string };
@@ -163,6 +213,12 @@ export default function BankingIndex({
                         </div>
                     )}
                 </section>
+                <FinancialProducts
+                    products={products}
+                    summaries={productSummary}
+                    accounts={accounts}
+                    liabilityAccounts={liabilityAccounts}
+                />
                 {selectedAccount && (
                     <>
                         <section className="grid grid-cols-3 border-y">
@@ -608,6 +664,483 @@ export default function BankingIndex({
         </>
     );
 }
+
+function FinancialProducts({
+    products,
+    summaries,
+    accounts,
+    liabilityAccounts,
+}: {
+    products: FinancialProduct[];
+    summaries: ProductSummary[];
+    accounts: Account[];
+    liabilityAccounts: LiabilityAccount[];
+}) {
+    return (
+        <section className="grid gap-4 rounded-lg border p-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                    <h2 className="font-semibold">
+                        Credit cards and facilities
+                    </h2>
+                    <p className="text-sm text-muted-foreground">
+                        Control limits, drawn balances, available credit and
+                        contract maturities.
+                    </p>
+                </div>
+                <ProductDialog
+                    accounts={accounts}
+                    liabilityAccounts={liabilityAccounts}
+                />
+            </div>
+            {summaries.length > 0 && (
+                <div className="grid gap-px overflow-hidden rounded-md border bg-border md:grid-cols-3">
+                    {summaries.flatMap((summary) => [
+                        <ProductMetric
+                            key={`${summary.currency}-limit`}
+                            label={`Total limit · ${summary.currency}`}
+                            value={money(summary.limit, summary.currency)}
+                        />,
+                        <ProductMetric
+                            key={`${summary.currency}-used`}
+                            label={`Drawn / used · ${summary.currency}`}
+                            value={money(summary.used, summary.currency)}
+                        />,
+                        <ProductMetric
+                            key={`${summary.currency}-available`}
+                            label={`Available · ${summary.currency}`}
+                            value={money(summary.available, summary.currency)}
+                        />,
+                    ])}
+                </div>
+            )}
+            <div className="grid gap-3 lg:grid-cols-2">
+                {products.map((product) => (
+                    <article
+                        key={product.id}
+                        className={`rounded-md border p-4 ${product.is_active ? '' : 'opacity-60'}`}
+                    >
+                        <div className="flex items-start justify-between gap-3">
+                            <div>
+                                <div className="flex flex-wrap items-center gap-2">
+                                    {product.type === 'credit_card' ? (
+                                        <CreditCard className="size-4" />
+                                    ) : (
+                                        <WalletCards className="size-4" />
+                                    )}
+                                    <h3 className="font-medium">
+                                        {product.name}
+                                    </h3>
+                                    <Badge variant="outline">
+                                        {product.type === 'credit_card'
+                                            ? 'Credit card'
+                                            : 'Credit facility'}
+                                    </Badge>
+                                    {product.expired && (
+                                        <Badge variant="destructive">
+                                            Expired
+                                        </Badge>
+                                    )}
+                                    {!product.expired &&
+                                        product.expires_soon && (
+                                            <Badge variant="secondary">
+                                                Expires soon
+                                            </Badge>
+                                        )}
+                                </div>
+                                <p className="mt-1 text-sm text-muted-foreground">
+                                    {product.provider ?? 'Bank product'}
+                                    {product.identifier_last_four
+                                        ? ` · •••• ${product.identifier_last_four}`
+                                        : ''}
+                                    {product.contract_reference
+                                        ? ` · ${product.contract_reference}`
+                                        : ''}
+                                </p>
+                            </div>
+                            <ProductDialog
+                                product={product}
+                                accounts={accounts}
+                                liabilityAccounts={liabilityAccounts}
+                            />
+                        </div>
+                        <div className="mt-4 grid grid-cols-3 gap-3 text-sm">
+                            <ProductValue
+                                label="Limit"
+                                value={money(
+                                    Number(product.credit_limit),
+                                    product.currency,
+                                )}
+                            />
+                            <ProductValue
+                                label="Used"
+                                value={money(
+                                    Number(product.used_amount),
+                                    product.currency,
+                                )}
+                            />
+                            <ProductValue
+                                label="Available"
+                                value={money(
+                                    product.available_amount,
+                                    product.currency,
+                                )}
+                            />
+                        </div>
+                        <div className="mt-3 h-2 overflow-hidden rounded-full bg-muted">
+                            <div
+                                className={`h-full ${product.utilization >= 90 ? 'bg-destructive' : product.utilization >= 70 ? 'bg-amber-500' : 'bg-primary'}`}
+                                style={{
+                                    width: `${Math.min(100, product.utilization)}%`,
+                                }}
+                            />
+                        </div>
+                        <div className="mt-2 flex flex-wrap justify-between gap-2 text-xs text-muted-foreground">
+                            <span>{product.utilization}% utilized</span>
+                            <span>
+                                Settlement: {product.bank_account.name}
+                                {product.ledger_account
+                                    ? ` · ${product.ledger_account.code}`
+                                    : ''}
+                            </span>
+                            {product.expires_on && (
+                                <span>
+                                    Maturity: {date(product.expires_on)}
+                                </span>
+                            )}
+                        </div>
+                    </article>
+                ))}
+                {products.length === 0 && (
+                    <p className="py-6 text-center text-sm text-muted-foreground lg:col-span-2">
+                        Add credit cards and credit facilities to include them
+                        in the daily treasury position.
+                    </p>
+                )}
+            </div>
+        </section>
+    );
+}
+
+function ProductDialog({
+    product,
+    accounts,
+    liabilityAccounts,
+}: {
+    product?: FinancialProduct;
+    accounts: Account[];
+    liabilityAccounts: LiabilityAccount[];
+}) {
+    const [open, setOpen] = useState(false);
+    const [type, setType] = useState<string>(product?.type ?? 'credit_card');
+    const defaultLiability =
+        product?.ledger_account_id ??
+        liabilityAccounts.find((account) => account.code === '5201')?.id ??
+        liabilityAccounts[0]?.id;
+
+    return (
+        <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+                {product ? (
+                    <Button variant="ghost" size="icon" title="Edit product">
+                        <Pencil />
+                    </Button>
+                ) : (
+                    <Button disabled={accounts.length === 0}>
+                        <Plus /> Financial product
+                    </Button>
+                )}
+            </DialogTrigger>
+            <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
+                <DialogHeader>
+                    <DialogTitle>
+                        {product ? 'Edit' : 'New'} financial product
+                    </DialogTitle>
+                    <DialogDescription>
+                        Store only the last four card digits. Never enter a full
+                        card number, PIN or CVV.
+                    </DialogDescription>
+                </DialogHeader>
+                <Form
+                    action={
+                        product
+                            ? `/banking/products/${product.id}`
+                            : '/banking/products'
+                    }
+                    method={product ? 'patch' : 'post'}
+                    onSuccess={() => setOpen(false)}
+                    className="grid gap-4"
+                >
+                    {({ errors, processing }) => (
+                        <>
+                            <div className="grid gap-3 sm:grid-cols-2">
+                                <ProductField label="Product type">
+                                    <Select
+                                        name="type"
+                                        value={type}
+                                        onValueChange={setType}
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="credit_card">
+                                                Credit card
+                                            </SelectItem>
+                                            <SelectItem value="credit_facility">
+                                                Credit facility
+                                            </SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </ProductField>
+                                <ProductField label="Name">
+                                    <Input
+                                        name="name"
+                                        defaultValue={product?.name}
+                                        required
+                                    />
+                                </ProductField>
+                                <ProductField label="Bank / issuer">
+                                    <Input
+                                        name="provider"
+                                        defaultValue={product?.provider ?? ''}
+                                    />
+                                </ProductField>
+                                <ProductField label="Settlement account">
+                                    <Select
+                                        name="bank_account_id"
+                                        defaultValue={String(
+                                            product?.bank_account_id ??
+                                                accounts[0]?.id,
+                                        )}
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {accounts.map((account) => (
+                                                <SelectItem
+                                                    key={account.id}
+                                                    value={String(account.id)}
+                                                >
+                                                    {account.name}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </ProductField>
+                                <ProductField label="Liability ledger account">
+                                    <Select
+                                        name="ledger_account_id"
+                                        defaultValue={String(defaultLiability)}
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {liabilityAccounts.map(
+                                                (account) => (
+                                                    <SelectItem
+                                                        key={account.id}
+                                                        value={String(
+                                                            account.id,
+                                                        )}
+                                                    >
+                                                        {account.code} ·{' '}
+                                                        {account.name}
+                                                    </SelectItem>
+                                                ),
+                                            )}
+                                        </SelectContent>
+                                    </Select>
+                                </ProductField>
+                                {type === 'credit_card' ? (
+                                    <ProductField label="Last four digits">
+                                        <Input
+                                            name="identifier_last_four"
+                                            inputMode="numeric"
+                                            maxLength={4}
+                                            pattern="[0-9]{4}"
+                                            defaultValue={
+                                                product?.identifier_last_four ??
+                                                ''
+                                            }
+                                        />
+                                    </ProductField>
+                                ) : (
+                                    <ProductField label="Contract reference">
+                                        <Input
+                                            name="contract_reference"
+                                            defaultValue={
+                                                product?.contract_reference ??
+                                                ''
+                                            }
+                                        />
+                                    </ProductField>
+                                )}
+                                <ProductField label="Currency">
+                                    <Input
+                                        name="currency"
+                                        maxLength={3}
+                                        defaultValue={
+                                            product?.currency ?? 'EUR'
+                                        }
+                                        required
+                                    />
+                                </ProductField>
+                                <ProductField label="Credit limit">
+                                    <Input
+                                        name="credit_limit"
+                                        type="number"
+                                        min="0.01"
+                                        step="0.01"
+                                        defaultValue={product?.credit_limit}
+                                        required
+                                    />
+                                </ProductField>
+                                <ProductField label="Currently used / drawn">
+                                    <Input
+                                        name="used_amount"
+                                        type="number"
+                                        min="0"
+                                        step="0.01"
+                                        defaultValue={
+                                            product?.used_amount ?? '0'
+                                        }
+                                        required
+                                    />
+                                </ProductField>
+                                <ProductField label="Annual interest rate %">
+                                    <Input
+                                        name="annual_interest_rate"
+                                        type="number"
+                                        min="0"
+                                        max="100"
+                                        step="0.0001"
+                                        defaultValue={
+                                            product?.annual_interest_rate ?? ''
+                                        }
+                                    />
+                                </ProductField>
+                                <ProductField label="Annual fee">
+                                    <Input
+                                        name="annual_fee"
+                                        type="number"
+                                        min="0"
+                                        step="0.01"
+                                        defaultValue={
+                                            product?.annual_fee ?? '0'
+                                        }
+                                    />
+                                </ProductField>
+                                <ProductField label="Billing day">
+                                    <Input
+                                        name="billing_day"
+                                        type="number"
+                                        min="1"
+                                        max="31"
+                                        defaultValue={
+                                            product?.billing_day ?? ''
+                                        }
+                                    />
+                                </ProductField>
+                                <ProductField label="Payment day">
+                                    <Input
+                                        name="payment_day"
+                                        type="number"
+                                        min="1"
+                                        max="31"
+                                        defaultValue={
+                                            product?.payment_day ?? ''
+                                        }
+                                    />
+                                </ProductField>
+                                <ProductField label="Start date">
+                                    <Input
+                                        name="starts_on"
+                                        type="date"
+                                        defaultValue={dateInput(
+                                            product?.starts_on,
+                                        )}
+                                    />
+                                </ProductField>
+                                <ProductField label="Maturity / expiry">
+                                    <Input
+                                        name="expires_on"
+                                        type="date"
+                                        defaultValue={dateInput(
+                                            product?.expires_on,
+                                        )}
+                                    />
+                                </ProductField>
+                            </div>
+                            <ProductField label="Notes">
+                                <Textarea
+                                    name="notes"
+                                    defaultValue={product?.notes ?? ''}
+                                />
+                            </ProductField>
+                            <label className="flex items-center gap-2 text-sm">
+                                <input
+                                    type="hidden"
+                                    name="is_active"
+                                    value="0"
+                                />
+                                <Checkbox
+                                    name="is_active"
+                                    value="1"
+                                    defaultChecked={product?.is_active ?? true}
+                                />
+                                Active
+                            </label>
+                            {Object.keys(errors).length > 0 && (
+                                <p className="text-sm text-destructive">
+                                    {Object.values(errors)[0]}
+                                </p>
+                            )}
+                            <Button disabled={processing}>
+                                {product ? 'Save product' : 'Create product'}
+                            </Button>
+                        </>
+                    )}
+                </Form>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+function ProductField({
+    label,
+    children,
+}: {
+    label: string;
+    children: React.ReactNode;
+}) {
+    return (
+        <div className="grid gap-1">
+            <Label>{label}</Label>
+            {children}
+        </div>
+    );
+}
+
+function ProductMetric({ label, value }: { label: string; value: string }) {
+    return (
+        <div className="bg-background p-3">
+            <p className="text-xs text-muted-foreground">{label}</p>
+            <p className="mt-1 font-semibold">{value}</p>
+        </div>
+    );
+}
+
+function ProductValue({ label, value }: { label: string; value: string }) {
+    return (
+        <div>
+            <p className="text-xs text-muted-foreground">{label}</p>
+            <p className="font-medium">{value}</p>
+        </div>
+    );
+}
 function AccountDialog() {
     const [open, setOpen] = useState(false);
 
@@ -696,6 +1229,7 @@ const date = (value: string) =>
     new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(
         new Date(`${value.slice(0, 10)}T12:00:00`),
     );
+const dateInput = (value?: string | null) => value?.slice(0, 10) ?? '';
 BankingIndex.layout = {
     breadcrumbs: [
         { title: 'Finance', href: '/finance' },

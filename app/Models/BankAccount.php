@@ -25,6 +25,11 @@ class BankAccount extends Model
         return $this->hasMany(BankStatementImport::class);
     }
 
+    public function financialProducts(): HasMany
+    {
+        return $this->hasMany(BankFinancialProduct::class);
+    }
+
     public function ledgerAccount(): BelongsTo
     {
         return $this->belongsTo(LedgerAccount::class);

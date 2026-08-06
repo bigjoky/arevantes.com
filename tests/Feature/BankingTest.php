@@ -3,12 +3,14 @@
 namespace Tests\Feature;
 
 use App\Models\BankAccount;
+use App\Models\BankFinancialProduct;
 use App\Models\BankReconciliation;
 use App\Models\BankTransaction;
 use App\Models\BankTransactionPosting;
 use App\Models\BankTransfer;
 use App\Models\Expense;
 use App\Models\ExpenseCategory;
+use App\Models\LedgerAccount;
 use App\Models\PurchaseDocument;
 use App\Models\SalesDocument;
 use App\Models\SalesDocumentPayment;
@@ -23,6 +25,88 @@ use Tests\TestCase;
 class BankingTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_credit_cards_and_facilities_are_managed_in_the_treasury_position(): void
+    {
+        $user = User::factory()->create(['role' => 'commercial']);
+        $technician = User::factory()->create(['role' => 'technician']);
+        $this->actingAs($user)->post(route('banking.accounts.store'), [
+            'name' => 'Main settlement account',
+            'currency' => 'EUR',
+            'opening_balance' => 0,
+            'is_active' => true,
+        ])->assertSessionHasNoErrors();
+        $account = BankAccount::where('name', 'Main settlement account')->firstOrFail();
+        $liability = LedgerAccount::where('code', '5201')->firstOrFail();
+        $base = [
+            'bank_account_id' => $account->id,
+            'ledger_account_id' => $liability->id,
+            'provider' => 'Arevantes Bank',
+            'currency' => 'eur',
+            'annual_fee' => 0,
+            'is_active' => true,
+        ];
+
+        $this->post(route('banking.products.store'), [...$base,
+            'type' => 'credit_card',
+            'name' => 'Purchasing card',
+            'identifier_last_four' => '4242',
+            'credit_limit' => 10000,
+            'used_amount' => 2500,
+            'billing_day' => 25,
+            'payment_day' => 5,
+            'expires_on' => now()->addDays(30)->toDateString(),
+        ])->assertSessionHasNoErrors();
+        $this->post(route('banking.products.store'), [...$base,
+            'type' => 'credit_facility',
+            'name' => 'Working capital facility',
+            'contract_reference' => 'POL-2026-01',
+            'credit_limit' => 50000,
+            'used_amount' => 60000,
+            'annual_interest_rate' => 4.25,
+        ])->assertSessionHasErrors('used_amount');
+        $this->post(route('banking.products.store'), [...$base,
+            'type' => 'credit_facility',
+            'name' => 'Working capital facility',
+            'contract_reference' => 'POL-2026-01',
+            'credit_limit' => 50000,
+            'used_amount' => 20000,
+            'annual_interest_rate' => 4.25,
+        ])->assertSessionHasNoErrors();
+
+        $card = BankFinancialProduct::where('type', 'credit_card')->firstOrFail();
+        $this->assertSame('EUR', $card->currency);
+        $this->assertSame('4242', $card->identifier_last_four);
+        $this->assertNull($card->contract_reference);
+        $this->patch(route('banking.products.update', $card), [...$base,
+            'type' => 'credit_card',
+            'name' => 'Purchasing card',
+            'identifier_last_four' => '4242',
+            'credit_limit' => 10000,
+            'used_amount' => 3000,
+            'expires_on' => now()->addDays(30)->toDateString(),
+        ])->assertSessionHasNoErrors();
+        $this->assertSame('3000.00', $card->fresh()->used_amount);
+
+        $this->get(route('banking.index', ['account' => $account->id]))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('products', 2)
+                ->where('products.0.available_amount', 7000)
+                ->where('products.0.utilization', 30)
+                ->where('products.0.expires_soon', true)
+                ->where('productSummary.0.currency', 'EUR')
+                ->where('productSummary.0.limit', 60000)
+                ->where('productSummary.0.used', 23000)
+                ->where('productSummary.0.available', 37000));
+
+        $this->actingAs($technician)->post(route('banking.products.store'), [...$base,
+            'type' => 'credit_card',
+            'name' => 'Forbidden card',
+            'credit_limit' => 1000,
+            'used_amount' => 0,
+        ])->assertForbidden();
+    }
 
     public function test_european_csv_is_deduplicated_and_reconciled_with_recorded_payments(): void
     {
