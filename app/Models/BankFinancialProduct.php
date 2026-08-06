@@ -4,11 +4,13 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class BankFinancialProduct extends Model
 {
     protected $fillable = [
         'bank_account_id',
+        'shared_credit_facility_id',
         'ledger_account_id',
         'type',
         'name',
@@ -45,6 +47,16 @@ class BankFinancialProduct extends Model
     public function bankAccount(): BelongsTo
     {
         return $this->belongsTo(BankAccount::class);
+    }
+
+    public function sharedCreditFacility(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'shared_credit_facility_id');
+    }
+
+    public function linkedCards(): HasMany
+    {
+        return $this->hasMany(self::class, 'shared_credit_facility_id');
     }
 
     public function ledgerAccount(): BelongsTo

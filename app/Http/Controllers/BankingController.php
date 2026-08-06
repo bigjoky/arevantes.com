@@ -20,6 +20,7 @@ use App\Models\SupplierPayment;
 use App\Models\TaxReturnPayment;
 use App\Services\Accounting\AccountingSynchronizer;
 use App\Services\Accounting\JournalPoster;
+use App\Services\Banking\BankFinancialProductManager;
 use App\Services\Banking\StatementImporter;
 use App\Services\Finance\OutstandingBalanceCalculator;
 use Illuminate\Http\RedirectResponse;
@@ -67,19 +68,23 @@ class BankingController extends Controller
             'pendingAmount' => round((float) $account->transactions()->where('status', 'pending')->sum('amount'), 2),
         ] : ['pending' => 0, 'reconciled' => 0, 'pendingAmount' => 0];
 
-        $products = BankFinancialProduct::with(['bankAccount:id,name', 'ledgerAccount:id,code,name'])
+        $products = BankFinancialProduct::with(['bankAccount:id,name', 'ledgerAccount:id,code,name', 'sharedCreditFacility:id,name,credit_limit,used_amount,currency', 'linkedCards:id,name,shared_credit_facility_id,used_amount'])
             ->orderByDesc('is_active')
             ->orderBy('type')
             ->orderBy('name')
             ->get()
-            ->map(fn (BankFinancialProduct $product) => [
-                ...$product->toArray(),
-                'available_amount' => round((float) $product->credit_limit - (float) $product->used_amount, 2),
-                'utilization' => (float) $product->credit_limit > 0 ? round((float) $product->used_amount / (float) $product->credit_limit * 100, 1) : 0,
-                'expires_soon' => $product->expires_on?->between(today(), today()->addDays(60)) ?? false,
-                'expired' => $product->expires_on?->isBefore(today()) ?? false,
-            ]);
-        $productSummary = $products->where('is_active', true)->groupBy('currency')->map(fn (Collection $currencyProducts, string $currency) => [
+            ->map(function (BankFinancialProduct $product) {
+                $creditPool = $product->sharedCreditFacility ?? $product;
+
+                return [
+                    ...$product->toArray(),
+                    'available_amount' => round((float) $creditPool->credit_limit - (float) $creditPool->used_amount, 2),
+                    'utilization' => (float) $creditPool->credit_limit > 0 ? round((float) $creditPool->used_amount / (float) $creditPool->credit_limit * 100, 1) : 0,
+                    'expires_soon' => $product->expires_on?->between(today(), today()->addDays(60)) ?? false,
+                    'expired' => $product->expires_on?->isBefore(today()) ?? false,
+                ];
+            });
+        $productSummary = $products->where('is_active', true)->whereNull('shared_credit_facility_id')->groupBy('currency')->map(fn (Collection $currencyProducts, string $currency) => [
             'currency' => $currency,
             'limit' => round((float) $currencyProducts->sum(fn ($product) => (float) $product['credit_limit']), 2),
             'used' => round((float) $currencyProducts->sum(fn ($product) => (float) $product['used_amount']), 2),
@@ -103,16 +108,16 @@ class BankingController extends Controller
         return to_route('banking.index', ['account' => $account->id])->with('toast', ['type' => 'success', 'message' => __('Bank account created.')]);
     }
 
-    public function storeProduct(Request $request): RedirectResponse
+    public function storeProduct(Request $request, BankFinancialProductManager $manager): RedirectResponse
     {
-        BankFinancialProduct::create([...$this->validatedProduct($request), 'created_by' => $request->user()->id]);
+        $manager->create($this->validatedProduct($request), $request->user()->id);
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Bank financial product created.')]);
     }
 
-    public function updateProduct(Request $request, BankFinancialProduct $product): RedirectResponse
+    public function updateProduct(Request $request, BankFinancialProduct $product, BankFinancialProductManager $manager): RedirectResponse
     {
-        $product->update($this->validatedProduct($request));
+        $manager->update($product, $this->validatedProduct($request));
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Bank financial product updated.')]);
     }
@@ -130,17 +135,21 @@ class BankingController extends Controller
 
     private function validatedProduct(Request $request): array
     {
+        if ($request->input('shared_credit_facility_id') === 'independent') {
+            $request->merge(['shared_credit_facility_id' => null]);
+        }
         $data = $request->validate([
             'type' => ['required', Rule::in(['credit_card', 'credit_facility'])],
             'bank_account_id' => ['required', 'exists:bank_accounts,id'],
+            'shared_credit_facility_id' => ['nullable', 'integer', 'exists:bank_financial_products,id'],
             'ledger_account_id' => ['required', Rule::exists('ledger_accounts', 'id')->where(fn ($query) => $query->where('type', 'liability')->where('is_active', true)->where('is_postable', true))],
             'name' => ['required', 'string', 'max:255'],
             'provider' => ['nullable', 'string', 'max:255'],
             'currency' => ['required', 'string', 'size:3'],
             'identifier_last_four' => ['nullable', 'digits:4'],
             'contract_reference' => ['nullable', 'string', 'max:100'],
-            'credit_limit' => ['required', 'numeric', 'gt:0'],
-            'used_amount' => ['required', 'numeric', 'min:0', 'lte:credit_limit'],
+            'credit_limit' => ['nullable', 'numeric', 'gt:0'],
+            'used_amount' => ['required', 'numeric', 'min:0'],
             'annual_interest_rate' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'annual_fee' => ['nullable', 'numeric', 'min:0'],
             'billing_day' => ['nullable', 'integer', 'between:1,31'],

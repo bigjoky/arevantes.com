@@ -108,6 +108,71 @@ class BankingTest extends TestCase
         ])->assertForbidden();
     }
 
+    public function test_multiple_cards_can_draw_from_one_shared_credit_facility(): void
+    {
+        $user = User::factory()->create(['role' => 'commercial']);
+        $this->actingAs($user)->post(route('banking.accounts.store'), [
+            'name' => 'Shared cards settlement',
+            'currency' => 'EUR',
+            'opening_balance' => 0,
+            'is_active' => true,
+        ])->assertSessionHasNoErrors();
+        $account = BankAccount::where('name', 'Shared cards settlement')->firstOrFail();
+        $liability = LedgerAccount::where('code', '5201')->firstOrFail();
+        $common = [
+            'bank_account_id' => $account->id,
+            'ledger_account_id' => $liability->id,
+            'provider' => 'Shared Bank',
+            'currency' => 'EUR',
+            'annual_fee' => 0,
+            'is_active' => true,
+        ];
+        $this->post(route('banking.products.store'), [...$common,
+            'type' => 'credit_facility',
+            'name' => 'Corporate card pool',
+            'contract_reference' => 'POOL-10K',
+            'credit_limit' => 10000,
+            'used_amount' => 0,
+        ])->assertSessionHasNoErrors();
+        $facility = BankFinancialProduct::where('type', 'credit_facility')->firstOrFail();
+
+        foreach ([['Operations card', '1111', 3000], ['Purchasing card', '2222', 2000]] as [$name, $lastFour, $used]) {
+            $this->post(route('banking.products.store'), [...$common,
+                'type' => 'credit_card',
+                'name' => $name,
+                'identifier_last_four' => $lastFour,
+                'shared_credit_facility_id' => $facility->id,
+                'used_amount' => $used,
+            ])->assertSessionHasNoErrors();
+        }
+
+        $this->assertSame('5000.00', $facility->fresh()->used_amount);
+        $this->assertSame(2, $facility->linkedCards()->count());
+        $this->assertTrue($facility->linkedCards->every(fn ($card) => $card->credit_limit === '10000.00'));
+
+        $purchasing = BankFinancialProduct::where('name', 'Purchasing card')->firstOrFail();
+        $this->patch(route('banking.products.update', $purchasing), [...$common,
+            'type' => 'credit_card',
+            'name' => $purchasing->name,
+            'identifier_last_four' => '2222',
+            'shared_credit_facility_id' => $facility->id,
+            'used_amount' => 8000,
+        ])->assertSessionHasErrors('used_amount');
+        $this->assertSame('2000.00', $purchasing->fresh()->used_amount);
+        $this->assertSame('5000.00', $facility->fresh()->used_amount);
+
+        $this->get(route('banking.index', ['account' => $account->id]))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('productSummary.0.limit', 10000)
+                ->where('productSummary.0.used', 5000)
+                ->where('productSummary.0.available', 5000)
+                ->where('products.0.shared_credit_facility.name', 'Corporate card pool')
+                ->where('products.0.available_amount', 5000)
+                ->where('products.1.available_amount', 5000)
+                ->has('products.2.linked_cards', 2));
+    }
+
     public function test_european_csv_is_deduplicated_and_reconciled_with_recorded_payments(): void
     {
         $user = User::factory()->create(['role' => 'commercial']);

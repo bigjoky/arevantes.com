@@ -55,6 +55,7 @@ type LiabilityAccount = { id: number; code: string; name: string };
 type FinancialProduct = {
     id: number;
     bank_account_id: number;
+    shared_credit_facility_id: number | null;
     ledger_account_id: number;
     type: 'credit_card' | 'credit_facility';
     name: string;
@@ -78,6 +79,14 @@ type FinancialProduct = {
     expired: boolean;
     bank_account: { name: string };
     ledger_account: { code: string; name: string } | null;
+    shared_credit_facility: {
+        id: number;
+        name: string;
+        credit_limit: string;
+        used_amount: string;
+        currency: string;
+    } | null;
+    linked_cards: { id: number; name: string; used_amount: string }[];
 };
 type ProductSummary = {
     currency: string;
@@ -691,6 +700,11 @@ function FinancialProducts({
                 <ProductDialog
                     accounts={accounts}
                     liabilityAccounts={liabilityAccounts}
+                    facilities={products.filter(
+                        (product) =>
+                            product.type === 'credit_facility' &&
+                            product.is_active,
+                    )}
                 />
             </div>
             {summaries.length > 0 && (
@@ -741,6 +755,15 @@ function FinancialProducts({
                                             Expired
                                         </Badge>
                                     )}
+                                    {product.shared_credit_facility && (
+                                        <Badge variant="secondary">
+                                            Shared ·{' '}
+                                            {
+                                                product.shared_credit_facility
+                                                    .name
+                                            }
+                                        </Badge>
+                                    )}
                                     {!product.expired &&
                                         product.expires_soon && (
                                             <Badge variant="secondary">
@@ -762,18 +785,36 @@ function FinancialProducts({
                                 product={product}
                                 accounts={accounts}
                                 liabilityAccounts={liabilityAccounts}
+                                facilities={products.filter(
+                                    (candidate) =>
+                                        candidate.type === 'credit_facility' &&
+                                        candidate.is_active &&
+                                        candidate.id !== product.id,
+                                )}
                             />
                         </div>
                         <div className="mt-4 grid grid-cols-3 gap-3 text-sm">
                             <ProductValue
-                                label="Limit"
+                                label={
+                                    product.shared_credit_facility
+                                        ? 'Shared limit'
+                                        : 'Limit'
+                                }
                                 value={money(
-                                    Number(product.credit_limit),
+                                    Number(
+                                        product.shared_credit_facility
+                                            ?.credit_limit ??
+                                            product.credit_limit,
+                                    ),
                                     product.currency,
                                 )}
                             />
                             <ProductValue
-                                label="Used"
+                                label={
+                                    product.shared_credit_facility
+                                        ? 'This card'
+                                        : 'Used'
+                                }
                                 value={money(
                                     Number(product.used_amount),
                                     product.currency,
@@ -808,6 +849,14 @@ function FinancialProducts({
                                     Maturity: {date(product.expires_on)}
                                 </span>
                             )}
+                            {product.linked_cards.length > 0 && (
+                                <span>
+                                    Shared by:{' '}
+                                    {product.linked_cards
+                                        .map((card) => card.name)
+                                        .join(', ')}
+                                </span>
+                            )}
                         </div>
                     </article>
                 ))}
@@ -826,13 +875,20 @@ function ProductDialog({
     product,
     accounts,
     liabilityAccounts,
+    facilities,
 }: {
     product?: FinancialProduct;
     accounts: Account[];
     liabilityAccounts: LiabilityAccount[];
+    facilities: FinancialProduct[];
 }) {
     const [open, setOpen] = useState(false);
     const [type, setType] = useState<string>(product?.type ?? 'credit_card');
+    const [sharedFacility, setSharedFacility] = useState<string>(
+        product?.shared_credit_facility_id
+            ? String(product.shared_credit_facility_id)
+            : 'independent',
+    );
     const defaultLiability =
         product?.ledger_account_id ??
         liabilityAccounts.find((account) => account.code === '5201')?.id ??
@@ -954,6 +1010,40 @@ function ProductDialog({
                                         </SelectContent>
                                     </Select>
                                 </ProductField>
+                                {type === 'credit_card' && (
+                                    <ProductField label="Credit arrangement">
+                                        <Select
+                                            name="shared_credit_facility_id"
+                                            value={sharedFacility}
+                                            onValueChange={setSharedFacility}
+                                        >
+                                            <SelectTrigger>
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="independent">
+                                                    Independent card limit
+                                                </SelectItem>
+                                                {facilities.map((facility) => (
+                                                    <SelectItem
+                                                        key={facility.id}
+                                                        value={String(
+                                                            facility.id,
+                                                        )}
+                                                    >
+                                                        Shared · {facility.name}{' '}
+                                                        ·{' '}
+                                                        {money(
+                                                            facility.available_amount,
+                                                            facility.currency,
+                                                        )}{' '}
+                                                        available
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </ProductField>
+                                )}
                                 {type === 'credit_card' ? (
                                     <ProductField label="Last four digits">
                                         <Input
@@ -988,16 +1078,19 @@ function ProductDialog({
                                         required
                                     />
                                 </ProductField>
-                                <ProductField label="Credit limit">
-                                    <Input
-                                        name="credit_limit"
-                                        type="number"
-                                        min="0.01"
-                                        step="0.01"
-                                        defaultValue={product?.credit_limit}
-                                        required
-                                    />
-                                </ProductField>
+                                {(type !== 'credit_card' ||
+                                    sharedFacility === 'independent') && (
+                                    <ProductField label="Credit limit">
+                                        <Input
+                                            name="credit_limit"
+                                            type="number"
+                                            min="0.01"
+                                            step="0.01"
+                                            defaultValue={product?.credit_limit}
+                                            required
+                                        />
+                                    </ProductField>
+                                )}
                                 <ProductField label="Currently used / drawn">
                                     <Input
                                         name="used_amount"
@@ -1006,6 +1099,12 @@ function ProductDialog({
                                         step="0.01"
                                         defaultValue={
                                             product?.used_amount ?? '0'
+                                        }
+                                        readOnly={
+                                            type === 'credit_facility' &&
+                                            Boolean(
+                                                product?.linked_cards.length,
+                                            )
                                         }
                                         required
                                     />
