@@ -196,6 +196,8 @@ Route::middleware(['auth'])->group(function () {
     Route::post('accounting/entries/{entry}/reverse', [AccountingController::class, 'reverse'])->middleware('can:manage-accounting')->name('accounting.entries.reverse');
     Route::post('accounting/years/{fiscalYear}/close', [AccountingController::class, 'close'])->middleware('can:manage-staff')->name('accounting.years.close');
     Route::post('accounting/years/{fiscalYear}/opening', [AccountingController::class, 'opening'])->middleware('can:manage-staff')->name('accounting.years.opening');
+    Route::post('accounting/periods/{year}/{month}/close', [AccountingController::class, 'closePeriod'])->middleware('can:manage-staff')->name('accounting.periods.close');
+    Route::post('accounting/periods/{year}/{month}/reopen', [AccountingController::class, 'reopenPeriod'])->middleware('can:manage-staff')->name('accounting.periods.reopen');
     Route::patch('accounting/mappings/expense-categories/{category}', [AccountingController::class, 'updateExpenseCategory'])->middleware('can:manage-accounting')->name('accounting.mappings.expense-categories.update');
     Route::patch('accounting/mappings/tax-rates/{taxRate}', [AccountingController::class, 'updateTaxRate'])->middleware('can:manage-accounting')->name('accounting.mappings.tax-rates.update');
     Route::get('accounting/accounts', [ChartOfAccountsController::class, 'index'])->middleware('can:view-finance')->name('accounting.accounts.index');

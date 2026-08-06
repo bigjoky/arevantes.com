@@ -2,7 +2,9 @@
 
 namespace Tests\Feature;
 
+use App\Models\AccountingPeriod;
 use App\Models\AccountingTemplate;
+use App\Models\AuditLog;
 use App\Models\CorporateTaxReturn;
 use App\Models\Expense;
 use App\Models\ExpenseCategory;
@@ -192,6 +194,106 @@ class AccountingTest extends TestCase
         $this->assertSame(2, JournalEntry::count());
         $this->assertSame($entry->id, JournalEntry::where('entry_kind', 'reversal')->firstOrFail()->reverses_entry_id);
         $this->actingAs($user)->post(route('accounting.entries.reverse', $entry), ['entry_date' => now()->toDateString()])->assertSessionHasErrors('entry');
+    }
+
+    public function test_monthly_close_blocks_posting_until_an_audited_reopening(): void
+    {
+        $this->travelTo('2026-08-06 10:00:00');
+        $admin = User::factory()->create(['role' => 'admin']);
+        $commercial = User::factory()->create(['role' => 'commercial']);
+        $invoice = SalesDocument::create([
+            'type' => 'invoice',
+            'number' => 'FAC-PERIOD-1',
+            'status' => 'issued',
+            'issue_date' => '2026-07-15',
+            'subtotal' => 100,
+            'discount_amount' => 0,
+            'tax_amount' => 21,
+            'amount' => 121,
+            'paid_amount' => 0,
+            'customer_snapshot' => [],
+        ]);
+        $checklist = [
+            'confirmation' => '2026-07',
+            'bank_reconciled' => '1',
+            'receivables_reviewed' => '1',
+            'payables_reviewed' => '1',
+            'tax_reviewed' => '1',
+            'closure_notes' => 'July reviewed by finance.',
+        ];
+
+        $this->actingAs($admin)
+            ->post(route('accounting.periods.close', ['year' => 2026, 'month' => 7]), $checklist)
+            ->assertSessionHasErrors('period');
+
+        $this->post(route('accounting.sync'))->assertSessionHasNoErrors();
+        $this->assertDatabaseHas('journal_entries', [
+            'source_type' => $invoice->getMorphClass(),
+            'source_id' => $invoice->id,
+            'event' => 'document',
+        ]);
+
+        $this->post(route('accounting.periods.close', ['year' => 2026, 'month' => 7]), $checklist)
+            ->assertSessionHasNoErrors();
+        $period = AccountingPeriod::firstOrFail();
+        $this->assertSame('closed', $period->status);
+        $this->assertSame($admin->id, $period->closed_by);
+        $this->assertTrue($period->checklist['bankReconciled']);
+
+        $entry = [
+            'entry_date' => '2026-07-31',
+            'description' => 'Late July adjustment',
+            'lines' => [
+                ['account_code' => '572', 'debit' => 10, 'credit' => 0],
+                ['account_code' => '129', 'debit' => 0, 'credit' => 10],
+            ],
+        ];
+        $this->post(route('accounting.entries.store'), $entry)
+            ->assertSessionHasErrors('accounting_period');
+        SalesDocument::create([
+            'type' => 'invoice',
+            'number' => 'FAC-PERIOD-LATE',
+            'status' => 'issued',
+            'issue_date' => '2026-07-31',
+            'subtotal' => 20,
+            'discount_amount' => 0,
+            'tax_amount' => 0,
+            'amount' => 20,
+            'paid_amount' => 0,
+            'customer_snapshot' => [],
+        ]);
+        $this->post(route('accounting.sync'))
+            ->assertSessionHasErrors('accounting_period');
+        $this->actingAs($commercial)
+            ->post(route('accounting.periods.reopen', ['year' => 2026, 'month' => 7]), ['reopen_reason' => 'Late adjustment required.'])
+            ->assertForbidden();
+
+        $this->actingAs($admin)
+            ->post(route('accounting.periods.reopen', ['year' => 2026, 'month' => 7]), ['reopen_reason' => 'Late adjustment required.'])
+            ->assertSessionHasNoErrors();
+        $this->assertDatabaseHas('accounting_periods', [
+            'id' => $period->id,
+            'status' => 'open',
+            'reopened_by' => $admin->id,
+            'reopen_reason' => 'Late adjustment required.',
+        ]);
+        $this->post(route('accounting.entries.store'), $entry)->assertSessionHasNoErrors();
+        $this->post(route('accounting.sync'))->assertSessionHasNoErrors();
+        $this->assertGreaterThanOrEqual(
+            2,
+            AuditLog::where('auditable_type', $period->getMorphClass())
+                ->where('auditable_id', $period->id)
+                ->count(),
+        );
+
+        $this->get(route('accounting.index', ['year' => 2026, 'month' => 7]))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('selectedMonth', 7)
+                ->where('periodSummary.unpostedItems', 0)
+                ->where('periodSummary.unbalancedEntries', 0)
+                ->where('accountingPeriods.0.status', 'open')
+                ->where('canClosePeriods', true));
     }
 
     public function test_closing_regularizes_income_and_generates_next_year_opening(): void
