@@ -633,6 +633,11 @@ class FinanceController extends Controller
         DB::transaction(function () use ($request, $paymentBatch) {
             $batch = PaymentBatch::query()->lockForUpdate()->findOrFail($paymentBatch->id);
             abort_unless($batch->status === 'draft', 422);
+            if ($batch->created_by === $request->user()->id) {
+                throw ValidationException::withMessages([
+                    'payment_batch' => __('The person who prepared a payment batch cannot approve it.'),
+                ]);
+            }
             $this->validatePaymentBatch($batch, true);
             $batch->update(['status' => 'approved', 'approved_by' => $request->user()->id, 'approved_at' => now()]);
         });
@@ -654,9 +659,7 @@ class FinanceController extends Controller
         $paymentBatch->load(['account', 'items']);
         $company = CompanyProfile::firstOrFail();
         $debtorIban = $this->paymentAccountIban($paymentBatch, $company);
-        $payments = $paymentBatch->status === 'approved'
-            ? $this->validatePaymentBatch($paymentBatch, true)
-            : $this->paymentBatchTransfers($paymentBatch);
+        $payments = $this->paymentBatchTransfers($paymentBatch);
         $xml = $this->sepaXml($paymentBatch, $company, $debtorIban, $payments);
         if ($paymentBatch->status === 'approved') {
             $paymentBatch->update(['status' => 'exported', 'exported_at' => now()]);
@@ -1023,11 +1026,19 @@ class FinanceController extends Controller
             if ($requireRecipientIban && ! $document->supplier?->iban) {
                 throw ValidationException::withMessages(['payment_batch' => __('Every payment recipient must have an IBAN.')]);
             }
-            if (round((float) $item->amount, 2) !== round($amount, 2)) {
-                $item->update(['amount' => $amount]);
+            $transfer = $this->paymentTransfer($document, $amount);
+            if ($requireRecipientIban && ! $this->validIban($transfer['iban'])) {
+                throw ValidationException::withMessages(['payment_batch' => __('A payment recipient has an invalid IBAN.')]);
             }
+            $item->update([
+                'amount' => $amount,
+                'recipient_name' => $transfer['name'],
+                'recipient_iban' => $this->normalizeIban($transfer['iban']),
+                'recipient_bic' => $transfer['bic'],
+                'payment_reference' => $transfer['reference'],
+            ]);
 
-            return $this->paymentTransfer($document, $amount);
+            return $transfer;
         });
 
         if ((float) $transfers->sum('amount') <= 0) {
@@ -1045,14 +1056,17 @@ class FinanceController extends Controller
         }
 
         return $batch->items->map(function (PaymentBatchItem $item) {
-            $document = $item->payable_type === 'invoice'
-                ? PurchaseDocument::with('supplier')->findOrFail($item->payable_id)
-                : Expense::with('supplier')->findOrFail($item->payable_id);
-            if (! $document->supplier?->iban) {
-                throw ValidationException::withMessages(['payment_batch' => __('Every payment recipient must have an IBAN.')]);
+            if (! $item->recipient_name || ! $item->recipient_iban || ! $item->payment_reference) {
+                throw ValidationException::withMessages(['payment_batch' => __('The approved recipient snapshot is incomplete. Cancel and prepare the batch again.')]);
             }
 
-            return $this->paymentTransfer($document, (float) $item->amount);
+            return [
+                'name' => $item->recipient_name,
+                'iban' => $item->recipient_iban,
+                'bic' => $item->recipient_bic,
+                'reference' => $item->payment_reference,
+                'amount' => (float) $item->amount,
+            ];
         });
     }
 
@@ -1073,12 +1087,39 @@ class FinanceController extends Controller
         if ($batch->account && ! $batch->account->is_active) {
             throw ValidationException::withMessages(['payment_batch' => __('The selected payment account is inactive.')]);
         }
-        $iban = preg_replace('/\s+/', '', (string) ($batch->account?->iban ?: $company->iban));
+        $iban = $this->normalizeIban($batch->account?->iban ?: $company->iban);
         if (! $iban) {
             throw ValidationException::withMessages(['payment_batch' => __('Configure the paying account IBAN before approving the batch.')]);
         }
+        if (! $this->validIban($iban)) {
+            throw ValidationException::withMessages(['payment_batch' => __('The paying account has an invalid IBAN.')]);
+        }
 
         return $iban;
+    }
+
+    private function normalizeIban(mixed $iban): string
+    {
+        return strtoupper((string) preg_replace('/\s+/', '', (string) $iban));
+    }
+
+    private function validIban(mixed $iban): bool
+    {
+        $iban = $this->normalizeIban($iban);
+        if (! preg_match('/^[A-Z]{2}[0-9]{2}[A-Z0-9]{11,30}$/', $iban)) {
+            return false;
+        }
+
+        $rearranged = substr($iban, 4).substr($iban, 0, 4);
+        $remainder = 0;
+        foreach (str_split($rearranged) as $character) {
+            $digits = ctype_alpha($character) ? (string) (ord($character) - 55) : $character;
+            foreach (str_split($digits) as $digit) {
+                $remainder = ($remainder * 10 + (int) $digit) % 97;
+            }
+        }
+
+        return $remainder === 1;
     }
 
     private function sepaXml(PaymentBatch $batch, CompanyProfile $company, string $debtorIban, Collection $payments): string

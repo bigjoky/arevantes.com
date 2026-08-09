@@ -6,6 +6,7 @@ use App\Models\BankAccount;
 use App\Models\BankReconciliation;
 use App\Models\Expense;
 use App\Models\ExpenseCategory;
+use App\Models\JournalEntry;
 use App\Models\Product;
 use App\Models\PurchaseDocument;
 use App\Models\SalesDocument;
@@ -24,6 +25,36 @@ use Tests\TestCase;
 class TaxTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_sales_credit_note_reduces_vat_and_posts_a_balanced_entry(): void
+    {
+        $user = User::factory()->create(['role' => 'commercial']);
+        $credit = SalesDocument::create([
+            'type' => 'credit_note', 'number' => 'AB-2026-00001', 'status' => 'issued',
+            'issue_date' => '2026-07-15', 'issued_at' => now(), 'locked_at' => now(),
+            'subtotal' => -100, 'discount_amount' => 0, 'tax_amount' => -21,
+            'amount' => -121, 'paid_amount' => 0, 'customer_snapshot' => ['company_name' => 'Cliente SL'],
+        ]);
+        $credit->lines()->create([
+            'position' => 1, 'description' => 'Correction', 'quantity' => -1,
+            'unit_price' => 100, 'discount_percent' => 0, 'tax_percent' => 21,
+            'subtotal' => -100, 'discount_amount' => 0, 'tax_amount' => -21, 'total' => -121,
+        ]);
+
+        $entryId = app(AccountingSynchronizer::class)->syncSalesDocument($credit, $user->id);
+        $entry = JournalEntry::with('lines.account')->findOrFail($entryId);
+        $report = app(VatReport::class)->make(2026, 3);
+
+        $this->assertEqualsWithDelta(121, $entry->lines->sum('debit'), 0.001);
+        $this->assertEqualsWithDelta(121, $entry->lines->sum('credit'), 0.001);
+        $this->assertTrue($entry->lines->every(fn ($line) => (float) $line->debit >= 0 && (float) $line->credit >= 0));
+        $this->assertEqualsWithDelta(100, $entry->lines->firstWhere('account.code', '700')->debit, 0.001);
+        $this->assertEqualsWithDelta(21, $entry->lines->firstWhere('account.code', '477')->debit, 0.001);
+        $this->assertEqualsWithDelta(-100, $report['summary']['taxableBaseIssued'], 0.001);
+        $this->assertEqualsWithDelta(-21, $report['summary']['outputVat'], 0.001);
+        $this->assertEqualsWithDelta(-21, $report['summary']['result'], 0.001);
+        $this->assertTrue($report['accountingCheck']['matches']);
+    }
 
     public function test_supplier_transport_is_reported_as_a_separate_21_percent_vat_base(): void
     {

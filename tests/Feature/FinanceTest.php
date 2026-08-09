@@ -560,8 +560,16 @@ class FinanceTest extends TestCase
         SupplierPayment::create(['purchase_document_id' => $purchase->id, 'created_by' => $commercial->id, 'paid_at' => today(), 'amount' => 21, 'method' => 'bank_transfer']);
         $purchase->update(['paid_amount' => 21, 'status' => 'partial']);
         $this->actingAs($admin)->post(route('finance.payment-batches.approve', $batch))->assertRedirect()->assertSessionHasNoErrors();
-        $this->assertSame('100.00', $batch->items()->firstOrFail()->fresh()->amount);
+        $approvedItem = $batch->items()->firstOrFail()->fresh();
+        $this->assertSame('100.00', $approvedItem->amount);
+        $this->assertSame('SEPA Supplier SL', $approvedItem->recipient_name);
+        $this->assertSame('ES9121000418450200051332', $approvedItem->recipient_iban);
+        $supplier->update(['legal_name' => 'Changed after approval SL', 'iban' => 'ES6621000418401234567891']);
         $this->get(route('finance.payment-batches.sepa', $batch))->assertOk()->assertDownload($batch->number.'.xml');
+        $xml = $this->get(route('finance.payment-batches.sepa', $batch->fresh()))->streamedContent();
+        $this->assertStringContainsString('SEPA Supplier SL', $xml);
+        $this->assertStringContainsString('ES9121000418450200051332', $xml);
+        $this->assertStringNotContainsString('Changed after approval SL', $xml);
         $this->get(route('finance.payment-batches.sepa', $batch))->assertOk()->assertDownload($batch->number.'.xml');
         $this->assertSame('exported', $batch->fresh()->status);
         $this->post(route('finance.payment-batches.execute', $batch), ['paid_on' => today()->toDateString()])
@@ -582,6 +590,26 @@ class FinanceTest extends TestCase
         $this->assertNull($batch->fresh()->reconciled_at);
         $this->post(route('finance.payment-batches.execute', $batch), ['paid_on' => today()->toDateString()])->assertStatus(422);
         $this->assertGreaterThanOrEqual(4, AuditLog::whereIn('auditable_type', [FinancialForecastItem::class, FinancialBudget::class, CollectionAction::class, PaymentBatch::class])->count());
+    }
+
+    public function test_payment_batch_creator_cannot_approve_their_own_batch(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $supplier = Supplier::create(['legal_name' => 'Independent approval SL', 'country' => 'ES', 'iban' => 'ES9121000418450200051332']);
+        $account = BankAccount::create(['name' => 'Payments', 'iban' => 'ES7921000813610123456789', 'currency' => 'EUR', 'opening_balance' => 5000, 'is_active' => true]);
+        $purchase = PurchaseDocument::create(['type' => 'supplier_invoice', 'supplier_id' => $supplier->id, 'number' => 'FR-SOD-1', 'status' => 'registered', 'issue_date' => now(), 'due_date' => now(), 'subtotal' => 100, 'tax_amount' => 21, 'amount' => 121, 'paid_amount' => 0]);
+
+        $this->actingAs($admin)->post(route('finance.payment-batches.store'), [
+            'bank_account_id' => $account->id,
+            'planned_on' => today()->toDateString(),
+            'payables' => ['invoice:'.$purchase->id],
+        ])->assertSessionHasNoErrors();
+        $batch = PaymentBatch::firstOrFail();
+
+        $this->post(route('finance.payment-batches.approve', $batch))
+            ->assertSessionHasErrors('payment_batch');
+        $this->assertSame('draft', $batch->fresh()->status);
+        $this->assertNull($batch->approved_by);
     }
 
     public function test_cancelling_a_payment_batch_releases_its_documents(): void

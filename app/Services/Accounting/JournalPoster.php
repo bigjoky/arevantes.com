@@ -28,7 +28,7 @@ class JournalPoster
             }
         }
 
-        if ($kind !== 'closing') {
+        if (! in_array($kind, ['closing', 'closing_reversal', 'opening_reversal'], true)) {
             $this->periods->assertOpen($date);
         }
 

@@ -421,6 +421,7 @@ function FiscalYearConfirmation({
 }) {
     const [open, setOpen] = useState(false);
     const [confirmation, setConfirmation] = useState('');
+    const [reopenReason, setReopenReason] = useState('');
     const closing = action === 'close';
     const expected = String(year.year);
 
@@ -432,6 +433,7 @@ function FiscalYearConfirmation({
 
                 if (!nextOpen) {
                     setConfirmation('');
+                    setReopenReason('');
                 }
             }}
         >
@@ -449,7 +451,7 @@ function FiscalYearConfirmation({
                     <DialogDescription>
                         {closing
                             ? 'El cierre bloqueará la numeración y los nuevos asientos de este ejercicio. Revise antes los borradores y saldos pendientes.'
-                            : 'La reapertura restaurará la numeración y eliminará los asientos de cierre y apertura vinculados. Esta acción no generará contraasientos.'}
+                            : 'La reapertura conservará el histórico y generará contraasientos auditados para el cierre y la apertura vinculados.'}
                     </DialogDescription>
                 </DialogHeader>
                 <Form
@@ -478,10 +480,31 @@ function FiscalYearConfirmation({
                                     message={errors.confirmation || errors.year}
                                 />
                             </div>
+                            {!closing && (
+                                <div className="grid gap-2">
+                                    <Label htmlFor={`reopen-reason-${year.id}`}>
+                                        Motivo de la reapertura
+                                    </Label>
+                                    <textarea
+                                        id={`reopen-reason-${year.id}`}
+                                        name="reopen_reason"
+                                        value={reopenReason}
+                                        onChange={(event) =>
+                                            setReopenReason(event.target.value)
+                                        }
+                                        className="min-h-24 rounded-md border bg-transparent p-3 text-sm"
+                                        maxLength={2000}
+                                        required
+                                    />
+                                    <InputError message={errors.reopen_reason} />
+                                </div>
+                            )}
                             <Button
                                 variant={closing ? 'destructive' : 'default'}
                                 disabled={
-                                    processing || confirmation !== expected
+                                    processing ||
+                                    confirmation !== expected ||
+                                    (!closing && reopenReason.trim().length < 10)
                                 }
                             >
                                 {closing ? <LockKeyhole /> : <UnlockKeyhole />}

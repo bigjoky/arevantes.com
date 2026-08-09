@@ -87,10 +87,13 @@ class FiscalSettingsController extends Controller
 
     public function reopenYear(Request $request, FiscalYear $fiscalYear, FiscalYearClosing $closing): RedirectResponse
     {
-        $request->validate(['confirmation' => ['required', Rule::in([(string) $fiscalYear->year])]]);
-        $closing->reopen($fiscalYear);
+        $data = $request->validate([
+            'confirmation' => ['required', Rule::in([(string) $fiscalYear->year])],
+            'reopen_reason' => ['required', 'string', 'min:10', 'max:2000'],
+        ]);
+        $closing->reopen($fiscalYear, $request->user()->id, $data['reopen_reason']);
 
-        return back()->with('toast', ['type' => 'success', 'message' => __('Fiscal year reopened and closing entries deleted.')]);
+        return back()->with('toast', ['type' => 'success', 'message' => __('Fiscal year reopened with audited reversal entries.')]);
     }
 
     public function openNextYear(Request $request, FiscalYear $fiscalYear, FiscalYearClosing $closing): RedirectResponse
