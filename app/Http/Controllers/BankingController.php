@@ -70,17 +70,18 @@ class BankingController extends Controller
             ->latest('booked_on')
             ->latest('id')
             ->paginate(25)
-            ->withQueryString()
-            ->through(function ($transaction) use ($medianAmount) {
-                $candidates = $transaction->status === 'pending' ? $this->candidates($transaction) : [];
+            ->withQueryString();
+        $candidatePool = $this->candidatePool($transactions->getCollection());
+        $transactions->through(function ($transaction) use ($medianAmount, $candidatePool) {
+            $candidates = $transaction->status === 'pending' ? $this->candidates($transaction, false, $candidatePool) : [];
 
-                return [
-                    ...$transaction->toArray(),
-                    'transfer' => $transaction->outgoingTransfer ?? $transaction->incomingTransfer,
-                    'candidates' => $candidates,
-                    ...$this->transactionAnalyzer->analyze($transaction, $candidates, $medianAmount),
-                ];
-            });
+            return [
+                ...$transaction->toArray(),
+                'transfer' => $transaction->outgoingTransfer ?? $transaction->incomingTransfer,
+                'candidates' => $candidates,
+                ...$this->transactionAnalyzer->analyze($transaction, $candidates, $medianAmount),
+            ];
+        });
 
         $summary = $account ? [
             'pending' => $account->transactions()->where('status', 'pending')->count(),
@@ -137,6 +138,9 @@ class BankingController extends Controller
             ->get()
             ->map(fn (BankStatementImport $import) => [
                 ...$import->toArray(),
+                'source_account' => ($source = data_get($import->control_data, 'account'))
+                    ? $source['entity'].'-'.$source['office'].'-'.substr($source['account'], -4)
+                    : null,
                 'can_rollback' => ! $import->rolled_back_at
                     && $import->created_transactions > 0
                     && $import->transactions_count === $import->created_transactions
@@ -421,17 +425,26 @@ class BankingController extends Controller
         return back()->with('toast', ['type' => 'success', 'message' => __('Bank transfer match reversed.')]);
     }
 
-    private function candidates(BankTransaction $transaction, bool $automatic = false): array
+    private function candidates(BankTransaction $transaction, bool $automatic = false, ?array $pool = null): array
     {
         $from = $transaction->booked_on->copy()->subDays(5);
         $to = $transaction->booked_on->copy()->addDays(5);
         $amount = abs((float) $transaction->amount);
         $inbound = (float) $transaction->amount > 0;
-        $payments = $inbound
-            ? SalesDocumentPayment::with('document:id,number')->whereDoesntHave('reconciliation')->where('amount', $amount)->whereBetween('paid_at', [$from, $to])->get()->map(fn ($payment) => ['type' => 'customer', 'payment' => $payment, 'number' => $payment->document?->number, 'date' => $payment->paid_at])
-            : SupplierPayment::with(['expense:id,number', 'purchaseDocument:id,number'])->whereDoesntHave('reconciliation')->where('amount', $amount)->whereBetween('paid_at', [$from, $to])->get()->map(fn ($payment) => ['type' => 'supplier', 'payment' => $payment, 'number' => $payment->expense?->number ?? $payment->purchaseDocument?->number, 'date' => $payment->paid_at]);
-        $tax = TaxReturnPayment::with('taxReturn:id,year,quarter,result')->whereDoesntHave('reconciliation')->where('amount', $amount)->whereBetween('paid_on', [$from, $to])->whereHas('taxReturn', fn ($query) => $query->where('result', $inbound ? '<' : '>', 0))->get()->map(fn ($payment) => ['type' => 'tax', 'payment' => $payment, 'number' => 'VAT '.$payment->taxReturn->year.' Q'.$payment->taxReturn->quarter, 'date' => $payment->paid_on]);
-        $transfers = BankTransaction::with('account:id,name')->where('status', 'pending')->where('bank_account_id', '!=', $transaction->bank_account_id)->where('amount', -(float) $transaction->amount)->whereBetween('booked_on', [$from, $to])->get()->map(function ($other) use ($transaction) {
+        $paymentSource = $pool
+            ? ($inbound ? $pool['customerPayments'] : $pool['supplierPayments'])->filter(fn ($payment) => round((float) $payment->amount, 2) === round($amount, 2) && $payment->paid_at->betweenIncluded($from, $to))
+            : ($inbound
+                ? SalesDocumentPayment::with('document:id,number')->whereDoesntHave('reconciliation')->where('amount', $amount)->whereBetween('paid_at', [$from, $to])->get()
+                : SupplierPayment::with(['expense:id,number', 'purchaseDocument:id,number'])->whereDoesntHave('reconciliation')->where('amount', $amount)->whereBetween('paid_at', [$from, $to])->get());
+        $payments = $paymentSource->map(fn ($payment) => ['type' => $inbound ? 'customer' : 'supplier', 'payment' => $payment, 'number' => $inbound ? $payment->document?->number : ($payment->expense?->number ?? $payment->purchaseDocument?->number), 'date' => $payment->paid_at]);
+        $taxSource = $pool
+            ? $pool['taxPayments']->filter(fn ($payment) => round((float) $payment->amount, 2) === round($amount, 2) && $payment->paid_on->betweenIncluded($from, $to) && ($inbound ? (float) $payment->taxReturn->result < 0 : (float) $payment->taxReturn->result > 0))
+            : TaxReturnPayment::with('taxReturn:id,year,quarter,result')->whereDoesntHave('reconciliation')->where('amount', $amount)->whereBetween('paid_on', [$from, $to])->whereHas('taxReturn', fn ($query) => $query->where('result', $inbound ? '<' : '>', 0))->get();
+        $tax = $taxSource->map(fn ($payment) => ['type' => 'tax', 'payment' => $payment, 'number' => 'VAT '.$payment->taxReturn->year.' Q'.$payment->taxReturn->quarter, 'date' => $payment->paid_on]);
+        $transferSource = $pool
+            ? $pool['transfers']->filter(fn ($other) => $other->bank_account_id !== $transaction->bank_account_id && round((float) $other->amount, 2) === round(-(float) $transaction->amount, 2) && $other->booked_on->betweenIncluded($from, $to))
+            : BankTransaction::with('account:id,name')->where('status', 'pending')->where('bank_account_id', '!=', $transaction->bank_account_id)->where('amount', -(float) $transaction->amount)->whereBetween('booked_on', [$from, $to])->get();
+        $transfers = $transferSource->map(function ($other) use ($transaction) {
             $referenceMatch = filled($transaction->reference) && filled($other->reference) && Str::lower($transaction->reference) === Str::lower($other->reference);
 
             return ['value' => 'transfer:'.$other->id, 'label' => __('Own transfer').' · '.$other->account->name.' · '.$other->booked_on->format('d/m/Y').' · '.number_format(abs((float) $other->amount), 2, ',', '.').' EUR', 'reference_match' => $referenceMatch, 'confidence' => $referenceMatch ? 100 : 80];
@@ -444,7 +457,7 @@ class BankingController extends Controller
 
             return ['value' => $item['type'].':'.$payment->id, 'label' => $item['number'].' · '.$item['date']->format('d/m/Y').' · '.number_format((float) $payment->amount, 2, ',', '.').' EUR', 'reference_match' => $referenceMatch, 'creates_payment' => false, 'confidence' => $referenceMatch ? 98 : 82];
         })->concat($transfers->map(fn ($transfer) => [...$transfer, 'creates_payment' => false]));
-        $direct = $this->openDocumentCandidates($transaction);
+        $direct = $this->openDocumentCandidates($transaction, $pool);
 
         return $recorded
             ->concat($automatic ? $direct->where('reference_match', true) : $direct)
@@ -453,18 +466,14 @@ class BankingController extends Controller
             ->all();
     }
 
-    private function openDocumentCandidates(BankTransaction $transaction): Collection
+    private function openDocumentCandidates(BankTransaction $transaction, ?array $pool = null): Collection
     {
         $amount = abs((float) $transaction->amount);
         $inbound = (float) $transaction->amount > 0;
 
         if ($inbound) {
-            return SalesDocument::with('customer:id,first_name,last_name,company_name')
-                ->where('type', 'invoice')
-                ->whereIn('status', ['issued', 'partial', 'overdue'])
-                ->latest('issue_date')
-                ->limit(100)
-                ->get()
+            return ($pool ? $pool['salesDocuments'] : SalesDocument::with('customer:id,first_name,last_name,company_name')
+                ->where('type', 'invoice')->whereIn('status', ['issued', 'partial', 'overdue'])->latest('issue_date')->limit(100)->get())
                 ->filter(function (SalesDocument $document) use ($transaction, $amount): bool {
                     $outstanding = $this->balances->receivable($document);
 
@@ -485,14 +494,14 @@ class BankingController extends Controller
                 });
         }
 
-        $invoices = PurchaseDocument::with('supplier:id,legal_name,trade_name')
+        $invoices = ($pool ? $pool['purchaseDocuments'] : PurchaseDocument::with('supplier:id,legal_name,trade_name')
             ->withSum('creditNotes as credited_total', 'amount')
             ->where('type', 'supplier_invoice')
             ->whereIn('status', ['registered', 'pending', 'partial', 'overdue'])
             ->where(fn ($query) => $query->whereNull('matching_status')->orWhereNot('matching_status', 'review_required'))
             ->latest('issue_date')
             ->limit(100)
-            ->get()
+            ->get())
             ->filter(function (PurchaseDocument $document) use ($transaction, $amount): bool {
                 $outstanding = $this->balances->purchase($document);
 
@@ -511,11 +520,8 @@ class BankingController extends Controller
                     'confidence' => $referenceMatch ? ($outstanding === round($amount, 2) ? 99 : 92) : 70,
                 ];
             });
-        $expenses = Expense::with('supplier:id,legal_name,trade_name')
-            ->whereIn('status', ['pending', 'partial', 'overdue'])
-            ->latest('expense_date')
-            ->limit(100)
-            ->get()
+        $expenses = ($pool ? $pool['expenses'] : Expense::with('supplier:id,legal_name,trade_name')
+            ->whereIn('status', ['pending', 'partial', 'overdue'])->latest('expense_date')->limit(100)->get())
             ->filter(function (Expense $expense) use ($transaction, $amount): bool {
                 $outstanding = $this->balances->expense($expense);
 
@@ -536,6 +542,26 @@ class BankingController extends Controller
             });
 
         return $invoices->concat($expenses);
+    }
+
+    private function candidatePool(Collection $transactions): array
+    {
+        $pending = $transactions->where('status', 'pending');
+        if ($pending->isEmpty()) {
+            return [];
+        }
+        $from = $pending->min('booked_on')->copy()->subDays(5);
+        $to = $pending->max('booked_on')->copy()->addDays(5);
+
+        return [
+            'customerPayments' => SalesDocumentPayment::with('document:id,number')->whereDoesntHave('reconciliation')->whereBetween('paid_at', [$from, $to])->get(),
+            'supplierPayments' => SupplierPayment::with(['expense:id,number', 'purchaseDocument:id,number'])->whereDoesntHave('reconciliation')->whereBetween('paid_at', [$from, $to])->get(),
+            'taxPayments' => TaxReturnPayment::with('taxReturn:id,year,quarter,result')->whereDoesntHave('reconciliation')->whereBetween('paid_on', [$from, $to])->get(),
+            'transfers' => BankTransaction::with('account:id,name')->where('status', 'pending')->whereBetween('booked_on', [$from, $to])->get(),
+            'salesDocuments' => SalesDocument::with('customer:id,first_name,last_name,company_name')->where('type', 'invoice')->whereIn('status', ['issued', 'partial', 'overdue'])->latest('issue_date')->limit(100)->get(),
+            'purchaseDocuments' => PurchaseDocument::with('supplier:id,legal_name,trade_name')->withSum('creditNotes as credited_total', 'amount')->where('type', 'supplier_invoice')->whereIn('status', ['registered', 'pending', 'partial', 'overdue'])->where(fn ($query) => $query->whereNull('matching_status')->orWhereNot('matching_status', 'review_required'))->latest('issue_date')->limit(100)->get(),
+            'expenses' => Expense::with('supplier:id,legal_name,trade_name')->whereIn('status', ['pending', 'partial', 'overdue'])->latest('expense_date')->limit(100)->get(),
+        ];
     }
 
     private function documentReferenceMatches(BankTransaction $transaction, ?string ...$references): bool

@@ -20,6 +20,7 @@ use App\Models\SupplierPayment;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
@@ -314,6 +315,42 @@ class BankingTest extends TestCase
 
         $this->assertSame(2, $account->transactions()->count());
         $this->assertDatabaseHas('bank_statement_imports', ['filename' => 'annual-2026-reimport.n43', 'created_transactions' => 0, 'duplicate_transactions' => 2, 'control_valid' => true]);
+    }
+
+    public function test_norma_43_rejects_multiple_account_blocks_and_an_iban_mismatch_atomically(): void
+    {
+        $user = User::factory()->create(['role' => 'commercial']);
+        $account = BankAccount::create(['name' => 'Validated AEB account', 'iban' => 'ES0000491234001234567890', 'currency' => 'EUR', 'opening_balance' => 0, 'is_active' => true]);
+        $block = function (string $entity, string $office, string $number, string $reference): array {
+            $header = '11'.$entity.$office.$number.'260101'.'260131'.'2'.str_pad('0', 14, '0', STR_PAD_LEFT).'978'.'2'.str_repeat(' ', 26);
+            $credit = '22'.$entity.$office.'260115'.'260115'.'01'.'001'.'2'.str_pad('10000', 14, '0', STR_PAD_LEFT).str_pad($reference, 10).str_pad('TRANSFER', 12).str_pad('CUSTOMER', 16);
+            $footer = '33'.$entity.$office.$number.'00000'.str_pad('0', 14, '0', STR_PAD_LEFT).'00001'.str_pad('10000', 14, '0', STR_PAD_LEFT).'2'.str_pad('10000', 14, '0', STR_PAD_LEFT).'978'.str_repeat(' ', 4);
+
+            return [$header, $credit, $footer];
+        };
+        $matching = implode("\r\n", $block('0049', '1234', '1234567890', 'ACCOUNT-1'))."\r\n";
+
+        $this->actingAs($user)->post(route('banking.import', $account), [
+            'statement' => UploadedFile::fake()->createWithContent('matching.n43', $matching),
+        ])->assertSessionHasNoErrors();
+        $this->assertSame(1, $account->transactions()->count());
+        $this->assertSame('0049', BankStatementImport::firstOrFail()->control_data['account']['entity']);
+
+        $mismatchedAccount = BankAccount::create(['name' => 'Wrong selected account', 'iban' => 'ES0000491234009999999999', 'currency' => 'EUR', 'opening_balance' => 0, 'is_active' => true]);
+        $this->post(route('banking.import', $mismatchedAccount), [
+            'statement' => UploadedFile::fake()->createWithContent('mismatch.n43', $matching),
+        ])->assertSessionHasErrors('statement');
+        $this->assertSame(0, $mismatchedAccount->transactions()->count());
+
+        $multiple = implode("\r\n", [
+            ...$block('0049', '1234', '1234567890', 'ACCOUNT-1'),
+            ...$block('2100', '4321', '0987654321', 'ACCOUNT-2'),
+        ])."\r\n";
+        $this->post(route('banking.import', $account), [
+            'statement' => UploadedFile::fake()->createWithContent('multi-account.n43', $multiple),
+        ])->assertSessionHasErrors('statement');
+        $this->assertSame(1, $account->transactions()->count());
+        $this->assertSame(1, BankStatementImport::count());
     }
 
     public function test_statement_import_can_be_rolled_back_with_audit_and_reimported(): void
@@ -635,6 +672,38 @@ class BankingTest extends TestCase
                 ->where('transactions.data.0.risk_flags.0.code', 'stale')
                 ->where('transactions.data.0.risk_flags.1.code', 'unusual_amount')
                 ->where('transactions.data.0.risk_flags.2.code', 'missing_reference'));
+    }
+
+    public function test_reconciliation_workspace_preloads_candidates_without_per_transaction_queries(): void
+    {
+        $user = User::factory()->create(['role' => 'commercial']);
+        $account = BankAccount::create(['name' => 'Bulk candidate account', 'currency' => 'EUR', 'opening_balance' => 0, 'is_active' => true]);
+        foreach (range(1, 25) as $index) {
+            $account->transactions()->create([
+                'booked_on' => today()->subDays($index % 5),
+                'amount' => 100 + $index,
+                'currency' => 'EUR',
+                'description' => 'Bulk pending movement '.$index,
+                'reference' => 'BULK-'.$index,
+                'import_hash' => hash('sha256', 'bulk-candidate-'.$index),
+                'status' => 'pending',
+            ]);
+        }
+
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+        $this->actingAs($user)->get(route('banking.index', ['account' => $account->id, 'status' => 'pending']))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page->has('transactions.data', 25));
+        $candidateQueries = collect(DB::getQueryLog())->filter(fn (array $query) => str_contains($query['query'], 'sales_document_payments')
+            || str_contains($query['query'], 'supplier_payments')
+            || str_contains($query['query'], 'tax_return_payments')
+            || str_contains($query['query'], 'sales_documents')
+            || str_contains($query['query'], 'purchase_documents')
+            || str_contains($query['query'], 'expenses'));
+        DB::disableQueryLog();
+
+        $this->assertLessThan(20, $candidateQueries->count(), 'Candidate lookup queries must remain constant per page, not grow per transaction.');
     }
 
     public function test_bulk_reconciliation_respects_the_selected_confidence_threshold(): void

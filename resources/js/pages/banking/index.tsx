@@ -104,6 +104,7 @@ type StatementImport = {
     id: number;
     filename: string;
     format: string;
+    source_account: string | null;
     period_from: string | null;
     period_to: string | null;
     opening_balance: string | null;
@@ -461,6 +462,14 @@ export default function BankingIndex({
                                                         title={item.filename}
                                                     >
                                                         {item.filename}
+                                                        {item.source_account && (
+                                                            <span className="block text-xs text-muted-foreground">
+                                                                Account{' '}
+                                                                {
+                                                                    item.source_account
+                                                                }
+                                                            </span>
+                                                        )}
                                                     </td>
                                                     <td>
                                                         <Badge variant="outline">
