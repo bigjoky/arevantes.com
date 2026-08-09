@@ -189,4 +189,33 @@ class CatalogTest extends TestCase
         $this->assertSame(2, JournalEntry::count());
         $this->assertSame(1210.0, (float) SalesDocument::where('type', 'invoice')->sum('amount'));
     }
+
+    public function test_a_billing_milestone_can_use_an_exact_agreed_amount(): void
+    {
+        $user = User::factory()->create(['role' => 'commercial']);
+        $customer = Person::create(['category' => 'customer', 'first_name' => 'María', 'tax_id' => '12345678Z']);
+        $quote = Quote::create([
+            'person_id' => $customer->id, 'created_by' => $user->id, 'number' => 'PRE-2026-00101', 'status' => 'accepted',
+            'issue_date' => '2026-08-09', 'subtotal' => 1000, 'discount_amount' => 0, 'tax_amount' => 210, 'amount' => 1210,
+            'customer_snapshot' => $customer->only(['first_name', 'last_name', 'company_name', 'tax_id']),
+        ]);
+        $quote->lines()->create(['position' => 1, 'description' => 'Solar installation', 'quantity' => 1, 'unit_price' => 1000, 'discount_percent' => 0, 'tax_percent' => 21, 'subtotal' => 1000, 'discount_amount' => 0, 'tax_amount' => 210, 'total' => 1210]);
+
+        $this->actingAs($user)->post(route('quotes.convert', $quote), [
+            'type' => 'invoice', 'billing_percentage' => 41.32, 'billing_amount' => 500, 'billing_label' => 'Agreed advance',
+        ])->assertRedirect()->assertSessionHasNoErrors();
+
+        $advance = SalesDocument::firstOrFail();
+        $this->assertSame('500.00', $advance->amount);
+        $this->assertSame('41.32', $advance->billing_percentage);
+        $this->assertSame('500.00', $advance->lines()->firstOrFail()->total);
+        $this->get(route('quotes.show', $quote))->assertInertia(fn (Assert $page) => $page
+            ->where('billing.allocated_amount', 500)
+            ->where('billing.remaining_amount', 710)
+            ->where('billing.remaining_percentage', 58.68));
+
+        $this->post(route('quotes.convert', $quote), [
+            'type' => 'invoice', 'billing_amount' => 710.01,
+        ])->assertSessionHasErrors('billing_amount');
+    }
 }

@@ -101,6 +101,14 @@ type Quote = {
         created_at: string;
     }>;
 };
+
+const quoteStatuses = [
+    ['draft', 'Borrador'],
+    ['sent', 'Enviada'],
+    ['accepted', 'Aceptada'],
+    ['rejected', 'Rechazada'],
+    ['expired', 'Caducada'],
+] as const;
 type ProjectDefaults = {
     site_name: string | null;
     site_address_line_1: string | null;
@@ -118,6 +126,7 @@ type BillingPlan = {
     remaining_percentage: number;
     allocated_amount: number;
     issued_amount: number;
+    remaining_amount: number;
     documents: Array<{
         id: number;
         number: string;
@@ -146,7 +155,10 @@ export default function QuoteShow({
     const [billingPercentage, setBillingPercentage] = useState(
         String(billing.remaining_percentage),
     );
-    const [billingLabel, setBillingLabel] = useState('Final invoice');
+    const [billingAmount, setBillingAmount] = useState(
+        String(billing.remaining_amount),
+    );
+    const [billingLabel, setBillingLabel] = useState('Factura final');
     const projectForm = useForm({
         service_type: 'solar',
         technician_user_id: '',
@@ -176,7 +188,9 @@ export default function QuoteShow({
                             <h1 className="text-xl font-semibold">
                                 {quote.number}
                             </h1>
-                            <Badge variant="outline">{quote.status}</Badge>
+                            <Badge variant="outline">
+                                {quoteStatusLabel(quote.status)}
+                            </Badge>
                         </div>
                         <p className="text-sm text-muted-foreground">
                             {customer} · version {quote.version}
@@ -215,6 +229,41 @@ export default function QuoteShow({
                         )}
                     </div>
                 </header>
+                <section className="rounded-lg border bg-card p-4 shadow-xs">
+                    <Form
+                        action={`/quotes/${quote.id}/status`}
+                        method="patch"
+                        className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"
+                    >
+                        {({ processing }) => (
+                            <>
+                                <div className="grid w-full gap-2 sm:max-w-md">
+                                    <Label htmlFor="quote_status">
+                                        Estado de la oferta
+                                    </Label>
+                                    <select
+                                        id="quote_status"
+                                        name="status"
+                                        defaultValue={quote.status}
+                                        className="h-11 w-full rounded-md border border-input bg-background px-3 text-base font-medium shadow-xs"
+                                    >
+                                        {quoteStatuses.map(([value, label]) => (
+                                            <option key={value} value={value}>
+                                                {label}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <Button
+                                    disabled={processing}
+                                    className="w-full sm:w-auto"
+                                >
+                                    Actualizar estado
+                                </Button>
+                            </>
+                        )}
+                    </Form>
+                </section>
                 <section className="grid gap-4 border-y py-4 text-sm sm:grid-cols-2 lg:grid-cols-4">
                     <Info label="Customer" value={customer} />
                     <Info
@@ -520,46 +569,6 @@ export default function QuoteShow({
                         </div>
                     )}
                     <Form
-                        action={`/quotes/${quote.id}/status`}
-                        method="patch"
-                        className="flex items-end gap-2"
-                    >
-                        {({ processing }) => (
-                            <>
-                                <div className="grid gap-2">
-                                    <label className="text-sm font-medium">
-                                        Status
-                                    </label>
-                                    <Select
-                                        name="status"
-                                        defaultValue={quote.status}
-                                    >
-                                        <SelectTrigger className="w-44">
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {[
-                                                'draft',
-                                                'sent',
-                                                'accepted',
-                                                'rejected',
-                                                'expired',
-                                            ].map((status) => (
-                                                <SelectItem
-                                                    key={status}
-                                                    value={status}
-                                                >
-                                                    {status}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                                <Button disabled={processing}>Update</Button>
-                            </>
-                        )}
-                    </Form>
-                    <Form
                         action={`/quotes/${quote.id}`}
                         method="delete"
                         onBefore={() => confirm(`Delete ${quote.number}?`)}
@@ -794,11 +803,12 @@ export default function QuoteShow({
                             <div className="grid gap-5">
                                 <DialogHeader>
                                     <DialogTitle>
-                                        Add billing milestone
+                                        Añadir hito de cobro
                                     </DialogTitle>
                                     <DialogDescription>
-                                        {billing.remaining_percentage}% of the
-                                        accepted quote remains available.
+                                        Quedan {billing.remaining_percentage}% (
+                                        {money(billing.remaining_amount)}) de la
+                                        oferta aceptada por facturar.
                                     </DialogDescription>
                                 </DialogHeader>
                                 <input
@@ -811,55 +821,39 @@ export default function QuoteShow({
                                         type="button"
                                         variant="outline"
                                         onClick={() => {
-                                            setBillingPercentage(
-                                                String(
-                                                    Math.min(
-                                                        30,
-                                                        billing.remaining_percentage,
-                                                    ),
-                                                ),
-                                            );
-                                            setBillingLabel('Advance payment');
+                                            setBillingValues(30);
+                                            setBillingLabel('Anticipo');
                                         }}
                                     >
-                                        Advance
+                                        Anticipo
                                     </Button>
                                     <Button
                                         type="button"
                                         variant="outline"
                                         onClick={() => {
-                                            setBillingPercentage(
-                                                String(
-                                                    Math.min(
-                                                        40,
-                                                        billing.remaining_percentage,
-                                                    ),
-                                                ),
-                                            );
-                                            setBillingLabel('Progress payment');
+                                            setBillingValues(40);
+                                            setBillingLabel('Pago intermedio');
                                         }}
                                     >
-                                        Progress
+                                        Intermedio
                                     </Button>
                                     <Button
                                         type="button"
                                         variant="outline"
                                         onClick={() => {
-                                            setBillingPercentage(
-                                                String(
-                                                    billing.remaining_percentage,
-                                                ),
+                                            setBillingValues(
+                                                billing.remaining_percentage,
                                             );
-                                            setBillingLabel('Final invoice');
+                                            setBillingLabel('Factura final');
                                         }}
                                     >
                                         Final
                                     </Button>
                                 </div>
-                                <div className="grid gap-4 sm:grid-cols-[9rem_1fr]">
+                                <div className="grid gap-4 sm:grid-cols-2">
                                     <div className="grid gap-2">
                                         <Label htmlFor="billing_percentage">
-                                            Percentage
+                                            Porcentaje
                                         </Label>
                                         <div className="relative">
                                             <Input
@@ -873,7 +867,7 @@ export default function QuoteShow({
                                                 step="0.01"
                                                 value={billingPercentage}
                                                 onChange={(event) =>
-                                                    setBillingPercentage(
+                                                    setBillingFromPercentage(
                                                         event.target.value,
                                                     )
                                                 }
@@ -889,37 +883,56 @@ export default function QuoteShow({
                                         />
                                     </div>
                                     <div className="grid gap-2">
-                                        <Label htmlFor="billing_label">
-                                            Milestone name
+                                        <Label htmlFor="billing_amount">
+                                            Importe acordado
                                         </Label>
-                                        <Input
-                                            id="billing_label"
-                                            name="billing_label"
-                                            value={billingLabel}
-                                            onChange={(event) =>
-                                                setBillingLabel(
-                                                    event.target.value,
-                                                )
-                                            }
-                                            required
-                                        />
+                                        <div className="relative">
+                                            <Input
+                                                id="billing_amount"
+                                                name="billing_amount"
+                                                type="number"
+                                                min="0.01"
+                                                max={billing.remaining_amount}
+                                                step="0.01"
+                                                value={billingAmount}
+                                                onChange={(event) =>
+                                                    setBillingFromAmount(
+                                                        event.target.value,
+                                                    )
+                                                }
+                                                className="pr-8"
+                                                required
+                                            />
+                                            <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-muted-foreground">
+                                                €
+                                            </span>
+                                        </div>
                                         <InputError
-                                            message={errors.billing_label}
+                                            message={errors.billing_amount}
                                         />
                                     </div>
                                 </div>
+                                <div className="grid gap-2">
+                                    <Label htmlFor="billing_label">
+                                        Nombre del hito
+                                    </Label>
+                                    <Input
+                                        id="billing_label"
+                                        name="billing_label"
+                                        value={billingLabel}
+                                        onChange={(event) =>
+                                            setBillingLabel(event.target.value)
+                                        }
+                                        required
+                                    />
+                                    <InputError message={errors.billing_label} />
+                                </div>
                                 <div className="flex items-center justify-between border-y py-3 text-sm">
                                     <span className="text-muted-foreground">
-                                        Estimated milestone total
+                                        Importe exacto de la cuota
                                     </span>
                                     <span className="font-semibold">
-                                        {money(
-                                            (Number(quote.amount) *
-                                                Number(
-                                                    billingPercentage || 0,
-                                                )) /
-                                                100,
-                                        )}
+                                        {money(Number(billingAmount || 0))}
                                     </span>
                                 </div>
                                 <DialogFooter>
@@ -928,10 +941,10 @@ export default function QuoteShow({
                                         variant="outline"
                                         onClick={() => setBillingOpen(false)}
                                     >
-                                        Cancel
+                                        Cancelar
                                     </Button>
                                     <Button disabled={processing}>
-                                        <CircleDollarSign /> Create draft
+                                        <CircleDollarSign /> Crear borrador
                                     </Button>
                                 </DialogFooter>
                             </div>
@@ -941,6 +954,47 @@ export default function QuoteShow({
             </Dialog>
         </>
     );
+
+    function setBillingValues(percentage: number) {
+        const bounded = Math.min(percentage, billing.remaining_percentage);
+        setBillingPercentage(String(bounded));
+        setBillingAmount(
+            String(
+                bounded === billing.remaining_percentage
+                    ? billing.remaining_amount
+                    : roundCurrency((Number(quote.amount) * bounded) / 100),
+            ),
+        );
+    }
+
+    function setBillingFromPercentage(value: string) {
+        setBillingPercentage(value);
+        setBillingAmount(
+            value === ''
+                ? ''
+                : String(
+                      Math.min(
+                          billing.remaining_amount,
+                          roundCurrency(
+                              (Number(quote.amount) * Number(value)) / 100,
+                          ),
+                      ),
+                  ),
+        );
+    }
+
+    function setBillingFromAmount(value: string) {
+        setBillingAmount(value);
+        setBillingPercentage(
+            value === '' || Number(quote.amount) === 0
+                ? ''
+                : String(
+                      Math.round(
+                          (Number(value) / Number(quote.amount)) * 10000,
+                      ) / 100,
+                  ),
+        );
+    }
 }
 
 function ProjectField({
@@ -1079,6 +1133,12 @@ function money(value: string | number) {
         style: 'currency',
         currency: 'EUR',
     }).format(Number(value));
+}
+function quoteStatusLabel(status: string) {
+    return quoteStatuses.find(([value]) => value === status)?.[1] || status;
+}
+function roundCurrency(value: number) {
+    return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 function date(value: string | null) {
     return value

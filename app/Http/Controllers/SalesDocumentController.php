@@ -111,6 +111,7 @@ class SalesDocumentController extends Controller
         $data = $request->validate([
             'type' => ['required', Rule::in(['order', 'delivery_note', 'invoice'])],
             'billing_percentage' => ['nullable', 'numeric', 'between:0.01,100'],
+            'billing_amount' => ['nullable', 'numeric', 'min:0.01'],
             'billing_label' => ['nullable', 'string', 'max:255'],
         ]);
         abort_unless($quote->status === 'accepted', 422, __('Only accepted quotes can be converted.'));
@@ -128,17 +129,23 @@ class SalesDocumentController extends Controller
             if ($data['type'] === 'invoice') {
                 $summary = $billing->summary($quote);
                 $remaining = $summary['remaining_percentage'];
-                if ($remaining <= 0) {
+                $remainingAmount = $summary['remaining_amount'];
+                if ($remainingAmount <= 0) {
                     $existing = SalesDocument::where('quote_id', $quote->id)->where('type', 'invoice')->latest('billing_sequence')->latest()->firstOrFail();
 
                     return [$existing, false];
                 }
-                $percentage = round((float) ($data['billing_percentage'] ?? $remaining), 2);
-                if ($percentage > $remaining) {
-                    throw ValidationException::withMessages(['billing_percentage' => __('Only :percentage% remains available to invoice.', ['percentage' => $remaining])]);
+                $amountWasSpecified = array_key_exists('billing_amount', $data) && $data['billing_amount'] !== null;
+                $requestedAmount = $amountWasSpecified
+                    ? round((float) $data['billing_amount'], 2)
+                    : round((float) $quote->amount * (float) ($data['billing_percentage'] ?? $remaining) / 100, 2);
+                if ($requestedAmount > $remainingAmount) {
+                    $field = $amountWasSpecified ? 'billing_amount' : 'billing_percentage';
+                    throw ValidationException::withMessages([$field => __('Only :amount remains available to invoice.', ['amount' => number_format($remainingAmount, 2, ',', '.').' €'])]);
                 }
-                $isFinal = abs($percentage - $remaining) < 0.001;
-                $installment = $billing->installment($quote, $percentage, $isFinal);
+                $isFinal = abs($requestedAmount - $remainingAmount) < 0.001;
+                $percentage = $isFinal ? $remaining : round($requestedAmount / (float) $quote->amount * 100, 2);
+                $installment = $billing->installmentForAmount($quote, $requestedAmount, $isFinal);
                 $sequence = count($summary['documents']) + 1;
                 $billingData = [
                     'billing_percentage' => $percentage,
