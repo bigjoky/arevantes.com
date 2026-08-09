@@ -100,6 +100,15 @@ type Quote = {
         expected_margin_amount: string | null;
         created_at: string;
     }>;
+    status_history: Array<{
+        id: number;
+        from_status: string | null;
+        to_status: string;
+        channel: string;
+        reason: string | null;
+        changed_at: string;
+        changed_by: { id: number; name: string } | null;
+    }>;
 };
 
 const quoteStatuses = [
@@ -144,11 +153,15 @@ export default function QuoteShow({
     billing,
     technicians,
     projectDefaults,
+    canApprove,
+    availableStatuses,
 }: {
     quote: Quote;
     billing: BillingPlan;
     technicians: Array<{ id: number; name: string }>;
     projectDefaults: ProjectDefaults;
+    canApprove: boolean;
+    availableStatuses: string[];
 }) {
     const [projectOpen, setProjectOpen] = useState(false);
     const [billingOpen, setBillingOpen] = useState(false);
@@ -230,39 +243,64 @@ export default function QuoteShow({
                     </div>
                 </header>
                 <section className="rounded-lg border bg-card p-4 shadow-xs">
-                    <Form
-                        action={`/quotes/${quote.id}/status`}
-                        method="patch"
-                        className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"
-                    >
-                        {({ processing }) => (
-                            <>
-                                <div className="grid w-full gap-2 sm:max-w-md">
-                                    <Label htmlFor="quote_status">
-                                        Estado de la oferta
-                                    </Label>
-                                    <select
-                                        id="quote_status"
-                                        name="status"
-                                        defaultValue={quote.status}
-                                        className="h-11 w-full rounded-md border border-input bg-background px-3 text-base font-medium shadow-xs"
-                                    >
-                                        {quoteStatuses.map(([value, label]) => (
-                                            <option key={value} value={value}>
-                                                {label}
+                    {availableStatuses.length > 0 ? (
+                        <Form
+                            action={`/quotes/${quote.id}/status`}
+                            method="patch"
+                            className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"
+                        >
+                            {({ processing }) => (
+                                <>
+                                    <div className="grid w-full gap-2 sm:max-w-md">
+                                        <Label htmlFor="quote_status">
+                                            Estado de la oferta
+                                        </Label>
+                                        <select
+                                            id="quote_status"
+                                            name="status"
+                                            defaultValue={quote.status}
+                                            className="h-11 w-full rounded-md border border-input bg-background px-3 text-base font-medium shadow-xs"
+                                        >
+                                            <option value={quote.status}>
+                                                {quoteStatusLabel(quote.status)}
                                             </option>
-                                        ))}
-                                    </select>
-                                </div>
-                                <Button
-                                    disabled={processing}
-                                    className="w-full sm:w-auto"
-                                >
-                                    Actualizar estado
-                                </Button>
-                            </>
-                        )}
-                    </Form>
+                                            {quoteStatuses
+                                                .filter(([value]) =>
+                                                    availableStatuses.includes(
+                                                        value,
+                                                    ),
+                                                )
+                                                .map(([value, label]) => (
+                                                    <option
+                                                        key={value}
+                                                        value={value}
+                                                    >
+                                                        {label}
+                                                    </option>
+                                                ))}
+                                        </select>
+                                    </div>
+                                    <Button
+                                        disabled={processing}
+                                        className="w-full sm:w-auto"
+                                    >
+                                        Actualizar estado
+                                    </Button>
+                                </>
+                            )}
+                        </Form>
+                    ) : (
+                        <div>
+                            <Label>Estado de la oferta</Label>
+                            <p className="mt-2 text-base font-medium">
+                                {quoteStatusLabel(quote.status)}
+                            </p>
+                            <p className="mt-1 text-sm text-muted-foreground">
+                                Este es un estado final y no admite cambios
+                                directos.
+                            </p>
+                        </div>
+                    )}
                 </section>
                 <section className="grid gap-4 border-y py-4 text-sm sm:grid-cols-2 lg:grid-cols-4">
                     <Info label="Customer" value={customer} />
@@ -305,7 +343,7 @@ export default function QuoteShow({
                                 }
                             />
                         </div>
-                        {quote.approval_status === 'pending' && (
+                        {quote.approval_status === 'pending' && canApprove && (
                             <Form
                                 action={`/quotes/${quote.id}/approval`}
                                 method="post"
@@ -329,10 +367,51 @@ export default function QuoteShow({
                                 </div>
                             </Form>
                         )}
+                        {quote.approval_status === 'pending' && !canApprove && (
+                            <p className="mt-3 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-100">
+                                La oferta requiere la aprobación de otro usuario
+                                autorizado.
+                            </p>
+                        )}
                         {quote.approval_notes && (
                             <p className="mt-3 text-xs text-muted-foreground">
                                 {quote.approval_notes}
                             </p>
+                        )}
+                        {quote.status_history.length > 0 && (
+                            <div className="mt-4 border-t pt-3">
+                                <div className="text-xs font-medium text-muted-foreground">
+                                    Historial de estado
+                                </div>
+                                <div className="mt-2 grid gap-2">
+                                    {quote.status_history
+                                        .slice(0, 5)
+                                        .map((entry) => (
+                                            <div
+                                                key={entry.id}
+                                                className="flex flex-wrap justify-between gap-2 text-xs"
+                                            >
+                                                <span>
+                                                    {entry.from_status
+                                                        ? `${quoteStatusLabel(entry.from_status)} → `
+                                                        : ''}
+                                                    {quoteStatusLabel(
+                                                        entry.to_status,
+                                                    )}{' '}
+                                                    · {entry.channel}
+                                                </span>
+                                                <span className="text-muted-foreground">
+                                                    {entry.changed_by?.name ||
+                                                        'Cliente'}{' '}
+                                                    ·{' '}
+                                                    {dateTime(
+                                                        entry.changed_at,
+                                                    )}
+                                                </span>
+                                            </div>
+                                        ))}
+                                </div>
+                            </div>
                         )}
                     </div>
                     <div>
@@ -568,15 +647,22 @@ export default function QuoteShow({
                             ))}
                         </div>
                     )}
-                    <Form
-                        action={`/quotes/${quote.id}`}
-                        method="delete"
-                        onBefore={() => confirm(`Delete ${quote.number}?`)}
-                    >
-                        <Button variant="destructive">
-                            <Trash2 /> Delete
-                        </Button>
-                    </Form>
+                    {quote.status === 'draft' &&
+                        !quote.installation &&
+                        quote.deliveries.length === 0 &&
+                        billing.documents.length === 0 && (
+                            <Form
+                                action={`/quotes/${quote.id}`}
+                                method="delete"
+                                onBefore={() =>
+                                    confirm(`Delete ${quote.number}?`)
+                                }
+                            >
+                                <Button variant="destructive">
+                                    <Trash2 /> Delete
+                                </Button>
+                            </Form>
+                        )}
                 </footer>
             </div>
             <Dialog open={projectOpen} onOpenChange={setProjectOpen}>

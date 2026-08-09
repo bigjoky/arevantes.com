@@ -22,11 +22,13 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
 
 class DocumentDeliveryController extends Controller
 {
-    public function sendQuote(Request $request, Quote $quote): RedirectResponse
+    public function sendQuote(Request $request, Quote $quote, QuoteStatusWorkflow $workflow): RedirectResponse
     {
         abort_if(in_array($quote->status, ['accepted', 'rejected', 'expired'], true), 422, __('This quote can no longer be sent for acceptance.'));
+        abort_if($quote->customer?->do_not_contact, 422, __('This customer has blocked commercial communications.'));
+        $workflow->assertCanTransition($quote, 'sent');
 
-        return $this->send($request, $quote, 'quote');
+        return $this->send($request, $quote, 'quote', $workflow);
     }
 
     public function sendSalesDocument(Request $request, SalesDocument $salesDocument): RedirectResponse
@@ -57,7 +59,7 @@ class DocumentDeliveryController extends Controller
         $data = $request->validate(['response' => ['required', 'in:accepted,rejected']]);
         $quote = $delivery->quote;
         abort_unless(in_array($quote->status, ['draft', 'sent'], true), 422);
-        $workflow->apply($quote, $data['response']);
+        $workflow->apply($quote, $data['response'], null, 'shared_link');
         $delivery->update(['status' => $data['response'], 'responded_at' => now(), 'response_ip' => $request->ip(), 'response_user_agent' => Str::limit((string) $request->userAgent(), 1000, '')]);
         if ($data['response'] === 'accepted') {
             $fingerprint = app(DocumentFingerprint::class)->for($quote);
@@ -93,7 +95,7 @@ class DocumentDeliveryController extends Controller
         return response($pdf->render($document->load('lines'), $kind), 200, ['Content-Type' => 'application/pdf', 'Content-Disposition' => 'inline; filename="'.$document->number.'.pdf"']);
     }
 
-    private function send(Request $request, object $document, string $kind): RedirectResponse
+    private function send(Request $request, object $document, string $kind, ?QuoteStatusWorkflow $quoteWorkflow = null): RedirectResponse
     {
         $snapshot = $document->customer_snapshot ?? [];
         $default = $snapshot['billing_email'] ?? $snapshot['email'] ?? null;
@@ -108,7 +110,7 @@ class DocumentDeliveryController extends Controller
             Mail::to($delivery->recipient_email)->send(new DocumentSharedMail($document, $kind, route('documents.shared.show', $token), $expires->format('d/m/Y')));
             $delivery->update(['status' => 'sent', 'sent_at' => now()]);
             if ($document instanceof Quote && $document->status === 'draft') {
-                $document->update(['status' => 'sent', 'sent_at' => now()]);
+                $quoteWorkflow?->apply($document, 'sent', $request->user(), 'email');
             }
             if ($document->customer) {
                 CustomerPortalEvent::record($document->customer, 'document_shared', null, $request, $document, ['number' => $document->number, 'recipient_email' => $delivery->recipient_email, 'expires_at' => $expires->toIso8601String()]);

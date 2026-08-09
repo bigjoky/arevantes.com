@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Jobs\GeocodeInstallation;
 use App\Models\CrmActivity;
+use App\Models\CustomerDocumentAcceptance;
 use App\Models\Installation;
 use App\Models\Opportunity;
 use App\Models\Person;
@@ -23,8 +24,8 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
-use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -55,12 +56,14 @@ class QuoteController extends Controller
 
     public function show(Quote $quote, QuoteBillingPlan $billing): Response
     {
-        $quote->load(['customer', 'installation', 'opportunity:id,code,title', 'lines', 'versions', 'deliveries:id,quote_id,recipient_email,status,sent_at,first_viewed_at,responded_at,revoked_at']);
+        $quote->load(['customer', 'installation', 'opportunity:id,code,title', 'lines', 'versions', 'statusHistory.changedBy:id,name', 'deliveries:id,quote_id,recipient_email,status,sent_at,first_viewed_at,responded_at,revoked_at']);
         [$street, $streetNumber] = $this->splitStreetAddress($quote->customer?->address_line_1);
 
         return Inertia::render('quotes/show', [
             'quote' => $quote,
             'billing' => $billing->summary($quote),
+            'canApprove' => Gate::allows('approve-quotes') && (int) $quote->created_by !== (int) request()->user()->id,
+            'availableStatuses' => app(QuoteStatusWorkflow::class)->availableTransitions($quote),
             'technicians' => User::whereIn('role', ['technician', 'admin'])->orderBy('name')->get(['id', 'name']),
             'projectDefaults' => [
                 'site_name' => $quote->customer?->company_name ?: trim(($quote->customer?->first_name ?? '').' '.($quote->customer?->last_name ?? '')),
@@ -83,13 +86,14 @@ class QuoteController extends Controller
         return Inertia::render('quotes/form', [...$this->formData(), 'quote' => $quote->load('lines')]);
     }
 
-    public function store(Request $request, QuoteCalculator $calculator, DocumentNumber $numbers): RedirectResponse
+    public function store(Request $request, QuoteCalculator $calculator, DocumentNumber $numbers, QuoteStatusWorkflow $workflow): RedirectResponse
     {
         $data = $this->validateDocument($request);
-        $quote = DB::transaction(function () use ($request, $data, $calculator, $numbers) {
+        $quote = DB::transaction(function () use ($request, $data, $calculator, $numbers, $workflow) {
             $issued = $numbers->next('quote', $data['issue_date']);
             $quote = $this->persist(new Quote, $data, $calculator, ['number' => $issued['number'], 'version' => 1, 'document_series_id' => $issued['series']->id, 'created_by' => $request->user()->id], $request->user()->id);
             $this->syncOpportunity($quote, $request);
+            $workflow->recordInitial($quote, $request->user());
 
             return $quote;
         });
@@ -108,16 +112,16 @@ class QuoteController extends Controller
     public function updateStatus(Request $request, Quote $quote, QuoteStatusWorkflow $workflow): RedirectResponse
     {
         $data = $request->validate(['status' => ['required', Rule::in(['draft', 'sent', 'accepted', 'rejected', 'expired'])]]);
-        if (in_array($data['status'], ['sent', 'accepted'], true) && $quote->approval_status === 'pending') {
-            throw ValidationException::withMessages(['status' => __('This quote requires commercial approval before it can be sent or accepted.')]);
-        }
-        $workflow->apply($quote, $data['status']);
+        $workflow->apply($quote, $data['status'], $request->user(), 'internal');
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Quote updated.')]);
     }
 
     public function destroy(Quote $quote): RedirectResponse
     {
+        abort_unless($quote->status === 'draft', 422, __('Only draft quotes can be deleted.'));
+        abort_if($quote->installation_id || $quote->salesDocuments()->exists() || $quote->deliveries()->exists(), 422, __('This quote has commercial traceability and cannot be deleted.'));
+        abort_if(CustomerDocumentAcceptance::where('document_type', 'quote')->where('document_id', $quote->id)->exists(), 422, __('An accepted quote cannot be deleted.'));
         $quote->delete();
 
         return to_route('operations.index')->with('toast', ['type' => 'success', 'message' => __('Quote deleted.')]);
@@ -127,6 +131,7 @@ class QuoteController extends Controller
     {
         $data = $request->validate(['decision' => ['required', Rule::in(['approved', 'rejected'])], 'approval_notes' => ['nullable', 'string', 'max:2000']]);
         abort_unless($quote->approval_status === 'pending', 422, __('This quote is not pending approval.'));
+        abort_if((int) $quote->created_by === (int) $request->user()->id, 422, __('A quote must be approved by a different user.'));
 
         $quote->update([
             'approval_status' => $data['decision'],

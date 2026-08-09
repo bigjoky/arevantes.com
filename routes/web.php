@@ -366,7 +366,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('quotes/{quote}/edit', [QuoteController::class, 'edit'])->middleware('can:manage-installations')->name('quotes.edit');
     Route::put('quotes/{quote}', [QuoteController::class, 'updateDocument'])->middleware('can:manage-installations')->name('quotes.document.update');
     Route::patch('quotes/{quote}/status', [QuoteController::class, 'updateStatus'])->middleware('can:manage-installations')->name('quotes.status.update');
-    Route::post('quotes/{quote}/approval', [QuoteController::class, 'approve'])->middleware('can:manage-installations')->name('quotes.approval.store');
+    Route::post('quotes/{quote}/approval', [QuoteController::class, 'approve'])->middleware('can:approve-quotes')->name('quotes.approval.store');
     Route::post('quotes/{quote}/project', [QuoteController::class, 'startProject'])->middleware('can:manage-installations')->name('quotes.project.store');
     Route::delete('quotes/{quote}', [QuoteController::class, 'destroy'])->middleware('can:manage-installations')->name('quotes.destroy');
     Route::post('quotes/{quote}/send', [DocumentDeliveryController::class, 'sendQuote'])->middleware('can:manage-installations')->name('quotes.send');
