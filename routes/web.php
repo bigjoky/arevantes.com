@@ -239,7 +239,8 @@ Route::middleware(['auth'])->group(function () {
     Route::post('finance/payment-batches', [FinanceController::class, 'storePaymentBatch'])->middleware('can:manage-treasury')->name('finance.payment-batches.store');
     Route::post('finance/payment-batches/{paymentBatch}/approve', [FinanceController::class, 'approvePaymentBatch'])->middleware('can:approve-payments')->name('finance.payment-batches.approve');
     Route::post('finance/payment-batches/{paymentBatch}/cancel', [FinanceController::class, 'cancelPaymentBatch'])->middleware('can:manage-treasury')->name('finance.payment-batches.cancel');
-    Route::get('finance/payment-batches/{paymentBatch}/sepa', [FinanceController::class, 'exportPaymentBatch'])->middleware('can:approve-payments')->name('finance.payment-batches.sepa');
+    Route::post('finance/payment-batches/{paymentBatch}/sepa', [FinanceController::class, 'exportPaymentBatch'])->middleware('can:approve-payments')->name('finance.payment-batches.export');
+    Route::get('finance/payment-batches/{paymentBatch}/sepa', [FinanceController::class, 'downloadPaymentBatch'])->middleware('can:approve-payments')->name('finance.payment-batches.sepa');
     Route::post('finance/payment-batches/{paymentBatch}/execute', [FinanceController::class, 'executePaymentBatch'])->middleware('can:approve-payments')->name('finance.payment-batches.execute');
     Route::get('accounting', [AccountingController::class, 'index'])->middleware('can:view-finance')->name('accounting.index');
     Route::post('accounting/sync', [AccountingController::class, 'sync'])->middleware('can:manage-accounting')->name('accounting.sync');

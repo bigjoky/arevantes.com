@@ -25,6 +25,7 @@ use App\Models\User;
 use App\Services\Finance\TreasuryForecast;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
@@ -524,6 +525,7 @@ class FinanceTest extends TestCase
 
     public function test_treasury_planning_collection_workflow_and_payment_batches_are_operational(): void
     {
+        Storage::fake('local');
         $commercial = User::factory()->create(['role' => 'commercial']);
         $admin = User::factory()->create(['role' => 'admin']);
         $supplier = Supplier::create(['legal_name' => 'SEPA Supplier SL', 'country' => 'ES', 'iban' => 'ES9121000418450200051332', 'bic' => 'CAIXESBBXXX', 'payment_terms_days' => 30]);
@@ -565,13 +567,25 @@ class FinanceTest extends TestCase
         $this->assertSame('SEPA Supplier SL', $approvedItem->recipient_name);
         $this->assertSame('ES9121000418450200051332', $approvedItem->recipient_iban);
         $supplier->update(['legal_name' => 'Changed after approval SL', 'iban' => 'ES6621000418401234567891']);
-        $this->get(route('finance.payment-batches.sepa', $batch))->assertOk()->assertDownload($batch->number.'.xml');
-        $xml = $this->get(route('finance.payment-batches.sepa', $batch->fresh()))->streamedContent();
+        $this->get(route('finance.payment-batches.sepa', $batch))->assertStatus(422);
+        $this->assertSame('approved', $batch->fresh()->status);
+        $this->post(route('finance.payment-batches.export', $batch))->assertRedirect()->assertSessionHasNoErrors();
+        $batch->refresh();
+        $this->assertSame('exported', $batch->status);
+        $this->assertSame($admin->id, $batch->exported_by);
+        $this->assertSame(64, strlen((string) $batch->export_sha256));
+        Storage::disk('local')->assertExists($batch->export_path);
+        $xml = $this->get(route('finance.payment-batches.sepa', $batch))->assertOk()->assertDownload($batch->number.'.xml')->streamedContent();
         $this->assertStringContainsString('SEPA Supplier SL', $xml);
         $this->assertStringContainsString('ES9121000418450200051332', $xml);
         $this->assertStringNotContainsString('Changed after approval SL', $xml);
         $this->get(route('finance.payment-batches.sepa', $batch))->assertOk()->assertDownload($batch->number.'.xml');
+        $this->assertDatabaseHas('audit_logs', ['auditable_type' => Supplier::class, 'auditable_id' => $supplier->id, 'event' => 'updated']);
+        Storage::disk('local')->put($batch->export_path, '<tampered/>');
+        $this->post(route('finance.payment-batches.execute', $batch), ['paid_on' => today()->toDateString()])
+            ->assertSessionHasErrors('payment_batch');
         $this->assertSame('exported', $batch->fresh()->status);
+        Storage::disk('local')->put($batch->export_path, $xml);
         $this->post(route('finance.payment-batches.execute', $batch), ['paid_on' => today()->toDateString()])
             ->assertRedirect()->assertSessionHasNoErrors();
         $this->assertSame('paid', $batch->fresh()->status);

@@ -8,7 +8,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class PaymentBatch extends Model
 {
-    protected $fillable = ['number', 'bank_account_id', 'planned_on', 'status', 'created_by', 'approved_by', 'executed_by', 'approved_at', 'exported_at', 'executed_at', 'reconciled_at'];
+    protected $fillable = ['number', 'bank_account_id', 'planned_on', 'status', 'created_by', 'approved_by', 'exported_by', 'executed_by', 'approved_at', 'exported_at', 'export_path', 'export_sha256', 'executed_at', 'reconciled_at'];
+
+    protected $hidden = ['export_path'];
 
     protected function casts(): array
     {
@@ -23,6 +25,11 @@ class PaymentBatch extends Model
     public function executor(): BelongsTo
     {
         return $this->belongsTo(User::class, 'executed_by');
+    }
+
+    public function exporter(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'exported_by');
     }
 
     public function items(): HasMany

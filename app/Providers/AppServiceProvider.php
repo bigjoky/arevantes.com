@@ -81,6 +81,7 @@ class AppServiceProvider extends ServiceProvider
         $this->configureAuthorization();
         Person::observe(AuditableObserver::class);
         Person::observe(PartyLedgerObserver::class);
+        Supplier::observe(AuditableObserver::class);
         Supplier::observe(PartyLedgerObserver::class);
         Installation::observe(AuditableObserver::class);
         WorkOrder::observe(WorkOrderObserver::class);

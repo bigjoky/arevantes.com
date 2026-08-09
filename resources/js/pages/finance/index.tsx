@@ -198,6 +198,9 @@ type PaymentBatch = {
     status: string;
     total: number;
     account: { name: string } | null;
+    exporter: { name: string } | null;
+    exported_at: string | null;
+    export_sha256: string | null;
     executor: { name: string } | null;
     executed_at: string | null;
     reconciled_at: string | null;
@@ -1341,6 +1344,17 @@ export default function FinanceIndex({
                                                           : ''}
                                                 </div>
                                             )}
+                                            {batch.exporter &&
+                                                batch.exported_at && (
+                                                    <div className="mt-1 text-xs text-muted-foreground">
+                                                        Exported by{' '}
+                                                        {batch.exporter.name} ·{' '}
+                                                        {date(batch.exported_at)}
+                                                        {batch.export_sha256
+                                                            ? ` · ${batch.export_sha256.slice(0, 10)}…`
+                                                            : ''}
+                                                    </div>
+                                                )}
                                         </td>
                                         <td className="text-right font-medium">
                                             {money(batch.total)}
@@ -1362,19 +1376,36 @@ export default function FinanceIndex({
                                                     </Form>
                                                 )}
                                             {can.approvePayments &&
+                                                batch.status === 'approved' && (
+                                                    <Form
+                                                        action={`/finance/payment-batches/${batch.id}/sepa`}
+                                                        method="post"
+                                                        className="ml-2 inline"
+                                                    >
+                                                        <Button
+                                                            size="sm"
+                                                            variant="outline"
+                                                        >
+                                                            Generate SEPA
+                                                        </Button>
+                                                    </Form>
+                                                )}
+                                            {can.approvePayments &&
                                                 [
-                                                    'approved',
                                                     'exported',
+                                                    'paid',
+                                                    'reconciled',
                                                 ].includes(batch.status) && (
                                                     <Button
                                                         size="sm"
                                                         variant="outline"
+                                                        className="ml-2"
                                                         asChild
                                                     >
                                                         <a
                                                             href={`/finance/payment-batches/${batch.id}/sepa`}
                                                         >
-                                                            SEPA
+                                                            Download SEPA
                                                         </a>
                                                     </Button>
                                                 )}
