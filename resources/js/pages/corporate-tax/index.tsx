@@ -26,6 +26,7 @@ type Preview = {
     net_tax: number;
     deadline: string;
     bands: { base: number; rate: number }[];
+    tax_rule_version: string;
 };
 type Return = {
     id: number;
@@ -67,6 +68,7 @@ export default function CorporateTax({
     const admin =
         usePage<{ auth: { user: { role: string } } }>().props.auth.user.role ===
         'admin';
+    const immutable = taxReturn?.status === 'filed';
 
     return (
         <>
@@ -192,13 +194,19 @@ export default function CorporateTax({
                             </div>
                         </section>
                         {admin ? (
-                            <Button>
+                            <Button disabled={immutable}>
                                 <FileCheck2 /> Calculate and prepare
                             </Button>
                         ) : (
                             <p className="text-sm text-muted-foreground">
                                 An administrator must prepare the tax
                                 calculation.
+                            </p>
+                        )}
+                        {immutable && (
+                            <p className="text-sm text-amber-700 dark:text-amber-300">
+                                This filed return is immutable. Any correction
+                                must be recorded as a corrective filing.
                             </p>
                         )}
                     </Form>
@@ -239,6 +247,9 @@ export default function CorporateTax({
                                 Deadline {date(preview.deadline)}. File Modelo
                                 200 electronically through AEAT Sociedades WEB
                                 and record its reference and receipt here.
+                            </p>
+                            <p className="mt-2 text-xs text-muted-foreground">
+                                Tax rule set: {preview.tax_rule_version}
                             </p>
                         </div>
                     </aside>

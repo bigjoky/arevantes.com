@@ -30,7 +30,9 @@ class VatSettlement
         }
 
         return DB::transaction(function () use ($year, $quarter, $userId, $data, $output, $input, $result) {
-            $return = TaxReturn::create(['tax_type' => 'vat', 'year' => $year, 'quarter' => $quarter, 'period_from' => $data['period']['from'], 'period_to' => $data['period']['to'], 'status' => 'prepared', 'output_vat' => $output, 'input_vat' => $input, 'result' => $result, 'snapshot' => ['summary' => $data['summary'], 'rates' => $data['rates'], 'issued_count' => count($data['issued']), 'received_count' => count($data['received'])], 'prepared_by' => $userId, 'prepared_at' => now()]);
+            $option = $result > 0 ? 'payable' : ($result < 0 ? 'compensate' : 'none');
+            $settlementStatus = $result > 0 ? 'pending' : ($result < 0 ? 'awaiting_election' : 'settled');
+            $return = TaxReturn::create(['tax_type' => 'vat', 'year' => $year, 'quarter' => $quarter, 'period_from' => $data['period']['from'], 'period_to' => $data['period']['to'], 'status' => 'prepared', 'settlement_status' => $settlementStatus, 'output_vat' => $output, 'input_vat' => $input, 'result' => $result, 'result_option' => $option, 'snapshot' => ['summary' => $data['summary'], 'rates' => $data['rates'], 'issued_count' => count($data['issued']), 'received_count' => count($data['received'])], 'prepared_by' => $userId, 'prepared_at' => now()]);
             $lines = [];
             if ($output > 0) {
                 $lines[] = ['account_code' => '477', 'debit' => $output, 'credit' => 0];

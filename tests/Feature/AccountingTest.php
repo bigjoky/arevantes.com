@@ -26,6 +26,8 @@ use App\Services\Accounting\RecurringEntryProcessor;
 use App\Services\Ai\BusinessContextBuilder;
 use App\Services\Ai\RelevantBusinessContext;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
@@ -188,6 +190,53 @@ class AccountingTest extends TestCase
         $this->assertSame('prepared', $return->status);
         $this->assertEqualsWithDelta(20000, $return->gross_tax, .001);
         $this->assertEqualsWithDelta(17000, $return->net_tax, .001);
+
+        $this->post(route('corporate-tax.prepare'), [...$payload, 'prior_year_revenue' => 1000000])
+            ->assertSessionHasErrors('regime');
+    }
+
+    public function test_corporate_tax_applies_the_published_transition_rates_after_2026(): void
+    {
+        $calculator = app(CorporateTaxCalculator::class);
+        foreach ([2027 => 18500, 2028 => 18500] as $yearNumber => $expected) {
+            $year = FiscalYear::create(['year' => $yearNumber, 'starts_on' => "{$yearNumber}-01-01", 'ends_on' => "{$yearNumber}-12-31", 'status' => 'open']);
+            $result = $calculator->calculate($year, ['regime' => 'micro', 'permanent_positive' => 100000, 'permanent_negative' => 0, 'temporary_positive' => 0, 'temporary_negative' => 0, 'loss_carryforward' => 0, 'deductions' => 0, 'withholdings' => 0, 'instalment_payments' => 0]);
+            $this->assertEqualsWithDelta($expected, $result['gross_tax'], 0.001);
+            $this->assertSame('aeat-transition-2025-2029', $result['tax_rule_version']);
+        }
+
+        $year2029 = FiscalYear::create(['year' => 2029, 'starts_on' => '2029-01-01', 'ends_on' => '2029-12-31', 'status' => 'open']);
+        $reduced = $calculator->calculate($year2029, ['regime' => 'reduced', 'permanent_positive' => 100000, 'permanent_negative' => 0, 'temporary_positive' => 0, 'temporary_negative' => 0, 'loss_carryforward' => 0, 'deductions' => 0, 'withholdings' => 0, 'instalment_payments' => 0]);
+        $this->assertEqualsWithDelta(20000, $reduced['gross_tax'], 0.001);
+    }
+
+    public function test_filed_corporate_tax_return_is_immutable_and_keeps_hashed_evidence(): void
+    {
+        Storage::fake('local');
+        $admin = User::factory()->create(['role' => 'admin']);
+        $year = FiscalYear::where('year', now()->year)->firstOrFail();
+        $payload = ['fiscal_year_id' => $year->id, 'regime' => 'general', 'prior_year_revenue' => 2000000, 'permanent_positive' => 0, 'permanent_negative' => 0, 'temporary_positive' => 0, 'temporary_negative' => 0, 'loss_carryforward' => 0, 'deductions' => 0, 'withholdings' => 0, 'instalment_payments' => 0];
+
+        $this->actingAs($admin)->post(route('corporate-tax.prepare'), $payload)->assertSessionHasNoErrors();
+        $return = CorporateTaxReturn::firstOrFail();
+        $filedOn = $year->ends_on->copy()->addMonths(7)->toDateString();
+        $this->post(route('corporate-tax.file', $return), [
+            'filing_reference' => 'MODELO-200-CSV',
+            'filed_on' => $filedOn,
+            'receipt' => UploadedFile::fake()->create('modelo-200.pdf', 12, 'application/pdf'),
+        ])->assertSessionHasNoErrors();
+
+        $return->refresh();
+        $this->assertSame('filed', $return->status);
+        $this->assertSame('modelo-200.pdf', $return->receipt_original_name);
+        $this->assertSame(64, strlen((string) $return->receipt_sha256));
+        Storage::disk('local')->assertExists($return->receipt_path);
+
+        $this->post(route('corporate-tax.prepare'), [...$payload, 'permanent_positive' => 5000])
+            ->assertSessionHasErrors('fiscal_year_id');
+        $this->assertEqualsWithDelta(0, $return->fresh()->permanent_positive, 0.001);
+        $this->assertSame('MODELO-200-CSV', $return->fresh()->filing_reference);
+        $this->assertDatabaseHas('audit_logs', ['auditable_type' => CorporateTaxReturn::class, 'auditable_id' => $return->id, 'event' => 'updated']);
     }
 
     public function test_complete_official_pgc_is_loaded_with_hierarchy_and_version(): void
@@ -399,6 +448,13 @@ class AccountingTest extends TestCase
         $invoice = SalesDocument::create(['type' => 'invoice', 'number' => 'FAC-CLOSE-1', 'status' => 'issued', 'issue_date' => $year->ends_on, 'subtotal' => 100, 'discount_amount' => 0, 'tax_amount' => 0, 'amount' => 100, 'paid_amount' => 0, 'customer_snapshot' => []]);
         FiscalYear::create(['year' => $year->year + 1, 'starts_on' => $year->ends_on->copy()->addDay(), 'ends_on' => $year->ends_on->copy()->addYear(), 'status' => 'open']);
         $this->travelTo($year->ends_on->copy()->addDays(10));
+
+        $this->actingAs($admin)->post(route('accounting.years.close', $year), ['confirmation' => (string) $year->year])
+            ->assertSessionHasErrors('year');
+        app(AccountingSynchronizer::class)->sync($admin->id);
+        foreach (range(1, 12) as $month) {
+            AccountingPeriod::create(['fiscal_year_id' => $year->id, 'year' => $year->year, 'month' => $month, 'status' => 'closed', 'closed_by' => $admin->id, 'closed_at' => now()]);
+        }
 
         $this->actingAs($admin)->post(route('accounting.years.close', $year), ['confirmation' => (string) $year->year])->assertRedirect()->assertSessionHasNoErrors();
         $this->assertSame('closed', $year->fresh()->status);

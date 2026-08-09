@@ -19,6 +19,7 @@ use App\Services\Accounting\AccountingSynchronizer;
 use App\Services\Tax\VatReport;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
@@ -111,5 +112,50 @@ class TaxTest extends TestCase
         $this->post(route('banking.import', $account), ['statement' => UploadedFile::fake()->createWithContent('tax.csv', $csv)])->assertRedirect();
         $this->post(route('banking.auto', $account))->assertRedirect();
         $this->assertSame(1, BankReconciliation::whereNotNull('tax_return_payment_id')->count());
+    }
+
+    public function test_negative_vat_defaults_to_compensation_and_cannot_be_recorded_as_an_ordinary_refund(): void
+    {
+        Storage::fake('local');
+        $admin = User::factory()->create(['role' => 'admin']);
+        $category = ExpenseCategory::create(['code' => 'VAT-IN', 'name' => 'Input VAT', 'is_active' => true]);
+        Expense::create([
+            'expense_category_id' => $category->id,
+            'created_by' => $admin->id,
+            'number' => 'EXP-VAT-NEG-1',
+            'type' => 'invoice',
+            'expense_date' => '2026-02-10',
+            'subtotal' => 100,
+            'tax_amount' => 21,
+            'amount' => 121,
+            'paid_amount' => 0,
+            'status' => 'pending',
+        ]);
+
+        $this->actingAs($admin)->post(route('tax.returns.prepare'), ['year' => 2026, 'quarter' => 1])
+            ->assertSessionHasNoErrors();
+        $return = TaxReturn::firstOrFail();
+        $this->assertSame('compensate', $return->result_option);
+        $this->assertSame('awaiting_election', $return->settlement_status);
+
+        $filing = [
+            'filing_reference' => 'AEAT-Q1-NEG',
+            'filed_on' => '2026-04-20',
+            'receipt' => UploadedFile::fake()->create('modelo-303.pdf', 10, 'application/pdf'),
+        ];
+        $this->post(route('tax.returns.file', $return), [...$filing, 'negative_result_option' => 'refund'])
+            ->assertSessionHasErrors('negative_result_option');
+        $this->post(route('tax.returns.file', $return), [...$filing, 'negative_result_option' => 'compensate'])
+            ->assertSessionHasNoErrors();
+
+        $return->refresh();
+        $this->assertSame('filed', $return->status);
+        $this->assertSame('compensate', $return->result_option);
+        $this->assertSame('carried_forward', $return->settlement_status);
+        $this->assertSame(64, strlen((string) $return->receipt_sha256));
+        Storage::disk('local')->assertExists($return->receipt_path);
+        $this->post(route('tax.returns.payments.store', $return), ['paid_on' => '2026-04-21', 'amount' => 21, 'method' => 'bank_transfer'])
+            ->assertStatus(422);
+        $this->assertDatabaseHas('audit_logs', ['auditable_type' => TaxReturn::class, 'auditable_id' => $return->id, 'event' => 'updated']);
     }
 }

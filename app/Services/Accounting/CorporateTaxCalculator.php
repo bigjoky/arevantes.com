@@ -23,7 +23,7 @@ class CorporateTaxCalculator
         [$gross, $bands] = $this->grossTax($year->year, $data['regime'], $base);
         $net = round($gross - (float) $data['deductions'] - (float) $data['withholdings'] - (float) $data['instalment_payments'], 2);
 
-        return ['accounting_result' => $result, 'taxable_base' => round($base, 2), 'gross_tax' => $gross, 'net_tax' => $net, 'bands' => $bands, 'deadline' => $year->ends_on->copy()->addMonths(6)->addDays(25)->toDateString()];
+        return ['accounting_result' => $result, 'taxable_base' => round($base, 2), 'gross_tax' => $gross, 'net_tax' => $net, 'bands' => $bands, 'deadline' => $year->ends_on->copy()->addMonths(6)->addDays(25)->toDateString(), 'tax_rule_version' => 'aeat-transition-2025-2029'];
     }
 
     private function grossTax(int $year, string $regime, float $base): array
@@ -32,16 +32,21 @@ class CorporateTaxCalculator
             return [round($base * .15, 2), [['base' => $base, 'rate' => 15]]];
         }
         if ($regime === 'micro') {
-            if ($year >= 2026) {
-                return $this->bands($base, 19, 21);
-            }
-            if ($year === 2025) {
-                return $this->bands($base, 21, 22);
-            }
-
-            return [round($base * .23, 2), [['base' => $base, 'rate' => 23]]];
+            return match (true) {
+                $year >= 2027 => $this->bands($base, 17, 20),
+                $year === 2026 => $this->bands($base, 19, 21),
+                $year === 2025 => $this->bands($base, 21, 22),
+                default => [round($base * .23, 2), [['base' => $base, 'rate' => 23]]],
+            };
         }
-        $rate = $regime === 'reduced' ? ($year >= 2026 ? 23 : ($year === 2025 ? 24 : 25)) : 25;
+        $rate = $regime === 'reduced' ? match (true) {
+            $year >= 2029 => 20,
+            $year === 2028 => 21,
+            $year === 2027 => 22,
+            $year === 2026 => 23,
+            $year === 2025 => 24,
+            default => 25,
+        } : 25;
 
         return [round($base * $rate / 100, 2), [['base' => $base, 'rate' => $rate]]];
     }

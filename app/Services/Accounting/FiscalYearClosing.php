@@ -2,6 +2,7 @@
 
 namespace App\Services\Accounting;
 
+use App\Models\AccountingPeriod;
 use App\Models\FiscalYear;
 use App\Models\JournalEntry;
 use App\Models\LedgerAccount;
@@ -19,6 +20,16 @@ class FiscalYearClosing
         }
         if (! $year->ends_on->isBefore(today())) {
             throw ValidationException::withMessages(['year' => __('A fiscal year cannot be closed before its end date.')]);
+        }
+        $closedMonths = AccountingPeriod::where('fiscal_year_id', $year->id)
+            ->where('status', 'closed')
+            ->pluck('month')
+            ->map(fn ($month) => (int) $month);
+        $missingMonths = collect(range(1, 12))->diff($closedMonths)->values();
+        if ($missingMonths->isNotEmpty()) {
+            throw ValidationException::withMessages([
+                'year' => __('Close all monthly accounting periods before the fiscal year. Missing months: :months.', ['months' => $missingMonths->implode(', ')]),
+            ]);
         }
         $this->synchronizer->sync($userId);
 

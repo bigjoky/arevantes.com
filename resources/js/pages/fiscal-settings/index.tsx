@@ -59,6 +59,7 @@ type FiscalYear = {
     status: string;
     closed_at: string | null;
     has_opening_entry: boolean;
+    closed_periods_count: number;
     series: Series[];
 };
 export default function FiscalSettings({
@@ -380,6 +381,7 @@ export default function FiscalSettings({
 function FiscalYearActions({ year }: { year: FiscalYear }) {
     const endDate = new Date(`${year.ends_on.slice(0, 10)}T23:59:59`);
     const canClose = endDate < new Date();
+    const allPeriodsClosed = year.closed_periods_count === 12;
 
     if (year.status === 'closed') {
         return (
@@ -406,6 +408,15 @@ function FiscalYearActions({ year }: { year: FiscalYear }) {
                 {new Intl.DateTimeFormat(undefined, {
                     dateStyle: 'medium',
                 }).format(endDate)}
+            </span>
+        );
+    }
+
+    if (!allPeriodsClosed) {
+        return (
+            <span className="text-xs text-amber-700 dark:text-amber-300">
+                Cierre mensual: {year.closed_periods_count}/12. Cierre los
+                periodos pendientes en Contabilidad.
             </span>
         );
     }
