@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class BankTransactionPosting extends Model
 {
-    protected $fillable = ['bank_transaction_id', 'reconciliation_rule_id', 'reconciliation_run_id', 'counterpart_account_id', 'allocation_data', 'journal_entry_id', 'reversal_entry_id', 'posted_by', 'reversed_at'];
+    protected $fillable = ['bank_transaction_id', 'reconciliation_rule_id', 'reconciliation_rule_version_id', 'reconciliation_run_id', 'counterpart_account_id', 'allocation_data', 'journal_entry_id', 'reversal_entry_id', 'posted_by', 'reversed_at'];
 
     protected function casts(): array
     {
@@ -32,6 +32,11 @@ class BankTransactionPosting extends Model
     public function reconciliationRun(): BelongsTo
     {
         return $this->belongsTo(BankReconciliationRun::class);
+    }
+
+    public function reconciliationRuleVersion(): BelongsTo
+    {
+        return $this->belongsTo(BankReconciliationRuleVersion::class);
     }
 
     public function journalEntry(): BelongsTo

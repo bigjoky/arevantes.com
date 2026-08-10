@@ -18,7 +18,7 @@ class BankReconciliationRuleEngine
 
     public function rules(BankAccount $account): Collection
     {
-        return BankReconciliationRule::with('ledgerAccount:id,code,name,is_active,is_postable')
+        return BankReconciliationRule::with(['ledgerAccount:id,code,name,is_active,is_postable', 'latestVersion'])
             ->whereBelongsTo($account, 'account')
             ->where('is_active', true)
             ->orderBy('priority')
@@ -44,6 +44,7 @@ class BankReconciliationRuleEngine
         return [
             'rule_id' => $rule->id,
             'rule_name' => $rule->name,
+            'rule_version' => $rule->current_version,
             'confidence' => $rule->confidence,
             'ledger_account' => [
                 'id' => $rule->ledgerAccount->id,
@@ -99,7 +100,7 @@ class BankReconciliationRuleEngine
             }
             $rule = $rules->firstWhere('id', $suggestion['rule_id']);
             if ($suggestion['conflict']) {
-                BankReconciliationRunItem::create(['bank_reconciliation_run_id' => $run->id, 'bank_reconciliation_rule_id' => $rule->id, 'bank_transaction_id' => $transaction->id, 'confidence' => $suggestion['confidence'], 'outcome' => 'conflict', 'explanation' => __('Multiple rules matched different ledger accounts; no posting was created.')]);
+                BankReconciliationRunItem::create(['bank_reconciliation_run_id' => $run->id, 'bank_reconciliation_rule_id' => $rule->id, 'bank_reconciliation_rule_version_id' => $rule->latestVersion?->id, 'bank_transaction_id' => $transaction->id, 'confidence' => $suggestion['confidence'], 'outcome' => 'conflict', 'explanation' => __('Multiple rules matched different ledger accounts; no posting was created.')]);
                 $conflicts++;
                 $skipped++;
 
@@ -107,13 +108,13 @@ class BankReconciliationRuleEngine
             }
             try {
                 $posting = $this->poster->post($transaction, $rule->ledgerAccount, $userId, $rule, $run);
-                BankReconciliationRunItem::create(['bank_reconciliation_run_id' => $run->id, 'bank_reconciliation_rule_id' => $rule->id, 'bank_transaction_id' => $transaction->id, 'bank_transaction_posting_id' => $posting->id, 'confidence' => $suggestion['confidence'], 'outcome' => 'applied', 'explanation' => $suggestion['explanation']]);
+                BankReconciliationRunItem::create(['bank_reconciliation_run_id' => $run->id, 'bank_reconciliation_rule_id' => $rule->id, 'bank_reconciliation_rule_version_id' => $rule->latestVersion?->id, 'bank_transaction_id' => $transaction->id, 'bank_transaction_posting_id' => $posting->id, 'confidence' => $suggestion['confidence'], 'outcome' => 'applied', 'explanation' => $suggestion['explanation']]);
                 $rule->increment('application_count');
                 $rule->update(['last_applied_at' => now()]);
                 $matched++;
             } catch (\Throwable $exception) {
                 report($exception);
-                BankReconciliationRunItem::create(['bank_reconciliation_run_id' => $run->id, 'bank_reconciliation_rule_id' => $rule->id, 'bank_transaction_id' => $transaction->id, 'confidence' => $suggestion['confidence'], 'outcome' => 'failed', 'explanation' => $suggestion['explanation'], 'error' => Str::limit($exception->getMessage(), 2000)]);
+                BankReconciliationRunItem::create(['bank_reconciliation_run_id' => $run->id, 'bank_reconciliation_rule_id' => $rule->id, 'bank_reconciliation_rule_version_id' => $rule->latestVersion?->id, 'bank_transaction_id' => $transaction->id, 'confidence' => $suggestion['confidence'], 'outcome' => 'failed', 'explanation' => $suggestion['explanation'], 'error' => Str::limit($exception->getMessage(), 2000)]);
                 $failed++;
             }
         });

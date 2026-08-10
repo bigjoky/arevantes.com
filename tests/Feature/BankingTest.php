@@ -6,6 +6,7 @@ use App\Models\BankAccount;
 use App\Models\BankFinancialProduct;
 use App\Models\BankReconciliation;
 use App\Models\BankReconciliationRule;
+use App\Models\BankReconciliationRuleVersion;
 use App\Models\BankReconciliationRun;
 use App\Models\BankStatementImport;
 use App\Models\BankTransaction;
@@ -782,6 +783,9 @@ class BankingTest extends TestCase
             'is_active' => true,
         ])->assertSessionHasNoErrors();
         $rule = BankReconciliationRule::firstOrFail();
+        $versionOne = BankReconciliationRuleVersion::whereBelongsTo($rule, 'rule')->firstOrFail();
+        $this->assertSame(1, $versionOne->version);
+        $this->assertSame('comision', $versionOne->snapshot['pattern']);
 
         $this->get(route('banking.index', ['account' => $account->id, 'status' => 'pending']))
             ->assertOk()
@@ -812,6 +816,7 @@ class BankingTest extends TestCase
         $this->assertSame('pending', $tooLarge->fresh()->status);
         $this->assertSame('pending', $incoming->fresh()->status);
         $this->assertSame($rule->id, $posting->reconciliation_rule_id);
+        $this->assertSame($versionOne->id, $posting->reconciliation_rule_version_id);
         $this->assertSame($run->id, $posting->reconciliation_run_id);
         $this->assertSame('completed', $run->status);
         $this->assertSame(1, $run->matched_count);
@@ -820,6 +825,7 @@ class BankingTest extends TestCase
         $this->assertDatabaseHas('bank_reconciliation_run_items', [
             'bank_reconciliation_run_id' => $run->id,
             'bank_reconciliation_rule_id' => $rule->id,
+            'bank_reconciliation_rule_version_id' => $versionOne->id,
             'bank_transaction_id' => $matching->id,
             'outcome' => 'applied',
             'confidence' => 98,
@@ -846,8 +852,35 @@ class BankingTest extends TestCase
             'reason' => 'Attempt to reverse the same execution for a second time.',
         ])->assertSessionHasErrors('reason');
 
-        $this->delete(route('banking.rules.destroy', $rule))->assertSessionHasNoErrors();
+        $this->patch(route('banking.rules.update', $rule), [
+            'name' => 'Bank fees under 50',
+            'ledger_account_id' => $fees->id,
+            'priority' => 10,
+            'direction' => 'out',
+            'match_field' => 'description',
+            'match_operator' => 'contains',
+            'pattern' => 'comision bancaria',
+            'min_amount' => 0,
+            'max_amount' => 50,
+            'confidence' => 99,
+            'is_active' => true,
+            'change_reason' => 'Narrow the pattern after reviewing the first automatic run.',
+        ])->assertSessionHasNoErrors();
+        $this->assertSame(2, $rule->fresh()->current_version);
+        $this->assertSame(2, $rule->versions()->count());
+        $this->assertSame('comision bancaria', $rule->versions()->first()->snapshot['pattern']);
+        $this->assertSame($versionOne->id, $posting->fresh()->reconciliation_rule_version_id);
+
+        $this->get(route('banking.index', ['account' => $account->id]))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('reconciliationRules.0.current_version', 2)
+                ->has('reconciliationRules.0.versions', 2)
+                ->where('reconciliationRules.0.versions.0.change_reason', 'Narrow the pattern after reviewing the first automatic run.'));
+
+        $this->delete(route('banking.rules.destroy', $rule), ['reason' => 'Pause this rule while the bank description format is reviewed.'])->assertSessionHasNoErrors();
         $this->assertDatabaseHas('bank_reconciliation_rules', ['id' => $rule->id, 'is_active' => false]);
+        $this->assertSame(3, $rule->fresh()->current_version);
+        $this->assertSame(3, $rule->versions()->count());
     }
 
     public function test_conflicting_rules_are_explained_and_never_posted_automatically(): void

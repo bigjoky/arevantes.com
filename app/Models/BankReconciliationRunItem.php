@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class BankReconciliationRunItem extends Model
 {
-    protected $fillable = ['bank_reconciliation_run_id', 'bank_reconciliation_rule_id', 'bank_transaction_id', 'bank_transaction_posting_id', 'confidence', 'outcome', 'explanation', 'error'];
+    protected $fillable = ['bank_reconciliation_run_id', 'bank_reconciliation_rule_id', 'bank_reconciliation_rule_version_id', 'bank_transaction_id', 'bank_transaction_posting_id', 'confidence', 'outcome', 'explanation', 'error'];
 
     public function run(): BelongsTo
     {
@@ -27,5 +27,10 @@ class BankReconciliationRunItem extends Model
     public function posting(): BelongsTo
     {
         return $this->belongsTo(BankTransactionPosting::class, 'bank_transaction_posting_id');
+    }
+
+    public function ruleVersion(): BelongsTo
+    {
+        return $this->belongsTo(BankReconciliationRuleVersion::class, 'bank_reconciliation_rule_version_id');
     }
 }

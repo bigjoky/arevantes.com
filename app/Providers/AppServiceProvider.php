@@ -10,6 +10,7 @@ use App\Models\BankAccount;
 use App\Models\BankFinancialProduct;
 use App\Models\BankReconciliation;
 use App\Models\BankReconciliationRule;
+use App\Models\BankReconciliationRuleVersion;
 use App\Models\BankReconciliationRun;
 use App\Models\BankReconciliationRunItem;
 use App\Models\BankTransaction;
@@ -99,6 +100,7 @@ class AppServiceProvider extends ServiceProvider
         BankTransaction::observe(AuditableObserver::class);
         BankReconciliation::observe(AuditableObserver::class);
         BankReconciliationRule::observe(AuditableObserver::class);
+        BankReconciliationRuleVersion::observe(AuditableObserver::class);
         BankReconciliationRun::observe(AuditableObserver::class);
         BankReconciliationRunItem::observe(AuditableObserver::class);
         BankReconciliation::observe(BankReconciliationFinancialObserver::class);

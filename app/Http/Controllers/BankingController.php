@@ -155,7 +155,7 @@ class BankingController extends Controller
                     && $import->processed_transactions_count === 0,
             ]) : [];
 
-        $rules = $account ? BankReconciliationRule::with('ledgerAccount:id,code,name')->whereBelongsTo($account, 'account')->orderBy('priority')->orderBy('name')->get() : [];
+        $rules = $account ? BankReconciliationRule::with(['ledgerAccount:id,code,name', 'versions.changer:id,name'])->whereBelongsTo($account, 'account')->orderBy('priority')->orderBy('name')->get() : [];
         $ruleRuns = $account ? BankReconciliationRun::with(['triggeredBy:id,name', 'reversedBy:id,name', 'items.posting.transaction:id,status'])->whereBelongsTo($account, 'account')->latest()->limit(5)->get()->map(function (BankReconciliationRun $run) {
             $applied = $run->items->where('outcome', 'applied');
             $stateIsReversible = $applied->isNotEmpty() && $applied->every(fn ($item) => $item->posting && ($item->posting->reversed_at ? $item->posting->transaction?->status === 'pending' : $item->posting->transaction?->status === 'accounted'));
@@ -169,26 +169,40 @@ class BankingController extends Controller
     public function storeRule(Request $request, BankAccount $account): RedirectResponse
     {
         $data = $this->validatedRule($request, null, $account);
-        BankReconciliationRule::create([...$data, 'bank_account_id' => $account->id, 'created_by' => $request->user()->id, 'updated_by' => $request->user()->id]);
+        DB::transaction(function () use ($data, $account, $request) {
+            $rule = BankReconciliationRule::create([...$data, 'bank_account_id' => $account->id, 'current_version' => 1, 'created_by' => $request->user()->id, 'updated_by' => $request->user()->id]);
+            $rule->versions()->create(['version' => 1, 'snapshot' => $this->ruleSnapshot($rule), 'change_reason' => __('Initial rule created.'), 'changed_by' => $request->user()->id]);
+        });
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Reconciliation rule created. Review its preview before applying it.')]);
     }
 
     public function updateRule(Request $request, BankReconciliationRule $rule): RedirectResponse
     {
+        $reason = $request->validate(['change_reason' => ['required', 'string', 'min:10', 'max:500']])['change_reason'];
         $data = $this->validatedRule($request, $rule, $rule->account);
-        $rule->update([...$data, 'updated_by' => $request->user()->id]);
+        DB::transaction(function () use ($rule, $data, $reason, $request) {
+            $rule = BankReconciliationRule::lockForUpdate()->findOrFail($rule->id);
+            $version = $rule->current_version + 1;
+            $rule->update([...$data, 'current_version' => $version, 'updated_by' => $request->user()->id]);
+            $rule->versions()->create(['version' => $version, 'snapshot' => $this->ruleSnapshot($rule), 'change_reason' => $reason, 'changed_by' => $request->user()->id]);
+        });
 
-        return back()->with('toast', ['type' => 'success', 'message' => __('Reconciliation rule updated.')]);
+        return back()->with('toast', ['type' => 'success', 'message' => __('Reconciliation rule updated and versioned.')]);
     }
 
     public function destroyRule(Request $request, BankReconciliationRule $rule): RedirectResponse
     {
-        if ($rule->runItems()->exists()) {
-            $rule->update(['is_active' => false, 'updated_by' => $request->user()->id]);
-        } else {
-            $rule->delete();
-        }
+        $reason = $request->validate(['reason' => ['required', 'string', 'min:10', 'max:500']])['reason'];
+        DB::transaction(function () use ($rule, $request, $reason) {
+            $rule = BankReconciliationRule::lockForUpdate()->findOrFail($rule->id);
+            if (! $rule->is_active) {
+                throw ValidationException::withMessages(['reason' => __('This rule is already inactive.')]);
+            }
+            $version = $rule->current_version + 1;
+            $rule->update(['is_active' => false, 'current_version' => $version, 'updated_by' => $request->user()->id]);
+            $rule->versions()->create(['version' => $version, 'snapshot' => $this->ruleSnapshot($rule), 'change_reason' => $reason, 'changed_by' => $request->user()->id]);
+        });
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Reconciliation rule removed from future runs.')]);
     }
@@ -375,6 +389,11 @@ class BankingController extends Controller
         }
 
         return $data;
+    }
+
+    private function ruleSnapshot(BankReconciliationRule $rule): array
+    {
+        return $rule->only(['name', 'ledger_account_id', 'priority', 'direction', 'match_field', 'match_operator', 'pattern', 'min_amount', 'max_amount', 'confidence', 'is_active']);
     }
 
     public function reconcile(Request $request, BankTransaction $transaction, JournalPoster $poster, AccountingSynchronizer $accounting): RedirectResponse

@@ -37,6 +37,7 @@ class BankTransactionPoster
             $posting = BankTransactionPosting::create([
                 'bank_transaction_id' => $transaction->id,
                 'reconciliation_rule_id' => $rule?->id,
+                'reconciliation_rule_version_id' => $rule?->latestVersion?->id,
                 'reconciliation_run_id' => $run?->id,
                 'counterpart_account_id' => $counterpart->id,
                 'allocation_data' => [['account_id' => $counterpart->id, 'code' => $counterpart->code, 'name' => $counterpart->name, 'amount' => $amount]],

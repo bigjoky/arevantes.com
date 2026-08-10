@@ -57,6 +57,7 @@ type LedgerAccount = { id: number; code: string; name: string; type: string };
 type RuleSuggestion = {
     rule_id: number;
     rule_name: string;
+    rule_version: number;
     confidence: number;
     ledger_account: { id: number; code: string; name: string };
     conflict: boolean;
@@ -82,7 +83,16 @@ type ReconciliationRule = {
     confidence: number;
     is_active: boolean;
     application_count: number;
+    current_version: number;
     ledger_account: { id: number; code: string; name: string };
+    versions: {
+        id: number;
+        version: number;
+        snapshot: Record<string, string | number | boolean | null>;
+        change_reason: string;
+        created_at: string;
+        changer: { name: string } | null;
+    }[];
 };
 type RulePreview = {
     pending: number;
@@ -805,8 +815,8 @@ export default function BankingIndex({
                                                                 {transaction
                                                                     .rule_suggestion
                                                                     .conflict
-                                                                    ? 'Rule conflict · '
-                                                                    : 'Rule · '}
+                                                                    ? `Rule v${transaction.rule_suggestion.rule_version} conflict · `
+                                                                    : `Rule v${transaction.rule_suggestion.rule_version} · `}
                                                                 {
                                                                     transaction
                                                                         .rule_suggestion
@@ -827,6 +837,12 @@ export default function BankingIndex({
                                                                     transaction
                                                                         .rule_suggestion
                                                                         .rule_name
+                                                                }
+                                                                {' · v'}
+                                                                {
+                                                                    transaction
+                                                                        .rule_suggestion
+                                                                        .rule_version
                                                                 }
                                                             </div>
                                                             <div className="text-muted-foreground">
@@ -1583,54 +1599,56 @@ function ReconciliationRules({
                             return (
                                 <div
                                     key={rule.id}
-                                    className="flex flex-wrap items-center justify-between gap-3 rounded-md border p-3 text-sm"
+                                    className="grid gap-3 rounded-md border p-3 text-sm"
                                 >
-                                    <div className="min-w-0">
-                                        <div className="flex flex-wrap items-center gap-2">
-                                            <span className="font-medium">
-                                                {rule.name}
-                                            </span>
-                                            <Badge
-                                                variant={
-                                                    rule.is_active
-                                                        ? 'secondary'
-                                                        : 'outline'
-                                                }
-                                            >
-                                                {rule.is_active
-                                                    ? `${matched} now`
-                                                    : 'Inactive'}
-                                            </Badge>
+                                    <div className="flex flex-wrap items-center justify-between gap-3">
+                                        <div className="min-w-0">
+                                            <div className="flex flex-wrap items-center gap-2">
+                                                <span className="font-medium">
+                                                    {rule.name}
+                                                </span>
+                                                <Badge
+                                                    variant={
+                                                        rule.is_active
+                                                            ? 'secondary'
+                                                            : 'outline'
+                                                    }
+                                                >
+                                                    {rule.is_active
+                                                        ? `${matched} now`
+                                                        : 'Inactive'}
+                                                </Badge>
+                                                <Badge variant="outline">
+                                                    v{rule.current_version}
+                                                </Badge>
+                                            </div>
+                                            <div className="mt-1 text-xs text-muted-foreground">
+                                                Priority {rule.priority} ·{' '}
+                                                {rule.direction === 'out'
+                                                    ? 'outgoing'
+                                                    : rule.direction === 'in'
+                                                      ? 'incoming'
+                                                      : 'any direction'}{' '}
+                                                · {rule.match_field}{' '}
+                                                {rule.match_operator.replace(
+                                                    '_',
+                                                    ' ',
+                                                )}{' '}
+                                                “{rule.pattern}” →{' '}
+                                                <span className="font-mono">
+                                                    {rule.ledger_account.code}
+                                                </span>{' '}
+                                                {rule.ledger_account.name} ·{' '}
+                                                {rule.confidence}% confidence ·
+                                                used {rule.application_count}{' '}
+                                                times
+                                            </div>
                                         </div>
-                                        <div className="mt-1 text-xs text-muted-foreground">
-                                            Priority {rule.priority} ·{' '}
-                                            {rule.direction === 'out'
-                                                ? 'outgoing'
-                                                : rule.direction === 'in'
-                                                  ? 'incoming'
-                                                  : 'any direction'}{' '}
-                                            · {rule.match_field}{' '}
-                                            {rule.match_operator.replace(
-                                                '_',
-                                                ' ',
-                                            )}{' '}
-                                            “{rule.pattern}” →{' '}
-                                            <span className="font-mono">
-                                                {rule.ledger_account.code}
-                                            </span>{' '}
-                                            {rule.ledger_account.name} ·{' '}
-                                            {rule.confidence}% confidence · used{' '}
-                                            {rule.application_count} times
-                                        </div>
+                                        <RuleGovernance
+                                            rule={rule}
+                                            ledgerAccounts={ledgerAccounts}
+                                        />
                                     </div>
-                                    <Form
-                                        action={`/banking/rules/${rule.id}`}
-                                        method="delete"
-                                    >
-                                        <Button size="sm" variant="ghost">
-                                            <Trash2 /> Remove
-                                        </Button>
-                                    </Form>
                                 </div>
                             );
                         })}
@@ -1893,6 +1911,212 @@ function ReconciliationRules({
                                 ))}
                             </div>
                         </div>
+                    )}
+                </div>
+            </div>
+        </details>
+    );
+}
+
+function RuleGovernance({
+    rule,
+    ledgerAccounts,
+}: {
+    rule: ReconciliationRule;
+    ledgerAccounts: LedgerAccount[];
+}) {
+    return (
+        <details className="basis-full rounded-md border border-dashed">
+            <summary className="cursor-pointer list-none px-3 py-2 text-xs font-medium">
+                Edit, pause or inspect version history
+            </summary>
+            <div className="grid gap-4 border-t p-3 lg:grid-cols-[minmax(0,1fr)_18rem]">
+                <Form
+                    action={`/banking/rules/${rule.id}`}
+                    method="patch"
+                    className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"
+                >
+                    <div className="grid gap-2 xl:col-span-2">
+                        <Label>Name</Label>
+                        <Input name="name" defaultValue={rule.name} required />
+                    </div>
+                    <div className="grid gap-2 xl:col-span-2">
+                        <Label>Ledger account</Label>
+                        <Select
+                            name="ledger_account_id"
+                            defaultValue={String(rule.ledger_account.id)}
+                            required
+                        >
+                            <SelectTrigger>
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {ledgerAccounts.map((ledger) => (
+                                    <SelectItem
+                                        key={ledger.id}
+                                        value={String(ledger.id)}
+                                    >
+                                        {ledger.code} · {ledger.name}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div className="grid gap-2">
+                        <Label>Search in</Label>
+                        <Select
+                            name="match_field"
+                            defaultValue={rule.match_field}
+                        >
+                            <SelectTrigger>
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="either">
+                                    Description or reference
+                                </SelectItem>
+                                <SelectItem value="description">
+                                    Description
+                                </SelectItem>
+                                <SelectItem value="reference">
+                                    Reference
+                                </SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div className="grid gap-2">
+                        <Label>Condition</Label>
+                        <Select
+                            name="match_operator"
+                            defaultValue={rule.match_operator}
+                        >
+                            <SelectTrigger>
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="contains">
+                                    Contains
+                                </SelectItem>
+                                <SelectItem value="starts_with">
+                                    Starts with
+                                </SelectItem>
+                                <SelectItem value="exact">
+                                    Exact text
+                                </SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div className="grid gap-2 xl:col-span-2">
+                        <Label>Text pattern</Label>
+                        <Input
+                            name="pattern"
+                            defaultValue={rule.pattern}
+                            minLength={3}
+                            required
+                        />
+                    </div>
+                    <div className="grid gap-2">
+                        <Label>Direction</Label>
+                        <Select name="direction" defaultValue={rule.direction}>
+                            <SelectTrigger>
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="out">Money out</SelectItem>
+                                <SelectItem value="in">Money in</SelectItem>
+                                <SelectItem value="any">Either</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <Field
+                        label="Minimum amount"
+                        name="min_amount"
+                        type="number"
+                        value={rule.min_amount ?? ''}
+                    />
+                    <Field
+                        label="Maximum amount"
+                        name="max_amount"
+                        type="number"
+                        value={rule.max_amount ?? ''}
+                    />
+                    <Field
+                        label="Priority"
+                        name="priority"
+                        type="number"
+                        value={String(rule.priority)}
+                    />
+                    <Field
+                        label="Confidence %"
+                        name="confidence"
+                        type="number"
+                        value={String(rule.confidence)}
+                    />
+                    <label className="flex items-center gap-2 self-end pb-2 text-sm">
+                        <input type="hidden" name="is_active" value="0" />
+                        <Checkbox
+                            name="is_active"
+                            value="1"
+                            defaultChecked={rule.is_active}
+                        />
+                        Active
+                    </label>
+                    <div className="grid gap-2 sm:col-span-2 xl:col-span-3">
+                        <Label>Reason for change</Label>
+                        <Input
+                            name="change_reason"
+                            minLength={10}
+                            maxLength={500}
+                            placeholder="Explain why this rule is changing"
+                            required
+                        />
+                    </div>
+                    <Button className="sm:col-span-2 xl:col-span-4 xl:justify-self-start">
+                        <Pencil /> Save as version {rule.current_version + 1}
+                    </Button>
+                </Form>
+
+                <div className="grid content-start gap-3">
+                    <div>
+                        <div className="text-xs font-medium">
+                            Immutable history
+                        </div>
+                        <div className="mt-2 grid max-h-48 gap-2 overflow-y-auto">
+                            {rule.versions.map((version) => (
+                                <div
+                                    key={version.id}
+                                    className="rounded border p-2 text-xs"
+                                >
+                                    <div className="font-medium">
+                                        Version {version.version} ·{' '}
+                                        {version.changer?.name ?? 'System'}
+                                    </div>
+                                    <div className="text-muted-foreground">
+                                        {date(version.created_at)} ·{' '}
+                                        {version.change_reason}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                    {rule.is_active && (
+                        <Form
+                            action={`/banking/rules/${rule.id}`}
+                            method="delete"
+                            className="grid gap-2 rounded border border-destructive/30 p-2"
+                        >
+                            <Label>Reason for pausing</Label>
+                            <Input
+                                name="reason"
+                                minLength={10}
+                                maxLength={500}
+                                placeholder="Why should future matches stop?"
+                                required
+                            />
+                            <Button size="sm" variant="outline">
+                                <Trash2 /> Pause rule
+                            </Button>
+                        </Form>
                     )}
                 </div>
             </div>
