@@ -53,6 +53,36 @@ class CatalogTest extends TestCase
         $this->assertSame('701', $product->fresh()->sale_account_code);
     }
 
+    public function test_a_composite_product_reuses_catalog_items_and_exposes_a_resolved_quote_template(): void
+    {
+        $user = User::factory()->create(['role' => 'commercial']);
+        $unit = Unit::where('code', 'unit')->firstOrFail();
+        $tax = TaxRate::where('is_default', true)->firstOrFail();
+        $panel = Product::create([
+            'type' => 'product', 'sku' => 'Z-PANEL', 'name' => 'Z Panel', 'unit_id' => $unit->id, 'tax_rate_id' => $tax->id,
+            'sale_price' => 200, 'cost_price' => 100, 'track_stock' => true, 'is_active' => true,
+        ]);
+
+        $this->actingAs($user)->post(route('catalog.products.store'), [
+            'type' => 'product', 'sku' => 'A-KIT', 'name' => 'A Solar kit', 'unit_id' => $unit->id, 'tax_rate_id' => $tax->id,
+            'sale_price' => 1000, 'cost_price' => 0, 'sale_account_code' => '700', 'purchase_account_code' => '600',
+            'track_stock' => true, 'track_serials' => true, 'is_active' => true,
+            'components' => [[
+                'component_product_id' => $panel->id, 'quantity' => 4, 'fulfillment_kind' => 'stock', 'visibility' => 'detailed',
+            ]],
+        ])->assertRedirect();
+
+        $kit = Product::where('sku', 'A-KIT')->firstOrFail();
+        $this->assertSame('400.00', $kit->cost_price);
+        $this->assertFalse($kit->track_stock);
+        $this->assertFalse($kit->track_serials);
+        $this->assertDatabaseHas('product_components', ['parent_product_id' => $kit->id, 'component_product_id' => $panel->id, 'quantity' => 4]);
+        $this->get(route('quotes.create'))->assertInertia(fn (Assert $page) => $page
+            ->where('products.0.id', $kit->id)
+            ->where('products.0.resolved_components.0.product_id', $panel->id)
+            ->where('products.0.resolved_components.0.quantity', 4));
+    }
+
     public function test_a_supplier_can_be_managed(): void
     {
         $user = User::factory()->create(['role' => 'commercial']);

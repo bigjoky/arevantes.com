@@ -13,25 +13,46 @@ class ProjectMaterialPlanner
 {
     public function syncFromQuote(Quote $quote, Installation $installation): void
     {
-        $quote->loadMissing('lines.product');
+        $quote->loadMissing(['lines.product', 'lines.components.product']);
 
         DB::transaction(function () use ($quote, $installation): void {
             $installation->materialRequirements()->where('source', 'quote')->delete();
 
-            $requirements = $quote->lines
-                ->filter(fn ($line) => $line->product?->track_stock)
+            $selectedLines = $quote->lines->where('is_selected', true);
+            $componentRequirements = $selectedLines->flatMap(function ($line) {
+                return $line->components
+                    ->whereIn('fulfillment_kind', ['stock', 'material'])
+                    ->filter(fn ($component) => $component->product?->track_stock)
+                    ->map(fn ($component) => (object) [
+                        'product_id' => $component->product_id,
+                        'product' => $component->product,
+                        'description' => $component->description,
+                        'quantity' => (float) $component->quantity * (float) $line->quantity,
+                        'planned_unit_cost' => $component->planned_unit_cost,
+                    ]);
+            });
+            $legacyRequirements = $selectedLines
+                ->filter(fn ($line) => $line->components->isEmpty() && $line->product?->track_stock)
+                ->map(fn ($line) => (object) [
+                    'product_id' => $line->product_id,
+                    'product' => $line->product,
+                    'description' => $line->description,
+                    'quantity' => $line->quantity,
+                    'planned_unit_cost' => $line->product->cost_price,
+                ]);
+            $requirements = $componentRequirements->concat($legacyRequirements)
                 ->groupBy('product_id')
-                ->map(function (Collection $lines) use ($quote): array {
-                    $product = $lines->first()->product;
+                ->map(function (Collection $items) use ($quote): array {
+                    $product = $items->first()->product;
 
                     return [
                         'quote_id' => $quote->id,
                         'product_id' => $product->id,
                         'source' => 'quote',
                         'sku' => $product->sku,
-                        'description' => $product->name,
-                        'planned_quantity' => $lines->sum(fn ($line) => (float) $line->quantity),
-                        'planned_unit_cost' => $product->cost_price,
+                        'description' => $items->first()->description ?: $product->name,
+                        'planned_quantity' => $items->sum(fn ($item) => (float) $item->quantity),
+                        'planned_unit_cost' => $items->first()->planned_unit_cost ?: $product->cost_price,
                     ];
                 })
                 ->values()

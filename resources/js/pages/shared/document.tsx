@@ -1,5 +1,6 @@
 import { Form, Head } from '@inertiajs/react';
 import { Check, Download, X } from 'lucide-react';
+import { useState } from 'react';
 import BrandLogo from '@/components/brand-logo';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -11,6 +12,16 @@ type Line = {
     discount_percent: string;
     tax_percent: string;
     total: string;
+    selection_mode: 'included' | 'optional' | 'alternative';
+    option_group: string | null;
+    is_selected: boolean;
+    components?: Array<{
+        id: number;
+        description: string;
+        quantity: string;
+        visibility: 'detailed' | 'summary' | 'hidden';
+        unit: { symbol: string } | null;
+    }>;
 };
 type Document = {
     number: string;
@@ -50,11 +61,20 @@ export default function SharedDocument({
     const customer =
         snapshot.company_name ||
         `${snapshot.first_name || ''} ${snapshot.last_name || ''}`.trim();
+    const [selectedLineIds, setSelectedLineIds] = useState<number[]>(
+        document.lines
+            .filter(
+                (line) =>
+                    line.selection_mode !== 'included' && line.is_selected,
+            )
+            .map((line) => line.id),
+    );
+    const previewTotals = selectionTotals(document.lines, selectedLineIds);
 
     return (
         <>
             <Head title={document.number} />
-            <main className="min-h-screen bg-background text-foreground">
+            <main className="min-h-screen max-w-full overflow-x-hidden bg-background text-foreground">
                 <header className="border-b">
                     <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-5">
                         <div className="flex items-center gap-3">
@@ -79,7 +99,7 @@ export default function SharedDocument({
                         </Button>
                     </div>
                 </header>
-                <div className="mx-auto grid max-w-5xl gap-7 px-4 py-8">
+                <div className="mx-auto grid max-w-5xl min-w-0 gap-7 px-4 py-8">
                     <section className="flex flex-wrap items-start justify-between gap-4">
                         <div>
                             <p className="text-sm text-muted-foreground capitalize">
@@ -108,9 +128,12 @@ export default function SharedDocument({
                             }
                         />
                         <Info label="Status" value={deliveryStatus} />
-                        <Info label="Total" value={money(document.amount)} />
+                        <Info
+                            label="Total"
+                            value={money(previewTotals.total)}
+                        />
                     </section>
-                    <section className="overflow-x-auto">
+                    <section className="max-w-full overflow-x-auto overscroll-x-contain">
                         <table className="w-full min-w-[42rem] text-sm">
                             <thead>
                                 <tr className="border-b text-left text-muted-foreground">
@@ -125,8 +148,125 @@ export default function SharedDocument({
                             <tbody>
                                 {document.lines.map((line) => (
                                     <tr key={line.id} className="border-b">
-                                        <td className="py-3 font-medium">
-                                            {line.description}
+                                        <td className="py-3">
+                                            <div className="font-medium">
+                                                {line.description}
+                                            </div>
+                                            {line.selection_mode !==
+                                                'included' && (
+                                                <label className="mt-2 flex cursor-pointer items-center gap-2 text-xs font-medium">
+                                                    <input
+                                                        type={
+                                                            line.selection_mode ===
+                                                            'alternative'
+                                                                ? 'radio'
+                                                                : 'checkbox'
+                                                        }
+                                                        name={
+                                                            line.selection_mode ===
+                                                            'alternative'
+                                                                ? `alternative-${line.option_group || line.id}`
+                                                                : undefined
+                                                        }
+                                                        checked={selectedLineIds.includes(
+                                                            line.id,
+                                                        )}
+                                                        onChange={() => {
+                                                            if (
+                                                                line.selection_mode ===
+                                                                'alternative'
+                                                            ) {
+                                                                const groupIds =
+                                                                    document.lines
+                                                                        .filter(
+                                                                            (
+                                                                                item,
+                                                                            ) =>
+                                                                                item.selection_mode ===
+                                                                                    'alternative' &&
+                                                                                item.option_group ===
+                                                                                    line.option_group,
+                                                                        )
+                                                                        .map(
+                                                                            (
+                                                                                item,
+                                                                            ) =>
+                                                                                item.id,
+                                                                        );
+                                                                setSelectedLineIds(
+                                                                    [
+                                                                        ...selectedLineIds.filter(
+                                                                            (
+                                                                                id,
+                                                                            ) =>
+                                                                                !groupIds.includes(
+                                                                                    id,
+                                                                                ),
+                                                                        ),
+                                                                        line.id,
+                                                                    ],
+                                                                );
+                                                            } else {
+                                                                setSelectedLineIds(
+                                                                    selectedLineIds.includes(
+                                                                        line.id,
+                                                                    )
+                                                                        ? selectedLineIds.filter(
+                                                                              (
+                                                                                  id,
+                                                                              ) =>
+                                                                                  id !==
+                                                                                  line.id,
+                                                                          )
+                                                                        : [
+                                                                              ...selectedLineIds,
+                                                                              line.id,
+                                                                          ],
+                                                                );
+                                                            }
+                                                        }}
+                                                    />
+                                                    {line.selection_mode ===
+                                                    'optional'
+                                                        ? 'Añadir esta opción'
+                                                        : `Elegir alternativa · ${line.option_group}`}
+                                                </label>
+                                            )}
+                                            {kind === 'quote' &&
+                                                line.components?.some(
+                                                    (component) =>
+                                                        component.visibility !==
+                                                        'hidden',
+                                                ) && (
+                                                    <ul className="mt-2 grid gap-1 border-l-2 pl-3 text-xs text-muted-foreground">
+                                                        {line.components
+                                                            .filter(
+                                                                (component) =>
+                                                                    component.visibility !==
+                                                                    'hidden',
+                                                            )
+                                                            .map(
+                                                                (component) => (
+                                                                    <li
+                                                                        key={
+                                                                            component.id
+                                                                        }
+                                                                        className="break-words"
+                                                                    >
+                                                                        {component.visibility ===
+                                                                        'detailed'
+                                                                            ? `${Number(component.quantity) * Number(line.quantity)}${component.unit?.symbol ? ` ${component.unit.symbol}` : ''} · `
+                                                                            : ''}
+                                                                        {
+                                                                            component.description
+                                                                        }{' '}
+                                                                        ·
+                                                                        incluido
+                                                                    </li>
+                                                                ),
+                                                            )}
+                                                    </ul>
+                                                )}
                                         </td>
                                         <td>{Number(line.quantity)}</td>
                                         <td>{money(line.unit_price)}</td>
@@ -141,13 +281,20 @@ export default function SharedDocument({
                         </table>
                     </section>
                     <section className="ml-auto w-full max-w-sm border-t pt-3 text-sm">
-                        <Total label="Subtotal" value={document.subtotal} />
+                        <Total
+                            label="Subtotal"
+                            value={previewTotals.subtotal}
+                        />
                         <Total
                             label="Discount"
-                            value={`-${document.discount_amount}`}
+                            value={-previewTotals.discount}
                         />
-                        <Total label="Tax" value={document.tax_amount} />
-                        <Total label="Total" value={document.amount} strong />
+                        <Total label="Tax" value={previewTotals.tax} />
+                        <Total
+                            label="Total"
+                            value={previewTotals.total}
+                            strong
+                        />
                     </section>
                     {document.notes && (
                         <section className="border-t pt-4">
@@ -181,6 +328,14 @@ export default function SharedDocument({
                                     name="response"
                                     value="accepted"
                                 />
+                                {selectedLineIds.map((lineId) => (
+                                    <input
+                                        key={lineId}
+                                        type="hidden"
+                                        name="selected_line_ids[]"
+                                        value={lineId}
+                                    />
+                                ))}
                                 <Button>
                                     <Check /> Accept quote
                                 </Button>
@@ -211,7 +366,7 @@ function Total({
     strong = false,
 }: {
     label: string;
-    value: string;
+    value: string | number;
     strong?: boolean;
 }) {
     return (
@@ -223,11 +378,37 @@ function Total({
         </div>
     );
 }
-const money = (v: string) =>
+const money = (v: string | number) =>
     new Intl.NumberFormat(undefined, {
         style: 'currency',
         currency: 'EUR',
     }).format(Number(v));
+function selectionTotals(lines: Line[], selectedLineIds: number[]) {
+    return lines
+        .filter(
+            (line) =>
+                line.selection_mode === 'included' ||
+                selectedLineIds.includes(line.id),
+        )
+        .reduce(
+            (sum, line) => {
+                const subtotal =
+                    Number(line.quantity) * Number(line.unit_price);
+                const discount =
+                    (subtotal * Number(line.discount_percent)) / 100;
+                const tax =
+                    ((subtotal - discount) * Number(line.tax_percent)) / 100;
+
+                return {
+                    subtotal: sum.subtotal + subtotal,
+                    discount: sum.discount + discount,
+                    tax: sum.tax + tax,
+                    total: sum.total + subtotal - discount + tax,
+                };
+            },
+            { subtotal: 0, discount: 0, tax: 0, total: 0 },
+        );
+}
 const date = (v: string) =>
     new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(
         new Date(`${v.slice(0, 10)}T12:00:00`),
