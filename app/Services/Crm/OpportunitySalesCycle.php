@@ -6,14 +6,33 @@ use App\Models\CrmActivity;
 use App\Models\Opportunity;
 use App\Models\User;
 use Illuminate\Support\Arr;
+use Illuminate\Validation\ValidationException;
 
 class OpportunitySalesCycle
 {
     private const CLOSED_STAGES = ['won', 'lost'];
 
+    private const TRANSITIONS = [
+        'new' => ['qualified', 'proposal', 'lost'],
+        'qualified' => ['new', 'survey', 'proposal', 'won', 'lost'],
+        'survey' => ['qualified', 'proposal', 'won', 'lost'],
+        'proposal' => ['qualified', 'survey', 'negotiation', 'won', 'lost'],
+        'negotiation' => ['proposal', 'won', 'lost'],
+        'won' => [],
+        'lost' => [],
+    ];
+
     public function prepareActiveData(array $data, User $actor): array
     {
-        if (in_array($data['stage'], self::CLOSED_STAGES, true)) {
+        if ($data['stage'] === 'won') {
+            $data['probability'] = 100;
+
+            return $data;
+        }
+
+        if ($data['stage'] === 'lost') {
+            $data['probability'] = 0;
+
             return $data;
         }
 
@@ -23,6 +42,46 @@ class OpportunitySalesCycle
         $data['expected_close_on'] ??= today()->addDays(30)->toDateString();
 
         return $data;
+    }
+
+    public function assertCanTransition(Opportunity $opportunity, string $stage): void
+    {
+        if ($opportunity->stage === $stage) {
+            return;
+        }
+
+        if (! in_array($stage, self::TRANSITIONS[$opportunity->stage] ?? [], true)) {
+            throw ValidationException::withMessages([
+                'stage' => __('The opportunity cannot move from :from to :to.', [
+                    'from' => $opportunity->stage,
+                    'to' => $stage,
+                ]),
+            ]);
+        }
+    }
+
+    /** @return array<int, string> */
+    public function availableTransitions(Opportunity $opportunity): array
+    {
+        return [$opportunity->stage, ...(self::TRANSITIONS[$opportunity->stage] ?? [])];
+    }
+
+    public function synchronizeStage(Opportunity $opportunity, ?User $actor = null): void
+    {
+        if (in_array($opportunity->stage, self::CLOSED_STAGES, true)) {
+            $opportunity->activities()
+                ->whereIn('status', ['pending', 'in_progress'])
+                ->update([
+                    'status' => 'cancelled',
+                    'blocked_reason' => __('Opportunity closed as :stage.', ['stage' => $opportunity->stage]),
+                    'updated_at' => now(),
+                ]);
+            $opportunity->unsetRelation('nextActivity');
+
+            return;
+        }
+
+        $this->ensureNextAction($opportunity, $actor);
     }
 
     public function ensureNextAction(Opportunity $opportunity, ?User $actor = null): void

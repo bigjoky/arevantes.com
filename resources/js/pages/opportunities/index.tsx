@@ -103,6 +103,7 @@ type Opportunity = {
     quote: { id: number; number: string; status: string } | null;
     next_activity: Activity | null;
     stage_history: StageHistory[];
+    available_stages: string[];
     deleted_at: string | null;
 };
 
@@ -585,8 +586,8 @@ export default function OpportunitiesIndex({
                         onEdit={openEditor}
                     />
                 ) : (
-                    <section className="overflow-x-auto pb-3">
-                        <div className="grid min-w-[119rem] grid-cols-7 gap-3">
+                    <section className="snap-x snap-proximity [scrollbar-gutter:stable] overflow-x-auto pb-3">
+                        <div className="grid min-w-[98rem] grid-cols-7 gap-3">
                             {stages.map((stage) => {
                                 const items = opportunities.filter(
                                     (item) => item.stage === stage.value,
@@ -752,6 +753,11 @@ export default function OpportunitiesIndex({
                                                     ) : (
                                                         <select
                                                             value={item.stage}
+                                                            disabled={
+                                                                item
+                                                                    .available_stages
+                                                                    .length <= 1
+                                                            }
                                                             onChange={(event) =>
                                                                 changeStage(
                                                                     item,
@@ -762,22 +768,31 @@ export default function OpportunitiesIndex({
                                                             aria-label={`Estado de ${item.title}`}
                                                             className="mt-2 h-9 w-full rounded-md border border-input bg-background px-3 text-sm font-medium shadow-xs"
                                                         >
-                                                            {stages.map(
-                                                                (option) => (
-                                                                    <option
-                                                                        key={
-                                                                            option.value
-                                                                        }
-                                                                        value={
-                                                                            option.value
-                                                                        }
-                                                                    >
-                                                                        {
-                                                                            option.label
-                                                                        }
-                                                                    </option>
-                                                                ),
-                                                            )}
+                                                            {stages
+                                                                .filter(
+                                                                    (option) =>
+                                                                        item.available_stages.includes(
+                                                                            option.value,
+                                                                        ),
+                                                                )
+                                                                .map(
+                                                                    (
+                                                                        option,
+                                                                    ) => (
+                                                                        <option
+                                                                            key={
+                                                                                option.value
+                                                                            }
+                                                                            value={
+                                                                                option.value
+                                                                            }
+                                                                        >
+                                                                            {
+                                                                                option.label
+                                                                            }
+                                                                        </option>
+                                                                    ),
+                                                                )}
                                                         </select>
                                                     )}
                                                 </article>
@@ -872,10 +887,15 @@ export default function OpportunitiesIndex({
                                         ),
                                     );
                                 }}
-                                options={stages.map((item) => [
-                                    item.value,
-                                    item.label,
-                                ])}
+                                options={stages
+                                    .filter(
+                                        (item) =>
+                                            !editing ||
+                                            editing.available_stages.includes(
+                                                item.value,
+                                            ),
+                                    )
+                                    .map((item) => [item.value, item.label])}
                             />
                             <SelectField
                                 label="Owner"

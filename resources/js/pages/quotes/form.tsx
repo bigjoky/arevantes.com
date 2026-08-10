@@ -256,7 +256,7 @@ export default function QuoteForm({
     return (
         <>
             <Head title={quote ? `Edit ${quote.number}` : 'New quote'} />
-            <div className="flex min-w-0 flex-1 flex-col gap-6 overflow-x-hidden p-4 md:p-6">
+            <div className="flex min-w-0 flex-1 flex-col gap-6 overflow-x-clip p-4 md:p-6">
                 <header className="flex flex-wrap items-center justify-between gap-3">
                     <div>
                         <h1 className="text-xl font-semibold">
@@ -357,8 +357,8 @@ export default function QuoteForm({
                                 <Plus /> Add line
                             </Button>
                         </div>
-                        <div className="max-w-full overflow-x-auto overscroll-x-contain border-y">
-                            <table className="w-full min-w-[68rem] text-sm">
+                        <div className="w-full min-w-0 [scrollbar-gutter:stable] overflow-x-auto overscroll-x-contain border-y">
+                            <table className="w-full min-w-[58rem] text-sm">
                                 <thead>
                                     <tr className="border-b text-left text-muted-foreground">
                                         <th className="py-2">Catalog item</th>
@@ -717,7 +717,7 @@ export default function QuoteForm({
                                                                             key={
                                                                                 componentIndex
                                                                             }
-                                                                            className="grid min-w-0 gap-2 rounded-md border bg-background p-2 sm:grid-cols-2 lg:grid-cols-[minmax(10rem,1fr)_minmax(12rem,1.4fr)_5.5rem_minmax(10rem,1fr)_minmax(10rem,1fr)_7rem_3rem]"
+                                                                            className="grid min-w-0 gap-2 rounded-md border bg-background p-2 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-[minmax(10rem,1fr)_minmax(12rem,1.4fr)_5.5rem_minmax(10rem,1fr)_minmax(10rem,1fr)_7rem_3rem]"
                                                                         >
                                                                             <Select
                                                                                 value={

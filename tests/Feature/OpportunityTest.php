@@ -123,6 +123,61 @@ class OpportunityTest extends TestCase
         ])->assertSessionHasErrors('lost_reason');
     }
 
+    public function test_closing_an_opportunity_cancels_open_actions_and_terminal_stages_cannot_reopen(): void
+    {
+        $user = User::factory()->create(['role' => 'commercial']);
+        $customer = Person::create(['category' => 'customer', 'first_name' => 'Ana']);
+        $opportunity = Opportunity::create([
+            'person_id' => $customer->id,
+            'owner_user_id' => $user->id,
+            'created_by' => $user->id,
+            'code' => 'OPP-WORKFLOW-1',
+            'title' => 'Controlled transition',
+            'stage' => 'qualified',
+            'probability' => 25,
+            'estimated_value' => 5000,
+        ]);
+        $activity = CrmActivity::create([
+            'opportunity_id' => $opportunity->id,
+            'person_id' => $customer->id,
+            'assigned_user_id' => $user->id,
+            'created_by' => $user->id,
+            'type' => 'call',
+            'title' => 'Pending follow-up',
+            'priority' => 'normal',
+            'status' => 'pending',
+            'due_at' => now()->addDay(),
+        ]);
+
+        $payload = [
+            'person_id' => $customer->id,
+            'owner_user_id' => $user->id,
+            'title' => $opportunity->title,
+            'stage' => 'won',
+            'probability' => 50,
+            'estimated_value' => 5000,
+        ];
+
+        $this->actingAs($user)->patch(route('opportunities.update', $opportunity), $payload)->assertRedirect();
+
+        $this->assertSame('won', $opportunity->refresh()->stage);
+        $this->assertSame(100, $opportunity->probability);
+        $this->assertSame('cancelled', $activity->refresh()->status);
+        $this->assertNotNull($activity->blocked_reason);
+
+        $this->patch(route('opportunities.update', $opportunity), [...$payload, 'stage' => 'new', 'probability' => 10])
+            ->assertSessionHasErrors('stage');
+        $this->post(route('opportunities.activities.store', $opportunity), [
+            'type' => 'call',
+            'title' => 'Should not be created',
+            'priority' => 'normal',
+            'due_at' => now()->addDay(),
+        ])->assertUnprocessable();
+
+        $this->assertSame('won', $opportunity->fresh()->stage);
+        $this->assertDatabaseMissing('crm_activities', ['title' => 'Should not be created']);
+    }
+
     public function test_other_source_and_loss_reason_preserve_their_details(): void
     {
         $user = User::factory()->create(['role' => 'commercial']);

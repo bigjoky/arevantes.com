@@ -56,10 +56,13 @@ class OpportunityController extends Controller
             return $wonAt ? $item->created_at->diffInHours($wonAt) / 24 : null;
         })->filter(fn ($days) => $days !== null)->average();
 
+        $salesCycle = app(OpportunitySalesCycle::class);
+
         return Inertia::render('opportunities/index', [
             'opportunities' => $opportunities->map(fn (Opportunity $item) => [
                 ...$item->toArray(),
                 'expected_close_on' => $item->expected_close_on?->toDateString(),
+                'available_stages' => $salesCycle->availableTransitions($item),
             ]),
             'customers' => Person::where('category', 'customer')->orderBy('company_name')->orderBy('first_name')->get(['id', 'first_name', 'last_name', 'company_name']),
             'installations' => Installation::orderBy('project_reference')->get(['id', 'person_id', 'project_reference', 'site_name']),
@@ -116,8 +119,9 @@ class OpportunityController extends Controller
             __('The customer or installation cannot be changed after preparing a quote.'),
         );
         DB::transaction(function () use ($opportunity, $data, $salesCycle, $request): void {
+            $salesCycle->assertCanTransition($opportunity, $data['stage']);
             $opportunity->update($data);
-            $salesCycle->ensureNextAction($opportunity, $request->user());
+            $salesCycle->synchronizeStage($opportunity, $request->user());
             $salesCycle->refreshScore($opportunity);
         });
 
@@ -134,6 +138,7 @@ class OpportunityController extends Controller
 
     public function storeActivity(Request $request, Opportunity $opportunity, OpportunitySalesCycle $salesCycle): RedirectResponse
     {
+        abort_if(in_array($opportunity->stage, ['won', 'lost'], true), 422, __('Closed opportunities cannot receive new activities.'));
         $data = $request->validate([
             'assigned_user_id' => ['nullable', Rule::exists('users', 'id')->where(fn ($query) => $query->whereIn('role', ['admin', 'commercial']))],
             'type' => ['required', Rule::in(['task', 'visit', 'reminder', 'call', 'email', 'meeting'])],
