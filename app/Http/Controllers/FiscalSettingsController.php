@@ -46,8 +46,8 @@ class FiscalSettingsController extends Controller
         unset($data['logo']);
         if ($logo) {
             if ($profile->logo_path) {
-                Storage::disk('local')->delete($profile->logo_path);
-            } $data['logo_path'] = $logo->store('company', 'local');
+                Storage::disk(config('filesystems.private'))->delete($profile->logo_path);
+            } $data['logo_path'] = $logo->store('company', config('filesystems.private'));
         }
         $profile->update($data);
 
@@ -57,9 +57,9 @@ class FiscalSettingsController extends Controller
     public function logo(): StreamedResponse
     {
         $profile = CompanyProfile::firstOrFail();
-        abort_unless($profile->logo_path && Storage::disk('local')->exists($profile->logo_path), 404);
+        abort_unless($profile->logo_path && Storage::disk(config('filesystems.private'))->exists($profile->logo_path), 404);
 
-        return Storage::disk('local')->download($profile->logo_path, 'company-logo', ['Content-Disposition' => 'inline']);
+        return Storage::disk(config('filesystems.private'))->download($profile->logo_path, 'company-logo', ['Content-Disposition' => 'inline']);
     }
 
     public function storeYear(Request $request): RedirectResponse

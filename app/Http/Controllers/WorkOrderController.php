@@ -182,7 +182,7 @@ class WorkOrderController extends Controller
         $this->ensureAccess($request, $workOrder);
         $data = $request->validate(['files' => ['required', 'array', 'min:1', 'max:12'], 'files.*' => ['file', new SafeUpload(['jpg', 'jpeg', 'png', 'webp', 'pdf'], 12288)], 'caption' => ['nullable', 'string', 'max:500']]);
         foreach ($data['files'] as $file) {
-            $path = $file->store("work-orders/{$workOrder->id}", 'local');
+            $path = $file->store("work-orders/{$workOrder->id}", config('filesystems.private'));
             $workOrder->attachments()->create(['uploaded_by' => $request->user()->id, 'kind' => str_starts_with($file->getMimeType() ?: '', 'image/') ? 'photo' : 'document', 'original_name' => $file->getClientOriginalName(), 'path' => $path, 'mime_type' => $file->getMimeType() ?: 'application/octet-stream', 'size' => $file->getSize(), 'caption' => $data['caption'] ?? null]);
         }
 
@@ -192,16 +192,16 @@ class WorkOrderController extends Controller
     public function downloadAttachment(Request $request, WorkOrder $workOrder, WorkOrderAttachment $attachment): StreamedResponse
     {
         $this->ensureAccess($request, $workOrder);
-        abort_unless($attachment->work_order_id === $workOrder->id && Storage::disk('local')->exists($attachment->path), 404);
+        abort_unless($attachment->work_order_id === $workOrder->id && Storage::disk(config('filesystems.private'))->exists($attachment->path), 404);
 
-        return Storage::disk('local')->download($attachment->path, $attachment->original_name, ['Content-Type' => $attachment->mime_type]);
+        return Storage::disk(config('filesystems.private'))->download($attachment->path, $attachment->original_name, ['Content-Type' => $attachment->mime_type]);
     }
 
     public function destroyAttachment(Request $request, WorkOrder $workOrder, WorkOrderAttachment $attachment): RedirectResponse
     {
         $this->ensureAccess($request, $workOrder);
         abort_unless($attachment->work_order_id === $workOrder->id, 404);
-        Storage::disk('local')->delete($attachment->path);
+        Storage::disk(config('filesystems.private'))->delete($attachment->path);
         $attachment->delete();
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Evidence deleted.')]);
@@ -215,10 +215,10 @@ class WorkOrderController extends Controller
         $binary = base64_decode($matches[1], true);
         abort_if($binary === false || strlen($binary) > 750000 || ! str_starts_with($binary, "\x89PNG\r\n\x1a\n"), 422, __('Invalid signature data.'));
         if ($workOrder->signature_path) {
-            Storage::disk('local')->delete($workOrder->signature_path);
+            Storage::disk(config('filesystems.private'))->delete($workOrder->signature_path);
         }
         $path = "work-orders/{$workOrder->id}/signature.png";
-        Storage::disk('local')->put($path, $binary);
+        Storage::disk(config('filesystems.private'))->put($path, $binary);
         $workOrder->update(['signed_by_name' => $data['signed_by_name'], 'signature_path' => $path, 'signed_at' => now()]);
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Customer signature captured.')]);
@@ -227,9 +227,9 @@ class WorkOrderController extends Controller
     public function signature(Request $request, WorkOrder $workOrder): StreamedResponse
     {
         $this->ensureAccess($request, $workOrder);
-        abort_unless($workOrder->signature_path && Storage::disk('local')->exists($workOrder->signature_path), 404);
+        abort_unless($workOrder->signature_path && Storage::disk(config('filesystems.private'))->exists($workOrder->signature_path), 404);
 
-        return Storage::disk('local')->download($workOrder->signature_path, "{$workOrder->number}-signature.png", ['Content-Type' => 'image/png', 'Content-Disposition' => 'inline']);
+        return Storage::disk(config('filesystems.private'))->download($workOrder->signature_path, "{$workOrder->number}-signature.png", ['Content-Type' => 'image/png', 'Content-Disposition' => 'inline']);
     }
 
     private function ensureAccess(Request $request, WorkOrder $workOrder): void

@@ -199,10 +199,10 @@ class CustomerPortalController extends Controller
     {
         $access = $this->access($token);
         abort_unless($attachment->kind === 'document' && $attachment->workOrder()->whereHas('installation', fn ($query) => $query->where('person_id', $access->person_id))->exists(), 404);
-        abort_unless(Storage::disk('local')->exists($attachment->path), 404);
+        abort_unless(Storage::disk(config('filesystems.private'))->exists($attachment->path), 404);
         CustomerPortalEvent::record($access->customer, 'certificate_downloaded', $access, $request, $attachment, ['name' => $attachment->original_name]);
 
-        return Storage::disk('local')->download($attachment->path, $attachment->original_name, ['Content-Type' => $attachment->mime_type]);
+        return Storage::disk(config('filesystems.private'))->download($attachment->path, $attachment->original_name, ['Content-Type' => $attachment->mime_type]);
     }
 
     private function access(string $token): CustomerPortalAccess

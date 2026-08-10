@@ -666,7 +666,7 @@ class FinanceController extends Controller
             $xml = $this->sepaXml($batch, $company, $debtorIban, $payments);
             $hash = hash('sha256', $xml);
             $path = "payment-batches/{$batch->id}/{$batch->number}-{$hash}.xml";
-            Storage::disk('local')->put($path, $xml);
+            Storage::disk(config('filesystems.private'))->put($path, $xml);
             $batch->update([
                 'status' => 'exported',
                 'exported_by' => $request->user()->id,
@@ -684,7 +684,7 @@ class FinanceController extends Controller
         abort_unless(in_array($paymentBatch->status, ['exported', 'paid', 'reconciled'], true), 422);
         $this->assertPaymentBatchArtifact($paymentBatch);
 
-        return Storage::disk('local')->download($paymentBatch->export_path, $paymentBatch->number.'.xml', ['Content-Type' => 'application/xml; charset=UTF-8']);
+        return Storage::disk(config('filesystems.private'))->download($paymentBatch->export_path, $paymentBatch->number.'.xml', ['Content-Type' => 'application/xml; charset=UTF-8']);
     }
 
     public function executePaymentBatch(Request $request, PaymentBatch $paymentBatch, AccountingSynchronizer $accounting): RedirectResponse
@@ -1120,10 +1120,10 @@ class FinanceController extends Controller
 
     private function assertPaymentBatchArtifact(PaymentBatch $batch): void
     {
-        if (! $batch->export_path || ! $batch->export_sha256 || ! Storage::disk('local')->exists($batch->export_path)) {
+        if (! $batch->export_path || ! $batch->export_sha256 || ! Storage::disk(config('filesystems.private'))->exists($batch->export_path)) {
             throw ValidationException::withMessages(['payment_batch' => __('The approved SEPA evidence is missing. Generate the file before continuing.')]);
         }
-        $actualHash = hash_file('sha256', Storage::disk('local')->path($batch->export_path));
+        $actualHash = hash('sha256', Storage::disk(config('filesystems.private'))->get($batch->export_path));
         if (! hash_equals($batch->export_sha256, $actualHash)) {
             throw ValidationException::withMessages(['payment_batch' => __('The approved SEPA evidence failed its integrity check.')]);
         }
