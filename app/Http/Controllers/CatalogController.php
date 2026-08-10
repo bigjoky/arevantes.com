@@ -10,7 +10,9 @@ use App\Models\TaxRate;
 use App\Models\Unit;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -19,7 +21,7 @@ class CatalogController extends Controller
     public function index(): Response
     {
         return Inertia::render('catalog/index', [
-            'products' => Product::with(['unit:id,name,symbol', 'taxRate:id,name,rate'])->orderBy('name')->get(),
+            'products' => Product::with(['unit:id,name,symbol', 'taxRate:id,name,rate', 'components.product.unit:id,name,symbol'])->orderBy('name')->get(),
             'suppliers' => Supplier::orderBy('legal_name')->get(),
             'units' => Unit::where('is_active', true)->orderBy('name')->get(),
             'taxRates' => TaxRate::where('is_active', true)->orderByDesc('is_default')->orderByDesc('rate')->get(),
@@ -30,20 +32,21 @@ class CatalogController extends Controller
 
     public function storeProduct(Request $request): RedirectResponse
     {
-        Product::create($this->validateProduct($request));
+        DB::transaction(fn () => $this->persistProduct(new Product, $this->validateProduct($request)));
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Product or service created.')]);
     }
 
     public function updateProduct(Request $request, Product $product): RedirectResponse
     {
-        $product->update($this->validateProduct($request, $product));
+        DB::transaction(fn () => $this->persistProduct($product, $this->validateProduct($request, $product)));
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Product or service updated.')]);
     }
 
     public function destroyProduct(Product $product): RedirectResponse
     {
+        abort_if(DB::table('product_components')->where('component_product_id', $product->id)->exists(), 422, __('This item is used in a product composition and cannot be deleted.'));
         $product->delete();
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Product or service deleted.')]);
@@ -86,7 +89,73 @@ class CatalogController extends Controller
             'track_stock' => ['boolean'],
             'track_serials' => ['boolean'],
             'is_active' => ['boolean'],
+            'components' => ['sometimes', 'array'],
+            'components.*.component_product_id' => ['required', 'distinct', 'exists:products,id', Rule::notIn([$product?->id])],
+            'components.*.quantity' => ['required', 'numeric', 'gt:0'],
+            'components.*.fulfillment_kind' => ['required', Rule::in(['stock', 'activity', 'recurring', 'none'])],
+            'components.*.visibility' => ['required', Rule::in(['detailed', 'summary', 'hidden'])],
+            'components.*.interval_months' => ['nullable', 'integer', 'between:1,120'],
         ]);
+    }
+
+    private function persistProduct(Product $product, array $data): Product
+    {
+        $components = $data['components'] ?? [];
+        unset($data['components']);
+
+        foreach ($components as $component) {
+            if ($product->exists && $this->compositionContains((int) $component['component_product_id'], $product->id)) {
+                throw ValidationException::withMessages(['components' => __('A product composition cannot contain itself, directly or indirectly.')]);
+            }
+        }
+
+        if ($components !== []) {
+            $data['track_stock'] = false;
+            $data['track_serials'] = false;
+        }
+        $product->fill($data)->save();
+        $product->components()->delete();
+        $product->components()->createMany(collect($components)->values()->map(fn (array $component, int $position) => [...$component, 'position' => $position + 1])->all());
+
+        if ($components !== []) {
+            $costs = Product::whereIn('id', collect($components)->pluck('component_product_id'))->pluck('cost_price', 'id');
+            $cost = collect($components)->sum(fn (array $component) => (float) ($costs->get((int) $component['component_product_id']) ?? 0) * (float) $component['quantity']);
+            $product->updateQuietly(['cost_price' => round($cost, 2)]);
+        }
+        $this->refreshParentCosts($product->id);
+
+        return $product;
+    }
+
+    private function refreshParentCosts(int $componentProductId, array $visited = []): void
+    {
+        if (in_array($componentProductId, $visited, true)) {
+            return;
+        }
+        $visited[] = $componentProductId;
+        $parentIds = DB::table('product_components')->where('component_product_id', $componentProductId)->pluck('parent_product_id');
+        foreach ($parentIds as $parentId) {
+            $rows = DB::table('product_components')->where('parent_product_id', $parentId)->get();
+            $costs = Product::whereIn('id', $rows->pluck('component_product_id'))->pluck('cost_price', 'id');
+            $cost = $rows->sum(fn ($row) => (float) ($costs->get((int) $row->component_product_id) ?? 0) * (float) $row->quantity);
+            Product::whereKey($parentId)->update(['cost_price' => round($cost, 2), 'track_stock' => false, 'track_serials' => false]);
+            $this->refreshParentCosts((int) $parentId, $visited);
+        }
+    }
+
+    private function compositionContains(int $productId, int $targetId, array $visited = []): bool
+    {
+        if ($productId === $targetId) {
+            return true;
+        }
+        if (in_array($productId, $visited, true)) {
+            return false;
+        }
+
+        $visited[] = $productId;
+
+        return DB::table('product_components')->where('parent_product_id', $productId)->pluck('component_product_id')
+            ->contains(fn ($childId) => $this->compositionContains((int) $childId, $targetId, $visited));
     }
 
     private function validateSupplier(Request $request): array

@@ -30,6 +30,7 @@ use App\Models\PaymentBatchItem;
 use App\Models\Person;
 use App\Models\PurchaseDocument;
 use App\Models\PurchaseDocumentLine;
+use App\Models\Quote;
 use App\Models\SalesDocument;
 use App\Models\SalesDocumentPayment;
 use App\Models\Supplier;
@@ -83,6 +84,7 @@ class AppServiceProvider extends ServiceProvider
         WorkOrder::observe(WorkOrderObserver::class);
         Opportunity::observe(AuditableObserver::class);
         Opportunity::observe(OpportunityStageObserver::class);
+        Quote::observe(AuditableObserver::class);
         CompanyProfile::observe(AuditableObserver::class);
         FiscalYear::observe(AuditableObserver::class);
         DocumentSeries::observe(AuditableObserver::class);
@@ -127,7 +129,7 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(CrmActivity::class, CrmActivityPolicy::class);
         $permissions = [
             'manage-admin', 'manage-access', 'export-audit', 'view-system-health',
-            'manage-customers', 'view-installations', 'manage-installations', 'sync-installations',
+            'manage-customers', 'approve-quotes', 'view-installations', 'manage-installations', 'sync-installations',
             'use-ai', 'manage-operations', 'manage-catalog', 'view-finance', 'manage-treasury',
             'manage-accounting', 'approve-payments', 'approve-budgets', 'manage-tax',
             'view-purchases', 'manage-purchases', 'receive-purchases', 'approve-purchase-invoices',

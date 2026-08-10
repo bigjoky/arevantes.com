@@ -586,7 +586,7 @@ export default function OpportunitiesIndex({
                     />
                 ) : (
                     <section className="overflow-x-auto pb-3">
-                        <div className="grid min-w-[94rem] grid-cols-7 gap-3">
+                        <div className="grid min-w-[119rem] grid-cols-7 gap-3">
                             {stages.map((stage) => {
                                 const items = opportunities.filter(
                                     (item) => item.stage === stage.value,
@@ -750,41 +750,35 @@ export default function OpportunitiesIndex({
                                                             Archivada
                                                         </Badge>
                                                     ) : (
-                                                        <Select
+                                                        <select
                                                             value={item.stage}
-                                                            onValueChange={(
-                                                                value,
-                                                            ) =>
+                                                            onChange={(event) =>
                                                                 changeStage(
                                                                     item,
-                                                                    value,
+                                                                    event.target
+                                                                        .value,
                                                                 )
                                                             }
+                                                            aria-label={`Estado de ${item.title}`}
+                                                            className="mt-2 h-9 w-full rounded-md border border-input bg-background px-3 text-sm font-medium shadow-xs"
                                                         >
-                                                            <SelectTrigger className="mt-2 h-8 text-xs">
-                                                                <SelectValue />
-                                                            </SelectTrigger>
-                                                            <SelectContent>
-                                                                {stages.map(
-                                                                    (
-                                                                        option,
-                                                                    ) => (
-                                                                        <SelectItem
-                                                                            key={
-                                                                                option.value
-                                                                            }
-                                                                            value={
-                                                                                option.value
-                                                                            }
-                                                                        >
-                                                                            {
-                                                                                option.label
-                                                                            }
-                                                                        </SelectItem>
-                                                                    ),
-                                                                )}
-                                                            </SelectContent>
-                                                        </Select>
+                                                            {stages.map(
+                                                                (option) => (
+                                                                    <option
+                                                                        key={
+                                                                            option.value
+                                                                        }
+                                                                        value={
+                                                                            option.value
+                                                                        }
+                                                                    >
+                                                                        {
+                                                                            option.label
+                                                                        }
+                                                                    </option>
+                                                                ),
+                                                            )}
+                                                        </select>
                                                     )}
                                                 </article>
                                             ))}

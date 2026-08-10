@@ -155,7 +155,7 @@ class CustomerPortalController extends Controller
                 'user_agent' => Str::limit((string) $request->userAgent(), 1000, ''),
             ]);
             if ($acceptance->wasRecentlyCreated && $item instanceof Quote && $item->status === 'sent') {
-                $workflow->apply($item, 'accepted');
+                $workflow->apply($item, 'accepted', null, 'customer_portal');
             }
             if ($acceptance->wasRecentlyCreated) {
                 CustomerPortalEvent::record($access->customer, 'document_accepted', $access, $request, $item, ['number' => $item->number, 'version' => $fingerprint['version']]);

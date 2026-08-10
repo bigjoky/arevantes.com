@@ -80,6 +80,18 @@ type Quote = {
         tax_percent: string;
         subtotal: string;
         total: string;
+        selection_mode: 'included' | 'optional' | 'alternative';
+        option_group: string | null;
+        is_selected: boolean;
+        components: Array<{
+            id: number;
+            description: string;
+            quantity: string;
+            kind: string;
+            fulfillment_kind: string;
+            visibility: string;
+            unit: { symbol: string } | null;
+        }>;
     }[];
     deliveries: {
         id: number;
@@ -100,7 +112,24 @@ type Quote = {
         expected_margin_amount: string | null;
         created_at: string;
     }>;
+    status_history: Array<{
+        id: number;
+        from_status: string | null;
+        to_status: string;
+        channel: string;
+        reason: string | null;
+        changed_at: string;
+        changed_by: { id: number; name: string } | null;
+    }>;
 };
+
+const quoteStatuses = [
+    ['draft', 'Borrador'],
+    ['sent', 'Enviada'],
+    ['accepted', 'Aceptada'],
+    ['rejected', 'Rechazada'],
+    ['expired', 'Caducada'],
+] as const;
 type ProjectDefaults = {
     site_name: string | null;
     site_address_line_1: string | null;
@@ -118,6 +147,7 @@ type BillingPlan = {
     remaining_percentage: number;
     allocated_amount: number;
     issued_amount: number;
+    remaining_amount: number;
     documents: Array<{
         id: number;
         number: string;
@@ -135,18 +165,25 @@ export default function QuoteShow({
     billing,
     technicians,
     projectDefaults,
+    canApprove,
+    availableStatuses,
 }: {
     quote: Quote;
     billing: BillingPlan;
     technicians: Array<{ id: number; name: string }>;
     projectDefaults: ProjectDefaults;
+    canApprove: boolean;
+    availableStatuses: string[];
 }) {
     const [projectOpen, setProjectOpen] = useState(false);
     const [billingOpen, setBillingOpen] = useState(false);
     const [billingPercentage, setBillingPercentage] = useState(
         String(billing.remaining_percentage),
     );
-    const [billingLabel, setBillingLabel] = useState('Final invoice');
+    const [billingAmount, setBillingAmount] = useState(
+        String(billing.remaining_amount),
+    );
+    const [billingLabel, setBillingLabel] = useState('Factura final');
     const projectForm = useForm({
         service_type: 'solar',
         technician_user_id: '',
@@ -169,14 +206,16 @@ export default function QuoteShow({
     return (
         <>
             <Head title={quote.number} />
-            <div className="flex flex-1 flex-col gap-6 p-4 md:p-6">
+            <div className="flex min-w-0 flex-1 flex-col gap-6 overflow-x-hidden p-4 md:p-6">
                 <header className="flex flex-wrap items-start justify-between gap-3">
                     <div>
                         <div className="flex items-center gap-2">
                             <h1 className="text-xl font-semibold">
                                 {quote.number}
                             </h1>
-                            <Badge variant="outline">{quote.status}</Badge>
+                            <Badge variant="outline">
+                                {quoteStatusLabel(quote.status)}
+                            </Badge>
                         </div>
                         <p className="text-sm text-muted-foreground">
                             {customer} · version {quote.version}
@@ -215,6 +254,66 @@ export default function QuoteShow({
                         )}
                     </div>
                 </header>
+                <section className="rounded-lg border bg-card p-4 shadow-xs">
+                    {availableStatuses.length > 0 ? (
+                        <Form
+                            action={`/quotes/${quote.id}/status`}
+                            method="patch"
+                            className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"
+                        >
+                            {({ processing }) => (
+                                <>
+                                    <div className="grid w-full gap-2 sm:max-w-md">
+                                        <Label htmlFor="quote_status">
+                                            Estado de la oferta
+                                        </Label>
+                                        <select
+                                            id="quote_status"
+                                            name="status"
+                                            defaultValue={quote.status}
+                                            className="h-11 w-full rounded-md border border-input bg-background px-3 text-base font-medium shadow-xs"
+                                        >
+                                            <option value={quote.status}>
+                                                {quoteStatusLabel(quote.status)}
+                                            </option>
+                                            {quoteStatuses
+                                                .filter(([value]) =>
+                                                    availableStatuses.includes(
+                                                        value,
+                                                    ),
+                                                )
+                                                .map(([value, label]) => (
+                                                    <option
+                                                        key={value}
+                                                        value={value}
+                                                    >
+                                                        {label}
+                                                    </option>
+                                                ))}
+                                        </select>
+                                    </div>
+                                    <Button
+                                        disabled={processing}
+                                        className="w-full sm:w-auto"
+                                    >
+                                        Actualizar estado
+                                    </Button>
+                                </>
+                            )}
+                        </Form>
+                    ) : (
+                        <div>
+                            <Label>Estado de la oferta</Label>
+                            <p className="mt-2 text-base font-medium">
+                                {quoteStatusLabel(quote.status)}
+                            </p>
+                            <p className="mt-1 text-sm text-muted-foreground">
+                                Este es un estado final y no admite cambios
+                                directos.
+                            </p>
+                        </div>
+                    )}
+                </section>
                 <section className="grid gap-4 border-y py-4 text-sm sm:grid-cols-2 lg:grid-cols-4">
                     <Info label="Customer" value={customer} />
                     <Info
@@ -256,7 +355,7 @@ export default function QuoteShow({
                                 }
                             />
                         </div>
-                        {quote.approval_status === 'pending' && (
+                        {quote.approval_status === 'pending' && canApprove && (
                             <Form
                                 action={`/quotes/${quote.id}/approval`}
                                 method="post"
@@ -280,10 +379,49 @@ export default function QuoteShow({
                                 </div>
                             </Form>
                         )}
+                        {quote.approval_status === 'pending' && !canApprove && (
+                            <p className="mt-3 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-100">
+                                La oferta requiere la aprobación de otro usuario
+                                autorizado.
+                            </p>
+                        )}
                         {quote.approval_notes && (
                             <p className="mt-3 text-xs text-muted-foreground">
                                 {quote.approval_notes}
                             </p>
+                        )}
+                        {quote.status_history.length > 0 && (
+                            <div className="mt-4 border-t pt-3">
+                                <div className="text-xs font-medium text-muted-foreground">
+                                    Historial de estado
+                                </div>
+                                <div className="mt-2 grid gap-2">
+                                    {quote.status_history
+                                        .slice(0, 5)
+                                        .map((entry) => (
+                                            <div
+                                                key={entry.id}
+                                                className="flex flex-wrap justify-between gap-2 text-xs"
+                                            >
+                                                <span>
+                                                    {entry.from_status
+                                                        ? `${quoteStatusLabel(entry.from_status)} → `
+                                                        : ''}
+                                                    {quoteStatusLabel(
+                                                        entry.to_status,
+                                                    )}{' '}
+                                                    · {entry.channel}
+                                                </span>
+                                                <span className="text-muted-foreground">
+                                                    {entry.changed_by?.name ||
+                                                        'Cliente'}{' '}
+                                                    ·{' '}
+                                                    {dateTime(entry.changed_at)}
+                                                </span>
+                                            </div>
+                                        ))}
+                                </div>
+                            </div>
                         )}
                     </div>
                     <div>
@@ -306,7 +444,7 @@ export default function QuoteShow({
                         </div>
                     </div>
                 </section>
-                <section className="overflow-x-auto">
+                <section className="max-w-full overflow-x-auto overscroll-x-contain">
                     <table className="w-full min-w-[48rem] text-sm">
                         <thead>
                             <tr className="border-b text-left text-muted-foreground">
@@ -321,8 +459,56 @@ export default function QuoteShow({
                         <tbody>
                             {quote.lines.map((line) => (
                                 <tr key={line.id} className="border-b">
-                                    <td className="py-3 font-medium">
-                                        {line.description}
+                                    <td className="py-3">
+                                        <div className="font-medium">
+                                            {line.description}
+                                        </div>
+                                        {line.selection_mode !== 'included' && (
+                                            <div className="mt-1 flex flex-wrap gap-1">
+                                                <Badge variant="secondary">
+                                                    {line.selection_mode ===
+                                                    'optional'
+                                                        ? 'Opcional'
+                                                        : `Alternativa · ${line.option_group}`}
+                                                </Badge>
+                                                <Badge variant="outline">
+                                                    {line.is_selected
+                                                        ? 'Seleccionada'
+                                                        : 'No incluida'}
+                                                </Badge>
+                                            </div>
+                                        )}
+                                        {line.components.length > 0 && (
+                                            <ul className="mt-2 grid gap-1 border-l-2 pl-3 text-xs text-muted-foreground">
+                                                {line.components.map(
+                                                    (component) => (
+                                                        <li
+                                                            key={component.id}
+                                                            className="flex flex-wrap items-center gap-2"
+                                                        >
+                                                            <span className="min-w-0 break-words">
+                                                                {component.visibility ===
+                                                                'hidden'
+                                                                    ? 'Interno'
+                                                                    : component.visibility ===
+                                                                        'detailed'
+                                                                      ? `${Number(component.quantity) * Number(line.quantity)}${component.unit?.symbol ? ` ${component.unit.symbol}` : ''}`
+                                                                      : 'Incluido'}
+                                                                {' · '}
+                                                                {
+                                                                    component.description
+                                                                }
+                                                            </span>
+                                                            <Badge variant="outline">
+                                                                {fulfillmentLabel(
+                                                                    component.fulfillment_kind,
+                                                                )}
+                                                            </Badge>
+                                                        </li>
+                                                    ),
+                                                )}
+                                            </ul>
+                                        )}
                                     </td>
                                     <td>{Number(line.quantity)}</td>
                                     <td>{money(line.unit_price)}</td>
@@ -519,55 +705,22 @@ export default function QuoteShow({
                             ))}
                         </div>
                     )}
-                    <Form
-                        action={`/quotes/${quote.id}/status`}
-                        method="patch"
-                        className="flex items-end gap-2"
-                    >
-                        {({ processing }) => (
-                            <>
-                                <div className="grid gap-2">
-                                    <label className="text-sm font-medium">
-                                        Status
-                                    </label>
-                                    <Select
-                                        name="status"
-                                        defaultValue={quote.status}
-                                    >
-                                        <SelectTrigger className="w-44">
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {[
-                                                'draft',
-                                                'sent',
-                                                'accepted',
-                                                'rejected',
-                                                'expired',
-                                            ].map((status) => (
-                                                <SelectItem
-                                                    key={status}
-                                                    value={status}
-                                                >
-                                                    {status}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                                <Button disabled={processing}>Update</Button>
-                            </>
+                    {quote.status === 'draft' &&
+                        !quote.installation &&
+                        quote.deliveries.length === 0 &&
+                        billing.documents.length === 0 && (
+                            <Form
+                                action={`/quotes/${quote.id}`}
+                                method="delete"
+                                onBefore={() =>
+                                    confirm(`Delete ${quote.number}?`)
+                                }
+                            >
+                                <Button variant="destructive">
+                                    <Trash2 /> Delete
+                                </Button>
+                            </Form>
                         )}
-                    </Form>
-                    <Form
-                        action={`/quotes/${quote.id}`}
-                        method="delete"
-                        onBefore={() => confirm(`Delete ${quote.number}?`)}
-                    >
-                        <Button variant="destructive">
-                            <Trash2 /> Delete
-                        </Button>
-                    </Form>
                 </footer>
             </div>
             <Dialog open={projectOpen} onOpenChange={setProjectOpen}>
@@ -794,11 +947,12 @@ export default function QuoteShow({
                             <div className="grid gap-5">
                                 <DialogHeader>
                                     <DialogTitle>
-                                        Add billing milestone
+                                        Añadir hito de cobro
                                     </DialogTitle>
                                     <DialogDescription>
-                                        {billing.remaining_percentage}% of the
-                                        accepted quote remains available.
+                                        Quedan {billing.remaining_percentage}% (
+                                        {money(billing.remaining_amount)}) de la
+                                        oferta aceptada por facturar.
                                     </DialogDescription>
                                 </DialogHeader>
                                 <input
@@ -811,55 +965,39 @@ export default function QuoteShow({
                                         type="button"
                                         variant="outline"
                                         onClick={() => {
-                                            setBillingPercentage(
-                                                String(
-                                                    Math.min(
-                                                        30,
-                                                        billing.remaining_percentage,
-                                                    ),
-                                                ),
-                                            );
-                                            setBillingLabel('Advance payment');
+                                            setBillingValues(30);
+                                            setBillingLabel('Anticipo');
                                         }}
                                     >
-                                        Advance
+                                        Anticipo
                                     </Button>
                                     <Button
                                         type="button"
                                         variant="outline"
                                         onClick={() => {
-                                            setBillingPercentage(
-                                                String(
-                                                    Math.min(
-                                                        40,
-                                                        billing.remaining_percentage,
-                                                    ),
-                                                ),
-                                            );
-                                            setBillingLabel('Progress payment');
+                                            setBillingValues(40);
+                                            setBillingLabel('Pago intermedio');
                                         }}
                                     >
-                                        Progress
+                                        Intermedio
                                     </Button>
                                     <Button
                                         type="button"
                                         variant="outline"
                                         onClick={() => {
-                                            setBillingPercentage(
-                                                String(
-                                                    billing.remaining_percentage,
-                                                ),
+                                            setBillingValues(
+                                                billing.remaining_percentage,
                                             );
-                                            setBillingLabel('Final invoice');
+                                            setBillingLabel('Factura final');
                                         }}
                                     >
                                         Final
                                     </Button>
                                 </div>
-                                <div className="grid gap-4 sm:grid-cols-[9rem_1fr]">
+                                <div className="grid gap-4 sm:grid-cols-2">
                                     <div className="grid gap-2">
                                         <Label htmlFor="billing_percentage">
-                                            Percentage
+                                            Porcentaje
                                         </Label>
                                         <div className="relative">
                                             <Input
@@ -873,7 +1011,7 @@ export default function QuoteShow({
                                                 step="0.01"
                                                 value={billingPercentage}
                                                 onChange={(event) =>
-                                                    setBillingPercentage(
+                                                    setBillingFromPercentage(
                                                         event.target.value,
                                                     )
                                                 }
@@ -889,37 +1027,58 @@ export default function QuoteShow({
                                         />
                                     </div>
                                     <div className="grid gap-2">
-                                        <Label htmlFor="billing_label">
-                                            Milestone name
+                                        <Label htmlFor="billing_amount">
+                                            Importe acordado
                                         </Label>
-                                        <Input
-                                            id="billing_label"
-                                            name="billing_label"
-                                            value={billingLabel}
-                                            onChange={(event) =>
-                                                setBillingLabel(
-                                                    event.target.value,
-                                                )
-                                            }
-                                            required
-                                        />
+                                        <div className="relative">
+                                            <Input
+                                                id="billing_amount"
+                                                name="billing_amount"
+                                                type="number"
+                                                min="0.01"
+                                                max={billing.remaining_amount}
+                                                step="0.01"
+                                                value={billingAmount}
+                                                onChange={(event) =>
+                                                    setBillingFromAmount(
+                                                        event.target.value,
+                                                    )
+                                                }
+                                                className="pr-8"
+                                                required
+                                            />
+                                            <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-muted-foreground">
+                                                €
+                                            </span>
+                                        </div>
                                         <InputError
-                                            message={errors.billing_label}
+                                            message={errors.billing_amount}
                                         />
                                     </div>
                                 </div>
+                                <div className="grid gap-2">
+                                    <Label htmlFor="billing_label">
+                                        Nombre del hito
+                                    </Label>
+                                    <Input
+                                        id="billing_label"
+                                        name="billing_label"
+                                        value={billingLabel}
+                                        onChange={(event) =>
+                                            setBillingLabel(event.target.value)
+                                        }
+                                        required
+                                    />
+                                    <InputError
+                                        message={errors.billing_label}
+                                    />
+                                </div>
                                 <div className="flex items-center justify-between border-y py-3 text-sm">
                                     <span className="text-muted-foreground">
-                                        Estimated milestone total
+                                        Importe exacto de la cuota
                                     </span>
                                     <span className="font-semibold">
-                                        {money(
-                                            (Number(quote.amount) *
-                                                Number(
-                                                    billingPercentage || 0,
-                                                )) /
-                                                100,
-                                        )}
+                                        {money(Number(billingAmount || 0))}
                                     </span>
                                 </div>
                                 <DialogFooter>
@@ -928,10 +1087,10 @@ export default function QuoteShow({
                                         variant="outline"
                                         onClick={() => setBillingOpen(false)}
                                     >
-                                        Cancel
+                                        Cancelar
                                     </Button>
                                     <Button disabled={processing}>
-                                        <CircleDollarSign /> Create draft
+                                        <CircleDollarSign /> Crear borrador
                                     </Button>
                                 </DialogFooter>
                             </div>
@@ -941,6 +1100,47 @@ export default function QuoteShow({
             </Dialog>
         </>
     );
+
+    function setBillingValues(percentage: number) {
+        const bounded = Math.min(percentage, billing.remaining_percentage);
+        setBillingPercentage(String(bounded));
+        setBillingAmount(
+            String(
+                bounded === billing.remaining_percentage
+                    ? billing.remaining_amount
+                    : roundCurrency((Number(quote.amount) * bounded) / 100),
+            ),
+        );
+    }
+
+    function setBillingFromPercentage(value: string) {
+        setBillingPercentage(value);
+        setBillingAmount(
+            value === ''
+                ? ''
+                : String(
+                      Math.min(
+                          billing.remaining_amount,
+                          roundCurrency(
+                              (Number(quote.amount) * Number(value)) / 100,
+                          ),
+                      ),
+                  ),
+        );
+    }
+
+    function setBillingFromAmount(value: string) {
+        setBillingAmount(value);
+        setBillingPercentage(
+            value === '' || Number(quote.amount) === 0
+                ? ''
+                : String(
+                      Math.round(
+                          (Number(value) / Number(quote.amount)) * 10000,
+                      ) / 100,
+                  ),
+        );
+    }
 }
 
 function ProjectField({
@@ -1079,6 +1279,26 @@ function money(value: string | number) {
         style: 'currency',
         currency: 'EUR',
     }).format(Number(value));
+}
+function quoteStatusLabel(status: string) {
+    return quoteStatuses.find(([value]) => value === status)?.[1] || status;
+}
+function fulfillmentLabel(kind: string) {
+    return (
+        {
+            stock: 'Control de stock',
+            activity: 'Seguimiento operativo',
+            recurring: 'Servicio recurrente',
+            none: 'Solo descriptivo',
+            material: 'Control de stock',
+            task: 'Seguimiento operativo',
+            legalization: 'Seguimiento operativo',
+            maintenance: 'Servicio recurrente',
+        }[kind] || kind
+    );
+}
+function roundCurrency(value: number) {
+    return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 function date(value: string | null) {
     return value

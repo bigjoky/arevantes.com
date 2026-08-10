@@ -15,6 +15,8 @@
     table.lines { width: 100%; border-collapse: collapse; }
     .lines th { background: #1f6b45; color: white; padding: 2.5mm 2mm; font-size: 8pt; text-align: left; }
     .lines td { padding: 2.5mm 2mm; border-bottom: 1px solid #d8dfda; vertical-align: top; }
+    .components { margin: 1.5mm 0 0; padding-left: 4mm; color: #536159; font-size: 8pt; }
+    .components li { margin-bottom: .6mm; }
     .totals { width: 43%; margin: 7mm 0 0 auto; border-collapse: collapse; }
     .totals td { padding: 2mm; border-bottom: 1px solid #d8dfda; }
     .totals .grand td { font-size: 12pt; font-weight: bold; color: #155a39; border-top: 2px solid #1f6b45; }
@@ -51,7 +53,13 @@
 </table>
 
 <table class="lines"><thead><tr><th>Descripción</th><th class="right">Cantidad</th><th class="right">Precio</th><th class="right">Dto.</th><th class="right">IVA</th><th class="right">Total</th></tr></thead><tbody>
-@foreach($document->lines as $line)<tr><td>{{ $line->description }}</td><td class="right">{{ rtrim(rtrim(number_format((float)$line->quantity, 3, ',', '.'), '0'), ',') }}</td><td class="right">{{ number_format((float)$line->unit_price, 2, ',', '.') }} €</td><td class="right">{{ number_format((float)$line->discount_percent, 2, ',', '.') }}%</td><td class="right">{{ number_format((float)$line->tax_percent, 2, ',', '.') }}%</td><td class="right strong">{{ number_format((float)$line->total, 2, ',', '.') }} €</td></tr>@endforeach
+@foreach($document->lines as $line)<tr><td><span class="strong">{{ $line->description }}</span>
+@if($kind === 'quote' && ($line->selection_mode ?? 'included') !== 'included')<div class="muted" style="font-size:8pt">{{ $line->selection_mode === 'optional' ? 'OPCIONAL' : 'ALTERNATIVA · '.($line->option_group ?: 'sin grupo') }} · {{ $line->is_selected ? 'seleccionada' : 'no incluida en el total' }}</div>@endif
+@if($kind === 'quote' && $line->relationLoaded('components'))
+@php($visibleComponents = $line->components->where('visibility', '!=', 'hidden'))
+@if($visibleComponents->isNotEmpty())<ul class="components">@foreach($visibleComponents as $component)<li>@if($component->visibility === 'detailed'){{ rtrim(rtrim(number_format((float)$component->quantity * (float)$line->quantity, 3, ',', '.'), '0'), ',') }}{{ $component->unit?->symbol ? ' '.$component->unit->symbol : '' }} · @endif{{ $component->description }} <span class="muted">(incluido)</span></li>@endforeach</ul>@endif
+@endif
+</td><td class="right">{{ rtrim(rtrim(number_format((float)$line->quantity, 3, ',', '.'), '0'), ',') }}</td><td class="right">{{ number_format((float)$line->unit_price, 2, ',', '.') }} €</td><td class="right">{{ number_format((float)$line->discount_percent, 2, ',', '.') }}%</td><td class="right">{{ number_format((float)$line->tax_percent, 2, ',', '.') }}%</td><td class="right strong">{{ number_format((float)$line->total, 2, ',', '.') }} €</td></tr>@endforeach
 </tbody></table>
 <table class="totals"><tr><td>Subtotal</td><td class="right">{{ number_format((float)$document->subtotal, 2, ',', '.') }} €</td></tr>@if((float)$document->discount_amount > 0)<tr><td>Descuentos</td><td class="right">-{{ number_format((float)$document->discount_amount, 2, ',', '.') }} €</td></tr>@endif<tr><td>IVA</td><td class="right">{{ number_format((float)$document->tax_amount, 2, ',', '.') }} €</td></tr><tr class="grand"><td>Total</td><td class="right">{{ number_format((float)$document->amount, 2, ',', '.') }} €</td></tr></table>
 @if($document->notes)<div class="notes"><div class="label">Observaciones</div>{{ $document->notes }}</div>@endif
