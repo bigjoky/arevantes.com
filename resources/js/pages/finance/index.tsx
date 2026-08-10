@@ -153,6 +153,15 @@ type TreasuryWeek = {
     closing: number;
     events: TreasuryEvent[];
 };
+type TreasuryDay = {
+    date: string;
+    label: string;
+    opening: number;
+    in: number;
+    out: number;
+    closing: number;
+    maturities: number;
+};
 type TreasuryEvent = {
     date: string;
     direction: 'in' | 'out';
@@ -299,6 +308,7 @@ export default function FinanceIndex({
         baseCurrency: string;
         openingBalance: number;
         lowestBalance: number;
+        lowestBalanceOn: string;
         closingBalance: number;
         openingSources: {
             id: number;
@@ -312,6 +322,7 @@ export default function FinanceIndex({
             balance: number;
             accounts: number;
         }[];
+        days: TreasuryDay[];
         weeks: TreasuryWeek[];
     };
     forecastItems: ForecastItem[];
@@ -797,7 +808,7 @@ export default function FinanceIndex({
                                 value={treasuryForecast.openingBalance}
                             />
                             <Total
-                                label="Lowest balance"
+                                label={`Lowest balance · ${date(treasuryForecast.lowestBalanceOn)}`}
                                 value={treasuryForecast.lowestBalance}
                             />
                             <Total
@@ -870,6 +881,68 @@ export default function FinanceIndex({
                                 </div>
                             )}
                         </div>
+                        <details className="rounded-md border">
+                            <summary className="cursor-pointer px-3 py-2 text-sm font-medium">
+                                Daily liquidity and maturities · 13 weeks
+                            </summary>
+                            <div className="max-h-[28rem] overflow-auto border-t">
+                                <table className="w-full min-w-[44rem] text-sm">
+                                    <thead className="sticky top-0 bg-background">
+                                        <tr className="border-b text-left text-muted-foreground">
+                                            <th className="px-3 py-2">Date</th>
+                                            <th className="px-3 py-2 text-right">
+                                                Opening
+                                            </th>
+                                            <th className="px-3 py-2 text-right">
+                                                Due in
+                                            </th>
+                                            <th className="px-3 py-2 text-right">
+                                                Due out
+                                            </th>
+                                            <th className="px-3 py-2 text-right">
+                                                Closing
+                                            </th>
+                                            <th className="px-3 py-2 text-right">
+                                                Maturities
+                                            </th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {treasuryForecast.days.map((day) => (
+                                            <tr
+                                                key={day.date}
+                                                className={`border-b ${day.closing < 0 ? 'bg-destructive/5' : ''}`}
+                                            >
+                                                <td className="px-3 py-2 font-medium">
+                                                    {day.label}
+                                                </td>
+                                                <td className="px-3 py-2 text-right">
+                                                    {money(day.opening)}
+                                                </td>
+                                                <td className="px-3 py-2 text-right text-green-700 dark:text-green-400">
+                                                    {day.in > 0
+                                                        ? `+${money(day.in)}`
+                                                        : '—'}
+                                                </td>
+                                                <td className="px-3 py-2 text-right">
+                                                    {day.out > 0
+                                                        ? `−${money(day.out)}`
+                                                        : '—'}
+                                                </td>
+                                                <td
+                                                    className={`px-3 py-2 text-right font-semibold ${day.closing < 0 ? 'text-destructive' : ''}`}
+                                                >
+                                                    {money(day.closing)}
+                                                </td>
+                                                <td className="px-3 py-2 text-right">
+                                                    {day.maturities || '—'}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </details>
                         <div className="overflow-x-auto rounded-md border">
                             <table className="w-full min-w-[58rem] text-sm">
                                 <thead>
@@ -944,7 +1017,7 @@ export default function FinanceIndex({
                     <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
                         <div>
                             <h2 className="font-semibold">
-                                Daily bank position
+                                Bank position by account
                             </h2>
                             <p className="text-sm text-muted-foreground">
                                 Current balance, pending reconciliation and

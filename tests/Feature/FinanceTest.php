@@ -756,6 +756,43 @@ class FinanceTest extends TestCase
         $this->assertSame(108.9, $forecast['weeks']->sum('in'));
     }
 
+    public function test_treasury_forecast_detects_an_intraday_range_shortfall_hidden_by_the_weekly_close(): void
+    {
+        $this->travelTo('2026-08-10');
+        BankAccount::create(['name' => 'Operating account', 'currency' => 'EUR', 'opening_balance' => 50, 'is_active' => true]);
+        FinancialForecastItem::create([
+            'direction' => 'out',
+            'category' => 'supplier',
+            'description' => 'Supplier maturity',
+            'amount' => 100,
+            'due_on' => '2026-08-11',
+            'probability' => 100,
+            'status' => 'planned',
+        ]);
+        FinancialForecastItem::create([
+            'direction' => 'in',
+            'category' => 'collection',
+            'description' => 'Customer collection',
+            'amount' => 100,
+            'due_on' => '2026-08-12',
+            'probability' => 100,
+            'status' => 'planned',
+        ]);
+
+        $forecast = app(TreasuryForecast::class)->build(2026, 'probable');
+        $shortfallDay = $forecast['days']->firstWhere('date', '2026-08-11');
+        $recoveryDay = $forecast['days']->firstWhere('date', '2026-08-12');
+
+        $this->assertCount(91, $forecast['days']);
+        $this->assertSame(-50.0, $shortfallDay['closing']);
+        $this->assertSame(1, $shortfallDay['maturities']);
+        $this->assertSame(50.0, $recoveryDay['closing']);
+        $this->assertSame(-50.0, $forecast['lowestBalance']);
+        $this->assertSame('2026-08-11', $forecast['lowestBalanceOn']);
+        $this->assertSame(50.0, $forecast['weeks']->first()['closing']);
+        $this->assertSame(50.0, $forecast['closingBalance']);
+    }
+
     public function test_shared_card_receipt_is_forecast_once_on_its_payment_day(): void
     {
         $this->travelTo('2026-08-06');
