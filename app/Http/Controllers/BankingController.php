@@ -30,6 +30,7 @@ use App\Services\Banking\BankTransactionPoster;
 use App\Services\Banking\CardSettlementSchedule;
 use App\Services\Banking\StatementImporter;
 use App\Services\Finance\OutstandingBalanceCalculator;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -292,6 +293,28 @@ class BankingController extends Controller
         });
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Imported :created transactions; :duplicates were already imported.', ['created' => $result['created'], 'duplicates' => $result['duplicates']])]);
+    }
+
+    public function previewImport(Request $request, BankAccount $account, StatementImporter $importer): JsonResponse
+    {
+        $data = $request->validate(['statement' => ['required', 'file', 'mimetypes:text/plain,text/csv,application/csv,application/octet-stream', 'max:10240']]);
+        $result = $importer->preview($account, $data['statement']);
+        $metadata = $result['metadata'] ?? [];
+
+        return response()->json([
+            'filename' => $data['statement']->getClientOriginalName(),
+            'format' => $result['format'],
+            'total' => $result['created'] + $result['duplicates'],
+            'created' => $result['created'],
+            'duplicates' => $result['duplicates'],
+            'period_from' => $metadata['period_from'] ?? null,
+            'period_to' => $metadata['period_to'] ?? null,
+            'opening_balance' => $metadata['opening_balance'] ?? null,
+            'closing_balance' => $metadata['closing_balance'] ?? null,
+            'control_valid' => $metadata['control_valid'] ?? null,
+            'source_account' => data_get($metadata, 'control_data.account'),
+            'sample' => $result['sample'],
+        ]);
     }
 
     public function rollbackImport(Request $request, BankStatementImport $statementImport): RedirectResponse

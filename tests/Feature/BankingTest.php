@@ -304,6 +304,26 @@ class BankingTest extends TestCase
         $file = implode("\r\n", [$header, $debit, $debit, $footer])."\r\n";
         $this->actingAs($user);
 
+        $this->postJson(route('banking.import.preview', $account), [
+            'statement' => UploadedFile::fake()->createWithContent('annual-2026.n43', $file),
+        ])->assertOk()->assertJson([
+            'format' => 'norma43',
+            'total' => 2,
+            'created' => 2,
+            'duplicates' => 0,
+            'period_from' => '2026-01-01',
+            'period_to' => '2026-12-31',
+            'opening_balance' => 0,
+            'closing_balance' => -121,
+            'control_valid' => true,
+            'source_account' => ['entity' => '0049', 'office' => '1234', 'account' => '1234567890'],
+            'sample' => [
+                ['amount' => -60.5, 'status' => 'new'],
+                ['amount' => -60.5, 'status' => 'new'],
+            ],
+        ]);
+        $this->assertSame(0, $account->transactions()->count());
+
         $this->post(route('banking.import', $account), [
             'statement' => UploadedFile::fake()->createWithContent('annual-2026.n43', $file),
         ])->assertRedirect()->assertSessionHasNoErrors();
@@ -390,6 +410,49 @@ class BankingTest extends TestCase
         ])->assertRedirect()->assertSessionHasNoErrors();
         $this->assertSame(2, BankTransaction::count());
         $this->assertDatabaseHas('bank_statement_imports', ['filename' => 'correct-account.csv', 'created_transactions' => 2, 'duplicate_transactions' => 0]);
+    }
+
+    public function test_statement_can_be_previewed_without_writes_and_revalidates_duplicates(): void
+    {
+        $user = User::factory()->create(['role' => 'commercial']);
+        $account = BankAccount::create(['name' => 'Preview account', 'currency' => 'EUR', 'opening_balance' => 0, 'is_active' => true]);
+        $csv = "Fecha;Fecha valor;Importe;Concepto;Referencia\n01/08/2026;02/08/2026;-25,00;Bank service;FEE-PREVIEW\n03/08/2026;03/08/2026;100,00;Customer receipt;RCPT-PREVIEW\n";
+        $this->actingAs($user);
+
+        $this->postJson(route('banking.import.preview', $account), [
+            'statement' => UploadedFile::fake()->createWithContent('preview.csv', $csv),
+        ])->assertOk()->assertJson([
+            'filename' => 'preview.csv',
+            'format' => 'csv',
+            'total' => 2,
+            'created' => 2,
+            'duplicates' => 0,
+            'control_valid' => null,
+            'sample' => [
+                ['booked_on' => '2026-08-01', 'value_on' => '2026-08-02', 'amount' => -25, 'reference' => 'FEE-PREVIEW', 'status' => 'new'],
+                ['booked_on' => '2026-08-03', 'value_on' => '2026-08-03', 'amount' => 100, 'reference' => 'RCPT-PREVIEW', 'status' => 'new'],
+            ],
+        ]);
+        $this->assertSame(0, BankTransaction::count());
+        $this->assertSame(0, BankStatementImport::count());
+
+        $this->post(route('banking.import', $account), [
+            'statement' => UploadedFile::fake()->createWithContent('preview.csv', $csv),
+        ])->assertRedirect()->assertSessionHasNoErrors();
+
+        $this->postJson(route('banking.import.preview', $account), [
+            'statement' => UploadedFile::fake()->createWithContent('preview.csv', $csv),
+        ])->assertOk()->assertJson([
+            'total' => 2,
+            'created' => 0,
+            'duplicates' => 2,
+            'sample' => [
+                ['status' => 'duplicate'],
+                ['status' => 'duplicate'],
+            ],
+        ]);
+        $this->assertSame(2, BankTransaction::count());
+        $this->assertSame(1, BankStatementImport::count());
     }
 
     public function test_statement_import_rollback_is_blocked_after_a_movement_is_processed(): void
