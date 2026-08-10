@@ -5,6 +5,8 @@ namespace Tests\Feature;
 use App\Models\BankAccount;
 use App\Models\BankFinancialProduct;
 use App\Models\BankReconciliation;
+use App\Models\BankReconciliationRule;
+use App\Models\BankReconciliationRun;
 use App\Models\BankStatementImport;
 use App\Models\BankTransaction;
 use App\Models\BankTransactionPosting;
@@ -724,5 +726,111 @@ class BankingTest extends TestCase
             ->assertSessionHasNoErrors();
         $this->assertSame('reconciled', $transaction->fresh()->status);
         $this->assertDatabaseHas('bank_reconciliations', ['bank_transaction_id' => $transaction->id, 'method' => 'automatic']);
+    }
+
+    public function test_reusable_rules_preview_and_apply_safe_accounting_with_audited_trace(): void
+    {
+        $user = User::factory()->create(['role' => 'commercial']);
+        $this->actingAs($user)->post(route('banking.accounts.store'), [
+            'name' => 'Rules account',
+            'currency' => 'EUR',
+            'opening_balance' => 0,
+            'is_active' => true,
+        ])->assertSessionHasNoErrors();
+        $account = BankAccount::where('name', 'Rules account')->firstOrFail();
+        $fees = LedgerAccount::where('code', '626')->firstOrFail();
+
+        $tooLarge = $account->transactions()->create([
+            'booked_on' => '2026-08-01',
+            'amount' => -150,
+            'currency' => 'EUR',
+            'description' => 'COMISION EXTRAORDINARIA',
+            'reference' => 'FEE-LARGE',
+            'import_hash' => hash('sha256', 'rule-large'),
+            'status' => 'pending',
+        ]);
+        $incoming = $account->transactions()->create([
+            'booked_on' => '2026-08-02',
+            'amount' => 12.50,
+            'currency' => 'EUR',
+            'description' => 'DEVOLUCION COMISION',
+            'reference' => 'FEE-IN',
+            'import_hash' => hash('sha256', 'rule-incoming'),
+            'status' => 'pending',
+        ]);
+        $matching = $account->transactions()->create([
+            'booked_on' => '2026-08-03',
+            'amount' => -12.50,
+            'currency' => 'EUR',
+            'description' => 'COMISIÓN MANTENIMIENTO CUENTA',
+            'reference' => 'FEE-001',
+            'import_hash' => hash('sha256', 'rule-match'),
+            'status' => 'pending',
+        ]);
+
+        $this->post(route('banking.rules.store', $account), [
+            'name' => 'Bank fees under 50',
+            'ledger_account_id' => $fees->id,
+            'priority' => 10,
+            'direction' => 'out',
+            'match_field' => 'description',
+            'match_operator' => 'contains',
+            'pattern' => 'comision',
+            'min_amount' => 0,
+            'max_amount' => 50,
+            'confidence' => 98,
+            'is_active' => true,
+        ])->assertSessionHasNoErrors();
+        $rule = BankReconciliationRule::firstOrFail();
+
+        $this->get(route('banking.index', ['account' => $account->id, 'status' => 'pending']))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('reconciliationRules', 1)
+                ->where('rulePreview.pending', 3)
+                ->where('rulePreview.matched', 1)
+                ->where('rulePreview.byRule.0.rule_id', $rule->id)
+                ->where('rulePreview.byRule.0.matched', 1)
+                ->where('transactions.data.0.id', $matching->id)
+                ->where('transactions.data.0.rule_suggestion.rule_id', $rule->id)
+                ->where('transactions.data.0.rule_suggestion.ledger_account.code', '626'));
+
+        $this->post(route('banking.rules.apply', $account), [
+            'minimum_confidence' => 95,
+            'confirmation' => 'APPLY-2',
+        ])->assertSessionHasErrors('confirmation');
+        $this->assertSame('pending', $matching->fresh()->status);
+
+        $this->post(route('banking.rules.apply', $account), [
+            'minimum_confidence' => 95,
+            'confirmation' => 'APPLY-1',
+        ])->assertSessionHasNoErrors();
+
+        $run = BankReconciliationRun::firstOrFail();
+        $posting = BankTransactionPosting::where('bank_transaction_id', $matching->id)->firstOrFail();
+        $this->assertSame('accounted', $matching->fresh()->status);
+        $this->assertSame('pending', $tooLarge->fresh()->status);
+        $this->assertSame('pending', $incoming->fresh()->status);
+        $this->assertSame($rule->id, $posting->reconciliation_rule_id);
+        $this->assertSame($run->id, $posting->reconciliation_run_id);
+        $this->assertSame('completed', $run->status);
+        $this->assertSame(1, $run->matched_count);
+        $this->assertSame(2, $run->skipped_count);
+        $this->assertSame(0, $run->failed_count);
+        $this->assertDatabaseHas('bank_reconciliation_run_items', [
+            'bank_reconciliation_run_id' => $run->id,
+            'bank_reconciliation_rule_id' => $rule->id,
+            'bank_transaction_id' => $matching->id,
+            'outcome' => 'applied',
+            'confidence' => 98,
+        ]);
+        $this->assertSame(1, $rule->fresh()->application_count);
+        $this->assertEquals(
+            $posting->journalEntry->lines()->sum('debit'),
+            $posting->journalEntry->lines()->sum('credit'),
+        );
+
+        $this->delete(route('banking.rules.destroy', $rule))->assertSessionHasNoErrors();
+        $this->assertDatabaseHas('bank_reconciliation_rules', ['id' => $rule->id, 'is_active' => false]);
     }
 }

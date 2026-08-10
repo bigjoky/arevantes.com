@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\BankAccount;
 use App\Models\BankFinancialProduct;
 use App\Models\BankReconciliation;
+use App\Models\BankReconciliationRule;
+use App\Models\BankReconciliationRun;
 use App\Models\BankStatementImport;
 use App\Models\BankTransaction;
 use App\Models\BankTransactionPosting;
@@ -22,6 +24,7 @@ use App\Services\Accounting\AccountingSynchronizer;
 use App\Services\Accounting\JournalPoster;
 use App\Services\Accounting\LedgerAccountResolver;
 use App\Services\Banking\BankFinancialProductManager;
+use App\Services\Banking\BankReconciliationRuleEngine;
 use App\Services\Banking\BankTransactionAnalyzer;
 use App\Services\Banking\CardSettlementSchedule;
 use App\Services\Banking\StatementImporter;
@@ -42,6 +45,7 @@ class BankingController extends Controller
         private OutstandingBalanceCalculator $balances,
         private CardSettlementSchedule $cardSettlements,
         private BankTransactionAnalyzer $transactionAnalyzer,
+        private BankReconciliationRuleEngine $ruleEngine,
     ) {}
 
     public function index(Request $request): Response
@@ -72,13 +76,15 @@ class BankingController extends Controller
             ->paginate(25)
             ->withQueryString();
         $candidatePool = $this->candidatePool($transactions->getCollection());
-        $transactions->through(function ($transaction) use ($medianAmount, $candidatePool) {
+        $activeRules = $account ? $this->ruleEngine->rules($account) : collect();
+        $transactions->through(function ($transaction) use ($medianAmount, $candidatePool, $activeRules) {
             $candidates = $transaction->status === 'pending' ? $this->candidates($transaction, false, $candidatePool) : [];
 
             return [
                 ...$transaction->toArray(),
                 'transfer' => $transaction->outgoingTransfer ?? $transaction->incomingTransfer,
                 'candidates' => $candidates,
+                'rule_suggestion' => $transaction->status === 'pending' ? $this->ruleEngine->suggest($transaction, $activeRules) : null,
                 ...$this->transactionAnalyzer->analyze($transaction, $candidates, $medianAmount),
             ];
         });
@@ -148,7 +154,49 @@ class BankingController extends Controller
                     && $import->processed_transactions_count === 0,
             ]) : [];
 
-        return Inertia::render('banking/index', ['accounts' => $accounts, 'selectedAccount' => $account, 'transactions' => $transactions, 'imports' => $imports, 'control' => $account ? $this->bankControl($account) : null, 'ledgerAccounts' => LedgerAccount::where('is_active', true)->where('is_postable', true)->whereNotIn('code', ['430', '400', '410', '472', '477'])->orderBy('code')->get(['id', 'code', 'name', 'type']), 'liabilityAccounts' => LedgerAccount::where('is_active', true)->where('is_postable', true)->where('type', 'liability')->orderBy('code')->get(['id', 'code', 'name']), 'products' => $products, 'productSummary' => $productSummary, 'summary' => $summary, 'filters' => $filters]);
+        $rules = $account ? BankReconciliationRule::with('ledgerAccount:id,code,name')->whereBelongsTo($account, 'account')->orderBy('priority')->orderBy('name')->get() : [];
+        $ruleRuns = $account ? BankReconciliationRun::with('triggeredBy:id,name')->whereBelongsTo($account, 'account')->latest()->limit(5)->get() : [];
+
+        return Inertia::render('banking/index', ['accounts' => $accounts, 'selectedAccount' => $account, 'transactions' => $transactions, 'imports' => $imports, 'control' => $account ? $this->bankControl($account) : null, 'ledgerAccounts' => LedgerAccount::where('is_active', true)->where('is_postable', true)->whereNotIn('code', ['430', '400', '410', '472', '477'])->orderBy('code')->get(['id', 'code', 'name', 'type']), 'liabilityAccounts' => LedgerAccount::where('is_active', true)->where('is_postable', true)->where('type', 'liability')->orderBy('code')->get(['id', 'code', 'name']), 'products' => $products, 'productSummary' => $productSummary, 'summary' => $summary, 'filters' => $filters, 'reconciliationRules' => $rules, 'rulePreview' => $account ? $this->ruleEngine->preview($account, $activeRules) : null, 'ruleRuns' => $ruleRuns]);
+    }
+
+    public function storeRule(Request $request, BankAccount $account): RedirectResponse
+    {
+        $data = $this->validatedRule($request, null, $account);
+        BankReconciliationRule::create([...$data, 'bank_account_id' => $account->id, 'created_by' => $request->user()->id, 'updated_by' => $request->user()->id]);
+
+        return back()->with('toast', ['type' => 'success', 'message' => __('Reconciliation rule created. Review its preview before applying it.')]);
+    }
+
+    public function updateRule(Request $request, BankReconciliationRule $rule): RedirectResponse
+    {
+        $data = $this->validatedRule($request, $rule, $rule->account);
+        $rule->update([...$data, 'updated_by' => $request->user()->id]);
+
+        return back()->with('toast', ['type' => 'success', 'message' => __('Reconciliation rule updated.')]);
+    }
+
+    public function destroyRule(Request $request, BankReconciliationRule $rule): RedirectResponse
+    {
+        if ($rule->runItems()->exists()) {
+            $rule->update(['is_active' => false, 'updated_by' => $request->user()->id]);
+        } else {
+            $rule->delete();
+        }
+
+        return back()->with('toast', ['type' => 'success', 'message' => __('Reconciliation rule removed from future runs.')]);
+    }
+
+    public function applyRules(Request $request, BankAccount $account): RedirectResponse
+    {
+        $data = $request->validate(['minimum_confidence' => ['required', 'integer', 'between:80,100'], 'confirmation' => ['required', 'string']]);
+        $preview = $this->ruleEngine->preview($account);
+        if ($data['confirmation'] !== 'APPLY-'.$preview['matched']) {
+            throw ValidationException::withMessages(['confirmation' => __('The rule preview changed. Refresh the page and confirm the current matched count.')]);
+        }
+        $run = $this->ruleEngine->apply($account, $request->user()->id, (int) $data['minimum_confidence']);
+
+        return back()->with('toast', ['type' => $run->failed_count ? 'warning' : 'success', 'message' => __('Rule run completed: :matched applied, :failed failed and :skipped skipped.', ['matched' => $run->matched_count, 'failed' => $run->failed_count, 'skipped' => $run->skipped_count])]);
     }
 
     public function storeAccount(Request $request): RedirectResponse
@@ -281,6 +329,31 @@ class BankingController extends Controller
             $data['contract_reference'] = null;
         } else {
             $data['identifier_last_four'] = null;
+        }
+
+        return $data;
+    }
+
+    private function validatedRule(Request $request, ?BankReconciliationRule $rule = null, ?BankAccount $account = null): array
+    {
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:255', Rule::unique('bank_reconciliation_rules')->where('bank_account_id', $rule?->bank_account_id ?? $request->route('account')?->id)->ignore($rule)],
+            'ledger_account_id' => ['required', Rule::exists('ledger_accounts', 'id')->where(fn ($query) => $query->where('is_active', true)->where('is_postable', true))],
+            'priority' => ['required', 'integer', 'between:1,1000'],
+            'direction' => ['required', Rule::in(['any', 'in', 'out'])],
+            'match_field' => ['required', Rule::in(['description', 'reference', 'either'])],
+            'match_operator' => ['required', Rule::in(['contains', 'starts_with', 'exact'])],
+            'pattern' => ['required', 'string', 'min:3', 'max:255'],
+            'min_amount' => ['nullable', 'numeric', 'min:0'],
+            'max_amount' => ['nullable', 'numeric', 'min:0'],
+            'confidence' => ['required', 'integer', 'between:80,100'],
+            'is_active' => ['required', 'boolean'],
+        ]);
+        if (isset($data['min_amount'], $data['max_amount']) && (float) $data['min_amount'] > (float) $data['max_amount']) {
+            throw ValidationException::withMessages(['max_amount' => __('Maximum amount must be greater than or equal to minimum amount.')]);
+        }
+        if ($account?->ledger_account_id === (int) $data['ledger_account_id']) {
+            throw ValidationException::withMessages(['ledger_account_id' => __('A rule cannot post against the same bank ledger account.')]);
         }
 
         return $data;
