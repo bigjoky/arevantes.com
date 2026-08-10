@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Mail\DocumentSharedMail;
+use App\Models\DocumentDelivery;
 use App\Models\Person;
 use App\Models\Quote;
 use App\Models\SalesDocument;
@@ -58,6 +59,40 @@ class QuoteOptionSelectionTest extends TestCase
         $invoice = SalesDocument::where('quote_id', $quote->id)->firstOrFail();
         $this->assertCount(3, $invoice->lines);
         $this->assertSame('2178.00', $invoice->amount);
+    }
+
+    public function test_failed_acceptance_rolls_back_the_customer_option_selection(): void
+    {
+        $commercial = User::factory()->create(['role' => 'commercial']);
+        $customer = Person::create(['category' => 'customer', 'first_name' => 'Cliente']);
+        $quote = Quote::create([
+            'person_id' => $customer->id, 'created_by' => $commercial->id, 'number' => 'PRE-OPT-2', 'version' => 1,
+            'status' => 'sent', 'approval_status' => 'pending', 'issue_date' => today(), 'subtotal' => 1000,
+            'discount_amount' => 0, 'tax_amount' => 210, 'amount' => 1210, 'customer_snapshot' => $customer->toArray(),
+        ]);
+        $this->line($quote, 1, 'Instalación base', 1000, 'included', null, true);
+        $optional = $this->line($quote, 2, 'Monitorización avanzada', 500, 'optional', null, false);
+        $token = 'customer-response-token';
+        $delivery = DocumentDelivery::create([
+            'quote_id' => $quote->id,
+            'sent_by' => $commercial->id,
+            'recipient_email' => 'cliente@example.test',
+            'token_hash' => hash('sha256', $token),
+            'status' => 'sent',
+            'expires_at' => now()->addDay(),
+            'sent_at' => now(),
+        ]);
+
+        $this->post(route('documents.shared.respond', $token), [
+            'response' => 'accepted',
+            'selected_line_ids' => [$optional->id],
+        ])->assertSessionHasErrors('status');
+
+        $this->assertSame('sent', $quote->fresh()->status);
+        $this->assertSame(1, $quote->version);
+        $this->assertFalse($optional->fresh()->is_selected);
+        $this->assertNull($delivery->fresh()->responded_at);
+        $this->assertDatabaseMissing('quote_versions', ['quote_id' => $quote->id, 'version' => 2]);
     }
 
     private function line(Quote $quote, int $position, string $description, float $price, string $mode, ?string $group, bool $selected)

@@ -117,4 +117,39 @@ class QuoteCompositionTest extends TestCase
         $this->assertSame('2420.00', $invoice->amount);
         $this->assertSame('Instalación fotovoltaica completa', $invoice->lines->first()->description);
     }
+
+    public function test_unselected_options_are_included_in_the_approval_risk_check(): void
+    {
+        $commercial = User::factory()->create(['role' => 'commercial']);
+        $customer = Person::create(['category' => 'customer', 'first_name' => 'Cliente opciones']);
+
+        $this->actingAs($commercial)->post(route('quotes.store'), [
+            'person_id' => $customer->id,
+            'issue_date' => today()->toDateString(),
+            'lines' => [
+                [
+                    'description' => 'Instalación base',
+                    'quantity' => 1,
+                    'unit_price' => 1000,
+                    'discount_percent' => 0,
+                    'tax_percent' => 21,
+                    'selection_mode' => 'included',
+                    'is_selected' => true,
+                ],
+                [
+                    'description' => 'Opción con descuento excepcional',
+                    'quantity' => 1,
+                    'unit_price' => 500,
+                    'discount_percent' => 20,
+                    'tax_percent' => 21,
+                    'selection_mode' => 'optional',
+                    'is_selected' => false,
+                ],
+            ],
+        ])->assertRedirect();
+
+        $quote = Quote::firstOrFail();
+        $this->assertSame('1000.00', $quote->subtotal);
+        $this->assertSame('pending', $quote->approval_status);
+    }
 }

@@ -4,6 +4,7 @@ namespace App\Services\Quotes;
 
 use App\Models\Quote;
 use App\Models\User;
+use App\Services\Crm\OpportunitySalesCycle;
 use App\Services\Inventory\ProjectMaterialPlanner;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -18,7 +19,11 @@ class QuoteStatusWorkflow
         'expired' => [],
     ];
 
-    public function __construct(private readonly ProjectMaterialPlanner $materials, private readonly QuoteOperationalPlanner $operations) {}
+    public function __construct(
+        private readonly ProjectMaterialPlanner $materials,
+        private readonly QuoteOperationalPlanner $operations,
+        private readonly OpportunitySalesCycle $salesCycle,
+    ) {}
 
     public function assertCanTransition(Quote $quote, string $status): void
     {
@@ -86,14 +91,18 @@ class QuoteStatusWorkflow
             }
 
             if ($status === 'accepted') {
+                $this->salesCycle->assertCanTransition($quote->opportunity, 'won');
                 $quote->opportunity->update(['stage' => 'won', 'probability' => 100, 'lost_reason' => null, 'lost_reason_detail' => null]);
+                $this->salesCycle->synchronizeStage($quote->opportunity, $actor);
             } elseif ($status === 'rejected') {
+                $this->salesCycle->assertCanTransition($quote->opportunity, 'lost');
                 $quote->opportunity->update([
                     'stage' => 'lost',
                     'probability' => 0,
                     'lost_reason' => 'other',
                     'lost_reason_detail' => __('Quote :number rejected.', ['number' => $quote->number]),
                 ]);
+                $this->salesCycle->synchronizeStage($quote->opportunity, $actor);
             }
         });
     }

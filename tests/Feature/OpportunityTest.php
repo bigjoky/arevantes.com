@@ -123,6 +123,61 @@ class OpportunityTest extends TestCase
         ])->assertSessionHasErrors('lost_reason');
     }
 
+    public function test_closing_an_opportunity_cancels_open_actions_and_terminal_stages_cannot_reopen(): void
+    {
+        $user = User::factory()->create(['role' => 'commercial']);
+        $customer = Person::create(['category' => 'customer', 'first_name' => 'Ana']);
+        $opportunity = Opportunity::create([
+            'person_id' => $customer->id,
+            'owner_user_id' => $user->id,
+            'created_by' => $user->id,
+            'code' => 'OPP-WORKFLOW-1',
+            'title' => 'Controlled transition',
+            'stage' => 'qualified',
+            'probability' => 25,
+            'estimated_value' => 5000,
+        ]);
+        $activity = CrmActivity::create([
+            'opportunity_id' => $opportunity->id,
+            'person_id' => $customer->id,
+            'assigned_user_id' => $user->id,
+            'created_by' => $user->id,
+            'type' => 'call',
+            'title' => 'Pending follow-up',
+            'priority' => 'normal',
+            'status' => 'pending',
+            'due_at' => now()->addDay(),
+        ]);
+
+        $payload = [
+            'person_id' => $customer->id,
+            'owner_user_id' => $user->id,
+            'title' => $opportunity->title,
+            'stage' => 'won',
+            'probability' => 50,
+            'estimated_value' => 5000,
+        ];
+
+        $this->actingAs($user)->patch(route('opportunities.update', $opportunity), $payload)->assertRedirect();
+
+        $this->assertSame('won', $opportunity->refresh()->stage);
+        $this->assertSame(100, $opportunity->probability);
+        $this->assertSame('cancelled', $activity->refresh()->status);
+        $this->assertNotNull($activity->blocked_reason);
+
+        $this->patch(route('opportunities.update', $opportunity), [...$payload, 'stage' => 'new', 'probability' => 10])
+            ->assertSessionHasErrors('stage');
+        $this->post(route('opportunities.activities.store', $opportunity), [
+            'type' => 'call',
+            'title' => 'Should not be created',
+            'priority' => 'normal',
+            'due_at' => now()->addDay(),
+        ])->assertUnprocessable();
+
+        $this->assertSame('won', $opportunity->fresh()->stage);
+        $this->assertDatabaseMissing('crm_activities', ['title' => 'Should not be created']);
+    }
+
     public function test_other_source_and_loss_reason_preserve_their_details(): void
     {
         $user = User::factory()->create(['role' => 'commercial']);
@@ -251,6 +306,58 @@ class OpportunityTest extends TestCase
                 ->where('metrics.conversion_rate', 50)
                 ->where('metrics.average_cycle_days', 40)
                 ->where('filters.period', '30'));
+    }
+
+    public function test_stale_detection_uses_stage_age_and_forecast_explains_its_composition(): void
+    {
+        $user = User::factory()->create(['role' => 'commercial']);
+        $customer = Person::create(['category' => 'customer', 'first_name' => 'Ana']);
+        $forecastDate = today()->addMonth()->startOfMonth();
+
+        $this->travelTo(now()->subDays(20));
+        $opportunity = Opportunity::create([
+            'person_id' => $customer->id,
+            'owner_user_id' => $user->id,
+            'created_by' => $user->id,
+            'code' => 'OPP-FORECAST-1',
+            'title' => 'Forecast explicable',
+            'stage' => 'qualified',
+            'probability' => 40,
+            'estimated_value' => 10000,
+            'expected_close_on' => $forecastDate,
+        ]);
+        $this->travelBack();
+        $opportunity->update(['notes' => 'Edited today without changing stage']);
+        CrmActivity::create([
+            'opportunity_id' => $opportunity->id,
+            'person_id' => $customer->id,
+            'assigned_user_id' => $user->id,
+            'created_by' => $user->id,
+            'type' => 'call',
+            'title' => 'Seguimiento',
+            'priority' => 'normal',
+            'status' => 'pending',
+            'due_at' => now()->addDay(),
+        ]);
+
+        $this->actingAs($user)->get(route('opportunities.index'))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('metrics.stale', 1)
+                ->where('opportunities.0.is_stale', true)
+                ->where('opportunities.0.days_in_stage', fn ($days) => $days >= 20)
+                ->where('forecast.0.month', $forecastDate->format('Y-m'))
+                ->where('forecast.0.owner_id', $user->id)
+                ->where('forecast.0.amount', 10000)
+                ->where('forecast.0.weighted_amount', 4000)
+                ->where('forecast.0.average_probability', 40)
+                ->where('forecast.0.opportunities.0.code', 'OPP-FORECAST-1'));
+
+        $this->get(route('opportunities.index', ['attention' => 'stale']))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('opportunities', 1)
+                ->where('opportunities.0.id', $opportunity->id));
     }
 
     public function test_opportunity_can_prepare_one_quote_and_sync_its_result(): void

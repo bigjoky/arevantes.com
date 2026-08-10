@@ -7,6 +7,7 @@ use App\Models\Installation;
 use App\Models\MaintenancePlan;
 use App\Models\MonitoringAlert;
 use App\Models\MonitoringReading;
+use App\Models\Opportunity;
 use App\Models\Person;
 use App\Models\Quote;
 use App\Models\ServiceTicket;
@@ -62,6 +63,64 @@ class OperationsAdminTest extends TestCase
 
         $this->assertSame('approved', $installation->refresh()->status);
         $this->assertSame('12500.00', $installation->estimated_budget);
+    }
+
+    public function test_operations_preserves_the_next_action_for_active_opportunities(): void
+    {
+        $commercial = User::factory()->create(['role' => 'commercial']);
+        $customer = Person::create(['category' => 'customer', 'first_name' => 'Ana']);
+        $opportunity = Opportunity::create([
+            'person_id' => $customer->id,
+            'owner_user_id' => $commercial->id,
+            'created_by' => $commercial->id,
+            'code' => 'OPP-CONTINUITY-1',
+            'title' => 'Seguimiento continuo',
+            'stage' => 'qualified',
+            'probability' => 25,
+            'estimated_value' => 5000,
+            'expected_close_on' => today()->addMonth(),
+        ]);
+        $activity = CrmActivity::create([
+            'opportunity_id' => $opportunity->id,
+            'person_id' => $customer->id,
+            'assigned_user_id' => $commercial->id,
+            'created_by' => $commercial->id,
+            'type' => 'call',
+            'title' => 'Llamar al cliente',
+            'priority' => 'normal',
+            'status' => 'pending',
+            'due_at' => now()->addDay(),
+        ]);
+
+        $this->actingAs($commercial)
+            ->patch(route('activities.update', $activity), ['status' => 'completed'])
+            ->assertRedirect();
+
+        $replacement = $opportunity->activities()->whereIn('status', ['pending', 'in_progress'])->firstOrFail();
+        $this->assertNotSame($activity->id, $replacement->id);
+        $this->assertSame('completed', $activity->fresh()->status);
+        $this->assertSame('Review opportunity and define next step', $replacement->title);
+
+        $this->delete(route('activities.destroy', $replacement))->assertRedirect();
+        $this->assertSame(1, $opportunity->activities()->whereIn('status', ['pending', 'in_progress'])->count());
+
+        $closed = Opportunity::create([
+            'person_id' => $customer->id,
+            'owner_user_id' => $commercial->id,
+            'created_by' => $commercial->id,
+            'code' => 'OPP-CLOSED-1',
+            'title' => 'Oportunidad cerrada',
+            'stage' => 'won',
+            'probability' => 100,
+            'estimated_value' => 5000,
+        ]);
+        $this->post(route('activities.store'), [
+            'opportunity_id' => $closed->id,
+            'type' => 'call',
+            'title' => 'No debe crearse',
+            'priority' => 'normal',
+        ])->assertUnprocessable();
+        $this->assertDatabaseMissing('crm_activities', ['title' => 'No debe crearse']);
     }
 
     public function test_only_administrators_can_manage_roles(): void

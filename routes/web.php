@@ -278,6 +278,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('banking/products', [BankingController::class, 'storeProduct'])->middleware('can:manage-treasury')->name('banking.products.store');
     Route::patch('banking/products/{product}', [BankingController::class, 'updateProduct'])->middleware('can:manage-treasury')->name('banking.products.update');
     Route::post('banking/shared-credit-facilities', [BankingController::class, 'storeSharedFacility'])->middleware('can:manage-treasury')->name('banking.shared-credit-facilities.store');
+    Route::post('banking/accounts/{account}/import/preview', [BankingController::class, 'previewImport'])->middleware('can:manage-treasury')->name('banking.import.preview');
     Route::post('banking/accounts/{account}/import', [BankingController::class, 'import'])->middleware('can:manage-treasury')->name('banking.import');
     Route::delete('banking/imports/{statementImport}', [BankingController::class, 'rollbackImport'])->middleware('can:manage-treasury')->name('banking.imports.rollback');
     Route::post('banking/accounts/{account}/auto-reconcile', [BankingController::class, 'auto'])->middleware('can:manage-treasury')->name('banking.auto');

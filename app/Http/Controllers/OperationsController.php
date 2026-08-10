@@ -10,12 +10,14 @@ use App\Models\ServiceTicket;
 use App\Models\User;
 use App\Models\WorkOrder;
 use App\Models\WorkOrderTemplate;
+use App\Services\Crm\OpportunitySalesCycle;
 use App\Services\Work\TechnicianSchedule;
 use App\Services\Work\WorkOrderFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
@@ -124,7 +126,7 @@ class OperationsController extends Controller
         ]);
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request, OpportunitySalesCycle $salesCycle): RedirectResponse
     {
         $this->normaliseEmptySelects($request);
         $data = $this->validateActivity($request);
@@ -134,25 +136,32 @@ class OperationsController extends Controller
         }
         $installation = filled($data['installation_id'] ?? null) ? Installation::find($data['installation_id']) : null;
         $opportunity = filled($data['opportunity_id'] ?? null) ? Opportunity::find($data['opportunity_id']) : null;
+        abort_if($opportunity && in_array($opportunity->stage, ['won', 'lost'], true), 422, __('Closed opportunities cannot receive new activities.'));
         abort_if($installation?->person_id && filled($data['person_id'] ?? null) && $installation->person_id !== (int) $data['person_id'], 422, __('The installation does not belong to this customer.'));
         abort_if($opportunity && filled($data['person_id'] ?? null) && $opportunity->person_id !== (int) $data['person_id'], 422, __('The opportunity does not belong to this customer.'));
         abort_if($opportunity && $installation && $opportunity->installation_id && $opportunity->installation_id !== $installation->id, 422, __('The installation does not belong to this opportunity.'));
 
         $status = $data['status'] ?? 'pending';
-        CrmActivity::create([
-            ...$data,
-            'person_id' => $data['person_id'] ?? $opportunity?->person_id ?? $installation?->person_id,
-            'installation_id' => $data['installation_id'] ?? $opportunity?->installation_id,
-            'status' => $status,
-            'blocked_reason' => $status === 'blocked' ? ($data['blocked_reason'] ?? null) : null,
-            'completed_at' => $status === 'completed' ? now() : null,
-            'created_by' => $request->user()->id,
-        ]);
+        DB::transaction(function () use ($data, $opportunity, $installation, $status, $request, $salesCycle): void {
+            CrmActivity::create([
+                ...$data,
+                'person_id' => $data['person_id'] ?? $opportunity?->person_id ?? $installation?->person_id,
+                'installation_id' => $data['installation_id'] ?? $opportunity?->installation_id,
+                'status' => $status,
+                'blocked_reason' => $status === 'blocked' ? ($data['blocked_reason'] ?? null) : null,
+                'completed_at' => $status === 'completed' ? now() : null,
+                'created_by' => $request->user()->id,
+            ]);
+            if ($opportunity) {
+                $salesCycle->synchronizeStage($opportunity, $request->user());
+                $salesCycle->refreshScore($opportunity);
+            }
+        });
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Activity created.')]);
     }
 
-    public function update(Request $request, CrmActivity $activity): RedirectResponse
+    public function update(Request $request, CrmActivity $activity, OpportunitySalesCycle $salesCycle): RedirectResponse
     {
         Gate::authorize('update', $activity);
         abort_if($activity->work_order_id !== null, 422, __('Update linked work through its work order.'));
@@ -170,16 +179,39 @@ class OperationsController extends Controller
             $data['completed_at'] = $data['status'] === 'completed' ? now() : null;
             $data['blocked_reason'] = $data['status'] === 'blocked' ? ($data['blocked_reason'] ?? $activity->blocked_reason) : null;
         }
-        $activity->update($data);
+        $previousOpportunity = $activity->opportunity;
+        $targetOpportunityId = array_key_exists('opportunity_id', $data) ? $data['opportunity_id'] : $activity->opportunity_id;
+        $targetOpportunity = $targetOpportunityId ? Opportunity::find($targetOpportunityId) : null;
+        $targetStatus = $data['status'] ?? $activity->status;
+        abort_if(
+            $targetOpportunity && in_array($targetOpportunity->stage, ['won', 'lost'], true) && in_array($targetStatus, ['pending', 'in_progress', 'blocked'], true),
+            422,
+            __('Closed opportunities cannot receive active activities.'),
+        );
+
+        DB::transaction(function () use ($activity, $data, $previousOpportunity, $targetOpportunity, $request, $salesCycle): void {
+            $activity->update($data);
+            collect([$previousOpportunity, $targetOpportunity])->filter()->unique('id')->each(function (Opportunity $opportunity) use ($request, $salesCycle): void {
+                $salesCycle->synchronizeStage($opportunity, $request->user());
+                $salesCycle->refreshScore($opportunity);
+            });
+        });
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Activity updated.')]);
     }
 
-    public function destroy(Request $request, CrmActivity $activity): RedirectResponse
+    public function destroy(Request $request, CrmActivity $activity, OpportunitySalesCycle $salesCycle): RedirectResponse
     {
         Gate::authorize('delete', $activity);
         abort_if($activity->work_order_id !== null, 422, __('Work-order activities cannot be deleted directly.'));
-        $activity->delete();
+        $opportunity = $activity->opportunity;
+        DB::transaction(function () use ($activity, $opportunity, $request, $salesCycle): void {
+            $activity->delete();
+            if ($opportunity) {
+                $salesCycle->synchronizeStage($opportunity, $request->user());
+                $salesCycle->refreshScore($opportunity);
+            }
+        });
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Activity deleted.')]);
     }

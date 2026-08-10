@@ -12,6 +12,16 @@ class StatementImporter
 {
     public function import(BankAccount $account, UploadedFile $file): array
     {
+        return $this->process($account, $file, true);
+    }
+
+    public function preview(BankAccount $account, UploadedFile $file): array
+    {
+        return $this->process($account, $file, false);
+    }
+
+    private function process(BankAccount $account, UploadedFile $file, bool $persist): array
+    {
         $contents = file_get_contents($file->getRealPath());
 
         if ($contents === false || trim($contents) === '') {
@@ -19,11 +29,11 @@ class StatementImporter
         }
 
         return $this->isNorma43($contents)
-            ? $this->importNorma43($account, $contents)
-            : $this->importCsv($account, $file);
+            ? $this->importNorma43($account, $contents, $persist)
+            : $this->importCsv($account, $file, $persist);
     }
 
-    private function importCsv(BankAccount $account, UploadedFile $file): array
+    private function importCsv(BankAccount $account, UploadedFile $file, bool $persist): array
     {
         $handle = fopen($file->getRealPath(), 'r');
 
@@ -45,6 +55,7 @@ class StatementImporter
         $created = $duplicates = 0;
         $createdIds = [];
         $occurrences = [];
+        $sample = [];
 
         while (($values = fgetcsv($handle, 0, $delimiter)) !== false) {
             if (count(array_filter($values, fn ($value) => trim((string) $value) !== '')) === 0) {
@@ -68,21 +79,24 @@ class StatementImporter
             $reference = $columns['reference'] ? trim((string) $row[$columns['reference']]) : null;
             $valueDate = $columns['value_date'] && filled($row[$columns['value_date']]) ? $this->date($row[$columns['value_date']]) : null;
             $occurrence = $this->nextOccurrence($occurrences, $date, $valueDate, $amount, $reference, $description);
-            $createdId = $this->store($account, $date, $valueDate, $amount, $reference, $description, $row, $occurrence);
-            if ($createdId) {
+            $stored = $this->store($account, $date, $valueDate, $amount, $reference, $description, $row, $occurrence, $persist);
+            if ($stored['created']) {
                 $created++;
-                $createdIds[] = $createdId;
+                if ($stored['id']) {
+                    $createdIds[] = $stored['id'];
+                }
             } else {
                 $duplicates++;
             }
+            $this->addSample($sample, $date, $valueDate, $amount, $reference, $description, $stored['created']);
         }
 
         fclose($handle);
 
-        return compact('created', 'duplicates') + ['created_ids' => $createdIds, 'format' => 'csv', 'metadata' => []];
+        return compact('created', 'duplicates', 'sample') + ['created_ids' => $createdIds, 'format' => 'csv', 'metadata' => []];
     }
 
-    private function importNorma43(BankAccount $account, string $contents): array
+    private function importNorma43(BankAccount $account, string $contents, bool $persist): array
     {
         $lines = preg_split('/\R/', $contents) ?: [];
         $blocks = [];
@@ -193,23 +207,27 @@ class StatementImporter
         $created = $duplicates = 0;
         $createdIds = [];
         $occurrences = [];
+        $sample = [];
 
         foreach ($movements as $movement) {
             $occurrence = $this->nextOccurrence($occurrences, $movement['booked_on'], $movement['value_on'], $movement['amount'], $movement['reference'], $movement['description']);
-            $createdId = $this->store($account, $movement['booked_on'], $movement['value_on'], $movement['amount'], $movement['reference'], $movement['description'], $movement['raw_data'], $occurrence);
-            if ($createdId) {
+            $stored = $this->store($account, $movement['booked_on'], $movement['value_on'], $movement['amount'], $movement['reference'], $movement['description'], $movement['raw_data'], $occurrence, $persist);
+            if ($stored['created']) {
                 $created++;
-                $createdIds[] = $createdId;
+                if ($stored['id']) {
+                    $createdIds[] = $stored['id'];
+                }
             } else {
                 $duplicates++;
             }
+            $this->addSample($sample, $movement['booked_on'], $movement['value_on'], $movement['amount'], $movement['reference'], $movement['description'], $stored['created']);
         }
 
         $computed = ['debit_count' => collect($movements)->where('amount', '<', 0)->count(), 'debit_total' => round(abs((float) collect($movements)->where('amount', '<', 0)->sum('amount')), 2), 'credit_count' => collect($movements)->where('amount', '>', 0)->count(), 'credit_total' => round((float) collect($movements)->where('amount', '>', 0)->sum('amount'), 2)];
         $computed['closing_balance'] = round((float) $accountHeader['opening_balance'] + (float) collect($movements)->sum('amount'), 2);
         $controlValid = $control && $computed['debit_count'] === $control['debit_count'] && $computed['credit_count'] === $control['credit_count'] && abs($computed['debit_total'] - $control['debit_total']) < 0.01 && abs($computed['credit_total'] - $control['credit_total']) < 0.01 && abs($computed['closing_balance'] - $control['closing_balance']) < 0.01;
 
-        return compact('created', 'duplicates') + ['created_ids' => $createdIds, 'format' => 'norma43', 'metadata' => ['period_from' => $accountHeader['period_from'], 'period_to' => $accountHeader['period_to'], 'opening_balance' => $accountHeader['opening_balance'], 'closing_balance' => $control['closing_balance'] ?? $computed['closing_balance'], 'control_valid' => (bool) $controlValid, 'control_data' => ['account' => $accountHeader, 'block_count' => 1, 'declared' => $control, 'computed' => $computed]]];
+        return compact('created', 'duplicates', 'sample') + ['created_ids' => $createdIds, 'format' => 'norma43', 'metadata' => ['period_from' => $accountHeader['period_from'], 'period_to' => $accountHeader['period_to'], 'opening_balance' => $accountHeader['opening_balance'], 'closing_balance' => $control['closing_balance'] ?? $computed['closing_balance'], 'control_valid' => (bool) $controlValid, 'control_data' => ['account' => $accountHeader, 'block_count' => 1, 'declared' => $control, 'computed' => $computed]]];
     }
 
     private function assertNorma43Account(BankAccount $account, array $header): void
@@ -237,10 +255,16 @@ class StatementImporter
         return $header['entity'].'-'.$header['office'].'-'.substr($header['account'], -4);
     }
 
-    private function store(BankAccount $account, string $date, ?string $valueDate, float $amount, ?string $reference, string $description, array $rawData, int $occurrence): ?int
+    /** @return array{created: bool, id: int|null} */
+    private function store(BankAccount $account, string $date, ?string $valueDate, float $amount, ?string $reference, string $description, array $rawData, int $occurrence, bool $persist): array
     {
         $baseHash = $this->movementHash($date, $valueDate, $amount, $reference, $description);
         $hash = $occurrence === 1 ? $baseHash : hash('sha256', $baseHash.'|occurrence:'.$occurrence);
+
+        if (! $persist) {
+            return ['created' => ! $account->transactions()->where('import_hash', $hash)->exists(), 'id' => null];
+        }
+
         $transaction = $account->transactions()->firstOrCreate(['import_hash' => $hash], [
             'booked_on' => $date,
             'value_on' => $valueDate,
@@ -252,7 +276,23 @@ class StatementImporter
             'raw_data' => $rawData,
         ]);
 
-        return $transaction->wasRecentlyCreated ? $transaction->id : null;
+        return ['created' => $transaction->wasRecentlyCreated, 'id' => $transaction->wasRecentlyCreated ? $transaction->id : null];
+    }
+
+    private function addSample(array &$sample, string $date, ?string $valueDate, float $amount, ?string $reference, string $description, bool $created): void
+    {
+        if (count($sample) >= 10) {
+            return;
+        }
+
+        $sample[] = [
+            'booked_on' => $date,
+            'value_on' => $valueDate,
+            'amount' => round($amount, 2),
+            'reference' => $reference ?: null,
+            'description' => $description ?: __('Bank movement'),
+            'status' => $created ? 'new' : 'duplicate',
+        ];
     }
 
     private function nextOccurrence(array &$occurrences, string $date, ?string $valueDate, float $amount, ?string $reference, string $description): int

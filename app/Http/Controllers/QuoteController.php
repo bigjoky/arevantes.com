@@ -14,6 +14,7 @@ use App\Models\TaxRate;
 use App\Models\User;
 use App\Models\WorkOrder;
 use App\Services\Catalog\ProductCompositionResolver;
+use App\Services\Crm\OpportunitySalesCycle;
 use App\Services\Documents\DocumentNumber;
 use App\Services\Documents\QuoteBillingPlan;
 use App\Services\Inventory\ProjectMaterialPlanner;
@@ -88,13 +89,13 @@ class QuoteController extends Controller
         return Inertia::render('quotes/form', [...$this->formData(), 'quote' => $quote->load('lines.components')]);
     }
 
-    public function store(Request $request, QuoteCalculator $calculator, DocumentNumber $numbers, QuoteStatusWorkflow $workflow): RedirectResponse
+    public function store(Request $request, QuoteCalculator $calculator, DocumentNumber $numbers, QuoteStatusWorkflow $workflow, OpportunitySalesCycle $salesCycle): RedirectResponse
     {
         $data = $this->validateDocument($request);
-        $quote = DB::transaction(function () use ($request, $data, $calculator, $numbers, $workflow) {
+        $quote = DB::transaction(function () use ($request, $data, $calculator, $numbers, $workflow, $salesCycle) {
             $issued = $numbers->next('quote', $data['issue_date']);
             $quote = $this->persist(new Quote, $data, $calculator, ['number' => $issued['number'], 'version' => 1, 'document_series_id' => $issued['series']->id, 'created_by' => $request->user()->id], $request->user()->id);
-            $this->syncOpportunity($quote, $request);
+            $this->syncOpportunity($quote, $request, $salesCycle);
             $workflow->recordInitial($quote, $request->user());
 
             return $quote;
@@ -310,23 +311,26 @@ class QuoteController extends Controller
             return $line;
         })->all();
         $totals = $calculator->calculate($data['lines']);
-        $cost = collect($data['lines'])->filter(fn (array $line) => filter_var($line['is_selected'] ?? true, FILTER_VALIDATE_BOOL))->sum(function (array $line) use ($productCosts): float {
+        $lineCost = function (array $line) use ($productCosts): float {
             $components = collect($line['components'] ?? []);
             if ($components->isNotEmpty()) {
                 return (float) $line['quantity'] * $components->sum(fn (array $component) => (float) $component['quantity'] * (float) $component['planned_unit_cost']);
             }
 
             return (float) ($productCosts->get((int) ($line['product_id'] ?? 0)) ?? 0) * (float) $line['quantity'];
-        });
+        };
+        $cost = collect($data['lines'])->filter(fn (array $line) => filter_var($line['is_selected'] ?? true, FILTER_VALIDATE_BOOL))->sum($lineCost);
         $netRevenue = (float) $totals['subtotal'] - (float) $totals['discount_amount'];
         $margin = round($netRevenue - $cost, 2);
-        $marginPercent = $netRevenue > 0 ? $margin / $netRevenue * 100 : 0;
-        $maxDiscount = (float) collect($data['lines'])->filter(fn (array $line) => filter_var($line['is_selected'] ?? true, FILTER_VALIDATE_BOOL))->max('discount_percent');
+        $approvalCost = collect($data['lines'])->sum($lineCost);
+        $approvalNetRevenue = (float) collect($totals['lines'])->sum(fn (array $line) => (float) $line['subtotal'] - (float) $line['discount_amount']);
+        $approvalMarginPercent = $approvalNetRevenue > 0 ? ($approvalNetRevenue - $approvalCost) / $approvalNetRevenue * 100 : 0;
+        $maxDiscount = (float) collect($data['lines'])->max('discount_percent');
         $approval = config('crm.quote_approval');
         $maxPossibleAmount = (float) collect($totals['lines'])->sum('total');
         $requiresApproval = $maxPossibleAmount >= $approval['amount_threshold']
             || $maxDiscount >= $approval['discount_threshold']
-            || $marginPercent < $approval['margin_threshold'];
+            || $approvalMarginPercent < $approval['margin_threshold'];
         unset($data['lines']);
         $quote->fill([...$data, ...$extra, ...array_diff_key($totals, ['lines' => true]), 'expected_margin_amount' => $margin, 'approval_status' => $requiresApproval ? 'pending' : 'not_required', 'approved_by' => null, 'approved_at' => null, 'approval_notes' => null, 'customer_snapshot' => $customer->only(['first_name', 'last_name', 'company_name', 'tax_id', 'document_number', 'billing_email', 'email', 'address_line_1', 'address_line_2', 'postal_code', 'city', 'province_state', 'country'])])->save();
         $quote->lines()->delete();
@@ -350,7 +354,7 @@ class QuoteController extends Controller
         return $quote;
     }
 
-    private function syncOpportunity(Quote $quote, Request $request): void
+    private function syncOpportunity(Quote $quote, Request $request, OpportunitySalesCycle $salesCycle): void
     {
         $opportunity = $quote->opportunity;
         if (! $opportunity) {
@@ -358,7 +362,9 @@ class QuoteController extends Controller
         }
 
         if (! in_array($opportunity->stage, ['won', 'lost'], true)) {
+            $salesCycle->assertCanTransition($opportunity, 'proposal');
             $opportunity->update(['stage' => 'proposal', 'probability' => max(60, $opportunity->probability)]);
+            $salesCycle->synchronizeStage($opportunity, $request->user());
         }
 
         CrmActivity::create([

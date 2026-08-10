@@ -15,6 +15,7 @@ use App\Services\Quotes\QuoteSelection;
 use App\Services\Quotes\QuoteStatusWorkflow;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
@@ -57,34 +58,41 @@ class DocumentDeliveryController extends Controller
 
     public function respond(Request $request, string $token, QuoteStatusWorkflow $workflow, QuoteSelection $selection): RedirectResponse
     {
-        $delivery = $this->delivery($token);
-        abort_unless($delivery->quote_id && ! $delivery->responded_at, 422);
         $data = $request->validate(['response' => ['required', 'in:accepted,rejected'], 'selected_line_ids' => ['sometimes', 'array'], 'selected_line_ids.*' => ['integer']]);
-        $quote = $delivery->quote;
-        abort_unless(in_array($quote->status, ['draft', 'sent'], true), 422);
-        if ($data['response'] === 'accepted') {
-            $quote = $selection->apply($quote, $data['selected_line_ids'] ?? []);
-        }
-        $workflow->apply($quote, $data['response'], null, 'shared_link');
-        $delivery->update(['status' => $data['response'], 'responded_at' => now(), 'response_ip' => $request->ip(), 'response_user_agent' => Str::limit((string) $request->userAgent(), 1000, '')]);
-        if ($data['response'] === 'accepted') {
-            $fingerprint = app(DocumentFingerprint::class)->for($quote);
-            $delivery->update(['document_version' => $fingerprint['version'], 'document_hash' => $fingerprint['hash']]);
-            CustomerDocumentAcceptance::firstOrCreate([
-                'person_id' => $quote->person_id,
-                'document_type' => 'quote',
-                'document_id' => $quote->id,
-                'document_version' => $fingerprint['version'],
-            ], [
-                'document_hash' => $fingerprint['hash'],
-                'accepted_at' => now(),
-                'ip_address' => $request->ip(),
-                'user_agent' => Str::limit((string) $request->userAgent(), 1000, ''),
-            ]);
-        }
-        if ($quote->customer) {
-            CustomerPortalEvent::record($quote->customer, 'document_'.$data['response'], null, $request, $quote, ['number' => $quote->number, 'version' => $delivery->document_version]);
-        }
+
+        DB::transaction(function () use ($request, $token, $workflow, $selection, $data): void {
+            $delivery = $this->delivery($token, true);
+            abort_unless($delivery->quote_id && ! $delivery->responded_at, 422);
+            $quote = $delivery->quote;
+            abort_unless(in_array($quote->status, ['draft', 'sent'], true), 422);
+
+            if ($data['response'] === 'accepted') {
+                $quote = $selection->apply($quote, $data['selected_line_ids'] ?? []);
+            }
+
+            $workflow->apply($quote, $data['response'], null, 'shared_link');
+            $delivery->update(['status' => $data['response'], 'responded_at' => now(), 'response_ip' => $request->ip(), 'response_user_agent' => Str::limit((string) $request->userAgent(), 1000, '')]);
+
+            if ($data['response'] === 'accepted') {
+                $fingerprint = app(DocumentFingerprint::class)->for($quote);
+                $delivery->update(['document_version' => $fingerprint['version'], 'document_hash' => $fingerprint['hash']]);
+                CustomerDocumentAcceptance::firstOrCreate([
+                    'person_id' => $quote->person_id,
+                    'document_type' => 'quote',
+                    'document_id' => $quote->id,
+                    'document_version' => $fingerprint['version'],
+                ], [
+                    'document_hash' => $fingerprint['hash'],
+                    'accepted_at' => now(),
+                    'ip_address' => $request->ip(),
+                    'user_agent' => Str::limit((string) $request->userAgent(), 1000, ''),
+                ]);
+            }
+
+            if ($quote->customer) {
+                CustomerPortalEvent::record($quote->customer, 'document_'.$data['response'], null, $request, $quote, ['number' => $quote->number, 'version' => $delivery->document_version]);
+            }
+        });
 
         return to_route('documents.shared.show', $token);
     }
@@ -144,9 +152,13 @@ class DocumentDeliveryController extends Controller
         return back()->with('toast', ['type' => 'success', 'message' => __('Shared document revoked.')]);
     }
 
-    private function delivery(string $token): DocumentDelivery
+    private function delivery(string $token, bool $lock = false): DocumentDelivery
     {
-        $delivery = DocumentDelivery::with(['quote', 'salesDocument'])->where('token_hash', hash('sha256', $token))->firstOrFail();
+        $query = DocumentDelivery::with(['quote', 'salesDocument'])->where('token_hash', hash('sha256', $token));
+        if ($lock) {
+            $query->lockForUpdate();
+        }
+        $delivery = $query->firstOrFail();
         abort_if($delivery->revoked_at || $delivery->expires_at->isPast() || in_array($delivery->status, ['superseded', 'failed', 'revoked'], true), 410, __('This document link has expired.'));
 
         return $delivery;
