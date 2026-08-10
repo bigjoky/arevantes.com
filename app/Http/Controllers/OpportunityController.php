@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\CrmActivity;
+use App\Models\CrmSetting;
 use App\Models\Installation;
 use App\Models\Opportunity;
 use App\Models\Person;
@@ -25,6 +26,7 @@ class OpportunityController extends Controller
 
     public function index(Request $request): Response
     {
+        $settings = CrmSetting::current();
         $query = Opportunity::query()
             ->when($request->boolean('archived'), fn ($query) => $query->onlyTrashed())
             ->with([
@@ -35,7 +37,7 @@ class OpportunityController extends Controller
                 'nextActivity.assignedUser:id,name',
                 'stageHistory.changedBy:id,name',
             ]);
-        $this->applyFilters($query, $request);
+        $this->applyFilters($query, $request, $settings->stale_after_days);
         $opportunities = $query->latest()->get();
 
         $open = $opportunities->whereNotIn('stage', ['won', 'lost']);
@@ -59,15 +61,21 @@ class OpportunityController extends Controller
         $salesCycle = app(OpportunitySalesCycle::class);
 
         return Inertia::render('opportunities/index', [
-            'opportunities' => $opportunities->map(fn (Opportunity $item) => [
-                ...$item->toArray(),
-                'expected_close_on' => $item->expected_close_on?->toDateString(),
-                'available_stages' => $salesCycle->availableTransitions($item),
-                'stage_entered_at' => $this->stageEnteredAt($item)->toIso8601String(),
-                'days_in_stage' => round($this->stageEnteredAt($item)->diffInHours(now()) / 24, 1),
-                'is_stale' => ! in_array($item->stage, ['won', 'lost'], true)
-                    && $this->stageEnteredAt($item)->lessThan(now()->subDays(config('crm.stale_after_days'))),
-            ]),
+            'opportunities' => $opportunities->map(function (Opportunity $item) use ($salesCycle, $settings): array {
+                $scoreBreakdown = $salesCycle->scoreBreakdown($item);
+
+                return [
+                    ...$item->toArray(),
+                    'commercial_score' => min(100, (int) collect($scoreBreakdown)->sum('points')),
+                    'score_breakdown' => $scoreBreakdown,
+                    'expected_close_on' => $item->expected_close_on?->toDateString(),
+                    'available_stages' => $salesCycle->availableTransitions($item),
+                    'stage_entered_at' => $this->stageEnteredAt($item)->toIso8601String(),
+                    'days_in_stage' => round($this->stageEnteredAt($item)->diffInHours(now()) / 24, 1),
+                    'is_stale' => ! in_array($item->stage, ['won', 'lost'], true)
+                        && $this->stageEnteredAt($item)->lessThan(now()->subDays($settings->stale_after_days)),
+                ];
+            }),
             'customers' => Person::where('category', 'customer')->orderBy('company_name')->orderBy('first_name')->get(['id', 'first_name', 'last_name', 'company_name']),
             'installations' => Installation::orderBy('project_reference')->get(['id', 'person_id', 'project_reference', 'site_name']),
             'users' => User::whereIn('role', ['admin', 'commercial'])->orderBy('name')->get(['id', 'name']),
@@ -88,12 +96,14 @@ class OpportunityController extends Controller
                 'average_cycle_days' => $averageCycleDays !== null ? round($averageCycleDays, 1) : null,
                 'overdue' => $open->filter(fn (Opportunity $item) => $item->expected_close_on?->isPast())->count(),
                 'without_next_action' => $open->whereNull('nextActivity')->count(),
-                'stale' => $open->filter(fn (Opportunity $item) => $this->stageEnteredAt($item)->lessThan(now()->subDays(config('crm.stale_after_days'))))->count(),
+                'stale' => $open->filter(fn (Opportunity $item) => $this->stageEnteredAt($item)->lessThan(now()->subDays($settings->stale_after_days)))->count(),
                 'funnel' => collect(self::STAGES)->mapWithKeys(fn (string $stage) => [$stage => $opportunities->where('stage', $stage)->count()]),
                 'stage_days' => $this->averageDaysByStage($opportunities),
             ],
             'forecast' => $request->boolean('archived') ? [] : $this->forecast($open),
             'savedFilters' => SavedCrmFilter::query()->where('user_id', $request->user()->id)->where('scope', 'opportunities')->orderByDesc('is_default')->orderBy('name')->get(),
+            'crmSettings' => $settings,
+            'canConfigureCrm' => $request->user()->hasRole('admin'),
         ]);
     }
 
@@ -212,7 +222,7 @@ class OpportunityController extends Controller
         abort_if((int) $installation->person_id !== (int) $data['person_id'], 422, __('The installation does not belong to this customer.'));
     }
 
-    private function applyFilters(Builder $query, Request $request): void
+    private function applyFilters(Builder $query, Request $request, int $staleAfterDays): void
     {
         $search = trim((string) $request->input('search'));
 
@@ -242,7 +252,7 @@ class OpportunityController extends Controller
                 ->whereNotIn('stage', ['won', 'lost'])
                 ->whereRaw(
                     'coalesce((select max(changed_at) from opportunity_stage_histories where opportunity_id = opportunities.id), opportunities.created_at) < ?',
-                    [now()->subDays(config('crm.stale_after_days'))],
+                    [now()->subDays($staleAfterDays)],
                 ));
     }
 

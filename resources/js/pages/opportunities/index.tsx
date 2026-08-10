@@ -12,6 +12,7 @@ import {
     Plus,
     RotateCcw,
     Search,
+    Settings2,
     Target,
     Timer,
     TrendingUp,
@@ -87,6 +88,10 @@ type Opportunity = {
     stage: string;
     probability: number;
     commercial_score: number;
+    score_breakdown: Record<
+        string,
+        { met: boolean; points: number; weight: number }
+    >;
     estimated_value: string;
     expected_close_on: string | null;
     source: string | null;
@@ -144,6 +149,17 @@ type FormData = {
     notes: string;
 };
 
+type CrmSettings = {
+    stale_after_days: number;
+    customer_contactable_weight: number;
+    source_identified_weight: number;
+    owner_assigned_weight: number;
+    expected_close_set_weight: number;
+    next_action_scheduled_weight: number;
+    estimated_value_set_weight: number;
+    advanced_stage_weight: number;
+};
+
 const emptyForm: FormData = {
     person_id: '',
     installation_id: '',
@@ -171,6 +187,8 @@ export default function OpportunitiesIndex({
     metrics,
     forecast = [],
     savedFilters = [],
+    crmSettings,
+    canConfigureCrm = false,
 }: {
     opportunities: Opportunity[];
     customers: Customer[];
@@ -210,6 +228,8 @@ export default function OpportunitiesIndex({
         filters: Record<string, string>;
         is_default: boolean;
     }>;
+    crmSettings: CrmSettings;
+    canConfigureCrm?: boolean;
 }) {
     const [open, setOpen] = useState(false);
     const [editing, setEditing] = useState<Opportunity | null>(null);
@@ -325,6 +345,9 @@ export default function OpportunitiesIndex({
                         </p>
                     </div>
                     <div className="flex gap-2">
+                        {canConfigureCrm && (
+                            <CrmSettingsDialog settings={crmSettings} />
+                        )}
                         <Button variant="outline" asChild>
                             <Link
                                 href={
@@ -1073,6 +1096,41 @@ export default function OpportunitiesIndex({
                                     }
                                 />
                             </Field>
+                            {editing && (
+                                <div className="sm:col-span-2">
+                                    <div className="mb-2 flex items-center justify-between gap-3 text-sm font-medium">
+                                        <span>Explicación del scoring</span>
+                                        <Badge variant="outline">
+                                            {editing.commercial_score}/100
+                                        </Badge>
+                                    </div>
+                                    <div className="grid gap-2 rounded-md border p-3 sm:grid-cols-2">
+                                        {Object.entries(
+                                            editing.score_breakdown,
+                                        ).map(([criterion, result]) => (
+                                            <div
+                                                key={criterion}
+                                                className="flex items-center justify-between gap-3 text-xs"
+                                            >
+                                                <span
+                                                    className={
+                                                        result.met
+                                                            ? 'text-foreground'
+                                                            : 'text-muted-foreground'
+                                                    }
+                                                >
+                                                    {result.met ? '✓' : '○'}{' '}
+                                                    {scoreLabel(criterion)}
+                                                </span>
+                                                <span className="font-medium tabular-nums">
+                                                    {result.points}/
+                                                    {result.weight}
+                                                </span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                             {editing && editing.stage_history.length > 0 && (
                                 <div className="sm:col-span-2">
                                     <div className="mb-2 flex items-center gap-2 text-sm font-medium">
@@ -1521,6 +1579,131 @@ function OpportunityTable({
     );
 }
 
+function CrmSettingsDialog({ settings }: { settings: CrmSettings }) {
+    const [open, setOpen] = useState(false);
+    const form = useForm(
+        Object.fromEntries(
+            Object.entries(settings).map(([key, value]) => [
+                key,
+                String(value),
+            ]),
+        ) as Record<keyof CrmSettings, string>,
+    );
+    const weightFields: Array<[keyof CrmSettings, string]> = [
+        ['customer_contactable_weight', 'Cliente contactable'],
+        ['source_identified_weight', 'Origen identificado'],
+        ['owner_assigned_weight', 'Responsable asignado'],
+        ['expected_close_set_weight', 'Fecha prevista'],
+        ['next_action_scheduled_weight', 'Próxima acción'],
+        ['estimated_value_set_weight', 'Importe estimado'],
+        ['advanced_stage_weight', 'Etapa avanzada'],
+    ];
+    const total = weightFields.reduce(
+        (sum, [field]) => sum + (Number(form.data[field]) || 0),
+        0,
+    );
+    const globalError = (form.errors as Record<string, string>).weights;
+
+    return (
+        <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+                <Button variant="outline">
+                    <Settings2 /> Configuración CRM
+                </Button>
+            </DialogTrigger>
+            <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+                <DialogHeader>
+                    <DialogTitle>Gobierno comercial</DialogTitle>
+                    <DialogDescription>
+                        Define cuándo una oportunidad está estancada y cómo se
+                        calcula su scoring. Los pesos deben sumar 100 puntos.
+                    </DialogDescription>
+                </DialogHeader>
+                <form
+                    className="grid gap-5"
+                    onSubmit={(event) => {
+                        event.preventDefault();
+                        form.patch('/crm/settings', {
+                            preserveScroll: true,
+                            onSuccess: () => setOpen(false),
+                        });
+                    }}
+                >
+                    <Field
+                        label="Días para considerar una etapa estancada"
+                        error={form.errors.stale_after_days}
+                    >
+                        <Input
+                            type="number"
+                            min="1"
+                            max="365"
+                            value={form.data.stale_after_days}
+                            onChange={(event) =>
+                                form.setData(
+                                    'stale_after_days',
+                                    event.target.value,
+                                )
+                            }
+                        />
+                    </Field>
+                    <div>
+                        <div className="mb-3 flex items-center justify-between gap-3">
+                            <Label>Pesos del scoring</Label>
+                            <Badge
+                                variant={
+                                    total === 100 ? 'outline' : 'destructive'
+                                }
+                            >
+                                {total}/100 puntos
+                            </Badge>
+                        </div>
+                        <div className="grid gap-3 sm:grid-cols-2">
+                            {weightFields.map(([field, label]) => (
+                                <Field
+                                    key={field}
+                                    label={label}
+                                    error={form.errors[field]}
+                                >
+                                    <Input
+                                        type="number"
+                                        min="0"
+                                        max="100"
+                                        value={form.data[field]}
+                                        onChange={(event) =>
+                                            form.setData(
+                                                field,
+                                                event.target.value,
+                                            )
+                                        }
+                                    />
+                                </Field>
+                            ))}
+                        </div>
+                        {globalError && (
+                            <InputError
+                                className="mt-2"
+                                message={globalError}
+                            />
+                        )}
+                    </div>
+                    <DialogFooter>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setOpen(false)}
+                        >
+                            Cancelar
+                        </Button>
+                        <Button disabled={form.processing || total !== 100}>
+                            Guardar y recalcular
+                        </Button>
+                    </DialogFooter>
+                </form>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
 function Field({
     label,
     error,
@@ -1668,6 +1851,19 @@ function isOverdue(value: string) {
 }
 function stageLabel(value: string) {
     return stages.find((stage) => stage.value === value)?.label || value;
+}
+function scoreLabel(value: string) {
+    const labels: Record<string, string> = {
+        customer_contactable: 'Cliente contactable',
+        source_identified: 'Origen identificado',
+        owner_assigned: 'Responsable asignado',
+        expected_close_set: 'Fecha prevista',
+        next_action_scheduled: 'Próxima acción',
+        estimated_value_set: 'Importe estimado',
+        advanced_stage: 'Etapa avanzada',
+    };
+
+    return labels[value] || value;
 }
 function periodLabel(value?: string) {
     if (value === '30') {
