@@ -709,8 +709,51 @@ class FinanceTest extends TestCase
         $forecast = app(TreasuryForecast::class)->build(now()->year, 'optimistic');
 
         $this->assertSame(900.0, $forecast['openingBalance']);
+        $this->assertSame('Forecast bank', $forecast['openingSources']->first()['name']);
+        $this->assertSame('/banking?account='.$account->id, $forecast['openingSources']->first()['href']);
         $this->assertGreaterThanOrEqual(300, $forecast['weeks']->sum('out'));
         $this->assertSame($forecast['openingBalance'] - $forecast['weeks']->sum('out'), $forecast['closingBalance']);
+        $rent = $forecast['weeks']->flatMap(fn (array $week) => $week['events'])->firstWhere('sourceType', 'forecast_item');
+        $this->assertSame('Monthly rent', $rent['label']);
+        $this->assertSame(100.0, $rent['originalAmount']);
+        $this->assertSame('#forecast-items', $rent['href']);
+    }
+
+    public function test_treasury_forecast_explains_scenario_adjustments_and_does_not_mix_currencies(): void
+    {
+        $this->travelTo('2026-08-10');
+        $euro = BankAccount::create(['name' => 'EUR operating', 'currency' => 'EUR', 'opening_balance' => 1000, 'is_active' => true]);
+        BankAccount::create(['name' => 'USD reserve', 'currency' => 'USD', 'opening_balance' => 500, 'is_active' => true]);
+        BankAccount::create(['name' => 'Closed EUR', 'currency' => 'EUR', 'opening_balance' => 900, 'is_active' => false]);
+        $invoice = SalesDocument::create([
+            'type' => 'invoice',
+            'number' => 'FAC-TRACE-1',
+            'status' => 'issued',
+            'issue_date' => today(),
+            'due_date' => today()->addDay(),
+            'issued_at' => now(),
+            'locked_at' => now(),
+            'subtotal' => 100,
+            'discount_amount' => 0,
+            'tax_amount' => 21,
+            'amount' => 121,
+            'paid_amount' => 0,
+            'customer_snapshot' => [],
+        ]);
+
+        $forecast = app(TreasuryForecast::class)->build(2026, 'probable');
+        $event = $forecast['weeks']->flatMap(fn (array $week) => $week['events'])->firstWhere('sourceType', 'receivable');
+
+        $this->assertSame('EUR', $forecast['baseCurrency']);
+        $this->assertSame(1000.0, $forecast['openingBalance']);
+        $this->assertSame($euro->id, $forecast['openingSources']->sole()['id']);
+        $this->assertSame('USD', $forecast['excludedCurrencyBalances']->sole()['currency']);
+        $this->assertSame(500.0, $forecast['excludedCurrencyBalances']->sole()['balance']);
+        $this->assertSame($invoice->id, $event['sourceId']);
+        $this->assertSame(121.0, $event['originalAmount']);
+        $this->assertSame(108.9, $event['amount']);
+        $this->assertSame('/sales/'.$invoice->id, $event['href']);
+        $this->assertSame(108.9, $forecast['weeks']->sum('in'));
     }
 
     public function test_shared_card_receipt_is_forecast_once_on_its_payment_day(): void
@@ -748,5 +791,30 @@ class FinanceTest extends TestCase
         $this->assertSame(500.0, $paymentWeek['out']);
         $this->assertSame(500.0, $forecast['weeks']->sum('out'));
         $this->assertSame(500.0, $forecast['closingBalance']);
+    }
+
+    public function test_independent_credit_card_is_included_in_the_treasury_forecast(): void
+    {
+        $this->travelTo('2026-08-06');
+        $account = BankAccount::create(['name' => 'Independent card debit', 'currency' => 'EUR', 'opening_balance' => 1000, 'is_active' => true]);
+        $card = BankFinancialProduct::create([
+            'bank_account_id' => $account->id,
+            'type' => 'credit_card',
+            'name' => 'Independent purchasing card',
+            'currency' => 'EUR',
+            'credit_limit' => 2000,
+            'used_amount' => 120,
+            'billing_day' => 25,
+            'payment_day' => 5,
+            'is_active' => true,
+        ]);
+
+        $forecast = app(TreasuryForecast::class)->build(2026, 'probable');
+        $event = $forecast['weeks']->flatMap(fn (array $week) => $week['events'])->sole('sourceType', 'credit_card');
+
+        $this->assertSame($card->id, $event['sourceId']);
+        $this->assertSame(120.0, $event['amount']);
+        $this->assertSame(120.0, $forecast['weeks']->sum('out'));
+        $this->assertSame(880.0, $forecast['closingBalance']);
     }
 }
