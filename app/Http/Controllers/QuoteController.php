@@ -13,10 +13,12 @@ use App\Models\Quote;
 use App\Models\TaxRate;
 use App\Models\User;
 use App\Models\WorkOrder;
+use App\Services\Catalog\ProductCompositionResolver;
 use App\Services\Documents\DocumentNumber;
 use App\Services\Documents\QuoteBillingPlan;
 use App\Services\Inventory\ProjectMaterialPlanner;
 use App\Services\Quotes\QuoteCalculator;
+use App\Services\Quotes\QuoteOperationalPlanner;
 use App\Services\Quotes\QuoteStatusWorkflow;
 use App\Services\Work\ChecklistTemplate;
 use App\Services\Work\TechnicianSchedule;
@@ -56,7 +58,7 @@ class QuoteController extends Controller
 
     public function show(Quote $quote, QuoteBillingPlan $billing): Response
     {
-        $quote->load(['customer', 'installation', 'opportunity:id,code,title', 'lines', 'versions', 'statusHistory.changedBy:id,name', 'deliveries:id,quote_id,recipient_email,status,sent_at,first_viewed_at,responded_at,revoked_at']);
+        $quote->load(['customer', 'installation', 'opportunity:id,code,title', 'lines.components.unit:id,symbol', 'versions', 'statusHistory.changedBy:id,name', 'deliveries:id,quote_id,recipient_email,status,sent_at,first_viewed_at,responded_at,revoked_at']);
         [$street, $streetNumber] = $this->splitStreetAddress($quote->customer?->address_line_1);
 
         return Inertia::render('quotes/show', [
@@ -83,7 +85,7 @@ class QuoteController extends Controller
     {
         abort_unless($quote->status === 'draft', 422, __('Only draft quotes can be edited.'));
 
-        return Inertia::render('quotes/form', [...$this->formData(), 'quote' => $quote->load('lines')]);
+        return Inertia::render('quotes/form', [...$this->formData(), 'quote' => $quote->load('lines.components')]);
     }
 
     public function store(Request $request, QuoteCalculator $calculator, DocumentNumber $numbers, QuoteStatusWorkflow $workflow): RedirectResponse
@@ -143,7 +145,7 @@ class QuoteController extends Controller
         return back()->with('toast', ['type' => 'success', 'message' => __('Approval decision recorded.')]);
     }
 
-    public function startProject(Request $request, Quote $quote, ChecklistTemplate $template, TechnicianSchedule $schedule, ProjectMaterialPlanner $materials): RedirectResponse
+    public function startProject(Request $request, Quote $quote, ChecklistTemplate $template, TechnicianSchedule $schedule, ProjectMaterialPlanner $materials, QuoteOperationalPlanner $operations): RedirectResponse
     {
         abort_unless($quote->status === 'accepted', 422, __('Only accepted quotes can start a project.'));
         abort_if($quote->installation_id, 422, __('This quote already has an installation.'));
@@ -165,7 +167,7 @@ class QuoteController extends Controller
         $scheduledAt = Carbon::parse($data['scheduled_at']);
         $schedule->assertAvailable(isset($data['technician_user_id']) ? (int) $data['technician_user_id'] : null, $scheduledAt, $scheduledAt->copy()->addHours(2));
 
-        $installation = DB::transaction(function () use ($request, $quote, $data, $template, $scheduledAt, $materials): Installation {
+        $installation = DB::transaction(function () use ($request, $quote, $data, $template, $scheduledAt, $materials, $operations): Installation {
             $lockedQuote = Quote::lockForUpdate()->findOrFail($quote->id);
             abort_if($lockedQuote->installation_id, 422, __('This quote already has an installation.'));
             $opportunity = $lockedQuote->opportunity;
@@ -225,6 +227,7 @@ class QuoteController extends Controller
             $lockedQuote->update(['installation_id' => $installation->id]);
             $opportunity?->update(['installation_id' => $installation->id]);
             $materials->syncFromQuote($lockedQuote, $installation);
+            $operations->sync($lockedQuote, $installation, $request->user()->id);
 
             return $installation;
         });
@@ -235,10 +238,14 @@ class QuoteController extends Controller
 
     private function formData(): array
     {
+        $products = Product::with(['unit:id,symbol', 'taxRate:id,rate', 'components.product.unit:id,symbol'])->where('is_active', true)->orderBy('name')->get();
+        $resolver = app(ProductCompositionResolver::class);
+        $products->each(fn (Product $product) => $product->setAttribute('resolved_components', $resolver->resolve($product)));
+
         return [
             'customers' => Person::where('category', 'customer')->orderBy('company_name')->orderBy('first_name')->get(['id', 'first_name', 'last_name', 'company_name']),
             'installations' => Installation::orderBy('project_reference')->get(['id', 'person_id', 'project_reference', 'site_name']),
-            'products' => Product::with(['unit:id,symbol', 'taxRate:id,rate'])->where('is_active', true)->orderBy('name')->get(),
+            'products' => $products,
         ];
     }
 
@@ -251,31 +258,84 @@ class QuoteController extends Controller
             'lines' => ['required', 'array', 'min:1'], 'lines.*.product_id' => ['nullable', 'exists:products,id'], 'lines.*.unit_id' => ['nullable', 'exists:units,id'],
             'lines.*.tax_rate_id' => ['nullable', 'exists:tax_rates,id'], 'lines.*.description' => ['required', 'string'], 'lines.*.quantity' => ['required', 'numeric', 'gt:0'],
             'lines.*.unit_price' => ['required', 'numeric', 'min:0'], 'lines.*.discount_percent' => ['required', 'numeric', 'between:0,100'], 'lines.*.tax_percent' => ['required', 'numeric', 'between:0,100'],
+            'lines.*.selection_mode' => ['sometimes', Rule::in(['included', 'optional', 'alternative'])],
+            'lines.*.option_group' => ['nullable', 'string', 'max:100'],
+            'lines.*.is_selected' => ['sometimes', 'boolean'],
+            'lines.*.components' => ['sometimes', 'array'],
+            'lines.*.components.*.product_id' => ['nullable', 'exists:products,id'],
+            'lines.*.components.*.unit_id' => ['nullable', 'exists:units,id'],
+            'lines.*.components.*.kind' => ['required', Rule::in(['material', 'labor', 'service', 'document', 'other'])],
+            'lines.*.components.*.fulfillment_kind' => ['required', Rule::in(['stock', 'activity', 'recurring', 'none'])],
+            'lines.*.components.*.visibility' => ['required', Rule::in(['detailed', 'summary', 'hidden'])],
+            'lines.*.components.*.description' => ['required', 'string', 'max:1000'],
+            'lines.*.components.*.quantity' => ['required', 'numeric', 'gt:0'],
+            'lines.*.components.*.planned_unit_cost' => ['nullable', 'numeric', 'min:0'],
+            'lines.*.components.*.interval_months' => ['nullable', 'integer', 'between:1,120'],
         ]);
     }
 
     private function persist(Quote $quote, array $data, QuoteCalculator $calculator, array $extra = [], ?int $actorId = null): Quote
     {
+        $data['lines'] = collect($data['lines'])->map(function (array $line): array {
+            $mode = $line['selection_mode'] ?? 'included';
+
+            return [
+                ...$line,
+                'selection_mode' => $mode,
+                'option_group' => $line['option_group'] ?? null,
+                'is_selected' => $mode === 'included' ? true : (bool) ($line['is_selected'] ?? false),
+            ];
+        })->all();
+        $alternativeLines = collect($data['lines'])->where('selection_mode', 'alternative');
+        abort_if($alternativeLines->contains(fn (array $line) => blank($line['option_group'] ?? null)), 422, __('Alternative lines require a group name.'));
+        abort_if($alternativeLines->filter(fn (array $line) => filter_var($line['is_selected'] ?? false, FILTER_VALIDATE_BOOL))->groupBy('option_group')->contains(fn ($lines) => $lines->count() > 1), 422, __('Only one line can be selected in each alternative group.'));
         $installation = isset($data['installation_id']) ? Installation::find($data['installation_id']) : null;
         abort_if($installation?->person_id && $installation->person_id !== (int) $data['person_id'], 422, __('The installation does not belong to the selected customer.'));
         $customer = Person::findOrFail($data['person_id']);
         $opportunity = isset($data['opportunity_id']) ? Opportunity::find($data['opportunity_id']) : null;
         abort_if($opportunity && ((int) $opportunity->person_id !== (int) $data['person_id'] || ($opportunity->installation_id && (int) $opportunity->installation_id !== (int) ($data['installation_id'] ?? 0))), 422, __('The quote does not match the selected opportunity.'));
+        $productIds = collect($data['lines'])->pluck('product_id')
+            ->merge(collect($data['lines'])->flatMap(fn (array $line) => collect($line['components'] ?? [])->pluck('product_id')))
+            ->filter()->unique();
+        $productCosts = Product::whereIn('id', $productIds)->pluck('cost_price', 'id');
+        $data['lines'] = collect($data['lines'])->map(function (array $line) use ($productCosts): array {
+            $line['components'] = collect($line['components'] ?? [])->map(function (array $component, int $position) use ($productCosts): array {
+                return [
+                    ...$component,
+                    'position' => $position + 1,
+                    'planned_unit_cost' => (float) ($productCosts->get((int) ($component['product_id'] ?? 0)) ?? ($component['planned_unit_cost'] ?? 0)),
+                ];
+            })->all();
+
+            return $line;
+        })->all();
         $totals = $calculator->calculate($data['lines']);
-        $productCosts = Product::whereIn('id', collect($data['lines'])->pluck('product_id')->filter())->pluck('cost_price', 'id');
-        $cost = collect($data['lines'])->sum(fn (array $line) => (float) ($productCosts[$line['product_id'] ?? 0] ?? 0) * (float) $line['quantity']);
+        $cost = collect($data['lines'])->filter(fn (array $line) => filter_var($line['is_selected'] ?? true, FILTER_VALIDATE_BOOL))->sum(function (array $line) use ($productCosts): float {
+            $components = collect($line['components'] ?? []);
+            if ($components->isNotEmpty()) {
+                return (float) $line['quantity'] * $components->sum(fn (array $component) => (float) $component['quantity'] * (float) $component['planned_unit_cost']);
+            }
+
+            return (float) ($productCosts->get((int) ($line['product_id'] ?? 0)) ?? 0) * (float) $line['quantity'];
+        });
         $netRevenue = (float) $totals['subtotal'] - (float) $totals['discount_amount'];
         $margin = round($netRevenue - $cost, 2);
         $marginPercent = $netRevenue > 0 ? $margin / $netRevenue * 100 : 0;
-        $maxDiscount = (float) collect($data['lines'])->max('discount_percent');
+        $maxDiscount = (float) collect($data['lines'])->filter(fn (array $line) => filter_var($line['is_selected'] ?? true, FILTER_VALIDATE_BOOL))->max('discount_percent');
         $approval = config('crm.quote_approval');
-        $requiresApproval = (float) $totals['amount'] >= $approval['amount_threshold']
+        $maxPossibleAmount = (float) collect($totals['lines'])->sum('total');
+        $requiresApproval = $maxPossibleAmount >= $approval['amount_threshold']
             || $maxDiscount >= $approval['discount_threshold']
             || $marginPercent < $approval['margin_threshold'];
         unset($data['lines']);
         $quote->fill([...$data, ...$extra, ...array_diff_key($totals, ['lines' => true]), 'expected_margin_amount' => $margin, 'approval_status' => $requiresApproval ? 'pending' : 'not_required', 'approved_by' => null, 'approved_at' => null, 'approval_notes' => null, 'customer_snapshot' => $customer->only(['first_name', 'last_name', 'company_name', 'tax_id', 'document_number', 'billing_email', 'email', 'address_line_1', 'address_line_2', 'postal_code', 'city', 'province_state', 'country'])])->save();
         $quote->lines()->delete();
-        $quote->lines()->createMany($totals['lines']);
+        foreach ($totals['lines'] as $lineData) {
+            $components = $lineData['components'] ?? [];
+            unset($lineData['components']);
+            $line = $quote->lines()->create($lineData);
+            $line->components()->createMany($components);
+        }
         $quote->versions()->updateOrCreate(['version' => $quote->version], [
             'created_by' => $actorId,
             'subtotal' => $quote->subtotal,

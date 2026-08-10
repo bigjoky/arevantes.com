@@ -168,7 +168,7 @@ class SalesDocumentController extends Controller
                 'subtotal' => $billingData['subtotal'] ?? $quote->subtotal, 'discount_amount' => $billingData['discount_amount'] ?? $quote->discount_amount,
                 'tax_amount' => $billingData['tax_amount'] ?? $quote->tax_amount, 'amount' => $billingData['amount'] ?? $quote->amount, 'customer_snapshot' => $quote->customer_snapshot, 'notes' => $quote->notes,
             ]);
-            $document->lines()->createMany($billingData['lines'] ?? $quote->lines->map(fn ($line) => $line->only(['product_id', 'unit_id', 'position', 'description', 'quantity', 'unit_price', 'discount_percent', 'tax_percent', 'subtotal', 'discount_amount', 'tax_amount', 'total']))->all());
+            $document->lines()->createMany($billingData['lines'] ?? $quote->lines->where('is_selected', true)->map(fn ($line) => $line->only(['product_id', 'unit_id', 'position', 'description', 'quantity', 'unit_price', 'discount_percent', 'tax_percent', 'subtotal', 'discount_amount', 'tax_amount', 'total']))->all());
 
             return [$document, true];
         });

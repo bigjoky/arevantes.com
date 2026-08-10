@@ -16,6 +16,9 @@ class QuoteCalculator
             $lineTax = round($taxable * (float) $line['tax_percent'] / 100, 2);
             $lineTotal = $taxable + $lineTax;
             $calculated[] = [...$line, 'position' => $position + 1, 'subtotal' => $lineSubtotal, 'discount_amount' => $lineDiscount, 'tax_amount' => $lineTax, 'total' => $lineTotal];
+            if (array_key_exists('is_selected', $line) && ! filter_var($line['is_selected'], FILTER_VALIDATE_BOOL)) {
+                continue;
+            }
             $subtotal += $lineSubtotal;
             $discount += $lineDiscount;
             $tax += $lineTax;

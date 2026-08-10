@@ -80,6 +80,18 @@ type Quote = {
         tax_percent: string;
         subtotal: string;
         total: string;
+        selection_mode: 'included' | 'optional' | 'alternative';
+        option_group: string | null;
+        is_selected: boolean;
+        components: Array<{
+            id: number;
+            description: string;
+            quantity: string;
+            kind: string;
+            fulfillment_kind: string;
+            visibility: string;
+            unit: { symbol: string } | null;
+        }>;
     }[];
     deliveries: {
         id: number;
@@ -194,7 +206,7 @@ export default function QuoteShow({
     return (
         <>
             <Head title={quote.number} />
-            <div className="flex flex-1 flex-col gap-6 p-4 md:p-6">
+            <div className="flex min-w-0 flex-1 flex-col gap-6 overflow-x-hidden p-4 md:p-6">
                 <header className="flex flex-wrap items-start justify-between gap-3">
                     <div>
                         <div className="flex items-center gap-2">
@@ -404,9 +416,7 @@ export default function QuoteShow({
                                                     {entry.changed_by?.name ||
                                                         'Cliente'}{' '}
                                                     ·{' '}
-                                                    {dateTime(
-                                                        entry.changed_at,
-                                                    )}
+                                                    {dateTime(entry.changed_at)}
                                                 </span>
                                             </div>
                                         ))}
@@ -434,7 +444,7 @@ export default function QuoteShow({
                         </div>
                     </div>
                 </section>
-                <section className="overflow-x-auto">
+                <section className="max-w-full overflow-x-auto overscroll-x-contain">
                     <table className="w-full min-w-[48rem] text-sm">
                         <thead>
                             <tr className="border-b text-left text-muted-foreground">
@@ -449,8 +459,56 @@ export default function QuoteShow({
                         <tbody>
                             {quote.lines.map((line) => (
                                 <tr key={line.id} className="border-b">
-                                    <td className="py-3 font-medium">
-                                        {line.description}
+                                    <td className="py-3">
+                                        <div className="font-medium">
+                                            {line.description}
+                                        </div>
+                                        {line.selection_mode !== 'included' && (
+                                            <div className="mt-1 flex flex-wrap gap-1">
+                                                <Badge variant="secondary">
+                                                    {line.selection_mode ===
+                                                    'optional'
+                                                        ? 'Opcional'
+                                                        : `Alternativa · ${line.option_group}`}
+                                                </Badge>
+                                                <Badge variant="outline">
+                                                    {line.is_selected
+                                                        ? 'Seleccionada'
+                                                        : 'No incluida'}
+                                                </Badge>
+                                            </div>
+                                        )}
+                                        {line.components.length > 0 && (
+                                            <ul className="mt-2 grid gap-1 border-l-2 pl-3 text-xs text-muted-foreground">
+                                                {line.components.map(
+                                                    (component) => (
+                                                        <li
+                                                            key={component.id}
+                                                            className="flex flex-wrap items-center gap-2"
+                                                        >
+                                                            <span className="min-w-0 break-words">
+                                                                {component.visibility ===
+                                                                'hidden'
+                                                                    ? 'Interno'
+                                                                    : component.visibility ===
+                                                                        'detailed'
+                                                                      ? `${Number(component.quantity) * Number(line.quantity)}${component.unit?.symbol ? ` ${component.unit.symbol}` : ''}`
+                                                                      : 'Incluido'}
+                                                                {' · '}
+                                                                {
+                                                                    component.description
+                                                                }
+                                                            </span>
+                                                            <Badge variant="outline">
+                                                                {fulfillmentLabel(
+                                                                    component.fulfillment_kind,
+                                                                )}
+                                                            </Badge>
+                                                        </li>
+                                                    ),
+                                                )}
+                                            </ul>
+                                        )}
                                     </td>
                                     <td>{Number(line.quantity)}</td>
                                     <td>{money(line.unit_price)}</td>
@@ -1011,7 +1069,9 @@ export default function QuoteShow({
                                         }
                                         required
                                     />
-                                    <InputError message={errors.billing_label} />
+                                    <InputError
+                                        message={errors.billing_label}
+                                    />
                                 </div>
                                 <div className="flex items-center justify-between border-y py-3 text-sm">
                                     <span className="text-muted-foreground">
@@ -1222,6 +1282,20 @@ function money(value: string | number) {
 }
 function quoteStatusLabel(status: string) {
     return quoteStatuses.find(([value]) => value === status)?.[1] || status;
+}
+function fulfillmentLabel(kind: string) {
+    return (
+        {
+            stock: 'Control de stock',
+            activity: 'Seguimiento operativo',
+            recurring: 'Servicio recurrente',
+            none: 'Solo descriptivo',
+            material: 'Control de stock',
+            task: 'Seguimiento operativo',
+            legalization: 'Seguimiento operativo',
+            maintenance: 'Servicio recurrente',
+        }[kind] || kind
+    );
 }
 function roundCurrency(value: number) {
     return Math.round((value + Number.EPSILON) * 100) / 100;

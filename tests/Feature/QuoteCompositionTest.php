@@ -1,0 +1,120 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Jobs\GeocodeInstallation;
+use App\Models\MaintenancePlan;
+use App\Models\Person;
+use App\Models\Product;
+use App\Models\Quote;
+use App\Models\SalesDocument;
+use App\Models\TaxRate;
+use App\Models\Unit;
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Bus;
+use Tests\TestCase;
+
+class QuoteCompositionTest extends TestCase
+{
+    use RefreshDatabase;
+
+    public function test_commercial_part_keeps_its_price_and_components_drive_project_operations(): void
+    {
+        Bus::fake([GeocodeInstallation::class]);
+        $commercial = User::factory()->create(['role' => 'commercial']);
+        $customer = Person::create(['category' => 'customer', 'first_name' => 'Cliente composición']);
+        $unit = Unit::where('code', 'unit')->firstOrFail();
+        $tax = TaxRate::where('is_default', true)->firstOrFail();
+        $panel = Product::create([
+            'type' => 'product',
+            'sku' => 'PANEL-COMP',
+            'name' => 'Panel 500 W',
+            'unit_id' => $unit->id,
+            'tax_rate_id' => $tax->id,
+            'sale_price' => 200,
+            'cost_price' => 100,
+            'track_stock' => true,
+            'track_serials' => true,
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($commercial)->post(route('quotes.store'), [
+            'person_id' => $customer->id,
+            'issue_date' => today()->toDateString(),
+            'valid_until' => today()->addMonth()->toDateString(),
+            'lines' => [[
+                'description' => 'Instalación fotovoltaica completa',
+                'quantity' => 2,
+                'unit_price' => 1000,
+                'discount_percent' => 0,
+                'tax_percent' => 21,
+                'components' => [
+                    [
+                        'product_id' => $panel->id,
+                        'unit_id' => $unit->id,
+                        'kind' => 'material',
+                        'fulfillment_kind' => 'stock',
+                        'visibility' => 'detailed',
+                        'description' => 'Panel fotovoltaico 500 W',
+                        'quantity' => 4,
+                        'planned_unit_cost' => 1,
+                    ],
+                    [
+                        'kind' => 'document',
+                        'fulfillment_kind' => 'activity',
+                        'visibility' => 'summary',
+                        'description' => 'Legalización ante Industria',
+                        'quantity' => 1,
+                        'planned_unit_cost' => 50,
+                    ],
+                    [
+                        'kind' => 'service',
+                        'fulfillment_kind' => 'recurring',
+                        'visibility' => 'detailed',
+                        'description' => 'Mantenimiento preventivo anual',
+                        'quantity' => 1,
+                        'planned_unit_cost' => 50,
+                        'interval_months' => 12,
+                    ],
+                ],
+            ]],
+        ])->assertRedirect();
+
+        $quote = Quote::with('lines.components')->firstOrFail();
+        $this->assertSame('2420.00', $quote->amount);
+        $this->assertSame('100.00', $quote->lines->first()->components->first()->planned_unit_cost);
+        $this->assertCount(3, $quote->versions()->firstOrFail()->lines[0]['components']);
+        $this->get(route('quotes.pdf', $quote))->assertOk()->assertHeader('Content-Type', 'application/pdf');
+
+        $this->patch(route('quotes.status.update', $quote), ['status' => 'accepted'])->assertRedirect();
+        $this->post(route('quotes.project.store', $quote), [
+            'service_type' => 'solar',
+            'scheduled_at' => today()->addDay()->setTime(9, 0)->toDateTimeString(),
+            'site_name' => 'Proyecto composición',
+            'site_address_line_1' => 'Calle Solar',
+            'site_city' => 'Madrid',
+            'site_country' => 'Spain',
+        ])->assertRedirect();
+
+        $installation = $quote->fresh()->installation;
+        $this->assertDatabaseHas('installation_material_requirements', [
+            'installation_id' => $installation->id,
+            'product_id' => $panel->id,
+            'planned_quantity' => 8,
+            'planned_unit_cost' => 100,
+        ]);
+        $this->assertDatabaseHas('crm_activities', [
+            'installation_id' => $installation->id,
+            'title' => 'Legalización ante Industria',
+            'status' => 'pending',
+        ]);
+        $this->assertSame(12, MaintenancePlan::where('installation_id', $installation->id)->firstOrFail()->interval_months);
+
+        $this->post(route('quotes.convert', $quote), ['type' => 'invoice'])->assertRedirect();
+        $invoice = SalesDocument::where('quote_id', $quote->id)->where('type', 'invoice')->firstOrFail();
+        $this->assertCount(1, $invoice->lines);
+        $this->assertSame('2420.00', $invoice->amount);
+        $this->assertSame('Instalación fotovoltaica completa', $invoice->lines->first()->description);
+    }
+}
