@@ -9,6 +9,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
@@ -28,9 +29,21 @@ class CorporateTaxController extends Controller
     public function prepare(Request $request, CorporateTaxCalculator $calculator): RedirectResponse
     {
         $data = $this->validated($request);
+        if ($data['regime'] === 'micro' && (float) $data['prior_year_revenue'] >= 1000000) {
+            throw ValidationException::withMessages(['regime' => __('The micro-company regime requires prior-year net revenue below EUR 1 million.')]);
+        }
+        if ($data['regime'] === 'reduced' && (float) $data['prior_year_revenue'] >= 10000000) {
+            throw ValidationException::withMessages(['regime' => __('The reduced-size company regime requires prior-year net revenue below EUR 10 million.')]);
+        }
         $year = FiscalYear::findOrFail($data['fiscal_year_id']);
+        $existing = CorporateTaxReturn::whereBelongsTo($year)->first();
+        if ($existing?->status === 'filed') {
+            throw ValidationException::withMessages([
+                'fiscal_year_id' => __('A filed corporate tax return is immutable. Record a corrective filing instead of recalculating it.'),
+            ]);
+        }
         $calculation = $calculator->calculate($year, $data);
-        CorporateTaxReturn::updateOrCreate(['fiscal_year_id' => $year->id], [...$data, ...collect($calculation)->only(['accounting_result', 'taxable_base', 'gross_tax', 'net_tax'])->all(), 'status' => 'prepared', 'calculation' => $calculation, 'prepared_by' => $request->user()->id, 'prepared_at' => now(), 'filing_reference' => null, 'filed_on' => null, 'filed_by' => null, 'receipt_path' => null]);
+        CorporateTaxReturn::updateOrCreate(['fiscal_year_id' => $year->id], [...$data, ...collect($calculation)->only(['accounting_result', 'taxable_base', 'gross_tax', 'net_tax'])->all(), 'status' => 'prepared', 'calculation' => $calculation, 'prepared_by' => $request->user()->id, 'prepared_at' => now()]);
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Corporate tax calculation prepared.')]);
     }
@@ -38,11 +51,12 @@ class CorporateTaxController extends Controller
     public function file(Request $request, CorporateTaxReturn $corporateTaxReturn): RedirectResponse
     {
         abort_unless($corporateTaxReturn->status === 'prepared', 422);
-        $data = $request->validate(['filing_reference' => ['required', 'string', 'max:100'], 'filed_on' => ['required', 'date'], 'receipt' => ['required', 'file', 'mimes:pdf', 'max:10240']]);
+        $data = $request->validate(['filing_reference' => ['required', 'string', 'max:100'], 'filed_on' => ['required', 'date', 'after:'.$corporateTaxReturn->fiscalYear->ends_on->toDateString()], 'receipt' => ['required', 'file', 'mimes:pdf', 'max:10240']]);
         if ($corporateTaxReturn->receipt_path) {
             Storage::disk('local')->delete($corporateTaxReturn->receipt_path);
         }
-        $corporateTaxReturn->update(['status' => 'filed', 'filing_reference' => $data['filing_reference'], 'filed_on' => $data['filed_on'], 'filed_by' => $request->user()->id, 'receipt_path' => $data['receipt']->store('tax/corporate', 'local')]);
+        $path = $data['receipt']->store("tax/corporate/{$corporateTaxReturn->id}", 'local');
+        $corporateTaxReturn->update(['status' => 'filed', 'filing_reference' => $data['filing_reference'], 'filed_on' => $data['filed_on'], 'filed_by' => $request->user()->id, 'receipt_path' => $path, 'receipt_original_name' => $data['receipt']->getClientOriginalName(), 'receipt_sha256' => hash_file('sha256', Storage::disk('local')->path($path))]);
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Corporate tax filing recorded.')]);
     }

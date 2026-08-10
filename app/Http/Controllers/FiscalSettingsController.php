@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AccountingPeriod;
 use App\Models\CompanyProfile;
 use App\Models\DocumentSeries;
 use App\Models\FiscalYear;
@@ -31,6 +32,7 @@ class FiscalSettingsController extends Controller
                 'starts_on' => $year->starts_on->toDateString(),
                 'ends_on' => $year->ends_on->toDateString(),
                 'has_opening_entry' => JournalEntry::whereMorphedTo('source', $year)->where('entry_kind', 'opening')->whereDoesntHave('reversal')->exists(),
+                'closed_periods_count' => AccountingPeriod::where('fiscal_year_id', $year->id)->where('status', 'closed')->count(),
             ]);
 
         return Inertia::render('fiscal-settings/index', ['company' => CompanyProfile::firstOrFail(), 'fiscalYears' => $years]);
@@ -87,10 +89,13 @@ class FiscalSettingsController extends Controller
 
     public function reopenYear(Request $request, FiscalYear $fiscalYear, FiscalYearClosing $closing): RedirectResponse
     {
-        $request->validate(['confirmation' => ['required', Rule::in([(string) $fiscalYear->year])]]);
-        $closing->reopen($fiscalYear);
+        $data = $request->validate([
+            'confirmation' => ['required', Rule::in([(string) $fiscalYear->year])],
+            'reopen_reason' => ['required', 'string', 'min:10', 'max:2000'],
+        ]);
+        $closing->reopen($fiscalYear, $request->user()->id, $data['reopen_reason']);
 
-        return back()->with('toast', ['type' => 'success', 'message' => __('Fiscal year reopened and closing entries deleted.')]);
+        return back()->with('toast', ['type' => 'success', 'message' => __('Fiscal year reopened with audited reversal entries.')]);
     }
 
     public function openNextYear(Request $request, FiscalYear $fiscalYear, FiscalYearClosing $closing): RedirectResponse

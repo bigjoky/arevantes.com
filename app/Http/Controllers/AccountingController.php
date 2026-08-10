@@ -53,8 +53,18 @@ class AccountingController extends Controller
             });
         }
 
-        $income = round((float) $accounts->where('type', 'income')->sum('balance'), 2);
-        $expenses = round((float) $accounts->where('type', 'expense')->sum('balance'), 2);
+        $profitAndLoss = JournalLine::query()
+            ->join('journal_entries', 'journal_entries.id', '=', 'journal_lines.journal_entry_id')
+            ->join('ledger_accounts', 'ledger_accounts.id', '=', 'journal_lines.ledger_account_id')
+            ->whereYear('journal_entries.entry_date', $year)
+            ->where('journal_entries.entry_kind', '!=', 'closing')
+            ->whereIn('ledger_accounts.type', ['income', 'expense'])
+            ->selectRaw('ledger_accounts.type, coalesce(sum(journal_lines.debit), 0) debit, coalesce(sum(journal_lines.credit), 0) credit')
+            ->groupBy('ledger_accounts.type')
+            ->get()
+            ->keyBy('type');
+        $income = round((float) (($profitAndLoss['income']->credit ?? 0) - ($profitAndLoss['income']->debit ?? 0)), 2);
+        $expenses = round((float) (($profitAndLoss['expense']->debit ?? 0) - ($profitAndLoss['expense']->credit ?? 0)), 2);
 
         return Inertia::render('accounting/index', [
             'year' => $year,

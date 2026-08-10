@@ -7,11 +7,11 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class FiscalYear extends Model
 {
-    protected $fillable = ['year', 'starts_on', 'ends_on', 'status', 'closed_by', 'closed_at'];
+    protected $fillable = ['year', 'starts_on', 'ends_on', 'status', 'closed_by', 'closed_at', 'reopened_by', 'reopened_at', 'reopen_reason'];
 
     protected function casts(): array
     {
-        return ['starts_on' => 'date', 'ends_on' => 'date', 'closed_at' => 'datetime'];
+        return ['starts_on' => 'date', 'ends_on' => 'date', 'closed_at' => 'datetime', 'reopened_at' => 'datetime'];
     }
 
     public function series(): HasMany

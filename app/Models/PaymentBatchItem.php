@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class PaymentBatchItem extends Model
 {
-    protected $fillable = ['payment_batch_id', 'payable_type', 'payable_id', 'supplier_payment_id', 'amount'];
+    protected $fillable = ['payment_batch_id', 'payable_type', 'payable_id', 'supplier_payment_id', 'amount', 'recipient_name', 'recipient_iban', 'recipient_bic', 'payment_reference'];
 
     protected function casts(): array
     {

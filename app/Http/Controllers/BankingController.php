@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\BankAccount;
 use App\Models\BankFinancialProduct;
 use App\Models\BankReconciliation;
+use App\Models\BankReconciliationRule;
+use App\Models\BankReconciliationRun;
 use App\Models\BankStatementImport;
 use App\Models\BankTransaction;
 use App\Models\BankTransactionPosting;
@@ -22,7 +24,9 @@ use App\Services\Accounting\AccountingSynchronizer;
 use App\Services\Accounting\JournalPoster;
 use App\Services\Accounting\LedgerAccountResolver;
 use App\Services\Banking\BankFinancialProductManager;
+use App\Services\Banking\BankReconciliationRuleEngine;
 use App\Services\Banking\BankTransactionAnalyzer;
+use App\Services\Banking\BankTransactionPoster;
 use App\Services\Banking\CardSettlementSchedule;
 use App\Services\Banking\StatementImporter;
 use App\Services\Finance\OutstandingBalanceCalculator;
@@ -42,6 +46,7 @@ class BankingController extends Controller
         private OutstandingBalanceCalculator $balances,
         private CardSettlementSchedule $cardSettlements,
         private BankTransactionAnalyzer $transactionAnalyzer,
+        private BankReconciliationRuleEngine $ruleEngine,
     ) {}
 
     public function index(Request $request): Response
@@ -70,17 +75,20 @@ class BankingController extends Controller
             ->latest('booked_on')
             ->latest('id')
             ->paginate(25)
-            ->withQueryString()
-            ->through(function ($transaction) use ($medianAmount) {
-                $candidates = $transaction->status === 'pending' ? $this->candidates($transaction) : [];
+            ->withQueryString();
+        $candidatePool = $this->candidatePool($transactions->getCollection());
+        $activeRules = $account ? $this->ruleEngine->rules($account) : collect();
+        $transactions->through(function ($transaction) use ($medianAmount, $candidatePool, $activeRules) {
+            $candidates = $transaction->status === 'pending' ? $this->candidates($transaction, false, $candidatePool) : [];
 
-                return [
-                    ...$transaction->toArray(),
-                    'transfer' => $transaction->outgoingTransfer ?? $transaction->incomingTransfer,
-                    'candidates' => $candidates,
-                    ...$this->transactionAnalyzer->analyze($transaction, $candidates, $medianAmount),
-                ];
-            });
+            return [
+                ...$transaction->toArray(),
+                'transfer' => $transaction->outgoingTransfer ?? $transaction->incomingTransfer,
+                'candidates' => $candidates,
+                'rule_suggestion' => $transaction->status === 'pending' ? $this->ruleEngine->suggest($transaction, $activeRules) : null,
+                ...$this->transactionAnalyzer->analyze($transaction, $candidates, $medianAmount),
+            ];
+        });
 
         $summary = $account ? [
             'pending' => $account->transactions()->where('status', 'pending')->count(),
@@ -137,6 +145,9 @@ class BankingController extends Controller
             ->get()
             ->map(fn (BankStatementImport $import) => [
                 ...$import->toArray(),
+                'source_account' => ($source = data_get($import->control_data, 'account'))
+                    ? $source['entity'].'-'.$source['office'].'-'.substr($source['account'], -4)
+                    : null,
                 'can_rollback' => ! $import->rolled_back_at
                     && $import->created_transactions > 0
                     && $import->transactions_count === $import->created_transactions
@@ -144,7 +155,80 @@ class BankingController extends Controller
                     && $import->processed_transactions_count === 0,
             ]) : [];
 
-        return Inertia::render('banking/index', ['accounts' => $accounts, 'selectedAccount' => $account, 'transactions' => $transactions, 'imports' => $imports, 'control' => $account ? $this->bankControl($account) : null, 'ledgerAccounts' => LedgerAccount::where('is_active', true)->where('is_postable', true)->whereNotIn('code', ['430', '400', '410', '472', '477'])->orderBy('code')->get(['id', 'code', 'name', 'type']), 'liabilityAccounts' => LedgerAccount::where('is_active', true)->where('is_postable', true)->where('type', 'liability')->orderBy('code')->get(['id', 'code', 'name']), 'products' => $products, 'productSummary' => $productSummary, 'summary' => $summary, 'filters' => $filters]);
+        $rules = $account ? BankReconciliationRule::with(['ledgerAccount:id,code,name', 'versions.changer:id,name'])->whereBelongsTo($account, 'account')->orderBy('priority')->orderBy('name')->get() : [];
+        $ruleRuns = $account ? BankReconciliationRun::with(['triggeredBy:id,name', 'reversedBy:id,name', 'items.posting.transaction:id,status'])->whereBelongsTo($account, 'account')->latest()->limit(5)->get()->map(function (BankReconciliationRun $run) {
+            $applied = $run->items->where('outcome', 'applied');
+            $stateIsReversible = $applied->isNotEmpty() && $applied->every(fn ($item) => $item->posting && ($item->posting->reversed_at ? $item->posting->transaction?->status === 'pending' : $item->posting->transaction?->status === 'accounted'));
+
+            return [...$run->toArray(), 'posting_count' => $applied->count(), 'can_reverse' => ! $run->reversed_at && $stateIsReversible];
+        }) : [];
+
+        return Inertia::render('banking/index', ['accounts' => $accounts, 'selectedAccount' => $account, 'transactions' => $transactions, 'imports' => $imports, 'control' => $account ? $this->bankControl($account) : null, 'ledgerAccounts' => LedgerAccount::where('is_active', true)->where('is_postable', true)->whereNotIn('code', ['430', '400', '410', '472', '477'])->orderBy('code')->get(['id', 'code', 'name', 'type']), 'liabilityAccounts' => LedgerAccount::where('is_active', true)->where('is_postable', true)->where('type', 'liability')->orderBy('code')->get(['id', 'code', 'name']), 'products' => $products, 'productSummary' => $productSummary, 'summary' => $summary, 'filters' => $filters, 'reconciliationRules' => $rules, 'rulePreview' => $account ? $this->ruleEngine->preview($account, $activeRules) : null, 'ruleRuns' => $ruleRuns]);
+    }
+
+    public function storeRule(Request $request, BankAccount $account): RedirectResponse
+    {
+        $data = $this->validatedRule($request, null, $account);
+        DB::transaction(function () use ($data, $account, $request) {
+            $rule = BankReconciliationRule::create([...$data, 'bank_account_id' => $account->id, 'current_version' => 1, 'created_by' => $request->user()->id, 'updated_by' => $request->user()->id]);
+            $rule->versions()->create(['version' => 1, 'snapshot' => $this->ruleSnapshot($rule), 'change_reason' => __('Initial rule created.'), 'changed_by' => $request->user()->id]);
+        });
+
+        return back()->with('toast', ['type' => 'success', 'message' => __('Reconciliation rule created. Review its preview before applying it.')]);
+    }
+
+    public function updateRule(Request $request, BankReconciliationRule $rule): RedirectResponse
+    {
+        $reason = $request->validate(['change_reason' => ['required', 'string', 'min:10', 'max:500']])['change_reason'];
+        $data = $this->validatedRule($request, $rule, $rule->account);
+        DB::transaction(function () use ($rule, $data, $reason, $request) {
+            $rule = BankReconciliationRule::lockForUpdate()->findOrFail($rule->id);
+            $version = $rule->current_version + 1;
+            $rule->update([...$data, 'current_version' => $version, 'updated_by' => $request->user()->id]);
+            $rule->versions()->create(['version' => $version, 'snapshot' => $this->ruleSnapshot($rule), 'change_reason' => $reason, 'changed_by' => $request->user()->id]);
+        });
+
+        return back()->with('toast', ['type' => 'success', 'message' => __('Reconciliation rule updated and versioned.')]);
+    }
+
+    public function destroyRule(Request $request, BankReconciliationRule $rule): RedirectResponse
+    {
+        $reason = $request->validate(['reason' => ['required', 'string', 'min:10', 'max:500']])['reason'];
+        DB::transaction(function () use ($rule, $request, $reason) {
+            $rule = BankReconciliationRule::lockForUpdate()->findOrFail($rule->id);
+            if (! $rule->is_active) {
+                throw ValidationException::withMessages(['reason' => __('This rule is already inactive.')]);
+            }
+            $version = $rule->current_version + 1;
+            $rule->update(['is_active' => false, 'current_version' => $version, 'updated_by' => $request->user()->id]);
+            $rule->versions()->create(['version' => $version, 'snapshot' => $this->ruleSnapshot($rule), 'change_reason' => $reason, 'changed_by' => $request->user()->id]);
+        });
+
+        return back()->with('toast', ['type' => 'success', 'message' => __('Reconciliation rule removed from future runs.')]);
+    }
+
+    public function applyRules(Request $request, BankAccount $account): RedirectResponse
+    {
+        $data = $request->validate(['minimum_confidence' => ['required', 'integer', 'between:80,100'], 'confirmation' => ['required', 'string']]);
+        $preview = $this->ruleEngine->preview($account);
+        if ($data['confirmation'] !== 'APPLY-'.$preview['matched']) {
+            throw ValidationException::withMessages(['confirmation' => __('The rule preview changed. Refresh the page and confirm the current matched count.')]);
+        }
+        $run = $this->ruleEngine->apply($account, $request->user()->id, (int) $data['minimum_confidence']);
+
+        return back()->with('toast', ['type' => $run->failed_count || data_get($run->summary, 'conflicts') ? 'warning' : 'success', 'message' => __('Rule run completed: :matched applied, :failed failed, :conflicts conflicts and :skipped skipped.', ['matched' => $run->matched_count, 'failed' => $run->failed_count, 'conflicts' => data_get($run->summary, 'conflicts', 0), 'skipped' => $run->skipped_count])]);
+    }
+
+    public function reverseRuleRun(Request $request, BankReconciliationRun $run): RedirectResponse
+    {
+        $data = $request->validate(['reason' => ['required', 'string', 'min:10', 'max:500'], 'confirmation' => ['required', 'string']]);
+        $postingCount = $run->items()->where('outcome', 'applied')->count();
+        if ($data['confirmation'] !== 'REVERSE-'.$run->id.'-'.$postingCount) {
+            throw ValidationException::withMessages(['confirmation' => __('The run contents changed. Refresh the page and confirm the current posting count.')]);
+        }
+        $this->ruleEngine->reverse($run, $request->user()->id, $data['reason']);
+
+        return back()->with('toast', ['type' => 'success', 'message' => __('The complete rule run was reversed and its movements returned to pending review.')]);
     }
 
     public function storeAccount(Request $request): RedirectResponse
@@ -282,6 +366,36 @@ class BankingController extends Controller
         return $data;
     }
 
+    private function validatedRule(Request $request, ?BankReconciliationRule $rule = null, ?BankAccount $account = null): array
+    {
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:255', Rule::unique('bank_reconciliation_rules')->where('bank_account_id', $rule?->bank_account_id ?? $request->route('account')?->id)->ignore($rule)],
+            'ledger_account_id' => ['required', Rule::exists('ledger_accounts', 'id')->where(fn ($query) => $query->where('is_active', true)->where('is_postable', true))],
+            'priority' => ['required', 'integer', 'between:1,1000'],
+            'direction' => ['required', Rule::in(['any', 'in', 'out'])],
+            'match_field' => ['required', Rule::in(['description', 'reference', 'either'])],
+            'match_operator' => ['required', Rule::in(['contains', 'starts_with', 'exact'])],
+            'pattern' => ['required', 'string', 'min:3', 'max:255'],
+            'min_amount' => ['nullable', 'numeric', 'min:0'],
+            'max_amount' => ['nullable', 'numeric', 'min:0'],
+            'confidence' => ['required', 'integer', 'between:80,100'],
+            'is_active' => ['required', 'boolean'],
+        ]);
+        if (isset($data['min_amount'], $data['max_amount']) && (float) $data['min_amount'] > (float) $data['max_amount']) {
+            throw ValidationException::withMessages(['max_amount' => __('Maximum amount must be greater than or equal to minimum amount.')]);
+        }
+        if ($account?->ledger_account_id === (int) $data['ledger_account_id']) {
+            throw ValidationException::withMessages(['ledger_account_id' => __('A rule cannot post against the same bank ledger account.')]);
+        }
+
+        return $data;
+    }
+
+    private function ruleSnapshot(BankReconciliationRule $rule): array
+    {
+        return $rule->only(['name', 'ledger_account_id', 'priority', 'direction', 'match_field', 'match_operator', 'pattern', 'min_amount', 'max_amount', 'confidence', 'is_active']);
+    }
+
     public function reconcile(Request $request, BankTransaction $transaction, JournalPoster $poster, AccountingSynchronizer $accounting): RedirectResponse
     {
         abort_unless($transaction->status === 'pending', 422);
@@ -393,16 +507,9 @@ class BankingController extends Controller
         return back()->with('toast', ['type' => 'success', 'message' => __('Bank movement posted to accounting.')]);
     }
 
-    public function reversePosting(Request $request, BankTransactionPosting $posting, JournalPoster $poster): RedirectResponse
+    public function reversePosting(Request $request, BankTransactionPosting $posting, BankTransactionPoster $transactionPoster): RedirectResponse
     {
-        abort_if($posting->reversed_at, 422);
-        $posting->load('journalEntry.lines.account:id,code');
-        $lines = $posting->journalEntry->lines->map(fn ($line) => ['account_code' => $line->account->code, 'debit' => $line->credit, 'credit' => $line->debit])->all();
-        DB::transaction(function () use ($request, $posting, $poster, $lines) {
-            $entry = $poster->post(now()->toDateString(), __('Reversal of :entry', ['entry' => $posting->journalEntry->number]), $lines, $request->user()->id, 'reversal', null, 'reversal', $posting->journalEntry);
-            $posting->update(['reversal_entry_id' => $entry->id, 'reversed_at' => now()]);
-            $posting->transaction()->update(['status' => 'pending']);
-        });
+        $transactionPoster->reverse($posting, $request->user()->id);
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Bank accounting posting reversed.')]);
     }
@@ -421,17 +528,26 @@ class BankingController extends Controller
         return back()->with('toast', ['type' => 'success', 'message' => __('Bank transfer match reversed.')]);
     }
 
-    private function candidates(BankTransaction $transaction, bool $automatic = false): array
+    private function candidates(BankTransaction $transaction, bool $automatic = false, ?array $pool = null): array
     {
         $from = $transaction->booked_on->copy()->subDays(5);
         $to = $transaction->booked_on->copy()->addDays(5);
         $amount = abs((float) $transaction->amount);
         $inbound = (float) $transaction->amount > 0;
-        $payments = $inbound
-            ? SalesDocumentPayment::with('document:id,number')->whereDoesntHave('reconciliation')->where('amount', $amount)->whereBetween('paid_at', [$from, $to])->get()->map(fn ($payment) => ['type' => 'customer', 'payment' => $payment, 'number' => $payment->document?->number, 'date' => $payment->paid_at])
-            : SupplierPayment::with(['expense:id,number', 'purchaseDocument:id,number'])->whereDoesntHave('reconciliation')->where('amount', $amount)->whereBetween('paid_at', [$from, $to])->get()->map(fn ($payment) => ['type' => 'supplier', 'payment' => $payment, 'number' => $payment->expense?->number ?? $payment->purchaseDocument?->number, 'date' => $payment->paid_at]);
-        $tax = TaxReturnPayment::with('taxReturn:id,year,quarter,result')->whereDoesntHave('reconciliation')->where('amount', $amount)->whereBetween('paid_on', [$from, $to])->whereHas('taxReturn', fn ($query) => $query->where('result', $inbound ? '<' : '>', 0))->get()->map(fn ($payment) => ['type' => 'tax', 'payment' => $payment, 'number' => 'VAT '.$payment->taxReturn->year.' Q'.$payment->taxReturn->quarter, 'date' => $payment->paid_on]);
-        $transfers = BankTransaction::with('account:id,name')->where('status', 'pending')->where('bank_account_id', '!=', $transaction->bank_account_id)->where('amount', -(float) $transaction->amount)->whereBetween('booked_on', [$from, $to])->get()->map(function ($other) use ($transaction) {
+        $paymentSource = $pool
+            ? ($inbound ? $pool['customerPayments'] : $pool['supplierPayments'])->filter(fn ($payment) => round((float) $payment->amount, 2) === round($amount, 2) && $payment->paid_at->betweenIncluded($from, $to))
+            : ($inbound
+                ? SalesDocumentPayment::with('document:id,number')->whereDoesntHave('reconciliation')->where('amount', $amount)->whereBetween('paid_at', [$from, $to])->get()
+                : SupplierPayment::with(['expense:id,number', 'purchaseDocument:id,number'])->whereDoesntHave('reconciliation')->where('amount', $amount)->whereBetween('paid_at', [$from, $to])->get());
+        $payments = $paymentSource->map(fn ($payment) => ['type' => $inbound ? 'customer' : 'supplier', 'payment' => $payment, 'number' => $inbound ? $payment->document?->number : ($payment->expense?->number ?? $payment->purchaseDocument?->number), 'date' => $payment->paid_at]);
+        $taxSource = $pool
+            ? $pool['taxPayments']->filter(fn ($payment) => round((float) $payment->amount, 2) === round($amount, 2) && $payment->paid_on->betweenIncluded($from, $to) && ($inbound ? (float) $payment->taxReturn->result < 0 : (float) $payment->taxReturn->result > 0))
+            : TaxReturnPayment::with('taxReturn:id,year,quarter,result')->whereDoesntHave('reconciliation')->where('amount', $amount)->whereBetween('paid_on', [$from, $to])->whereHas('taxReturn', fn ($query) => $query->where('result', $inbound ? '<' : '>', 0))->get();
+        $tax = $taxSource->map(fn ($payment) => ['type' => 'tax', 'payment' => $payment, 'number' => 'VAT '.$payment->taxReturn->year.' Q'.$payment->taxReturn->quarter, 'date' => $payment->paid_on]);
+        $transferSource = $pool
+            ? $pool['transfers']->filter(fn ($other) => $other->bank_account_id !== $transaction->bank_account_id && round((float) $other->amount, 2) === round(-(float) $transaction->amount, 2) && $other->booked_on->betweenIncluded($from, $to))
+            : BankTransaction::with('account:id,name')->where('status', 'pending')->where('bank_account_id', '!=', $transaction->bank_account_id)->where('amount', -(float) $transaction->amount)->whereBetween('booked_on', [$from, $to])->get();
+        $transfers = $transferSource->map(function ($other) use ($transaction) {
             $referenceMatch = filled($transaction->reference) && filled($other->reference) && Str::lower($transaction->reference) === Str::lower($other->reference);
 
             return ['value' => 'transfer:'.$other->id, 'label' => __('Own transfer').' · '.$other->account->name.' · '.$other->booked_on->format('d/m/Y').' · '.number_format(abs((float) $other->amount), 2, ',', '.').' EUR', 'reference_match' => $referenceMatch, 'confidence' => $referenceMatch ? 100 : 80];
@@ -444,7 +560,7 @@ class BankingController extends Controller
 
             return ['value' => $item['type'].':'.$payment->id, 'label' => $item['number'].' · '.$item['date']->format('d/m/Y').' · '.number_format((float) $payment->amount, 2, ',', '.').' EUR', 'reference_match' => $referenceMatch, 'creates_payment' => false, 'confidence' => $referenceMatch ? 98 : 82];
         })->concat($transfers->map(fn ($transfer) => [...$transfer, 'creates_payment' => false]));
-        $direct = $this->openDocumentCandidates($transaction);
+        $direct = $this->openDocumentCandidates($transaction, $pool);
 
         return $recorded
             ->concat($automatic ? $direct->where('reference_match', true) : $direct)
@@ -453,18 +569,14 @@ class BankingController extends Controller
             ->all();
     }
 
-    private function openDocumentCandidates(BankTransaction $transaction): Collection
+    private function openDocumentCandidates(BankTransaction $transaction, ?array $pool = null): Collection
     {
         $amount = abs((float) $transaction->amount);
         $inbound = (float) $transaction->amount > 0;
 
         if ($inbound) {
-            return SalesDocument::with('customer:id,first_name,last_name,company_name')
-                ->where('type', 'invoice')
-                ->whereIn('status', ['issued', 'partial', 'overdue'])
-                ->latest('issue_date')
-                ->limit(100)
-                ->get()
+            return ($pool ? $pool['salesDocuments'] : SalesDocument::with('customer:id,first_name,last_name,company_name')
+                ->where('type', 'invoice')->whereIn('status', ['issued', 'partial', 'overdue'])->latest('issue_date')->limit(100)->get())
                 ->filter(function (SalesDocument $document) use ($transaction, $amount): bool {
                     $outstanding = $this->balances->receivable($document);
 
@@ -485,14 +597,14 @@ class BankingController extends Controller
                 });
         }
 
-        $invoices = PurchaseDocument::with('supplier:id,legal_name,trade_name')
+        $invoices = ($pool ? $pool['purchaseDocuments'] : PurchaseDocument::with('supplier:id,legal_name,trade_name')
             ->withSum('creditNotes as credited_total', 'amount')
             ->where('type', 'supplier_invoice')
             ->whereIn('status', ['registered', 'pending', 'partial', 'overdue'])
             ->where(fn ($query) => $query->whereNull('matching_status')->orWhereNot('matching_status', 'review_required'))
             ->latest('issue_date')
             ->limit(100)
-            ->get()
+            ->get())
             ->filter(function (PurchaseDocument $document) use ($transaction, $amount): bool {
                 $outstanding = $this->balances->purchase($document);
 
@@ -511,11 +623,8 @@ class BankingController extends Controller
                     'confidence' => $referenceMatch ? ($outstanding === round($amount, 2) ? 99 : 92) : 70,
                 ];
             });
-        $expenses = Expense::with('supplier:id,legal_name,trade_name')
-            ->whereIn('status', ['pending', 'partial', 'overdue'])
-            ->latest('expense_date')
-            ->limit(100)
-            ->get()
+        $expenses = ($pool ? $pool['expenses'] : Expense::with('supplier:id,legal_name,trade_name')
+            ->whereIn('status', ['pending', 'partial', 'overdue'])->latest('expense_date')->limit(100)->get())
             ->filter(function (Expense $expense) use ($transaction, $amount): bool {
                 $outstanding = $this->balances->expense($expense);
 
@@ -536,6 +645,26 @@ class BankingController extends Controller
             });
 
         return $invoices->concat($expenses);
+    }
+
+    private function candidatePool(Collection $transactions): array
+    {
+        $pending = $transactions->where('status', 'pending');
+        if ($pending->isEmpty()) {
+            return [];
+        }
+        $from = $pending->min('booked_on')->copy()->subDays(5);
+        $to = $pending->max('booked_on')->copy()->addDays(5);
+
+        return [
+            'customerPayments' => SalesDocumentPayment::with('document:id,number')->whereDoesntHave('reconciliation')->whereBetween('paid_at', [$from, $to])->get(),
+            'supplierPayments' => SupplierPayment::with(['expense:id,number', 'purchaseDocument:id,number'])->whereDoesntHave('reconciliation')->whereBetween('paid_at', [$from, $to])->get(),
+            'taxPayments' => TaxReturnPayment::with('taxReturn:id,year,quarter,result')->whereDoesntHave('reconciliation')->whereBetween('paid_on', [$from, $to])->get(),
+            'transfers' => BankTransaction::with('account:id,name')->where('status', 'pending')->whereBetween('booked_on', [$from, $to])->get(),
+            'salesDocuments' => SalesDocument::with('customer:id,first_name,last_name,company_name')->where('type', 'invoice')->whereIn('status', ['issued', 'partial', 'overdue'])->latest('issue_date')->limit(100)->get(),
+            'purchaseDocuments' => PurchaseDocument::with('supplier:id,legal_name,trade_name')->withSum('creditNotes as credited_total', 'amount')->where('type', 'supplier_invoice')->whereIn('status', ['registered', 'pending', 'partial', 'overdue'])->where(fn ($query) => $query->whereNull('matching_status')->orWhereNot('matching_status', 'review_required'))->latest('issue_date')->limit(100)->get(),
+            'expenses' => Expense::with('supplier:id,legal_name,trade_name')->whereIn('status', ['pending', 'partial', 'overdue'])->latest('expense_date')->limit(100)->get(),
+        ];
     }
 
     private function documentReferenceMatches(BankTransaction $transaction, ?string ...$references): bool

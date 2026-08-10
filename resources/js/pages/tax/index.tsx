@@ -65,6 +65,7 @@ type TaxReturn = {
     year: number;
     quarter: number;
     result: string;
+    result_option: 'payable' | 'compensate' | 'refund' | 'none';
     paid_amount: string;
     prepared_at: string;
     filing_reference: string | null;
@@ -297,16 +298,22 @@ function ReturnStatus({
         );
     }
 
-    const outstanding = Math.max(
-        0,
-        Math.abs(Number(taxReturn.result)) - Number(taxReturn.paid_amount),
-    );
+    const hasCashMovement =
+        Number(taxReturn.result) > 0 || taxReturn.result_option === 'refund';
+    const outstanding = hasCashMovement
+        ? Math.max(
+              0,
+              Math.abs(Number(taxReturn.result)) -
+                  Number(taxReturn.paid_amount),
+          )
+        : 0;
 
     return (
         <section className="flex flex-wrap items-center justify-between gap-3 border-y py-3">
             <div className="flex flex-wrap items-center gap-3">
                 <Badge variant="outline">{taxReturn.status}</Badge>
                 <Badge variant="outline">{taxReturn.settlement_status}</Badge>
+                <Badge variant="outline">{taxReturn.result_option}</Badge>
                 <div>
                     <strong className="text-sm">
                         VAT {taxReturn.year} Q{taxReturn.quarter}
@@ -342,6 +349,8 @@ function ReturnStatus({
 }
 
 function FilingDialog({ taxReturn }: { taxReturn: TaxReturn }) {
+    const negative = Number(taxReturn.result) < 0;
+
     return (
         <Dialog>
             <DialogTrigger asChild>
@@ -362,6 +371,33 @@ function FilingDialog({ taxReturn }: { taxReturn: TaxReturn }) {
                         <Label>Filing reference</Label>
                         <Input name="filing_reference" required />
                     </div>
+                    {negative && (
+                        <div className="grid gap-1">
+                            <Label>Negative result treatment</Label>
+                            <Select
+                                name="negative_result_option"
+                                defaultValue="compensate"
+                            >
+                                <SelectTrigger>
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="compensate">
+                                        Carry forward to future periods
+                                    </SelectItem>
+                                    {taxReturn.quarter === 4 && (
+                                        <SelectItem value="refund">
+                                            Request year-end refund
+                                        </SelectItem>
+                                    )}
+                                </SelectContent>
+                            </Select>
+                            <p className="text-xs text-muted-foreground">
+                                Refunds outside Q4 require monthly REDEME
+                                configuration and are not enabled here.
+                            </p>
+                        </div>
+                    )}
                     <div className="grid gap-1">
                         <Label>Filed on</Label>
                         <Input

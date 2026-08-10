@@ -25,6 +25,7 @@ use App\Models\User;
 use App\Services\Finance\TreasuryForecast;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
@@ -524,6 +525,7 @@ class FinanceTest extends TestCase
 
     public function test_treasury_planning_collection_workflow_and_payment_batches_are_operational(): void
     {
+        Storage::fake('local');
         $commercial = User::factory()->create(['role' => 'commercial']);
         $admin = User::factory()->create(['role' => 'admin']);
         $supplier = Supplier::create(['legal_name' => 'SEPA Supplier SL', 'country' => 'ES', 'iban' => 'ES9121000418450200051332', 'bic' => 'CAIXESBBXXX', 'payment_terms_days' => 30]);
@@ -560,10 +562,30 @@ class FinanceTest extends TestCase
         SupplierPayment::create(['purchase_document_id' => $purchase->id, 'created_by' => $commercial->id, 'paid_at' => today(), 'amount' => 21, 'method' => 'bank_transfer']);
         $purchase->update(['paid_amount' => 21, 'status' => 'partial']);
         $this->actingAs($admin)->post(route('finance.payment-batches.approve', $batch))->assertRedirect()->assertSessionHasNoErrors();
-        $this->assertSame('100.00', $batch->items()->firstOrFail()->fresh()->amount);
+        $approvedItem = $batch->items()->firstOrFail()->fresh();
+        $this->assertSame('100.00', $approvedItem->amount);
+        $this->assertSame('SEPA Supplier SL', $approvedItem->recipient_name);
+        $this->assertSame('ES9121000418450200051332', $approvedItem->recipient_iban);
+        $supplier->update(['legal_name' => 'Changed after approval SL', 'iban' => 'ES6621000418401234567891']);
+        $this->get(route('finance.payment-batches.sepa', $batch))->assertStatus(422);
+        $this->assertSame('approved', $batch->fresh()->status);
+        $this->post(route('finance.payment-batches.export', $batch))->assertRedirect()->assertSessionHasNoErrors();
+        $batch->refresh();
+        $this->assertSame('exported', $batch->status);
+        $this->assertSame($admin->id, $batch->exported_by);
+        $this->assertSame(64, strlen((string) $batch->export_sha256));
+        Storage::disk('local')->assertExists($batch->export_path);
+        $xml = $this->get(route('finance.payment-batches.sepa', $batch))->assertOk()->assertDownload($batch->number.'.xml')->streamedContent();
+        $this->assertStringContainsString('SEPA Supplier SL', $xml);
+        $this->assertStringContainsString('ES9121000418450200051332', $xml);
+        $this->assertStringNotContainsString('Changed after approval SL', $xml);
         $this->get(route('finance.payment-batches.sepa', $batch))->assertOk()->assertDownload($batch->number.'.xml');
-        $this->get(route('finance.payment-batches.sepa', $batch))->assertOk()->assertDownload($batch->number.'.xml');
+        $this->assertDatabaseHas('audit_logs', ['auditable_type' => Supplier::class, 'auditable_id' => $supplier->id, 'event' => 'updated']);
+        Storage::disk('local')->put($batch->export_path, '<tampered/>');
+        $this->post(route('finance.payment-batches.execute', $batch), ['paid_on' => today()->toDateString()])
+            ->assertSessionHasErrors('payment_batch');
         $this->assertSame('exported', $batch->fresh()->status);
+        Storage::disk('local')->put($batch->export_path, $xml);
         $this->post(route('finance.payment-batches.execute', $batch), ['paid_on' => today()->toDateString()])
             ->assertRedirect()->assertSessionHasNoErrors();
         $this->assertSame('paid', $batch->fresh()->status);
@@ -582,6 +604,26 @@ class FinanceTest extends TestCase
         $this->assertNull($batch->fresh()->reconciled_at);
         $this->post(route('finance.payment-batches.execute', $batch), ['paid_on' => today()->toDateString()])->assertStatus(422);
         $this->assertGreaterThanOrEqual(4, AuditLog::whereIn('auditable_type', [FinancialForecastItem::class, FinancialBudget::class, CollectionAction::class, PaymentBatch::class])->count());
+    }
+
+    public function test_payment_batch_creator_cannot_approve_their_own_batch(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $supplier = Supplier::create(['legal_name' => 'Independent approval SL', 'country' => 'ES', 'iban' => 'ES9121000418450200051332']);
+        $account = BankAccount::create(['name' => 'Payments', 'iban' => 'ES7921000813610123456789', 'currency' => 'EUR', 'opening_balance' => 5000, 'is_active' => true]);
+        $purchase = PurchaseDocument::create(['type' => 'supplier_invoice', 'supplier_id' => $supplier->id, 'number' => 'FR-SOD-1', 'status' => 'registered', 'issue_date' => now(), 'due_date' => now(), 'subtotal' => 100, 'tax_amount' => 21, 'amount' => 121, 'paid_amount' => 0]);
+
+        $this->actingAs($admin)->post(route('finance.payment-batches.store'), [
+            'bank_account_id' => $account->id,
+            'planned_on' => today()->toDateString(),
+            'payables' => ['invoice:'.$purchase->id],
+        ])->assertSessionHasNoErrors();
+        $batch = PaymentBatch::firstOrFail();
+
+        $this->post(route('finance.payment-batches.approve', $batch))
+            ->assertSessionHasErrors('payment_batch');
+        $this->assertSame('draft', $batch->fresh()->status);
+        $this->assertNull($batch->approved_by);
     }
 
     public function test_cancelling_a_payment_batch_releases_its_documents(): void
@@ -667,8 +709,51 @@ class FinanceTest extends TestCase
         $forecast = app(TreasuryForecast::class)->build(now()->year, 'optimistic');
 
         $this->assertSame(900.0, $forecast['openingBalance']);
+        $this->assertSame('Forecast bank', $forecast['openingSources']->first()['name']);
+        $this->assertSame('/banking?account='.$account->id, $forecast['openingSources']->first()['href']);
         $this->assertGreaterThanOrEqual(300, $forecast['weeks']->sum('out'));
         $this->assertSame($forecast['openingBalance'] - $forecast['weeks']->sum('out'), $forecast['closingBalance']);
+        $rent = $forecast['weeks']->flatMap(fn (array $week) => $week['events'])->firstWhere('sourceType', 'forecast_item');
+        $this->assertSame('Monthly rent', $rent['label']);
+        $this->assertSame(100.0, $rent['originalAmount']);
+        $this->assertSame('#forecast-items', $rent['href']);
+    }
+
+    public function test_treasury_forecast_explains_scenario_adjustments_and_does_not_mix_currencies(): void
+    {
+        $this->travelTo('2026-08-10');
+        $euro = BankAccount::create(['name' => 'EUR operating', 'currency' => 'EUR', 'opening_balance' => 1000, 'is_active' => true]);
+        BankAccount::create(['name' => 'USD reserve', 'currency' => 'USD', 'opening_balance' => 500, 'is_active' => true]);
+        BankAccount::create(['name' => 'Closed EUR', 'currency' => 'EUR', 'opening_balance' => 900, 'is_active' => false]);
+        $invoice = SalesDocument::create([
+            'type' => 'invoice',
+            'number' => 'FAC-TRACE-1',
+            'status' => 'issued',
+            'issue_date' => today(),
+            'due_date' => today()->addDay(),
+            'issued_at' => now(),
+            'locked_at' => now(),
+            'subtotal' => 100,
+            'discount_amount' => 0,
+            'tax_amount' => 21,
+            'amount' => 121,
+            'paid_amount' => 0,
+            'customer_snapshot' => [],
+        ]);
+
+        $forecast = app(TreasuryForecast::class)->build(2026, 'probable');
+        $event = $forecast['weeks']->flatMap(fn (array $week) => $week['events'])->firstWhere('sourceType', 'receivable');
+
+        $this->assertSame('EUR', $forecast['baseCurrency']);
+        $this->assertSame(1000.0, $forecast['openingBalance']);
+        $this->assertSame($euro->id, $forecast['openingSources']->sole()['id']);
+        $this->assertSame('USD', $forecast['excludedCurrencyBalances']->sole()['currency']);
+        $this->assertSame(500.0, $forecast['excludedCurrencyBalances']->sole()['balance']);
+        $this->assertSame($invoice->id, $event['sourceId']);
+        $this->assertSame(121.0, $event['originalAmount']);
+        $this->assertSame(108.9, $event['amount']);
+        $this->assertSame('/sales/'.$invoice->id, $event['href']);
+        $this->assertSame(108.9, $forecast['weeks']->sum('in'));
     }
 
     public function test_shared_card_receipt_is_forecast_once_on_its_payment_day(): void
@@ -706,5 +791,30 @@ class FinanceTest extends TestCase
         $this->assertSame(500.0, $paymentWeek['out']);
         $this->assertSame(500.0, $forecast['weeks']->sum('out'));
         $this->assertSame(500.0, $forecast['closingBalance']);
+    }
+
+    public function test_independent_credit_card_is_included_in_the_treasury_forecast(): void
+    {
+        $this->travelTo('2026-08-06');
+        $account = BankAccount::create(['name' => 'Independent card debit', 'currency' => 'EUR', 'opening_balance' => 1000, 'is_active' => true]);
+        $card = BankFinancialProduct::create([
+            'bank_account_id' => $account->id,
+            'type' => 'credit_card',
+            'name' => 'Independent purchasing card',
+            'currency' => 'EUR',
+            'credit_limit' => 2000,
+            'used_amount' => 120,
+            'billing_day' => 25,
+            'payment_day' => 5,
+            'is_active' => true,
+        ]);
+
+        $forecast = app(TreasuryForecast::class)->build(2026, 'probable');
+        $event = $forecast['weeks']->flatMap(fn (array $week) => $week['events'])->sole('sourceType', 'credit_card');
+
+        $this->assertSame($card->id, $event['sourceId']);
+        $this->assertSame(120.0, $event['amount']);
+        $this->assertSame(120.0, $forecast['weeks']->sum('out'));
+        $this->assertSame(880.0, $forecast['closingBalance']);
     }
 }

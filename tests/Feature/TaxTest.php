@@ -6,6 +6,7 @@ use App\Models\BankAccount;
 use App\Models\BankReconciliation;
 use App\Models\Expense;
 use App\Models\ExpenseCategory;
+use App\Models\JournalEntry;
 use App\Models\Product;
 use App\Models\PurchaseDocument;
 use App\Models\SalesDocument;
@@ -18,12 +19,43 @@ use App\Services\Accounting\AccountingSynchronizer;
 use App\Services\Tax\VatReport;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
 class TaxTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_sales_credit_note_reduces_vat_and_posts_a_balanced_entry(): void
+    {
+        $user = User::factory()->create(['role' => 'commercial']);
+        $credit = SalesDocument::create([
+            'type' => 'credit_note', 'number' => 'AB-2026-00001', 'status' => 'issued',
+            'issue_date' => '2026-07-15', 'issued_at' => now(), 'locked_at' => now(),
+            'subtotal' => -100, 'discount_amount' => 0, 'tax_amount' => -21,
+            'amount' => -121, 'paid_amount' => 0, 'customer_snapshot' => ['company_name' => 'Cliente SL'],
+        ]);
+        $credit->lines()->create([
+            'position' => 1, 'description' => 'Correction', 'quantity' => -1,
+            'unit_price' => 100, 'discount_percent' => 0, 'tax_percent' => 21,
+            'subtotal' => -100, 'discount_amount' => 0, 'tax_amount' => -21, 'total' => -121,
+        ]);
+
+        $entryId = app(AccountingSynchronizer::class)->syncSalesDocument($credit, $user->id);
+        $entry = JournalEntry::with('lines.account')->findOrFail($entryId);
+        $report = app(VatReport::class)->make(2026, 3);
+
+        $this->assertEqualsWithDelta(121, $entry->lines->sum('debit'), 0.001);
+        $this->assertEqualsWithDelta(121, $entry->lines->sum('credit'), 0.001);
+        $this->assertTrue($entry->lines->every(fn ($line) => (float) $line->debit >= 0 && (float) $line->credit >= 0));
+        $this->assertEqualsWithDelta(100, $entry->lines->firstWhere('account.code', '700')->debit, 0.001);
+        $this->assertEqualsWithDelta(21, $entry->lines->firstWhere('account.code', '477')->debit, 0.001);
+        $this->assertEqualsWithDelta(-100, $report['summary']['taxableBaseIssued'], 0.001);
+        $this->assertEqualsWithDelta(-21, $report['summary']['outputVat'], 0.001);
+        $this->assertEqualsWithDelta(-21, $report['summary']['result'], 0.001);
+        $this->assertTrue($report['accountingCheck']['matches']);
+    }
 
     public function test_supplier_transport_is_reported_as_a_separate_21_percent_vat_base(): void
     {
@@ -80,5 +112,50 @@ class TaxTest extends TestCase
         $this->post(route('banking.import', $account), ['statement' => UploadedFile::fake()->createWithContent('tax.csv', $csv)])->assertRedirect();
         $this->post(route('banking.auto', $account))->assertRedirect();
         $this->assertSame(1, BankReconciliation::whereNotNull('tax_return_payment_id')->count());
+    }
+
+    public function test_negative_vat_defaults_to_compensation_and_cannot_be_recorded_as_an_ordinary_refund(): void
+    {
+        Storage::fake('local');
+        $admin = User::factory()->create(['role' => 'admin']);
+        $category = ExpenseCategory::create(['code' => 'VAT-IN', 'name' => 'Input VAT', 'is_active' => true]);
+        Expense::create([
+            'expense_category_id' => $category->id,
+            'created_by' => $admin->id,
+            'number' => 'EXP-VAT-NEG-1',
+            'type' => 'invoice',
+            'expense_date' => '2026-02-10',
+            'subtotal' => 100,
+            'tax_amount' => 21,
+            'amount' => 121,
+            'paid_amount' => 0,
+            'status' => 'pending',
+        ]);
+
+        $this->actingAs($admin)->post(route('tax.returns.prepare'), ['year' => 2026, 'quarter' => 1])
+            ->assertSessionHasNoErrors();
+        $return = TaxReturn::firstOrFail();
+        $this->assertSame('compensate', $return->result_option);
+        $this->assertSame('awaiting_election', $return->settlement_status);
+
+        $filing = [
+            'filing_reference' => 'AEAT-Q1-NEG',
+            'filed_on' => '2026-04-20',
+            'receipt' => UploadedFile::fake()->create('modelo-303.pdf', 10, 'application/pdf'),
+        ];
+        $this->post(route('tax.returns.file', $return), [...$filing, 'negative_result_option' => 'refund'])
+            ->assertSessionHasErrors('negative_result_option');
+        $this->post(route('tax.returns.file', $return), [...$filing, 'negative_result_option' => 'compensate'])
+            ->assertSessionHasNoErrors();
+
+        $return->refresh();
+        $this->assertSame('filed', $return->status);
+        $this->assertSame('compensate', $return->result_option);
+        $this->assertSame('carried_forward', $return->settlement_status);
+        $this->assertSame(64, strlen((string) $return->receipt_sha256));
+        Storage::disk('local')->assertExists($return->receipt_path);
+        $this->post(route('tax.returns.payments.store', $return), ['paid_on' => '2026-04-21', 'amount' => 21, 'method' => 'bank_transfer'])
+            ->assertStatus(422);
+        $this->assertDatabaseHas('audit_logs', ['auditable_type' => TaxReturn::class, 'auditable_id' => $return->id, 'event' => 'updated']);
     }
 }

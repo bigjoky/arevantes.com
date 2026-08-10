@@ -57,10 +57,10 @@ class VatReport
             }
 
             return $groups->map(function ($lines, $rate) use ($document, $snapshot, $party, $sign) {
-                $base = $lines->isEmpty() ? abs((float) $document->subtotal - (float) $document->discount_amount) : $lines->sum(fn ($line) => (float) $line->subtotal - (float) $line->discount_amount);
-                $vat = $lines->isEmpty() ? abs((float) $document->tax_amount) : $lines->sum('tax_amount');
+                $base = $lines->isEmpty() ? (float) $document->subtotal - (float) $document->discount_amount : $lines->sum(fn ($line) => (float) $line->subtotal - (float) $line->discount_amount);
+                $vat = $lines->isEmpty() ? (float) $document->tax_amount : $lines->sum('tax_amount');
 
-                return $this->row('issued', $document->issue_date, $document->number, $party ?: __('Unknown customer'), $snapshot['tax_id'] ?? $snapshot['document_number'] ?? null, (float) $rate, $sign * $base, $sign * $vat, $sign * ($base + $vat), 'sales_document', $document->id);
+                return $this->row('issued', $document->issue_date, $document->number, $party ?: __('Unknown customer'), $snapshot['tax_id'] ?? $snapshot['document_number'] ?? null, (float) $rate, $sign * abs($base), $sign * abs($vat), $sign * (abs($base) + abs($vat)), 'sales_document', $document->id);
             });
         });
     }
