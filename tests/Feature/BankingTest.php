@@ -14,6 +14,8 @@ use App\Models\BankTransactionPosting;
 use App\Models\BankTransfer;
 use App\Models\Expense;
 use App\Models\ExpenseCategory;
+use App\Models\JournalEntry;
+use App\Models\JournalLine;
 use App\Models\LedgerAccount;
 use App\Models\PurchaseDocument;
 use App\Models\SalesDocument;
@@ -524,6 +526,46 @@ class BankingTest extends TestCase
 
         $this->post(route('banking.postings.reverse', $posting))->assertRedirect()->assertSessionHasNoErrors();
         $this->assertSame('pending', $transaction->fresh()->status);
+    }
+
+    public function test_pending_movements_can_be_bulk_posted_atomically_to_one_account(): void
+    {
+        $user = User::factory()->create(['role' => 'commercial']);
+        $account = BankAccount::create(['name' => 'Bulk posting account', 'currency' => 'EUR', 'opening_balance' => 0, 'is_active' => true]);
+        $first = $account->transactions()->create(['booked_on' => '2026-08-01', 'amount' => -12.5, 'currency' => 'EUR', 'description' => 'Monthly bank fee', 'import_hash' => hash('sha256', 'bulk-fee-one'), 'status' => 'pending']);
+        $second = $account->transactions()->create(['booked_on' => '2026-08-02', 'amount' => -7.5, 'currency' => 'EUR', 'description' => 'Transfer bank fee', 'import_hash' => hash('sha256', 'bulk-fee-two'), 'status' => 'pending']);
+        $unselected = $account->transactions()->create(['booked_on' => '2026-08-03', 'amount' => 100, 'currency' => 'EUR', 'description' => 'Customer receipt', 'import_hash' => hash('sha256', 'bulk-unselected'), 'status' => 'pending']);
+
+        $this->actingAs($user)->post(route('banking.transactions.bulk-post', $account), [
+            'transaction_ids' => [$first->id, $second->id],
+            'account_code' => '626001',
+            'account_name' => 'Bank commissions',
+        ])->assertRedirect()->assertSessionHasNoErrors();
+
+        $this->assertSame('accounted', $first->fresh()->status);
+        $this->assertSame('accounted', $second->fresh()->status);
+        $this->assertSame('pending', $unselected->fresh()->status);
+        $this->assertSame(2, BankTransactionPosting::count());
+        $this->assertDatabaseHas('ledger_accounts', ['code' => '626001', 'name' => 'Bank commissions', 'source' => 'custom']);
+        $this->assertSame(2, JournalEntry::where('entry_kind', 'bank_posting')->count());
+        $this->assertEqualsWithDelta(20, JournalLine::whereHas('account', fn ($query) => $query->where('code', '626001'))->sum('debit'), 0.001);
+    }
+
+    public function test_bulk_posting_rejects_a_stale_selection_without_partial_changes(): void
+    {
+        $user = User::factory()->create(['role' => 'commercial']);
+        $account = BankAccount::create(['name' => 'Atomic bulk account', 'currency' => 'EUR', 'opening_balance' => 0, 'is_active' => true]);
+        $pending = $account->transactions()->create(['booked_on' => '2026-08-01', 'amount' => -10, 'currency' => 'EUR', 'description' => 'Pending fee', 'import_hash' => hash('sha256', 'atomic-pending'), 'status' => 'pending']);
+        $processed = $account->transactions()->create(['booked_on' => '2026-08-02', 'amount' => -20, 'currency' => 'EUR', 'description' => 'Processed fee', 'import_hash' => hash('sha256', 'atomic-processed'), 'status' => 'accounted']);
+
+        $this->actingAs($user)->post(route('banking.transactions.bulk-post', $account), [
+            'transaction_ids' => [$pending->id, $processed->id],
+            'account_code' => '626',
+        ])->assertSessionHasErrors('transaction_ids');
+
+        $this->assertSame('pending', $pending->fresh()->status);
+        $this->assertSame(0, BankTransactionPosting::count());
+        $this->assertSame(0, JournalEntry::where('entry_kind', 'bank_posting')->count());
     }
 
     public function test_split_posting_rejects_an_unbalanced_allocation_and_unnamed_new_account(): void
