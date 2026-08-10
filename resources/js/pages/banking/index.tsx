@@ -1,7 +1,8 @@
-import { Form, Head, Link } from '@inertiajs/react';
+import { Form, Head, Link, router } from '@inertiajs/react';
 import {
     ArrowLeft,
     CreditCard,
+    FileSearch,
     Landmark,
     ListPlus,
     Link2,
@@ -193,6 +194,31 @@ type StatementImport = {
     user: { name: string } | null;
     rolled_back_by: { name: string } | null;
     created_at: string;
+};
+type StatementPreview = {
+    filename: string;
+    format: 'csv' | 'norma43';
+    total: number;
+    created: number;
+    duplicates: number;
+    period_from: string | null;
+    period_to: string | null;
+    opening_balance: number | null;
+    closing_balance: number | null;
+    control_valid: boolean | null;
+    source_account: {
+        entity: string;
+        office: string;
+        account: string;
+    } | null;
+    sample: {
+        booked_on: string;
+        value_on: string | null;
+        amount: number;
+        reference: string | null;
+        description: string;
+        status: 'new' | 'duplicate';
+    }[];
 };
 type BankControl = {
     periodTo: string;
@@ -435,24 +461,7 @@ export default function BankingIndex({
                             </section>
                         )}
                         <section className="grid gap-6 border-t pt-5 lg:grid-cols-2">
-                            <Form
-                                action={`/banking/accounts/${selectedAccount.id}/import`}
-                                method="post"
-                                className="flex flex-wrap items-end gap-3"
-                            >
-                                <div className="grid min-w-64 flex-1 gap-2">
-                                    <Label>Statement CSV or Norma 43</Label>
-                                    <Input
-                                        name="statement"
-                                        type="file"
-                                        accept=".csv,.txt,.n43,.aeb,text/csv,text/plain"
-                                        required
-                                    />
-                                </div>
-                                <Button>
-                                    <Upload /> Import statement
-                                </Button>
-                            </Form>
+                            <StatementImportPanel account={selectedAccount} />
                             <Form
                                 action={`/banking/accounts/${selectedAccount.id}/auto-reconcile`}
                                 method="post"
@@ -1069,6 +1078,296 @@ export default function BankingIndex({
                 )}
             </div>
         </>
+    );
+}
+
+function StatementImportPanel({ account }: { account: Account }) {
+    const [file, setFile] = useState<File | null>(null);
+    const [preview, setPreview] = useState<StatementPreview | null>(null);
+    const [previewing, setPreviewing] = useState(false);
+    const [importing, setImporting] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [acceptMismatch, setAcceptMismatch] = useState(false);
+    const [inputVersion, setInputVersion] = useState(0);
+
+    const previewStatement = async () => {
+        if (!file || previewing) {
+            return;
+        }
+
+        setPreviewing(true);
+        setPreview(null);
+        setError(null);
+        setAcceptMismatch(false);
+
+        try {
+            const body = new FormData();
+            body.append('statement', file);
+            const token = document
+                .querySelector<HTMLMetaElement>('meta[name="csrf-token"]')
+                ?.getAttribute('content');
+            const response = await fetch(
+                `/banking/accounts/${account.id}/import/preview`,
+                {
+                    method: 'POST',
+                    headers: {
+                        Accept: 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        ...(token ? { 'X-CSRF-TOKEN': token } : {}),
+                    },
+                    body,
+                },
+            );
+            const payload = (await response.json()) as
+                | StatementPreview
+                | { message?: string; errors?: Record<string, string[]> };
+
+            if (!response.ok) {
+                const validation =
+                    'errors' in payload
+                        ? Object.values(payload.errors ?? {}).flat()[0]
+                        : undefined;
+
+                throw new Error(
+                    validation ||
+                        ('message' in payload ? payload.message : undefined) ||
+                        'The statement could not be previewed.',
+                );
+            }
+
+            setPreview(payload as StatementPreview);
+        } catch (reason) {
+            setError(
+                reason instanceof Error
+                    ? reason.message
+                    : 'The statement could not be previewed.',
+            );
+        } finally {
+            setPreviewing(false);
+        }
+    };
+
+    const importStatement = () => {
+        if (
+            !file ||
+            !preview ||
+            preview.created === 0 ||
+            (preview.control_valid === false && !acceptMismatch)
+        ) {
+            return;
+        }
+
+        router.post(
+            `/banking/accounts/${account.id}/import`,
+            { statement: file },
+            {
+                forceFormData: true,
+                preserveScroll: true,
+                onStart: () => setImporting(true),
+                onFinish: () => setImporting(false),
+                onSuccess: () => {
+                    setFile(null);
+                    setPreview(null);
+                    setError(null);
+                    setAcceptMismatch(false);
+                    setInputVersion((current) => current + 1);
+                },
+                onError: (errors) =>
+                    setError(
+                        String(
+                            errors.statement ??
+                                'The statement changed and could not be imported.',
+                        ),
+                    ),
+            },
+        );
+    };
+
+    return (
+        <div className="grid gap-3 rounded-md border bg-muted/20 p-3">
+            <div>
+                <div className="text-sm font-medium">
+                    Preview statement import
+                </div>
+                <div className="text-xs text-muted-foreground">
+                    Validate the file and inspect duplicates before creating any
+                    bank movement.
+                </div>
+            </div>
+            <div className="flex flex-wrap items-end gap-3">
+                <div className="grid min-w-64 flex-1 gap-2">
+                    <Label htmlFor={`statement-${account.id}`}>
+                        Statement CSV or Norma 43
+                    </Label>
+                    <Input
+                        key={inputVersion}
+                        id={`statement-${account.id}`}
+                        type="file"
+                        accept=".csv,.txt,.n43,.aeb,text/csv,text/plain"
+                        onChange={(event) => {
+                            setFile(event.target.files?.[0] ?? null);
+                            setPreview(null);
+                            setError(null);
+                            setAcceptMismatch(false);
+                        }}
+                    />
+                </div>
+                <Button
+                    type="button"
+                    variant="outline"
+                    disabled={!file || previewing || importing}
+                    onClick={() => void previewStatement()}
+                >
+                    <FileSearch />
+                    {previewing ? 'Checking…' : 'Preview'}
+                </Button>
+            </div>
+            {error && <p className="text-sm text-destructive">{error}</p>}
+            {preview && (
+                <div className="grid gap-3 border-t pt-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                            <div className="text-sm font-medium">
+                                {preview.filename}
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                                {preview.format === 'norma43'
+                                    ? 'Norma 43'
+                                    : 'CSV'}
+                                {preview.period_from && preview.period_to
+                                    ? ` · ${date(preview.period_from)} – ${date(preview.period_to)}`
+                                    : ''}
+                                {preview.source_account
+                                    ? ` · ${preview.source_account.entity}-${preview.source_account.office}-${preview.source_account.account.slice(-4)}`
+                                    : ''}
+                            </div>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                            <Badge variant="outline">
+                                {preview.total} rows
+                            </Badge>
+                            <Badge>{preview.created} new</Badge>
+                            <Badge variant="secondary">
+                                {preview.duplicates} already imported
+                            </Badge>
+                        </div>
+                    </div>
+                    {preview.opening_balance !== null && (
+                        <div className="grid grid-cols-2 rounded-md border sm:grid-cols-3">
+                            <Metric
+                                label="Opening balance"
+                                value={money(
+                                    preview.opening_balance,
+                                    account.currency,
+                                )}
+                            />
+                            <Metric
+                                label="Closing balance"
+                                value={money(
+                                    preview.closing_balance ?? 0,
+                                    account.currency,
+                                )}
+                            />
+                            <Metric
+                                label="Norma 43 control"
+                                value={
+                                    preview.control_valid ? 'Valid' : 'Mismatch'
+                                }
+                            />
+                        </div>
+                    )}
+                    {preview.sample.length > 0 && (
+                        <TableViewport>
+                            <table className="w-full min-w-[38rem] text-xs">
+                                <thead>
+                                    <tr className="border-b text-left text-muted-foreground">
+                                        <th className="py-2">Date</th>
+                                        <th>Description</th>
+                                        <th>Reference</th>
+                                        <th className="text-right">Amount</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {preview.sample.map((movement, index) => (
+                                        <tr
+                                            key={`${movement.booked_on}-${movement.reference}-${index}`}
+                                            className="border-b"
+                                        >
+                                            <td className="py-2">
+                                                {date(movement.booked_on)}
+                                            </td>
+                                            <td className="max-w-64 truncate">
+                                                {movement.description}
+                                            </td>
+                                            <td>{movement.reference || '—'}</td>
+                                            <td className="text-right font-mono">
+                                                {money(
+                                                    movement.amount,
+                                                    account.currency,
+                                                )}
+                                            </td>
+                                            <td>
+                                                <Badge
+                                                    variant={
+                                                        movement.status ===
+                                                        'new'
+                                                            ? 'default'
+                                                            : 'secondary'
+                                                    }
+                                                >
+                                                    {movement.status === 'new'
+                                                        ? 'New'
+                                                        : 'Already imported'}
+                                                </Badge>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </TableViewport>
+                    )}
+                    {preview.control_valid === false && (
+                        <label className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm">
+                            <Checkbox
+                                checked={acceptMismatch}
+                                onCheckedChange={(checked) =>
+                                    setAcceptMismatch(checked === true)
+                                }
+                            />
+                            <span>
+                                The Norma 43 totals do not match its control
+                                record. I have reviewed the discrepancy and want
+                                to import it anyway.
+                            </span>
+                        </label>
+                    )}
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                        <p className="text-xs text-muted-foreground">
+                            The final import repeats duplicate and integrity
+                            checks in case data changed after this preview.
+                        </p>
+                        <Button
+                            type="button"
+                            disabled={
+                                importing ||
+                                preview.created === 0 ||
+                                (preview.control_valid === false &&
+                                    !acceptMismatch)
+                            }
+                            onClick={importStatement}
+                        >
+                            <Upload />
+                            {importing
+                                ? 'Importing…'
+                                : preview.created === 0
+                                  ? 'Nothing new to import'
+                                  : `Import ${preview.created} movements`}
+                        </Button>
+                    </div>
+                </div>
+            )}
+        </div>
     );
 }
 
