@@ -507,7 +507,9 @@ function FiscalYearConfirmation({
                                         maxLength={2000}
                                         required
                                     />
-                                    <InputError message={errors.reopen_reason} />
+                                    <InputError
+                                        message={errors.reopen_reason}
+                                    />
                                 </div>
                             )}
                             <Button
@@ -515,7 +517,8 @@ function FiscalYearConfirmation({
                                 disabled={
                                     processing ||
                                     confirmation !== expected ||
-                                    (!closing && reopenReason.trim().length < 10)
+                                    (!closing &&
+                                        reopenReason.trim().length < 10)
                                 }
                             >
                                 {closing ? <LockKeyhole /> : <UnlockKeyhole />}
