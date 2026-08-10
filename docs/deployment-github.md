@@ -1,4 +1,9 @@
-# Publicación de Arevantes mediante GitHub
+# Publicación SSH heredada
+
+> **Procedimiento legado.** Las publicaciones ordinarias se realizan ahora mediante Laravel
+> Cloud. Consulta [`deployment-laravel-cloud.md`](deployment-laravel-cloud.md). Este documento se
+> conserva temporalmente como referencia de recuperación del alojamiento anterior; no debe usarse
+> para publicar nuevas versiones.
 
 La instalación de producción empieza vacía. La base de datos, los documentos y el archivo `.env` local no se copian al servidor.
 
