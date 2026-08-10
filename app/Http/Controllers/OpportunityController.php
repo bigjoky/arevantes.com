@@ -63,6 +63,10 @@ class OpportunityController extends Controller
                 ...$item->toArray(),
                 'expected_close_on' => $item->expected_close_on?->toDateString(),
                 'available_stages' => $salesCycle->availableTransitions($item),
+                'stage_entered_at' => $this->stageEnteredAt($item)->toIso8601String(),
+                'days_in_stage' => round($this->stageEnteredAt($item)->diffInHours(now()) / 24, 1),
+                'is_stale' => ! in_array($item->stage, ['won', 'lost'], true)
+                    && $this->stageEnteredAt($item)->lessThan(now()->subDays(config('crm.stale_after_days'))),
             ]),
             'customers' => Person::where('category', 'customer')->orderBy('company_name')->orderBy('first_name')->get(['id', 'first_name', 'last_name', 'company_name']),
             'installations' => Installation::orderBy('project_reference')->get(['id', 'person_id', 'project_reference', 'site_name']),
@@ -84,10 +88,11 @@ class OpportunityController extends Controller
                 'average_cycle_days' => $averageCycleDays !== null ? round($averageCycleDays, 1) : null,
                 'overdue' => $open->filter(fn (Opportunity $item) => $item->expected_close_on?->isPast())->count(),
                 'without_next_action' => $open->whereNull('nextActivity')->count(),
-                'stale' => $open->filter(fn (Opportunity $item) => $item->updated_at->lessThan(now()->subDays(config('crm.stale_after_days'))))->count(),
+                'stale' => $open->filter(fn (Opportunity $item) => $this->stageEnteredAt($item)->lessThan(now()->subDays(config('crm.stale_after_days'))))->count(),
                 'funnel' => collect(self::STAGES)->mapWithKeys(fn (string $stage) => [$stage => $opportunities->where('stage', $stage)->count()]),
                 'stage_days' => $this->averageDaysByStage($opportunities),
             ],
+            'forecast' => $request->boolean('archived') ? [] : $this->forecast($open),
             'savedFilters' => SavedCrmFilter::query()->where('user_id', $request->user()->id)->where('scope', 'opportunities')->orderByDesc('is_default')->orderBy('name')->get(),
         ]);
     }
@@ -232,7 +237,13 @@ class OpportunityController extends Controller
                 ->whereNotIn('stage', ['won', 'lost'])
                 ->whereDoesntHave('activities', fn ($activities) => $activities
                     ->whereIn('status', ['pending', 'in_progress'])
-                    ->whereNotNull('due_at')));
+                    ->whereNotNull('due_at')))
+            ->when($request->input('attention') === 'stale', fn ($query) => $query
+                ->whereNotIn('stage', ['won', 'lost'])
+                ->whereRaw(
+                    'coalesce((select max(changed_at) from opportunity_stage_histories where opportunity_id = opportunities.id), opportunities.created_at) < ?',
+                    [now()->subDays(config('crm.stale_after_days'))],
+                ));
     }
 
     private function closedInPeriod(Opportunity $opportunity, string $stage, ?CarbonInterface $periodStart): bool
@@ -255,5 +266,43 @@ class OpportunityController extends Controller
         }
 
         return collect($durations)->map(fn (array $days) => count($days) ? round(collect($days)->average(), 1) : null)->all();
+    }
+
+    private function stageEnteredAt(Opportunity $opportunity): CarbonInterface
+    {
+        return $opportunity->stageHistory->first()?->changed_at ?? $opportunity->created_at;
+    }
+
+    private function forecast($opportunities): array
+    {
+        return $opportunities
+            ->groupBy(fn (Opportunity $opportunity) => ($opportunity->expected_close_on?->format('Y-m') ?? 'unscheduled').'|'.($opportunity->owner_user_id ?? 'unassigned'))
+            ->map(function ($items): array {
+                /** @var Opportunity $first */
+                $first = $items->first();
+                $amount = (float) $items->sum('estimated_value');
+                $weighted = (float) $items->sum(fn (Opportunity $item) => (float) $item->estimated_value * $item->probability / 100);
+
+                return [
+                    'month' => $first->expected_close_on?->format('Y-m'),
+                    'owner_id' => $first->owner_user_id,
+                    'owner_name' => $first->owner?->name ?? __('Unassigned'),
+                    'count' => $items->count(),
+                    'amount' => round($amount, 2),
+                    'weighted_amount' => round($weighted, 2),
+                    'average_probability' => $amount > 0 ? round($weighted / $amount * 100, 1) : 0,
+                    'opportunities' => $items->map(fn (Opportunity $item) => [
+                        'id' => $item->id,
+                        'code' => $item->code,
+                        'title' => $item->title,
+                        'amount' => round((float) $item->estimated_value, 2),
+                        'probability' => $item->probability,
+                        'weighted_amount' => round((float) $item->estimated_value * $item->probability / 100, 2),
+                    ])->values()->all(),
+                ];
+            })
+            ->sortBy(fn (array $row) => ($row['month'] ?? '9999-99').'|'.$row['owner_name'])
+            ->values()
+            ->all();
     }
 }

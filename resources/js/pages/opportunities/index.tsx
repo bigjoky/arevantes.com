@@ -104,7 +104,28 @@ type Opportunity = {
     next_activity: Activity | null;
     stage_history: StageHistory[];
     available_stages: string[];
+    stage_entered_at: string;
+    days_in_stage: number;
+    is_stale: boolean;
     deleted_at: string | null;
+};
+
+type ForecastRow = {
+    month: string | null;
+    owner_id: number | null;
+    owner_name: string;
+    count: number;
+    amount: number;
+    weighted_amount: number;
+    average_probability: number;
+    opportunities: Array<{
+        id: number;
+        code: string;
+        title: string;
+        amount: number;
+        probability: number;
+        weighted_amount: number;
+    }>;
 };
 
 type FormData = {
@@ -148,6 +169,7 @@ export default function OpportunitiesIndex({
     lostReasonOptions,
     filters = {},
     metrics,
+    forecast = [],
     savedFilters = [],
 }: {
     opportunities: Opportunity[];
@@ -181,6 +203,7 @@ export default function OpportunitiesIndex({
         funnel: Record<string, number>;
         stage_days: Record<string, number | null>;
     };
+    forecast?: ForecastRow[];
     savedFilters?: Array<{
         id: number;
         name: string;
@@ -376,6 +399,8 @@ export default function OpportunitiesIndex({
 
                 <FunnelSummary funnel={metrics.funnel} />
 
+                {forecast.length > 0 && <ForecastSummary rows={forecast} />}
+
                 <div className="flex flex-wrap items-center justify-between gap-3">
                     <div className="flex flex-wrap items-center gap-2">
                         {savedFilters.length > 0 && (
@@ -504,6 +529,7 @@ export default function OpportunitiesIndex({
                             ['', 'Todas las situaciones'],
                             ['overdue', 'Cierre vencido'],
                             ['no_action', 'Sin próxima acción'],
+                            ['stale', 'Estancada en etapa'],
                         ]}
                     />
                     <NativeSelect
@@ -655,6 +681,15 @@ export default function OpportunitiesIndex({
                                                                 item.commercial_score
                                                             }
                                                             /100
+                                                        </span>
+                                                        <span
+                                                            className={`mt-1 block text-xs ${item.is_stale ? 'font-medium text-amber-700 dark:text-amber-300' : 'text-muted-foreground'}`}
+                                                        >
+                                                            {item.days_in_stage}{' '}
+                                                            días en etapa
+                                                            {item.is_stale
+                                                                ? ' · estancada'
+                                                                : ''}
                                                         </span>
                                                     </button>
                                                     <div className="mt-3 flex items-end justify-between gap-2 border-t pt-2">
@@ -1196,6 +1231,85 @@ function FunnelSummary({ funnel }: { funnel: Record<string, number> }) {
     );
 }
 
+function ForecastSummary({ rows }: { rows: ForecastRow[] }) {
+    return (
+        <section className="rounded-md border">
+            <div className="border-b px-4 py-3">
+                <h2 className="font-semibold">Forecast comercial</h2>
+                <p className="text-sm text-muted-foreground">
+                    Previsión ponderada por mes y responsable. Despliega una
+                    fila para ver las oportunidades que explican el importe.
+                </p>
+            </div>
+            <div className="overflow-x-auto">
+                <table className="w-full min-w-[48rem] text-sm">
+                    <thead className="border-b bg-muted/40 text-left text-xs text-muted-foreground">
+                        <tr>
+                            <th className="p-3">Mes previsto</th>
+                            <th className="p-3">Responsable</th>
+                            <th className="p-3 text-right">Oportunidades</th>
+                            <th className="p-3 text-right">Prob. ponderada</th>
+                            <th className="p-3 text-right">Pipeline</th>
+                            <th className="p-3 text-right">Ponderado</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                        {rows.map((row) => (
+                            <tr
+                                key={`${row.month || 'unscheduled'}-${row.owner_id || 'unassigned'}`}
+                                className="align-top"
+                            >
+                                <td className="p-3 font-medium">
+                                    {forecastMonth(row.month)}
+                                </td>
+                                <td className="p-3">{row.owner_name}</td>
+                                <td className="p-3 text-right">
+                                    <details className="group">
+                                        <summary className="cursor-pointer list-none font-medium text-primary hover:underline">
+                                            {row.count}
+                                        </summary>
+                                        <div className="mt-2 min-w-72 space-y-2 rounded-md border bg-background p-2 text-left shadow-sm">
+                                            {row.opportunities.map((item) => (
+                                                <Link
+                                                    key={item.id}
+                                                    href={`/opportunities?opportunity=${item.id}`}
+                                                    className="block rounded px-2 py-1.5 hover:bg-muted"
+                                                >
+                                                    <span className="block font-medium">
+                                                        {item.code} ·{' '}
+                                                        {item.title}
+                                                    </span>
+                                                    <span className="text-xs text-muted-foreground">
+                                                        {money(item.amount)} ·{' '}
+                                                        {item.probability}% ·{' '}
+                                                        {money(
+                                                            item.weighted_amount,
+                                                        )}{' '}
+                                                        ponderado
+                                                    </span>
+                                                </Link>
+                                            ))}
+                                        </div>
+                                    </details>
+                                </td>
+                                <td className="p-3 text-right tabular-nums">
+                                    {row.average_probability}%
+                                </td>
+                                <td className="p-3 text-right tabular-nums">
+                                    {money(row.amount)}
+                                </td>
+                                <td className="p-3 text-right font-semibold tabular-nums">
+                                    {money(row.weighted_amount)}
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    );
+}
+
 function OpportunityActivityDialog({
     opportunity,
     users,
@@ -1374,6 +1488,11 @@ function OpportunityTable({
                                 <Badge variant="outline">
                                     {stageLabel(item.stage)}
                                 </Badge>
+                                <div
+                                    className={`mt-1 text-xs ${item.is_stale ? 'font-medium text-amber-700 dark:text-amber-300' : 'text-muted-foreground'}`}
+                                >
+                                    {item.days_in_stage} días
+                                </div>
                             </td>
                             <td className="p-3">{item.owner?.name || '—'}</td>
                             <td className="p-3 text-right tabular-nums">
@@ -1533,6 +1652,16 @@ function dateTime(value: string) {
         dateStyle: 'short',
         timeStyle: 'short',
     }).format(new Date(value));
+}
+function forecastMonth(value: string | null) {
+    if (!value) {
+        return 'Sin fecha prevista';
+    }
+
+    return new Intl.DateTimeFormat('es-ES', {
+        month: 'long',
+        year: 'numeric',
+    }).format(new Date(`${value}-01T00:00:00`));
 }
 function isOverdue(value: string) {
     return new Date(value).getTime() < Date.now();

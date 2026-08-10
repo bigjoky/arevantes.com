@@ -308,6 +308,58 @@ class OpportunityTest extends TestCase
                 ->where('filters.period', '30'));
     }
 
+    public function test_stale_detection_uses_stage_age_and_forecast_explains_its_composition(): void
+    {
+        $user = User::factory()->create(['role' => 'commercial']);
+        $customer = Person::create(['category' => 'customer', 'first_name' => 'Ana']);
+        $forecastDate = today()->addMonth()->startOfMonth();
+
+        $this->travelTo(now()->subDays(20));
+        $opportunity = Opportunity::create([
+            'person_id' => $customer->id,
+            'owner_user_id' => $user->id,
+            'created_by' => $user->id,
+            'code' => 'OPP-FORECAST-1',
+            'title' => 'Forecast explicable',
+            'stage' => 'qualified',
+            'probability' => 40,
+            'estimated_value' => 10000,
+            'expected_close_on' => $forecastDate,
+        ]);
+        $this->travelBack();
+        $opportunity->update(['notes' => 'Edited today without changing stage']);
+        CrmActivity::create([
+            'opportunity_id' => $opportunity->id,
+            'person_id' => $customer->id,
+            'assigned_user_id' => $user->id,
+            'created_by' => $user->id,
+            'type' => 'call',
+            'title' => 'Seguimiento',
+            'priority' => 'normal',
+            'status' => 'pending',
+            'due_at' => now()->addDay(),
+        ]);
+
+        $this->actingAs($user)->get(route('opportunities.index'))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('metrics.stale', 1)
+                ->where('opportunities.0.is_stale', true)
+                ->where('opportunities.0.days_in_stage', fn ($days) => $days >= 20)
+                ->where('forecast.0.month', $forecastDate->format('Y-m'))
+                ->where('forecast.0.owner_id', $user->id)
+                ->where('forecast.0.amount', 10000)
+                ->where('forecast.0.weighted_amount', 4000)
+                ->where('forecast.0.average_probability', 40)
+                ->where('forecast.0.opportunities.0.code', 'OPP-FORECAST-1'));
+
+        $this->get(route('opportunities.index', ['attention' => 'stale']))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('opportunities', 1)
+                ->where('opportunities.0.id', $opportunity->id));
+    }
+
     public function test_opportunity_can_prepare_one_quote_and_sync_its_result(): void
     {
         $user = User::factory()->create(['role' => 'commercial']);
