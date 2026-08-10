@@ -8,62 +8,87 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('bank_reconciliation_rules', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('bank_account_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('ledger_account_id')->constrained()->restrictOnDelete();
-            $table->string('name');
-            $table->unsignedSmallInteger('priority')->default(100);
-            $table->string('direction', 10)->default('any');
-            $table->string('match_field', 20)->default('either');
-            $table->string('match_operator', 20)->default('contains');
-            $table->string('pattern');
-            $table->decimal('min_amount', 14, 2)->nullable();
-            $table->decimal('max_amount', 14, 2)->nullable();
-            $table->unsignedTinyInteger('confidence')->default(95);
-            $table->boolean('is_active')->default(true);
-            $table->unsignedInteger('application_count')->default(0);
-            $table->timestamp('last_applied_at')->nullable();
-            $table->foreignId('created_by')->nullable()->constrained('users')->nullOnDelete();
-            $table->foreignId('updated_by')->nullable()->constrained('users')->nullOnDelete();
-            $table->timestamps();
-            $table->unique(['bank_account_id', 'name']);
-            $table->index(['bank_account_id', 'is_active', 'priority']);
-        });
+        // MySQL commits CREATE/ALTER TABLE statements even when a later index
+        // creation fails. Keep every step safe to rerun after a partial deploy
+        // and keep identifiers below MySQL's 64-character limit.
+        if (! Schema::hasTable('bank_reconciliation_rules')) {
+            Schema::create('bank_reconciliation_rules', function (Blueprint $table) {
+                $table->id();
+                $table->foreignId('bank_account_id')->constrained()->cascadeOnDelete();
+                $table->foreignId('ledger_account_id')->constrained()->restrictOnDelete();
+                $table->string('name');
+                $table->unsignedSmallInteger('priority')->default(100);
+                $table->string('direction', 10)->default('any');
+                $table->string('match_field', 20)->default('either');
+                $table->string('match_operator', 20)->default('contains');
+                $table->string('pattern');
+                $table->decimal('min_amount', 14, 2)->nullable();
+                $table->decimal('max_amount', 14, 2)->nullable();
+                $table->unsignedTinyInteger('confidence')->default(95);
+                $table->boolean('is_active')->default(true);
+                $table->unsignedInteger('application_count')->default(0);
+                $table->timestamp('last_applied_at')->nullable();
+                $table->foreignId('created_by')->nullable()->constrained('users')->nullOnDelete();
+                $table->foreignId('updated_by')->nullable()->constrained('users')->nullOnDelete();
+                $table->timestamps();
+                $table->unique(['bank_account_id', 'name']);
+                $table->index(['bank_account_id', 'is_active', 'priority'], 'bank_rules_account_active_priority_idx');
+            });
+        } else {
+            Schema::whenTableDoesntHaveIndex(
+                'bank_reconciliation_rules',
+                ['bank_account_id', 'is_active', 'priority'],
+                fn (Blueprint $table) => $table->index(
+                    ['bank_account_id', 'is_active', 'priority'],
+                    'bank_rules_account_active_priority_idx',
+                ),
+            );
+        }
 
-        Schema::create('bank_reconciliation_runs', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('bank_account_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('triggered_by')->nullable()->constrained('users')->nullOnDelete();
-            $table->string('status', 20)->default('running');
-            $table->unsignedTinyInteger('minimum_confidence')->default(95);
-            $table->unsignedInteger('matched_count')->default(0);
-            $table->unsignedInteger('skipped_count')->default(0);
-            $table->unsignedInteger('failed_count')->default(0);
-            $table->json('summary')->nullable();
-            $table->timestamp('started_at');
-            $table->timestamp('completed_at')->nullable();
-            $table->timestamps();
-        });
+        if (! Schema::hasTable('bank_reconciliation_runs')) {
+            Schema::create('bank_reconciliation_runs', function (Blueprint $table) {
+                $table->id();
+                $table->foreignId('bank_account_id')->constrained()->cascadeOnDelete();
+                $table->foreignId('triggered_by')->nullable()->constrained('users')->nullOnDelete();
+                $table->string('status', 20)->default('running');
+                $table->unsignedTinyInteger('minimum_confidence')->default(95);
+                $table->unsignedInteger('matched_count')->default(0);
+                $table->unsignedInteger('skipped_count')->default(0);
+                $table->unsignedInteger('failed_count')->default(0);
+                $table->json('summary')->nullable();
+                $table->timestamp('started_at');
+                $table->timestamp('completed_at')->nullable();
+                $table->timestamps();
+            });
+        }
 
-        Schema::table('bank_transaction_postings', function (Blueprint $table) {
-            $table->foreignId('reconciliation_rule_id')->nullable()->after('bank_transaction_id')->constrained('bank_reconciliation_rules')->nullOnDelete();
-            $table->foreignId('reconciliation_run_id')->nullable()->after('reconciliation_rule_id')->constrained('bank_reconciliation_runs')->nullOnDelete();
-        });
+        if (! Schema::hasColumn('bank_transaction_postings', 'reconciliation_rule_id')) {
+            Schema::table('bank_transaction_postings', function (Blueprint $table) {
+                $table->foreignId('reconciliation_rule_id')->nullable()->after('bank_transaction_id')->constrained('bank_reconciliation_rules')->nullOnDelete();
+            });
+        }
 
-        Schema::create('bank_reconciliation_run_items', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('bank_reconciliation_run_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('bank_reconciliation_rule_id')->nullable()->constrained()->nullOnDelete();
-            $table->foreignId('bank_transaction_id')->constrained()->restrictOnDelete();
-            $table->foreignId('bank_transaction_posting_id')->nullable()->constrained()->nullOnDelete();
-            $table->unsignedTinyInteger('confidence');
-            $table->string('outcome', 20);
-            $table->string('explanation', 500);
-            $table->text('error')->nullable();
-            $table->timestamps();
-            $table->unique(['bank_reconciliation_run_id', 'bank_transaction_id'], 'bank_rule_run_transaction_unique');
-        });
+        if (! Schema::hasColumn('bank_transaction_postings', 'reconciliation_run_id')) {
+            Schema::table('bank_transaction_postings', function (Blueprint $table) {
+                $table->foreignId('reconciliation_run_id')->nullable()->after('reconciliation_rule_id')->constrained('bank_reconciliation_runs')->nullOnDelete();
+            });
+        }
+
+        if (! Schema::hasTable('bank_reconciliation_run_items')) {
+            Schema::create('bank_reconciliation_run_items', function (Blueprint $table) {
+                $table->id();
+                $table->foreignId('bank_reconciliation_run_id')->constrained(indexName: 'bank_rule_items_run_fk')->cascadeOnDelete();
+                $table->foreignId('bank_reconciliation_rule_id')->nullable()->constrained(indexName: 'bank_rule_items_rule_fk')->nullOnDelete();
+                $table->foreignId('bank_transaction_id')->constrained(indexName: 'bank_rule_items_transaction_fk')->restrictOnDelete();
+                $table->foreignId('bank_transaction_posting_id')->nullable()->constrained(indexName: 'bank_rule_items_posting_fk')->nullOnDelete();
+                $table->unsignedTinyInteger('confidence');
+                $table->string('outcome', 20);
+                $table->string('explanation', 500);
+                $table->text('error')->nullable();
+                $table->timestamps();
+                $table->unique(['bank_reconciliation_run_id', 'bank_transaction_id'], 'bank_rule_run_transaction_unique');
+            });
+        }
     }
 
     public function down(): void
