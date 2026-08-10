@@ -530,6 +530,39 @@ class BankingController extends Controller
         return back()->with('toast', ['type' => 'success', 'message' => __('Bank movement posted to accounting.')]);
     }
 
+    public function bulkPostTransactions(Request $request, BankAccount $account, BankTransactionPoster $poster, LedgerAccountResolver $accounts): RedirectResponse
+    {
+        $data = $request->validate([
+            'transaction_ids' => ['required', 'array', 'min:1', 'max:100'],
+            'transaction_ids.*' => ['required', 'integer', 'distinct'],
+            'account_code' => ['required', 'string', 'max:12'],
+            'account_name' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        $posted = DB::transaction(function () use ($account, $accounts, $data, $poster, $request): int {
+            $transactions = BankTransaction::where('bank_account_id', $account->id)
+                ->whereIn('id', $data['transaction_ids'])
+                ->orderBy('id')
+                ->lockForUpdate()
+                ->get();
+            if ($transactions->count() !== count($data['transaction_ids']) || $transactions->contains(fn (BankTransaction $transaction) => $transaction->status !== 'pending')) {
+                throw ValidationException::withMessages(['transaction_ids' => __('One or more selected movements no longer belong to this account or are no longer pending.')]);
+            }
+
+            $counterpart = $accounts->resolveOrCreate($data['account_code'], $data['account_name'] ?? null, 'account_code');
+            $bankCode = $account->ledgerAccount?->code ?? '572';
+            if ($counterpart->code === $bankCode) {
+                throw ValidationException::withMessages(['account_code' => __('Select a different counterpart account.')]);
+            }
+
+            $transactions->each(fn (BankTransaction $transaction) => $poster->post($transaction, $counterpart, $request->user()->id));
+
+            return $transactions->count();
+        });
+
+        return back()->with('toast', ['type' => 'success', 'message' => __('Posted :count bank movements to accounting.', ['count' => $posted])]);
+    }
+
     public function reversePosting(Request $request, BankTransactionPosting $posting, BankTransactionPoster $transactionPoster): RedirectResponse
     {
         $transactionPoster->reverse($posting, $request->user()->id);

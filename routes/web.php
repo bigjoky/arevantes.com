@@ -292,6 +292,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('banking/transactions/{transaction}/reconcile', [BankingController::class, 'reconcile'])->middleware('can:manage-treasury')->name('banking.reconcile');
     Route::delete('banking/reconciliations/{reconciliation}', [BankingController::class, 'undo'])->middleware('can:manage-treasury')->name('banking.reconciliations.undo');
     Route::post('banking/transactions/{transaction}/post', [BankingController::class, 'postTransaction'])->middleware('can:manage-accounting')->name('banking.transactions.post');
+    Route::post('banking/accounts/{account}/transactions/bulk-post', [BankingController::class, 'bulkPostTransactions'])->middleware('can:manage-accounting')->name('banking.transactions.bulk-post');
     Route::post('banking/postings/{posting}/reverse', [BankingController::class, 'reversePosting'])->middleware('can:manage-accounting')->name('banking.postings.reverse');
     Route::post('banking/transfers/{transfer}/reverse', [BankingController::class, 'reverseTransfer'])->middleware('can:manage-treasury')->name('banking.transfers.reverse');
     Route::get('company-fiscal', [FiscalSettingsController::class, 'index'])->middleware('can:manage-tax')->name('fiscal-settings.index');
