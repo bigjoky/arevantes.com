@@ -271,6 +271,7 @@ type TransactionPage = {
     data: Transaction[];
     links: PaginationLink[];
     total: number;
+    current_page: number;
 };
 export default function BankingIndex({
     accounts,
@@ -311,6 +312,42 @@ export default function BankingIndex({
     rulePreview: RulePreview | null;
     ruleRuns: RuleRun[];
 }) {
+    const selectionScope = [
+        selectedAccount?.id ?? 'none',
+        transactions.current_page,
+        filters.search,
+        filters.status,
+        filters.from,
+        filters.to,
+    ].join('|');
+    const [selection, setSelection] = useState<{
+        scope: string;
+        ids: number[];
+    }>({ scope: selectionScope, ids: [] });
+    const selectedTransactionIds =
+        selection.scope === selectionScope ? selection.ids : [];
+    const updateSelection = (
+        next: number[] | ((current: number[]) => number[]),
+    ) =>
+        setSelection({
+            scope: selectionScope,
+            ids:
+                typeof next === 'function'
+                    ? next(selectedTransactionIds)
+                    : next,
+        });
+    const pendingOnPage = transactions.data.filter(
+        (transaction) => transaction.status === 'pending',
+    );
+    const selectedTransactions = transactions.data.filter((transaction) =>
+        selectedTransactionIds.includes(transaction.id),
+    );
+    const allPendingSelected =
+        pendingOnPage.length > 0 &&
+        pendingOnPage.every((transaction) =>
+            selectedTransactionIds.includes(transaction.id),
+        );
+
     return (
         <>
             <Head title="Banking" />
@@ -718,10 +755,79 @@ export default function BankingIndex({
                             />
                             <Button variant="outline">Apply filters</Button>
                         </Form>
+                        {selectedTransactions.length > 0 && selectedAccount && (
+                            <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border bg-muted/30 px-3 py-2">
+                                <div className="text-sm">
+                                    <span className="font-medium">
+                                        {selectedTransactions.length} selected
+                                    </span>{' '}
+                                    <span className="text-muted-foreground">
+                                        · gross{' '}
+                                        {money(
+                                            selectedTransactions.reduce(
+                                                (sum, transaction) =>
+                                                    sum +
+                                                    Math.abs(
+                                                        Number(
+                                                            transaction.amount,
+                                                        ),
+                                                    ),
+                                                0,
+                                            ),
+                                            selectedAccount.currency,
+                                        )}
+                                    </span>
+                                </div>
+                                <div className="flex gap-2">
+                                    <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="ghost"
+                                        onClick={() => updateSelection([])}
+                                    >
+                                        Clear selection
+                                    </Button>
+                                    <BulkPostingDialog
+                                        account={selectedAccount}
+                                        transactions={selectedTransactions}
+                                        ledgerAccounts={ledgerAccounts}
+                                        onSuccess={() => updateSelection([])}
+                                    />
+                                </div>
+                            </div>
+                        )}
                         <TableViewport>
-                            <table className="w-full min-w-[68rem] text-sm">
+                            <table className="w-full min-w-[70rem] text-sm">
                                 <thead>
                                     <tr className="border-b text-left text-muted-foreground">
+                                        <th className="w-10 py-2">
+                                            <Checkbox
+                                                aria-label="Select all pending movements on this page"
+                                                checked={
+                                                    allPendingSelected
+                                                        ? true
+                                                        : selectedTransactionIds.length >
+                                                            0
+                                                          ? 'indeterminate'
+                                                          : false
+                                                }
+                                                disabled={
+                                                    pendingOnPage.length === 0
+                                                }
+                                                onCheckedChange={(checked) =>
+                                                    updateSelection(
+                                                        checked === true
+                                                            ? pendingOnPage.map(
+                                                                  (
+                                                                      transaction,
+                                                                  ) =>
+                                                                      transaction.id,
+                                                              )
+                                                            : [],
+                                                    )
+                                                }
+                                            />
+                                        </th>
                                         <th className="py-2">Date</th>
                                         <th>Description</th>
                                         <th>Reference</th>
@@ -736,6 +842,37 @@ export default function BankingIndex({
                                             key={transaction.id}
                                             className="border-b align-top"
                                         >
+                                            <td className="py-3">
+                                                {transaction.status ===
+                                                    'pending' && (
+                                                    <Checkbox
+                                                        aria-label={`Select ${transaction.description}`}
+                                                        checked={selectedTransactionIds.includes(
+                                                            transaction.id,
+                                                        )}
+                                                        onCheckedChange={(
+                                                            checked,
+                                                        ) =>
+                                                            updateSelection(
+                                                                (current) =>
+                                                                    checked ===
+                                                                    true
+                                                                        ? [
+                                                                              ...current,
+                                                                              transaction.id,
+                                                                          ]
+                                                                        : current.filter(
+                                                                              (
+                                                                                  id,
+                                                                              ) =>
+                                                                                  id !==
+                                                                                  transaction.id,
+                                                                          ),
+                                                            )
+                                                        }
+                                                    />
+                                                )}
+                                            </td>
                                             <td className="py-3">
                                                 {date(transaction.booked_on)}
                                             </td>
@@ -1078,6 +1215,159 @@ export default function BankingIndex({
                 )}
             </div>
         </>
+    );
+}
+
+function BulkPostingDialog({
+    account,
+    transactions,
+    ledgerAccounts,
+    onSuccess,
+}: {
+    account: Account;
+    transactions: Transaction[];
+    ledgerAccounts: LedgerAccount[];
+    onSuccess: () => void;
+}) {
+    const [open, setOpen] = useState(false);
+    const [accountCode, setAccountCode] = useState('');
+    const existingAccount = ledgerAccounts.find(
+        (ledgerAccount) => ledgerAccount.code === accountCode,
+    );
+    const incoming = transactions.filter(
+        (transaction) => Number(transaction.amount) > 0,
+    );
+    const outgoing = transactions.filter(
+        (transaction) => Number(transaction.amount) < 0,
+    );
+    const gross = transactions.reduce(
+        (sum, transaction) => sum + Math.abs(Number(transaction.amount)),
+        0,
+    );
+    const transactionDates = transactions
+        .map((transaction) => transaction.booked_on)
+        .sort();
+
+    return (
+        <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+                <Button size="sm">
+                    <ListPlus /> Bulk post
+                </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl">
+                <DialogHeader>
+                    <DialogTitle>Post selected bank movements</DialogTitle>
+                    <DialogDescription>
+                        Create one traceable accounting entry per movement,
+                        using the same counterpart account. The complete batch
+                        is atomic: if one movement fails, none are posted.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="grid grid-cols-2 rounded-md border sm:grid-cols-4">
+                    <Metric
+                        label="Movements"
+                        value={String(transactions.length)}
+                    />
+                    <Metric label="Incoming" value={String(incoming.length)} />
+                    <Metric label="Outgoing" value={String(outgoing.length)} />
+                    <Metric
+                        label="Gross amount"
+                        value={money(gross, account.currency)}
+                    />
+                </div>
+                <Form
+                    action={`/banking/accounts/${account.id}/transactions/bulk-post`}
+                    method="post"
+                    className="grid gap-4"
+                    onSuccess={() => {
+                        setOpen(false);
+                        setAccountCode('');
+                        onSuccess();
+                    }}
+                >
+                    {({ errors, processing }) => (
+                        <>
+                            {transactions.map((transaction) => (
+                                <input
+                                    key={transaction.id}
+                                    type="hidden"
+                                    name="transaction_ids[]"
+                                    value={transaction.id}
+                                />
+                            ))}
+                            <div className="grid gap-2">
+                                <Label htmlFor="bulk-account-code">
+                                    Counterpart accounting code
+                                </Label>
+                                <Input
+                                    id="bulk-account-code"
+                                    name="account_code"
+                                    value={accountCode}
+                                    onChange={(event) =>
+                                        setAccountCode(event.target.value)
+                                    }
+                                    list="ledger-account-options"
+                                    inputMode="numeric"
+                                    placeholder="626"
+                                    pattern="[0-9]{3,12}"
+                                    required
+                                />
+                                {existingAccount && (
+                                    <p className="text-xs text-muted-foreground">
+                                        {existingAccount.name}
+                                    </p>
+                                )}
+                                {errors.account_code && (
+                                    <p className="text-sm text-destructive">
+                                        {errors.account_code}
+                                    </p>
+                                )}
+                            </div>
+                            {/^\d{3,12}$/.test(accountCode) &&
+                                !existingAccount && (
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="bulk-account-name">
+                                            New subaccount name
+                                        </Label>
+                                        <Input
+                                            id="bulk-account-name"
+                                            name="account_name"
+                                            placeholder="For example: Card commissions"
+                                            required
+                                        />
+                                        {errors.account_name && (
+                                            <p className="text-sm text-destructive">
+                                                {errors.account_name}
+                                            </p>
+                                        )}
+                                    </div>
+                                )}
+                            {errors.transaction_ids && (
+                                <p className="text-sm text-destructive">
+                                    {errors.transaction_ids}
+                                </p>
+                            )}
+                            <div className="rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">
+                                Selected dates: {date(transactionDates[0])} –{' '}
+                                {date(transactionDates.at(-1)!)}
+                            </div>
+                            <Button
+                                disabled={
+                                    processing ||
+                                    !/^\d{3,12}$/.test(accountCode)
+                                }
+                            >
+                                <ListPlus />
+                                {processing
+                                    ? 'Posting batch…'
+                                    : `Post ${transactions.length} movements`}
+                            </Button>
+                        </>
+                    )}
+                </Form>
+            </DialogContent>
+        </Dialog>
     );
 }
 
