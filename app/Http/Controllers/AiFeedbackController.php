@@ -49,11 +49,11 @@ class AiFeedbackController extends Controller
         $content = $this->trainingDocument($aiFeedback);
         $filename = Str::uuid().'.md';
         $path = 'knowledge/'.$filename;
-        Storage::disk('local')->put($path, $content);
+        Storage::disk(config('filesystems.private'))->put($path, $content);
         $document = new KnowledgeDocument([
             'user_id' => $request->user()->id,
             'title' => 'Arevia correction '.$aiFeedback->generation->uuid,
-            'source' => Storage::disk('local')->path($path),
+            'source' => $path,
             'file_size' => strlen($content),
         ]);
         $indexer->indexContent($document, $content, $document->title);

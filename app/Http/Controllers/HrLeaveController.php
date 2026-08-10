@@ -165,9 +165,9 @@ class HrLeaveController extends Controller
 
     public function downloadAttachment(HrLeaveRequest $leave, HrLeaveAttachment $attachment): StreamedResponse
     {
-        abort_unless($attachment->leave_request_id === $leave->id && Storage::disk('local')->exists($attachment->path), 404);
+        abort_unless($attachment->leave_request_id === $leave->id && Storage::disk(config('filesystems.private'))->exists($attachment->path), 404);
 
-        return Storage::disk('local')->download($attachment->path, $attachment->original_name, [
+        return Storage::disk(config('filesystems.private'))->download($attachment->path, $attachment->original_name, [
             'Content-Type' => $attachment->mime_type,
             'Cache-Control' => 'private, no-store',
         ]);

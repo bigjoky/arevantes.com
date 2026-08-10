@@ -24,7 +24,7 @@ class SupplierInvoiceDocumentController extends Controller
             throw ValidationException::withMessages(['document_file' => __('This file is already attached to another purchase document.')]);
         }
 
-        $path = $file->store("purchase-documents/{$purchaseDocument->id}", 'local');
+        $path = $file->store("purchase-documents/{$purchaseDocument->id}", config('filesystems.private'));
         try {
             $purchaseDocument->attachment()->create([
                 'uploaded_by' => $request->user()->id,
@@ -36,7 +36,7 @@ class SupplierInvoiceDocumentController extends Controller
                 'extraction_status' => 'pending',
             ]);
         } catch (\Throwable $exception) {
-            Storage::disk('local')->delete($path);
+            Storage::disk(config('filesystems.private'))->delete($path);
             throw $exception;
         }
 
@@ -47,9 +47,9 @@ class SupplierInvoiceDocumentController extends Controller
     {
         $this->assertSupported($purchaseDocument);
         $attachment = $purchaseDocument->attachment;
-        abort_unless($attachment && Storage::disk('local')->exists($attachment->path), 404);
+        abort_unless($attachment && Storage::disk(config('filesystems.private'))->exists($attachment->path), 404);
 
-        return Storage::disk('local')->download($attachment->path, $attachment->original_name, ['Content-Type' => $attachment->mime_type]);
+        return Storage::disk(config('filesystems.private'))->download($attachment->path, $attachment->original_name, ['Content-Type' => $attachment->mime_type]);
     }
 
     public function extract(PurchaseDocument $purchaseDocument, SupplierInvoiceExtraction $extraction): RedirectResponse

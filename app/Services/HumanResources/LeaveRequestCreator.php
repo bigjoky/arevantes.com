@@ -47,7 +47,7 @@ class LeaveRequestCreator
         ]);
 
         if ($attachment) {
-            $path = $attachment->store("human-resources/leave/{$leave->id}", 'local');
+            $path = $attachment->store("human-resources/leave/{$leave->id}", config('filesystems.private'));
             $leave->attachments()->create([
                 'uploaded_by' => auth()->id(),
                 'original_name' => $attachment->getClientOriginalName(),

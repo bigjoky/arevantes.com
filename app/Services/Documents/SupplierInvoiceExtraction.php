@@ -79,10 +79,15 @@ class SupplierInvoiceExtraction
     private function aiAttachments(PurchaseDocumentAttachment|PurchaseInboxDocument $attachment, array &$temporary): array
     {
         if (str_starts_with($attachment->mime_type, 'image/')) {
-            return [Image::fromStorage($attachment->path, 'local')];
+            return [Image::fromStorage($attachment->path, config('filesystems.private'))];
         }
 
-        $source = Storage::disk('local')->path($attachment->path);
+        $source = tempnam(sys_get_temp_dir(), 'supplier-invoice-');
+        if ($source === false) {
+            throw new \RuntimeException('Unable to create a temporary invoice file.');
+        }
+        File::put($source, Storage::disk(config('filesystems.private'))->get($attachment->path));
+        $temporary[] = $source;
         $directory = storage_path('app/private/purchase-extraction/'.$attachment->getTable().'-'.$attachment->id);
         File::ensureDirectoryExists($directory);
         $pdf = new \Imagick;

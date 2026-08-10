@@ -49,7 +49,7 @@ class TaxController extends Controller
                 'negative_result_option' => __('A VAT refund outside the final period requires monthly REDEME treatment, which is not configured in this module.'),
             ]);
         }
-        $path = $data['receipt']->store("tax-returns/{$taxReturn->id}", 'local');
+        $path = $data['receipt']->store("tax-returns/{$taxReturn->id}", config('filesystems.private'));
         $option = $negative ? $data['negative_result_option'] : ((float) $taxReturn->result > 0 ? 'payable' : 'none');
         $settlementStatus = match ($option) {
             'compensate' => 'carried_forward',
@@ -66,7 +66,7 @@ class TaxController extends Controller
             'filed_by' => $request->user()->id,
             'receipt_path' => $path,
             'receipt_original_name' => $data['receipt']->getClientOriginalName(),
-            'receipt_sha256' => hash_file('sha256', Storage::disk('local')->path($path)),
+            'receipt_sha256' => hash('sha256', Storage::disk(config('filesystems.private'))->get($path)),
         ]);
 
         return back()->with('toast', ['type' => 'success', 'message' => __('VAT return marked as filed.')]);
@@ -74,9 +74,9 @@ class TaxController extends Controller
 
     public function receipt(TaxReturn $taxReturn): StreamedResponse
     {
-        abort_unless($taxReturn->receipt_path && Storage::disk('local')->exists($taxReturn->receipt_path), 404);
+        abort_unless($taxReturn->receipt_path && Storage::disk(config('filesystems.private'))->exists($taxReturn->receipt_path), 404);
 
-        return Storage::disk('local')->download($taxReturn->receipt_path, "vat-{$taxReturn->year}-Q{$taxReturn->quarter}-receipt.pdf", ['Content-Type' => 'application/pdf']);
+        return Storage::disk(config('filesystems.private'))->download($taxReturn->receipt_path, "vat-{$taxReturn->year}-Q{$taxReturn->quarter}-receipt.pdf", ['Content-Type' => 'application/pdf']);
     }
 
     public function pay(Request $request, TaxReturn $taxReturn, JournalPoster $poster): RedirectResponse
