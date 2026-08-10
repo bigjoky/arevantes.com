@@ -59,6 +59,14 @@ type RuleSuggestion = {
     rule_name: string;
     confidence: number;
     ledger_account: { id: number; code: string; name: string };
+    conflict: boolean;
+    alternatives: {
+        rule_id: number;
+        rule_name: string;
+        confidence: number;
+        account_code: string;
+        account_name: string;
+    }[];
     explanation: string;
 };
 type ReconciliationRule = {
@@ -81,7 +89,16 @@ type RulePreview = {
     scanned: number;
     truncated: boolean;
     matched: number;
+    conflicts: number;
+    eligibleByConfidence: Record<string, number>;
     byRule: { rule_id: number; name: string; matched: number }[];
+    details: (RuleSuggestion & {
+        transaction_id: number;
+        booked_on: string;
+        description: string;
+        reference: string | null;
+        amount: number;
+    })[];
 };
 type RuleRun = {
     id: number;
@@ -93,6 +110,11 @@ type RuleRun = {
     completed_at: string | null;
     created_at: string;
     triggered_by: { name: string } | null;
+    reversed_by: { name: string } | null;
+    reversed_at: string | null;
+    reversal_reason: string | null;
+    posting_count: number;
+    can_reverse: boolean;
 };
 type LiabilityAccount = { id: number; code: string; name: string };
 type FinancialProduct = {
@@ -767,14 +789,24 @@ export default function BankingIndex({
                                                         'pending' &&
                                                         transaction.rule_suggestion && (
                                                             <Badge
-                                                                variant="secondary"
+                                                                variant={
+                                                                    transaction
+                                                                        .rule_suggestion
+                                                                        .conflict
+                                                                        ? 'destructive'
+                                                                        : 'secondary'
+                                                                }
                                                                 title={
                                                                     transaction
                                                                         .rule_suggestion
                                                                         .explanation
                                                                 }
                                                             >
-                                                                Rule ·{' '}
+                                                                {transaction
+                                                                    .rule_suggestion
+                                                                    .conflict
+                                                                    ? 'Rule conflict · '
+                                                                    : 'Rule · '}
                                                                 {
                                                                     transaction
                                                                         .rule_suggestion
@@ -798,7 +830,11 @@ export default function BankingIndex({
                                                                 }
                                                             </div>
                                                             <div className="text-muted-foreground">
-                                                                Post to{' '}
+                                                                {transaction
+                                                                    .rule_suggestion
+                                                                    .conflict
+                                                                    ? 'Blocked: competing accounts include '
+                                                                    : 'Post to '}
                                                                 <span className="font-mono">
                                                                     {
                                                                         transaction
@@ -814,6 +850,25 @@ export default function BankingIndex({
                                                                         .name
                                                                 }
                                                             </div>
+                                                            {transaction
+                                                                .rule_suggestion
+                                                                .alternatives
+                                                                .length > 0 && (
+                                                                <div className="mt-1 text-muted-foreground">
+                                                                    Also
+                                                                    matched:{' '}
+                                                                    {transaction.rule_suggestion.alternatives
+                                                                        .map(
+                                                                            (
+                                                                                alternative,
+                                                                            ) =>
+                                                                                `${alternative.rule_name} → ${alternative.account_code}`,
+                                                                        )
+                                                                        .join(
+                                                                            ', ',
+                                                                        )}
+                                                                </div>
+                                                            )}
                                                         </div>
                                                     )}
                                                 {transaction.transfer &&
@@ -1369,6 +1424,10 @@ function ReconciliationRules({
     preview: RulePreview;
     runs: RuleRun[];
 }) {
+    const [minimumConfidence, setMinimumConfidence] = useState('95');
+    const eligibleMatches =
+        preview.eligibleByConfidence[minimumConfidence] ?? 0;
+
     return (
         <details className="rounded-md border" open={rules.length === 0}>
             <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-3 px-4 py-3">
@@ -1379,7 +1438,9 @@ function ReconciliationRules({
                     <div className="text-xs font-normal text-muted-foreground">
                         {rules.filter((rule) => rule.is_active).length} active ·{' '}
                         {preview.matched} of {preview.pending} pending movements
-                        match the current rules
+                        can be safely posted
+                        {preview.conflicts > 0 &&
+                            ` · ${preview.conflicts} conflicts blocked`}
                     </div>
                 </div>
                 <Badge variant={preview.matched ? 'secondary' : 'outline'}>
@@ -1580,6 +1641,97 @@ function ReconciliationRules({
                             </div>
                         )}
                     </div>
+
+                    {preview.details.length > 0 && (
+                        <details className="rounded-md border">
+                            <summary className="cursor-pointer px-3 py-2 text-sm font-medium">
+                                Movement-level preview ·{' '}
+                                {preview.details.length}
+                                {preview.details.length <
+                                preview.matched + preview.conflicts
+                                    ? ' shown'
+                                    : ''}
+                            </summary>
+                            <TableViewport className="border-t">
+                                <table className="w-full min-w-[48rem] text-xs">
+                                    <thead>
+                                        <tr className="border-b text-left text-muted-foreground">
+                                            <th className="py-2">Date</th>
+                                            <th>Movement</th>
+                                            <th className="text-right">
+                                                Amount
+                                            </th>
+                                            <th>Selected rule</th>
+                                            <th>Ledger account</th>
+                                            <th>Decision</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {preview.details.map((item) => (
+                                            <tr
+                                                key={item.transaction_id}
+                                                className="border-b align-top"
+                                            >
+                                                <td className="py-2">
+                                                    {date(item.booked_on)}
+                                                </td>
+                                                <td>
+                                                    <div className="max-w-xs font-medium">
+                                                        {item.description}
+                                                    </div>
+                                                    <div className="font-mono text-muted-foreground">
+                                                        {item.reference || '—'}
+                                                    </div>
+                                                </td>
+                                                <td className="text-right font-medium">
+                                                    {money(
+                                                        item.amount,
+                                                        account.currency,
+                                                    )}
+                                                </td>
+                                                <td>
+                                                    {item.rule_name} ·{' '}
+                                                    {item.confidence}%
+                                                </td>
+                                                <td>
+                                                    <span className="font-mono">
+                                                        {
+                                                            item.ledger_account
+                                                                .code
+                                                        }
+                                                    </span>{' '}
+                                                    {item.ledger_account.name}
+                                                </td>
+                                                <td>
+                                                    {item.conflict ? (
+                                                        <div>
+                                                            <Badge variant="destructive">
+                                                                Blocked conflict
+                                                            </Badge>
+                                                            <div className="mt-1 text-muted-foreground">
+                                                                {item.alternatives
+                                                                    .map(
+                                                                        (
+                                                                            alternative,
+                                                                        ) =>
+                                                                            `${alternative.rule_name} → ${alternative.account_code}`,
+                                                                    )
+                                                                    .join(', ')}
+                                                            </div>
+                                                        </div>
+                                                    ) : (
+                                                        <Badge variant="secondary">
+                                                            Ready to post
+                                                        </Badge>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </TableViewport>
+                        </details>
+                    )}
                 </div>
 
                 <div className="grid content-start gap-4">
@@ -1596,6 +1748,14 @@ function ReconciliationRules({
                                 Apply in batches and review each result.
                             </p>
                         )}
+                        {preview.conflicts > 0 && (
+                            <p className="mt-2 text-xs text-destructive">
+                                {preview.conflicts} movement
+                                {preview.conflicts === 1 ? '' : 's'} matched
+                                rules pointing to different accounts. They are
+                                blocked until the rules are narrowed or removed.
+                            </p>
+                        )}
                         <Form
                             action={`/banking/accounts/${account.id}/apply-rules`}
                             method="post"
@@ -1603,7 +1763,7 @@ function ReconciliationRules({
                             onSubmit={(event) => {
                                 if (
                                     !window.confirm(
-                                        `Post ${preview.matched} matched movements to the ledger?`,
+                                        `Post ${eligibleMatches} movements at or above ${minimumConfidence}% confidence?`,
                                     )
                                 ) {
                                     event.preventDefault();
@@ -1619,7 +1779,8 @@ function ReconciliationRules({
                                 <Label>Minimum confidence</Label>
                                 <Select
                                     name="minimum_confidence"
-                                    defaultValue="95"
+                                    value={minimumConfidence}
+                                    onValueChange={setMinimumConfidence}
                                 >
                                     <SelectTrigger>
                                         <SelectValue />
@@ -1637,8 +1798,8 @@ function ReconciliationRules({
                                     </SelectContent>
                                 </Select>
                             </div>
-                            <Button disabled={preview.matched === 0}>
-                                <RefreshCw /> Apply {preview.matched} previewed
+                            <Button disabled={eligibleMatches === 0}>
+                                <RefreshCw /> Apply {eligibleMatches} eligible
                                 matches
                             </Button>
                         </Form>
@@ -1653,29 +1814,81 @@ function ReconciliationRules({
                                 {runs.map((run) => (
                                     <div
                                         key={run.id}
-                                        className="flex items-start justify-between gap-3 border-t pt-2 text-xs first:border-0 first:pt-0"
+                                        className="grid gap-2 border-t pt-3 text-xs first:border-0 first:pt-0"
                                     >
-                                        <div>
+                                        <div className="flex items-start justify-between gap-3">
                                             <div>
-                                                Run #{run.id} · {run.status}
+                                                <div>
+                                                    Run #{run.id} · {run.status}
+                                                </div>
+                                                <div className="text-muted-foreground">
+                                                    {date(run.created_at)} ·{' '}
+                                                    {run.triggered_by?.name ??
+                                                        'User'}{' '}
+                                                    · minimum{' '}
+                                                    {run.minimum_confidence}%
+                                                </div>
                                             </div>
-                                            <div className="text-muted-foreground">
-                                                {date(run.created_at)} ·{' '}
-                                                {run.triggered_by?.name ??
+                                            <div className="text-right">
+                                                <div>
+                                                    {run.matched_count} posted
+                                                </div>
+                                                <div className="text-muted-foreground">
+                                                    {run.skipped_count} skipped
+                                                    · {run.failed_count} failed
+                                                </div>
+                                            </div>
+                                        </div>
+                                        {run.reversed_at && (
+                                            <div
+                                                className="rounded bg-muted/40 p-2 text-muted-foreground"
+                                                title={
+                                                    run.reversal_reason ??
+                                                    undefined
+                                                }
+                                            >
+                                                Reversed by{' '}
+                                                {run.reversed_by?.name ??
                                                     'User'}{' '}
-                                                · minimum{' '}
-                                                {run.minimum_confidence}%
+                                                · {date(run.reversed_at)} ·{' '}
+                                                {run.reversal_reason}
                                             </div>
-                                        </div>
-                                        <div className="text-right">
-                                            <div>
-                                                {run.matched_count} posted
-                                            </div>
-                                            <div className="text-muted-foreground">
-                                                {run.skipped_count} skipped ·{' '}
-                                                {run.failed_count} failed
-                                            </div>
-                                        </div>
+                                        )}
+                                        {run.can_reverse && (
+                                            <Form
+                                                action={`/banking/rule-runs/${run.id}/reverse`}
+                                                method="post"
+                                                className="grid gap-2 rounded border border-dashed p-2"
+                                                onSubmit={(event) => {
+                                                    if (
+                                                        !window.confirm(
+                                                            `Reverse all ${run.posting_count} postings from run #${run.id}?`,
+                                                        )
+                                                    ) {
+                                                        event.preventDefault();
+                                                    }
+                                                }}
+                                            >
+                                                <input
+                                                    type="hidden"
+                                                    name="confirmation"
+                                                    value={`REVERSE-${run.id}-${run.posting_count}`}
+                                                />
+                                                <Input
+                                                    name="reason"
+                                                    minLength={10}
+                                                    maxLength={500}
+                                                    placeholder="Reason for reversing the complete run"
+                                                    required
+                                                />
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                >
+                                                    Undo complete run
+                                                </Button>
+                                            </Form>
+                                        )}
                                     </div>
                                 ))}
                             </div>

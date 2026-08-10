@@ -6,6 +6,7 @@ use App\Models\BankReconciliationRule;
 use App\Models\BankReconciliationRun;
 use App\Models\BankTransaction;
 use App\Models\BankTransactionPosting;
+use App\Models\JournalEntry;
 use App\Models\LedgerAccount;
 use App\Services\Accounting\JournalPoster;
 use Illuminate\Support\Facades\DB;
@@ -46,6 +47,40 @@ class BankTransactionPoster
             $transaction->update(['status' => 'accounted']);
 
             return $posting;
+        });
+    }
+
+    public function reverse(BankTransactionPosting $posting, int $userId): JournalEntry
+    {
+        return DB::transaction(function () use ($posting, $userId) {
+            $posting = BankTransactionPosting::lockForUpdate()->findOrFail($posting->id);
+            if ($posting->reversed_at) {
+                throw ValidationException::withMessages(['posting' => __('This bank accounting posting has already been reversed.')]);
+            }
+            $posting->load('journalEntry.lines.account:id,code');
+            if (! $posting->journalEntry) {
+                throw ValidationException::withMessages(['posting' => __('The original accounting entry is missing.')]);
+            }
+            $lines = $posting->journalEntry->lines->map(fn ($line) => [
+                'account_code' => $line->account->code,
+                'description' => $line->description,
+                'debit' => $line->credit,
+                'credit' => $line->debit,
+            ])->all();
+            $entry = $this->poster->post(
+                now()->toDateString(),
+                __('Reversal of :entry', ['entry' => $posting->journalEntry->number]),
+                $lines,
+                $userId,
+                'reversal',
+                null,
+                'reversal',
+                $posting->journalEntry,
+            );
+            $posting->update(['reversal_entry_id' => $entry->id, 'reversed_at' => now()]);
+            $posting->transaction()->update(['status' => 'pending']);
+
+            return $entry;
         });
     }
 }

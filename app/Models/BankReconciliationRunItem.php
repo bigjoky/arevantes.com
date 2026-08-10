@@ -13,4 +13,19 @@ class BankReconciliationRunItem extends Model
     {
         return $this->belongsTo(BankReconciliationRun::class, 'bank_reconciliation_run_id');
     }
+
+    public function rule(): BelongsTo
+    {
+        return $this->belongsTo(BankReconciliationRule::class, 'bank_reconciliation_rule_id');
+    }
+
+    public function transaction(): BelongsTo
+    {
+        return $this->belongsTo(BankTransaction::class, 'bank_transaction_id');
+    }
+
+    public function posting(): BelongsTo
+    {
+        return $this->belongsTo(BankTransactionPosting::class, 'bank_transaction_posting_id');
+    }
 }

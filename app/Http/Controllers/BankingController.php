@@ -26,6 +26,7 @@ use App\Services\Accounting\LedgerAccountResolver;
 use App\Services\Banking\BankFinancialProductManager;
 use App\Services\Banking\BankReconciliationRuleEngine;
 use App\Services\Banking\BankTransactionAnalyzer;
+use App\Services\Banking\BankTransactionPoster;
 use App\Services\Banking\CardSettlementSchedule;
 use App\Services\Banking\StatementImporter;
 use App\Services\Finance\OutstandingBalanceCalculator;
@@ -155,7 +156,12 @@ class BankingController extends Controller
             ]) : [];
 
         $rules = $account ? BankReconciliationRule::with('ledgerAccount:id,code,name')->whereBelongsTo($account, 'account')->orderBy('priority')->orderBy('name')->get() : [];
-        $ruleRuns = $account ? BankReconciliationRun::with('triggeredBy:id,name')->whereBelongsTo($account, 'account')->latest()->limit(5)->get() : [];
+        $ruleRuns = $account ? BankReconciliationRun::with(['triggeredBy:id,name', 'reversedBy:id,name', 'items.posting.transaction:id,status'])->whereBelongsTo($account, 'account')->latest()->limit(5)->get()->map(function (BankReconciliationRun $run) {
+            $applied = $run->items->where('outcome', 'applied');
+            $stateIsReversible = $applied->isNotEmpty() && $applied->every(fn ($item) => $item->posting && ($item->posting->reversed_at ? $item->posting->transaction?->status === 'pending' : $item->posting->transaction?->status === 'accounted'));
+
+            return [...$run->toArray(), 'posting_count' => $applied->count(), 'can_reverse' => ! $run->reversed_at && $stateIsReversible];
+        }) : [];
 
         return Inertia::render('banking/index', ['accounts' => $accounts, 'selectedAccount' => $account, 'transactions' => $transactions, 'imports' => $imports, 'control' => $account ? $this->bankControl($account) : null, 'ledgerAccounts' => LedgerAccount::where('is_active', true)->where('is_postable', true)->whereNotIn('code', ['430', '400', '410', '472', '477'])->orderBy('code')->get(['id', 'code', 'name', 'type']), 'liabilityAccounts' => LedgerAccount::where('is_active', true)->where('is_postable', true)->where('type', 'liability')->orderBy('code')->get(['id', 'code', 'name']), 'products' => $products, 'productSummary' => $productSummary, 'summary' => $summary, 'filters' => $filters, 'reconciliationRules' => $rules, 'rulePreview' => $account ? $this->ruleEngine->preview($account, $activeRules) : null, 'ruleRuns' => $ruleRuns]);
     }
@@ -196,7 +202,19 @@ class BankingController extends Controller
         }
         $run = $this->ruleEngine->apply($account, $request->user()->id, (int) $data['minimum_confidence']);
 
-        return back()->with('toast', ['type' => $run->failed_count ? 'warning' : 'success', 'message' => __('Rule run completed: :matched applied, :failed failed and :skipped skipped.', ['matched' => $run->matched_count, 'failed' => $run->failed_count, 'skipped' => $run->skipped_count])]);
+        return back()->with('toast', ['type' => $run->failed_count || data_get($run->summary, 'conflicts') ? 'warning' : 'success', 'message' => __('Rule run completed: :matched applied, :failed failed, :conflicts conflicts and :skipped skipped.', ['matched' => $run->matched_count, 'failed' => $run->failed_count, 'conflicts' => data_get($run->summary, 'conflicts', 0), 'skipped' => $run->skipped_count])]);
+    }
+
+    public function reverseRuleRun(Request $request, BankReconciliationRun $run): RedirectResponse
+    {
+        $data = $request->validate(['reason' => ['required', 'string', 'min:10', 'max:500'], 'confirmation' => ['required', 'string']]);
+        $postingCount = $run->items()->where('outcome', 'applied')->count();
+        if ($data['confirmation'] !== 'REVERSE-'.$run->id.'-'.$postingCount) {
+            throw ValidationException::withMessages(['confirmation' => __('The run contents changed. Refresh the page and confirm the current posting count.')]);
+        }
+        $this->ruleEngine->reverse($run, $request->user()->id, $data['reason']);
+
+        return back()->with('toast', ['type' => 'success', 'message' => __('The complete rule run was reversed and its movements returned to pending review.')]);
     }
 
     public function storeAccount(Request $request): RedirectResponse
@@ -470,16 +488,9 @@ class BankingController extends Controller
         return back()->with('toast', ['type' => 'success', 'message' => __('Bank movement posted to accounting.')]);
     }
 
-    public function reversePosting(Request $request, BankTransactionPosting $posting, JournalPoster $poster): RedirectResponse
+    public function reversePosting(Request $request, BankTransactionPosting $posting, BankTransactionPoster $transactionPoster): RedirectResponse
     {
-        abort_if($posting->reversed_at, 422);
-        $posting->load('journalEntry.lines.account:id,code');
-        $lines = $posting->journalEntry->lines->map(fn ($line) => ['account_code' => $line->account->code, 'debit' => $line->credit, 'credit' => $line->debit])->all();
-        DB::transaction(function () use ($request, $posting, $poster, $lines) {
-            $entry = $poster->post(now()->toDateString(), __('Reversal of :entry', ['entry' => $posting->journalEntry->number]), $lines, $request->user()->id, 'reversal', null, 'reversal', $posting->journalEntry);
-            $posting->update(['reversal_entry_id' => $entry->id, 'reversed_at' => now()]);
-            $posting->transaction()->update(['status' => 'pending']);
-        });
+        $transactionPoster->reverse($posting, $request->user()->id);
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Bank accounting posting reversed.')]);
     }

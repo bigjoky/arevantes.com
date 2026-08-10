@@ -285,6 +285,7 @@ Route::middleware(['auth'])->group(function () {
     Route::patch('banking/rules/{rule}', [BankingController::class, 'updateRule'])->middleware('can:manage-treasury')->name('banking.rules.update');
     Route::delete('banking/rules/{rule}', [BankingController::class, 'destroyRule'])->middleware('can:manage-treasury')->name('banking.rules.destroy');
     Route::post('banking/accounts/{account}/apply-rules', [BankingController::class, 'applyRules'])->middleware(['can:manage-treasury', 'can:manage-accounting'])->name('banking.rules.apply');
+    Route::post('banking/rule-runs/{run}/reverse', [BankingController::class, 'reverseRuleRun'])->middleware(['can:manage-treasury', 'can:manage-accounting'])->name('banking.rule-runs.reverse');
     Route::post('banking/transactions/{transaction}/reconcile', [BankingController::class, 'reconcile'])->middleware('can:manage-treasury')->name('banking.reconcile');
     Route::delete('banking/reconciliations/{reconciliation}', [BankingController::class, 'undo'])->middleware('can:manage-treasury')->name('banking.reconciliations.undo');
     Route::post('banking/transactions/{transaction}/post', [BankingController::class, 'postTransaction'])->middleware('can:manage-accounting')->name('banking.transactions.post');

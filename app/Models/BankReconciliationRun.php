@@ -8,11 +8,11 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class BankReconciliationRun extends Model
 {
-    protected $fillable = ['bank_account_id', 'triggered_by', 'status', 'minimum_confidence', 'matched_count', 'skipped_count', 'failed_count', 'summary', 'started_at', 'completed_at'];
+    protected $fillable = ['bank_account_id', 'triggered_by', 'reversed_by', 'status', 'minimum_confidence', 'matched_count', 'skipped_count', 'failed_count', 'summary', 'started_at', 'completed_at', 'reversed_at', 'reversal_reason'];
 
     protected function casts(): array
     {
-        return ['minimum_confidence' => 'integer', 'summary' => 'array', 'started_at' => 'datetime', 'completed_at' => 'datetime'];
+        return ['minimum_confidence' => 'integer', 'summary' => 'array', 'started_at' => 'datetime', 'completed_at' => 'datetime', 'reversed_at' => 'datetime'];
     }
 
     public function account(): BelongsTo
@@ -28,5 +28,10 @@ class BankReconciliationRun extends Model
     public function triggeredBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'triggered_by');
+    }
+
+    public function reversedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'reversed_by');
     }
 }
