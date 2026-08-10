@@ -11,6 +11,7 @@ use App\Models\Quote;
 use App\Models\SalesDocument;
 use App\Services\Documents\DocumentFingerprint;
 use App\Services\Documents\DocumentPdf;
+use App\Services\Quotes\QuoteSelection;
 use App\Services\Quotes\QuoteStatusWorkflow;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -49,27 +50,33 @@ class DocumentDeliveryController extends Controller
             }
         }
 
-        return Inertia::render('shared/document', ['company' => CompanyProfile::first()?->only(['legal_name', 'trade_name', 'email', 'phone']), 'document' => $document->load('lines'), 'kind' => $delivery->quote_id ? 'quote' : $delivery->salesDocument->type, 'token' => $token, 'canRespond' => (bool) $delivery->quote_id && in_array($delivery->quote->status, ['draft', 'sent'], true) && ! $delivery->responded_at, 'deliveryStatus' => $delivery->status]);
+        $delivery->quote_id ? $document->load('lines.components.unit') : $document->load('lines');
+
+        return Inertia::render('shared/document', ['company' => CompanyProfile::first()?->only(['legal_name', 'trade_name', 'email', 'phone']), 'document' => $document, 'kind' => $delivery->quote_id ? 'quote' : $delivery->salesDocument->type, 'token' => $token, 'canRespond' => (bool) $delivery->quote_id && in_array($delivery->quote->status, ['draft', 'sent'], true) && ! $delivery->responded_at, 'deliveryStatus' => $delivery->status]);
     }
 
-    public function respond(Request $request, string $token, QuoteStatusWorkflow $workflow): RedirectResponse
+    public function respond(Request $request, string $token, QuoteStatusWorkflow $workflow, QuoteSelection $selection): RedirectResponse
     {
         $delivery = $this->delivery($token);
         abort_unless($delivery->quote_id && ! $delivery->responded_at, 422);
-        $data = $request->validate(['response' => ['required', 'in:accepted,rejected']]);
+        $data = $request->validate(['response' => ['required', 'in:accepted,rejected'], 'selected_line_ids' => ['sometimes', 'array'], 'selected_line_ids.*' => ['integer']]);
         $quote = $delivery->quote;
         abort_unless(in_array($quote->status, ['draft', 'sent'], true), 422);
+        if ($data['response'] === 'accepted') {
+            $quote = $selection->apply($quote, $data['selected_line_ids'] ?? []);
+        }
         $workflow->apply($quote, $data['response'], null, 'shared_link');
         $delivery->update(['status' => $data['response'], 'responded_at' => now(), 'response_ip' => $request->ip(), 'response_user_agent' => Str::limit((string) $request->userAgent(), 1000, '')]);
         if ($data['response'] === 'accepted') {
             $fingerprint = app(DocumentFingerprint::class)->for($quote);
+            $delivery->update(['document_version' => $fingerprint['version'], 'document_hash' => $fingerprint['hash']]);
             CustomerDocumentAcceptance::firstOrCreate([
                 'person_id' => $quote->person_id,
                 'document_type' => 'quote',
                 'document_id' => $quote->id,
-                'document_version' => $delivery->document_version ?: $fingerprint['version'],
+                'document_version' => $fingerprint['version'],
             ], [
-                'document_hash' => $delivery->document_hash ?: $fingerprint['hash'],
+                'document_hash' => $fingerprint['hash'],
                 'accepted_at' => now(),
                 'ip_address' => $request->ip(),
                 'user_agent' => Str::limit((string) $request->userAgent(), 1000, ''),

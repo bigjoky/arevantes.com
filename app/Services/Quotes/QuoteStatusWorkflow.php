@@ -18,7 +18,7 @@ class QuoteStatusWorkflow
         'expired' => [],
     ];
 
-    public function __construct(private readonly ProjectMaterialPlanner $materials) {}
+    public function __construct(private readonly ProjectMaterialPlanner $materials, private readonly QuoteOperationalPlanner $operations) {}
 
     public function assertCanTransition(Quote $quote, string $status): void
     {
@@ -78,6 +78,7 @@ class QuoteStatusWorkflow
             if ($status === 'accepted' && $quote->installation) {
                 $quote->installation->update(['status' => 'approved', 'estimated_budget' => $quote->amount]);
                 $this->materials->syncFromQuote($quote, $quote->installation);
+                $this->operations->sync($quote, $quote->installation, $actor?->id);
             }
 
             if (! $quote->opportunity) {

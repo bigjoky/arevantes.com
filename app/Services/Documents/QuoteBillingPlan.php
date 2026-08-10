@@ -64,7 +64,7 @@ class QuoteBillingPlan
         $quote->loadMissing('lines');
         $previousByPosition = $isFinal ? $this->previousLines($quote) : collect();
         $ratio = (float) $quote->amount > 0 ? $amount / (float) $quote->amount : 0;
-        $lines = $quote->lines->map(function ($line) use ($ratio, $isFinal, $previousByPosition): array {
+        $lines = $quote->lines->where('is_selected', true)->map(function ($line) use ($ratio, $isFinal, $previousByPosition): array {
             $previous = $previousByPosition->get($line->position);
             $scale = fn (string $field): float => $isFinal
                 ? round((float) $line->{$field} - (float) ($previous?->{$field} ?? 0), 2)

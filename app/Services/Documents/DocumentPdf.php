@@ -11,6 +11,9 @@ class DocumentPdf
 {
     public function render(object $document, string $kind): string
     {
+        $kind === 'quote'
+            ? $document->loadMissing('lines.components.unit')
+            : $document->loadMissing('lines');
         $options = new Options;
         $options->set('defaultFont', 'DejaVu Sans');
         $options->set('isRemoteEnabled', false);
