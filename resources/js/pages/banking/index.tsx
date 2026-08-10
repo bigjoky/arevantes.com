@@ -54,6 +54,78 @@ type Candidate = {
     confidence: number;
 };
 type LedgerAccount = { id: number; code: string; name: string; type: string };
+type RuleSuggestion = {
+    rule_id: number;
+    rule_name: string;
+    rule_version: number;
+    confidence: number;
+    ledger_account: { id: number; code: string; name: string };
+    conflict: boolean;
+    alternatives: {
+        rule_id: number;
+        rule_name: string;
+        confidence: number;
+        account_code: string;
+        account_name: string;
+    }[];
+    explanation: string;
+};
+type ReconciliationRule = {
+    id: number;
+    name: string;
+    priority: number;
+    direction: 'any' | 'in' | 'out';
+    match_field: 'description' | 'reference' | 'either';
+    match_operator: 'contains' | 'starts_with' | 'exact';
+    pattern: string;
+    min_amount: string | null;
+    max_amount: string | null;
+    confidence: number;
+    is_active: boolean;
+    application_count: number;
+    current_version: number;
+    ledger_account: { id: number; code: string; name: string };
+    versions: {
+        id: number;
+        version: number;
+        snapshot: Record<string, string | number | boolean | null>;
+        change_reason: string;
+        created_at: string;
+        changer: { name: string } | null;
+    }[];
+};
+type RulePreview = {
+    pending: number;
+    scanned: number;
+    truncated: boolean;
+    matched: number;
+    conflicts: number;
+    eligibleByConfidence: Record<string, number>;
+    byRule: { rule_id: number; name: string; matched: number }[];
+    details: (RuleSuggestion & {
+        transaction_id: number;
+        booked_on: string;
+        description: string;
+        reference: string | null;
+        amount: number;
+    })[];
+};
+type RuleRun = {
+    id: number;
+    status: string;
+    minimum_confidence: number;
+    matched_count: number;
+    skipped_count: number;
+    failed_count: number;
+    completed_at: string | null;
+    created_at: string;
+    triggered_by: { name: string } | null;
+    reversed_by: { name: string } | null;
+    reversed_at: string | null;
+    reversal_reason: string | null;
+    posting_count: number;
+    can_reverse: boolean;
+};
 type LiabilityAccount = { id: number; code: string; name: string };
 type FinancialProduct = {
     id: number;
@@ -104,6 +176,7 @@ type StatementImport = {
     id: number;
     filename: string;
     format: string;
+    source_account: string | null;
     period_from: string | null;
     period_to: string | null;
     opening_balance: string | null;
@@ -142,6 +215,7 @@ type Transaction = {
     candidates: Candidate[];
     match_quality: 'ready' | 'review' | 'unmatched' | 'completed';
     recommended_candidate: Candidate | null;
+    rule_suggestion: RuleSuggestion | null;
     risk_flags: {
         code: string;
         label: string;
@@ -184,6 +258,9 @@ export default function BankingIndex({
     control,
     summary,
     filters,
+    reconciliationRules,
+    rulePreview,
+    ruleRuns,
 }: {
     accounts: Account[];
     selectedAccount: Account | null;
@@ -204,6 +281,9 @@ export default function BankingIndex({
         medianAmount: number;
     };
     filters: { search: string; status: string; from: string; to: string };
+    reconciliationRules: ReconciliationRule[];
+    rulePreview: RulePreview | null;
+    ruleRuns: RuleRun[];
 }) {
     return (
         <>
@@ -418,6 +498,15 @@ export default function BankingIndex({
                                 </Button>
                             </Form>
                         </section>
+                        {rulePreview && (
+                            <ReconciliationRules
+                                account={selectedAccount}
+                                ledgerAccounts={ledgerAccounts}
+                                rules={reconciliationRules}
+                                preview={rulePreview}
+                                runs={ruleRuns}
+                            />
+                        )}
                         {imports.length > 0 && (
                             <details className="group rounded-md border">
                                 <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-semibold">
@@ -461,6 +550,14 @@ export default function BankingIndex({
                                                         title={item.filename}
                                                     >
                                                         {item.filename}
+                                                        {item.source_account && (
+                                                            <span className="block text-xs text-muted-foreground">
+                                                                Account{' '}
+                                                                {
+                                                                    item.source_account
+                                                                }
+                                                            </span>
+                                                        )}
                                                     </td>
                                                     <td>
                                                         <Badge variant="outline">
@@ -698,9 +795,98 @@ export default function BankingIndex({
                                                                   : 'No suggested match'}
                                                         </Badge>
                                                     )}
+                                                    {transaction.status ===
+                                                        'pending' &&
+                                                        transaction.rule_suggestion && (
+                                                            <Badge
+                                                                variant={
+                                                                    transaction
+                                                                        .rule_suggestion
+                                                                        .conflict
+                                                                        ? 'destructive'
+                                                                        : 'secondary'
+                                                                }
+                                                                title={
+                                                                    transaction
+                                                                        .rule_suggestion
+                                                                        .explanation
+                                                                }
+                                                            >
+                                                                {transaction
+                                                                    .rule_suggestion
+                                                                    .conflict
+                                                                    ? `Rule v${transaction.rule_suggestion.rule_version} conflict · `
+                                                                    : `Rule v${transaction.rule_suggestion.rule_version} · `}
+                                                                {
+                                                                    transaction
+                                                                        .rule_suggestion
+                                                                        .confidence
+                                                                }
+                                                                %
+                                                            </Badge>
+                                                        )}
                                                 </div>
                                             </td>
                                             <td>
+                                                {transaction.status ===
+                                                    'pending' &&
+                                                    transaction.rule_suggestion && (
+                                                        <div className="mb-2 rounded-md border border-dashed p-2 text-xs">
+                                                            <div className="font-medium">
+                                                                {
+                                                                    transaction
+                                                                        .rule_suggestion
+                                                                        .rule_name
+                                                                }
+                                                                {' · v'}
+                                                                {
+                                                                    transaction
+                                                                        .rule_suggestion
+                                                                        .rule_version
+                                                                }
+                                                            </div>
+                                                            <div className="text-muted-foreground">
+                                                                {transaction
+                                                                    .rule_suggestion
+                                                                    .conflict
+                                                                    ? 'Blocked: competing accounts include '
+                                                                    : 'Post to '}
+                                                                <span className="font-mono">
+                                                                    {
+                                                                        transaction
+                                                                            .rule_suggestion
+                                                                            .ledger_account
+                                                                            .code
+                                                                    }
+                                                                </span>{' '}
+                                                                {
+                                                                    transaction
+                                                                        .rule_suggestion
+                                                                        .ledger_account
+                                                                        .name
+                                                                }
+                                                            </div>
+                                                            {transaction
+                                                                .rule_suggestion
+                                                                .alternatives
+                                                                .length > 0 && (
+                                                                <div className="mt-1 text-muted-foreground">
+                                                                    Also
+                                                                    matched:{' '}
+                                                                    {transaction.rule_suggestion.alternatives
+                                                                        .map(
+                                                                            (
+                                                                                alternative,
+                                                                            ) =>
+                                                                                `${alternative.rule_name} → ${alternative.account_code}`,
+                                                                        )
+                                                                        .join(
+                                                                            ', ',
+                                                                        )}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    )}
                                                 {transaction.transfer &&
                                                 !transaction.transfer
                                                     .reversed_at ? (
@@ -1238,6 +1424,703 @@ function PostingDialog({
                 </Form>
             </DialogContent>
         </Dialog>
+    );
+}
+
+function ReconciliationRules({
+    account,
+    ledgerAccounts,
+    rules,
+    preview,
+    runs,
+}: {
+    account: Account;
+    ledgerAccounts: LedgerAccount[];
+    rules: ReconciliationRule[];
+    preview: RulePreview;
+    runs: RuleRun[];
+}) {
+    const [minimumConfidence, setMinimumConfidence] = useState('95');
+    const eligibleMatches =
+        preview.eligibleByConfidence[minimumConfidence] ?? 0;
+
+    return (
+        <details className="rounded-md border" open={rules.length === 0}>
+            <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-3 px-4 py-3">
+                <div>
+                    <div className="text-sm font-semibold">
+                        Reusable accounting rules
+                    </div>
+                    <div className="text-xs font-normal text-muted-foreground">
+                        {rules.filter((rule) => rule.is_active).length} active ·{' '}
+                        {preview.matched} of {preview.pending} pending movements
+                        can be safely posted
+                        {preview.conflicts > 0 &&
+                            ` · ${preview.conflicts} conflicts blocked`}
+                    </div>
+                </div>
+                <Badge variant={preview.matched ? 'secondary' : 'outline'}>
+                    Preview · {preview.matched} matches
+                </Badge>
+            </summary>
+            <div className="grid gap-5 border-t p-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(19rem,0.6fr)]">
+                <div className="grid gap-4">
+                    <Form
+                        action={`/banking/accounts/${account.id}/rules`}
+                        method="post"
+                        className="grid gap-3 rounded-md border bg-muted/20 p-3 md:grid-cols-2 xl:grid-cols-4"
+                    >
+                        <div className="grid gap-2 xl:col-span-2">
+                            <Label>Rule name</Label>
+                            <Input
+                                name="name"
+                                placeholder="Monthly bank fees"
+                                required
+                            />
+                        </div>
+                        <div className="grid gap-2 xl:col-span-2">
+                            <Label>Post to account</Label>
+                            <Select name="ledger_account_id" required>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select ledger account" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {ledgerAccounts.map((ledger) => (
+                                        <SelectItem
+                                            key={ledger.id}
+                                            value={String(ledger.id)}
+                                        >
+                                            {ledger.code} · {ledger.name}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="grid gap-2">
+                            <Label>Search in</Label>
+                            <Select name="match_field" defaultValue="either">
+                                <SelectTrigger>
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="either">
+                                        Description or reference
+                                    </SelectItem>
+                                    <SelectItem value="description">
+                                        Description
+                                    </SelectItem>
+                                    <SelectItem value="reference">
+                                        Reference
+                                    </SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="grid gap-2">
+                            <Label>Condition</Label>
+                            <Select
+                                name="match_operator"
+                                defaultValue="contains"
+                            >
+                                <SelectTrigger>
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="contains">
+                                        Contains
+                                    </SelectItem>
+                                    <SelectItem value="starts_with">
+                                        Starts with
+                                    </SelectItem>
+                                    <SelectItem value="exact">
+                                        Exact text
+                                    </SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="grid gap-2 xl:col-span-2">
+                            <Label>Text pattern</Label>
+                            <Input
+                                name="pattern"
+                                placeholder="COMISION MANTENIMIENTO"
+                                minLength={3}
+                                required
+                            />
+                        </div>
+                        <div className="grid gap-2">
+                            <Label>Direction</Label>
+                            <Select name="direction" defaultValue="out">
+                                <SelectTrigger>
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="out">
+                                        Money out
+                                    </SelectItem>
+                                    <SelectItem value="in">Money in</SelectItem>
+                                    <SelectItem value="any">Either</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <Field
+                            label="Minimum amount"
+                            name="min_amount"
+                            type="number"
+                        />
+                        <Field
+                            label="Maximum amount"
+                            name="max_amount"
+                            type="number"
+                        />
+                        <Field
+                            label="Priority"
+                            name="priority"
+                            type="number"
+                            value="100"
+                        />
+                        <Field
+                            label="Confidence %"
+                            name="confidence"
+                            type="number"
+                            value="95"
+                        />
+                        <input type="hidden" name="is_active" value="1" />
+                        <Button className="self-end xl:col-span-4 xl:justify-self-start">
+                            <ListPlus /> Create and preview rule
+                        </Button>
+                    </Form>
+
+                    <div className="grid gap-2">
+                        {rules.map((rule) => {
+                            const matched =
+                                preview.byRule.find(
+                                    (item) => item.rule_id === rule.id,
+                                )?.matched ?? 0;
+
+                            return (
+                                <div
+                                    key={rule.id}
+                                    className="grid gap-3 rounded-md border p-3 text-sm"
+                                >
+                                    <div className="flex flex-wrap items-center justify-between gap-3">
+                                        <div className="min-w-0">
+                                            <div className="flex flex-wrap items-center gap-2">
+                                                <span className="font-medium">
+                                                    {rule.name}
+                                                </span>
+                                                <Badge
+                                                    variant={
+                                                        rule.is_active
+                                                            ? 'secondary'
+                                                            : 'outline'
+                                                    }
+                                                >
+                                                    {rule.is_active
+                                                        ? `${matched} now`
+                                                        : 'Inactive'}
+                                                </Badge>
+                                                <Badge variant="outline">
+                                                    v{rule.current_version}
+                                                </Badge>
+                                            </div>
+                                            <div className="mt-1 text-xs text-muted-foreground">
+                                                Priority {rule.priority} ·{' '}
+                                                {rule.direction === 'out'
+                                                    ? 'outgoing'
+                                                    : rule.direction === 'in'
+                                                      ? 'incoming'
+                                                      : 'any direction'}{' '}
+                                                · {rule.match_field}{' '}
+                                                {rule.match_operator.replace(
+                                                    '_',
+                                                    ' ',
+                                                )}{' '}
+                                                “{rule.pattern}” →{' '}
+                                                <span className="font-mono">
+                                                    {rule.ledger_account.code}
+                                                </span>{' '}
+                                                {rule.ledger_account.name} ·{' '}
+                                                {rule.confidence}% confidence ·
+                                                used {rule.application_count}{' '}
+                                                times
+                                            </div>
+                                        </div>
+                                        <RuleGovernance
+                                            rule={rule}
+                                            ledgerAccounts={ledgerAccounts}
+                                        />
+                                    </div>
+                                </div>
+                            );
+                        })}
+                        {rules.length === 0 && (
+                            <div className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
+                                No rules yet. Create a narrow, high-confidence
+                                rule and verify its preview before applying it.
+                            </div>
+                        )}
+                    </div>
+
+                    {preview.details.length > 0 && (
+                        <details className="rounded-md border">
+                            <summary className="cursor-pointer px-3 py-2 text-sm font-medium">
+                                Movement-level preview ·{' '}
+                                {preview.details.length}
+                                {preview.details.length <
+                                preview.matched + preview.conflicts
+                                    ? ' shown'
+                                    : ''}
+                            </summary>
+                            <TableViewport className="border-t">
+                                <table className="w-full min-w-[48rem] text-xs">
+                                    <thead>
+                                        <tr className="border-b text-left text-muted-foreground">
+                                            <th className="py-2">Date</th>
+                                            <th>Movement</th>
+                                            <th className="text-right">
+                                                Amount
+                                            </th>
+                                            <th>Selected rule</th>
+                                            <th>Ledger account</th>
+                                            <th>Decision</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {preview.details.map((item) => (
+                                            <tr
+                                                key={item.transaction_id}
+                                                className="border-b align-top"
+                                            >
+                                                <td className="py-2">
+                                                    {date(item.booked_on)}
+                                                </td>
+                                                <td>
+                                                    <div className="max-w-xs font-medium">
+                                                        {item.description}
+                                                    </div>
+                                                    <div className="font-mono text-muted-foreground">
+                                                        {item.reference || '—'}
+                                                    </div>
+                                                </td>
+                                                <td className="text-right font-medium">
+                                                    {money(
+                                                        item.amount,
+                                                        account.currency,
+                                                    )}
+                                                </td>
+                                                <td>
+                                                    {item.rule_name} ·{' '}
+                                                    {item.confidence}%
+                                                </td>
+                                                <td>
+                                                    <span className="font-mono">
+                                                        {
+                                                            item.ledger_account
+                                                                .code
+                                                        }
+                                                    </span>{' '}
+                                                    {item.ledger_account.name}
+                                                </td>
+                                                <td>
+                                                    {item.conflict ? (
+                                                        <div>
+                                                            <Badge variant="destructive">
+                                                                Blocked conflict
+                                                            </Badge>
+                                                            <div className="mt-1 text-muted-foreground">
+                                                                {item.alternatives
+                                                                    .map(
+                                                                        (
+                                                                            alternative,
+                                                                        ) =>
+                                                                            `${alternative.rule_name} → ${alternative.account_code}`,
+                                                                    )
+                                                                    .join(', ')}
+                                                            </div>
+                                                        </div>
+                                                    ) : (
+                                                        <Badge variant="secondary">
+                                                            Ready to post
+                                                        </Badge>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </TableViewport>
+                        </details>
+                    )}
+                </div>
+
+                <div className="grid content-start gap-4">
+                    <div className="rounded-md border p-4">
+                        <div className="font-medium">Safe execution</div>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                            Only pending movements above the selected confidence
+                            are posted. Every run and resulting journal entry
+                            retains the rule and operator trace.
+                        </p>
+                        {preview.truncated && (
+                            <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">
+                                Preview limited to {preview.scanned} movements.
+                                Apply in batches and review each result.
+                            </p>
+                        )}
+                        {preview.conflicts > 0 && (
+                            <p className="mt-2 text-xs text-destructive">
+                                {preview.conflicts} movement
+                                {preview.conflicts === 1 ? '' : 's'} matched
+                                rules pointing to different accounts. They are
+                                blocked until the rules are narrowed or removed.
+                            </p>
+                        )}
+                        <Form
+                            action={`/banking/accounts/${account.id}/apply-rules`}
+                            method="post"
+                            className="mt-4 grid gap-3"
+                            onSubmit={(event) => {
+                                if (
+                                    !window.confirm(
+                                        `Post ${eligibleMatches} movements at or above ${minimumConfidence}% confidence?`,
+                                    )
+                                ) {
+                                    event.preventDefault();
+                                }
+                            }}
+                        >
+                            <input
+                                type="hidden"
+                                name="confirmation"
+                                value={`APPLY-${preview.matched}`}
+                            />
+                            <div className="grid gap-2">
+                                <Label>Minimum confidence</Label>
+                                <Select
+                                    name="minimum_confidence"
+                                    value={minimumConfidence}
+                                    onValueChange={setMinimumConfidence}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="100">
+                                            100%
+                                        </SelectItem>
+                                        <SelectItem value="98">98%</SelectItem>
+                                        <SelectItem value="95">
+                                            95% · Recommended
+                                        </SelectItem>
+                                        <SelectItem value="90">90%</SelectItem>
+                                        <SelectItem value="80">80%</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <Button disabled={eligibleMatches === 0}>
+                                <RefreshCw /> Apply {eligibleMatches} eligible
+                                matches
+                            </Button>
+                        </Form>
+                    </div>
+
+                    {runs.length > 0 && (
+                        <div className="rounded-md border p-4">
+                            <div className="text-sm font-medium">
+                                Recent rule runs
+                            </div>
+                            <div className="mt-3 grid gap-2">
+                                {runs.map((run) => (
+                                    <div
+                                        key={run.id}
+                                        className="grid gap-2 border-t pt-3 text-xs first:border-0 first:pt-0"
+                                    >
+                                        <div className="flex items-start justify-between gap-3">
+                                            <div>
+                                                <div>
+                                                    Run #{run.id} · {run.status}
+                                                </div>
+                                                <div className="text-muted-foreground">
+                                                    {date(run.created_at)} ·{' '}
+                                                    {run.triggered_by?.name ??
+                                                        'User'}{' '}
+                                                    · minimum{' '}
+                                                    {run.minimum_confidence}%
+                                                </div>
+                                            </div>
+                                            <div className="text-right">
+                                                <div>
+                                                    {run.matched_count} posted
+                                                </div>
+                                                <div className="text-muted-foreground">
+                                                    {run.skipped_count} skipped
+                                                    · {run.failed_count} failed
+                                                </div>
+                                            </div>
+                                        </div>
+                                        {run.reversed_at && (
+                                            <div
+                                                className="rounded bg-muted/40 p-2 text-muted-foreground"
+                                                title={
+                                                    run.reversal_reason ??
+                                                    undefined
+                                                }
+                                            >
+                                                Reversed by{' '}
+                                                {run.reversed_by?.name ??
+                                                    'User'}{' '}
+                                                · {date(run.reversed_at)} ·{' '}
+                                                {run.reversal_reason}
+                                            </div>
+                                        )}
+                                        {run.can_reverse && (
+                                            <Form
+                                                action={`/banking/rule-runs/${run.id}/reverse`}
+                                                method="post"
+                                                className="grid gap-2 rounded border border-dashed p-2"
+                                                onSubmit={(event) => {
+                                                    if (
+                                                        !window.confirm(
+                                                            `Reverse all ${run.posting_count} postings from run #${run.id}?`,
+                                                        )
+                                                    ) {
+                                                        event.preventDefault();
+                                                    }
+                                                }}
+                                            >
+                                                <input
+                                                    type="hidden"
+                                                    name="confirmation"
+                                                    value={`REVERSE-${run.id}-${run.posting_count}`}
+                                                />
+                                                <Input
+                                                    name="reason"
+                                                    minLength={10}
+                                                    maxLength={500}
+                                                    placeholder="Reason for reversing the complete run"
+                                                    required
+                                                />
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                >
+                                                    Undo complete run
+                                                </Button>
+                                            </Form>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </div>
+        </details>
+    );
+}
+
+function RuleGovernance({
+    rule,
+    ledgerAccounts,
+}: {
+    rule: ReconciliationRule;
+    ledgerAccounts: LedgerAccount[];
+}) {
+    return (
+        <details className="basis-full rounded-md border border-dashed">
+            <summary className="cursor-pointer list-none px-3 py-2 text-xs font-medium">
+                Edit, pause or inspect version history
+            </summary>
+            <div className="grid gap-4 border-t p-3 lg:grid-cols-[minmax(0,1fr)_18rem]">
+                <Form
+                    action={`/banking/rules/${rule.id}`}
+                    method="patch"
+                    className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"
+                >
+                    <div className="grid gap-2 xl:col-span-2">
+                        <Label>Name</Label>
+                        <Input name="name" defaultValue={rule.name} required />
+                    </div>
+                    <div className="grid gap-2 xl:col-span-2">
+                        <Label>Ledger account</Label>
+                        <Select
+                            name="ledger_account_id"
+                            defaultValue={String(rule.ledger_account.id)}
+                            required
+                        >
+                            <SelectTrigger>
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {ledgerAccounts.map((ledger) => (
+                                    <SelectItem
+                                        key={ledger.id}
+                                        value={String(ledger.id)}
+                                    >
+                                        {ledger.code} · {ledger.name}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div className="grid gap-2">
+                        <Label>Search in</Label>
+                        <Select
+                            name="match_field"
+                            defaultValue={rule.match_field}
+                        >
+                            <SelectTrigger>
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="either">
+                                    Description or reference
+                                </SelectItem>
+                                <SelectItem value="description">
+                                    Description
+                                </SelectItem>
+                                <SelectItem value="reference">
+                                    Reference
+                                </SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div className="grid gap-2">
+                        <Label>Condition</Label>
+                        <Select
+                            name="match_operator"
+                            defaultValue={rule.match_operator}
+                        >
+                            <SelectTrigger>
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="contains">
+                                    Contains
+                                </SelectItem>
+                                <SelectItem value="starts_with">
+                                    Starts with
+                                </SelectItem>
+                                <SelectItem value="exact">
+                                    Exact text
+                                </SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div className="grid gap-2 xl:col-span-2">
+                        <Label>Text pattern</Label>
+                        <Input
+                            name="pattern"
+                            defaultValue={rule.pattern}
+                            minLength={3}
+                            required
+                        />
+                    </div>
+                    <div className="grid gap-2">
+                        <Label>Direction</Label>
+                        <Select name="direction" defaultValue={rule.direction}>
+                            <SelectTrigger>
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="out">Money out</SelectItem>
+                                <SelectItem value="in">Money in</SelectItem>
+                                <SelectItem value="any">Either</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <Field
+                        label="Minimum amount"
+                        name="min_amount"
+                        type="number"
+                        value={rule.min_amount ?? ''}
+                    />
+                    <Field
+                        label="Maximum amount"
+                        name="max_amount"
+                        type="number"
+                        value={rule.max_amount ?? ''}
+                    />
+                    <Field
+                        label="Priority"
+                        name="priority"
+                        type="number"
+                        value={String(rule.priority)}
+                    />
+                    <Field
+                        label="Confidence %"
+                        name="confidence"
+                        type="number"
+                        value={String(rule.confidence)}
+                    />
+                    <label className="flex items-center gap-2 self-end pb-2 text-sm">
+                        <input type="hidden" name="is_active" value="0" />
+                        <Checkbox
+                            name="is_active"
+                            value="1"
+                            defaultChecked={rule.is_active}
+                        />
+                        Active
+                    </label>
+                    <div className="grid gap-2 sm:col-span-2 xl:col-span-3">
+                        <Label>Reason for change</Label>
+                        <Input
+                            name="change_reason"
+                            minLength={10}
+                            maxLength={500}
+                            placeholder="Explain why this rule is changing"
+                            required
+                        />
+                    </div>
+                    <Button className="sm:col-span-2 xl:col-span-4 xl:justify-self-start">
+                        <Pencil /> Save as version {rule.current_version + 1}
+                    </Button>
+                </Form>
+
+                <div className="grid content-start gap-3">
+                    <div>
+                        <div className="text-xs font-medium">
+                            Immutable history
+                        </div>
+                        <div className="mt-2 grid max-h-48 gap-2 overflow-y-auto">
+                            {rule.versions.map((version) => (
+                                <div
+                                    key={version.id}
+                                    className="rounded border p-2 text-xs"
+                                >
+                                    <div className="font-medium">
+                                        Version {version.version} ·{' '}
+                                        {version.changer?.name ?? 'System'}
+                                    </div>
+                                    <div className="text-muted-foreground">
+                                        {date(version.created_at)} ·{' '}
+                                        {version.change_reason}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                    {rule.is_active && (
+                        <Form
+                            action={`/banking/rules/${rule.id}`}
+                            method="delete"
+                            className="grid gap-2 rounded border border-destructive/30 p-2"
+                        >
+                            <Label>Reason for pausing</Label>
+                            <Input
+                                name="reason"
+                                minLength={10}
+                                maxLength={500}
+                                placeholder="Why should future matches stop?"
+                                required
+                            />
+                            <Button size="sm" variant="outline">
+                                <Trash2 /> Pause rule
+                            </Button>
+                        </Form>
+                    )}
+                </div>
+            </div>
+        </details>
     );
 }
 

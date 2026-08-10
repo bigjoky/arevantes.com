@@ -4,13 +4,13 @@ namespace App\Services\Finance;
 
 use App\Models\BankAccount;
 use App\Models\BankFinancialProduct;
-use App\Models\BankTransaction;
 use App\Models\Expense;
 use App\Models\FinancialForecastItem;
 use App\Models\PurchaseDocument;
 use App\Models\SalesDocument;
 use App\Services\Banking\CardSettlementSchedule;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Collection;
 
 class TreasuryForecast
 {
@@ -25,45 +25,59 @@ class TreasuryForecast
             ? CarbonImmutable::today()
             : CarbonImmutable::create($year, 1, 1);
         $end = $start->addWeeks(13)->subDay();
-        $opening = round(
-            (float) BankAccount::where('is_active', true)->sum('opening_balance')
-            + (float) BankTransaction::whereDate('booked_on', '<=', $start)->sum('amount'),
-            2,
-        );
+        $accounts = BankAccount::where('is_active', true)
+            ->withSum(['transactions as balance_movement' => fn ($query) => $query->whereDate('booked_on', '<=', $start)], 'amount')
+            ->orderBy('name')
+            ->get();
+        $openingSources = $accounts->where('currency', 'EUR')->map(fn (BankAccount $account) => [
+            'id' => $account->id,
+            'name' => $account->name,
+            'currency' => $account->currency,
+            'balance' => round((float) $account->opening_balance + (float) ($account->balance_movement ?? 0), 2),
+            'href' => '/banking?account='.$account->id,
+        ])->values();
+        $opening = round((float) $openingSources->sum('balance'), 2);
+        $excludedCurrencyBalances = $accounts->where('currency', '!=', 'EUR')->groupBy('currency')->map(fn (Collection $currencyAccounts, string $currency) => [
+            'currency' => $currency,
+            'balance' => round((float) $currencyAccounts->sum(fn (BankAccount $account) => (float) $account->opening_balance + (float) ($account->balance_movement ?? 0)), 2),
+            'accounts' => $currencyAccounts->count(),
+        ])->values();
 
         $events = collect();
         SalesDocument::where('type', 'invoice')->whereIn('status', ['issued', 'partial', 'overdue'])
             ->whereDate('due_date', '<=', $end)->get()->each(function (SalesDocument $document) use ($events, $start, $scenario) {
-                $events->push(['date' => $this->effectiveDate($document->due_date, $start), 'direction' => 'in', 'amount' => $this->balances->receivable($document) * $this->collectionFactor($scenario)]);
+                $outstanding = $this->balances->receivable($document);
+                $this->addEvent($events, $this->effectiveDate($document->due_date, $start), 'in', $outstanding, $outstanding * $this->collectionFactor($scenario), 'receivable', $document->id, $document->number, '/sales/'.$document->id);
             });
         PurchaseDocument::withSum('creditNotes as credited_total', 'amount')->where('type', 'supplier_invoice')
             ->whereIn('status', ['registered', 'pending', 'partial', 'overdue'])->whereDate('due_date', '<=', $end)->get()
             ->each(function (PurchaseDocument $document) use ($events, $start) {
-                $events->push(['date' => $this->effectiveDate($document->due_date, $start), 'direction' => 'out', 'amount' => $this->balances->purchase($document)]);
+                $outstanding = $this->balances->purchase($document);
+                $this->addEvent($events, $this->effectiveDate($document->due_date, $start), 'out', $outstanding, $outstanding, 'supplier_invoice', $document->id, $document->supplier_number ?: $document->number, '/purchases/'.$document->id);
             });
         Expense::whereIn('status', ['pending', 'partial', 'overdue'])->whereDate('due_date', '<=', $end)->get()
             ->each(function (Expense $expense) use ($events, $start) {
-                $events->push(['date' => $this->effectiveDate($expense->due_date, $start), 'direction' => 'out', 'amount' => $this->balances->expense($expense)]);
+                $outstanding = $this->balances->expense($expense);
+                $this->addEvent($events, $this->effectiveDate($expense->due_date, $start), 'out', $outstanding, $outstanding, 'expense', $expense->id, $expense->number ?: $expense->document_number ?: __('Expense #:id', ['id' => $expense->id]), '/expenses/'.$expense->id);
             });
         FinancialForecastItem::where('status', 'planned')->whereDate('due_on', '<=', $end)->get()
             ->each(function (FinancialForecastItem $item) use ($events, $scenario, $start, $end) {
                 foreach ($this->occurrences($item, $start, $end) as $occurrence) {
-                    $events->push([
-                        'date' => $occurrence,
-                        'direction' => $item->direction,
-                        'amount' => (float) $item->amount * $this->probabilityFactor($item->probability, $scenario),
-                    ]);
+                    $this->addEvent($events, $occurrence, $item->direction, (float) $item->amount, (float) $item->amount * $this->probabilityFactor($item->probability, $scenario), 'forecast_item', $item->id, $item->description, '#forecast-items');
                 }
             });
-        BankFinancialProduct::where('type', 'credit_facility')
-            ->where('is_active', true)
+        BankFinancialProduct::where('is_active', true)
+            ->where('currency', 'EUR')
             ->where('used_amount', '>', 0)
-            ->whereHas('linkedCards')
+            ->where(fn ($query) => $query
+                ->where(fn ($query) => $query->where('type', 'credit_facility')->whereHas('linkedCards'))
+                ->orWhere(fn ($query) => $query->where('type', 'credit_card')->whereNull('shared_credit_facility_id')))
             ->get()
-            ->each(function (BankFinancialProduct $facility) use ($events, $start, $end) {
-                $paymentOn = $this->cardSettlements->next($facility, $start)['paymentOn'];
+            ->each(function (BankFinancialProduct $product) use ($events, $start, $end) {
+                $paymentOn = $this->cardSettlements->next($product, $start)['paymentOn'];
                 if ($paymentOn->lessThanOrEqualTo($end)) {
-                    $events->push(['date' => $paymentOn, 'direction' => 'out', 'amount' => (float) $facility->used_amount]);
+                    $sourceType = $product->type === 'credit_card' ? 'credit_card' : 'credit_facility';
+                    $this->addEvent($events, $paymentOn, 'out', (float) $product->used_amount, (float) $product->used_amount, $sourceType, $product->id, $product->name, '/banking?account='.$product->bank_account_id);
                 }
             });
 
@@ -85,16 +99,38 @@ class TreasuryForecast
                 'in' => $in,
                 'out' => $out,
                 'closing' => $running,
+                'events' => $week->sortBy('date')->map(fn (array $event) => [...$event, 'date' => $event['date']->toDateString()])->values(),
             ];
         });
 
         return [
             'scenario' => $scenario,
+            'baseCurrency' => 'EUR',
             'openingBalance' => $opening,
+            'openingSources' => $openingSources,
+            'excludedCurrencyBalances' => $excludedCurrencyBalances,
             'lowestBalance' => round((float) $weeks->min('closing'), 2),
             'closingBalance' => round((float) $weeks->last()['closing'], 2),
             'weeks' => $weeks,
         ];
+    }
+
+    private function addEvent(Collection $events, CarbonImmutable $date, string $direction, float $originalAmount, float $scenarioAmount, string $sourceType, int $sourceId, string $label, string $href): void
+    {
+        $amount = round($scenarioAmount, 2);
+        if ($amount <= 0) {
+            return;
+        }
+        $events->push([
+            'date' => $date,
+            'direction' => $direction,
+            'amount' => $amount,
+            'originalAmount' => round($originalAmount, 2),
+            'sourceType' => $sourceType,
+            'sourceId' => $sourceId,
+            'label' => $label,
+            'href' => $href,
+        ]);
     }
 
     private function effectiveDate(mixed $date, CarbonImmutable $start): CarbonImmutable

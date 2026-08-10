@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\AccountingPeriod;
 use App\Models\CompanyProfile;
 use App\Models\FiscalYear;
 use App\Models\User;
@@ -40,6 +41,10 @@ class FiscalSettingsTest extends TestCase
         $this->assertCount(11, $year->series);
         $this->post(route('fiscal-settings.years.close', $year))->assertSessionHasErrors('confirmation');
         $this->travelTo('2028-01-10');
+        $this->post(route('fiscal-settings.years.close', $year), ['confirmation' => '2027'])->assertSessionHasErrors('year');
+        foreach (range(1, 12) as $month) {
+            AccountingPeriod::create(['fiscal_year_id' => $year->id, 'year' => 2027, 'month' => $month, 'status' => 'closed', 'closed_by' => $admin->id, 'closed_at' => now()]);
+        }
         $this->post(route('fiscal-settings.years.close', $year), ['confirmation' => '2027'])->assertRedirect()->assertSessionHasNoErrors();
         $this->assertSame('closed', $year->fresh()->status);
 

@@ -5,6 +5,9 @@ namespace Tests\Feature;
 use App\Models\BankAccount;
 use App\Models\BankFinancialProduct;
 use App\Models\BankReconciliation;
+use App\Models\BankReconciliationRule;
+use App\Models\BankReconciliationRuleVersion;
+use App\Models\BankReconciliationRun;
 use App\Models\BankStatementImport;
 use App\Models\BankTransaction;
 use App\Models\BankTransactionPosting;
@@ -20,6 +23,7 @@ use App\Models\SupplierPayment;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
@@ -314,6 +318,42 @@ class BankingTest extends TestCase
 
         $this->assertSame(2, $account->transactions()->count());
         $this->assertDatabaseHas('bank_statement_imports', ['filename' => 'annual-2026-reimport.n43', 'created_transactions' => 0, 'duplicate_transactions' => 2, 'control_valid' => true]);
+    }
+
+    public function test_norma_43_rejects_multiple_account_blocks_and_an_iban_mismatch_atomically(): void
+    {
+        $user = User::factory()->create(['role' => 'commercial']);
+        $account = BankAccount::create(['name' => 'Validated AEB account', 'iban' => 'ES0000491234001234567890', 'currency' => 'EUR', 'opening_balance' => 0, 'is_active' => true]);
+        $block = function (string $entity, string $office, string $number, string $reference): array {
+            $header = '11'.$entity.$office.$number.'260101'.'260131'.'2'.str_pad('0', 14, '0', STR_PAD_LEFT).'978'.'2'.str_repeat(' ', 26);
+            $credit = '22'.$entity.$office.'260115'.'260115'.'01'.'001'.'2'.str_pad('10000', 14, '0', STR_PAD_LEFT).str_pad($reference, 10).str_pad('TRANSFER', 12).str_pad('CUSTOMER', 16);
+            $footer = '33'.$entity.$office.$number.'00000'.str_pad('0', 14, '0', STR_PAD_LEFT).'00001'.str_pad('10000', 14, '0', STR_PAD_LEFT).'2'.str_pad('10000', 14, '0', STR_PAD_LEFT).'978'.str_repeat(' ', 4);
+
+            return [$header, $credit, $footer];
+        };
+        $matching = implode("\r\n", $block('0049', '1234', '1234567890', 'ACCOUNT-1'))."\r\n";
+
+        $this->actingAs($user)->post(route('banking.import', $account), [
+            'statement' => UploadedFile::fake()->createWithContent('matching.n43', $matching),
+        ])->assertSessionHasNoErrors();
+        $this->assertSame(1, $account->transactions()->count());
+        $this->assertSame('0049', BankStatementImport::firstOrFail()->control_data['account']['entity']);
+
+        $mismatchedAccount = BankAccount::create(['name' => 'Wrong selected account', 'iban' => 'ES0000491234009999999999', 'currency' => 'EUR', 'opening_balance' => 0, 'is_active' => true]);
+        $this->post(route('banking.import', $mismatchedAccount), [
+            'statement' => UploadedFile::fake()->createWithContent('mismatch.n43', $matching),
+        ])->assertSessionHasErrors('statement');
+        $this->assertSame(0, $mismatchedAccount->transactions()->count());
+
+        $multiple = implode("\r\n", [
+            ...$block('0049', '1234', '1234567890', 'ACCOUNT-1'),
+            ...$block('2100', '4321', '0987654321', 'ACCOUNT-2'),
+        ])."\r\n";
+        $this->post(route('banking.import', $account), [
+            'statement' => UploadedFile::fake()->createWithContent('multi-account.n43', $multiple),
+        ])->assertSessionHasErrors('statement');
+        $this->assertSame(1, $account->transactions()->count());
+        $this->assertSame(1, BankStatementImport::count());
     }
 
     public function test_statement_import_can_be_rolled_back_with_audit_and_reimported(): void
@@ -637,6 +677,38 @@ class BankingTest extends TestCase
                 ->where('transactions.data.0.risk_flags.2.code', 'missing_reference'));
     }
 
+    public function test_reconciliation_workspace_preloads_candidates_without_per_transaction_queries(): void
+    {
+        $user = User::factory()->create(['role' => 'commercial']);
+        $account = BankAccount::create(['name' => 'Bulk candidate account', 'currency' => 'EUR', 'opening_balance' => 0, 'is_active' => true]);
+        foreach (range(1, 25) as $index) {
+            $account->transactions()->create([
+                'booked_on' => today()->subDays($index % 5),
+                'amount' => 100 + $index,
+                'currency' => 'EUR',
+                'description' => 'Bulk pending movement '.$index,
+                'reference' => 'BULK-'.$index,
+                'import_hash' => hash('sha256', 'bulk-candidate-'.$index),
+                'status' => 'pending',
+            ]);
+        }
+
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+        $this->actingAs($user)->get(route('banking.index', ['account' => $account->id, 'status' => 'pending']))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page->has('transactions.data', 25));
+        $candidateQueries = collect(DB::getQueryLog())->filter(fn (array $query) => str_contains($query['query'], 'sales_document_payments')
+            || str_contains($query['query'], 'supplier_payments')
+            || str_contains($query['query'], 'tax_return_payments')
+            || str_contains($query['query'], 'sales_documents')
+            || str_contains($query['query'], 'purchase_documents')
+            || str_contains($query['query'], 'expenses'));
+        DB::disableQueryLog();
+
+        $this->assertLessThan(20, $candidateQueries->count(), 'Candidate lookup queries must remain constant per page, not grow per transaction.');
+    }
+
     public function test_bulk_reconciliation_respects_the_selected_confidence_threshold(): void
     {
         $user = User::factory()->create(['role' => 'commercial']);
@@ -655,5 +727,226 @@ class BankingTest extends TestCase
             ->assertSessionHasNoErrors();
         $this->assertSame('reconciled', $transaction->fresh()->status);
         $this->assertDatabaseHas('bank_reconciliations', ['bank_transaction_id' => $transaction->id, 'method' => 'automatic']);
+    }
+
+    public function test_reusable_rules_preview_and_apply_safe_accounting_with_audited_trace(): void
+    {
+        $user = User::factory()->create(['role' => 'commercial']);
+        $this->actingAs($user)->post(route('banking.accounts.store'), [
+            'name' => 'Rules account',
+            'currency' => 'EUR',
+            'opening_balance' => 0,
+            'is_active' => true,
+        ])->assertSessionHasNoErrors();
+        $account = BankAccount::where('name', 'Rules account')->firstOrFail();
+        $fees = LedgerAccount::where('code', '626')->firstOrFail();
+
+        $tooLarge = $account->transactions()->create([
+            'booked_on' => '2026-08-01',
+            'amount' => -150,
+            'currency' => 'EUR',
+            'description' => 'COMISION EXTRAORDINARIA',
+            'reference' => 'FEE-LARGE',
+            'import_hash' => hash('sha256', 'rule-large'),
+            'status' => 'pending',
+        ]);
+        $incoming = $account->transactions()->create([
+            'booked_on' => '2026-08-02',
+            'amount' => 12.50,
+            'currency' => 'EUR',
+            'description' => 'DEVOLUCION COMISION',
+            'reference' => 'FEE-IN',
+            'import_hash' => hash('sha256', 'rule-incoming'),
+            'status' => 'pending',
+        ]);
+        $matching = $account->transactions()->create([
+            'booked_on' => '2026-08-03',
+            'amount' => -12.50,
+            'currency' => 'EUR',
+            'description' => 'COMISIÓN MANTENIMIENTO CUENTA',
+            'reference' => 'FEE-001',
+            'import_hash' => hash('sha256', 'rule-match'),
+            'status' => 'pending',
+        ]);
+
+        $this->post(route('banking.rules.store', $account), [
+            'name' => 'Bank fees under 50',
+            'ledger_account_id' => $fees->id,
+            'priority' => 10,
+            'direction' => 'out',
+            'match_field' => 'description',
+            'match_operator' => 'contains',
+            'pattern' => 'comision',
+            'min_amount' => 0,
+            'max_amount' => 50,
+            'confidence' => 98,
+            'is_active' => true,
+        ])->assertSessionHasNoErrors();
+        $rule = BankReconciliationRule::firstOrFail();
+        $versionOne = BankReconciliationRuleVersion::whereBelongsTo($rule, 'rule')->firstOrFail();
+        $this->assertSame(1, $versionOne->version);
+        $this->assertSame('comision', $versionOne->snapshot['pattern']);
+
+        $this->get(route('banking.index', ['account' => $account->id, 'status' => 'pending']))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('reconciliationRules', 1)
+                ->where('rulePreview.pending', 3)
+                ->where('rulePreview.matched', 1)
+                ->where('rulePreview.byRule.0.rule_id', $rule->id)
+                ->where('rulePreview.byRule.0.matched', 1)
+                ->where('transactions.data.0.id', $matching->id)
+                ->where('transactions.data.0.rule_suggestion.rule_id', $rule->id)
+                ->where('transactions.data.0.rule_suggestion.ledger_account.code', '626'));
+
+        $this->post(route('banking.rules.apply', $account), [
+            'minimum_confidence' => 95,
+            'confirmation' => 'APPLY-2',
+        ])->assertSessionHasErrors('confirmation');
+        $this->assertSame('pending', $matching->fresh()->status);
+
+        $this->post(route('banking.rules.apply', $account), [
+            'minimum_confidence' => 95,
+            'confirmation' => 'APPLY-1',
+        ])->assertSessionHasNoErrors();
+
+        $run = BankReconciliationRun::firstOrFail();
+        $posting = BankTransactionPosting::where('bank_transaction_id', $matching->id)->firstOrFail();
+        $this->assertSame('accounted', $matching->fresh()->status);
+        $this->assertSame('pending', $tooLarge->fresh()->status);
+        $this->assertSame('pending', $incoming->fresh()->status);
+        $this->assertSame($rule->id, $posting->reconciliation_rule_id);
+        $this->assertSame($versionOne->id, $posting->reconciliation_rule_version_id);
+        $this->assertSame($run->id, $posting->reconciliation_run_id);
+        $this->assertSame('completed', $run->status);
+        $this->assertSame(1, $run->matched_count);
+        $this->assertSame(2, $run->skipped_count);
+        $this->assertSame(0, $run->failed_count);
+        $this->assertDatabaseHas('bank_reconciliation_run_items', [
+            'bank_reconciliation_run_id' => $run->id,
+            'bank_reconciliation_rule_id' => $rule->id,
+            'bank_reconciliation_rule_version_id' => $versionOne->id,
+            'bank_transaction_id' => $matching->id,
+            'outcome' => 'applied',
+            'confidence' => 98,
+        ]);
+        $this->assertSame(1, $rule->fresh()->application_count);
+        $this->assertEquals(
+            $posting->journalEntry->lines()->sum('debit'),
+            $posting->journalEntry->lines()->sum('credit'),
+        );
+
+        $this->post(route('banking.rule-runs.reverse', $run), [
+            'confirmation' => 'REVERSE-'.$run->id.'-1',
+            'reason' => 'The batch was posted to the wrong accounting period.',
+        ])->assertSessionHasNoErrors();
+        $this->assertSame('pending', $matching->fresh()->status);
+        $this->assertNotNull($posting->fresh()->reversed_at);
+        $this->assertSame($posting->journal_entry_id, $posting->fresh()->reversalEntry->reverses_entry_id);
+        $this->assertSame('reversed', $run->fresh()->status);
+        $this->assertSame($user->id, $run->fresh()->reversed_by);
+        $this->assertSame('The batch was posted to the wrong accounting period.', $run->fresh()->reversal_reason);
+
+        $this->post(route('banking.rule-runs.reverse', $run), [
+            'confirmation' => 'REVERSE-'.$run->id.'-1',
+            'reason' => 'Attempt to reverse the same execution for a second time.',
+        ])->assertSessionHasErrors('reason');
+
+        $this->patch(route('banking.rules.update', $rule), [
+            'name' => 'Bank fees under 50',
+            'ledger_account_id' => $fees->id,
+            'priority' => 10,
+            'direction' => 'out',
+            'match_field' => 'description',
+            'match_operator' => 'contains',
+            'pattern' => 'comision bancaria',
+            'min_amount' => 0,
+            'max_amount' => 50,
+            'confidence' => 99,
+            'is_active' => true,
+            'change_reason' => 'Narrow the pattern after reviewing the first automatic run.',
+        ])->assertSessionHasNoErrors();
+        $this->assertSame(2, $rule->fresh()->current_version);
+        $this->assertSame(2, $rule->versions()->count());
+        $this->assertSame('comision bancaria', $rule->versions()->first()->snapshot['pattern']);
+        $this->assertSame($versionOne->id, $posting->fresh()->reconciliation_rule_version_id);
+
+        $this->get(route('banking.index', ['account' => $account->id]))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('reconciliationRules.0.current_version', 2)
+                ->has('reconciliationRules.0.versions', 2)
+                ->where('reconciliationRules.0.versions.0.change_reason', 'Narrow the pattern after reviewing the first automatic run.'));
+
+        $this->delete(route('banking.rules.destroy', $rule), ['reason' => 'Pause this rule while the bank description format is reviewed.'])->assertSessionHasNoErrors();
+        $this->assertDatabaseHas('bank_reconciliation_rules', ['id' => $rule->id, 'is_active' => false]);
+        $this->assertSame(3, $rule->fresh()->current_version);
+        $this->assertSame(3, $rule->versions()->count());
+    }
+
+    public function test_conflicting_rules_are_explained_and_never_posted_automatically(): void
+    {
+        $user = User::factory()->create(['role' => 'commercial']);
+        $this->actingAs($user)->post(route('banking.accounts.store'), [
+            'name' => 'Conflict account',
+            'currency' => 'EUR',
+            'opening_balance' => 0,
+            'is_active' => true,
+        ])->assertSessionHasNoErrors();
+        $account = BankAccount::where('name', 'Conflict account')->firstOrFail();
+        $transaction = $account->transactions()->create([
+            'booked_on' => '2026-08-04',
+            'amount' => -25,
+            'currency' => 'EUR',
+            'description' => 'COMISION SERVICIO EMPRESA',
+            'reference' => 'CONFLICT-1',
+            'import_hash' => hash('sha256', 'rule-conflict'),
+            'status' => 'pending',
+        ]);
+        $ruleData = [
+            'priority' => 10,
+            'direction' => 'out',
+            'match_field' => 'description',
+            'match_operator' => 'contains',
+            'pattern' => 'comision',
+            'confidence' => 98,
+            'is_active' => true,
+        ];
+        $this->post(route('banking.rules.store', $account), [...$ruleData,
+            'name' => 'Bank fees',
+            'ledger_account_id' => LedgerAccount::where('code', '626')->value('id'),
+        ])->assertSessionHasNoErrors();
+        $this->post(route('banking.rules.store', $account), [...$ruleData,
+            'name' => 'Other services fallback',
+            'priority' => 20,
+            'ledger_account_id' => LedgerAccount::where('code', '629')->value('id'),
+        ])->assertSessionHasNoErrors();
+
+        $this->get(route('banking.index', ['account' => $account->id, 'status' => 'pending']))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('rulePreview.matched', 0)
+                ->where('rulePreview.conflicts', 1)
+                ->where('rulePreview.details.0.transaction_id', $transaction->id)
+                ->where('rulePreview.details.0.conflict', true)
+                ->where('rulePreview.details.0.ledger_account.code', '626')
+                ->where('rulePreview.details.0.alternatives.0.account_code', '629')
+                ->where('transactions.data.0.rule_suggestion.conflict', true));
+
+        $this->post(route('banking.rules.apply', $account), [
+            'minimum_confidence' => 95,
+            'confirmation' => 'APPLY-0',
+        ])->assertSessionHasNoErrors();
+
+        $run = BankReconciliationRun::firstOrFail();
+        $this->assertSame(0, $run->matched_count);
+        $this->assertSame(1, $run->skipped_count);
+        $this->assertSame(1, $run->summary['conflicts']);
+        $this->assertSame('pending', $transaction->fresh()->status);
+        $this->assertDatabaseMissing('bank_transaction_postings', ['bank_transaction_id' => $transaction->id]);
+        $this->assertDatabaseHas('bank_reconciliation_run_items', [
+            'bank_reconciliation_run_id' => $run->id,
+            'bank_transaction_id' => $transaction->id,
+            'outcome' => 'conflict',
+        ]);
     }
 }
