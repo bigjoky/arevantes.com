@@ -151,6 +151,23 @@ type TreasuryWeek = {
     in: number;
     out: number;
     closing: number;
+    events: TreasuryEvent[];
+};
+type TreasuryEvent = {
+    date: string;
+    direction: 'in' | 'out';
+    amount: number;
+    originalAmount: number;
+    sourceType:
+        | 'receivable'
+        | 'supplier_invoice'
+        | 'expense'
+        | 'forecast_item'
+        | 'credit_card'
+        | 'credit_facility';
+    sourceId: number;
+    label: string;
+    href: string;
 };
 type ForecastItem = {
     id: number;
@@ -198,6 +215,9 @@ type PaymentBatch = {
     status: string;
     total: number;
     account: { name: string } | null;
+    exporter: { name: string } | null;
+    exported_at: string | null;
+    export_sha256: string | null;
     executor: { name: string } | null;
     executed_at: string | null;
     reconciled_at: string | null;
@@ -276,9 +296,22 @@ export default function FinanceIndex({
     profitability: Profit[];
     treasuryForecast: {
         scenario: string;
+        baseCurrency: string;
         openingBalance: number;
         lowestBalance: number;
         closingBalance: number;
+        openingSources: {
+            id: number;
+            name: string;
+            currency: string;
+            balance: number;
+            href: string;
+        }[];
+        excludedCurrencyBalances: {
+            currency: string;
+            balance: number;
+            accounts: number;
+        }[];
         weeks: TreasuryWeek[];
     };
     forecastItems: ForecastItem[];
@@ -341,6 +374,9 @@ export default function FinanceIndex({
     const activeBudgetAlerts = budgetAlerts.filter(
         (alert) => alert.status !== 'resolved',
     ).length;
+    const forecastEvents = treasuryForecast.weeks.flatMap((week) =>
+        week.events.map((event) => ({ ...event, week: week.label })),
+    );
 
     return (
         <>
@@ -778,6 +814,132 @@ export default function FinanceIndex({
                         )}
                     </div>
                 </section>
+                <details className="rounded-lg border">
+                    <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-3 px-4 py-3">
+                        <div>
+                            <div className="font-semibold">
+                                Forecast evidence and drill-down
+                            </div>
+                            <div className="text-sm text-muted-foreground">
+                                {forecastEvents.length} source events ·{' '}
+                                {treasuryForecast.openingSources.length} bank
+                                accounts · amounts in{' '}
+                                {treasuryForecast.baseCurrency}
+                            </div>
+                        </div>
+                        <Badge variant="outline">
+                            Reconciles to{' '}
+                            {money(treasuryForecast.closingBalance)}
+                        </Badge>
+                    </summary>
+                    <div className="grid gap-5 border-t p-4">
+                        <div>
+                            <h3 className="text-sm font-medium">
+                                Opening balance sources
+                            </h3>
+                            <div className="mt-2 grid gap-2 md:grid-cols-2 xl:grid-cols-4">
+                                {treasuryForecast.openingSources.map(
+                                    (source) => (
+                                        <Link
+                                            key={source.id}
+                                            href={source.href}
+                                            className="rounded-md border p-3 transition-colors hover:bg-muted/40"
+                                        >
+                                            <div className="text-sm font-medium">
+                                                {source.name}
+                                            </div>
+                                            <div className="mt-1 text-lg font-semibold">
+                                                {money(source.balance)}
+                                            </div>
+                                        </Link>
+                                    ),
+                                )}
+                            </div>
+                            {treasuryForecast.excludedCurrencyBalances.length >
+                                0 && (
+                                <div className="mt-3 rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
+                                    Foreign-currency balances are not mixed into
+                                    the EUR projection without an approved FX
+                                    rate:{' '}
+                                    {treasuryForecast.excludedCurrencyBalances
+                                        .map(
+                                            (item) =>
+                                                `${item.accounts} ${item.currency} account${item.accounts === 1 ? '' : 's'} · ${money(item.balance, item.currency)}`,
+                                        )
+                                        .join(' · ')}
+                                </div>
+                            )}
+                        </div>
+                        <div className="overflow-x-auto rounded-md border">
+                            <table className="w-full min-w-[58rem] text-sm">
+                                <thead>
+                                    <tr className="border-b bg-muted/40 text-left text-muted-foreground">
+                                        <th className="px-3 py-2">Week</th>
+                                        <th className="px-3 py-2">Date</th>
+                                        <th className="px-3 py-2">Origin</th>
+                                        <th className="px-3 py-2">Type</th>
+                                        <th className="px-3 py-2 text-right">
+                                            Source amount
+                                        </th>
+                                        <th className="px-3 py-2 text-right">
+                                            Scenario amount
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {forecastEvents.map((event, index) => (
+                                        <tr
+                                            key={`${event.sourceType}-${event.sourceId}-${event.date}-${index}`}
+                                            className="border-b"
+                                        >
+                                            <td className="px-3 py-2">
+                                                {event.week}
+                                            </td>
+                                            <td className="px-3 py-2">
+                                                {date(event.date)}
+                                            </td>
+                                            <td className="px-3 py-2">
+                                                <Link
+                                                    href={event.href}
+                                                    className="font-medium underline-offset-4 hover:underline"
+                                                >
+                                                    {event.label}
+                                                </Link>
+                                            </td>
+                                            <td className="px-3 py-2">
+                                                <Badge variant="outline">
+                                                    {forecastSourceLabel(
+                                                        event.sourceType,
+                                                    )}
+                                                </Badge>
+                                            </td>
+                                            <td className="px-3 py-2 text-right">
+                                                {money(event.originalAmount)}
+                                            </td>
+                                            <td
+                                                className={`px-3 py-2 text-right font-medium ${event.direction === 'in' ? 'text-green-700 dark:text-green-400' : ''}`}
+                                            >
+                                                {event.direction === 'out'
+                                                    ? '−'
+                                                    : '+'}
+                                                {money(event.amount)}
+                                                {event.amount !==
+                                                    event.originalAmount && (
+                                                    <div className="text-xs font-normal text-muted-foreground">
+                                                        Scenario-adjusted
+                                                    </div>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                            {forecastEvents.length === 0 && (
+                                <Empty text="No forecast events in the next 13 weeks." />
+                            )}
+                        </div>
+                    </div>
+                </details>
                 <section>
                     <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
                         <div>
@@ -1077,7 +1239,7 @@ export default function FinanceIndex({
                                 />
                             )}
                     </div>
-                    <div>
+                    <div id="forecast-items">
                         <div className="mb-3 flex items-center gap-2">
                             <CalendarClock className="size-4 text-muted-foreground" />
                             <h2 className="font-semibold">
@@ -1341,6 +1503,19 @@ export default function FinanceIndex({
                                                           : ''}
                                                 </div>
                                             )}
+                                            {batch.exporter &&
+                                                batch.exported_at && (
+                                                    <div className="mt-1 text-xs text-muted-foreground">
+                                                        Exported by{' '}
+                                                        {batch.exporter.name} ·{' '}
+                                                        {date(
+                                                            batch.exported_at,
+                                                        )}
+                                                        {batch.export_sha256
+                                                            ? ` · ${batch.export_sha256.slice(0, 10)}…`
+                                                            : ''}
+                                                    </div>
+                                                )}
                                         </td>
                                         <td className="text-right font-medium">
                                             {money(batch.total)}
@@ -1362,19 +1537,36 @@ export default function FinanceIndex({
                                                     </Form>
                                                 )}
                                             {can.approvePayments &&
+                                                batch.status === 'approved' && (
+                                                    <Form
+                                                        action={`/finance/payment-batches/${batch.id}/sepa`}
+                                                        method="post"
+                                                        className="ml-2 inline"
+                                                    >
+                                                        <Button
+                                                            size="sm"
+                                                            variant="outline"
+                                                        >
+                                                            Generate SEPA
+                                                        </Button>
+                                                    </Form>
+                                                )}
+                                            {can.approvePayments &&
                                                 [
-                                                    'approved',
                                                     'exported',
+                                                    'paid',
+                                                    'reconciled',
                                                 ].includes(batch.status) && (
                                                     <Button
                                                         size="sm"
                                                         variant="outline"
+                                                        className="ml-2"
                                                         asChild
                                                     >
                                                         <a
                                                             href={`/finance/payment-batches/${batch.id}/sepa`}
                                                         >
-                                                            SEPA
+                                                            Download SEPA
                                                         </a>
                                                     </Button>
                                                 )}
@@ -2508,6 +2700,15 @@ const money = (v: number, currency = 'EUR') =>
         style: 'currency',
         currency,
     }).format(v);
+const forecastSourceLabel = (source: TreasuryEvent['sourceType']) =>
+    ({
+        receivable: 'Customer invoice',
+        supplier_invoice: 'Supplier invoice',
+        expense: 'Expense',
+        forecast_item: 'Planned item',
+        credit_card: 'Credit card settlement',
+        credit_facility: 'Card settlement',
+    })[source];
 const monthLabel = (month: number) =>
     new Intl.DateTimeFormat(undefined, { month: 'short' }).format(
         new Date(2024, month - 1, 1),

@@ -78,6 +78,7 @@ class AccountingSynchronizer
         }
         $lines = [[$customerAccount, $creditNote ? 0 : abs((float) $document->amount), $creditNote ? abs((float) $document->amount) : 0]];
         foreach ($revenue as $code => $amount) {
+            $amount = abs((float) $amount);
             $lines[] = [$code, $creditNote ? $amount : 0, $creditNote ? 0 : $amount];
         }
         $taxes = $document->lines->groupBy(fn ($line) => (string) $line->tax_percent)->map(fn ($items) => round(abs((float) $items->sum('tax_amount')), 2));
