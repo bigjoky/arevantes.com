@@ -5,6 +5,22 @@ namespace App\Support\Crm;
 final class OpportunityCatalog
 {
     /** @var array<string, string> */
+    public const COMMERCIAL_KINDS = [
+        'new_business' => 'Nueva venta',
+        'renewal' => 'Renovación',
+        'recurring' => 'Venta recurrente',
+        'upsell' => 'Venta adicional',
+    ];
+
+    /** @var array<string, string> */
+    public const RECURRENCE_INTERVALS = [
+        'monthly' => 'Mensual',
+        'quarterly' => 'Trimestral',
+        'semiannual' => 'Semestral',
+        'annual' => 'Anual',
+    ];
+
+    /** @var array<string, string> */
     public const SOURCES = [
         'website' => 'Web',
         'referral' => 'Referido',

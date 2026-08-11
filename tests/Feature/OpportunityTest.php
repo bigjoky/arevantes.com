@@ -591,6 +591,99 @@ class OpportunityTest extends TestCase
         $this->assertSame(1, Installation::where('person_id', $customer->id)->count());
     }
 
+    public function test_renewals_and_additional_sales_keep_their_commercial_origin(): void
+    {
+        $user = User::factory()->create(['role' => 'commercial']);
+        $customer = Person::create(['category' => 'customer', 'first_name' => 'Ana']);
+        $otherCustomer = Person::create(['category' => 'customer', 'first_name' => 'Luis']);
+        $origin = Opportunity::create([
+            'person_id' => $customer->id,
+            'owner_user_id' => $user->id,
+            'created_by' => $user->id,
+            'code' => 'OPP-ORIGIN-1',
+            'title' => 'Original installation',
+            'stage' => 'won',
+            'probability' => 100,
+            'estimated_value' => 12000,
+        ]);
+        $otherOrigin = Opportunity::create([
+            'person_id' => $otherCustomer->id,
+            'owner_user_id' => $user->id,
+            'created_by' => $user->id,
+            'code' => 'OPP-ORIGIN-2',
+            'title' => 'Other customer installation',
+            'stage' => 'won',
+            'probability' => 100,
+            'estimated_value' => 8000,
+        ]);
+        $payload = [
+            'person_id' => $customer->id,
+            'title' => 'Annual maintenance renewal',
+            'commercial_kind' => 'renewal',
+            'stage' => 'new',
+            'probability' => 10,
+            'estimated_value' => 900,
+        ];
+
+        $this->actingAs($user)->post(route('opportunities.store'), $payload)
+            ->assertSessionHasErrors(['parent_opportunity_id', 'renewal_due_on']);
+
+        $this->post(route('opportunities.store'), [
+            ...$payload,
+            'parent_opportunity_id' => $otherOrigin->id,
+            'renewal_due_on' => today()->addDays(20)->toDateString(),
+        ])->assertUnprocessable();
+
+        $this->post(route('opportunities.store'), [
+            ...$payload,
+            'parent_opportunity_id' => $origin->id,
+            'renewal_due_on' => today()->addDays(20)->toDateString(),
+        ])->assertRedirect();
+
+        $renewal = Opportunity::where('title', 'Annual maintenance renewal')->sole();
+        $this->assertSame('renewal', $renewal->commercial_kind);
+        $this->assertSame($origin->id, $renewal->parent_opportunity_id);
+        $this->assertSame($origin->id, $renewal->parentOpportunity->id);
+        $this->assertNotNull($renewal->nextActivity);
+
+        $this->get(route('opportunities.index', ['commercial_kind' => 'renewal']))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('opportunities', 1)
+                ->where('opportunities.0.id', $renewal->id)
+                ->where('opportunities.0.parent_opportunity.id', $origin->id)
+                ->where('metrics.renewals_due', 1));
+    }
+
+    public function test_recurring_opportunity_requires_periodicity_and_renewal_date(): void
+    {
+        $user = User::factory()->create(['role' => 'commercial']);
+        $customer = Person::create(['category' => 'customer', 'first_name' => 'Ana']);
+        $payload = [
+            'person_id' => $customer->id,
+            'title' => 'Monitoring subscription',
+            'commercial_kind' => 'recurring',
+            'stage' => 'new',
+            'probability' => 10,
+            'estimated_value' => 50,
+        ];
+
+        $this->actingAs($user)->post(route('opportunities.store'), $payload)
+            ->assertSessionHasErrors(['recurrence_interval', 'renewal_due_on']);
+
+        $this->post(route('opportunities.store'), [
+            ...$payload,
+            'recurrence_interval' => 'monthly',
+            'renewal_due_on' => today()->addMonth()->toDateString(),
+        ])->assertRedirect();
+
+        $this->assertDatabaseHas('opportunities', [
+            'title' => 'Monitoring subscription',
+            'commercial_kind' => 'recurring',
+            'recurrence_interval' => 'monthly',
+        ]);
+    }
+
     private function stockProduct(string $sku, string $name, float $cost): Product
     {
         return Product::create([
