@@ -8,6 +8,7 @@ use App\Models\StockCount;
 use App\Models\StockMovementLine;
 use App\Models\Warehouse;
 use App\Services\Inventory\StockLedger;
+use App\Services\Supply\SupplyNumber;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -32,7 +33,7 @@ class StockCountController extends Controller
         ]);
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request, SupplyNumber $numbers): RedirectResponse
     {
         $data = $request->validate([
             'warehouse_id' => ['required', 'exists:warehouses,id'],
@@ -40,7 +41,7 @@ class StockCountController extends Controller
             'notes' => ['nullable', 'string', 'max:2000'],
         ]);
 
-        $count = DB::transaction(function () use ($request, $data) {
+        $count = DB::transaction(function () use ($request, $data, $numbers) {
             abort_if(StockCount::where('warehouse_id', $data['warehouse_id'])->where('status', 'draft')->lockForUpdate()->exists(), 422, __('This warehouse already has an open stock count.'));
             $products = Product::where('track_stock', true)
                 ->where('track_serials', $data['mode'] === 'serial')
@@ -69,7 +70,8 @@ class StockCountController extends Controller
                 }
             }
             $prefix = $data['mode'] === 'serial' ? 'SCOUNT' : 'COUNT';
-            $number = $prefix.'-'.now()->format('Ym').'-'.str_pad((string) (StockCount::lockForUpdate()->count() + 1), 5, '0', STR_PAD_LEFT);
+            $period = now()->format('Ym');
+            $number = $numbers->next("stock_count:{$prefix}:{$period}", "{$prefix}-{$period}-", 'stock_counts');
             $count = StockCount::create([
                 ...$data,
                 'created_by' => $request->user()->id,
