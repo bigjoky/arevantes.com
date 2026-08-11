@@ -129,13 +129,26 @@ class ExpenseController extends Controller
 
     private function storePayment(Request $request, ?Expense $expense, ?PurchaseDocument $invoice, AccountingSynchronizer $accounting): void
     {
-        $outstanding = $invoice ? $this->balances->purchase($invoice) : $this->balances->expense($expense);
-        abort_if($outstanding <= 0, 422, __('This document has no outstanding balance.'));
-        $data = $request->validate(['paid_at' => ['required', 'date'], 'amount' => ['required', 'numeric', 'gt:0', 'max:'.$outstanding], 'method' => ['required', Rule::in(['bank_transfer', 'card', 'cash', 'direct_debit', 'other'])], 'reference' => ['nullable', 'string', 'max:255'], 'notes' => ['nullable', 'string']]);
+        $data = $request->validate(['paid_at' => ['required', 'date'], 'amount' => ['required', 'numeric', 'gt:0'], 'method' => ['required', Rule::in(['bank_transfer', 'card', 'cash', 'direct_debit', 'other'])], 'reference' => ['nullable', 'string', 'max:255'], 'notes' => ['nullable', 'string']]);
         DB::transaction(function () use ($request, $expense, $invoice, $accounting, $data) {
-            $payment = SupplierPayment::create([...$data, 'expense_id' => $expense?->id, 'purchase_document_id' => $invoice?->id, 'created_by' => $request->user()->id]);
+            $lockedExpense = $expense ? Expense::lockForUpdate()->findOrFail($expense->id) : null;
+            $lockedInvoice = $invoice ? PurchaseDocument::lockForUpdate()->findOrFail($invoice->id) : null;
+
+            abort_if($lockedInvoice?->matching_status === 'review_required', 422, __('Approve invoice variances before registering a payment.'));
+
+            $outstanding = $lockedInvoice
+                ? $this->balances->purchase($lockedInvoice)
+                : $this->balances->expense($lockedExpense);
+
+            if ($outstanding <= 0 || (float) $data['amount'] > $outstanding + 0.0005) {
+                throw ValidationException::withMessages([
+                    'amount' => __('The payment exceeds the outstanding document balance.'),
+                ]);
+            }
+
+            $payment = SupplierPayment::create([...$data, 'expense_id' => $lockedExpense?->id, 'purchase_document_id' => $lockedInvoice?->id, 'created_by' => $request->user()->id]);
             $accounting->syncSupplierPayment($payment, $request->user()->id);
-            $this->refreshStatus($expense, $invoice);
+            $this->refreshStatus($lockedExpense, $lockedInvoice);
         });
     }
 

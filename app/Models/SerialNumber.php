@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class SerialNumber extends Model
 {
-    protected $fillable = ['product_id', 'warehouse_id', 'installation_id', 'received_line_id', 'issued_line_id', 'serial_number', 'status', 'received_at', 'issued_at', 'warranty_starts_on', 'warranty_ends_on'];
+    protected $fillable = ['product_id', 'origin_purchase_document_id', 'warehouse_id', 'installation_id', 'received_line_id', 'issued_line_id', 'serial_number', 'status', 'received_at', 'issued_at', 'warranty_starts_on', 'warranty_ends_on'];
 
     protected function casts(): array
     {
@@ -19,6 +19,11 @@ class SerialNumber extends Model
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class);
+    }
+
+    public function originPurchaseDocument(): BelongsTo
+    {
+        return $this->belongsTo(PurchaseDocument::class, 'origin_purchase_document_id');
     }
 
     public function installationAsset(): HasOne
