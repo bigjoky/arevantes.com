@@ -24,7 +24,7 @@ class InstallationAssetController extends Controller
             $data['warranty_ends_on'] ??= $serial->warranty_ends_on;
         }
         $asset = DB::transaction(function () use ($installation, $data, $request): InstallationAsset {
-            $asset = $installation->assets()->create([...$data, 'asset_tag' => $data['asset_tag'] ?? $this->nextTag()]);
+            $asset = $this->createAsset($installation, $data);
             $asset->events()->create(['recorded_by' => $request->user()->id, 'type' => 'commissioned', 'summary' => __('Asset commissioned'), 'occurred_at' => $asset->commissioned_at ?: now()]);
 
             return $asset;
@@ -62,7 +62,7 @@ class InstallationAssetController extends Controller
         $this->ensureInstallation($installation, $asset);
         $data = $this->validated($request);
         $replacement = DB::transaction(function () use ($installation, $asset, $data, $request): InstallationAsset {
-            $replacement = $installation->assets()->create([...$data, 'asset_tag' => $data['asset_tag'] ?? $this->nextTag()]);
+            $replacement = $this->createAsset($installation, $data);
             $asset->update(['status' => 'replaced', 'removed_at' => now(), 'replaced_by_asset_id' => $replacement->id]);
             $asset->events()->create(['recorded_by' => $request->user()->id, 'type' => 'replacement', 'summary' => __('Replaced by :tag', ['tag' => $replacement->asset_tag]), 'occurred_at' => now()]);
             $replacement->events()->create(['recorded_by' => $request->user()->id, 'type' => 'commissioned', 'summary' => __('Replacement asset commissioned'), 'occurred_at' => $replacement->commissioned_at ?: now()]);
@@ -102,8 +102,19 @@ class InstallationAssetController extends Controller
         abort_unless($asset->installation_id === $installation->id, 404);
     }
 
-    private function nextTag(): string
+    /** @param array<string, mixed> $data */
+    private function createAsset(Installation $installation, array $data): InstallationAsset
     {
-        return 'AST-'.now()->format('Y').'-'.str_pad((string) (InstallationAsset::count() + 1), 6, '0', STR_PAD_LEFT);
+        $asset = $installation->assets()->create([
+            ...$data,
+            'asset_tag' => $data['asset_tag'] ?? 'TMP-'.str()->uuid(),
+        ]);
+        if (blank($data['asset_tag'] ?? null)) {
+            $asset->update([
+                'asset_tag' => 'AST-'.now()->format('Y').'-'.str_pad((string) $asset->id, 6, '0', STR_PAD_LEFT),
+            ]);
+        }
+
+        return $asset;
     }
 }

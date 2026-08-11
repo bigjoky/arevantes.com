@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\DB;
 
 class ServiceWorkGenerator
 {
-    public function __construct(private WorkOrderFactory $orders, private SlaManager $sla) {}
+    public function __construct(private WorkOrderFactory $orders, private SlaManager $sla, private ServiceTicketFactory $tickets) {}
 
     public function createForTicket(ServiceTicket $ticket, ?int $createdBy = null): WorkOrder
     {
@@ -42,17 +42,16 @@ class ServiceWorkGenerator
     {
         $count = 0;
         MaintenancePlan::query()->with(['installation', 'tickets.workOrder'])->where('is_active', true)
-            ->whereDate('next_due_on', '<=', today()->addDays(30))->each(function (MaintenancePlan $plan) use (&$count): void {
+            ->where('next_due_on', '<=', today()->addDays(30)->toDateString())->each(function (MaintenancePlan $plan) use (&$count): void {
                 if ($plan->next_due_on->greaterThan(today()->addDays($plan->lead_days))) {
                     return;
                 }
                 $ticket = $plan->tickets()->whereNotIn('status', ['resolved', 'closed'])->latest()->first();
                 if (! $ticket) {
-                    $ticket = ServiceTicket::create([
+                    $ticket = $this->tickets->create([
                         'installation_id' => $plan->installation_id,
                         'maintenance_plan_id' => $plan->id,
                         'assigned_user_id' => $plan->assigned_user_id,
-                        'number' => 'SAT-'.now()->format('Y').'-'.str_pad((string) (ServiceTicket::count() + 1), 5, '0', STR_PAD_LEFT),
                         'kind' => 'maintenance', 'priority' => 'normal', 'status' => 'open', 'title' => $plan->name, 'description' => $plan->scope,
                     ]);
                     $this->sla->apply($ticket);

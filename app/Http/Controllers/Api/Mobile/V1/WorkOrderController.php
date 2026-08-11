@@ -4,11 +4,14 @@ namespace App\Http\Controllers\Api\Mobile\V1;
 
 use App\Http\Controllers\Controller;
 use App\Models\TimeEntry;
+use App\Models\User;
 use App\Models\WorkOrder;
 use App\Models\WorkOrderChecklistItem;
+use App\Services\Work\WorkOrderWorkflow;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
 class WorkOrderController extends Controller
@@ -17,7 +20,7 @@ class WorkOrderController extends Controller
     {
         $validated = $request->validate([
             'updated_after' => ['nullable', 'date'],
-            'status' => ['nullable', 'in:planned,in_progress,completed,cancelled'],
+            'status' => ['nullable', 'in:planned,in_progress,blocked,completed,cancelled'],
             'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
         ]);
         $orders = $this->accessible($request)
@@ -64,13 +67,21 @@ class WorkOrderController extends Controller
         ]]);
     }
 
-    public function startTimer(Request $request, WorkOrder $workOrder): JsonResponse
+    public function startTimer(Request $request, WorkOrder $workOrder, WorkOrderWorkflow $workflow): JsonResponse
     {
         $this->ensureAccess($request, $workOrder);
-        abort_if(TimeEntry::where('user_id', $request->user()->id)->whereNull('ended_at')->exists(), 422, __('You already have a running timer.'));
-        abort_if(in_array($workOrder->status, ['completed', 'cancelled'], true), 422);
-        $entry = TimeEntry::create(['work_order_id' => $workOrder->id, 'user_id' => $request->user()->id, 'created_by' => $request->user()->id, 'started_at' => now(), 'hourly_cost' => config('work.default_hourly_cost'), 'mileage_rate' => config('work.mileage_rate')]);
-        $workOrder->update(['status' => 'in_progress']);
+        $entry = DB::transaction(function () use ($request, $workOrder, $workflow): TimeEntry {
+            User::query()->whereKey($request->user()->id)->lockForUpdate()->firstOrFail();
+            $locked = WorkOrder::query()->with('template')->lockForUpdate()->findOrFail($workOrder->id);
+            $this->ensureAccess($request, $locked);
+            $workflow->assertTransition($locked, 'in_progress');
+            abort_if(TimeEntry::where('user_id', $request->user()->id)->whereNull('ended_at')->exists(), 422, __('You already have a running timer.'));
+            $entry = TimeEntry::create(['work_order_id' => $locked->id, 'user_id' => $request->user()->id, 'created_by' => $request->user()->id, 'started_at' => now(), 'hourly_cost' => config('work.default_hourly_cost'), 'mileage_rate' => config('work.mileage_rate')]);
+            $locked->update(['status' => 'in_progress']);
+            $locked->activities()->update(['status' => 'in_progress']);
+
+            return $entry;
+        });
 
         return response()->json(['data' => ['id' => $entry->id, 'started_at' => $entry->started_at->toISOString()]], 201);
     }

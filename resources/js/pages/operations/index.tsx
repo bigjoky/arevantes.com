@@ -1048,17 +1048,18 @@ function dropOrder(event: React.DragEvent, day: string) {
         return;
     }
 
-    const start = order.scheduled_start
-        ? `${day}T${order.scheduled_start.slice(11, 19)}`
+    const localStart = order.scheduled_start
+        ? dateTimeInput(order.scheduled_start)
+        : null;
+    const start = localStart
+        ? `${day}T${localStart.slice(11)}:00`
         : `${day}T08:00:00`;
     const duration =
         order.scheduled_start && order.scheduled_end
             ? new Date(order.scheduled_end).getTime() -
               new Date(order.scheduled_start).getTime()
             : 60 * 60 * 1000;
-    const end = new Date(new Date(start).getTime() + duration)
-        .toISOString()
-        .slice(0, 19);
+    const end = localIso(new Date(new Date(start).getTime() + duration));
     router.patch(
         `/work-orders/${order.id}/schedule`,
         {
@@ -1708,6 +1709,13 @@ function dateTimeInput(value?: string | null) {
     return new Date(date.getTime() - offset * 60_000)
         .toISOString()
         .slice(0, 16);
+}
+function localIso(date: Date) {
+    const offset = date.getTimezoneOffset();
+
+    return new Date(date.getTime() - offset * 60_000)
+        .toISOString()
+        .slice(0, 19);
 }
 function dateKey(value: string | null) {
     if (!value) {

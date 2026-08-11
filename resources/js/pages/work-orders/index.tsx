@@ -1498,10 +1498,13 @@ function BulkRescheduleDialog({
             {
                 reason,
                 items: orders.map((order, index) => {
-                    const startTime = order.scheduled_start
-                        ? order.scheduled_start.slice(11, 19)
-                        : `${String(8 + index).padStart(2, '0')}:00:00`;
-                    const start = `${date}T${startTime}`;
+                    const fallbackStart = new Date(`${date}T08:00:00`);
+                    fallbackStart.setMinutes(
+                        fallbackStart.getMinutes() + index * 60,
+                    );
+                    const start = order.scheduled_start
+                        ? `${date}T${localDateTime(order.scheduled_start).slice(11)}:00`
+                        : localIso(fallbackStart);
                     const duration =
                         order.scheduled_start && order.scheduled_end
                             ? new Date(order.scheduled_end).getTime() -
