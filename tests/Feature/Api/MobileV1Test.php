@@ -4,8 +4,14 @@ namespace Tests\Feature\Api;
 
 use App\Models\Installation;
 use App\Models\MobileOperation;
+use App\Models\Product;
+use App\Models\StockReservation;
+use App\Models\TaxRate;
+use App\Models\Unit;
 use App\Models\User;
+use App\Models\Warehouse;
 use App\Models\WorkOrder;
+use App\Services\Inventory\StockLedger;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -97,6 +103,133 @@ class MobileV1Test extends TestCase
             ->assertOk()->assertJsonPath('data.id', $entryId);
         $this->getJson("/api/mobile/v1/work-orders/{$order->id}")
             ->assertOk()->assertJsonPath('data.status', 'in_progress')->assertJsonPath('data.checklist.0.id', $item->id);
+    }
+
+    public function test_technician_can_complete_a_ready_work_order_idempotently(): void
+    {
+        $technician = User::factory()->create(['role' => 'technician']);
+        $installation = Installation::create(['service_type' => 'solar', 'status' => 'in_progress', 'site_address_line_1' => 'Calle Sol 1']);
+        $order = WorkOrder::create([
+            'installation_id' => $installation->id,
+            'assigned_user_id' => $technician->id,
+            'number' => 'WO-MOBILE-COMPLETE',
+            'title' => 'Complete installation',
+            'kind' => 'installation',
+            'status' => 'in_progress',
+            'signed_by_name' => 'Ana Cliente',
+            'signed_at' => now(),
+        ]);
+        $order->checklistItems()->create([
+            'position' => 1,
+            'label' => 'Commissioning complete',
+            'is_required' => true,
+            'completed_by' => $technician->id,
+            'completed_at' => now(),
+        ]);
+        $order->attachments()->create([
+            'uploaded_by' => $technician->id,
+            'kind' => 'photo',
+            'original_name' => 'completed.jpg',
+            'path' => 'work-orders/completed.jpg',
+            'mime_type' => 'image/jpeg',
+            'size' => 100,
+        ]);
+        $key = (string) Str::uuid();
+
+        $this->actingAs($technician, 'sanctum')->withHeader('Idempotency-Key', $key)
+            ->patchJson("/api/mobile/v1/work-orders/{$order->id}/complete", ['completion_notes' => 'Installation tested and accepted.'])
+            ->assertOk()
+            ->assertJsonPath('data.status', 'completed')
+            ->assertJsonPath('data.completion_notes', 'Installation tested and accepted.');
+        $this->app['auth']->forgetGuards();
+        $this->actingAs($technician, 'sanctum')->withHeader('Idempotency-Key', $key)
+            ->patchJson("/api/mobile/v1/work-orders/{$order->id}/complete", ['completion_notes' => 'Must not run twice.'])
+            ->assertOk()
+            ->assertHeader('Idempotency-Replayed', 'true')
+            ->assertJsonPath('data.completion_notes', 'Installation tested and accepted.');
+
+        $this->assertSame('completed', $order->refresh()->status);
+        $this->assertSame('completed', $installation->refresh()->status);
+        $this->assertDatabaseCount('mobile_operations', 1);
+    }
+
+    public function test_mobile_completion_rejects_an_incomplete_work_order_without_reserving_the_key(): void
+    {
+        $technician = User::factory()->create(['role' => 'technician']);
+        $installation = Installation::create(['service_type' => 'solar', 'status' => 'in_progress', 'site_address_line_1' => 'Calle Sol 1']);
+        $order = WorkOrder::create([
+            'installation_id' => $installation->id,
+            'assigned_user_id' => $technician->id,
+            'number' => 'WO-MOBILE-INCOMPLETE',
+            'title' => 'Incomplete installation',
+            'kind' => 'installation',
+            'status' => 'in_progress',
+        ]);
+
+        $this->actingAs($technician, 'sanctum')->withHeader('Idempotency-Key', (string) Str::uuid())
+            ->patchJson("/api/mobile/v1/work-orders/{$order->id}/complete", ['completion_notes' => 'Attempted completion.'])
+            ->assertUnprocessable();
+
+        $this->assertSame('in_progress', $order->refresh()->status);
+        $this->assertDatabaseCount('mobile_operations', 0);
+    }
+
+    public function test_technician_can_consume_reserved_material_from_mobile_idempotently(): void
+    {
+        $technician = User::factory()->create(['role' => 'technician']);
+        $installation = Installation::create(['service_type' => 'solar', 'status' => 'in_progress', 'site_address_line_1' => 'Calle Sol 1']);
+        $order = WorkOrder::create([
+            'installation_id' => $installation->id,
+            'assigned_user_id' => $technician->id,
+            'number' => 'WO-MOBILE-MATERIAL',
+            'title' => 'Install inverter',
+            'kind' => 'installation',
+            'status' => 'in_progress',
+        ]);
+        $warehouse = Warehouse::create(['code' => 'VAN-1', 'name' => 'Service van', 'is_active' => true]);
+        $product = Product::create([
+            'type' => 'product',
+            'name' => 'Inverter',
+            'unit_id' => Unit::firstOrFail()->id,
+            'tax_rate_id' => TaxRate::firstOrFail()->id,
+            'sale_price' => 100,
+            'cost_price' => 50,
+            'track_stock' => true,
+            'track_serials' => false,
+            'is_active' => true,
+        ]);
+        app(StockLedger::class)->post([
+            'type' => 'receipt',
+            'warehouse_id' => $warehouse->id,
+            'lines' => [['product_id' => $product->id, 'quantity' => 2, 'unit_cost' => 50]],
+        ], $technician->id);
+        $reservation = StockReservation::create([
+            'installation_id' => $installation->id,
+            'work_order_id' => $order->id,
+            'warehouse_id' => $warehouse->id,
+            'product_id' => $product->id,
+            'quantity' => 2,
+            'consumed_quantity' => 0,
+            'status' => 'active',
+        ]);
+        $key = (string) Str::uuid();
+
+        $this->actingAs($technician, 'sanctum')->getJson("/api/mobile/v1/work-orders/{$order->id}")
+            ->assertOk()
+            ->assertJsonPath('data.materials.0.remaining_quantity', 2);
+        $this->withHeader('Idempotency-Key', $key)
+            ->postJson("/api/mobile/v1/work-orders/{$order->id}/materials/{$reservation->id}/consume", ['quantity' => 1])
+            ->assertOk()
+            ->assertJsonPath('data.remaining_quantity', 1);
+        $this->app['auth']->forgetGuards();
+        $this->actingAs($technician, 'sanctum')->withHeader('Idempotency-Key', $key)
+            ->postJson("/api/mobile/v1/work-orders/{$order->id}/materials/{$reservation->id}/consume", ['quantity' => 1])
+            ->assertOk()
+            ->assertHeader('Idempotency-Replayed', 'true')
+            ->assertJsonPath('data.remaining_quantity', 1);
+
+        $this->assertSame('1.000', $reservation->refresh()->consumed_quantity);
+        $this->assertDatabaseCount('mobile_operations', 1);
     }
 
     public function test_mutation_is_replayed_without_running_twice(): void
