@@ -78,6 +78,7 @@ class SupplyWorkflowTest extends TestCase
             'matching_amount_tolerance' => 5,
             'matching_percent_tolerance' => 2,
             'shipping_tax_percent' => 10,
+            'order_approval_threshold' => 15000,
         ])->assertForbidden();
 
         $admin = User::factory()->create(['role' => 'admin']);
@@ -85,12 +86,14 @@ class SupplyWorkflowTest extends TestCase
             'matching_amount_tolerance' => 5,
             'matching_percent_tolerance' => 2,
             'shipping_tax_percent' => 10,
+            'order_approval_threshold' => 15000,
         ])->assertRedirect();
 
         $settings = PurchaseSetting::current();
         $this->assertSame('5.00', $settings->matching_amount_tolerance);
         $this->assertSame('2.00', $settings->matching_percent_tolerance);
         $this->assertSame('10.00', $settings->shipping_tax_percent);
+        $this->assertSame('15000.00', $settings->order_approval_threshold);
     }
 
     private function catalog(): array
