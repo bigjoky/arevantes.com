@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\DB;
 
 class WorkOrderFactory
 {
-    public function __construct(private ChecklistTemplate $checklists) {}
+    public function __construct(private ChecklistTemplate $checklists, private WorkOrderWorkflow $workflow) {}
 
     /** @param array<string, mixed> $data */
     public function create(array $data, ?int $createdBy = null): WorkOrder
@@ -31,6 +31,7 @@ class WorkOrderFactory
                 'estimated_duration_minutes' => $data['estimated_duration_minutes'] ?? $template?->estimated_duration_minutes,
                 'required_skills' => $data['required_skills'] ?? $template?->required_skills,
                 'service_zone' => $data['service_zone'] ?? $installation->site_postal_code,
+                'allowed_transitions_snapshot' => $template?->allowed_transitions ?: $this->workflow->defaultTransitions(),
             ]);
             $order->update(['number' => 'WO-'.now()->format('Y').'-'.str_pad((string) $order->id, 5, '0', STR_PAD_LEFT)]);
             $items = $template?->checklist ?: $this->checklists->for($installation->service_type, $kind);

@@ -7,7 +7,7 @@ use App\Models\StockMovementLine;
 use App\Models\StockReservation;
 use App\Models\WorkOrder;
 use App\Services\Inventory\ProjectProcurement;
-use App\Services\Inventory\StockLedger;
+use App\Services\Inventory\WorkOrderMaterialConsumer;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -61,7 +61,7 @@ class WorkOrderMaterialsController extends Controller
         return back()->with('toast', ['type' => 'success', 'message' => __('Materials reserved for the work order.')]);
     }
 
-    public function consume(Request $request, WorkOrder $workOrder, StockReservation $reservation, StockLedger $ledger): RedirectResponse
+    public function consume(Request $request, WorkOrder $workOrder, StockReservation $reservation, WorkOrderMaterialConsumer $consumer): RedirectResponse
     {
         $this->ensureAccess($request, $workOrder);
         abort_unless($reservation->work_order_id === $workOrder->id && $reservation->status === 'active', 422);
@@ -70,35 +70,7 @@ class WorkOrderMaterialsController extends Controller
             'serials' => ['nullable', 'string'],
         ]);
 
-        DB::transaction(function () use ($request, $workOrder, $reservation, $ledger, $data): void {
-            $reservation = StockReservation::lockForUpdate()->findOrFail($reservation->id);
-            $reservation->load('product:id,cost_price');
-            $remaining = round((float) $reservation->quantity - (float) $reservation->consumed_quantity, 3);
-            if ((float) $data['quantity'] > $remaining) {
-                throw ValidationException::withMessages(['quantity' => __('The consumed quantity exceeds the remaining reservation.')]);
-            }
-
-            $ledger->post([
-                'type' => 'issue',
-                'warehouse_id' => $reservation->warehouse_id,
-                'installation_id' => $workOrder->installation_id,
-                'work_order_id' => $workOrder->id,
-                'reference' => $workOrder->number,
-                'notes' => __('Material consumed on work order :number.', ['number' => $workOrder->number]),
-                'lines' => [[
-                    'product_id' => $reservation->product_id,
-                    'quantity' => $data['quantity'],
-                    'unit_cost' => $reservation->product->cost_price,
-                    'serials' => $data['serials'] ?? null,
-                ]],
-            ], $request->user()->id);
-
-            $consumed = round((float) $reservation->consumed_quantity + (float) $data['quantity'], 3);
-            $reservation->update([
-                'consumed_quantity' => $consumed,
-                'status' => $consumed >= (float) $reservation->quantity ? 'consumed' : 'active',
-            ]);
-        });
+        $consumer->consume($workOrder, $reservation, (float) $data['quantity'], $data['serials'] ?? null, $request->user()->id);
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Material consumption recorded.')]);
     }

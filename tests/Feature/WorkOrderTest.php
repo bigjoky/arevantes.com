@@ -6,9 +6,13 @@ use App\Models\Installation;
 use App\Models\TimeEntry;
 use App\Models\User;
 use App\Models\WorkOrder;
+use App\Models\WorkOrderTemplate;
+use App\Services\Work\WorkOrderFactory;
+use App\Services\Work\WorkOrderWorkflow;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 use Tests\TestCase;
 
 class WorkOrderTest extends TestCase
@@ -65,6 +69,49 @@ class WorkOrderTest extends TestCase
         $this->assertSame('completed', $installation->refresh()->status);
         $this->assertSame('Ana Customer', $order->signed_by_name);
         Storage::disk('local')->assertExists($order->signature_path);
+        $this->assertDatabaseHas('audit_logs', [
+            'auditable_type' => $order->getMorphClass(),
+            'auditable_id' => $order->id,
+            'event' => 'updated',
+        ]);
+    }
+
+    public function test_work_order_keeps_its_workflow_when_the_template_changes(): void
+    {
+        $installation = Installation::create(['service_type' => 'solar', 'status' => 'approved', 'site_address_line_1' => 'Calle Flujo 1']);
+        $template = WorkOrderTemplate::create([
+            'name' => 'Controlled workflow',
+            'kind' => 'maintenance',
+            'title' => 'Controlled maintenance',
+            'estimated_duration_minutes' => 60,
+            'required_skills' => [],
+            'checklist' => [['label' => 'Inspect', 'is_required' => true]],
+            'allowed_transitions' => [
+                'planned' => ['blocked'],
+                'blocked' => ['planned'],
+                'in_progress' => [],
+                'completed' => [],
+                'cancelled' => [],
+            ],
+            'is_active' => true,
+        ]);
+        $order = app(WorkOrderFactory::class)->create([
+            'installation_id' => $installation->id,
+            'work_order_template_id' => $template->id,
+            'title' => 'Snapshot workflow',
+        ]);
+
+        $template->update(['allowed_transitions' => [
+            'planned' => ['in_progress'],
+            'in_progress' => ['completed'],
+            'blocked' => [],
+            'completed' => [],
+            'cancelled' => [],
+        ]]);
+
+        $this->assertSame(['blocked'], $order->refresh()->allowed_transitions_snapshot['planned']);
+        $this->expectException(ValidationException::class);
+        app(WorkOrderWorkflow::class)->assertTransition($order, 'in_progress');
     }
 
     public function test_manual_time_uses_historical_cost_rates(): void
