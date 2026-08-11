@@ -84,12 +84,12 @@ class StockLedger
                 if ($existing->product_id !== $productId || $existing->status !== 'missing') {
                     throw ValidationException::withMessages(['lines' => __('Serial number :serial is already registered and cannot be received.', ['serial' => $serial])]);
                 }
-                $existing->update(['warehouse_id' => $warehouseId, 'installation_id' => null, 'received_line_id' => $line->id, 'issued_line_id' => null, 'status' => 'available', 'received_at' => now(), 'issued_at' => null]);
+                $existing->update(['origin_purchase_document_id' => $existing->origin_purchase_document_id ?? $movement->purchase_document_id, 'warehouse_id' => $warehouseId, 'installation_id' => null, 'received_line_id' => $line->id, 'issued_line_id' => null, 'status' => 'available', 'received_at' => now(), 'issued_at' => null]);
                 $this->recordSerialEvent($existing, $movement, 'recovered', null, $warehouseId);
 
                 continue;
             }
-            $item = SerialNumber::create(['product_id' => $productId, 'warehouse_id' => $warehouseId, 'received_line_id' => $line->id, 'serial_number' => $serial, 'status' => 'available', 'received_at' => now()]);
+            $item = SerialNumber::create(['product_id' => $productId, 'origin_purchase_document_id' => $movement->purchase_document_id, 'warehouse_id' => $warehouseId, 'received_line_id' => $line->id, 'serial_number' => $serial, 'status' => 'available', 'received_at' => now()]);
             $this->recordSerialEvent($item, $movement, 'received', null, $warehouseId);
         }
     }
@@ -119,10 +119,19 @@ class StockLedger
 
     private function returnSerials(StockMovement $movement, int $productId, int $warehouseId, array $serials, StockMovementLine $line): void
     {
+        if (! $movement->purchase_document_id) {
+            throw ValidationException::withMessages(['lines' => __('A purchase order is required to return serialized stock.')]);
+        }
+
         foreach ($serials as $serial) {
-            $item = SerialNumber::where('product_id', $productId)->where('warehouse_id', $warehouseId)->where('serial_number', $serial)->where('status', 'available')->first();
+            $item = SerialNumber::where('product_id', $productId)
+                ->where('origin_purchase_document_id', $movement->purchase_document_id)
+                ->where('warehouse_id', $warehouseId)
+                ->where('serial_number', $serial)
+                ->where('status', 'available')
+                ->first();
             if (! $item) {
-                throw ValidationException::withMessages(['lines' => __('Serial number :serial is not available for return.', ['serial' => $serial])]);
+                throw ValidationException::withMessages(['lines' => __('Serial number :serial is not available for return against this purchase order.', ['serial' => $serial])]);
             }
             $item->update(['warehouse_id' => null, 'issued_line_id' => $line->id, 'status' => 'returned', 'issued_at' => now()]);
             $this->recordSerialEvent($item, $movement, 'returned', $warehouseId);
