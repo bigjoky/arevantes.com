@@ -59,7 +59,7 @@ class ExpenseController extends Controller
             $amount = round((float) $data['subtotal'] + (float) $data['tax_amount'], 2);
             $expense = Expense::create([...$data, 'created_by' => $request->user()->id, 'number' => $number, 'amount' => $amount, 'status' => 'pending']);
             foreach ($files as $file) {
-                $path = $file->store("expenses/{$expense->id}", 'local');
+                $path = $file->store("expenses/{$expense->id}", config('filesystems.private'));
                 $expense->attachments()->create(['uploaded_by' => $request->user()->id, 'original_name' => $file->getClientOriginalName(), 'path' => $path, 'mime_type' => $file->getMimeType() ?: 'application/octet-stream', 'size' => $file->getSize()]);
             }
             $accounting->syncExpense($expense, $request->user()->id);
@@ -75,7 +75,7 @@ class ExpenseController extends Controller
         abort_if($expense->payments()->exists(), 422, __('Expenses with payments cannot be deleted.'));
         abort_if($expense->accountingEntry()->exists(), 422, __('Posted expenses cannot be deleted. Reverse the accounting entry first.'));
         foreach ($expense->attachments as $attachment) {
-            Storage::disk('local')->delete($attachment->path);
+            Storage::disk(config('filesystems.private'))->delete($attachment->path);
         }
         $expense->delete();
 
@@ -84,15 +84,15 @@ class ExpenseController extends Controller
 
     public function download(Expense $expense, ExpenseAttachment $attachment): StreamedResponse
     {
-        abort_unless($attachment->expense_id === $expense->id && Storage::disk('local')->exists($attachment->path), 404);
+        abort_unless($attachment->expense_id === $expense->id && Storage::disk(config('filesystems.private'))->exists($attachment->path), 404);
 
-        return Storage::disk('local')->download($attachment->path, $attachment->original_name, ['Content-Type' => $attachment->mime_type]);
+        return Storage::disk(config('filesystems.private'))->download($attachment->path, $attachment->original_name, ['Content-Type' => $attachment->mime_type]);
     }
 
     public function destroyAttachment(Expense $expense, ExpenseAttachment $attachment): RedirectResponse
     {
         abort_unless($attachment->expense_id === $expense->id, 404);
-        Storage::disk('local')->delete($attachment->path);
+        Storage::disk(config('filesystems.private'))->delete($attachment->path);
         $attachment->delete();
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Attachment deleted.')]);
@@ -129,13 +129,26 @@ class ExpenseController extends Controller
 
     private function storePayment(Request $request, ?Expense $expense, ?PurchaseDocument $invoice, AccountingSynchronizer $accounting): void
     {
-        $outstanding = $invoice ? $this->balances->purchase($invoice) : $this->balances->expense($expense);
-        abort_if($outstanding <= 0, 422, __('This document has no outstanding balance.'));
-        $data = $request->validate(['paid_at' => ['required', 'date'], 'amount' => ['required', 'numeric', 'gt:0', 'max:'.$outstanding], 'method' => ['required', Rule::in(['bank_transfer', 'card', 'cash', 'direct_debit', 'other'])], 'reference' => ['nullable', 'string', 'max:255'], 'notes' => ['nullable', 'string']]);
+        $data = $request->validate(['paid_at' => ['required', 'date'], 'amount' => ['required', 'numeric', 'gt:0'], 'method' => ['required', Rule::in(['bank_transfer', 'card', 'cash', 'direct_debit', 'other'])], 'reference' => ['nullable', 'string', 'max:255'], 'notes' => ['nullable', 'string']]);
         DB::transaction(function () use ($request, $expense, $invoice, $accounting, $data) {
-            $payment = SupplierPayment::create([...$data, 'expense_id' => $expense?->id, 'purchase_document_id' => $invoice?->id, 'created_by' => $request->user()->id]);
+            $lockedExpense = $expense ? Expense::lockForUpdate()->findOrFail($expense->id) : null;
+            $lockedInvoice = $invoice ? PurchaseDocument::lockForUpdate()->findOrFail($invoice->id) : null;
+
+            abort_if($lockedInvoice?->matching_status === 'review_required', 422, __('Approve invoice variances before registering a payment.'));
+
+            $outstanding = $lockedInvoice
+                ? $this->balances->purchase($lockedInvoice)
+                : $this->balances->expense($lockedExpense);
+
+            if ($outstanding <= 0 || (float) $data['amount'] > $outstanding + 0.0005) {
+                throw ValidationException::withMessages([
+                    'amount' => __('The payment exceeds the outstanding document balance.'),
+                ]);
+            }
+
+            $payment = SupplierPayment::create([...$data, 'expense_id' => $lockedExpense?->id, 'purchase_document_id' => $lockedInvoice?->id, 'created_by' => $request->user()->id]);
             $accounting->syncSupplierPayment($payment, $request->user()->id);
-            $this->refreshStatus($expense, $invoice);
+            $this->refreshStatus($lockedExpense, $lockedInvoice);
         });
     }
 

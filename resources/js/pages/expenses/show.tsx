@@ -1,4 +1,4 @@
-import { Form, Head, Link } from '@inertiajs/react';
+import { Form, Head, Link, usePage } from '@inertiajs/react';
 import { ArrowLeft, Download, Trash2, WalletCards } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -34,6 +34,9 @@ type Expense = {
     }[];
 };
 export default function ExpenseShow({ expense }: { expense: Expense }) {
+    const canManagePayments = usePage<{
+        auth: { abilities: { managePurchasePayments: boolean } };
+    }>().props.auth.abilities.managePurchasePayments;
     const outstanding = Math.max(
         0,
         Number(expense.amount) - Number(expense.paid_amount),
@@ -156,14 +159,16 @@ export default function ExpenseShow({ expense }: { expense: Expense }) {
                                                 : ''}
                                         </div>
                                     </div>
-                                    <Form
-                                        action={`/supplier-payments/${payment.id}`}
-                                        method="delete"
-                                    >
-                                        <Button size="icon" variant="ghost">
-                                            <Trash2 />
-                                        </Button>
-                                    </Form>
+                                    {canManagePayments && (
+                                        <Form
+                                            action={`/supplier-payments/${payment.id}`}
+                                            method="delete"
+                                        >
+                                            <Button size="icon" variant="ghost">
+                                                <Trash2 />
+                                            </Button>
+                                        </Form>
+                                    )}
                                 </div>
                             ))}
                             {expense.payments.length === 0 && (
@@ -172,7 +177,7 @@ export default function ExpenseShow({ expense }: { expense: Expense }) {
                         </div>
                     </div>
                 </section>
-                {outstanding > 0 && (
+                {canManagePayments && outstanding > 0 && (
                     <section className="border-t pt-5">
                         <h2 className="font-semibold">Register payment</h2>
                         <Form

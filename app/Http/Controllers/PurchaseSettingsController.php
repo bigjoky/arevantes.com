@@ -14,6 +14,7 @@ class PurchaseSettingsController extends Controller
             'matching_amount_tolerance' => ['required', 'numeric', 'min:0', 'max:9999999999'],
             'matching_percent_tolerance' => ['required', 'numeric', 'between:0,100'],
             'shipping_tax_percent' => ['required', 'numeric', 'between:0,100'],
+            'order_approval_threshold' => ['required', 'numeric', 'min:0', 'max:999999999999'],
         ]);
         PurchaseSetting::current()->update($data);
 

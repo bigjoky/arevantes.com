@@ -53,6 +53,16 @@ type Product = {
     purchase_account_code: string;
     unit: Unit;
     tax_rate: TaxRate;
+    components: ProductComponent[];
+};
+type ProductComponent = {
+    id?: number;
+    component_product_id: number;
+    quantity: string;
+    fulfillment_kind: 'stock' | 'activity' | 'recurring' | 'none';
+    visibility: 'detailed' | 'summary' | 'hidden';
+    interval_months: number | null;
+    product: Pick<Product, 'id' | 'name' | 'sku' | 'cost_price'>;
 };
 type Supplier = {
     id: number;
@@ -150,6 +160,7 @@ export default function CatalogIndex({
                                 units={units}
                                 taxRates={taxRates}
                                 accountingAccounts={accountingAccounts}
+                                catalogProducts={products}
                             />
                         </div>
                         <div className="overflow-x-auto border-y">
@@ -198,11 +209,13 @@ export default function CatalogIndex({
                                             </td>
                                             <td>{product.tax_rate.rate}%</td>
                                             <td className="text-xs text-muted-foreground">
-                                                {product.track_serials
-                                                    ? 'Serials'
-                                                    : product.track_stock
-                                                      ? 'Stock'
-                                                      : 'None'}
+                                                {product.components.length > 0
+                                                    ? `Compuesto · ${product.components.length}`
+                                                    : product.track_serials
+                                                      ? 'Serials'
+                                                      : product.track_stock
+                                                        ? 'Stock'
+                                                        : 'None'}
                                             </td>
                                             <td>
                                                 <div className="flex justify-end gap-1">
@@ -210,6 +223,9 @@ export default function CatalogIndex({
                                                         product={product}
                                                         units={units}
                                                         taxRates={taxRates}
+                                                        catalogProducts={
+                                                            products
+                                                        }
                                                         accountingAccounts={
                                                             accountingAccounts
                                                         }
@@ -373,13 +389,18 @@ function ProductDialog({
     units,
     taxRates,
     accountingAccounts,
+    catalogProducts,
 }: {
     product?: Product;
     units: Unit[];
     taxRates: TaxRate[];
     accountingAccounts: AccountingAccount[];
+    catalogProducts: Product[];
 }) {
     const [open, setOpen] = useState(false);
+    const [components, setComponents] = useState<ProductComponent[]>(
+        product?.components ?? [],
+    );
     const defaultTax =
         product?.tax_rate_id ?? taxRates.find((tax) => tax.is_default)?.id;
 
@@ -518,6 +539,266 @@ function ProductDialog({
                                             `${account.code} · ${account.name}`,
                                         ])}
                                 />
+                            </div>
+                            <div className="grid min-w-0 gap-3 border-t pt-4">
+                                <div className="flex flex-wrap items-start justify-between gap-3">
+                                    <div className="min-w-0 flex-1">
+                                        <h3 className="font-medium">
+                                            Composición reutilizable
+                                        </h3>
+                                        <p className="text-xs text-muted-foreground">
+                                            Añade productos o servicios que se
+                                            copiarán al desglose técnico de la
+                                            oferta.
+                                        </p>
+                                    </div>
+                                    <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="outline"
+                                        disabled={
+                                            catalogProducts.filter(
+                                                (item) =>
+                                                    item.id !== product?.id,
+                                            ).length === 0
+                                        }
+                                        onClick={() => {
+                                            const first = catalogProducts.find(
+                                                (item) =>
+                                                    item.id !== product?.id &&
+                                                    !components.some(
+                                                        (component) =>
+                                                            component.component_product_id ===
+                                                            item.id,
+                                                    ),
+                                            );
+
+                                            if (!first) {
+                                                return;
+                                            }
+
+                                            setComponents([
+                                                ...components,
+                                                {
+                                                    component_product_id:
+                                                        first.id,
+                                                    quantity: '1',
+                                                    fulfillment_kind:
+                                                        first.track_stock
+                                                            ? 'stock'
+                                                            : first.type ===
+                                                                'service'
+                                                              ? 'activity'
+                                                              : 'none',
+                                                    visibility: 'detailed',
+                                                    interval_months: null,
+                                                    product: first,
+                                                },
+                                            ]);
+                                        }}
+                                    >
+                                        <Plus /> Añadir componente
+                                    </Button>
+                                </div>
+                                {components.map((component, index) => (
+                                    <div
+                                        key={`${component.component_product_id}-${index}`}
+                                        className="grid min-w-0 gap-2 rounded-md border p-2 sm:grid-cols-2"
+                                    >
+                                        <input
+                                            type="hidden"
+                                            name={`components[${index}][component_product_id]`}
+                                            value={
+                                                component.component_product_id
+                                            }
+                                        />
+                                        <input
+                                            type="hidden"
+                                            name={`components[${index}][fulfillment_kind]`}
+                                            value={component.fulfillment_kind}
+                                        />
+                                        <input
+                                            type="hidden"
+                                            name={`components[${index}][visibility]`}
+                                            value={component.visibility}
+                                        />
+                                        <select
+                                            className="h-9 min-w-0 rounded-md border bg-background px-3 text-sm"
+                                            value={
+                                                component.component_product_id
+                                            }
+                                            onChange={(event) => {
+                                                const selected =
+                                                    catalogProducts.find(
+                                                        (item) =>
+                                                            item.id ===
+                                                            Number(
+                                                                event.target
+                                                                    .value,
+                                                            ),
+                                                    );
+
+                                                if (!selected) {
+                                                    return;
+                                                }
+
+                                                setComponents(
+                                                    components.map(
+                                                        (item, position) =>
+                                                            position === index
+                                                                ? {
+                                                                      ...item,
+                                                                      component_product_id:
+                                                                          selected.id,
+                                                                      product:
+                                                                          selected,
+                                                                  }
+                                                                : item,
+                                                    ),
+                                                );
+                                            }}
+                                        >
+                                            {catalogProducts
+                                                .filter(
+                                                    (item) =>
+                                                        item.id !== product?.id,
+                                                )
+                                                .map((item) => (
+                                                    <option
+                                                        key={item.id}
+                                                        value={item.id}
+                                                    >
+                                                        {item.sku
+                                                            ? `${item.sku} · `
+                                                            : ''}
+                                                        {item.name}
+                                                    </option>
+                                                ))}
+                                        </select>
+                                        <Input
+                                            type="number"
+                                            min="0.001"
+                                            step="0.001"
+                                            name={`components[${index}][quantity]`}
+                                            value={component.quantity}
+                                            aria-label="Cantidad"
+                                            onChange={(event) =>
+                                                setComponents(
+                                                    components.map(
+                                                        (item, position) =>
+                                                            position === index
+                                                                ? {
+                                                                      ...item,
+                                                                      quantity:
+                                                                          event
+                                                                              .target
+                                                                              .value,
+                                                                  }
+                                                                : item,
+                                                    ),
+                                                )
+                                            }
+                                        />
+                                        <select
+                                            className="h-9 min-w-0 rounded-md border bg-background px-3 text-sm"
+                                            value={component.fulfillment_kind}
+                                            onChange={(event) =>
+                                                setComponents(
+                                                    components.map(
+                                                        (item, position) =>
+                                                            position === index
+                                                                ? {
+                                                                      ...item,
+                                                                      fulfillment_kind:
+                                                                          event
+                                                                              .target
+                                                                              .value as ProductComponent['fulfillment_kind'],
+                                                                  }
+                                                                : item,
+                                                    ),
+                                                )
+                                            }
+                                        >
+                                            <option value="stock">
+                                                Control de stock
+                                            </option>
+                                            <option value="activity">
+                                                Seguimiento operativo
+                                            </option>
+                                            <option value="recurring">
+                                                Servicio recurrente
+                                            </option>
+                                            <option value="none">
+                                                Solo descriptivo
+                                            </option>
+                                        </select>
+                                        <div className="flex min-w-0 gap-2">
+                                            <select
+                                                className="h-9 min-w-0 flex-1 rounded-md border bg-background px-3 text-sm"
+                                                value={component.visibility}
+                                                onChange={(event) =>
+                                                    setComponents(
+                                                        components.map(
+                                                            (item, position) =>
+                                                                position ===
+                                                                index
+                                                                    ? {
+                                                                          ...item,
+                                                                          visibility:
+                                                                              event
+                                                                                  .target
+                                                                                  .value as ProductComponent['visibility'],
+                                                                      }
+                                                                    : item,
+                                                        ),
+                                                    )
+                                                }
+                                            >
+                                                <option value="detailed">
+                                                    Cantidad visible
+                                                </option>
+                                                <option value="summary">
+                                                    Solo descripción
+                                                </option>
+                                                <option value="hidden">
+                                                    Solo interno
+                                                </option>
+                                            </select>
+                                            <Button
+                                                type="button"
+                                                size="icon"
+                                                variant="ghost"
+                                                title="Eliminar componente"
+                                                onClick={() =>
+                                                    setComponents(
+                                                        components.filter(
+                                                            (_, position) =>
+                                                                position !==
+                                                                index,
+                                                        ),
+                                                    )
+                                                }
+                                            >
+                                                <Trash2 />
+                                            </Button>
+                                        </div>
+                                        {component.fulfillment_kind ===
+                                            'recurring' && (
+                                            <Field
+                                                label="Periodicidad (meses)"
+                                                name={`components[${index}][interval_months]`}
+                                                value={String(
+                                                    component.interval_months ??
+                                                        12,
+                                                )}
+                                                type="number"
+                                            />
+                                        )}
+                                    </div>
+                                ))}
+                                {errors.components && (
+                                    <InputError message={errors.components} />
+                                )}
                             </div>
                             <div className="grid gap-3 border-t pt-4 sm:grid-cols-3">
                                 <BooleanField

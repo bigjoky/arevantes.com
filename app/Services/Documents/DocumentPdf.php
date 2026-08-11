@@ -11,6 +11,9 @@ class DocumentPdf
 {
     public function render(object $document, string $kind): string
     {
+        $kind === 'quote'
+            ? $document->loadMissing('lines.components.unit')
+            : $document->loadMissing('lines');
         $options = new Options;
         $options->set('defaultFont', 'DejaVu Sans');
         $options->set('isRemoteEnabled', false);
@@ -18,9 +21,9 @@ class DocumentPdf
         $profile = CompanyProfile::first();
         $company = $profile?->toArray() ?? config('company');
         $company['logo_data'] = null;
-        if ($profile?->logo_path && Storage::disk('local')->exists($profile->logo_path)) {
-            $mime = Storage::disk('local')->mimeType($profile->logo_path) ?: 'image/png';
-            $company['logo_data'] = 'data:'.$mime.';base64,'.base64_encode(Storage::disk('local')->get($profile->logo_path));
+        if ($profile?->logo_path && Storage::disk(config('filesystems.private'))->exists($profile->logo_path)) {
+            $mime = Storage::disk(config('filesystems.private'))->mimeType($profile->logo_path) ?: 'image/png';
+            $company['logo_data'] = 'data:'.$mime.';base64,'.base64_encode(Storage::disk(config('filesystems.private'))->get($profile->logo_path));
         } else {
             $logo = file_get_contents(public_path('brand/arevantes-logo-light.svg'));
             $company['logo_data'] = 'data:image/svg+xml;base64,'.base64_encode($logo);

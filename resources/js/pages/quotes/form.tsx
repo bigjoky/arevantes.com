@@ -1,5 +1,14 @@
 import { Head, Link, useForm } from '@inertiajs/react';
-import { ArrowLeft, Plus, Save, Trash2 } from 'lucide-react';
+import {
+    ArrowLeft,
+    ChevronDown,
+    ChevronRight,
+    PackagePlus,
+    Plus,
+    Save,
+    Trash2,
+} from 'lucide-react';
+import { Fragment, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -25,13 +34,38 @@ type Installation = {
 };
 type Product = {
     id: number;
+    type: 'product' | 'service';
     name: string;
     description: string | null;
     sale_price: string;
+    cost_price: string;
+    track_stock: boolean;
     unit_id: number;
     tax_rate_id: number;
-    unit: { symbol: string };
+    unit: { id?: number; symbol: string };
     tax_rate: { rate: string };
+    resolved_components: Array<{
+        product_id: number;
+        unit_id: number;
+        kind: Component['kind'];
+        fulfillment_kind: Component['fulfillment_kind'];
+        visibility: Component['visibility'];
+        description: string;
+        quantity: number;
+        planned_unit_cost: number;
+        interval_months: number | null;
+    }>;
+};
+type Component = {
+    product_id: number | null;
+    unit_id: number | null;
+    kind: 'material' | 'labor' | 'service' | 'document' | 'other';
+    fulfillment_kind: 'stock' | 'activity' | 'recurring' | 'none';
+    visibility: 'detailed' | 'summary' | 'hidden';
+    description: string;
+    quantity: string;
+    planned_unit_cost: string;
+    interval_months: string;
 };
 type Line = {
     product_id: number | null;
@@ -42,6 +76,10 @@ type Line = {
     unit_price: string;
     discount_percent: string;
     tax_percent: string;
+    selection_mode: 'included' | 'optional' | 'alternative';
+    option_group: string;
+    is_selected: boolean;
+    components: Component[];
 };
 type Quote = {
     id: number;
@@ -104,6 +142,17 @@ export default function QuoteForm({
                 product_id: line.product_id,
                 unit_id: line.unit_id,
                 tax_rate_id: line.tax_rate_id,
+                selection_mode: line.selection_mode ?? 'included',
+                option_group: line.option_group ?? '',
+                is_selected: line.is_selected ?? true,
+                components: (line.components || []).map((component) => ({
+                    ...component,
+                    quantity: String(component.quantity),
+                    planned_unit_cost: String(component.planned_unit_cost),
+                    interval_months: component.interval_months
+                        ? String(component.interval_months)
+                        : '',
+                })),
             })) ??
             (opportunityDraft
                 ? [
@@ -117,6 +166,9 @@ export default function QuoteForm({
                   ]
                 : [blankLine()]),
     });
+    const [expandedLines, setExpandedLines] = useState<Set<number>>(
+        new Set([0]),
+    );
     const availableInstallations = installations.filter(
         (item) =>
             !form.data.person_id ||
@@ -141,8 +193,62 @@ export default function QuoteForm({
                 description: product.description || product.name,
                 unit_price: product.sale_price,
                 tax_percent: product.tax_rate.rate,
+                components:
+                    product.resolved_components.length > 0
+                        ? product.resolved_components.map((component) => ({
+                              ...component,
+                              quantity: String(component.quantity),
+                              planned_unit_cost: String(
+                                  component.planned_unit_cost,
+                              ),
+                              interval_months: component.interval_months
+                                  ? String(component.interval_months)
+                                  : '',
+                          }))
+                        : product.type === 'service' &&
+                            form.data.lines[index].components.length === 0
+                          ? [componentFromProduct(product)]
+                          : form.data.lines[index].components,
             });
         }
+    };
+    const updateComponent = (
+        lineIndex: number,
+        componentIndex: number,
+        changes: Partial<Component>,
+    ) =>
+        updateLine(lineIndex, {
+            components: form.data.lines[lineIndex].components.map(
+                (component, position) =>
+                    position === componentIndex
+                        ? { ...component, ...changes }
+                        : component,
+            ),
+        });
+    const selectComponentProduct = (
+        lineIndex: number,
+        componentIndex: number,
+        value: string,
+    ) => {
+        const product = products.find((item) => item.id === Number(value));
+
+        if (!product) {
+            return;
+        }
+
+        updateComponent(lineIndex, componentIndex, {
+            product_id: product.id,
+            unit_id: product.unit_id,
+            kind: product.type === 'service' ? 'service' : 'material',
+            fulfillment_kind:
+                product.type === 'service'
+                    ? 'activity'
+                    : product.track_stock
+                      ? 'stock'
+                      : 'none',
+            description: product.description || product.name,
+            planned_unit_cost: product.cost_price,
+        });
     };
     const submit = () =>
         quote ? form.put(`/quotes/${quote.id}`) : form.post('/quotes');
@@ -150,7 +256,7 @@ export default function QuoteForm({
     return (
         <>
             <Head title={quote ? `Edit ${quote.number}` : 'New quote'} />
-            <div className="flex flex-1 flex-col gap-6 p-4 md:p-6">
+            <div className="flex min-w-0 flex-1 flex-col gap-6 overflow-x-clip p-4 md:p-6">
                 <header className="flex flex-wrap items-center justify-between gap-3">
                     <div>
                         <h1 className="text-xl font-semibold">
@@ -251,8 +357,8 @@ export default function QuoteForm({
                                 <Plus /> Add line
                             </Button>
                         </div>
-                        <div className="overflow-x-auto border-y">
-                            <table className="w-full min-w-[68rem] text-sm">
+                        <div className="w-full min-w-0 [scrollbar-gutter:stable] overflow-x-auto overscroll-x-contain border-y">
+                            <table className="w-full min-w-[58rem] text-sm">
                                 <thead>
                                     <tr className="border-b text-left text-muted-foreground">
                                         <th className="py-2">Catalog item</th>
@@ -269,153 +375,587 @@ export default function QuoteForm({
                                 </thead>
                                 <tbody>
                                     {form.data.lines.map((line, index) => (
-                                        <tr
-                                            key={index}
-                                            className="border-b align-top last:border-0"
-                                        >
-                                            <td className="py-2 pr-2">
-                                                <Select
-                                                    value={
-                                                        line.product_id
-                                                            ? String(
-                                                                  line.product_id,
-                                                              )
-                                                            : ''
-                                                    }
-                                                    onValueChange={(value) =>
-                                                        selectProduct(
-                                                            index,
+                                        <Fragment key={index}>
+                                            <tr className="align-top">
+                                                <td className="py-2 pr-2">
+                                                    <Select
+                                                        value={
+                                                            line.product_id
+                                                                ? String(
+                                                                      line.product_id,
+                                                                  )
+                                                                : ''
+                                                        }
+                                                        onValueChange={(
                                                             value,
-                                                        )
-                                                    }
+                                                        ) =>
+                                                            selectProduct(
+                                                                index,
+                                                                value,
+                                                            )
+                                                        }
+                                                    >
+                                                        <SelectTrigger>
+                                                            <SelectValue placeholder="Custom line" />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            {products.map(
+                                                                (product) => (
+                                                                    <SelectItem
+                                                                        key={
+                                                                            product.id
+                                                                        }
+                                                                        value={String(
+                                                                            product.id,
+                                                                        )}
+                                                                    >
+                                                                        {
+                                                                            product.name
+                                                                        }
+                                                                    </SelectItem>
+                                                                ),
+                                                            )}
+                                                        </SelectContent>
+                                                    </Select>
+                                                </td>
+                                                <td className="p-2">
+                                                    <Input
+                                                        value={line.description}
+                                                        onChange={(event) =>
+                                                            updateLine(index, {
+                                                                description:
+                                                                    event.target
+                                                                        .value,
+                                                            })
+                                                        }
+                                                    />
+                                                </td>
+                                                <td className="p-2">
+                                                    <Input
+                                                        type="number"
+                                                        min="0.001"
+                                                        step="0.001"
+                                                        value={line.quantity}
+                                                        onChange={(event) =>
+                                                            updateLine(index, {
+                                                                quantity:
+                                                                    event.target
+                                                                        .value,
+                                                            })
+                                                        }
+                                                    />
+                                                </td>
+                                                <td className="p-2">
+                                                    <Input
+                                                        type="number"
+                                                        min="0"
+                                                        step="0.01"
+                                                        value={line.unit_price}
+                                                        onChange={(event) =>
+                                                            updateLine(index, {
+                                                                unit_price:
+                                                                    event.target
+                                                                        .value,
+                                                            })
+                                                        }
+                                                    />
+                                                </td>
+                                                <td className="p-2">
+                                                    <Input
+                                                        type="number"
+                                                        min="0"
+                                                        max="100"
+                                                        step="0.01"
+                                                        value={
+                                                            line.discount_percent
+                                                        }
+                                                        onChange={(event) =>
+                                                            updateLine(index, {
+                                                                discount_percent:
+                                                                    event.target
+                                                                        .value,
+                                                            })
+                                                        }
+                                                    />
+                                                </td>
+                                                <td className="p-2">
+                                                    <Input
+                                                        type="number"
+                                                        min="0"
+                                                        max="100"
+                                                        step="0.01"
+                                                        value={line.tax_percent}
+                                                        onChange={(event) =>
+                                                            updateLine(index, {
+                                                                tax_percent:
+                                                                    event.target
+                                                                        .value,
+                                                            })
+                                                        }
+                                                    />
+                                                </td>
+                                                <td className="p-2 text-right font-medium">
+                                                    {money(lineTotal(line))}
+                                                </td>
+                                                <td className="p-2">
+                                                    <Button
+                                                        type="button"
+                                                        size="icon"
+                                                        variant="ghost"
+                                                        title="Remove line"
+                                                        disabled={
+                                                            form.data.lines
+                                                                .length === 1
+                                                        }
+                                                        onClick={() =>
+                                                            form.setData(
+                                                                'lines',
+                                                                form.data.lines.filter(
+                                                                    (
+                                                                        _,
+                                                                        position,
+                                                                    ) =>
+                                                                        position !==
+                                                                        index,
+                                                                ),
+                                                            )
+                                                        }
+                                                    >
+                                                        <Trash2 />
+                                                    </Button>
+                                                </td>
+                                            </tr>
+                                            <tr className="border-b bg-muted/20">
+                                                <td
+                                                    colSpan={8}
+                                                    className="max-w-0 px-3 pt-2 pb-4"
                                                 >
-                                                    <SelectTrigger>
-                                                        <SelectValue placeholder="Custom line" />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        {products.map(
-                                                            (product) => (
-                                                                <SelectItem
-                                                                    key={
-                                                                        product.id
+                                                    <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
+                                                        <Button
+                                                            type="button"
+                                                            size="sm"
+                                                            variant="ghost"
+                                                            className="min-w-0 justify-start"
+                                                            onClick={() => {
+                                                                const next =
+                                                                    new Set(
+                                                                        expandedLines,
+                                                                    );
+
+                                                                if (
+                                                                    next.has(
+                                                                        index,
+                                                                    )
+                                                                ) {
+                                                                    next.delete(
+                                                                        index,
+                                                                    );
+                                                                } else {
+                                                                    next.add(
+                                                                        index,
+                                                                    );
+                                                                }
+
+                                                                setExpandedLines(
+                                                                    next,
+                                                                );
+                                                            }}
+                                                        >
+                                                            {expandedLines.has(
+                                                                index,
+                                                            ) ? (
+                                                                <ChevronDown />
+                                                            ) : (
+                                                                <ChevronRight />
+                                                            )}
+                                                            <span className="truncate">
+                                                                {
+                                                                    line
+                                                                        .components
+                                                                        .length
+                                                                }{' '}
+                                                                componentes ·
+                                                                coste{' '}
+                                                                {money(
+                                                                    componentCost(
+                                                                        line,
+                                                                    ),
+                                                                )}
+                                                            </span>
+                                                        </Button>
+                                                        <div className="flex min-w-0 flex-wrap items-center gap-2">
+                                                            <Select
+                                                                value={
+                                                                    line.selection_mode
+                                                                }
+                                                                onValueChange={(
+                                                                    value: Line['selection_mode'],
+                                                                ) =>
+                                                                    updateLine(
+                                                                        index,
+                                                                        {
+                                                                            selection_mode:
+                                                                                value,
+                                                                            option_group:
+                                                                                value ===
+                                                                                'alternative'
+                                                                                    ? line.option_group
+                                                                                    : '',
+                                                                            is_selected:
+                                                                                value ===
+                                                                                'included',
+                                                                        },
+                                                                    )
+                                                                }
+                                                            >
+                                                                <SelectTrigger className="w-36">
+                                                                    <SelectValue />
+                                                                </SelectTrigger>
+                                                                <SelectContent>
+                                                                    <SelectItem value="included">
+                                                                        Incluida
+                                                                    </SelectItem>
+                                                                    <SelectItem value="optional">
+                                                                        Opcional
+                                                                    </SelectItem>
+                                                                    <SelectItem value="alternative">
+                                                                        Alternativa
+                                                                    </SelectItem>
+                                                                </SelectContent>
+                                                            </Select>
+                                                            {line.selection_mode ===
+                                                                'alternative' && (
+                                                                <Input
+                                                                    className="w-36"
+                                                                    value={
+                                                                        line.option_group
                                                                     }
-                                                                    value={String(
-                                                                        product.id,
-                                                                    )}
+                                                                    placeholder="Grupo"
+                                                                    onChange={(
+                                                                        event,
+                                                                    ) =>
+                                                                        updateLine(
+                                                                            index,
+                                                                            {
+                                                                                option_group:
+                                                                                    event
+                                                                                        .target
+                                                                                        .value,
+                                                                            },
+                                                                        )
+                                                                    }
+                                                                />
+                                                            )}
+                                                            {line.selection_mode !==
+                                                                'included' && (
+                                                                <Select
+                                                                    value={
+                                                                        line.is_selected
+                                                                            ? 'yes'
+                                                                            : 'no'
+                                                                    }
+                                                                    onValueChange={(
+                                                                        value,
+                                                                    ) =>
+                                                                        updateLine(
+                                                                            index,
+                                                                            {
+                                                                                is_selected:
+                                                                                    value ===
+                                                                                    'yes',
+                                                                            },
+                                                                        )
+                                                                    }
                                                                 >
-                                                                    {
-                                                                        product.name
-                                                                    }
-                                                                </SelectItem>
-                                                            ),
-                                                        )}
-                                                    </SelectContent>
-                                                </Select>
-                                            </td>
-                                            <td className="p-2">
-                                                <Input
-                                                    value={line.description}
-                                                    onChange={(event) =>
-                                                        updateLine(index, {
-                                                            description:
-                                                                event.target
-                                                                    .value,
-                                                        })
-                                                    }
-                                                />
-                                            </td>
-                                            <td className="p-2">
-                                                <Input
-                                                    type="number"
-                                                    min="0.001"
-                                                    step="0.001"
-                                                    value={line.quantity}
-                                                    onChange={(event) =>
-                                                        updateLine(index, {
-                                                            quantity:
-                                                                event.target
-                                                                    .value,
-                                                        })
-                                                    }
-                                                />
-                                            </td>
-                                            <td className="p-2">
-                                                <Input
-                                                    type="number"
-                                                    min="0"
-                                                    step="0.01"
-                                                    value={line.unit_price}
-                                                    onChange={(event) =>
-                                                        updateLine(index, {
-                                                            unit_price:
-                                                                event.target
-                                                                    .value,
-                                                        })
-                                                    }
-                                                />
-                                            </td>
-                                            <td className="p-2">
-                                                <Input
-                                                    type="number"
-                                                    min="0"
-                                                    max="100"
-                                                    step="0.01"
-                                                    value={
-                                                        line.discount_percent
-                                                    }
-                                                    onChange={(event) =>
-                                                        updateLine(index, {
-                                                            discount_percent:
-                                                                event.target
-                                                                    .value,
-                                                        })
-                                                    }
-                                                />
-                                            </td>
-                                            <td className="p-2">
-                                                <Input
-                                                    type="number"
-                                                    min="0"
-                                                    max="100"
-                                                    step="0.01"
-                                                    value={line.tax_percent}
-                                                    onChange={(event) =>
-                                                        updateLine(index, {
-                                                            tax_percent:
-                                                                event.target
-                                                                    .value,
-                                                        })
-                                                    }
-                                                />
-                                            </td>
-                                            <td className="p-2 text-right font-medium">
-                                                {money(lineTotal(line))}
-                                            </td>
-                                            <td className="p-2">
-                                                <Button
-                                                    type="button"
-                                                    size="icon"
-                                                    variant="ghost"
-                                                    title="Remove line"
-                                                    disabled={
-                                                        form.data.lines
-                                                            .length === 1
-                                                    }
-                                                    onClick={() =>
-                                                        form.setData(
-                                                            'lines',
-                                                            form.data.lines.filter(
-                                                                (_, position) =>
-                                                                    position !==
-                                                                    index,
-                                                            ),
-                                                        )
-                                                    }
-                                                >
-                                                    <Trash2 />
-                                                </Button>
-                                            </td>
-                                        </tr>
+                                                                    <SelectTrigger className="w-32">
+                                                                        <SelectValue />
+                                                                    </SelectTrigger>
+                                                                    <SelectContent>
+                                                                        <SelectItem value="yes">
+                                                                            Seleccionada
+                                                                        </SelectItem>
+                                                                        <SelectItem value="no">
+                                                                            No
+                                                                            incluida
+                                                                        </SelectItem>
+                                                                    </SelectContent>
+                                                                </Select>
+                                                            )}
+                                                            <Button
+                                                                type="button"
+                                                                size="sm"
+                                                                variant="outline"
+                                                                onClick={() =>
+                                                                    updateLine(
+                                                                        index,
+                                                                        {
+                                                                            components:
+                                                                                [
+                                                                                    ...line.components,
+                                                                                    blankComponent(),
+                                                                                ],
+                                                                        },
+                                                                    )
+                                                                }
+                                                            >
+                                                                <PackagePlus />{' '}
+                                                                Añadir
+                                                                componente
+                                                            </Button>
+                                                        </div>
+                                                    </div>
+                                                    {expandedLines.has(index) &&
+                                                        (line.components
+                                                            .length > 0 ? (
+                                                            <div className="grid gap-2">
+                                                                {line.components.map(
+                                                                    (
+                                                                        component,
+                                                                        componentIndex,
+                                                                    ) => (
+                                                                        <div
+                                                                            key={
+                                                                                componentIndex
+                                                                            }
+                                                                            className="grid min-w-0 gap-2 rounded-md border bg-background p-2 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-[minmax(10rem,1fr)_minmax(12rem,1.4fr)_5.5rem_minmax(10rem,1fr)_minmax(10rem,1fr)_7rem_3rem]"
+                                                                        >
+                                                                            <Select
+                                                                                value={
+                                                                                    component.product_id
+                                                                                        ? String(
+                                                                                              component.product_id,
+                                                                                          )
+                                                                                        : ''
+                                                                                }
+                                                                                onValueChange={(
+                                                                                    value,
+                                                                                ) =>
+                                                                                    selectComponentProduct(
+                                                                                        index,
+                                                                                        componentIndex,
+                                                                                        value,
+                                                                                    )
+                                                                                }
+                                                                            >
+                                                                                <SelectTrigger className="w-full min-w-0">
+                                                                                    <SelectValue placeholder="Producto o servicio" />
+                                                                                </SelectTrigger>
+                                                                                <SelectContent>
+                                                                                    {products.map(
+                                                                                        (
+                                                                                            product,
+                                                                                        ) => (
+                                                                                            <SelectItem
+                                                                                                key={
+                                                                                                    product.id
+                                                                                                }
+                                                                                                value={String(
+                                                                                                    product.id,
+                                                                                                )}
+                                                                                            >
+                                                                                                {
+                                                                                                    product.name
+                                                                                                }
+                                                                                            </SelectItem>
+                                                                                        ),
+                                                                                    )}
+                                                                                </SelectContent>
+                                                                            </Select>
+                                                                            <Input
+                                                                                value={
+                                                                                    component.description
+                                                                                }
+                                                                                placeholder="Descripción incluida"
+                                                                                onChange={(
+                                                                                    event,
+                                                                                ) =>
+                                                                                    updateComponent(
+                                                                                        index,
+                                                                                        componentIndex,
+                                                                                        {
+                                                                                            description:
+                                                                                                event
+                                                                                                    .target
+                                                                                                    .value,
+                                                                                        },
+                                                                                    )
+                                                                                }
+                                                                            />
+                                                                            <Input
+                                                                                type="number"
+                                                                                min="0.001"
+                                                                                step="0.001"
+                                                                                value={
+                                                                                    component.quantity
+                                                                                }
+                                                                                aria-label="Cantidad del componente"
+                                                                                onChange={(
+                                                                                    event,
+                                                                                ) =>
+                                                                                    updateComponent(
+                                                                                        index,
+                                                                                        componentIndex,
+                                                                                        {
+                                                                                            quantity:
+                                                                                                event
+                                                                                                    .target
+                                                                                                    .value,
+                                                                                        },
+                                                                                    )
+                                                                                }
+                                                                            />
+                                                                            <Select
+                                                                                value={
+                                                                                    component.fulfillment_kind
+                                                                                }
+                                                                                onValueChange={(
+                                                                                    value: Component['fulfillment_kind'],
+                                                                                ) =>
+                                                                                    updateComponent(
+                                                                                        index,
+                                                                                        componentIndex,
+                                                                                        {
+                                                                                            fulfillment_kind:
+                                                                                                value,
+                                                                                        },
+                                                                                    )
+                                                                                }
+                                                                            >
+                                                                                <SelectTrigger className="w-full min-w-0">
+                                                                                    <SelectValue />
+                                                                                </SelectTrigger>
+                                                                                <SelectContent>
+                                                                                    <SelectItem value="stock">
+                                                                                        Control
+                                                                                        de
+                                                                                        stock
+                                                                                    </SelectItem>
+                                                                                    <SelectItem value="activity">
+                                                                                        Seguimiento
+                                                                                        operativo
+                                                                                    </SelectItem>
+                                                                                    <SelectItem value="recurring">
+                                                                                        Servicio
+                                                                                        recurrente
+                                                                                    </SelectItem>
+                                                                                    <SelectItem value="none">
+                                                                                        Informativo
+                                                                                    </SelectItem>
+                                                                                </SelectContent>
+                                                                            </Select>
+                                                                            <Select
+                                                                                value={
+                                                                                    component.visibility
+                                                                                }
+                                                                                onValueChange={(
+                                                                                    value: Component['visibility'],
+                                                                                ) =>
+                                                                                    updateComponent(
+                                                                                        index,
+                                                                                        componentIndex,
+                                                                                        {
+                                                                                            visibility:
+                                                                                                value,
+                                                                                        },
+                                                                                    )
+                                                                                }
+                                                                            >
+                                                                                <SelectTrigger className="w-full min-w-0">
+                                                                                    <SelectValue />
+                                                                                </SelectTrigger>
+                                                                                <SelectContent>
+                                                                                    <SelectItem value="detailed">
+                                                                                        Cantidad
+                                                                                        visible
+                                                                                    </SelectItem>
+                                                                                    <SelectItem value="summary">
+                                                                                        Solo
+                                                                                        descripción
+                                                                                    </SelectItem>
+                                                                                    <SelectItem value="hidden">
+                                                                                        Solo
+                                                                                        interno
+                                                                                    </SelectItem>
+                                                                                </SelectContent>
+                                                                            </Select>
+                                                                            {component.fulfillment_kind ===
+                                                                            'recurring' ? (
+                                                                                <Input
+                                                                                    type="number"
+                                                                                    min="1"
+                                                                                    max="120"
+                                                                                    value={
+                                                                                        component.interval_months
+                                                                                    }
+                                                                                    placeholder="Meses"
+                                                                                    aria-label="Periodicidad en meses"
+                                                                                    onChange={(
+                                                                                        event,
+                                                                                    ) =>
+                                                                                        updateComponent(
+                                                                                            index,
+                                                                                            componentIndex,
+                                                                                            {
+                                                                                                interval_months:
+                                                                                                    event
+                                                                                                        .target
+                                                                                                        .value,
+                                                                                            },
+                                                                                        )
+                                                                                    }
+                                                                                />
+                                                                            ) : (
+                                                                                <div className="flex items-center px-2 text-xs text-muted-foreground">
+                                                                                    Coste{' '}
+                                                                                    {money(
+                                                                                        Number(
+                                                                                            component.planned_unit_cost ||
+                                                                                                0,
+                                                                                        ),
+                                                                                    )}
+                                                                                </div>
+                                                                            )}
+                                                                            <Button
+                                                                                type="button"
+                                                                                size="icon"
+                                                                                variant="ghost"
+                                                                                title="Eliminar componente"
+                                                                                onClick={() =>
+                                                                                    updateLine(
+                                                                                        index,
+                                                                                        {
+                                                                                            components:
+                                                                                                line.components.filter(
+                                                                                                    (
+                                                                                                        _,
+                                                                                                        position,
+                                                                                                    ) =>
+                                                                                                        position !==
+                                                                                                        componentIndex,
+                                                                                                ),
+                                                                                        },
+                                                                                    )
+                                                                                }
+                                                                            >
+                                                                                <Trash2 />
+                                                                            </Button>
+                                                                        </div>
+                                                                    ),
+                                                                )}
+                                                            </div>
+                                                        ) : (
+                                                            <p className="py-2 text-xs text-muted-foreground">
+                                                                Sin desglose
+                                                                técnico. La
+                                                                partida seguirá
+                                                                funcionando como
+                                                                una línea
+                                                                tradicional.
+                                                            </p>
+                                                        ))}
+                                                </td>
+                                            </tr>
+                                        </Fragment>
                                     ))}
                                 </tbody>
                             </table>
@@ -477,6 +1017,39 @@ function blankLine(): Line {
         unit_price: '0',
         discount_percent: '0',
         tax_percent: '21',
+        selection_mode: 'included',
+        option_group: '',
+        is_selected: true,
+        components: [],
+    };
+}
+function blankComponent(): Component {
+    return {
+        product_id: null,
+        unit_id: null,
+        kind: 'material',
+        fulfillment_kind: 'stock',
+        visibility: 'detailed',
+        description: '',
+        quantity: '1',
+        planned_unit_cost: '0',
+        interval_months: '',
+    };
+}
+function componentFromProduct(product: Product): Component {
+    return {
+        ...blankComponent(),
+        product_id: product.id,
+        unit_id: product.unit_id,
+        kind: product.type === 'service' ? 'service' : 'material',
+        fulfillment_kind:
+            product.type === 'service'
+                ? 'activity'
+                : product.track_stock
+                  ? 'stock'
+                  : 'none',
+        description: product.description || product.name,
+        planned_unit_cost: product.cost_price,
     };
 }
 function lineTotal(line: Line) {
@@ -491,6 +1064,10 @@ function lineTotal(line: Line) {
 function calculate(lines: Line[]) {
     return lines.reduce(
         (sum, line) => {
+            if (!line.is_selected) {
+                return sum;
+            }
+
             const subtotal = Number(line.quantity) * Number(line.unit_price);
             const discount = (subtotal * Number(line.discount_percent)) / 100;
             const tax =
@@ -504,6 +1081,18 @@ function calculate(lines: Line[]) {
             };
         },
         { subtotal: 0, discount: 0, tax: 0, total: 0 },
+    );
+}
+function componentCost(line: Line) {
+    return (
+        Number(line.quantity) *
+        line.components.reduce(
+            (sum, component) =>
+                sum +
+                Number(component.quantity) *
+                    Number(component.planned_unit_cost || 0),
+            0,
+        )
     );
 }
 function money(value: number) {

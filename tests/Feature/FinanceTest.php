@@ -4,7 +4,9 @@ namespace Tests\Feature;
 
 use App\Models\AuditLog;
 use App\Models\BankAccount;
+use App\Models\BankFinancialProduct;
 use App\Models\BankReconciliation;
+use App\Models\BankStatementImport;
 use App\Models\CollectionAction;
 use App\Models\CompanyProfile;
 use App\Models\Expense;
@@ -13,22 +15,56 @@ use App\Models\FinancialAlertAction;
 use App\Models\FinancialBudget;
 use App\Models\FinancialBudgetPeriod;
 use App\Models\FinancialBudgetVersion;
+use App\Models\FinancialCategory;
 use App\Models\FinancialForecastItem;
+use App\Models\LedgerAccount;
 use App\Models\PaymentBatch;
 use App\Models\PurchaseDocument;
 use App\Models\SalesDocument;
 use App\Models\Supplier;
 use App\Models\SupplierPayment;
 use App\Models\User;
+use App\Services\Accounting\AccountingSynchronizer;
+use App\Services\Finance\FinancialTaxonomyComparison;
 use App\Services\Finance\TreasuryForecast;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
 class FinanceTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_finance_exposes_daily_bank_position_and_statement_integrity(): void
+    {
+        $user = User::factory()->create(['role' => 'commercial']);
+        $account = BankAccount::create(['name' => 'Operating EUR', 'bank_name' => 'Arevantes Bank', 'currency' => 'EUR', 'opening_balance' => 1000, 'is_active' => true]);
+        $statementImport = BankStatementImport::create([
+            'bank_account_id' => $account->id,
+            'imported_by' => $user->id,
+            'filename' => 'august.csv',
+            'file_hash' => hash('sha256', 'august-statement'),
+            'format' => 'csv',
+            'created_transactions' => 2,
+            'duplicate_transactions' => 0,
+            'control_valid' => false,
+        ]);
+        $account->transactions()->create(['bank_statement_import_id' => $statementImport->id, 'booked_on' => '2026-08-04', 'amount' => -100, 'currency' => 'EUR', 'description' => 'Pending supplier payment', 'import_hash' => hash('sha256', 'position-pending'), 'status' => 'pending']);
+        $account->transactions()->create(['bank_statement_import_id' => $statementImport->id, 'booked_on' => '2026-08-05', 'amount' => 50, 'currency' => 'EUR', 'description' => 'Reconciled receipt', 'import_hash' => hash('sha256', 'position-reconciled'), 'status' => 'reconciled']);
+
+        $this->actingAs($user)->get(route('finance.index', ['year' => 2026]))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('bankPosition.0.name', 'Operating EUR')
+                ->where('bankPosition.0.bankName', 'Arevantes Bank')
+                ->where('bankPosition.0.balance', 950)
+                ->where('bankPosition.0.pendingTransactions', 1)
+                ->where('bankPosition.0.pendingAmount', -100)
+                ->where('bankPosition.0.lastTransactionOn', '2026-08-05')
+                ->where('bankPosition.0.statementControl', 'mismatch'));
+    }
 
     public function test_financial_dashboard_aggregates_cash_vat_and_outstanding_balances(): void
     {
@@ -110,6 +146,171 @@ class FinanceTest extends TestCase
         $this->actingAs($user)->get(route('finance.index'))->assertOk()->assertInertia(fn (Assert $page) => $page
             ->component('finance/index')
             ->where('year', now()->year));
+    }
+
+    public function test_budget_forecast_and_ledger_use_the_common_financial_taxonomy(): void
+    {
+        $user = User::factory()->create(['role' => 'commercial']);
+        $sales = FinancialCategory::where('code', 'sales_revenue')->firstOrFail();
+        $otherRevenue = FinancialCategory::where('code', 'other_revenue')->firstOrFail();
+        $payroll = FinancialCategory::where('code', 'payroll_payments')->firstOrFail();
+
+        $this->actingAs($user)->post(route('finance.forecast-items.store'), [
+            'direction' => 'in',
+            'financial_category_id' => $payroll->id,
+            'description' => 'Invalid incoming payroll',
+            'amount' => 100,
+            'due_on' => today()->addDay()->toDateString(),
+            'probability' => 100,
+        ])->assertSessionHasErrors('financial_category_id');
+        $this->assertDatabaseCount('financial_forecast_items', 0);
+
+        $this->post(route('finance.forecast-items.store'), [
+            'direction' => 'out',
+            'financial_category_id' => $payroll->id,
+            'description' => 'Monthly payroll',
+            'amount' => 100,
+            'due_on' => today()->addDay()->toDateString(),
+            'probability' => 100,
+        ])->assertSessionHasNoErrors();
+        $this->assertDatabaseHas('financial_forecast_items', [
+            'category' => 'payroll_payments',
+            'financial_category_id' => $payroll->id,
+        ]);
+
+        foreach ([[$sales, 100], [$otherRevenue, 50]] as [$category, $amount]) {
+            $this->post(route('finance.budgets.store'), [
+                'year' => now()->year,
+                'month' => 1,
+                'category' => 'revenue',
+                'financial_category_id' => $category->id,
+                'amount' => $amount,
+            ])->assertSessionHasNoErrors();
+        }
+
+        $this->assertDatabaseCount('financial_budgets', 2);
+        $this->get(route('finance.index', ['year' => now()->year]))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('performance.0.budgetRevenue', 150)
+                ->where('budgetPeriod.configuredValues', 1)
+                ->has('financialCategories', 12));
+        $this->assertSame('sales_revenue', LedgerAccount::where('code', '700')->firstOrFail()->financialCategory?->code);
+        $this->assertSame('payroll_costs', LedgerAccount::where('code', '640')->firstOrFail()->financialCategory?->code);
+    }
+
+    public function test_accounting_managers_can_extend_taxonomy_without_mutating_system_categories(): void
+    {
+        $user = User::factory()->create(['role' => 'commercial']);
+        $technician = User::factory()->create(['role' => 'technician']);
+
+        $this->actingAs($technician)->post(route('finance.categories.store'), [
+            'code' => 'vehicle_fleet_costs',
+            'name' => 'Vehicle fleet costs',
+            'reporting_group' => 'costs',
+        ])->assertForbidden();
+
+        $this->actingAs($user)->post(route('finance.categories.store'), [
+            'code' => 'vehicle_fleet_costs',
+            'name' => 'Vehicle fleet costs',
+            'reporting_group' => 'costs',
+        ])->assertSessionHasNoErrors();
+        $custom = FinancialCategory::where('code', 'vehicle_fleet_costs')->firstOrFail();
+        $this->assertFalse($custom->is_system);
+        $this->assertSame($user->id, $custom->created_by);
+
+        $system = FinancialCategory::where('code', 'operating_costs')->firstOrFail();
+        $this->patch(route('finance.categories.update', $system), [
+            'name' => 'Changed system category',
+            'is_active' => false,
+        ])->assertSessionHasErrors('financial_category');
+        $this->assertTrue($system->fresh()->is_active);
+
+        $this->patch(route('finance.categories.update', $custom), [
+            'name' => 'Fleet and vehicles',
+            'is_active' => false,
+        ])->assertSessionHasNoErrors();
+        $this->assertDatabaseHas('financial_categories', [
+            'id' => $custom->id,
+            'name' => 'Fleet and vehicles',
+            'is_active' => false,
+        ]);
+        $this->post(route('finance.budgets.store'), [
+            'year' => now()->year,
+            'month' => 1,
+            'category' => 'costs',
+            'financial_category_id' => $custom->id,
+            'amount' => 100,
+        ])->assertSessionHasErrors('financial_category_id');
+    }
+
+    public function test_taxonomy_comparison_reconciles_planning_with_actuals_and_source_documents(): void
+    {
+        $this->travelTo('2026-08-11');
+        $user = User::factory()->create(['role' => 'commercial']);
+        $salesCategory = FinancialCategory::where('code', 'sales_revenue')->firstOrFail();
+        $collectionsCategory = FinancialCategory::where('code', 'customer_collections')->firstOrFail();
+        FinancialBudget::create([
+            'year' => 2026,
+            'month' => 8,
+            'category' => 'revenue',
+            'financial_category_id' => $salesCategory->id,
+            'amount' => 1000,
+            'created_by' => $user->id,
+        ]);
+        FinancialForecastItem::create([
+            'direction' => 'in',
+            'category' => 'customer_collections',
+            'financial_category_id' => $collectionsCategory->id,
+            'description' => 'Expected August collection',
+            'amount' => 500,
+            'baseline_amount' => 500,
+            'due_on' => '2026-08-15',
+            'baseline_due_on' => '2026-08-15',
+            'probability' => 100,
+            'status' => 'planned',
+            'created_by' => $user->id,
+        ]);
+        $sale = SalesDocument::create([
+            'type' => 'invoice',
+            'number' => 'FAC-TAXONOMY-1',
+            'status' => 'partial',
+            'issue_date' => '2026-08-01',
+            'due_date' => '2026-08-31',
+            'issued_at' => now(),
+            'locked_at' => now(),
+            'subtotal' => 800,
+            'discount_amount' => 0,
+            'tax_amount' => 0,
+            'amount' => 800,
+            'paid_amount' => 300,
+            'customer_snapshot' => [],
+        ]);
+        app(AccountingSynchronizer::class)->syncSalesDocument($sale, $user->id);
+        $sale->payments()->create([
+            'created_by' => $user->id,
+            'paid_at' => '2026-08-10',
+            'amount' => 300,
+            'method' => 'bank_transfer',
+        ]);
+
+        $comparison = app(FinancialTaxonomyComparison::class)->build(2026, $collectionsCategory->id);
+        $sales = $comparison['rows']->firstWhere('code', 'sales_revenue');
+        $collections = $comparison['rows']->firstWhere('code', 'customer_collections');
+
+        $this->assertSame(1000.0, $sales['budget']);
+        $this->assertSame(800.0, $sales['actual']);
+        $this->assertSame(-200.0, $sales['budgetVariance']);
+        $this->assertSame(500.0, $collections['forecast']);
+        $this->assertSame(300.0, $collections['actual']);
+        $this->assertSame('/sales/'.$sale->id, $comparison['evidence']->sole()['href']);
+
+        $this->actingAs($user)->get(route('accounting.index', [
+            'year' => 2026,
+            'financial_category' => $salesCategory->id,
+        ]))->assertInertia(fn (Assert $page) => $page
+            ->where('selectedFinancialCategory.code', 'sales_revenue')
+            ->has('entries', 1)
+            ->where('entries.0.source_href', '/sales/'.$sale->id));
     }
 
     public function test_annual_budget_can_be_copied_adjusted_overwritten_and_deleted(): void
@@ -493,6 +694,7 @@ class FinanceTest extends TestCase
 
     public function test_treasury_planning_collection_workflow_and_payment_batches_are_operational(): void
     {
+        Storage::fake('local');
         $commercial = User::factory()->create(['role' => 'commercial']);
         $admin = User::factory()->create(['role' => 'admin']);
         $supplier = Supplier::create(['legal_name' => 'SEPA Supplier SL', 'country' => 'ES', 'iban' => 'ES9121000418450200051332', 'bic' => 'CAIXESBBXXX', 'payment_terms_days' => 30]);
@@ -529,10 +731,30 @@ class FinanceTest extends TestCase
         SupplierPayment::create(['purchase_document_id' => $purchase->id, 'created_by' => $commercial->id, 'paid_at' => today(), 'amount' => 21, 'method' => 'bank_transfer']);
         $purchase->update(['paid_amount' => 21, 'status' => 'partial']);
         $this->actingAs($admin)->post(route('finance.payment-batches.approve', $batch))->assertRedirect()->assertSessionHasNoErrors();
-        $this->assertSame('100.00', $batch->items()->firstOrFail()->fresh()->amount);
+        $approvedItem = $batch->items()->firstOrFail()->fresh();
+        $this->assertSame('100.00', $approvedItem->amount);
+        $this->assertSame('SEPA Supplier SL', $approvedItem->recipient_name);
+        $this->assertSame('ES9121000418450200051332', $approvedItem->recipient_iban);
+        $supplier->update(['legal_name' => 'Changed after approval SL', 'iban' => 'ES6621000418401234567891']);
+        $this->get(route('finance.payment-batches.sepa', $batch))->assertStatus(422);
+        $this->assertSame('approved', $batch->fresh()->status);
+        $this->post(route('finance.payment-batches.export', $batch))->assertRedirect()->assertSessionHasNoErrors();
+        $batch->refresh();
+        $this->assertSame('exported', $batch->status);
+        $this->assertSame($admin->id, $batch->exported_by);
+        $this->assertSame(64, strlen((string) $batch->export_sha256));
+        Storage::disk('local')->assertExists($batch->export_path);
+        $xml = $this->get(route('finance.payment-batches.sepa', $batch))->assertOk()->assertDownload($batch->number.'.xml')->streamedContent();
+        $this->assertStringContainsString('SEPA Supplier SL', $xml);
+        $this->assertStringContainsString('ES9121000418450200051332', $xml);
+        $this->assertStringNotContainsString('Changed after approval SL', $xml);
         $this->get(route('finance.payment-batches.sepa', $batch))->assertOk()->assertDownload($batch->number.'.xml');
-        $this->get(route('finance.payment-batches.sepa', $batch))->assertOk()->assertDownload($batch->number.'.xml');
+        $this->assertDatabaseHas('audit_logs', ['auditable_type' => Supplier::class, 'auditable_id' => $supplier->id, 'event' => 'updated']);
+        Storage::disk('local')->put($batch->export_path, '<tampered/>');
+        $this->post(route('finance.payment-batches.execute', $batch), ['paid_on' => today()->toDateString()])
+            ->assertSessionHasErrors('payment_batch');
         $this->assertSame('exported', $batch->fresh()->status);
+        Storage::disk('local')->put($batch->export_path, $xml);
         $this->post(route('finance.payment-batches.execute', $batch), ['paid_on' => today()->toDateString()])
             ->assertRedirect()->assertSessionHasNoErrors();
         $this->assertSame('paid', $batch->fresh()->status);
@@ -551,6 +773,26 @@ class FinanceTest extends TestCase
         $this->assertNull($batch->fresh()->reconciled_at);
         $this->post(route('finance.payment-batches.execute', $batch), ['paid_on' => today()->toDateString()])->assertStatus(422);
         $this->assertGreaterThanOrEqual(4, AuditLog::whereIn('auditable_type', [FinancialForecastItem::class, FinancialBudget::class, CollectionAction::class, PaymentBatch::class])->count());
+    }
+
+    public function test_payment_batch_creator_cannot_approve_their_own_batch(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $supplier = Supplier::create(['legal_name' => 'Independent approval SL', 'country' => 'ES', 'iban' => 'ES9121000418450200051332']);
+        $account = BankAccount::create(['name' => 'Payments', 'iban' => 'ES7921000813610123456789', 'currency' => 'EUR', 'opening_balance' => 5000, 'is_active' => true]);
+        $purchase = PurchaseDocument::create(['type' => 'supplier_invoice', 'supplier_id' => $supplier->id, 'number' => 'FR-SOD-1', 'status' => 'registered', 'issue_date' => now(), 'due_date' => now(), 'subtotal' => 100, 'tax_amount' => 21, 'amount' => 121, 'paid_amount' => 0]);
+
+        $this->actingAs($admin)->post(route('finance.payment-batches.store'), [
+            'bank_account_id' => $account->id,
+            'planned_on' => today()->toDateString(),
+            'payables' => ['invoice:'.$purchase->id],
+        ])->assertSessionHasNoErrors();
+        $batch = PaymentBatch::firstOrFail();
+
+        $this->post(route('finance.payment-batches.approve', $batch))
+            ->assertSessionHasErrors('payment_batch');
+        $this->assertSame('draft', $batch->fresh()->status);
+        $this->assertNull($batch->approved_by);
     }
 
     public function test_cancelling_a_payment_batch_releases_its_documents(): void
@@ -636,7 +878,149 @@ class FinanceTest extends TestCase
         $forecast = app(TreasuryForecast::class)->build(now()->year, 'optimistic');
 
         $this->assertSame(900.0, $forecast['openingBalance']);
+        $this->assertSame('Forecast bank', $forecast['openingSources']->first()['name']);
+        $this->assertSame('/banking?account='.$account->id, $forecast['openingSources']->first()['href']);
         $this->assertGreaterThanOrEqual(300, $forecast['weeks']->sum('out'));
         $this->assertSame($forecast['openingBalance'] - $forecast['weeks']->sum('out'), $forecast['closingBalance']);
+        $rent = $forecast['weeks']->flatMap(fn (array $week) => $week['events'])->firstWhere('sourceType', 'forecast_item');
+        $this->assertSame('Monthly rent', $rent['label']);
+        $this->assertSame(100.0, $rent['originalAmount']);
+        $this->assertSame('#forecast-items', $rent['href']);
+    }
+
+    public function test_treasury_forecast_explains_scenario_adjustments_and_does_not_mix_currencies(): void
+    {
+        $this->travelTo('2026-08-10');
+        $euro = BankAccount::create(['name' => 'EUR operating', 'currency' => 'EUR', 'opening_balance' => 1000, 'is_active' => true]);
+        BankAccount::create(['name' => 'USD reserve', 'currency' => 'USD', 'opening_balance' => 500, 'is_active' => true]);
+        BankAccount::create(['name' => 'Closed EUR', 'currency' => 'EUR', 'opening_balance' => 900, 'is_active' => false]);
+        $invoice = SalesDocument::create([
+            'type' => 'invoice',
+            'number' => 'FAC-TRACE-1',
+            'status' => 'issued',
+            'issue_date' => today(),
+            'due_date' => today()->addDay(),
+            'issued_at' => now(),
+            'locked_at' => now(),
+            'subtotal' => 100,
+            'discount_amount' => 0,
+            'tax_amount' => 21,
+            'amount' => 121,
+            'paid_amount' => 0,
+            'customer_snapshot' => [],
+        ]);
+
+        $forecast = app(TreasuryForecast::class)->build(2026, 'probable');
+        $event = $forecast['weeks']->flatMap(fn (array $week) => $week['events'])->firstWhere('sourceType', 'receivable');
+
+        $this->assertSame('EUR', $forecast['baseCurrency']);
+        $this->assertSame(1000.0, $forecast['openingBalance']);
+        $this->assertSame($euro->id, $forecast['openingSources']->sole()['id']);
+        $this->assertSame('USD', $forecast['excludedCurrencyBalances']->sole()['currency']);
+        $this->assertSame(500.0, $forecast['excludedCurrencyBalances']->sole()['balance']);
+        $this->assertSame($invoice->id, $event['sourceId']);
+        $this->assertSame(121.0, $event['originalAmount']);
+        $this->assertSame(108.9, $event['amount']);
+        $this->assertSame('/sales/'.$invoice->id, $event['href']);
+        $this->assertSame(108.9, $forecast['weeks']->sum('in'));
+    }
+
+    public function test_treasury_forecast_detects_an_intraday_range_shortfall_hidden_by_the_weekly_close(): void
+    {
+        $this->travelTo('2026-08-10');
+        BankAccount::create(['name' => 'Operating account', 'currency' => 'EUR', 'opening_balance' => 50, 'is_active' => true]);
+        FinancialForecastItem::create([
+            'direction' => 'out',
+            'category' => 'supplier',
+            'description' => 'Supplier maturity',
+            'amount' => 100,
+            'due_on' => '2026-08-11',
+            'probability' => 100,
+            'status' => 'planned',
+        ]);
+        FinancialForecastItem::create([
+            'direction' => 'in',
+            'category' => 'collection',
+            'description' => 'Customer collection',
+            'amount' => 100,
+            'due_on' => '2026-08-12',
+            'probability' => 100,
+            'status' => 'planned',
+        ]);
+
+        $forecast = app(TreasuryForecast::class)->build(2026, 'probable');
+        $shortfallDay = $forecast['days']->firstWhere('date', '2026-08-11');
+        $recoveryDay = $forecast['days']->firstWhere('date', '2026-08-12');
+
+        $this->assertCount(91, $forecast['days']);
+        $this->assertSame(-50.0, $shortfallDay['closing']);
+        $this->assertSame(1, $shortfallDay['maturities']);
+        $this->assertSame(50.0, $recoveryDay['closing']);
+        $this->assertSame(-50.0, $forecast['lowestBalance']);
+        $this->assertSame('2026-08-11', $forecast['lowestBalanceOn']);
+        $this->assertSame(50.0, $forecast['weeks']->first()['closing']);
+        $this->assertSame(50.0, $forecast['closingBalance']);
+    }
+
+    public function test_shared_card_receipt_is_forecast_once_on_its_payment_day(): void
+    {
+        $this->travelTo('2026-08-06');
+        $account = BankAccount::create(['name' => 'Card debit account', 'currency' => 'EUR', 'opening_balance' => 1000, 'is_active' => true]);
+        $facility = BankFinancialProduct::create([
+            'bank_account_id' => $account->id,
+            'type' => 'credit_facility',
+            'name' => 'Shared card credit',
+            'currency' => 'EUR',
+            'credit_limit' => 4800,
+            'used_amount' => 500,
+            'billing_day' => 31,
+            'payment_day' => 5,
+            'is_active' => true,
+        ]);
+        foreach ([300, 200] as $index => $used) {
+            BankFinancialProduct::create([
+                'bank_account_id' => $account->id,
+                'shared_credit_facility_id' => $facility->id,
+                'type' => 'credit_card',
+                'name' => 'Card '.($index + 1),
+                'currency' => 'EUR',
+                'credit_limit' => 4800,
+                'used_amount' => $used,
+                'is_active' => true,
+            ]);
+        }
+
+        $forecast = app(TreasuryForecast::class)->build(2026, 'optimistic');
+        $paymentWeek = $forecast['weeks']->first(fn (array $week) => $week['from'] <= '2026-09-05' && $week['to'] >= '2026-09-05');
+
+        $this->assertNotNull($paymentWeek);
+        $this->assertSame(500.0, $paymentWeek['out']);
+        $this->assertSame(500.0, $forecast['weeks']->sum('out'));
+        $this->assertSame(500.0, $forecast['closingBalance']);
+    }
+
+    public function test_independent_credit_card_is_included_in_the_treasury_forecast(): void
+    {
+        $this->travelTo('2026-08-06');
+        $account = BankAccount::create(['name' => 'Independent card debit', 'currency' => 'EUR', 'opening_balance' => 1000, 'is_active' => true]);
+        $card = BankFinancialProduct::create([
+            'bank_account_id' => $account->id,
+            'type' => 'credit_card',
+            'name' => 'Independent purchasing card',
+            'currency' => 'EUR',
+            'credit_limit' => 2000,
+            'used_amount' => 120,
+            'billing_day' => 25,
+            'payment_day' => 5,
+            'is_active' => true,
+        ]);
+
+        $forecast = app(TreasuryForecast::class)->build(2026, 'probable');
+        $event = $forecast['weeks']->flatMap(fn (array $week) => $week['events'])->sole('sourceType', 'credit_card');
+
+        $this->assertSame($card->id, $event['sourceId']);
+        $this->assertSame(120.0, $event['amount']);
+        $this->assertSame(120.0, $forecast['weeks']->sum('out'));
+        $this->assertSame(880.0, $forecast['closingBalance']);
     }
 }

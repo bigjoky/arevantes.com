@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Jobs\GeocodeInstallation;
 use App\Models\CrmActivity;
+use App\Models\CrmSetting;
 use App\Models\Installation;
 use App\Models\Opportunity;
 use App\Models\OpportunityStageHistory;
@@ -54,6 +55,8 @@ class OpportunityTest extends TestCase
             ->component('opportunities/index')
             ->has('opportunities', 1)
             ->where('opportunities.0.stage', 'qualified')
+            ->where('opportunities.0.commercial_score', 70)
+            ->where('opportunities.0.score_breakdown.next_action_scheduled.points', 20)
             ->where('metrics.pipeline_value', 15000)
             ->where('metrics.weighted_forecast', 3750));
 
@@ -123,6 +126,61 @@ class OpportunityTest extends TestCase
         ])->assertSessionHasErrors('lost_reason');
     }
 
+    public function test_closing_an_opportunity_cancels_open_actions_and_terminal_stages_cannot_reopen(): void
+    {
+        $user = User::factory()->create(['role' => 'commercial']);
+        $customer = Person::create(['category' => 'customer', 'first_name' => 'Ana']);
+        $opportunity = Opportunity::create([
+            'person_id' => $customer->id,
+            'owner_user_id' => $user->id,
+            'created_by' => $user->id,
+            'code' => 'OPP-WORKFLOW-1',
+            'title' => 'Controlled transition',
+            'stage' => 'qualified',
+            'probability' => 25,
+            'estimated_value' => 5000,
+        ]);
+        $activity = CrmActivity::create([
+            'opportunity_id' => $opportunity->id,
+            'person_id' => $customer->id,
+            'assigned_user_id' => $user->id,
+            'created_by' => $user->id,
+            'type' => 'call',
+            'title' => 'Pending follow-up',
+            'priority' => 'normal',
+            'status' => 'pending',
+            'due_at' => now()->addDay(),
+        ]);
+
+        $payload = [
+            'person_id' => $customer->id,
+            'owner_user_id' => $user->id,
+            'title' => $opportunity->title,
+            'stage' => 'won',
+            'probability' => 50,
+            'estimated_value' => 5000,
+        ];
+
+        $this->actingAs($user)->patch(route('opportunities.update', $opportunity), $payload)->assertRedirect();
+
+        $this->assertSame('won', $opportunity->refresh()->stage);
+        $this->assertSame(100, $opportunity->probability);
+        $this->assertSame('cancelled', $activity->refresh()->status);
+        $this->assertNotNull($activity->blocked_reason);
+
+        $this->patch(route('opportunities.update', $opportunity), [...$payload, 'stage' => 'new', 'probability' => 10])
+            ->assertSessionHasErrors('stage');
+        $this->post(route('opportunities.activities.store', $opportunity), [
+            'type' => 'call',
+            'title' => 'Should not be created',
+            'priority' => 'normal',
+            'due_at' => now()->addDay(),
+        ])->assertUnprocessable();
+
+        $this->assertSame('won', $opportunity->fresh()->stage);
+        $this->assertDatabaseMissing('crm_activities', ['title' => 'Should not be created']);
+    }
+
     public function test_other_source_and_loss_reason_preserve_their_details(): void
     {
         $user = User::factory()->create(['role' => 'commercial']);
@@ -159,6 +217,64 @@ class OpportunityTest extends TestCase
         $user = User::factory()->create(['role' => 'technician']);
 
         $this->actingAs($user)->get(route('opportunities.index'))->assertForbidden();
+    }
+
+    public function test_admin_can_configure_explainable_scoring_and_commercial_cannot(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $commercial = User::factory()->create(['role' => 'commercial']);
+        $customer = Person::create(['category' => 'customer', 'first_name' => 'Ana']);
+        $opportunity = Opportunity::create([
+            'person_id' => $customer->id,
+            'owner_user_id' => $commercial->id,
+            'code' => 'OPP-SCORE-1',
+            'title' => 'Explainable score',
+            'stage' => 'new',
+            'probability' => 10,
+            'estimated_value' => 0,
+        ]);
+        $settings = [
+            'stale_after_days' => 30,
+            'customer_contactable_weight' => 0,
+            'source_identified_weight' => 0,
+            'owner_assigned_weight' => 100,
+            'expected_close_set_weight' => 0,
+            'next_action_scheduled_weight' => 0,
+            'estimated_value_set_weight' => 0,
+            'advanced_stage_weight' => 0,
+        ];
+
+        $this->actingAs($commercial)->patch(route('crm-settings.update'), $settings)->assertForbidden();
+        $this->actingAs($admin)->patch(route('crm-settings.update'), $settings)->assertRedirect();
+
+        $this->assertSame(30, CrmSetting::current()->stale_after_days);
+        $this->assertSame(100, $opportunity->refresh()->commercial_score);
+        $this->get(route('opportunities.index'))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('canConfigureCrm', true)
+                ->where('crmSettings.stale_after_days', 30)
+                ->where('opportunities.0.score_breakdown.owner_assigned.met', true)
+                ->where('opportunities.0.score_breakdown.owner_assigned.points', 100)
+                ->where('opportunities.0.score_breakdown.estimated_value_set.met', false));
+    }
+
+    public function test_crm_scoring_weights_must_total_one_hundred(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+
+        $this->actingAs($admin)->patch(route('crm-settings.update'), [
+            'stale_after_days' => 14,
+            'customer_contactable_weight' => 20,
+            'source_identified_weight' => 10,
+            'owner_assigned_weight' => 15,
+            'expected_close_set_weight' => 15,
+            'next_action_scheduled_weight' => 20,
+            'estimated_value_set_weight' => 10,
+            'advanced_stage_weight' => 9,
+        ])->assertSessionHasErrors('weights');
+
+        $this->assertSame(10, CrmSetting::current()->advanced_stage_weight);
     }
 
     public function test_commercial_user_can_schedule_and_filter_next_actions(): void
@@ -251,6 +367,58 @@ class OpportunityTest extends TestCase
                 ->where('metrics.conversion_rate', 50)
                 ->where('metrics.average_cycle_days', 40)
                 ->where('filters.period', '30'));
+    }
+
+    public function test_stale_detection_uses_stage_age_and_forecast_explains_its_composition(): void
+    {
+        $user = User::factory()->create(['role' => 'commercial']);
+        $customer = Person::create(['category' => 'customer', 'first_name' => 'Ana']);
+        $forecastDate = today()->addMonth()->startOfMonth();
+
+        $this->travelTo(now()->subDays(20));
+        $opportunity = Opportunity::create([
+            'person_id' => $customer->id,
+            'owner_user_id' => $user->id,
+            'created_by' => $user->id,
+            'code' => 'OPP-FORECAST-1',
+            'title' => 'Forecast explicable',
+            'stage' => 'qualified',
+            'probability' => 40,
+            'estimated_value' => 10000,
+            'expected_close_on' => $forecastDate,
+        ]);
+        $this->travelBack();
+        $opportunity->update(['notes' => 'Edited today without changing stage']);
+        CrmActivity::create([
+            'opportunity_id' => $opportunity->id,
+            'person_id' => $customer->id,
+            'assigned_user_id' => $user->id,
+            'created_by' => $user->id,
+            'type' => 'call',
+            'title' => 'Seguimiento',
+            'priority' => 'normal',
+            'status' => 'pending',
+            'due_at' => now()->addDay(),
+        ]);
+
+        $this->actingAs($user)->get(route('opportunities.index'))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('metrics.stale', 1)
+                ->where('opportunities.0.is_stale', true)
+                ->where('opportunities.0.days_in_stage', fn ($days) => $days >= 20)
+                ->where('forecast.0.month', $forecastDate->format('Y-m'))
+                ->where('forecast.0.owner_id', $user->id)
+                ->where('forecast.0.amount', 10000)
+                ->where('forecast.0.weighted_amount', 4000)
+                ->where('forecast.0.average_probability', 40)
+                ->where('forecast.0.opportunities.0.code', 'OPP-FORECAST-1'));
+
+        $this->get(route('opportunities.index', ['attention' => 'stale']))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('opportunities', 1)
+                ->where('opportunities.0.id', $opportunity->id));
     }
 
     public function test_opportunity_can_prepare_one_quote_and_sync_its_result(): void
@@ -421,6 +589,99 @@ class OpportunityTest extends TestCase
 
         $this->post(route('quotes.project.store', $quote), [])->assertStatus(422);
         $this->assertSame(1, Installation::where('person_id', $customer->id)->count());
+    }
+
+    public function test_renewals_and_additional_sales_keep_their_commercial_origin(): void
+    {
+        $user = User::factory()->create(['role' => 'commercial']);
+        $customer = Person::create(['category' => 'customer', 'first_name' => 'Ana']);
+        $otherCustomer = Person::create(['category' => 'customer', 'first_name' => 'Luis']);
+        $origin = Opportunity::create([
+            'person_id' => $customer->id,
+            'owner_user_id' => $user->id,
+            'created_by' => $user->id,
+            'code' => 'OPP-ORIGIN-1',
+            'title' => 'Original installation',
+            'stage' => 'won',
+            'probability' => 100,
+            'estimated_value' => 12000,
+        ]);
+        $otherOrigin = Opportunity::create([
+            'person_id' => $otherCustomer->id,
+            'owner_user_id' => $user->id,
+            'created_by' => $user->id,
+            'code' => 'OPP-ORIGIN-2',
+            'title' => 'Other customer installation',
+            'stage' => 'won',
+            'probability' => 100,
+            'estimated_value' => 8000,
+        ]);
+        $payload = [
+            'person_id' => $customer->id,
+            'title' => 'Annual maintenance renewal',
+            'commercial_kind' => 'renewal',
+            'stage' => 'new',
+            'probability' => 10,
+            'estimated_value' => 900,
+        ];
+
+        $this->actingAs($user)->post(route('opportunities.store'), $payload)
+            ->assertSessionHasErrors(['parent_opportunity_id', 'renewal_due_on']);
+
+        $this->post(route('opportunities.store'), [
+            ...$payload,
+            'parent_opportunity_id' => $otherOrigin->id,
+            'renewal_due_on' => today()->addDays(20)->toDateString(),
+        ])->assertUnprocessable();
+
+        $this->post(route('opportunities.store'), [
+            ...$payload,
+            'parent_opportunity_id' => $origin->id,
+            'renewal_due_on' => today()->addDays(20)->toDateString(),
+        ])->assertRedirect();
+
+        $renewal = Opportunity::where('title', 'Annual maintenance renewal')->sole();
+        $this->assertSame('renewal', $renewal->commercial_kind);
+        $this->assertSame($origin->id, $renewal->parent_opportunity_id);
+        $this->assertSame($origin->id, $renewal->parentOpportunity->id);
+        $this->assertNotNull($renewal->nextActivity);
+
+        $this->get(route('opportunities.index', ['commercial_kind' => 'renewal']))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('opportunities', 1)
+                ->where('opportunities.0.id', $renewal->id)
+                ->where('opportunities.0.parent_opportunity.id', $origin->id)
+                ->where('metrics.renewals_due', 1));
+    }
+
+    public function test_recurring_opportunity_requires_periodicity_and_renewal_date(): void
+    {
+        $user = User::factory()->create(['role' => 'commercial']);
+        $customer = Person::create(['category' => 'customer', 'first_name' => 'Ana']);
+        $payload = [
+            'person_id' => $customer->id,
+            'title' => 'Monitoring subscription',
+            'commercial_kind' => 'recurring',
+            'stage' => 'new',
+            'probability' => 10,
+            'estimated_value' => 50,
+        ];
+
+        $this->actingAs($user)->post(route('opportunities.store'), $payload)
+            ->assertSessionHasErrors(['recurrence_interval', 'renewal_due_on']);
+
+        $this->post(route('opportunities.store'), [
+            ...$payload,
+            'recurrence_interval' => 'monthly',
+            'renewal_due_on' => today()->addMonth()->toDateString(),
+        ])->assertRedirect();
+
+        $this->assertDatabaseHas('opportunities', [
+            'title' => 'Monitoring subscription',
+            'commercial_kind' => 'recurring',
+            'recurrence_interval' => 'monthly',
+        ]);
     }
 
     private function stockProduct(string $sku, string $name, float $cost): Product

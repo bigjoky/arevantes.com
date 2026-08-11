@@ -8,6 +8,7 @@ use App\Models\KnowledgeDocument;
 use App\Rules\SafeUpload;
 use App\Services\Ai\KnowledgeIndexer;
 use App\Services\Ai\KnowledgeSourceLoader;
+use App\Support\PrivateStorage;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -100,7 +101,7 @@ class KnowledgeDocumentController extends Controller
 
         $filename = Str::uuid().'.'.($file?->getClientOriginalExtension() ?: 'md');
         $path = 'knowledge/'.$filename;
-        Storage::disk('local')->put($path, $content);
+        Storage::disk(config('filesystems.private'))->put($path, $content);
         $document = new KnowledgeDocument([
             'user_id' => $request->user()->id,
             'title' => $data['title'],
@@ -108,7 +109,7 @@ class KnowledgeDocumentController extends Controller
             'allowed_roles' => array_values($data['allowed_roles'] ?? []),
             'confidentiality' => $data['confidentiality'],
             'status' => 'pending',
-            'source' => Storage::disk('local')->path($path),
+            'source' => $path,
             'source_url' => $sourceUrl,
             'original_filename' => $file?->getClientOriginalName(),
             'file_size' => strlen($content),
@@ -129,16 +130,16 @@ class KnowledgeDocumentController extends Controller
 
     public function reindex(KnowledgeDocument $knowledgeDocument, KnowledgeIndexer $indexer, KnowledgeSourceLoader $sourceLoader): RedirectResponse
     {
-        abort_unless(is_file($knowledgeDocument->source), 422, __('The source file is no longer available.'));
+        abort_unless($knowledgeDocument->source_url || PrivateStorage::exists($knowledgeDocument->source), 422, __('The source file is no longer available.'));
         try {
             $knowledgeDocument->update(['status' => 'processing', 'failure_reason' => null]);
             if ($knowledgeDocument->source_url) {
                 $content = $sourceLoader->fromUrl($knowledgeDocument->source_url);
-                Storage::disk('local')->put('knowledge/'.basename($knowledgeDocument->source), $content);
+                PrivateStorage::put($knowledgeDocument->source, $content);
                 $knowledgeDocument->update(['file_size' => strlen($content)]);
                 $indexer->indexContent($knowledgeDocument, $content, $knowledgeDocument->title, true, filled($knowledgeDocument->embedding_model));
             } else {
-                $indexer->index($knowledgeDocument->source, true, filled($knowledgeDocument->embedding_model));
+                $indexer->indexContent($knowledgeDocument, PrivateStorage::get($knowledgeDocument->source), $knowledgeDocument->title, true, filled($knowledgeDocument->embedding_model));
             }
         } catch (Throwable $exception) {
             $knowledgeDocument->update(['status' => 'failed', 'failure_reason' => Str::limit($exception->getMessage(), 1000)]);
@@ -182,9 +183,9 @@ class KnowledgeDocumentController extends Controller
             };
             abort_if($content === '', 422, __('The document is empty.'));
             $path = 'knowledge/'.Str::uuid().'.'.($file?->getClientOriginalExtension() ?: 'md');
-            Storage::disk('local')->put($path, $content);
+            Storage::disk(config('filesystems.private'))->put($path, $content);
             $knowledgeDocument->update([
-                'source' => Storage::disk('local')->path($path),
+                'source' => $path,
                 'source_url' => $sourceUrl,
                 'original_filename' => $file?->getClientOriginalName(),
                 'file_size' => strlen($content),
@@ -204,11 +205,7 @@ class KnowledgeDocumentController extends Controller
 
     public function destroy(KnowledgeDocument $knowledgeDocument): RedirectResponse
     {
-        $storageRoot = realpath(Storage::disk('local')->path('knowledge'));
-        $source = realpath($knowledgeDocument->source);
-        if ($storageRoot && $source && str_starts_with($source, $storageRoot.DIRECTORY_SEPARATOR)) {
-            @unlink($source);
-        }
+        PrivateStorage::delete($knowledgeDocument->source);
         $knowledgeDocument->delete();
 
         return back()->with('success', __('Knowledge removed.'));

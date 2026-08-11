@@ -29,4 +29,9 @@ class Product extends Model
     {
         return $this->hasMany(SupplierProduct::class);
     }
+
+    public function components(): HasMany
+    {
+        return $this->hasMany(ProductComponent::class, 'parent_product_id')->orderBy('position');
+    }
 }

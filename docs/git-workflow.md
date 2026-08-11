@@ -54,10 +54,13 @@ Se abre una pull request contra `develop`. Solo se integra cuando las comprobaci
 3. Esperar a que todas las comprobaciones terminen correctamente.
 4. Integrar la pull request.
 5. Crear una etiqueta de versión.
-6. Ejecutar manualmente `deploy production` en GitHub Actions escribiendo `DEPLOY`.
-7. Verificar la portada, `/up` y las funciones afectadas.
+6. Laravel Cloud inicia automáticamente el despliegue de `main` en el entorno `production`.
+7. Monitorizar el despliegue hasta que finalice correctamente.
+8. Verificar la portada, `/up` y las funciones afectadas.
 
-La integración en `main` no debe lanzar automáticamente una publicación.
+La configuración y el procedimiento operativo están documentados en
+[`deployment-laravel-cloud.md`](deployment-laravel-cloud.md). No se debe ejecutar el workflow
+SSH legado para una publicación ordinaria.
 
 ## Seguridad y datos
 

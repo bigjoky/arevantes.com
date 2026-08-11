@@ -1,0 +1,73 @@
+name: "legacy: emergency recover shared hosting"
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: 'Write RECOVER_LEGACY to repair the retired shared-hosting schema'
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production
+  cancel-in-progress: false
+
+jobs:
+  recover:
+    name: Recover production migrations
+    runs-on: macos-15
+    environment: production
+
+    steps:
+      - name: Confirm production recovery
+        if: ${{ inputs.confirmation != 'RECOVER_LEGACY' }}
+        run: exit 1
+
+      - name: Checkout hotfix
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
+
+      - name: Configure SSH
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/arevantes_deploy
+          chmod 600 ~/.ssh/arevantes_deploy
+          ssh-keyscan -p "$DEPLOY_PORT" -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts
+
+      - name: Upload corrected migration
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+        run: |
+          scp -i ~/.ssh/arevantes_deploy -P "$DEPLOY_PORT" \
+            database/migrations/2026_08_06_050000_link_cards_to_shared_credit_facilities.php \
+            "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH/database/migrations/"
+
+      - name: Complete production migrations
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          DEPLOY_PHP_BINARY: ${{ secrets.DEPLOY_PHP_BINARY }}
+        run: |
+          ssh -i ~/.ssh/arevantes_deploy -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" "
+            set -eu
+            cd '$DEPLOY_PATH'
+            trap \"'$DEPLOY_PHP_BINARY' artisan up || true\" EXIT
+            '$DEPLOY_PHP_BINARY' artisan down --retry=60
+            '$DEPLOY_PHP_BINARY' artisan migrate --force
+            '$DEPLOY_PHP_BINARY' artisan optimize
+            '$DEPLOY_PHP_BINARY' artisan up
+            trap - EXIT
+          "
+
+      - name: Verify public health endpoint
+        run: curl --fail --show-error --silent --retry 5 --retry-delay 5 https://www.arevantes.com/up

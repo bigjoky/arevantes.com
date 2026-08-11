@@ -70,7 +70,7 @@ class PurchaseInboxController extends Controller
         $stored = [];
         try {
             foreach ($prepared as ['file' => $file, 'hash' => $hash]) {
-                $path = $file->store('purchase-inbox/'.now()->format('Y/m'), 'local');
+                $path = $file->store('purchase-inbox/'.now()->format('Y/m'), config('filesystems.private'));
                 $stored[] = $path;
                 $created[] = PurchaseInboxDocument::create([
                     'uploaded_by' => $request->user()->id,
@@ -83,7 +83,7 @@ class PurchaseInboxController extends Controller
             }
         } catch (\Throwable $exception) {
             foreach ($stored as $path) {
-                Storage::disk('local')->delete($path);
+                Storage::disk(config('filesystems.private'))->delete($path);
             }
             foreach ($created as $document) {
                 $document->delete();
@@ -98,9 +98,9 @@ class PurchaseInboxController extends Controller
 
     public function download(PurchaseInboxDocument $inboxDocument): StreamedResponse
     {
-        abort_unless(Storage::disk('local')->exists($inboxDocument->path), 404);
+        abort_unless(Storage::disk(config('filesystems.private'))->exists($inboxDocument->path), 404);
 
-        return Storage::disk('local')->download($inboxDocument->path, $inboxDocument->original_name, ['Content-Type' => $inboxDocument->mime_type]);
+        return Storage::disk(config('filesystems.private'))->download($inboxDocument->path, $inboxDocument->original_name, ['Content-Type' => $inboxDocument->mime_type]);
     }
 
     public function extract(PurchaseInboxDocument $inboxDocument, PurchaseInboxAutomation $automation): RedirectResponse

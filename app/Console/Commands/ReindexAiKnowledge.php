@@ -5,8 +5,8 @@ namespace App\Console\Commands;
 use App\Models\KnowledgeDocument;
 use App\Services\Ai\KnowledgeIndexer;
 use App\Services\Ai\KnowledgeSourceLoader;
+use App\Support\PrivateStorage;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
 use Throwable;
 
@@ -16,7 +16,7 @@ class ReindexAiKnowledge extends Command
         {--stale : Only refresh indexed documents whose review date has passed}
         {--failed : Only retry documents whose last indexing attempt failed}';
 
-    protected $description = 'Regenerate all local knowledge embeddings';
+    protected $description = 'Regenerate stored knowledge embeddings';
 
     public function handle(KnowledgeIndexer $indexer, KnowledgeSourceLoader $sourceLoader): int
     {
@@ -26,7 +26,7 @@ class ReindexAiKnowledge extends Command
             ->get();
         $failed = 0;
         foreach ($documents as $document) {
-            if (! $document->source_url && ! is_file($document->source)) {
+            if (! $document->source_url && ! PrivateStorage::exists($document->source)) {
                 $this->warn("Missing source: {$document->source}");
                 $document->update(['status' => 'failed', 'failure_reason' => 'The stored source file is missing.']);
                 $failed++;
@@ -37,11 +37,11 @@ class ReindexAiKnowledge extends Command
                 $document->update(['status' => 'processing', 'failure_reason' => null]);
                 if ($document->source_url) {
                     $content = $sourceLoader->fromUrl($document->source_url);
-                    File::put($document->source, $content);
+                    PrivateStorage::put($document->source, $content);
                     $document->update(['file_size' => strlen($content)]);
                     $indexer->indexContent($document, $content, $document->title, true, filled($document->embedding_model));
                 } else {
-                    $indexer->index($document->source, true, filled($document->embedding_model));
+                    $indexer->indexContent($document, PrivateStorage::get($document->source), $document->title, true, filled($document->embedding_model));
                 }
                 $this->info("Reindexed {$document->title}.");
             } catch (Throwable $exception) {

@@ -17,8 +17,12 @@ class Opportunity extends Model
         'installation_id',
         'owner_user_id',
         'created_by',
+        'parent_opportunity_id',
         'code',
         'title',
+        'commercial_kind',
+        'recurrence_interval',
+        'renewal_due_on',
         'stage',
         'probability',
         'commercial_score',
@@ -44,6 +48,16 @@ class Opportunity extends Model
     public function owner(): BelongsTo
     {
         return $this->belongsTo(User::class, 'owner_user_id');
+    }
+
+    public function parentOpportunity(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'parent_opportunity_id')->withTrashed();
+    }
+
+    public function followUpOpportunities(): HasMany
+    {
+        return $this->hasMany(self::class, 'parent_opportunity_id');
     }
 
     public function quote(): HasOne
@@ -79,6 +93,7 @@ class Opportunity extends Model
             'commercial_score' => 'integer',
             'estimated_value' => 'decimal:2',
             'expected_close_on' => 'date',
+            'renewal_due_on' => 'date',
         ];
     }
 }

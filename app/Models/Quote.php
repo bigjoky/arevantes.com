@@ -54,4 +54,9 @@ class Quote extends Model
     {
         return $this->hasMany(QuoteVersion::class)->latest('version');
     }
+
+    public function statusHistory(): HasMany
+    {
+        return $this->hasMany(QuoteStatusHistory::class)->latest('changed_at');
+    }
 }

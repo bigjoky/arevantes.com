@@ -7,6 +7,7 @@ use App\Models\Product;
 use App\Models\PurchaseDocument;
 use App\Models\SalesDocument;
 use App\Models\SerialNumber;
+use App\Models\StockBalance;
 use App\Models\StockMovement;
 use App\Models\StockMovementLine;
 use App\Models\StockReservation;
@@ -37,6 +38,7 @@ class InventoryTest extends TestCase
             'lines' => [['product_id' => $product->id, 'quantity' => 2, 'unit_cost' => 500, 'serials' => 'INV-001, INV-002']],
         ])->assertRedirect();
         $this->assertSame('2', (string) StockMovementLine::where('warehouse_id', $source->id)->sum('quantity'));
+        $this->assertSame('2.000', StockBalance::where('warehouse_id', $source->id)->where('product_id', $product->id)->value('quantity'));
         $this->assertSame(2, SerialNumber::where('status', 'available')->count());
 
         $this->post(route('inventory.movements.store'), [
@@ -44,6 +46,8 @@ class InventoryTest extends TestCase
             'lines' => [['product_id' => $product->id, 'quantity' => 1, 'serials' => 'INV-001']],
         ])->assertRedirect();
         $this->assertSame($destination->id, SerialNumber::where('serial_number', 'INV-001')->value('warehouse_id'));
+        $this->assertSame('1.000', StockBalance::where('warehouse_id', $source->id)->where('product_id', $product->id)->value('quantity'));
+        $this->assertSame('1.000', StockBalance::where('warehouse_id', $destination->id)->where('product_id', $product->id)->value('quantity'));
 
         $this->post(route('inventory.movements.store'), [
             'type' => 'issue', 'warehouse_id' => $destination->id,
@@ -52,6 +56,7 @@ class InventoryTest extends TestCase
         $serial = SerialNumber::where('serial_number', 'INV-001')->firstOrFail();
         $this->assertSame('issued', $serial->status);
         $this->assertNull($serial->warehouse_id);
+        $this->assertSame('0.000', StockBalance::where('warehouse_id', $destination->id)->where('product_id', $product->id)->value('quantity'));
     }
 
     public function test_an_insufficient_stock_movement_is_fully_rolled_back(): void
@@ -67,6 +72,7 @@ class InventoryTest extends TestCase
 
         $this->assertSame(0, StockMovement::count());
         $this->assertSame(0, StockMovementLine::count());
+        $this->assertSame(0, StockBalance::count());
     }
 
     public function test_stock_position_distinguishes_on_hand_reservations_availability_and_transit(): void

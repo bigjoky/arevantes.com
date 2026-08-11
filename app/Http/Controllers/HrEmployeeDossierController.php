@@ -137,7 +137,7 @@ class HrEmployeeDossierController extends Controller
         ]);
 
         $file = $data['file'];
-        $path = $file->store("human-resources/{$staff->id}", 'local');
+        $path = $file->store("human-resources/{$staff->id}", config('filesystems.private'));
         $staff->employmentDocuments()->create([
             ...$data,
             'uploaded_by' => $request->user()->id,
@@ -154,9 +154,9 @@ class HrEmployeeDossierController extends Controller
     public function downloadDocument(Person $staff, HrEmploymentDocument $document): StreamedResponse
     {
         $this->ensureStaff($staff);
-        abort_unless($document->person_id === $staff->id && Storage::disk('local')->exists($document->path), 404);
+        abort_unless($document->person_id === $staff->id && Storage::disk(config('filesystems.private'))->exists($document->path), 404);
 
-        return Storage::disk('local')->download($document->path, $document->original_name, [
+        return Storage::disk(config('filesystems.private'))->download($document->path, $document->original_name, [
             'Content-Type' => $document->mime_type,
             'Cache-Control' => 'private, no-store',
         ]);
@@ -166,7 +166,7 @@ class HrEmployeeDossierController extends Controller
     {
         $this->ensureStaff($staff);
         abort_unless($document->person_id === $staff->id, 404);
-        Storage::disk('local')->delete($document->path);
+        Storage::disk(config('filesystems.private'))->delete($document->path);
         $document->delete();
 
         return back()->with('success', __('Employment document deleted.'));

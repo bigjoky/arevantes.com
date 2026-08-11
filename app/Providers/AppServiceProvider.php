@@ -7,13 +7,19 @@ use App\Models\AccountingPeriod;
 use App\Models\AccountingRecurringRun;
 use App\Models\AccountingTemplate;
 use App\Models\BankAccount;
+use App\Models\BankFinancialProduct;
 use App\Models\BankReconciliation;
+use App\Models\BankReconciliationRule;
+use App\Models\BankReconciliationRuleVersion;
+use App\Models\BankReconciliationRun;
+use App\Models\BankReconciliationRunItem;
 use App\Models\BankTransaction;
 use App\Models\BankTransactionPosting;
 use App\Models\BankTransfer;
 use App\Models\CollectionAction;
 use App\Models\CollectionActionEvent;
 use App\Models\CompanyProfile;
+use App\Models\CorporateTaxReturn;
 use App\Models\CrmActivity;
 use App\Models\DocumentSeries;
 use App\Models\FinancialAlertAction;
@@ -29,10 +35,12 @@ use App\Models\PaymentBatchItem;
 use App\Models\Person;
 use App\Models\PurchaseDocument;
 use App\Models\PurchaseDocumentLine;
+use App\Models\Quote;
 use App\Models\SalesDocument;
 use App\Models\SalesDocumentPayment;
 use App\Models\Supplier;
 use App\Models\SupplierPayment;
+use App\Models\TaxReturn;
 use App\Models\TaxReturnPayment;
 use App\Models\User;
 use App\Models\WorkOrder;
@@ -77,17 +85,24 @@ class AppServiceProvider extends ServiceProvider
         $this->configureAuthorization();
         Person::observe(AuditableObserver::class);
         Person::observe(PartyLedgerObserver::class);
+        Supplier::observe(AuditableObserver::class);
         Supplier::observe(PartyLedgerObserver::class);
         Installation::observe(AuditableObserver::class);
         WorkOrder::observe(WorkOrderObserver::class);
         Opportunity::observe(AuditableObserver::class);
         Opportunity::observe(OpportunityStageObserver::class);
+        Quote::observe(AuditableObserver::class);
         CompanyProfile::observe(AuditableObserver::class);
         FiscalYear::observe(AuditableObserver::class);
         DocumentSeries::observe(AuditableObserver::class);
         BankAccount::observe(AuditableObserver::class);
+        BankFinancialProduct::observe(AuditableObserver::class);
         BankTransaction::observe(AuditableObserver::class);
         BankReconciliation::observe(AuditableObserver::class);
+        BankReconciliationRule::observe(AuditableObserver::class);
+        BankReconciliationRuleVersion::observe(AuditableObserver::class);
+        BankReconciliationRun::observe(AuditableObserver::class);
+        BankReconciliationRunItem::observe(AuditableObserver::class);
         BankReconciliation::observe(BankReconciliationFinancialObserver::class);
         BankTransactionPosting::observe(AuditableObserver::class);
         BankTransfer::observe(AuditableObserver::class);
@@ -107,7 +122,9 @@ class AppServiceProvider extends ServiceProvider
         CollectionActionEvent::observe(AuditableObserver::class);
         PaymentBatch::observe(AuditableObserver::class);
         PaymentBatchItem::observe(AuditableObserver::class);
+        TaxReturn::observe(AuditableObserver::class);
         TaxReturnPayment::observe(AuditableObserver::class);
+        CorporateTaxReturn::observe(AuditableObserver::class);
         PurchaseDocument::observe(AuditableObserver::class);
         PurchaseDocumentLine::observe(SupplierPriceObserver::class);
         User::observe(AuditableObserver::class);
@@ -125,11 +142,11 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(CrmActivity::class, CrmActivityPolicy::class);
         $permissions = [
             'manage-admin', 'manage-access', 'export-audit', 'view-system-health',
-            'manage-customers', 'view-installations', 'manage-installations', 'sync-installations',
+            'manage-customers', 'approve-quotes', 'view-installations', 'manage-installations', 'sync-installations',
             'use-ai', 'manage-operations', 'manage-catalog', 'view-finance', 'manage-treasury',
             'manage-accounting', 'approve-payments', 'approve-budgets', 'manage-tax',
             'view-purchases', 'manage-purchases', 'receive-purchases', 'approve-purchase-invoices',
-            'manage-purchase-payments', 'manage-staff', 'view-sensitive-hr', 'manage-sensitive-hr',
+            'approve-purchase-orders', 'manage-purchase-payments', 'manage-staff', 'view-sensitive-hr', 'manage-sensitive-hr',
             'view-analytics',
         ];
         foreach ($permissions as $permission) {

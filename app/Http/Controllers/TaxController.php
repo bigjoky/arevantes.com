@@ -12,6 +12,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -36,23 +37,52 @@ class TaxController extends Controller
     public function file(Request $request, TaxReturn $taxReturn): RedirectResponse
     {
         abort_unless($taxReturn->status === 'prepared', 422);
-        $data = $request->validate(['filing_reference' => ['required', 'string', 'max:255'], 'filed_on' => ['required', 'date'], 'receipt' => ['required', 'file', 'mimes:pdf', 'max:10240']]);
-        $path = $data['receipt']->store("tax-returns/{$taxReturn->id}", 'local');
-        $taxReturn->update(['status' => 'filed', 'filing_reference' => $data['filing_reference'], 'filed_on' => $data['filed_on'], 'filed_by' => $request->user()->id, 'receipt_path' => $path]);
+        $negative = (float) $taxReturn->result < 0;
+        $data = $request->validate([
+            'filing_reference' => ['required', 'string', 'max:255'],
+            'filed_on' => ['required', 'date', 'after_or_equal:'.$taxReturn->period_to->toDateString()],
+            'negative_result_option' => [$negative ? 'required' : 'nullable', Rule::in(['compensate', 'refund'])],
+            'receipt' => ['required', 'file', 'mimes:pdf', 'max:10240'],
+        ]);
+        if ($negative && $data['negative_result_option'] === 'refund' && $taxReturn->quarter !== 4) {
+            throw ValidationException::withMessages([
+                'negative_result_option' => __('A VAT refund outside the final period requires monthly REDEME treatment, which is not configured in this module.'),
+            ]);
+        }
+        $path = $data['receipt']->store("tax-returns/{$taxReturn->id}", config('filesystems.private'));
+        $option = $negative ? $data['negative_result_option'] : ((float) $taxReturn->result > 0 ? 'payable' : 'none');
+        $settlementStatus = match ($option) {
+            'compensate' => 'carried_forward',
+            'refund' => 'pending_refund',
+            'none' => 'settled',
+            default => 'pending',
+        };
+        $taxReturn->update([
+            'status' => 'filed',
+            'settlement_status' => $settlementStatus,
+            'result_option' => $option,
+            'filing_reference' => $data['filing_reference'],
+            'filed_on' => $data['filed_on'],
+            'filed_by' => $request->user()->id,
+            'receipt_path' => $path,
+            'receipt_original_name' => $data['receipt']->getClientOriginalName(),
+            'receipt_sha256' => hash('sha256', Storage::disk(config('filesystems.private'))->get($path)),
+        ]);
 
         return back()->with('toast', ['type' => 'success', 'message' => __('VAT return marked as filed.')]);
     }
 
     public function receipt(TaxReturn $taxReturn): StreamedResponse
     {
-        abort_unless($taxReturn->receipt_path && Storage::disk('local')->exists($taxReturn->receipt_path), 404);
+        abort_unless($taxReturn->receipt_path && Storage::disk(config('filesystems.private'))->exists($taxReturn->receipt_path), 404);
 
-        return Storage::disk('local')->download($taxReturn->receipt_path, "vat-{$taxReturn->year}-Q{$taxReturn->quarter}-receipt.pdf", ['Content-Type' => 'application/pdf']);
+        return Storage::disk(config('filesystems.private'))->download($taxReturn->receipt_path, "vat-{$taxReturn->year}-Q{$taxReturn->quarter}-receipt.pdf", ['Content-Type' => 'application/pdf']);
     }
 
     public function pay(Request $request, TaxReturn $taxReturn, JournalPoster $poster): RedirectResponse
     {
-        abort_unless($taxReturn->status === 'filed' && abs((float) $taxReturn->result) > 0, 422);
+        $cashMovement = (float) $taxReturn->result > 0 || ((float) $taxReturn->result < 0 && $taxReturn->result_option === 'refund');
+        abort_unless($taxReturn->status === 'filed' && $cashMovement, 422);
         $outstanding = round(abs((float) $taxReturn->result) - (float) $taxReturn->paid_amount, 2);
         $data = $request->validate(['paid_on' => ['required', 'date'], 'amount' => ['required', 'numeric', 'gt:0', 'max:'.$outstanding], 'method' => ['required', Rule::in(['bank_transfer', 'direct_debit', 'cash'])], 'reference' => ['nullable', 'string', 'max:255'], 'notes' => ['nullable', 'string', 'max:1000']]);
 

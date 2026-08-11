@@ -4,18 +4,25 @@ namespace App\Services\Inventory;
 
 use App\Models\Product;
 use App\Models\SerialNumber;
+use App\Models\StockBalance;
 use App\Models\StockMovement;
 use App\Models\StockMovementLine;
 use App\Models\StockReservation;
+use App\Services\Supply\SupplyNumber;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class StockLedger
 {
+    public function __construct(private readonly SupplyNumber $numbers) {}
+
     public function post(array $data, int $userId): StockMovement
     {
         return DB::transaction(function () use ($data, $userId) {
-            $number = 'MOV-'.now()->format('Ymd').'-'.str_pad((string) (StockMovement::lockForUpdate()->count() + 1), 5, '0', STR_PAD_LEFT);
+            $balances = $this->lockBalances($data);
+            $date = now()->format('Ymd');
+            $number = $this->numbers->next("stock_movement:{$date}", "MOV-{$date}-", 'stock_movements');
             $movement = StockMovement::create(['created_by' => $userId, 'sales_document_id' => $data['sales_document_id'] ?? null, 'purchase_document_id' => $data['purchase_document_id'] ?? null, 'installation_id' => $data['installation_id'] ?? null, 'work_order_id' => $data['work_order_id'] ?? null, 'number' => $number, 'type' => $data['type'], 'reference' => $data['reference'] ?? null, 'notes' => $data['notes'] ?? null, 'posted_at' => now()]);
             foreach ($data['lines'] as $input) {
                 $product = Product::findOrFail($input['product_id']);
@@ -33,14 +40,20 @@ class StockLedger
 
                 if ($data['type'] === 'transfer') {
                     $this->line($movement, $data['source_warehouse_id'], $product->id, -$quantity, $input['unit_cost'] ?? null);
-                    $this->assertAvailable($data['source_warehouse_id'], $product->id);
+                    $this->applyBalance($balances[$this->balanceKey($data['source_warehouse_id'], $product->id)], -$quantity);
                     $this->line($movement, $data['destination_warehouse_id'], $product->id, $quantity, $input['unit_cost'] ?? null);
+                    $this->applyBalance($balances[$this->balanceKey($data['destination_warehouse_id'], $product->id)], $quantity);
                     $this->transferSerials($movement, $product->id, $data['source_warehouse_id'], $data['destination_warehouse_id'], $serials);
                 } else {
                     $signed = $data['type'] === 'receipt' ? $quantity : ($data['type'] === 'issue' ? -$quantity : (float) $input['quantity']);
                     $line = $this->line($movement, $data['warehouse_id'], $product->id, $signed, $input['unit_cost'] ?? null);
+                    $this->applyBalance(
+                        $balances[$this->balanceKey($data['warehouse_id'], $product->id)],
+                        $signed,
+                        $data['installation_id'] ?? null,
+                        $data['reservation_sales_document_id'] ?? null,
+                    );
                     if ($signed < 0) {
-                        $this->assertAvailable($data['warehouse_id'], $product->id, $data['installation_id'] ?? null, $data['reservation_sales_document_id'] ?? null);
                         if ($data['type'] === 'purchase_return') {
                             $this->returnSerials($movement, $product->id, $data['warehouse_id'], $serials, $line);
                         } elseif ($data['type'] === 'adjustment' && $product->track_serials) {
@@ -64,16 +77,64 @@ class StockLedger
         return $movement->lines()->create(['warehouse_id' => $warehouseId, 'product_id' => $productId, 'quantity' => $quantity, 'unit_cost' => $cost]);
     }
 
-    private function assertAvailable(int $warehouseId, int $productId, ?int $installationId = null, ?int $salesDocumentId = null): void
+    /** @return Collection<string, StockBalance> */
+    private function lockBalances(array $data): Collection
     {
-        $onHand = (float) StockMovementLine::where('warehouse_id', $warehouseId)->where('product_id', $productId)->sum('quantity');
-        $reserved = StockReservation::where('warehouse_id', $warehouseId)->where('product_id', $productId)->where('status', 'active')->get()
+        $positions = collect($data['lines'])->flatMap(function (array $line) use ($data): array {
+            $warehouseIds = $data['type'] === 'transfer'
+                ? [$data['source_warehouse_id'], $data['destination_warehouse_id']]
+                : [$data['warehouse_id']];
+
+            return collect($warehouseIds)->map(fn (int $warehouseId) => [
+                'warehouse_id' => $warehouseId,
+                'product_id' => (int) $line['product_id'],
+            ])->all();
+        })->unique(fn (array $position) => $this->balanceKey($position['warehouse_id'], $position['product_id']))
+            ->sortBy(fn (array $position) => sprintf('%020d:%020d', $position['warehouse_id'], $position['product_id']));
+
+        return $positions->mapWithKeys(function (array $position): array {
+            $ledgerQuantity = (float) StockMovementLine::where('warehouse_id', $position['warehouse_id'])
+                ->where('product_id', $position['product_id'])
+                ->sum('quantity');
+            StockBalance::query()->insertOrIgnore([
+                ...$position,
+                'quantity' => $ledgerQuantity,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+            $balance = StockBalance::where('warehouse_id', $position['warehouse_id'])
+                ->where('product_id', $position['product_id'])
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            $ledgerQuantity = (float) StockMovementLine::where('warehouse_id', $position['warehouse_id'])
+                ->where('product_id', $position['product_id'])
+                ->sum('quantity');
+            if (abs((float) $balance->quantity - $ledgerQuantity) > 0.0005) {
+                $balance->update(['quantity' => $ledgerQuantity]);
+            }
+
+            return [$this->balanceKey($position['warehouse_id'], $position['product_id']) => $balance];
+        });
+    }
+
+    private function applyBalance(StockBalance $balance, float $quantity, ?int $installationId = null, ?int $salesDocumentId = null): void
+    {
+        $newQuantity = round((float) $balance->quantity + $quantity, 3);
+        $reserved = StockReservation::where('warehouse_id', $balance->warehouse_id)->where('product_id', $balance->product_id)->where('status', 'active')->get()
             ->reject(fn ($reservation) => ($salesDocumentId && $reservation->sales_document_id === $salesDocumentId)
                 || (! $reservation->sales_document_id && $installationId && $reservation->installation_id === $installationId))
             ->sum(fn ($reservation) => (float) $reservation->quantity - (float) $reservation->consumed_quantity);
-        if ($onHand - $reserved < 0) {
+        if ($quantity < 0 && $newQuantity - $reserved < -0.0005) {
             throw ValidationException::withMessages(['lines' => __('Insufficient available stock for this movement.')]);
         }
+
+        $balance->update(['quantity' => $newQuantity]);
+    }
+
+    private function balanceKey(int $warehouseId, int $productId): string
+    {
+        return "{$warehouseId}:{$productId}";
     }
 
     private function receiveSerials(StockMovement $movement, int $productId, int $warehouseId, array $serials, StockMovementLine $line): void
@@ -84,12 +145,12 @@ class StockLedger
                 if ($existing->product_id !== $productId || $existing->status !== 'missing') {
                     throw ValidationException::withMessages(['lines' => __('Serial number :serial is already registered and cannot be received.', ['serial' => $serial])]);
                 }
-                $existing->update(['warehouse_id' => $warehouseId, 'installation_id' => null, 'received_line_id' => $line->id, 'issued_line_id' => null, 'status' => 'available', 'received_at' => now(), 'issued_at' => null]);
+                $existing->update(['origin_purchase_document_id' => $existing->origin_purchase_document_id ?? $movement->purchase_document_id, 'warehouse_id' => $warehouseId, 'installation_id' => null, 'received_line_id' => $line->id, 'issued_line_id' => null, 'status' => 'available', 'received_at' => now(), 'issued_at' => null]);
                 $this->recordSerialEvent($existing, $movement, 'recovered', null, $warehouseId);
 
                 continue;
             }
-            $item = SerialNumber::create(['product_id' => $productId, 'warehouse_id' => $warehouseId, 'received_line_id' => $line->id, 'serial_number' => $serial, 'status' => 'available', 'received_at' => now()]);
+            $item = SerialNumber::create(['product_id' => $productId, 'origin_purchase_document_id' => $movement->purchase_document_id, 'warehouse_id' => $warehouseId, 'received_line_id' => $line->id, 'serial_number' => $serial, 'status' => 'available', 'received_at' => now()]);
             $this->recordSerialEvent($item, $movement, 'received', null, $warehouseId);
         }
     }
@@ -119,10 +180,19 @@ class StockLedger
 
     private function returnSerials(StockMovement $movement, int $productId, int $warehouseId, array $serials, StockMovementLine $line): void
     {
+        if (! $movement->purchase_document_id) {
+            throw ValidationException::withMessages(['lines' => __('A purchase order is required to return serialized stock.')]);
+        }
+
         foreach ($serials as $serial) {
-            $item = SerialNumber::where('product_id', $productId)->where('warehouse_id', $warehouseId)->where('serial_number', $serial)->where('status', 'available')->first();
+            $item = SerialNumber::where('product_id', $productId)
+                ->where('origin_purchase_document_id', $movement->purchase_document_id)
+                ->where('warehouse_id', $warehouseId)
+                ->where('serial_number', $serial)
+                ->where('status', 'available')
+                ->first();
             if (! $item) {
-                throw ValidationException::withMessages(['lines' => __('Serial number :serial is not available for return.', ['serial' => $serial])]);
+                throw ValidationException::withMessages(['lines' => __('Serial number :serial is not available for return against this purchase order.', ['serial' => $serial])]);
             }
             $item->update(['warehouse_id' => null, 'issued_line_id' => $line->id, 'status' => 'returned', 'issued_at' => now()]);
             $this->recordSerialEvent($item, $movement, 'returned', $warehouseId);

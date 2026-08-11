@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AccountingPeriod;
 use App\Models\CompanyProfile;
 use App\Models\DocumentSeries;
 use App\Models\FiscalYear;
@@ -31,6 +32,7 @@ class FiscalSettingsController extends Controller
                 'starts_on' => $year->starts_on->toDateString(),
                 'ends_on' => $year->ends_on->toDateString(),
                 'has_opening_entry' => JournalEntry::whereMorphedTo('source', $year)->where('entry_kind', 'opening')->whereDoesntHave('reversal')->exists(),
+                'closed_periods_count' => AccountingPeriod::where('fiscal_year_id', $year->id)->where('status', 'closed')->count(),
             ]);
 
         return Inertia::render('fiscal-settings/index', ['company' => CompanyProfile::firstOrFail(), 'fiscalYears' => $years]);
@@ -44,8 +46,8 @@ class FiscalSettingsController extends Controller
         unset($data['logo']);
         if ($logo) {
             if ($profile->logo_path) {
-                Storage::disk('local')->delete($profile->logo_path);
-            } $data['logo_path'] = $logo->store('company', 'local');
+                Storage::disk(config('filesystems.private'))->delete($profile->logo_path);
+            } $data['logo_path'] = $logo->store('company', config('filesystems.private'));
         }
         $profile->update($data);
 
@@ -55,9 +57,9 @@ class FiscalSettingsController extends Controller
     public function logo(): StreamedResponse
     {
         $profile = CompanyProfile::firstOrFail();
-        abort_unless($profile->logo_path && Storage::disk('local')->exists($profile->logo_path), 404);
+        abort_unless($profile->logo_path && Storage::disk(config('filesystems.private'))->exists($profile->logo_path), 404);
 
-        return Storage::disk('local')->download($profile->logo_path, 'company-logo', ['Content-Disposition' => 'inline']);
+        return Storage::disk(config('filesystems.private'))->download($profile->logo_path, 'company-logo', ['Content-Disposition' => 'inline']);
     }
 
     public function storeYear(Request $request): RedirectResponse
@@ -87,10 +89,13 @@ class FiscalSettingsController extends Controller
 
     public function reopenYear(Request $request, FiscalYear $fiscalYear, FiscalYearClosing $closing): RedirectResponse
     {
-        $request->validate(['confirmation' => ['required', Rule::in([(string) $fiscalYear->year])]]);
-        $closing->reopen($fiscalYear);
+        $data = $request->validate([
+            'confirmation' => ['required', Rule::in([(string) $fiscalYear->year])],
+            'reopen_reason' => ['required', 'string', 'min:10', 'max:2000'],
+        ]);
+        $closing->reopen($fiscalYear, $request->user()->id, $data['reopen_reason']);
 
-        return back()->with('toast', ['type' => 'success', 'message' => __('Fiscal year reopened and closing entries deleted.')]);
+        return back()->with('toast', ['type' => 'success', 'message' => __('Fiscal year reopened with audited reversal entries.')]);
     }
 
     public function openNextYear(Request $request, FiscalYear $fiscalYear, FiscalYearClosing $closing): RedirectResponse

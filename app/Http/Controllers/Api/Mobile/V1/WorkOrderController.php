@@ -103,7 +103,7 @@ class WorkOrderController extends Controller
             'caption' => ['nullable', 'string', 'max:500'],
         ]);
         $file = $data['file'];
-        $path = $file->store("work-orders/{$workOrder->id}", 'local');
+        $path = $file->store("work-orders/{$workOrder->id}", config('filesystems.private'));
         $attachment = $workOrder->attachments()->create([
             'uploaded_by' => $request->user()->id,
             'kind' => str_starts_with($file->getMimeType() ?: '', 'image/') ? 'photo' : 'document',
@@ -135,10 +135,10 @@ class WorkOrderController extends Controller
         abort_unless(str_starts_with($binary, "\x89PNG\r\n\x1a\n"), 422, __('Invalid signature data.'));
 
         if ($workOrder->signature_path) {
-            Storage::disk('local')->delete($workOrder->signature_path);
+            Storage::disk(config('filesystems.private'))->delete($workOrder->signature_path);
         }
         $path = "work-orders/{$workOrder->id}/signature.png";
-        Storage::disk('local')->put($path, $binary);
+        Storage::disk(config('filesystems.private'))->put($path, $binary);
         $workOrder->update([
             'signed_by_name' => $data['signed_by_name'],
             'signature_path' => $path,
