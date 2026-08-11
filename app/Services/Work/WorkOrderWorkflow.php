@@ -7,7 +7,7 @@ use Illuminate\Validation\ValidationException;
 
 class WorkOrderWorkflow
 {
-    private const DEFAULT_TRANSITIONS = [
+    public const DEFAULT_TRANSITIONS = [
         'planned' => ['in_progress', 'blocked', 'completed', 'cancelled'],
         'in_progress' => ['blocked', 'completed', 'cancelled'],
         'blocked' => ['planned', 'in_progress', 'cancelled'],
@@ -20,9 +20,15 @@ class WorkOrderWorkflow
         if ($to === $order->status) {
             return;
         }
-        $transitions = $order->template?->allowed_transitions ?: self::DEFAULT_TRANSITIONS;
+        $transitions = $order->allowed_transitions_snapshot ?: self::DEFAULT_TRANSITIONS;
         if (! in_array($to, $transitions[$order->status] ?? [], true)) {
             throw ValidationException::withMessages(['status' => __('Transition from :from to :to is not allowed.', ['from' => $order->status, 'to' => $to])]);
         }
+    }
+
+    /** @return array<string, array<int, string>> */
+    public function defaultTransitions(): array
+    {
+        return self::DEFAULT_TRANSITIONS;
     }
 }

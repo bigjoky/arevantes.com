@@ -3,10 +3,13 @@
 namespace App\Http\Controllers\Api\Mobile\V1;
 
 use App\Http\Controllers\Controller;
+use App\Models\StockReservation;
 use App\Models\TimeEntry;
 use App\Models\User;
 use App\Models\WorkOrder;
 use App\Models\WorkOrderChecklistItem;
+use App\Services\Inventory\WorkOrderMaterialConsumer;
+use App\Services\Work\WorkOrderStateManager;
 use App\Services\Work\WorkOrderWorkflow;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -45,7 +48,7 @@ class WorkOrderController extends Controller
     public function show(Request $request, WorkOrder $workOrder): JsonResponse
     {
         $this->ensureAccess($request, $workOrder);
-        $workOrder->load(['installation', 'assignedUser:id,name', 'timeEntries.user:id,name', 'checklistItems', 'attachments']);
+        $workOrder->load(['installation', 'assignedUser:id,name', 'timeEntries.user:id,name', 'checklistItems', 'attachments', 'stockReservations.product:id,sku,name,track_serials', 'stockReservations.warehouse:id,code,name']);
 
         return response()->json(['data' => [...$this->summary($workOrder),
             'instructions' => $workOrder->instructions,
@@ -64,26 +67,52 @@ class WorkOrderController extends Controller
                 'id' => $attachment->id, 'kind' => $attachment->kind, 'original_name' => $attachment->original_name,
                 'mime_type' => $attachment->mime_type, 'size' => $attachment->size, 'caption' => $attachment->caption,
             ]),
+            'materials' => $workOrder->stockReservations->map(fn (StockReservation $reservation) => $this->material($reservation)),
         ]]);
     }
 
-    public function startTimer(Request $request, WorkOrder $workOrder, WorkOrderWorkflow $workflow): JsonResponse
+    public function startTimer(Request $request, WorkOrder $workOrder, WorkOrderStateManager $states): JsonResponse
     {
         $this->ensureAccess($request, $workOrder);
-        $entry = DB::transaction(function () use ($request, $workOrder, $workflow): TimeEntry {
+        $entry = DB::transaction(function () use ($request, $workOrder, $states): TimeEntry {
             User::query()->whereKey($request->user()->id)->lockForUpdate()->firstOrFail();
-            $locked = WorkOrder::query()->with('template')->lockForUpdate()->findOrFail($workOrder->id);
+            $locked = WorkOrder::query()->lockForUpdate()->findOrFail($workOrder->id);
             $this->ensureAccess($request, $locked);
-            $workflow->assertTransition($locked, 'in_progress');
             abort_if(TimeEntry::where('user_id', $request->user()->id)->whereNull('ended_at')->exists(), 422, __('You already have a running timer.'));
             $entry = TimeEntry::create(['work_order_id' => $locked->id, 'user_id' => $request->user()->id, 'created_by' => $request->user()->id, 'started_at' => now(), 'hourly_cost' => config('work.default_hourly_cost'), 'mileage_rate' => config('work.mileage_rate')]);
-            $locked->update(['status' => 'in_progress']);
-            $locked->activities()->update(['status' => 'in_progress']);
+            $states->transition($locked, 'in_progress');
 
             return $entry;
         });
 
         return response()->json(['data' => ['id' => $entry->id, 'started_at' => $entry->started_at->toISOString()]], 201);
+    }
+
+    public function complete(Request $request, WorkOrder $workOrder, WorkOrderStateManager $states): JsonResponse
+    {
+        $this->ensureAccess($request, $workOrder);
+        $data = $request->validate(['completion_notes' => ['required', 'string', 'max:5000']]);
+        $updated = $states->transition($workOrder, 'completed', $data['completion_notes']);
+        $updated->load(['installation', 'assignedUser:id,name', 'checklistItems']);
+
+        return response()->json(['data' => [
+            ...$this->summary($updated),
+            'completion_notes' => $updated->completion_notes,
+            'completed_at' => $updated->completed_at?->toISOString(),
+        ]]);
+    }
+
+    public function consumeMaterial(Request $request, WorkOrder $workOrder, StockReservation $reservation, WorkOrderMaterialConsumer $consumer): JsonResponse
+    {
+        $this->ensureAccess($request, $workOrder);
+        abort_unless($reservation->work_order_id === $workOrder->id, 404);
+        $data = $request->validate([
+            'quantity' => ['required', 'numeric', 'gt:0'],
+            'serials' => ['nullable', 'string', 'max:10000'],
+        ]);
+        $updated = $consumer->consume($workOrder, $reservation, (float) $data['quantity'], $data['serials'] ?? null, $request->user()->id);
+
+        return response()->json(['data' => $this->material($updated)]);
     }
 
     public function stopTimer(Request $request, TimeEntry $timeEntry): JsonResponse
@@ -198,6 +227,7 @@ class WorkOrderController extends Controller
     private function summary(WorkOrder $order): array
     {
         return ['id' => $order->id, 'number' => $order->number, 'title' => $order->title, 'status' => $order->status,
+            'allowed_transitions' => ($order->allowed_transitions_snapshot ?: WorkOrderWorkflow::DEFAULT_TRANSITIONS)[$order->status] ?? [],
             'scheduled_start' => $order->scheduled_start?->toISOString(), 'scheduled_end' => $order->scheduled_end?->toISOString(),
             'updated_at' => $order->updated_at->toISOString(), 'assigned_user' => $order->assignedUser?->only(['id', 'name']),
             'signed_by_name' => $order->signed_by_name, 'signed_at' => $order->signed_at?->toISOString(),
@@ -210,6 +240,20 @@ class WorkOrderController extends Controller
                 'id' => $item->id, 'position' => $item->position, 'label' => $item->label, 'is_required' => $item->is_required,
                 'completed_at' => $item->completed_at?->toISOString(), 'notes' => $item->notes,
             ])->values() : [],
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    private function material(StockReservation $reservation): array
+    {
+        return [
+            'id' => $reservation->id,
+            'status' => $reservation->status,
+            'quantity' => (float) $reservation->quantity,
+            'consumed_quantity' => (float) $reservation->consumed_quantity,
+            'remaining_quantity' => max(0, round((float) $reservation->quantity - (float) $reservation->consumed_quantity, 3)),
+            'product' => $reservation->product?->only(['id', 'sku', 'name', 'track_serials']),
+            'warehouse' => $reservation->warehouse?->only(['id', 'code', 'name']),
         ];
     }
 }
