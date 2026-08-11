@@ -85,8 +85,11 @@ class ReplenishmentTest extends TestCase
         $this->assertSame(today()->addDays(7)->toDateString(), $request->expected_delivery_date->toDateString());
 
         $this->get(route('replenishment.index'))->assertInertia(fn (Assert $page) => $page
-            ->where('recommendations.0.inbound', 10)
-            ->where('recommendations.0.projected', 12)
+            ->where('recommendations.0.inbound', 0)
+            ->where('recommendations.0.requested', 10)
+            ->where('recommendations.0.projected', 2)
+            ->where('recommendations.0.suggested_quantity', 10)
+            ->where('recommendations.0.needs_replenishment', true)
             ->where('recommendations.0.needs_action', false));
         $this->post(route('replenishment.procure'), ['policies' => [$policy->id]])->assertSessionHasErrors('policies');
         $this->assertSame(1, PurchaseDocument::where('type', 'purchase_rfq')->count());
