@@ -33,6 +33,7 @@ class OpportunityController extends Controller
                 'customer:id,first_name,last_name,company_name',
                 'installation:id,person_id,project_reference,site_name',
                 'owner:id,name',
+                'parentOpportunity:id,person_id,code,title,stage',
                 'quote:id,opportunity_id,number,status',
                 'nextActivity.assignedUser:id,name',
                 'stageHistory.changedBy:id,name',
@@ -69,6 +70,7 @@ class OpportunityController extends Controller
                     'commercial_score' => min(100, (int) collect($scoreBreakdown)->sum('points')),
                     'score_breakdown' => $scoreBreakdown,
                     'expected_close_on' => $item->expected_close_on?->toDateString(),
+                    'renewal_due_on' => $item->renewal_due_on?->toDateString(),
                     'available_stages' => $salesCycle->availableTransitions($item),
                     'stage_entered_at' => $this->stageEnteredAt($item)->toIso8601String(),
                     'days_in_stage' => round($this->stageEnteredAt($item)->diffInHours(now()) / 24, 1),
@@ -80,9 +82,15 @@ class OpportunityController extends Controller
             'installations' => Installation::orderBy('project_reference')->get(['id', 'person_id', 'project_reference', 'site_name']),
             'users' => User::whereIn('role', ['admin', 'commercial'])->orderBy('name')->get(['id', 'name']),
             'sourceOptions' => OpportunityCatalog::SOURCES,
+            'commercialKindOptions' => OpportunityCatalog::COMMERCIAL_KINDS,
+            'recurrenceOptions' => OpportunityCatalog::RECURRENCE_INTERVALS,
             'lostReasonOptions' => OpportunityCatalog::LOST_REASONS,
+            'wonOpportunities' => Opportunity::query()
+                ->where('stage', 'won')
+                ->orderByDesc('updated_at')
+                ->get(['id', 'person_id', 'code', 'title']),
             'filters' => [
-                ...$request->only(['search', 'stage', 'owner', 'source', 'attention', 'archived']),
+                ...$request->only(['search', 'stage', 'owner', 'source', 'commercial_kind', 'attention', 'archived']),
                 'period' => $period,
             ],
             'metrics' => [
@@ -97,6 +105,8 @@ class OpportunityController extends Controller
                 'overdue' => $open->filter(fn (Opportunity $item) => $item->expected_close_on?->isPast())->count(),
                 'without_next_action' => $open->whereNull('nextActivity')->count(),
                 'stale' => $open->filter(fn (Opportunity $item) => $this->stageEnteredAt($item)->lessThan(now()->subDays($settings->stale_after_days)))->count(),
+                'renewals_due' => $open->filter(fn (Opportunity $item) => in_array($item->commercial_kind, ['renewal', 'recurring'], true)
+                    && $item->renewal_due_on?->lessThanOrEqualTo(today()->addDays(30)))->count(),
                 'funnel' => collect(self::STAGES)->mapWithKeys(fn (string $stage) => [$stage => $opportunities->where('stage', $stage)->count()]),
                 'stage_days' => $this->averageDaysByStage($opportunities),
             ],
@@ -111,6 +121,7 @@ class OpportunityController extends Controller
     {
         $data = $salesCycle->prepareActiveData($this->validated($request), $request->user());
         $this->ensureInstallationBelongsToCustomer($data);
+        $this->ensureCommercialOrigin($data);
 
         DB::transaction(function () use ($data, $request, $salesCycle) {
             $opportunity = Opportunity::create([...$data, 'created_by' => $request->user()->id]);
@@ -126,6 +137,7 @@ class OpportunityController extends Controller
     {
         $data = $salesCycle->prepareActiveData($this->validated($request), $request->user());
         $this->ensureInstallationBelongsToCustomer($data);
+        $this->ensureCommercialOrigin($data, $opportunity);
         abort_if(
             $opportunity->quote()->exists()
                 && ((int) $opportunity->person_id !== (int) $data['person_id']
@@ -185,11 +197,29 @@ class OpportunityController extends Controller
 
     private function validated(Request $request): array
     {
+        $request->merge(['commercial_kind' => $request->input('commercial_kind', 'new_business')]);
+
         $data = $request->validate([
             'person_id' => ['required', Rule::exists('people', 'id')->where('category', 'customer')],
             'installation_id' => ['nullable', 'exists:installations,id'],
             'owner_user_id' => ['nullable', Rule::exists('users', 'id')->where(fn ($query) => $query->whereIn('role', ['admin', 'commercial']))],
             'title' => ['required', 'string', 'max:255'],
+            'commercial_kind' => ['required', Rule::in(array_keys(OpportunityCatalog::COMMERCIAL_KINDS))],
+            'parent_opportunity_id' => [
+                Rule::requiredIf(in_array($request->input('commercial_kind'), ['renewal', 'upsell'], true)),
+                'nullable',
+                'exists:opportunities,id',
+            ],
+            'recurrence_interval' => [
+                Rule::requiredIf($request->input('commercial_kind') === 'recurring'),
+                'nullable',
+                Rule::in(array_keys(OpportunityCatalog::RECURRENCE_INTERVALS)),
+            ],
+            'renewal_due_on' => [
+                Rule::requiredIf(in_array($request->input('commercial_kind'), ['renewal', 'recurring'], true)),
+                'nullable',
+                'date',
+            ],
             'stage' => ['required', Rule::in(self::STAGES)],
             'probability' => ['required', 'integer', 'between:0,100'],
             'estimated_value' => ['required', 'numeric', 'min:0', 'max:9999999999999.99'],
@@ -209,6 +239,16 @@ class OpportunityController extends Controller
             $data['lost_reason_detail'] = null;
         }
 
+        if ($data['commercial_kind'] === 'new_business') {
+            $data['parent_opportunity_id'] = null;
+        }
+        if ($data['commercial_kind'] !== 'recurring') {
+            $data['recurrence_interval'] = null;
+        }
+        if (! in_array($data['commercial_kind'], ['renewal', 'recurring'], true)) {
+            $data['renewal_due_on'] = null;
+        }
+
         return $data;
     }
 
@@ -220,6 +260,19 @@ class OpportunityController extends Controller
 
         $installation = Installation::findOrFail($data['installation_id']);
         abort_if((int) $installation->person_id !== (int) $data['person_id'], 422, __('The installation does not belong to this customer.'));
+    }
+
+    private function ensureCommercialOrigin(array $data, ?Opportunity $opportunity = null): void
+    {
+        if (empty($data['parent_opportunity_id'])) {
+            return;
+        }
+
+        abort_if($opportunity && (int) $opportunity->id === (int) $data['parent_opportunity_id'], 422, __('An opportunity cannot originate from itself.'));
+
+        $parent = Opportunity::findOrFail($data['parent_opportunity_id']);
+        abort_if((int) $parent->person_id !== (int) $data['person_id'], 422, __('The originating opportunity must belong to the same customer.'));
+        abort_if($parent->stage !== 'won', 422, __('Only a won opportunity can originate a renewal or additional sale.'));
     }
 
     private function applyFilters(Builder $query, Request $request, int $staleAfterDays): void
@@ -240,6 +293,7 @@ class OpportunityController extends Controller
                 $request->input('owner') === 'me' ? $request->user()->id : $request->integer('owner'),
             ))
             ->when($request->filled('source'), fn ($query) => $query->where('source', (string) $request->input('source')))
+            ->when($request->filled('commercial_kind'), fn ($query) => $query->where('commercial_kind', (string) $request->input('commercial_kind')))
             ->when($request->input('attention') === 'overdue', fn ($query) => $query
                 ->whereNotIn('stage', ['won', 'lost'])
                 ->whereDate('expected_close_on', '<', today()))
@@ -253,7 +307,11 @@ class OpportunityController extends Controller
                 ->whereRaw(
                     'coalesce((select max(changed_at) from opportunity_stage_histories where opportunity_id = opportunities.id), opportunities.created_at) < ?',
                     [now()->subDays($staleAfterDays)],
-                ));
+                ))
+            ->when($request->input('attention') === 'renewal_due', fn ($query) => $query
+                ->whereNotIn('stage', ['won', 'lost'])
+                ->whereIn('commercial_kind', ['renewal', 'recurring'])
+                ->whereDate('renewal_due_on', '<=', today()->addDays(30)));
     }
 
     private function closedInPeriod(Opportunity $opportunity, string $stage, ?CarbonInterface $periodStart): bool

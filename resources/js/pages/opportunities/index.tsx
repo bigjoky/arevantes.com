@@ -66,6 +66,12 @@ type Installation = {
     site_name: string | null;
 };
 type UserOption = { id: number; name: string };
+type WonOpportunity = {
+    id: number;
+    person_id: number;
+    code: string;
+    title: string;
+};
 type Activity = {
     id: number;
     title: string;
@@ -85,6 +91,10 @@ type Opportunity = {
     id: number;
     code: string;
     title: string;
+    commercial_kind: string;
+    parent_opportunity_id: number | null;
+    recurrence_interval: string | null;
+    renewal_due_on: string | null;
     stage: string;
     probability: number;
     commercial_score: number;
@@ -105,6 +115,7 @@ type Opportunity = {
     customer: Customer | null;
     installation: Installation | null;
     owner: UserOption | null;
+    parent_opportunity: WonOpportunity | null;
     quote: { id: number; number: string; status: string } | null;
     next_activity: Activity | null;
     stage_history: StageHistory[];
@@ -138,6 +149,10 @@ type FormData = {
     installation_id: string;
     owner_user_id: string;
     title: string;
+    commercial_kind: string;
+    parent_opportunity_id: string;
+    recurrence_interval: string;
+    renewal_due_on: string;
     stage: string;
     probability: string;
     estimated_value: string;
@@ -165,6 +180,10 @@ const emptyForm: FormData = {
     installation_id: '',
     owner_user_id: '',
     title: '',
+    commercial_kind: 'new_business',
+    parent_opportunity_id: '',
+    recurrence_interval: '',
+    renewal_due_on: '',
     stage: 'new',
     probability: '10',
     estimated_value: '0',
@@ -182,7 +201,10 @@ export default function OpportunitiesIndex({
     installations,
     users,
     sourceOptions,
+    commercialKindOptions,
+    recurrenceOptions,
     lostReasonOptions,
+    wonOpportunities,
     filters = {},
     metrics,
     forecast = [],
@@ -195,12 +217,16 @@ export default function OpportunitiesIndex({
     installations: Installation[];
     users: UserOption[];
     sourceOptions: Record<string, string>;
+    commercialKindOptions: Record<string, string>;
+    recurrenceOptions: Record<string, string>;
     lostReasonOptions: Record<string, string>;
+    wonOpportunities: WonOpportunity[];
     filters: {
         search?: string;
         stage?: string;
         owner?: string;
         source?: string;
+        commercial_kind?: string;
         attention?: string;
         archived?: string;
         period?: string;
@@ -218,6 +244,7 @@ export default function OpportunitiesIndex({
         overdue: number;
         without_next_action: number;
         stale: number;
+        renewals_due: number;
         funnel: Record<string, number>;
         stage_days: Record<string, number | null>;
     };
@@ -240,6 +267,15 @@ export default function OpportunitiesIndex({
                 (item) => String(item.person_id) === form.data.person_id,
             ),
         [form.data.person_id, installations],
+    );
+    const availableOrigins = useMemo(
+        () =>
+            wonOpportunities.filter(
+                (item) =>
+                    String(item.person_id) === form.data.person_id &&
+                    item.id !== editing?.id,
+            ),
+        [editing?.id, form.data.person_id, wonOpportunities],
     );
 
     useEffect(() => {
@@ -274,6 +310,12 @@ export default function OpportunitiesIndex({
                 : '',
             owner_user_id: item.owner_user_id ? String(item.owner_user_id) : '',
             title: item.title,
+            commercial_kind: item.commercial_kind,
+            parent_opportunity_id: item.parent_opportunity_id
+                ? String(item.parent_opportunity_id)
+                : '',
+            recurrence_interval: item.recurrence_interval || '',
+            renewal_due_on: item.renewal_due_on || '',
             stage: item.stage,
             probability: String(item.probability),
             estimated_value: item.estimated_value,
@@ -319,6 +361,10 @@ export default function OpportunitiesIndex({
                 installation_id: item.installation_id,
                 owner_user_id: item.owner_user_id,
                 title: item.title,
+                commercial_kind: item.commercial_kind,
+                parent_opportunity_id: item.parent_opportunity_id,
+                recurrence_interval: item.recurrence_interval,
+                renewal_due_on: item.renewal_due_on,
                 stage,
                 probability,
                 estimated_value: item.estimated_value,
@@ -418,6 +464,12 @@ export default function OpportunitiesIndex({
                         value={String(metrics.without_next_action)}
                         detail={`${metrics.stale} estancadas`}
                     />
+                    <Metric
+                        icon={CalendarClock}
+                        label="Renovaciones próximas"
+                        value={String(metrics.renewals_due)}
+                        detail="Próximos 30 días"
+                    />
                 </section>
 
                 <FunnelSummary funnel={metrics.funnel} />
@@ -500,7 +552,7 @@ export default function OpportunitiesIndex({
                 <Form
                     action="/opportunities"
                     method="get"
-                    className="grid gap-3 rounded-md border p-3 md:grid-cols-2 xl:grid-cols-[minmax(14rem,1fr)_10rem_11rem_12rem_12rem_11rem_auto]"
+                    className="grid gap-3 rounded-md border p-3 md:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-[minmax(14rem,1fr)_10rem_11rem_11rem_12rem_12rem_11rem_auto]"
                 >
                     {filters.archived && (
                         <input type="hidden" name="archived" value="1" />
@@ -546,6 +598,14 @@ export default function OpportunitiesIndex({
                         ]}
                     />
                     <NativeSelect
+                        name="commercial_kind"
+                        defaultValue={filters.commercial_kind}
+                        options={[
+                            ['', 'Todos los tipos'],
+                            ...Object.entries(commercialKindOptions),
+                        ]}
+                    />
+                    <NativeSelect
                         name="attention"
                         defaultValue={filters.attention}
                         options={[
@@ -553,6 +613,7 @@ export default function OpportunitiesIndex({
                             ['overdue', 'Cierre vencido'],
                             ['no_action', 'Sin próxima acción'],
                             ['stale', 'Estancada en etapa'],
+                            ['renewal_due', 'Renovación próxima'],
                         ]}
                     />
                     <NativeSelect
@@ -632,6 +693,7 @@ export default function OpportunitiesIndex({
                     <OpportunityTable
                         opportunities={opportunities}
                         sourceOptions={sourceOptions}
+                        commercialKindOptions={commercialKindOptions}
                         onEdit={openEditor}
                     />
                 ) : (
@@ -696,6 +758,23 @@ export default function OpportunitiesIndex({
                                                                     ] ||
                                                                         item.source}
                                                                 </Badge>
+                                                            </span>
+                                                        )}
+                                                        <span className="mt-2 block">
+                                                            <Badge variant="secondary">
+                                                                {commercialKindOptions[
+                                                                    item
+                                                                        .commercial_kind
+                                                                ] ||
+                                                                    item.commercial_kind}
+                                                            </Badge>
+                                                        </span>
+                                                        {item.renewal_due_on && (
+                                                            <span className="mt-1 block text-xs text-muted-foreground">
+                                                                Renovación:{' '}
+                                                                {date(
+                                                                    item.renewal_due_on,
+                                                                )}
                                                             </span>
                                                         )}
                                                         <span className="mt-2 block text-xs text-muted-foreground">
@@ -906,6 +985,7 @@ export default function OpportunitiesIndex({
                                 onChange={(value) => {
                                     form.setData('person_id', value);
                                     form.setData('installation_id', '');
+                                    form.setData('parent_opportunity_id', '');
                                 }}
                                 options={customers.map((item) => [
                                     String(item.id),
@@ -930,6 +1010,97 @@ export default function OpportunitiesIndex({
                                     ]),
                                 ]}
                             />
+                            <SelectField
+                                label="Tipo comercial"
+                                value={form.data.commercial_kind}
+                                error={form.errors.commercial_kind}
+                                onChange={(value) => {
+                                    form.setData('commercial_kind', value);
+
+                                    if (value === 'new_business') {
+                                        form.setData(
+                                            'parent_opportunity_id',
+                                            '',
+                                        );
+                                    }
+
+                                    if (value !== 'recurring') {
+                                        form.setData('recurrence_interval', '');
+                                    }
+
+                                    if (
+                                        !['renewal', 'recurring'].includes(
+                                            value,
+                                        )
+                                    ) {
+                                        form.setData('renewal_due_on', '');
+                                    }
+                                }}
+                                options={Object.entries(commercialKindOptions)}
+                            />
+                            {['renewal', 'upsell', 'recurring'].includes(
+                                form.data.commercial_kind,
+                            ) && (
+                                <SelectField
+                                    label="Oportunidad de origen"
+                                    value={
+                                        form.data.parent_opportunity_id ||
+                                        'none'
+                                    }
+                                    error={form.errors.parent_opportunity_id}
+                                    onChange={(value) =>
+                                        form.setData(
+                                            'parent_opportunity_id',
+                                            value === 'none' ? '' : value,
+                                        )
+                                    }
+                                    options={[
+                                        ['none', 'Sin vincular'],
+                                        ...availableOrigins.map((item) => [
+                                            String(item.id),
+                                            `${item.code} · ${item.title}`,
+                                        ]),
+                                    ]}
+                                />
+                            )}
+                            {form.data.commercial_kind === 'recurring' && (
+                                <SelectField
+                                    label="Periodicidad"
+                                    value={
+                                        form.data.recurrence_interval || 'none'
+                                    }
+                                    error={form.errors.recurrence_interval}
+                                    onChange={(value) =>
+                                        form.setData(
+                                            'recurrence_interval',
+                                            value === 'none' ? '' : value,
+                                        )
+                                    }
+                                    options={[
+                                        ['none', 'Seleccionar'],
+                                        ...Object.entries(recurrenceOptions),
+                                    ]}
+                                />
+                            )}
+                            {['renewal', 'recurring'].includes(
+                                form.data.commercial_kind,
+                            ) && (
+                                <Field
+                                    label="Próxima renovación"
+                                    error={form.errors.renewal_due_on}
+                                >
+                                    <Input
+                                        type="date"
+                                        value={form.data.renewal_due_on}
+                                        onChange={(event) =>
+                                            form.setData(
+                                                'renewal_due_on',
+                                                event.target.value,
+                                            )
+                                        }
+                                    />
+                                </Field>
+                            )}
                             <SelectField
                                 label="Stage"
                                 value={form.data.stage}
@@ -1498,10 +1669,12 @@ function OpportunityActivityDialog({
 function OpportunityTable({
     opportunities,
     sourceOptions,
+    commercialKindOptions,
     onEdit,
 }: {
     opportunities: Opportunity[];
     sourceOptions: Record<string, string>;
+    commercialKindOptions: Record<string, string>;
     onEdit: (opportunity: Opportunity) => void;
 }) {
     return (
@@ -1511,6 +1684,7 @@ function OpportunityTable({
                     <tr>
                         <th className="p-3">Oportunidad</th>
                         <th className="p-3">Cliente</th>
+                        <th className="p-3">Tipo</th>
                         <th className="p-3">Etapa</th>
                         <th className="p-3">Responsable</th>
                         <th className="p-3 text-right">Importe</th>
@@ -1541,6 +1715,18 @@ function OpportunityTable({
                                 {item.customer
                                     ? customerName(item.customer)
                                     : '—'}
+                            </td>
+                            <td className="p-3">
+                                <Badge variant="secondary">
+                                    {commercialKindOptions[
+                                        item.commercial_kind
+                                    ] || item.commercial_kind}
+                                </Badge>
+                                {item.renewal_due_on && (
+                                    <div className="mt-1 text-xs text-muted-foreground">
+                                        {date(item.renewal_due_on)}
+                                    </div>
+                                )}
                             </td>
                             <td className="p-3">
                                 <Badge variant="outline">
