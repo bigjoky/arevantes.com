@@ -3,6 +3,7 @@
 namespace Tests\Feature\Api;
 
 use App\Models\Installation;
+use App\Models\MobileOperation;
 use App\Models\User;
 use App\Models\WorkOrder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -114,6 +115,29 @@ class MobileV1Test extends TestCase
 
         $this->assertDatabaseCount('time_entries', 1);
         $this->assertDatabaseCount('mobile_operations', 1);
+    }
+
+    public function test_an_in_flight_idempotent_mutation_is_not_executed_twice(): void
+    {
+        $technician = User::factory()->create(['role' => 'technician']);
+        $installation = Installation::create(['service_type' => 'solar', 'status' => 'scheduled', 'site_address_line_1' => 'Calle Sol 1']);
+        $order = WorkOrder::create(['installation_id' => $installation->id, 'assigned_user_id' => $technician->id, 'number' => 'WO-1', 'title' => 'Assigned']);
+        $key = (string) Str::uuid();
+        MobileOperation::create([
+            'user_id' => $technician->id,
+            'key' => $key,
+            'method' => 'POST',
+            'path' => "api/mobile/v1/work-orders/{$order->id}/timer",
+            'response_status' => 102,
+        ]);
+
+        $this->actingAs($technician, 'sanctum')->withHeader('Idempotency-Key', $key)
+            ->postJson("/api/mobile/v1/work-orders/{$order->id}/timer")
+            ->assertConflict()
+            ->assertHeader('Idempotency-In-Progress', 'true')
+            ->assertHeader('Retry-After', '2');
+
+        $this->assertDatabaseCount('time_entries', 0);
     }
 
     public function test_technician_can_queue_an_idempotent_photo_upload(): void

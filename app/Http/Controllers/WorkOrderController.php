@@ -22,6 +22,7 @@ use App\Services\Work\WorkOrderWorkflow;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
@@ -78,8 +79,13 @@ class WorkOrderController extends Controller
     {
         $data = $this->validatedSchedule($request, true);
         $data['kind'] ??= 'installation';
-        $schedule->assertAvailable(isset($data['assigned_user_id']) ? (int) $data['assigned_user_id'] : null, $data['scheduled_start'] ?? null, $data['scheduled_end'] ?? null, null, $data['required_skills'] ?? [], $data['service_zone'] ?? null);
-        $order = $factory->create($data, $request->user()->id);
+        $ownerId = isset($data['assigned_user_id']) ? (int) $data['assigned_user_id'] : null;
+        $order = DB::transaction(function () use ($schedule, $factory, $data, $request, $ownerId): WorkOrder {
+            $schedule->lockTechnicians([$ownerId]);
+            $schedule->assertAvailable($ownerId, $data['scheduled_start'] ?? null, $data['scheduled_end'] ?? null, null, $data['required_skills'] ?? [], $data['service_zone'] ?? null);
+
+            return $factory->create($data, $request->user()->id);
+        });
         $this->syncInstallation($order);
 
         return to_route('work-orders.index', ['work_order' => $order->id])->with('toast', ['type' => 'success', 'message' => __('Work order created.')]);
@@ -100,7 +106,7 @@ class WorkOrderController extends Controller
         $data = $request->validate([
             'reason' => ['required', 'string', 'max:1000'],
             'items' => ['required', 'array', 'min:1', 'max:100'],
-            'items.*.work_order_id' => ['required', 'exists:work_orders,id'],
+            'items.*.work_order_id' => ['required', 'distinct', 'exists:work_orders,id'],
             'items.*.assigned_user_id' => ['nullable', 'exists:users,id'],
             'items.*.scheduled_start' => ['required', 'date'],
             'items.*.scheduled_end' => ['required', 'date', 'after:items.*.scheduled_start'],
@@ -119,21 +125,33 @@ class WorkOrderController extends Controller
             $completion->assertCanComplete($workOrder->loadMissing('installation'), $data['completion_notes'] ?? null);
         }
         $workOrder->update([...$data, 'completed_at' => $data['status'] === 'completed' ? now() : null]);
-        $workOrder->activities()->update(['status' => $data['status'] === 'completed' ? 'completed' : ($data['status'] === 'cancelled' ? 'cancelled' : ($data['status'] === 'blocked' ? 'blocked' : 'in_progress')), 'completed_at' => $data['status'] === 'completed' ? now() : null]);
+        $activityStatus = match ($data['status']) {
+            'completed' => 'completed',
+            'cancelled' => 'cancelled',
+            'blocked' => 'blocked',
+            'planned' => 'pending',
+            default => 'in_progress',
+        };
+        $workOrder->activities()->update(['status' => $activityStatus, 'completed_at' => $data['status'] === 'completed' ? now() : null]);
         $this->syncInstallation($workOrder);
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Work order updated.')]);
     }
 
-    public function start(Request $request, WorkOrder $workOrder): RedirectResponse
+    public function start(Request $request, WorkOrder $workOrder, WorkOrderWorkflow $workflow): RedirectResponse
     {
         $this->ensureAccess($request, $workOrder);
-        abort_if(TimeEntry::where('user_id', $request->user()->id)->whereNull('ended_at')->exists(), 422, __('You already have a running timer.'));
-        abort_if(in_array($workOrder->status, ['completed', 'cancelled'], true), 422);
-        TimeEntry::create(['work_order_id' => $workOrder->id, 'user_id' => $request->user()->id, 'created_by' => $request->user()->id, 'started_at' => now(), 'hourly_cost' => config('work.default_hourly_cost'), 'mileage_rate' => config('work.mileage_rate')]);
-        $workOrder->update(['status' => 'in_progress']);
-        $workOrder->activities()->update(['status' => 'in_progress']);
-        $this->syncInstallation($workOrder);
+        DB::transaction(function () use ($request, $workOrder, $workflow): void {
+            User::query()->whereKey($request->user()->id)->lockForUpdate()->firstOrFail();
+            $locked = WorkOrder::query()->with(['template', 'installation'])->lockForUpdate()->findOrFail($workOrder->id);
+            $this->ensureAccess($request, $locked);
+            $workflow->assertTransition($locked, 'in_progress');
+            abort_if(TimeEntry::where('user_id', $request->user()->id)->whereNull('ended_at')->exists(), 422, __('You already have a running timer.'));
+            TimeEntry::create(['work_order_id' => $locked->id, 'user_id' => $request->user()->id, 'created_by' => $request->user()->id, 'started_at' => now(), 'hourly_cost' => config('work.default_hourly_cost'), 'mileage_rate' => config('work.mileage_rate')]);
+            $locked->update(['status' => 'in_progress']);
+            $locked->activities()->update(['status' => 'in_progress']);
+            $this->syncInstallation($locked);
+        });
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Timer started.')]);
     }

@@ -16,6 +16,7 @@ use App\Models\Quote;
 use App\Models\SalesDocument;
 use App\Models\ServiceTicket;
 use App\Models\WorkOrderAttachment;
+use App\Services\AfterSales\ServiceTicketFactory;
 use App\Services\AfterSales\ServiceWorkGenerator;
 use App\Services\AfterSales\SlaManager;
 use App\Services\Documents\DocumentFingerprint;
@@ -103,12 +104,12 @@ class CustomerPortalController extends Controller
         ]);
     }
 
-    public function storeTicket(Request $request, string $token, SlaManager $sla, ServiceWorkGenerator $work): RedirectResponse
+    public function storeTicket(Request $request, string $token, SlaManager $sla, ServiceWorkGenerator $work, ServiceTicketFactory $tickets): RedirectResponse
     {
         $access = $this->access($token);
         $data = $request->validate(['installation_id' => ['required', 'integer'], 'title' => ['required', 'string', 'max:255'], 'description' => ['required', 'string', 'max:3000'], 'priority' => ['required', 'in:low,normal,high']]);
         abort_unless($access->customer->installations()->whereKey($data['installation_id'])->exists(), 403);
-        $ticket = ServiceTicket::create([...$data, 'number' => 'SAT-'.now()->format('Y').'-'.str_pad((string) (ServiceTicket::count() + 1), 5, '0', STR_PAD_LEFT), 'kind' => 'incident', 'status' => 'open']);
+        $ticket = $tickets->create([...$data, 'kind' => 'incident', 'status' => 'open']);
         $sla->apply($ticket);
         $work->createForTicket($ticket);
         CustomerPortalEvent::record($access->customer, 'ticket_opened', $access, $request, $ticket, ['number' => $ticket?->number, 'title' => $data['title']]);
@@ -189,7 +190,12 @@ class CustomerPortalController extends Controller
             abort_unless($access->customer->installations()->whereKey($data['installation_id'])->exists(), 403);
             abort_if($data['context'] === 'sale' && CustomerSatisfactionSurvey::where('person_id', $access->person_id)->where('context', 'sale')->exists(), 422, __('This survey has already been completed.'));
         }
-        $survey = CustomerSatisfactionSurvey::create([...$data, 'person_id' => $access->person_id, 'customer_portal_access_id' => $access->id, 'submitted_at' => now()]);
+        $survey = DB::transaction(function () use ($data, $access, $ticket): CustomerSatisfactionSurvey {
+            $survey = CustomerSatisfactionSurvey::create([...$data, 'person_id' => $access->person_id, 'customer_portal_access_id' => $access->id, 'submitted_at' => now()]);
+            $ticket?->update(['satisfaction_rating' => $survey->score]);
+
+            return $survey;
+        });
         CustomerPortalEvent::record($access->customer, 'survey_submitted', $access, $request, $survey, ['score' => $survey->score, 'context' => $survey->context]);
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Thank you for your feedback.')]);
