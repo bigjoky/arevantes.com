@@ -3,6 +3,7 @@
 namespace App\Services\Work;
 
 use App\Models\FieldServiceProfile;
+use App\Models\User;
 use App\Models\WorkOrder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -13,12 +14,35 @@ class TechnicianSchedule
     /** @param array<int, string> $requiredSkills */
     public function assertAvailable(?int $userId, mixed $start, mixed $end, ?int $exceptOrderId = null, array $requiredSkills = [], ?string $serviceZone = null): void
     {
-        if (! $userId || ! $start || ! $end) {
+        if (! $userId) {
             return;
+        }
+
+        $profile = FieldServiceProfile::where('user_id', $userId)->first();
+        if ($profile && ! $profile->is_available) {
+            throw ValidationException::withMessages(['assigned_user_id' => __('This technician is not available for field service.')]);
+        }
+        $missingSkills = array_values(array_diff($requiredSkills, $profile?->skills ?? []));
+        if ($missingSkills !== []) {
+            throw ValidationException::withMessages(['assigned_user_id' => __('Technician lacks required skills: :skills.', ['skills' => implode(', ', $missingSkills)])]);
+        }
+        if ($serviceZone && filled($profile?->service_zones) && ! in_array($serviceZone, $profile->service_zones, true)) {
+            throw ValidationException::withMessages(['assigned_user_id' => __('Technician does not cover service zone :zone.', ['zone' => $serviceZone])]);
+        }
+
+        if (! $start && ! $end) {
+            return;
+        }
+        if (! $start || ! $end) {
+            throw ValidationException::withMessages(['scheduled_start' => __('The assignment must include both a start and an end.')]);
         }
 
         $start = Carbon::parse($start);
         $end = Carbon::parse($end);
+        if ($end->lessThanOrEqualTo($start)) {
+            throw ValidationException::withMessages(['scheduled_end' => __('The scheduled end must be after the scheduled start.')]);
+        }
+
         $conflict = WorkOrder::query()
             ->where('assigned_user_id', $userId)
             ->whereNotIn('status', ['completed', 'cancelled'])
@@ -39,17 +63,6 @@ class TechnicianSchedule
             ]);
         }
 
-        $profile = FieldServiceProfile::where('user_id', $userId)->first();
-        if ($profile && ! $profile->is_available) {
-            throw ValidationException::withMessages(['assigned_user_id' => __('This technician is not available for field service.')]);
-        }
-        $missingSkills = array_values(array_diff($requiredSkills, $profile?->skills ?? []));
-        if ($missingSkills !== []) {
-            throw ValidationException::withMessages(['assigned_user_id' => __('Technician lacks required skills: :skills.', ['skills' => implode(', ', $missingSkills)])]);
-        }
-        if ($serviceZone && filled($profile?->service_zones) && ! in_array($serviceZone, $profile->service_zones, true)) {
-            throw ValidationException::withMessages(['assigned_user_id' => __('Technician does not cover service zone :zone.', ['zone' => $serviceZone])]);
-        }
         if ($profile) {
             $plannedMinutes = (int) WorkOrder::query()->where('assigned_user_id', $userId)
                 ->whereNotIn('status', ['completed', 'cancelled'])
@@ -64,6 +77,16 @@ class TechnicianSchedule
                 throw ValidationException::withMessages(['scheduled_start' => __('Assignment exceeds the technician daily capacity of :minutes minutes.', ['minutes' => $profile->daily_capacity_minutes])]);
             }
         }
+    }
+
+    /** @param array<int, int|null|string> $userIds */
+    public function lockTechnicians(array $userIds): void
+    {
+        User::query()
+            ->whereKey(collect($userIds)->filter()->map(fn ($id) => (int) $id)->unique()->sort()->values())
+            ->orderBy('id')
+            ->lockForUpdate()
+            ->get(['id']);
     }
 
     /** @return array<int, true> */

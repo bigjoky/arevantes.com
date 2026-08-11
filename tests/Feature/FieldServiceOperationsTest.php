@@ -42,6 +42,28 @@ class FieldServiceOperationsTest extends TestCase
         );
     }
 
+    public function test_assignment_checks_technician_qualifications_even_when_work_is_not_scheduled_yet(): void
+    {
+        $technician = User::factory()->create(['role' => 'technician']);
+        FieldServiceProfile::create([
+            'user_id' => $technician->id,
+            'daily_capacity_minutes' => 480,
+            'service_zones' => ['28001'],
+            'skills' => ['solar'],
+            'is_available' => true,
+        ]);
+
+        $this->expectException(ValidationException::class);
+        app(TechnicianSchedule::class)->assertAvailable(
+            $technician->id,
+            null,
+            null,
+            null,
+            ['ev_charger'],
+            '28001',
+        );
+    }
+
     public function test_field_service_profiles_and_templates_can_be_configured(): void
     {
         $commercial = User::factory()->create(['role' => 'commercial']);
@@ -144,6 +166,67 @@ class FieldServiceOperationsTest extends TestCase
             'work_order_id' => $order->id,
             'reason' => 'Customer requested a new date',
         ]);
+    }
+
+    public function test_bulk_rescheduling_is_atomic_when_a_later_assignment_conflicts(): void
+    {
+        $commercial = User::factory()->create(['role' => 'commercial']);
+        $technician = User::factory()->create(['role' => 'technician']);
+        FieldServiceProfile::create([
+            'user_id' => $technician->id,
+            'daily_capacity_minutes' => 480,
+            'service_zones' => [],
+            'skills' => [],
+            'is_available' => true,
+        ]);
+        $installation = $this->installation();
+        $factory = app(WorkOrderFactory::class);
+        $first = $factory->create([
+            'installation_id' => $installation->id,
+            'assigned_user_id' => $technician->id,
+            'title' => 'First visit',
+            'kind' => 'maintenance',
+            'scheduled_start' => '2026-08-10 08:00:00',
+            'scheduled_end' => '2026-08-10 09:00:00',
+        ], $commercial->id);
+        $second = $factory->create([
+            'installation_id' => $installation->id,
+            'assigned_user_id' => $technician->id,
+            'title' => 'Second visit',
+            'kind' => 'maintenance',
+            'scheduled_start' => '2026-08-10 09:00:00',
+            'scheduled_end' => '2026-08-10 10:00:00',
+        ], $commercial->id);
+        $factory->create([
+            'installation_id' => $installation->id,
+            'assigned_user_id' => $technician->id,
+            'title' => 'Existing visit',
+            'kind' => 'maintenance',
+            'scheduled_start' => '2026-08-10 13:00:00',
+            'scheduled_end' => '2026-08-10 15:00:00',
+        ], $commercial->id);
+
+        $this->actingAs($commercial)->patch(route('work-orders.bulk-reschedule'), [
+            'reason' => 'Rebalance the day',
+            'items' => [
+                [
+                    'work_order_id' => $first->id,
+                    'assigned_user_id' => $technician->id,
+                    'scheduled_start' => '2026-08-10 10:00:00',
+                    'scheduled_end' => '2026-08-10 11:00:00',
+                ],
+                [
+                    'work_order_id' => $second->id,
+                    'assigned_user_id' => $technician->id,
+                    'scheduled_start' => '2026-08-10 13:30:00',
+                    'scheduled_end' => '2026-08-10 14:30:00',
+                ],
+            ],
+        ])->assertSessionHasErrors('scheduled_start');
+
+        $this->assertSame('2026-08-10 08:00:00', $first->refresh()->scheduled_start->format('Y-m-d H:i:s'));
+        $this->assertSame('2026-08-10 09:00:00', $second->refresh()->scheduled_start->format('Y-m-d H:i:s'));
+        $this->assertDatabaseCount('work_order_reschedules', 0);
     }
 
     public function test_assets_keep_the_complete_replacement_trace(): void

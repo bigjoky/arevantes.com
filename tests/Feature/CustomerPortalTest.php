@@ -78,6 +78,7 @@ class CustomerPortalTest extends TestCase
         $this->post(route('customer-portal.surveys.store', $token), $survey)->assertRedirect();
         $this->post(route('customer-portal.surveys.store', $token), $survey)->assertUnprocessable();
         $this->assertDatabaseHas(CustomerSatisfactionSurvey::class, ['person_id' => $customer->id, 'service_ticket_id' => $ticket->id, 'score' => 5]);
+        $this->assertSame(5, $ticket->refresh()->satisfaction_rating);
         $this->assertTrue(CustomerPortalEvent::where('person_id', $customer->id)->where('event_type', 'document_accepted')->exists());
         $this->assertTrue(CustomerPortalEvent::where('person_id', $customer->id)->where('event_type', 'preferences_updated')->exists());
         $this->assertTrue(CustomerPortalEvent::where('person_id', $customer->id)->where('event_type', 'survey_submitted')->exists());

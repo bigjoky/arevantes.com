@@ -9,6 +9,7 @@ use App\Models\ServiceSlaPolicy;
 use App\Models\ServiceTicket;
 use App\Models\User;
 use App\Models\WorkOrderTemplate;
+use App\Services\AfterSales\ServiceTicketFactory;
 use App\Services\AfterSales\ServiceWorkGenerator;
 use App\Services\AfterSales\SlaManager;
 use Illuminate\Http\RedirectResponse;
@@ -45,10 +46,13 @@ class AfterSalesController extends Controller
         ]);
     }
 
-    public function storeTicket(Request $request, SlaManager $sla, ServiceWorkGenerator $work): RedirectResponse
+    public function storeTicket(Request $request, SlaManager $sla, ServiceWorkGenerator $work, ServiceTicketFactory $tickets): RedirectResponse
     {
-        $data = $request->validate(['installation_id' => ['required', 'exists:installations,id'], 'assigned_user_id' => ['nullable', 'exists:users,id'], 'kind' => ['required', Rule::in(['incident', 'maintenance', 'warranty', 'inspection'])], 'priority' => ['required', Rule::in(['low', 'normal', 'high', 'urgent'])], 'title' => ['required', 'string', 'max:255'], 'description' => ['nullable', 'string']]);
-        $ticket = ServiceTicket::create([...$data, 'created_by' => $request->user()->id, 'number' => $this->ticketNumber(), 'status' => 'open']);
+        $data = $request->validate(['installation_id' => ['required', 'exists:installations,id'], 'assigned_user_id' => ['nullable', Rule::exists('users', 'id')->where(fn ($query) => $query->whereIn('role', ['technician', 'admin']))], 'kind' => ['required', Rule::in(['incident', 'maintenance', 'warranty', 'inspection'])], 'priority' => ['required', Rule::in(['low', 'normal', 'high', 'urgent'])], 'title' => ['required', 'string', 'max:255'], 'description' => ['nullable', 'string']]);
+        if ($request->user()->hasRole('technician')) {
+            $data['assigned_user_id'] = $request->user()->id;
+        }
+        $ticket = $tickets->create([...$data, 'status' => 'open'], $request->user()->id);
         $sla->apply($ticket);
         $work->createForTicket($ticket, $request->user()->id);
 
@@ -58,20 +62,27 @@ class AfterSalesController extends Controller
     public function updateTicket(Request $request, ServiceTicket $ticket): RedirectResponse
     {
         $this->ensureAccess($request, $ticket);
-        $data = $request->validate(['status' => ['required', Rule::in(['open', 'assigned', 'in_progress', 'resolved', 'closed'])], 'assigned_user_id' => ['nullable', 'exists:users,id'], 'resolution' => ['nullable', 'string'], 'satisfaction_rating' => ['nullable', 'integer', 'between:1,5']]);
+        $data = $request->validate(['status' => ['required', Rule::in(['open', 'assigned', 'in_progress', 'resolved', 'closed'])], 'assigned_user_id' => ['nullable', Rule::exists('users', 'id')->where(fn ($query) => $query->whereIn('role', ['technician', 'admin']))], 'resolution' => ['nullable', 'string'], 'satisfaction_rating' => ['nullable', 'integer', 'between:1,5']]);
         if ($request->user()->hasRole('technician')) {
             $data['assigned_user_id'] = $request->user()->id;
         }
         abort_if(in_array($data['status'], ['resolved', 'closed'], true) && blank($data['resolution']), 422, __('Resolution is required.'));
-        DB::transaction(function () use ($ticket, $data) {
-            $ticket->update([
+        DB::transaction(function () use ($ticket, $data): void {
+            $locked = ServiceTicket::query()->with('maintenancePlan')->lockForUpdate()->findOrFail($ticket->id);
+            $wasResolved = in_array($locked->status, ['resolved', 'closed'], true);
+            $isResolved = in_array($data['status'], ['resolved', 'closed'], true);
+            $locked->update([
                 ...$data,
-                'first_responded_at' => $ticket->first_responded_at ?: (in_array($data['status'], ['assigned', 'in_progress', 'resolved', 'closed'], true) ? now() : null),
-                'reopened_count' => in_array($ticket->status, ['resolved', 'closed'], true) && ! in_array($data['status'], ['resolved', 'closed'], true) ? $ticket->reopened_count + 1 : $ticket->reopened_count,
-                'resolved_at' => in_array($data['status'], ['resolved', 'closed'], true) ? now() : null,
+                'first_responded_at' => $locked->first_responded_at ?: (in_array($data['status'], ['assigned', 'in_progress', 'resolved', 'closed'], true) ? now() : null),
+                'reopened_count' => $wasResolved && ! $isResolved ? $locked->reopened_count + 1 : $locked->reopened_count,
+                'resolved_at' => $isResolved ? ($locked->resolved_at ?: now()) : null,
             ]);
-            if ($ticket->maintenancePlan && in_array($data['status'], ['resolved', 'closed'], true)) {
-                $ticket->maintenancePlan->update(['last_completed_on' => today(), 'next_due_on' => today()->addMonths($ticket->maintenancePlan->interval_months)]);
+            if ($locked->maintenancePlan && ! $wasResolved && $isResolved) {
+                $nextDue = $locked->maintenancePlan->next_due_on->copy();
+                do {
+                    $nextDue = $nextDue->addMonthsNoOverflow($locked->maintenancePlan->interval_months);
+                } while ($nextDue->lessThanOrEqualTo(today()));
+                $locked->maintenancePlan->update(['last_completed_on' => today(), 'next_due_on' => $nextDue]);
             }
         });
 
@@ -132,10 +143,5 @@ class AfterSalesController extends Controller
         if ($request->user()->hasRole('technician')) {
             abort_unless(! $ticket->assigned_user_id || $ticket->assigned_user_id === $request->user()->id, 403);
         }
-    }
-
-    private function ticketNumber(): string
-    {
-        return 'SAT-'.now()->format('Y').'-'.str_pad((string) (ServiceTicket::count() + 1), 5, '0', STR_PAD_LEFT);
     }
 }

@@ -4,13 +4,16 @@ namespace Tests\Feature;
 
 use App\Models\Installation;
 use App\Models\MaintenancePlan;
+use App\Models\Person;
 use App\Models\Product;
 use App\Models\SerialNumber;
+use App\Models\ServiceSlaPolicy;
 use App\Models\ServiceTicket;
 use App\Models\TaxRate;
 use App\Models\Unit;
 use App\Models\User;
 use App\Models\WorkOrder;
+use App\Services\AfterSales\SlaManager;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -62,11 +65,57 @@ class AfterSalesTest extends TestCase
         $plan = MaintenancePlan::create(['installation_id' => $installation->id, 'name' => 'Annual PV inspection', 'interval_months' => 12, 'starts_on' => '2026-01-01', 'next_due_on' => '2026-07-01', 'is_active' => true]);
         $ticket = ServiceTicket::create(['installation_id' => $installation->id, 'maintenance_plan_id' => $plan->id, 'created_by' => $commercial->id, 'number' => 'SAT-2026-00002', 'kind' => 'maintenance', 'priority' => 'normal', 'status' => 'open', 'title' => 'Annual PV inspection']);
         $this->actingAs($commercial)->patch(route('after-sales.tickets.update', $ticket), ['status' => 'resolved', 'resolution' => 'Inspection passed'])->assertRedirect();
-        $this->assertSame(today()->addMonths(12)->toDateString(), $plan->refresh()->next_due_on->toDateString());
+        $this->assertSame('2027-07-01', $plan->refresh()->next_due_on->toDateString());
+        $resolvedAt = $ticket->refresh()->resolved_at;
+        $this->travel(1)->days();
+        $this->patch(route('after-sales.tickets.update', $ticket), ['status' => 'resolved', 'resolution' => 'Inspection passed'])->assertRedirect();
+        $this->assertSame('2027-07-01', $plan->refresh()->next_due_on->toDateString());
+        $this->assertTrue($resolvedAt->equalTo($ticket->refresh()->resolved_at));
 
         $product = Product::create(['type' => 'product', 'name' => 'Inverter', 'unit_id' => Unit::firstOrFail()->id, 'tax_rate_id' => TaxRate::firstOrFail()->id, 'sale_price' => 1000, 'cost_price' => 700, 'track_stock' => true, 'track_serials' => true, 'is_active' => true]);
         $serial = SerialNumber::create(['product_id' => $product->id, 'installation_id' => $installation->id, 'serial_number' => 'INV-WARRANTY-1', 'status' => 'installed']);
         $this->patch(route('after-sales.warranties.update', $serial), ['warranty_starts_on' => '2026-07-01', 'warranty_ends_on' => '2036-07-01'])->assertRedirect();
         $this->assertSame('2036-07-01', $serial->refresh()->warranty_ends_on->toDateString());
+    }
+
+    public function test_sla_uses_the_customer_specific_policy_and_respects_the_escalation_interval(): void
+    {
+        $this->travelTo('2026-08-11 10:00:00');
+        $admin = User::factory()->create(['role' => 'admin']);
+        $technician = User::factory()->create(['role' => 'technician']);
+        $customer = Person::create(['category' => 'customer', 'customer_type' => 'business', 'first_name' => 'Solar SL', 'company_name' => 'Solar SL']);
+        $installation = Installation::create(['person_id' => $customer->id, 'service_type' => 'solar', 'status' => 'completed', 'site_address_line_1' => 'Calle SLA 1']);
+        $policy = ServiceSlaPolicy::create([
+            'name' => 'Business normal',
+            'priority' => 'normal',
+            'customer_type' => 'business',
+            'first_response_minutes' => 10,
+            'resolution_minutes' => 60,
+            'escalation_minutes' => 30,
+            'is_active' => true,
+        ]);
+        $ticket = ServiceTicket::create([
+            'installation_id' => $installation->id,
+            'assigned_user_id' => $technician->id,
+            'number' => 'SAT-2026-00099',
+            'kind' => 'incident',
+            'priority' => 'normal',
+            'status' => 'open',
+            'title' => 'Inverter offline',
+        ]);
+
+        $sla = app(SlaManager::class);
+        $sla->apply($ticket);
+        $this->assertSame($policy->id, $ticket->refresh()->sla_policy_id);
+        $this->assertSame('2026-08-11 10:10:00', $ticket->first_response_due_at->format('Y-m-d H:i:s'));
+
+        $ticket->update(['first_response_due_at' => now()->subHour(), 'escalated_at' => now()->subMinutes(10)]);
+        $this->assertSame(0, $sla->escalateOverdue());
+        $ticket->update(['escalated_at' => now()->subMinutes(31)]);
+        $this->assertSame(1, $sla->escalateOverdue());
+        $this->assertSame(1, $ticket->refresh()->escalation_level);
+        $this->assertCount(1, $admin->refresh()->notifications);
+        $this->assertCount(1, $technician->refresh()->notifications);
+        $this->assertSame(0, $sla->escalateOverdue());
     }
 }
