@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Installation;
 use App\Models\Product;
 use App\Models\SerialNumber;
+use App\Models\StockBalance;
 use App\Models\StockMovement;
 use App\Models\StockMovementLine;
 use App\Models\StockReservation;
@@ -15,6 +16,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -69,12 +71,29 @@ class InventoryController extends Controller
     public function storeReservation(Request $request): RedirectResponse
     {
         $data = $request->validate(['installation_id' => ['required', 'exists:installations,id'], 'warehouse_id' => ['required', 'exists:warehouses,id'], 'product_id' => ['required', 'exists:products,id'], 'quantity' => ['required', 'numeric', 'gt:0'], 'reserved_until' => ['nullable', 'date', 'after:now']]);
-        $onHand = (float) StockMovementLine::where('warehouse_id', $data['warehouse_id'])->where('product_id', $data['product_id'])->sum('quantity');
-        $reserved = (float) StockReservation::where('warehouse_id', $data['warehouse_id'])->where('product_id', $data['product_id'])->where('status', 'active')->selectRaw('coalesce(sum(quantity - consumed_quantity), 0) total')->value('total');
-        if ($onHand - $reserved < (float) $data['quantity']) {
-            return back()->withErrors(['quantity' => __('The requested quantity is not available.')]);
-        }
-        StockReservation::create([...$data, 'status' => 'active']);
+        DB::transaction(function () use ($data): void {
+            $ledgerQuantity = (float) StockMovementLine::where('warehouse_id', $data['warehouse_id'])->where('product_id', $data['product_id'])->sum('quantity');
+            StockBalance::query()->insertOrIgnore([
+                'warehouse_id' => $data['warehouse_id'],
+                'product_id' => $data['product_id'],
+                'quantity' => $ledgerQuantity,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+            $balance = StockBalance::where('warehouse_id', $data['warehouse_id'])
+                ->where('product_id', $data['product_id'])
+                ->lockForUpdate()
+                ->firstOrFail();
+            $ledgerQuantity = (float) StockMovementLine::where('warehouse_id', $data['warehouse_id'])->where('product_id', $data['product_id'])->sum('quantity');
+            if (abs((float) $balance->quantity - $ledgerQuantity) > 0.0005) {
+                $balance->update(['quantity' => $ledgerQuantity]);
+            }
+            $reserved = (float) StockReservation::where('warehouse_id', $data['warehouse_id'])->where('product_id', $data['product_id'])->where('status', 'active')->selectRaw('coalesce(sum(quantity - consumed_quantity), 0) total')->value('total');
+            if ($ledgerQuantity - $reserved < (float) $data['quantity']) {
+                throw ValidationException::withMessages(['quantity' => __('The requested quantity is not available.')]);
+            }
+            StockReservation::create([...$data, 'status' => 'active']);
+        });
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Stock reserved.')]);
     }

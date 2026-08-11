@@ -25,8 +25,10 @@ type Recommendation = {
     on_hand: number;
     reserved: number;
     inbound: number;
+    requested: number;
     projected: number;
     suggested_quantity: number;
+    needs_replenishment: boolean;
     needs_action: boolean;
     supplier: {
         id: number;
@@ -96,8 +98,9 @@ export default function ReplenishmentIndex({
                         <div>
                             <h2 className="font-semibold">Recommendations</h2>
                             <p className="text-sm text-muted-foreground">
-                                Projected = on hand − reservations + inbound
-                                supply.
+                                Projected = on hand − reservations + confirmed
+                                purchase orders. Open RFQs remain visible as
+                                requested, but are not treated as inbound stock.
                             </p>
                         </div>
                         <Button disabled={actionable.length === 0}>
@@ -113,6 +116,7 @@ export default function ReplenishmentIndex({
                                     <th>Product</th>
                                     <th>On hand</th>
                                     <th>Reserved</th>
+                                    <th>Requested</th>
                                     <th>Inbound</th>
                                     <th>Projected</th>
                                     <th>Reorder / target</th>
@@ -157,11 +161,20 @@ export default function ReplenishmentIndex({
                                         </td>
                                         <td>{number(row.on_hand)}</td>
                                         <td>{number(row.reserved)}</td>
+                                        <td>
+                                            {row.requested > 0 ? (
+                                                <Badge variant="outline">
+                                                    {number(row.requested)} RFQ
+                                                </Badge>
+                                            ) : (
+                                                '—'
+                                            )}
+                                        </td>
                                         <td>{number(row.inbound)}</td>
                                         <td>
                                             <Badge
                                                 variant={
-                                                    row.needs_action
+                                                    row.needs_replenishment
                                                         ? 'destructive'
                                                         : 'secondary'
                                                 }
