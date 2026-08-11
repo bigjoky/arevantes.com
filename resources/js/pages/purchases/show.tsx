@@ -69,6 +69,7 @@ type Document = {
         trade_name: string | null;
         email: string | null;
     };
+    assignee: { id: number; name: string } | null;
     source_document: {
         id: number;
         number: string;
@@ -219,6 +220,7 @@ export default function PurchaseShow({
                 managePurchases: boolean;
                 receivePurchases: boolean;
                 approvePurchaseInvoices: boolean;
+                managePurchasePayments: boolean;
             };
         };
     }>().props.auth;
@@ -309,11 +311,17 @@ export default function PurchaseShow({
                         </Button>
                     </div>
                 </header>
-                <section className="grid gap-4 border-y py-4 text-sm sm:grid-cols-2 lg:grid-cols-5">
+                <section className="grid gap-4 border-y py-4 text-sm sm:grid-cols-2 lg:grid-cols-6">
                     <Info
                         label="Supplier"
                         value={document.supplier.legal_name}
                     />
+                    {document.type === 'purchase_order' && (
+                        <Info
+                            label="Action owner"
+                            value={document.assignee?.name || 'Unassigned'}
+                        />
+                    )}
                     <Info
                         label="Issue date"
                         value={date(document.issue_date)}
@@ -1320,7 +1328,8 @@ export default function PurchaseShow({
                             <p className="mb-3 text-sm text-muted-foreground">
                                 Outstanding: {money(String(outstandingAmount))}
                             </p>
-                            {document.matching_status !== 'review_required' &&
+                            {abilities.managePurchasePayments &&
+                                document.matching_status !== 'review_required' &&
                                 outstandingAmount > 0 && (
                                     <Form
                                         action={`/supplier-invoices/${document.id}/payments`}
@@ -1393,14 +1402,19 @@ export default function PurchaseShow({
                                                 {date(payment.paid_at)}
                                             </div>
                                         </div>
-                                        <Form
-                                            action={`/supplier-payments/${payment.id}`}
-                                            method="delete"
-                                        >
-                                            <Button size="icon" variant="ghost">
-                                                <Trash2 />
-                                            </Button>
-                                        </Form>
+                                        {abilities.managePurchasePayments && (
+                                            <Form
+                                                action={`/supplier-payments/${payment.id}`}
+                                                method="delete"
+                                            >
+                                                <Button
+                                                    size="icon"
+                                                    variant="ghost"
+                                                >
+                                                    <Trash2 />
+                                                </Button>
+                                            </Form>
+                                        )}
                                     </div>
                                 ))}
                             </div>

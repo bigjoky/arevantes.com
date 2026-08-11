@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\PermissionProfile;
 use App\Models\Product;
 use App\Models\PurchaseDocument;
 use App\Models\SerialNumber;
@@ -123,10 +124,11 @@ class PurchaseTest extends TestCase
         $this->assertSame('review_required', $invoice->matching_status);
         $this->assertSame('1089.00', $invoice->match_variance_amount);
         $this->assertNull($invoice->accountingEntry()->first());
-        $this->post(route('supplier-invoices.payments.store', $invoice), [
+        $this->actingAs($this->financeUser())->post(route('supplier-invoices.payments.store', $invoice), [
             'paid_at' => '2026-07-13', 'amount' => 100, 'method' => 'bank_transfer',
         ])->assertStatus(422);
 
+        $this->actingAs($user);
         $this->post(route('supplier-invoices.approve', $invoice), [
             'approval_notes' => 'The creator cannot approve their own variance.',
         ])->assertForbidden();
@@ -229,11 +231,12 @@ class PurchaseTest extends TestCase
         $this->assertSame('-968.00', $credit->amount);
         $this->assertNotNull($credit->accountingEntry()->first());
         $this->assertSame('partially_invoiced', $order->refresh()->invoicing_status);
+        $this->actingAs($this->financeUser());
         $this->post(route('supplier-invoices.payments.store', $firstInvoice), ['paid_at' => '2026-07-14', 'amount' => 969, 'method' => 'bank_transfer'])->assertSessionHasErrors('amount');
         $this->post(route('supplier-invoices.payments.store', $firstInvoice), ['paid_at' => '2026-07-14', 'amount' => 968, 'method' => 'bank_transfer'])->assertRedirect();
         $this->assertSame('paid', $firstInvoice->refresh()->status);
 
-        $this->post(route('purchases.return', $order), [
+        $this->actingAs($user)->post(route('purchases.return', $order), [
             'warehouse_id' => $warehouse->id, 'supplier_return_number' => 'DEV-SUP-1', 'quantities' => [$line->id => 1],
         ])->assertRedirect();
         $this->assertDatabaseHas('goods_returns', ['purchase_document_id' => $order->id, 'supplier_return_number' => 'DEV-SUP-1']);
@@ -319,5 +322,13 @@ class PurchaseTest extends TestCase
         ])->assertRedirect();
 
         $this->assertSame('returned', SerialNumber::where('serial_number', 'TRACE-2')->value('status'));
+    }
+
+    private function financeUser(): User
+    {
+        return User::factory()->create([
+            'role' => 'commercial',
+            'permission_profile_id' => PermissionProfile::where('slug', 'finance')->firstOrFail()->id,
+        ]);
     }
 }

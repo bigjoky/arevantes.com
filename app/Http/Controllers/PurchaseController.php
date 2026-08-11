@@ -76,7 +76,7 @@ class PurchaseController extends Controller
     public function show(PurchaseDocument $purchaseDocument, PurchaseInvoiceMatcher $matcher): Response
     {
         $orderSummary = $purchaseDocument->type === 'purchase_order' ? $matcher->summary($purchaseDocument) : null;
-        $purchaseDocument->load(['supplier', 'destinationWarehouse:id,code,name', 'sourceDocument:id,number,type,shipping_cost', 'derivedDocuments:id,source_document_id,number,type,status,matching_status,amount,issue_date,supplier_number', 'salesOrder:id,number', 'approver:id,name', 'lines.product:id,name,sku,track_stock,track_serials', 'receipts.movement:id,number', 'returns.movement:id,number', 'payments', 'attachment.verifier:id,name', 'events.user:id,name', 'qualityIncidents.product:id,sku,name', 'qualityIncidents.warehouse:id,code,name', 'qualityIncidents.reporter:id,name', 'qualityIncidents.resolver:id,name']);
+        $purchaseDocument->load(['supplier', 'assignee:id,name', 'destinationWarehouse:id,code,name', 'sourceDocument:id,number,type,shipping_cost', 'derivedDocuments:id,source_document_id,number,type,status,matching_status,amount,issue_date,supplier_number', 'salesOrder:id,number', 'approver:id,name', 'lines.product:id,name,sku,track_stock,track_serials', 'receipts.movement:id,number', 'returns.movement:id,number', 'payments', 'attachment.verifier:id,name', 'events.user:id,name', 'qualityIncidents.product:id,sku,name', 'qualityIncidents.warehouse:id,code,name', 'qualityIncidents.reporter:id,name', 'qualityIncidents.resolver:id,name']);
 
         return Inertia::render('purchases/show', [
             'document' => $purchaseDocument,
@@ -97,7 +97,7 @@ class PurchaseController extends Controller
             $totals = $this->calculate($data['lines'], (float) ($data['shipping_cost'] ?? 0));
             $issued = app(DocumentNumber::class)->next($data['type'], $data['issue_date']);
             $isOrder = $data['type'] === 'purchase_order';
-            $document = PurchaseDocument::create(['type' => $data['type'], 'supplier_id' => $data['supplier_id'], 'document_series_id' => $issued['series']->id, 'created_by' => $request->user()->id, 'number' => $issued['number'], 'status' => $isOrder ? 'ordered' : 'draft', 'invoicing_status' => $isOrder ? 'not_invoiced' : null, 'issue_date' => $data['issue_date'], 'expected_delivery_date' => $data['expected_delivery_date'] ?? null, 'notes' => $data['notes'] ?? null, 'locked_at' => $isOrder ? now() : null, ...$totals['totals']]);
+            $document = PurchaseDocument::create(['type' => $data['type'], 'supplier_id' => $data['supplier_id'], 'document_series_id' => $issued['series']->id, 'created_by' => $request->user()->id, 'assigned_to' => $isOrder ? $request->user()->id : null, 'assigned_by' => $isOrder ? $request->user()->id : null, 'assigned_at' => $isOrder ? now() : null, 'number' => $issued['number'], 'status' => $isOrder ? 'ordered' : 'draft', 'invoicing_status' => $isOrder ? 'not_invoiced' : null, 'issue_date' => $data['issue_date'], 'expected_delivery_date' => $data['expected_delivery_date'] ?? null, 'notes' => $data['notes'] ?? null, 'locked_at' => $isOrder ? now() : null, ...$totals['totals']]);
             $document->lines()->createMany($totals['lines']);
             app(PurchaseWorkflow::class)->record($document, 'created', $request->user()->id, null, $document->status);
 

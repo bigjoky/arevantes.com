@@ -57,6 +57,7 @@ class HandleInertiaRequests extends Middleware
                     'manageStaff' => Gate::allows('manage-staff'),
                     'receivePurchases' => Gate::allows('receive-purchases'),
                     'approvePurchaseInvoices' => Gate::allows('approve-purchase-invoices'),
+                    'managePurchasePayments' => Gate::allows('manage-purchase-payments'),
                     'managePurchaseSettings' => Gate::allows('manage-staff'),
                 ] : [],
                 'notifications' => fn () => $request->user()?->unreadNotifications()->latest()->limit(5)->get()->map(fn ($notification) => [
