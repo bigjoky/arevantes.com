@@ -316,6 +316,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('purchases/{purchaseDocument}', [PurchaseController::class, 'show'])->middleware('can:view-purchases')->name('purchases.show');
     Route::post('purchases/{purchaseDocument}/convert', [PurchaseController::class, 'convert'])->middleware('can:manage-purchases')->name('purchases.convert');
     Route::post('purchases/{purchaseDocument}/receive', [PurchaseController::class, 'receive'])->middleware('can:receive-purchases')->name('purchases.receive');
+    Route::post('purchases/{purchaseDocument}/approve', [PurchaseController::class, 'approveOrder'])->middleware('can:approve-purchase-orders')->name('purchases.approve');
     Route::post('purchases/{purchaseDocument}/return', [PurchaseController::class, 'returnGoods'])->middleware('can:receive-purchases')->name('purchases.return');
     Route::post('purchases/{purchaseDocument}/invoice', [PurchaseController::class, 'invoice'])->middleware('can:manage-purchases')->name('purchases.invoice');
     Route::get('purchases/{purchaseDocument}/pdf', [PurchaseDeliveryController::class, 'pdf'])->middleware('can:view-purchases')->name('purchases.pdf');

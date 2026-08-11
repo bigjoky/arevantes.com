@@ -26,6 +26,10 @@ class PurchaseDeliveryController extends Controller
     public function send(Request $request, PurchaseDocument $purchaseDocument, PurchaseWorkflow $workflow): RedirectResponse
     {
         abort_unless(in_array($purchaseDocument->type, ['purchase_rfq', 'purchase_order'], true), 422);
+        $allowedStatuses = $purchaseDocument->type === 'purchase_rfq'
+            ? ['draft', 'sent', 'quoted']
+            : ['ordered', 'partially_received', 'received'];
+        abort_unless(in_array($purchaseDocument->status, $allowedStatuses, true), 422);
         $data = $request->validate([
             'recipient_email' => ['required', 'email:rfc', 'max:255'],
             'message' => ['nullable', 'string', 'max:3000'],

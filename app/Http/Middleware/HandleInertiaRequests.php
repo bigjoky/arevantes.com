@@ -57,6 +57,7 @@ class HandleInertiaRequests extends Middleware
                     'manageStaff' => Gate::allows('manage-staff'),
                     'receivePurchases' => Gate::allows('receive-purchases'),
                     'approvePurchaseInvoices' => Gate::allows('approve-purchase-invoices'),
+                    'approvePurchaseOrders' => Gate::allows('approve-purchase-orders'),
                     'managePurchasePayments' => Gate::allows('manage-purchase-payments'),
                     'managePurchaseSettings' => Gate::allows('manage-staff'),
                 ] : [],

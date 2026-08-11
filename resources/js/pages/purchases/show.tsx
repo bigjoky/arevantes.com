@@ -220,6 +220,7 @@ export default function PurchaseShow({
                 managePurchases: boolean;
                 receivePurchases: boolean;
                 approvePurchaseInvoices: boolean;
+                approvePurchaseOrders: boolean;
                 managePurchasePayments: boolean;
             };
         };
@@ -311,6 +312,42 @@ export default function PurchaseShow({
                         </Button>
                     </div>
                 </header>
+                {document.type === 'purchase_order' &&
+                    document.status === 'pending_approval' && (
+                        <section className="border border-amber-300 bg-amber-50 p-4 dark:bg-amber-950/20">
+                            <div className="flex items-start gap-3">
+                                <ShieldCheck className="mt-0.5 size-5" />
+                                <div className="flex-1">
+                                    <h2 className="font-semibold">
+                                        Approval required
+                                    </h2>
+                                    <p className="mt-1 text-sm text-muted-foreground">
+                                        This order cannot be received or invoiced
+                                        until a different authorised user releases
+                                        it.
+                                    </p>
+                                    {abilities.approvePurchaseOrders &&
+                                        (document.created_by !== user.id ||
+                                            user.role === 'admin') && (
+                                            <Form
+                                                action={`/purchases/${document.id}/approve`}
+                                                method="post"
+                                                className="mt-3 flex max-w-2xl gap-2"
+                                            >
+                                                <Input
+                                                    name="approval_notes"
+                                                    placeholder="Approval rationale"
+                                                    required
+                                                />
+                                                <Button>
+                                                    <ShieldCheck /> Approve order
+                                                </Button>
+                                            </Form>
+                                        )}
+                                </div>
+                            </div>
+                        </section>
+                    )}
                 <section className="grid gap-4 border-y py-4 text-sm sm:grid-cols-2 lg:grid-cols-6">
                     <Info
                         label="Supplier"
@@ -382,7 +419,9 @@ export default function PurchaseShow({
                     ['purchase_rfq', 'purchase_order'].includes(
                         document.type,
                     ) &&
-                    !['cancelled'].includes(document.status) && (
+                    !['cancelled', 'pending_approval'].includes(
+                        document.status,
+                    ) && (
                         <section className="grid gap-5 border-y py-5 lg:grid-cols-2">
                             <Form
                                 action={`/purchases/${document.id}/send`}
