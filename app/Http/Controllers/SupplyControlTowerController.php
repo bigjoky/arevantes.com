@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\PurchaseDocument;
+use App\Models\User;
 use App\Services\Documents\PurchaseWorkflow;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -18,6 +19,7 @@ class SupplyControlTowerController extends Controller
             ->with([
                 'supplier:id,legal_name,trade_name,email',
                 'destinationWarehouse:id,code,name',
+                'assignee:id,name',
                 'lines.product:id,track_stock',
             ])
             ->withCount(['qualityIncidents as open_quality_incidents_count' => fn ($query) => $query->where('status', 'open')])
@@ -53,6 +55,9 @@ class SupplyControlTowerController extends Controller
                     'last_followed_up_at' => $order->last_followed_up_at?->toIso8601String(),
                     'last_follow_up_note' => $order->last_follow_up_note,
                     'next_follow_up_date' => $order->next_follow_up_date?->toDateString(),
+                    'assigned_to' => $order->assigned_to,
+                    'assigned_at' => $order->assigned_at?->toIso8601String(),
+                    'assignee' => $order->assignee,
                     'supplier' => $order->supplier,
                     'destination_warehouse' => $order->destinationWarehouse,
                     'ordered_quantity' => round($ordered, 3),
@@ -79,8 +84,41 @@ class SupplyControlTowerController extends Controller
                 'unconfirmed' => $orders->whereNull('supplier_confirmed_at')->count(),
                 'due_soon' => $orders->where('priority', 'due_soon')->count(),
                 'follow_up_due' => $orders->where('priority', 'follow_up_due')->count(),
+                'unassigned' => $orders->whereNull('assigned_to')->count(),
             ],
+            'users' => User::query()->orderBy('name')->get(['id', 'name']),
         ]);
+    }
+
+    public function assign(Request $request, PurchaseDocument $purchaseDocument, PurchaseWorkflow $workflow): RedirectResponse
+    {
+        $data = $request->validate([
+            'assigned_to' => ['nullable', 'exists:users,id'],
+            'next_follow_up_date' => ['nullable', 'date'],
+            'note' => ['nullable', 'string', 'max:2000'],
+        ]);
+
+        DB::transaction(function () use ($request, $purchaseDocument, $workflow, $data): void {
+            $order = PurchaseDocument::lockForUpdate()->findOrFail($purchaseDocument->id);
+            abort_unless($order->type === 'purchase_order' && in_array($order->status, ['ordered', 'partially_received'], true), 422);
+            $previousAssignee = $order->assigned_to;
+            $assigneeId = $data['assigned_to'] ?? null;
+            $order->update([
+                'assigned_to' => $assigneeId,
+                'assigned_by' => $assigneeId ? $request->user()->id : null,
+                'assigned_at' => $assigneeId ? now() : null,
+                'next_follow_up_date' => $data['next_follow_up_date'] ?? $order->next_follow_up_date,
+                'last_follow_up_note' => $data['note'] ?? $order->last_follow_up_note,
+            ]);
+            $workflow->record($order, 'supply_action_assigned', $request->user()->id, $order->status, $order->status, [
+                'from' => $previousAssignee,
+                'to' => $order->assigned_to,
+                'next_follow_up_date' => $order->next_follow_up_date?->toDateString(),
+                'note' => $data['note'] ?? null,
+            ]);
+        });
+
+        return back()->with('toast', ['type' => 'success', 'message' => __('Supply action assignment updated.')]);
     }
 
     public function confirm(Request $request, PurchaseDocument $purchaseDocument, PurchaseWorkflow $workflow): RedirectResponse
@@ -98,6 +136,9 @@ class SupplyControlTowerController extends Controller
             abort_unless($order->type === 'purchase_order' && in_array($order->status, ['ordered', 'partially_received'], true), 422);
             abort_if($order->supplier_confirmed_at, 422, __('Use supplier follow-up to revise an existing confirmation.'));
             $order->update([
+                'assigned_to' => $order->assigned_to ?? $request->user()->id,
+                'assigned_by' => $order->assigned_to ? $order->assigned_by : $request->user()->id,
+                'assigned_at' => $order->assigned_to ? $order->assigned_at : now(),
                 'supplier_confirmed_delivery_date' => $data['confirmed_delivery_date'],
                 'supplier_confirmed_at' => now(),
                 'supplier_confirmed_by' => $request->user()->id,
@@ -137,6 +178,9 @@ class SupplyControlTowerController extends Controller
             abort_unless($order->supplier_confirmed_at, 422, __('Record the supplier confirmation first.'));
             $previousEta = $order->supplier_confirmed_delivery_date?->toDateString();
             $order->update([
+                'assigned_to' => $order->assigned_to ?? $request->user()->id,
+                'assigned_by' => $order->assigned_to ? $order->assigned_by : $request->user()->id,
+                'assigned_at' => $order->assigned_to ? $order->assigned_at : now(),
                 'supplier_confirmed_delivery_date' => $data['confirmed_delivery_date'] ?? $previousEta,
                 'supplier_confirmation_reference' => $data['confirmation_reference'] ?? $order->supplier_confirmation_reference,
                 'last_followed_up_at' => now(),

@@ -74,6 +74,7 @@ export default function PurchasesIndex({
         matching_amount_tolerance: string;
         matching_percent_tolerance: string;
         shipping_tax_percent: string;
+        order_approval_threshold: string;
     };
     suppliers: Supplier[];
     products: Product[];
@@ -189,7 +190,7 @@ export default function PurchasesIndex({
                         <Form
                             action="/purchase-settings"
                             method="patch"
-                            className="mt-4 grid gap-4 sm:grid-cols-4"
+                            className="mt-4 grid gap-4 sm:grid-cols-5"
                         >
                             <Field
                                 label="Amount tolerance"
@@ -208,6 +209,12 @@ export default function PurchasesIndex({
                                 name="shipping_tax_percent"
                                 type="number"
                                 value={settings.shipping_tax_percent}
+                            />
+                            <Field
+                                label="Order approval from"
+                                name="order_approval_threshold"
+                                type="number"
+                                value={settings.order_approval_threshold}
                             />
                             <Button className="self-end">Save settings</Button>
                         </Form>
