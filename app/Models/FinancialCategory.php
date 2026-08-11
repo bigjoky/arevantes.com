@@ -35,4 +35,9 @@ class FinancialCategory extends Model
     {
         return $this->hasMany(FinancialForecastItem::class);
     }
+
+    public function ledgerAccounts(): HasMany
+    {
+        return $this->hasMany(LedgerAccount::class);
+    }
 }

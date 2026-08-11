@@ -229,6 +229,20 @@ class FinanceController extends Controller
                     'name' => $category->name,
                     'reportingGroup' => $category->reporting_group,
                 ]),
+            'financialTaxonomy' => FinancialCategory::query()
+                ->withCount(['budgets', 'forecastItems', 'ledgerAccounts'])
+                ->orderBy('reporting_group')
+                ->orderBy('name')
+                ->get()
+                ->map(fn (FinancialCategory $category) => [
+                    'id' => $category->id,
+                    'code' => $category->code,
+                    'name' => $category->name,
+                    'reportingGroup' => $category->reporting_group,
+                    'isSystem' => $category->is_system,
+                    'isActive' => $category->is_active,
+                    'usageCount' => $category->budgets_count + $category->forecast_items_count + $category->ledger_accounts_count,
+                ]),
             'budgetPeriod' => [
                 'status' => $budgetPeriod?->status ?? 'draft',
                 'currentRevision' => $budgetPeriod?->current_revision ?? 0,
@@ -301,6 +315,38 @@ class FinanceController extends Controller
         ]);
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Forecast item added.')]);
+    }
+
+    public function storeFinancialCategory(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'code' => ['required', 'string', 'max:60', 'regex:/^[a-z][a-z0-9_]{2,59}$/', Rule::unique('financial_categories', 'code')],
+            'name' => ['required', 'string', 'max:255'],
+            'reporting_group' => ['required', Rule::in(['revenue', 'costs', 'cash_in', 'cash_out'])],
+        ]);
+        FinancialCategory::create([
+            ...$data,
+            'is_active' => true,
+            'created_by' => $request->user()->id,
+        ]);
+
+        return back()->with('toast', ['type' => 'success', 'message' => __('Financial category created.')]);
+    }
+
+    public function updateFinancialCategory(Request $request, FinancialCategory $financialCategory): RedirectResponse
+    {
+        if ($financialCategory->is_system) {
+            throw ValidationException::withMessages([
+                'financial_category' => __('System financial categories cannot be modified.'),
+            ]);
+        }
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'is_active' => ['required', 'boolean'],
+        ]);
+        $financialCategory->update($data);
+
+        return back()->with('toast', ['type' => 'success', 'message' => __('Financial category updated.')]);
     }
 
     public function updateForecast(Request $request, FinancialForecastItem $forecastItem): RedirectResponse
@@ -1170,8 +1216,13 @@ class FinanceController extends Controller
             'cash_out' => 'supplier_payments',
         ];
         $category = $id
-            ? FinancialCategory::active()->findOrFail($id)
-            : FinancialCategory::active()->where('code', $defaults[$reportingGroup])->firstOrFail();
+            ? FinancialCategory::active()->find($id)
+            : FinancialCategory::active()->where('code', $defaults[$reportingGroup])->first();
+        if (! $category) {
+            throw ValidationException::withMessages([
+                'financial_category_id' => __('Select an active financial category.'),
+            ]);
+        }
         if ($category->reporting_group !== $reportingGroup) {
             throw ValidationException::withMessages([
                 'financial_category_id' => __('The financial category is not compatible with the selected reporting group.'),

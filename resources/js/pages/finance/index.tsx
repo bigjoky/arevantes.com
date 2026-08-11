@@ -263,6 +263,11 @@ type FinancialCategory = {
     name: string;
     reportingGroup: 'revenue' | 'costs' | 'cash_in' | 'cash_out';
 };
+type FinancialTaxonomyItem = FinancialCategory & {
+    isSystem: boolean;
+    isActive: boolean;
+    usageCount: number;
+};
 type BankPosition = {
     id: number;
     name: string;
@@ -301,6 +306,7 @@ export default function FinanceIndex({
     bankAccounts,
     financeUsers,
     financialCategories,
+    financialTaxonomy,
     can,
 }: {
     year: number;
@@ -396,6 +402,7 @@ export default function FinanceIndex({
     bankAccounts: { id: number; name: string; iban: string | null }[];
     financeUsers: FinanceUser[];
     financialCategories: FinancialCategory[];
+    financialTaxonomy: FinancialTaxonomyItem[];
     can: {
         manageTreasury: boolean;
         manageAccounting: boolean;
@@ -1507,6 +1514,10 @@ export default function FinanceIndex({
                         </div>
                     </div>
                 </section>
+                <FinancialTaxonomyPanel
+                    items={financialTaxonomy}
+                    canManage={can.manageAccounting}
+                />
                 <section>
                     <div className="mb-3 flex items-center gap-2">
                         <CircleAlert className="size-4 text-muted-foreground" />
@@ -2365,6 +2376,149 @@ function ForecastForm({
                 <Plus /> Add forecast item
             </Button>
         </Form>
+    );
+}
+function FinancialTaxonomyPanel({
+    items,
+    canManage,
+}: {
+    items: FinancialTaxonomyItem[];
+    canManage: boolean;
+}) {
+    return (
+        <details className="rounded-lg border">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3">
+                <div>
+                    <div className="font-semibold">Financial taxonomy</div>
+                    <div className="text-sm text-muted-foreground">
+                        {items.filter((item) => item.isActive).length} active
+                        categories shared by budget, forecast and accounting.
+                    </div>
+                </div>
+                <Badge variant="outline">{items.length} categories</Badge>
+            </summary>
+            <div className="grid gap-5 border-t p-4 lg:grid-cols-[1fr_1.4fr]">
+                <div className="overflow-x-auto rounded-md border">
+                    <table className="w-full min-w-[34rem] text-sm">
+                        <thead>
+                            <tr className="border-b bg-muted/40 text-left text-muted-foreground">
+                                <th className="px-3 py-2">Category</th>
+                                <th className="px-3 py-2">Group</th>
+                                <th className="px-3 py-2 text-right">Usage</th>
+                                <th className="px-3 py-2 text-right">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {items.map((item) => (
+                                <tr
+                                    key={item.id}
+                                    className="border-b last:border-0"
+                                >
+                                    <td className="px-3 py-2">
+                                        <div className="font-medium">
+                                            {item.name}
+                                        </div>
+                                        <div className="font-mono text-xs text-muted-foreground">
+                                            {item.code}
+                                        </div>
+                                    </td>
+                                    <td className="px-3 py-2 capitalize">
+                                        {item.reportingGroup.replace('_', ' ')}
+                                    </td>
+                                    <td className="px-3 py-2 text-right">
+                                        {item.usageCount}
+                                    </td>
+                                    <td className="px-3 py-2 text-right">
+                                        {canManage && !item.isSystem ? (
+                                            <Form
+                                                action={`/finance/categories/${item.id}`}
+                                                method="patch"
+                                            >
+                                                <input
+                                                    type="hidden"
+                                                    name="name"
+                                                    value={item.name}
+                                                />
+                                                <input
+                                                    type="hidden"
+                                                    name="is_active"
+                                                    value={
+                                                        item.isActive
+                                                            ? '0'
+                                                            : '1'
+                                                    }
+                                                />
+                                                <Button
+                                                    size="sm"
+                                                    variant="ghost"
+                                                >
+                                                    {item.isActive
+                                                        ? 'Deactivate'
+                                                        : 'Activate'}
+                                                </Button>
+                                            </Form>
+                                        ) : (
+                                            <Badge
+                                                variant={
+                                                    item.isActive
+                                                        ? 'outline'
+                                                        : 'secondary'
+                                                }
+                                            >
+                                                {item.isSystem
+                                                    ? 'System'
+                                                    : 'Inactive'}
+                                            </Badge>
+                                        )}
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+                {canManage && (
+                    <Form
+                        action="/finance/categories"
+                        method="post"
+                        resetOnSuccess
+                        className="grid content-start gap-3 sm:grid-cols-2"
+                    >
+                        <Field label="Name">
+                            <Input name="name" maxLength={255} required />
+                        </Field>
+                        <Field label="Stable code">
+                            <Input
+                                name="code"
+                                pattern="[a-z][a-z0-9_]{2,59}"
+                                placeholder="vehicle_fleet_costs"
+                                maxLength={60}
+                                required
+                            />
+                        </Field>
+                        <Field label="Reporting group">
+                            <select
+                                name="reporting_group"
+                                className={nativeSelectClass}
+                            >
+                                <option value="revenue">Revenue</option>
+                                <option value="costs">Costs</option>
+                                <option value="cash_in">Cash in</option>
+                                <option value="cash_out">Cash out</option>
+                            </select>
+                        </Field>
+                        <div className="flex items-end">
+                            <Button className="w-full">
+                                <Plus /> Create category
+                            </Button>
+                        </div>
+                        <p className="text-xs text-muted-foreground sm:col-span-2">
+                            Codes are immutable. Deactivation preserves all
+                            historical links.
+                        </p>
+                    </Form>
+                )}
+            </div>
+        </details>
     );
 }
 function BudgetGovernance({

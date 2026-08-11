@@ -196,6 +196,51 @@ class FinanceTest extends TestCase
         $this->assertSame('payroll_costs', LedgerAccount::where('code', '640')->firstOrFail()->financialCategory?->code);
     }
 
+    public function test_accounting_managers_can_extend_taxonomy_without_mutating_system_categories(): void
+    {
+        $user = User::factory()->create(['role' => 'commercial']);
+        $technician = User::factory()->create(['role' => 'technician']);
+
+        $this->actingAs($technician)->post(route('finance.categories.store'), [
+            'code' => 'vehicle_fleet_costs',
+            'name' => 'Vehicle fleet costs',
+            'reporting_group' => 'costs',
+        ])->assertForbidden();
+
+        $this->actingAs($user)->post(route('finance.categories.store'), [
+            'code' => 'vehicle_fleet_costs',
+            'name' => 'Vehicle fleet costs',
+            'reporting_group' => 'costs',
+        ])->assertSessionHasNoErrors();
+        $custom = FinancialCategory::where('code', 'vehicle_fleet_costs')->firstOrFail();
+        $this->assertFalse($custom->is_system);
+        $this->assertSame($user->id, $custom->created_by);
+
+        $system = FinancialCategory::where('code', 'operating_costs')->firstOrFail();
+        $this->patch(route('finance.categories.update', $system), [
+            'name' => 'Changed system category',
+            'is_active' => false,
+        ])->assertSessionHasErrors('financial_category');
+        $this->assertTrue($system->fresh()->is_active);
+
+        $this->patch(route('finance.categories.update', $custom), [
+            'name' => 'Fleet and vehicles',
+            'is_active' => false,
+        ])->assertSessionHasNoErrors();
+        $this->assertDatabaseHas('financial_categories', [
+            'id' => $custom->id,
+            'name' => 'Fleet and vehicles',
+            'is_active' => false,
+        ]);
+        $this->post(route('finance.budgets.store'), [
+            'year' => now()->year,
+            'month' => 1,
+            'category' => 'costs',
+            'financial_category_id' => $custom->id,
+            'amount' => 100,
+        ])->assertSessionHasErrors('financial_category_id');
+    }
+
     public function test_annual_budget_can_be_copied_adjusted_overwritten_and_deleted(): void
     {
         $user = User::factory()->create(['role' => 'commercial']);
