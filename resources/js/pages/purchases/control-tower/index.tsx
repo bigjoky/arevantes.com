@@ -16,6 +16,9 @@ type Order = {
     last_followed_up_at: string | null;
     last_follow_up_note: string | null;
     next_follow_up_date: string | null;
+    assigned_to: number | null;
+    assigned_at: string | null;
+    assignee: { id: number; name: string } | null;
     supplier: {
         legal_name: string;
         trade_name: string | null;
@@ -44,6 +47,7 @@ type Order = {
 export default function SupplyControlTower({
     orders,
     counts,
+    users,
 }: {
     orders: Order[];
     counts: {
@@ -52,7 +56,9 @@ export default function SupplyControlTower({
         unconfirmed: number;
         due_soon: number;
         follow_up_due: number;
+        unassigned: number;
     };
+    users: { id: number; name: string }[];
 }) {
     const canManage = usePage<{
         auth: { abilities: { managePurchases: boolean } };
@@ -71,7 +77,7 @@ export default function SupplyControlTower({
                         receiving progress for every open order.
                     </p>
                 </header>
-                <section className="grid grid-cols-2 border-y lg:grid-cols-5">
+                <section className="grid grid-cols-2 border-y lg:grid-cols-6">
                     <Metric label="Open orders" value={counts.open} />
                     <Metric label="Late" value={counts.late} />
                     <Metric label="Unconfirmed" value={counts.unconfirmed} />
@@ -80,6 +86,7 @@ export default function SupplyControlTower({
                         value={counts.follow_up_due}
                     />
                     <Metric label="Due within 7 days" value={counts.due_soon} />
+                    <Metric label="Unassigned" value={counts.unassigned} />
                 </section>
                 <section className="grid gap-4">
                     {orders.map((order) => (
@@ -117,6 +124,13 @@ export default function SupplyControlTower({
                                             ? `${order.destination_warehouse.name} · `
                                             : ''}
                                         Issued {date(order.issue_date)}
+                                    </div>
+                                    <div className="mt-1 text-xs text-muted-foreground">
+                                        Owner:{' '}
+                                        <span className="font-medium text-foreground">
+                                            {order.assignee?.name ||
+                                                'Unassigned'}
+                                        </span>
                                     </div>
                                 </div>
                                 <div className="grid grid-cols-2 gap-3 text-sm">
@@ -192,6 +206,63 @@ export default function SupplyControlTower({
                                         ? ` · Next contact ${date(order.next_follow_up_date)}`
                                         : ''}
                                 </div>
+                            )}
+                            {canManage && (
+                                <Form
+                                    action={`/supply-control/${order.id}/assignment`}
+                                    method="patch"
+                                    className="mt-4 grid gap-3 border-t pt-3 lg:grid-cols-[14rem_11rem_1fr_auto]"
+                                >
+                                    <div className="grid gap-1">
+                                        <label className="text-xs text-muted-foreground">
+                                            Action owner
+                                        </label>
+                                        <select
+                                            name="assigned_to"
+                                            defaultValue={
+                                                order.assigned_to || ''
+                                            }
+                                            className="h-9 border bg-transparent px-3 text-sm"
+                                        >
+                                            <option value="">Unassigned</option>
+                                            {users.map((user) => (
+                                                <option
+                                                    key={user.id}
+                                                    value={user.id}
+                                                >
+                                                    {user.name}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div className="grid gap-1">
+                                        <label className="text-xs text-muted-foreground">
+                                            Action due
+                                        </label>
+                                        <Input
+                                            name="next_follow_up_date"
+                                            type="date"
+                                            defaultValue={
+                                                order.next_follow_up_date || ''
+                                            }
+                                        />
+                                    </div>
+                                    <div className="grid gap-1">
+                                        <label className="text-xs text-muted-foreground">
+                                            Assignment note
+                                        </label>
+                                        <Input
+                                            name="note"
+                                            placeholder="Expected action or escalation"
+                                        />
+                                    </div>
+                                    <Button
+                                        variant="outline"
+                                        className="self-end"
+                                    >
+                                        Assign action
+                                    </Button>
+                                </Form>
                             )}
                             {canManage && (
                                 <details className="mt-4 border-t pt-3">

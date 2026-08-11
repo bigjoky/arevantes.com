@@ -31,11 +31,27 @@ class SupplyControlTowerTest extends TestCase
                 ->where('counts.open', 1)
                 ->where('counts.late', 1)
                 ->where('counts.unconfirmed', 1)
+                ->where('counts.unassigned', 0)
                 ->where('orders.0.priority', 'late')
                 ->where('orders.0.days_late', 2)
-                ->where('orders.0.receipt_progress', 0));
+                ->where('orders.0.receipt_progress', 0)
+                ->where('orders.0.assignee.id', $commercial->id));
 
-        $this->post(route('supply-control.confirm', $order), [
+        $this->actingAs($commercial)->patch(route('supply-control.assign', $order), [
+            'assigned_to' => $technician->id,
+            'next_follow_up_date' => today()->addDay()->toDateString(),
+            'note' => 'Coordinate the revised delivery with the site team.',
+        ])->assertRedirect();
+
+        $order->refresh();
+        $this->assertSame($technician->id, $order->assigned_to);
+        $this->assertSame($commercial->id, $order->assigned_by);
+        $this->assertDatabaseHas('purchase_document_events', [
+            'purchase_document_id' => $order->id,
+            'event' => 'supply_action_assigned',
+        ]);
+
+        $this->actingAs($technician)->post(route('supply-control.confirm', $order), [
             'confirmed_delivery_date' => today()->addDays(3)->toDateString(),
             'confirmation_reference' => 'SUP-ACK-42',
             'note' => 'Supplier confirmed by email',
@@ -88,7 +104,9 @@ class SupplyControlTowerTest extends TestCase
             ->assertOk()
             ->assertJsonPath('total', 1)
             ->assertJsonPath('groups.0.label', 'Supply')
-            ->assertJsonPath('groups.0.items.0.id', 'supply-'.$order->id);
+            ->assertJsonPath('groups.0.items.0.id', 'supply-'.$order->id)
+            ->assertJsonPath('groups.0.items.0.href', '/purchases/'.$order->id)
+            ->assertJsonPath('groups.0.items.0.subtitle', fn ($subtitle) => str_contains($subtitle, 'Owner: '.$technician->name));
     }
 
     private function order(User $user): PurchaseDocument

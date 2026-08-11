@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\PermissionProfile;
 use App\Models\Product;
 use App\Models\PurchaseDocument;
 use App\Models\SerialNumber;
@@ -11,6 +12,7 @@ use App\Models\Unit;
 use App\Models\User;
 use App\Models\Warehouse;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Mail;
 use Tests\TestCase;
 
 class PurchaseTest extends TestCase
@@ -44,6 +46,73 @@ class PurchaseTest extends TestCase
         $this->assertSame('225.50', $order->subtotal);
         $this->assertSame('25.36', $order->tax_amount);
         $this->assertSame('250.86', $order->amount);
+    }
+
+    public function test_a_high_value_order_requires_independent_approval_before_execution(): void
+    {
+        Mail::fake();
+        $creator = User::factory()->create(['role' => 'commercial']);
+        $approver = User::factory()->create(['role' => 'commercial']);
+        $supplier = Supplier::create(['legal_name' => 'Strategic Supply SL', 'country' => 'ES']);
+        $warehouse = Warehouse::create(['code' => 'APPROVAL', 'name' => 'Approval warehouse']);
+        $product = Product::create([
+            'type' => 'product',
+            'sku' => 'HIGH-VALUE-10',
+            'name' => 'High-value inverter',
+            'unit_id' => Unit::firstOrFail()->id,
+            'tax_rate_id' => TaxRate::firstOrFail()->id,
+            'sale_price' => 15000,
+            'cost_price' => 10000,
+            'track_stock' => true,
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($creator)->post(route('purchases.store'), [
+            'type' => 'purchase_order',
+            'supplier_id' => $supplier->id,
+            'issue_date' => '2026-08-11',
+            'lines' => [[
+                'product_id' => $product->id,
+                'description' => $product->name,
+                'quantity' => 1,
+                'unit_price' => 10000,
+                'discount_percent' => 0,
+                'tax_percent' => 21,
+            ]],
+        ])->assertRedirect();
+
+        $order = PurchaseDocument::where('type', 'purchase_order')->firstOrFail();
+        $this->assertSame('pending_approval', $order->status);
+        $this->assertNull($order->locked_at);
+        $this->assertDatabaseHas('purchase_document_events', [
+            'purchase_document_id' => $order->id,
+            'event' => 'approval_requested',
+        ]);
+
+        $this->post(route('purchases.receive', $order), [
+            'warehouse_id' => $warehouse->id,
+        ])->assertUnprocessable();
+        $this->post(route('purchases.send', $order), [
+            'recipient_email' => 'orders@strategic-supply.test',
+        ])->assertUnprocessable();
+        Mail::assertNothingSent();
+        $this->post(route('purchases.approve', $order), [
+            'approval_notes' => 'Creator cannot release their own order.',
+        ])->assertForbidden();
+
+        $this->actingAs($approver)->post(route('purchases.approve', $order), [
+            'approval_notes' => 'Amount and supplier conditions independently reviewed.',
+        ])->assertRedirect();
+
+        $order->refresh();
+        $this->assertSame('ordered', $order->status);
+        $this->assertSame($approver->id, $order->approved_by);
+        $this->assertNotNull($order->approved_at);
+        $this->assertNotNull($order->locked_at);
+        $this->assertDatabaseHas('purchase_document_events', [
+            'purchase_document_id' => $order->id,
+            'event' => 'purchase_order_approved',
+        ]);
     }
 
     public function test_a_purchase_order_receives_serialized_stock_and_creates_a_supplier_invoice(): void
@@ -123,10 +192,11 @@ class PurchaseTest extends TestCase
         $this->assertSame('review_required', $invoice->matching_status);
         $this->assertSame('1089.00', $invoice->match_variance_amount);
         $this->assertNull($invoice->accountingEntry()->first());
-        $this->post(route('supplier-invoices.payments.store', $invoice), [
+        $this->actingAs($this->financeUser())->post(route('supplier-invoices.payments.store', $invoice), [
             'paid_at' => '2026-07-13', 'amount' => 100, 'method' => 'bank_transfer',
         ])->assertStatus(422);
 
+        $this->actingAs($user);
         $this->post(route('supplier-invoices.approve', $invoice), [
             'approval_notes' => 'The creator cannot approve their own variance.',
         ])->assertForbidden();
@@ -229,11 +299,12 @@ class PurchaseTest extends TestCase
         $this->assertSame('-968.00', $credit->amount);
         $this->assertNotNull($credit->accountingEntry()->first());
         $this->assertSame('partially_invoiced', $order->refresh()->invoicing_status);
+        $this->actingAs($this->financeUser());
         $this->post(route('supplier-invoices.payments.store', $firstInvoice), ['paid_at' => '2026-07-14', 'amount' => 969, 'method' => 'bank_transfer'])->assertSessionHasErrors('amount');
         $this->post(route('supplier-invoices.payments.store', $firstInvoice), ['paid_at' => '2026-07-14', 'amount' => 968, 'method' => 'bank_transfer'])->assertRedirect();
         $this->assertSame('paid', $firstInvoice->refresh()->status);
 
-        $this->post(route('purchases.return', $order), [
+        $this->actingAs($user)->post(route('purchases.return', $order), [
             'warehouse_id' => $warehouse->id, 'supplier_return_number' => 'DEV-SUP-1', 'quantities' => [$line->id => 1],
         ])->assertRedirect();
         $this->assertDatabaseHas('goods_returns', ['purchase_document_id' => $order->id, 'supplier_return_number' => 'DEV-SUP-1']);
@@ -319,5 +390,13 @@ class PurchaseTest extends TestCase
         ])->assertRedirect();
 
         $this->assertSame('returned', SerialNumber::where('serial_number', 'TRACE-2')->value('status'));
+    }
+
+    private function financeUser(): User
+    {
+        return User::factory()->create([
+            'role' => 'commercial',
+            'permission_profile_id' => PermissionProfile::where('slug', 'finance')->firstOrFail()->id,
+        ]);
     }
 }

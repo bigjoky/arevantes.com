@@ -146,7 +146,7 @@ class AppServiceProvider extends ServiceProvider
             'use-ai', 'manage-operations', 'manage-catalog', 'view-finance', 'manage-treasury',
             'manage-accounting', 'approve-payments', 'approve-budgets', 'manage-tax',
             'view-purchases', 'manage-purchases', 'receive-purchases', 'approve-purchase-invoices',
-            'manage-purchase-payments', 'manage-staff', 'view-sensitive-hr', 'manage-sensitive-hr',
+            'approve-purchase-orders', 'manage-purchase-payments', 'manage-staff', 'view-sensitive-hr', 'manage-sensitive-hr',
             'view-analytics',
         ];
         foreach ($permissions as $permission) {
