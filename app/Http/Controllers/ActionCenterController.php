@@ -78,11 +78,12 @@ class ActionCenterController extends Controller
             });
 
         $items = (clone $query)
-            ->with('supplier:id,legal_name,trade_name')
+            ->with(['supplier:id,legal_name,trade_name', 'assignee:id,name'])
             ->limit(20)
             ->get()
             ->map(function (PurchaseDocument $order): array {
                 $supplier = $order->supplier?->trade_name ?: $order->supplier?->legal_name ?: __('Supplier');
+                $owner = $order->assignee?->name ?: __('Unassigned');
                 $eta = $order->supplier_confirmed_delivery_date ?: $order->expected_delivery_date;
                 if ($eta?->lt(today())) {
                     $daysLate = abs(today()->diffInDays($eta, false));
@@ -90,8 +91,8 @@ class ActionCenterController extends Controller
                     return [
                         'id' => 'supply-'.$order->id,
                         'title' => $order->number.' · '.$supplier,
-                        'subtitle' => __('Delivery is :days day(s) late', ['days' => $daysLate]),
-                        'href' => '/supply-control',
+                        'subtitle' => __('Delivery is :days day(s) late · Owner: :owner', ['days' => $daysLate, 'owner' => $owner]),
+                        'href' => '/purchases/'.$order->id,
                         'severity' => 'critical',
                         'due_at' => $eta->startOfDay()->toIso8601String(),
                     ];
@@ -101,8 +102,8 @@ class ActionCenterController extends Controller
                     return [
                         'id' => 'supply-'.$order->id,
                         'title' => $order->number.' · '.$supplier,
-                        'subtitle' => __('Supplier follow-up is due'),
-                        'href' => '/supply-control',
+                        'subtitle' => __('Supplier follow-up is due · Owner: :owner', ['owner' => $owner]),
+                        'href' => '/purchases/'.$order->id,
                         'severity' => $order->next_follow_up_date->lt(today()) ? 'critical' : 'warning',
                         'due_at' => $order->next_follow_up_date->startOfDay()->toIso8601String(),
                     ];
@@ -113,8 +114,8 @@ class ActionCenterController extends Controller
                 return [
                     'id' => 'supply-'.$order->id,
                     'title' => $order->number.' · '.$supplier,
-                    'subtitle' => __('Supplier confirmation is still pending'),
-                    'href' => '/supply-control',
+                    'subtitle' => __('Supplier confirmation is still pending · Owner: :owner', ['owner' => $owner]),
+                    'href' => '/purchases/'.$order->id,
                     'severity' => 'warning',
                     'due_at' => $dueAt->toIso8601String(),
                 ];
