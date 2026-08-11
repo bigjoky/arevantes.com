@@ -10,6 +10,7 @@ use App\Models\FinancialAlertAction;
 use App\Models\FinancialBudget;
 use App\Models\FinancialBudgetPeriod;
 use App\Models\FinancialBudgetVersion;
+use App\Models\FinancialCategory;
 use App\Models\FinancialForecastItem;
 use App\Models\PaymentBatch;
 use App\Models\PaymentBatchItem;
@@ -53,8 +54,8 @@ class FinanceController extends Controller
         $sales = SalesDocument::whereIn('type', ['invoice', 'credit_note'])->whereNotNull('locked_at')->whereYear('issue_date', $year)->get();
         $purchases = PurchaseDocument::whereIn('type', ['supplier_invoice', 'supplier_credit_note'])->whereNot('status', 'review_required')->whereYear('issue_date', $year)->get();
         $expenses = Expense::whereYear('expense_date', $year)->get();
-        $budgets = FinancialBudget::where('year', $year)->orderBy('month')->orderBy('category')->get();
-        $forecastItems = FinancialForecastItem::with(['installation:id,project_reference,site_name', 'settler:id,name'])
+        $budgets = FinancialBudget::with('financialCategory:id,code,name,reporting_group')->where('year', $year)->orderBy('month')->orderBy('category')->get();
+        $forecastItems = FinancialForecastItem::with(['financialCategory:id,code,name,reporting_group', 'installation:id,project_reference,site_name', 'settler:id,name'])
             ->where(function ($query) use ($year) {
                 $query->whereYear('due_on', $year)->orWhereYear('settled_on', $year);
             })
@@ -218,6 +219,16 @@ class FinanceController extends Controller
                 ->filter(fn (FinancialForecastItem $item) => $item->settled_on?->year === $year)
                 ->values()),
             'budgets' => $budgets,
+            'financialCategories' => FinancialCategory::active()
+                ->orderBy('reporting_group')
+                ->orderBy('name')
+                ->get(['id', 'code', 'name', 'reporting_group'])
+                ->map(fn (FinancialCategory $category) => [
+                    'id' => $category->id,
+                    'code' => $category->code,
+                    'name' => $category->name,
+                    'reportingGroup' => $category->reporting_group,
+                ]),
             'budgetPeriod' => [
                 'status' => $budgetPeriod?->status ?? 'draft',
                 'currentRevision' => $budgetPeriod?->current_revision ?? 0,
@@ -225,7 +236,7 @@ class FinanceController extends Controller
                 'approvedAt' => $budgetPeriod?->approved_at?->toIso8601String(),
                 'reopenedAt' => $budgetPeriod?->reopened_at?->toIso8601String(),
                 'reopenReason' => $budgetPeriod?->reopen_reason,
-                'configuredValues' => $budgets->count(),
+                'configuredValues' => $budgets->map(fn (FinancialBudget $budget) => $budget->month.'-'.$budget->category)->unique()->count(),
                 'requiredValues' => 48,
                 'versions' => $budgetPeriod?->versions->map(function (FinancialBudgetVersion $version) {
                     $values = collect($version->values);
@@ -270,7 +281,7 @@ class FinanceController extends Controller
     {
         $data = $request->validate([
             'direction' => ['required', Rule::in(['in', 'out'])],
-            'category' => ['required', 'string', 'max:40'],
+            'financial_category_id' => ['nullable', 'integer', 'exists:financial_categories,id'],
             'description' => ['required', 'string', 'max:255'],
             'amount' => ['required', 'numeric', 'gt:0'],
             'due_on' => ['required', 'date'],
@@ -278,8 +289,11 @@ class FinanceController extends Controller
             'recurrence' => ['nullable', Rule::in(['monthly', 'quarterly', 'annual'])],
             'installation_id' => ['nullable', 'exists:installations,id'],
         ]);
+        $category = $this->activeFinancialCategory(isset($data['financial_category_id']) ? (int) $data['financial_category_id'] : null, $data['direction'] === 'in' ? 'cash_in' : 'cash_out');
         FinancialForecastItem::create([
             ...$data,
+            'category' => $category->code,
+            'financial_category_id' => $category->id,
             'baseline_amount' => $data['amount'],
             'baseline_due_on' => $data['due_on'],
             'status' => 'planned',
@@ -331,14 +345,22 @@ class FinanceController extends Controller
             'year' => ['required', 'integer', 'between:2020,2100'],
             'month' => ['required', 'integer', 'between:1,12'],
             'category' => ['required', Rule::in(['revenue', 'costs', 'cash_in', 'cash_out'])],
+            'financial_category_id' => ['nullable', 'integer', 'exists:financial_categories,id'],
             'amount' => ['required', 'numeric', 'min:0'],
             'notes' => ['nullable', 'string', 'max:1000'],
         ]);
+        $category = $this->activeFinancialCategory(isset($data['financial_category_id']) ? (int) $data['financial_category_id'] : null, $data['category']);
+        $data['financial_category_id'] = $category->id;
         $this->assertBudgetEditable((int) $data['year']);
-        FinancialBudget::updateOrCreate(
-            collect($data)->only(['year', 'month', 'category'])->all(),
-            [...collect($data)->only(['amount', 'notes'])->all(), 'created_by' => $request->user()->id],
-        );
+        $budget = FinancialBudget::query()
+            ->where(collect($data)->only(['year', 'month', 'category'])->all())
+            ->where(fn ($query) => $query->where('financial_category_id', $category->id)->orWhereNull('financial_category_id'))
+            ->first() ?? new FinancialBudget(collect($data)->only(['year', 'month', 'category'])->all());
+        $budget->fill([
+            'financial_category_id' => $category->id,
+            ...collect($data)->only(['amount', 'notes'])->all(),
+            'created_by' => $request->user()->id,
+        ])->save();
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Budget updated.')]);
     }
@@ -364,6 +386,7 @@ class FinanceController extends Controller
                     'year' => $data['target_year'],
                     'month' => $budget->month,
                     'category' => $budget->category,
+                    'financial_category_id' => $budget->financial_category_id,
                 ]);
                 if ($target->exists && ! ($data['overwrite'] ?? false)) {
                     continue;
@@ -426,12 +449,14 @@ class FinanceController extends Controller
             $period = FinancialBudgetPeriod::query()->where('year', $year)->lockForUpdate()->firstOrFail();
             abort_unless($period->status === 'draft', 422);
             $budgets = FinancialBudget::query()
+                ->with('financialCategory:id,code,name')
                 ->where('year', $year)
                 ->orderBy('month')
                 ->orderBy('category')
                 ->lockForUpdate()
                 ->get();
-            if ($budgets->count() !== 48) {
+            $configuredValues = $budgets->map(fn (FinancialBudget $budget) => $budget->month.'-'.$budget->category)->unique()->count();
+            if ($configuredValues !== 48) {
                 throw ValidationException::withMessages([
                     'budget' => __('Complete all 48 monthly budget values before approval.'),
                 ]);
@@ -447,6 +472,9 @@ class FinanceController extends Controller
                 'values' => $budgets->map(fn (FinancialBudget $budget) => [
                     'month' => $budget->month,
                     'category' => $budget->category,
+                    'financial_category_id' => $budget->financial_category_id,
+                    'financial_category_code' => $budget->financialCategory?->code,
+                    'financial_category_name' => $budget->financialCategory?->name,
                     'amount' => $budget->amount,
                     'notes' => $budget->notes,
                 ])->all(),
@@ -493,7 +521,7 @@ class FinanceController extends Controller
 
         return response()->streamDownload(function () use ($year, $financialBudgetVersion) {
             $out = fopen('php://output', 'w');
-            fputcsv($out, ['year', 'month', 'category', 'amount', 'notes']);
+            fputcsv($out, ['year', 'month', 'category', 'amount', 'notes', 'taxonomy_code', 'taxonomy_name']);
             collect($financialBudgetVersion->values)
                 ->sortBy(fn (array $value) => sprintf('%02d-%s', $value['month'], $value['category']))
                 ->each(fn (array $value) => fputcsv($out, [
@@ -502,6 +530,8 @@ class FinanceController extends Controller
                     $value['category'],
                     number_format((float) $value['amount'], 2, '.', ''),
                     $value['notes'],
+                    $value['financial_category_code'] ?? null,
+                    $value['financial_category_name'] ?? null,
                 ]));
             fclose($out);
         }, "finance-budget-{$year}-r{$financialBudgetVersion->revision}.csv", ['Content-Type' => 'text/csv; charset=UTF-8']);
@@ -759,16 +789,18 @@ class FinanceController extends Controller
                 PurchaseDocument::whereIn('type', ['supplier_invoice', 'supplier_credit_note'])->whereNot('status', 'review_required')->whereYear('issue_date', $year)->orderBy('issue_date')->each(fn ($d) => fputcsv($out, [$d->issue_date->format('Y-m-d'), 'input', $d->supplier_number ?: $d->number, $d->subtotal, $d->tax_amount, $d->amount]));
                 Expense::whereYear('expense_date', $year)->orderBy('expense_date')->each(fn ($d) => fputcsv($out, [$d->expense_date->format('Y-m-d'), 'input', $d->document_number ?: $d->number, $d->subtotal, $d->tax_amount, $d->amount]));
             } elseif (in_array($type, ['budget', 'budget_template'], true)) {
-                fputcsv($out, ['year', 'month', 'category', 'amount', 'notes']);
-                $budgets = FinancialBudget::where('year', $year)->get()->keyBy(fn ($budget) => $budget->month.'-'.$budget->category);
+                fputcsv($out, ['year', 'month', 'category', 'amount', 'notes', 'taxonomy_code', 'taxonomy_name']);
+                $budgets = FinancialBudget::with('financialCategory:id,code,name')->where('year', $year)->get();
                 if ($type === 'budget') {
-                    $budgets->sortBy(fn ($budget) => sprintf('%02d-%s', $budget->month, $budget->category))
-                        ->each(fn ($budget) => fputcsv($out, [$budget->year, $budget->month, $budget->category, $budget->amount, $budget->notes]));
+                    $budgets->sortBy(fn ($budget) => sprintf('%02d-%s-%s', $budget->month, $budget->category, $budget->financialCategory?->code))
+                        ->each(fn ($budget) => fputcsv($out, [$budget->year, $budget->month, $budget->category, $budget->amount, $budget->notes, $budget->financialCategory?->code, $budget->financialCategory?->name]));
                 } else {
+                    $defaults = ['revenue' => 'sales_revenue', 'costs' => 'operating_costs', 'cash_in' => 'customer_collections', 'cash_out' => 'supplier_payments'];
                     foreach (range(1, 12) as $month) {
                         foreach (['revenue', 'costs', 'cash_in', 'cash_out'] as $category) {
-                            $budget = $budgets->get($month.'-'.$category);
-                            fputcsv($out, [$year, $month, $category, $budget?->amount ?? 0, $budget?->notes]);
+                            $budget = $budgets->first(fn (FinancialBudget $item) => $item->month === $month && $item->category === $category && $item->financialCategory?->code === $defaults[$category])
+                                ?? $budgets->first(fn (FinancialBudget $item) => $item->month === $month && $item->category === $category);
+                            fputcsv($out, [$year, $month, $category, $budget?->amount ?? 0, $budget?->notes, $defaults[$category], $budget?->financialCategory?->name]);
                         }
                     }
                 }
@@ -1127,6 +1159,26 @@ class FinanceController extends Controller
         if (! hash_equals($batch->export_sha256, $actualHash)) {
             throw ValidationException::withMessages(['payment_batch' => __('The approved SEPA evidence failed its integrity check.')]);
         }
+    }
+
+    private function activeFinancialCategory(?int $id, string $reportingGroup): FinancialCategory
+    {
+        $defaults = [
+            'revenue' => 'sales_revenue',
+            'costs' => 'operating_costs',
+            'cash_in' => 'customer_collections',
+            'cash_out' => 'supplier_payments',
+        ];
+        $category = $id
+            ? FinancialCategory::active()->findOrFail($id)
+            : FinancialCategory::active()->where('code', $defaults[$reportingGroup])->firstOrFail();
+        if ($category->reporting_group !== $reportingGroup) {
+            throw ValidationException::withMessages([
+                'financial_category_id' => __('The financial category is not compatible with the selected reporting group.'),
+            ]);
+        }
+
+        return $category;
     }
 
     private function normalizeIban(mixed $iban): string

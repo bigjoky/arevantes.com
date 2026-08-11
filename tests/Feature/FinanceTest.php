@@ -15,7 +15,9 @@ use App\Models\FinancialAlertAction;
 use App\Models\FinancialBudget;
 use App\Models\FinancialBudgetPeriod;
 use App\Models\FinancialBudgetVersion;
+use App\Models\FinancialCategory;
 use App\Models\FinancialForecastItem;
+use App\Models\LedgerAccount;
 use App\Models\PaymentBatch;
 use App\Models\PurchaseDocument;
 use App\Models\SalesDocument;
@@ -142,6 +144,56 @@ class FinanceTest extends TestCase
         $this->actingAs($user)->get(route('finance.index'))->assertOk()->assertInertia(fn (Assert $page) => $page
             ->component('finance/index')
             ->where('year', now()->year));
+    }
+
+    public function test_budget_forecast_and_ledger_use_the_common_financial_taxonomy(): void
+    {
+        $user = User::factory()->create(['role' => 'commercial']);
+        $sales = FinancialCategory::where('code', 'sales_revenue')->firstOrFail();
+        $otherRevenue = FinancialCategory::where('code', 'other_revenue')->firstOrFail();
+        $payroll = FinancialCategory::where('code', 'payroll_payments')->firstOrFail();
+
+        $this->actingAs($user)->post(route('finance.forecast-items.store'), [
+            'direction' => 'in',
+            'financial_category_id' => $payroll->id,
+            'description' => 'Invalid incoming payroll',
+            'amount' => 100,
+            'due_on' => today()->addDay()->toDateString(),
+            'probability' => 100,
+        ])->assertSessionHasErrors('financial_category_id');
+        $this->assertDatabaseCount('financial_forecast_items', 0);
+
+        $this->post(route('finance.forecast-items.store'), [
+            'direction' => 'out',
+            'financial_category_id' => $payroll->id,
+            'description' => 'Monthly payroll',
+            'amount' => 100,
+            'due_on' => today()->addDay()->toDateString(),
+            'probability' => 100,
+        ])->assertSessionHasNoErrors();
+        $this->assertDatabaseHas('financial_forecast_items', [
+            'category' => 'payroll_payments',
+            'financial_category_id' => $payroll->id,
+        ]);
+
+        foreach ([[$sales, 100], [$otherRevenue, 50]] as [$category, $amount]) {
+            $this->post(route('finance.budgets.store'), [
+                'year' => now()->year,
+                'month' => 1,
+                'category' => 'revenue',
+                'financial_category_id' => $category->id,
+                'amount' => $amount,
+            ])->assertSessionHasNoErrors();
+        }
+
+        $this->assertDatabaseCount('financial_budgets', 2);
+        $this->get(route('finance.index', ['year' => now()->year]))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('performance.0.budgetRevenue', 150)
+                ->where('budgetPeriod.configuredValues', 1)
+                ->has('financialCategories', 12));
+        $this->assertSame('sales_revenue', LedgerAccount::where('code', '700')->firstOrFail()->financialCategory?->code);
+        $this->assertSame('payroll_costs', LedgerAccount::where('code', '640')->firstOrFail()->financialCategory?->code);
     }
 
     public function test_annual_budget_can_be_copied_adjusted_overwritten_and_deleted(): void

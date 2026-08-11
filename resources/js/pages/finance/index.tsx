@@ -1,4 +1,5 @@
 import { Form, Head, Link, router } from '@inertiajs/react';
+import { useState } from 'react';
 import {
     ArrowDownToLine,
     CalendarClock,
@@ -182,6 +183,12 @@ type ForecastItem = {
     id: number;
     direction: 'in' | 'out';
     category: string;
+    financial_category: {
+        id: number;
+        code: string;
+        name: string;
+        reporting_group: string;
+    } | null;
     description: string;
     amount: string;
     baseline_amount: string | null;
@@ -199,6 +206,13 @@ type Budget = {
     id: number;
     month: number;
     category: string;
+    financial_category_id: number | null;
+    financial_category: {
+        id: number;
+        code: string;
+        name: string;
+        reporting_group: string;
+    } | null;
     amount: string;
 };
 type BudgetAlert = {
@@ -243,6 +257,12 @@ type PaymentBatch = {
     }[];
 };
 type FinanceUser = { id: number; name: string };
+type FinancialCategory = {
+    id: number;
+    code: string;
+    name: string;
+    reportingGroup: 'revenue' | 'costs' | 'cash_in' | 'cash_out';
+};
 type BankPosition = {
     id: number;
     name: string;
@@ -280,6 +300,7 @@ export default function FinanceIndex({
     bankPosition,
     bankAccounts,
     financeUsers,
+    financialCategories,
     can,
 }: {
     year: number;
@@ -374,6 +395,7 @@ export default function FinanceIndex({
     bankPosition: BankPosition[];
     bankAccounts: { id: number; name: string; iban: string | null }[];
     financeUsers: FinanceUser[];
+    financialCategories: FinancialCategory[];
     can: {
         manageTreasury: boolean;
         manageAccounting: boolean;
@@ -1309,6 +1331,7 @@ export default function FinanceIndex({
                                     cashFlow={cashFlow}
                                     alertSettings={alertSettings}
                                     alertCount={budgetAlerts.length}
+                                    financialCategories={financialCategories}
                                 />
                             )}
                     </div>
@@ -1319,7 +1342,11 @@ export default function FinanceIndex({
                                 Planned treasury items
                             </h2>
                         </div>
-                        {can.manageTreasury && <ForecastForm />}
+                        {can.manageTreasury && (
+                            <ForecastForm
+                                financialCategories={financialCategories}
+                            />
+                        )}
                         {forecastAccuracy.settledCount > 0 && (
                             <div className="mt-4 grid grid-cols-2 border-y text-sm sm:grid-cols-4">
                                 <ForecastMetric
@@ -1365,7 +1392,9 @@ export default function FinanceIndex({
                                             <div className="text-xs text-muted-foreground">
                                                 {date(item.due_on)} ·{' '}
                                                 {item.probability}% ·{' '}
-                                                {item.status}
+                                                {item.status} ·{' '}
+                                                {item.financial_category
+                                                    ?.name ?? item.category}
                                             </div>
                                         </div>
                                         <div className="flex items-center gap-2">
@@ -2244,7 +2273,17 @@ function PaymentPlanForm({
         </details>
     );
 }
-function ForecastForm() {
+function ForecastForm({
+    financialCategories,
+}: {
+    financialCategories: FinancialCategory[];
+}) {
+    const [direction, setDirection] = useState<'in' | 'out'>('out');
+    const reportingGroup = direction === 'in' ? 'cash_in' : 'cash_out';
+    const categories = financialCategories.filter(
+        (category) => category.reportingGroup === reportingGroup,
+    );
+
     return (
         <Form
             action="/finance/forecast-items"
@@ -2259,14 +2298,29 @@ function ForecastForm() {
                     required
                 />
             </Field>
-            <Field label="Category">
-                <Input name="category" placeholder="Payroll" required />
+            <Field label="Financial category">
+                <select
+                    key={reportingGroup}
+                    name="financial_category_id"
+                    className={nativeSelectClass}
+                    defaultValue={categories[0]?.id}
+                    required
+                >
+                    {categories.map((category) => (
+                        <option key={category.id} value={category.id}>
+                            {category.name}
+                        </option>
+                    ))}
+                </select>
             </Field>
             <Field label="Direction">
                 <select
                     name="direction"
                     className={nativeSelectClass}
-                    defaultValue="out"
+                    value={direction}
+                    onChange={(event) =>
+                        setDirection(event.target.value as 'in' | 'out')
+                    }
                 >
                     <option value="in">Incoming</option>
                     <option value="out">Outgoing</option>
@@ -2452,6 +2506,7 @@ function BudgetForm({
     cashFlow,
     alertSettings,
     alertCount,
+    financialCategories,
 }: {
     year: number;
     budgets: Budget[];
@@ -2463,13 +2518,20 @@ function BudgetForm({
         liquidityBufferAmount: number;
     };
     alertCount: number;
+    financialCategories: FinancialCategory[];
 }) {
+    const [reportingGroup, setReportingGroup] =
+        useState<FinancialCategory['reportingGroup']>('revenue');
+    const categories = financialCategories.filter(
+        (category) => category.reportingGroup === reportingGroup,
+    );
+
     return (
         <div className="mt-4 space-y-3 border-y py-3">
             <Form
                 action="/finance/budgets"
                 method="post"
-                className="grid gap-3 sm:grid-cols-4"
+                className="grid gap-3 sm:grid-cols-5"
             >
                 <input type="hidden" name="year" value={year} />
                 <Field label="Month">
@@ -2492,12 +2554,33 @@ function BudgetForm({
                     <select
                         name="category"
                         className={nativeSelectClass}
-                        defaultValue="revenue"
+                        value={reportingGroup}
+                        onChange={(event) =>
+                            setReportingGroup(
+                                event.target
+                                    .value as FinancialCategory['reportingGroup'],
+                            )
+                        }
                     >
                         <option value="revenue">Revenue</option>
                         <option value="costs">Costs</option>
                         <option value="cash_in">Cash in</option>
                         <option value="cash_out">Cash out</option>
+                    </select>
+                </Field>
+                <Field label="Financial category">
+                    <select
+                        key={reportingGroup}
+                        name="financial_category_id"
+                        className={nativeSelectClass}
+                        defaultValue={categories[0]?.id}
+                        required
+                    >
+                        {categories.map((category) => (
+                            <option key={category.id} value={category.id}>
+                                {category.name}
+                            </option>
+                        ))}
                     </select>
                 </Field>
                 <Field label="Amount">
