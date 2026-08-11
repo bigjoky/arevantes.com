@@ -50,6 +50,7 @@ type Entry = {
     event: string;
     entry_kind: string;
     reversal: { id: number } | null;
+    source_href: string | null;
     lines: Line[];
 };
 type Account = {
@@ -135,6 +136,7 @@ export default function AccountingIndex({
     periodSummary,
     canClosePeriods,
     entries,
+    selectedFinancialCategory,
     accounts,
     selectedAccount,
     ledger,
@@ -151,6 +153,12 @@ export default function AccountingIndex({
     periodSummary: PeriodSummary;
     canClosePeriods: boolean;
     entries: Entry[];
+    selectedFinancialCategory: {
+        id: number;
+        code: string;
+        name: string;
+        reporting_group: string;
+    } | null;
     accounts: Account[];
     selectedAccount: Account | null;
     ledger: Line[];
@@ -274,6 +282,24 @@ export default function AccountingIndex({
                         </button>
                     ))}
                 </PageTabs>
+                {selectedFinancialCategory && (
+                    <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border bg-muted/30 px-4 py-3 text-sm">
+                        <div>
+                            Showing journal evidence for{' '}
+                            <span className="font-semibold">
+                                {selectedFinancialCategory.name}
+                            </span>{' '}
+                            <span className="font-mono text-xs text-muted-foreground">
+                                {selectedFinancialCategory.code}
+                            </span>
+                        </div>
+                        <Button variant="outline" size="sm" asChild>
+                            <Link href={`/accounting?year=${year}`}>
+                                Clear taxonomy filter
+                            </Link>
+                        </Button>
+                    </div>
+                )}
                 {view === 'journal' && (
                     <Journal
                         entries={entries}
@@ -776,6 +802,14 @@ function Journal({
                                             <Badge variant="outline">
                                                 {entry.entry_kind}
                                             </Badge>
+                                            {entry.source_href && (
+                                                <Link
+                                                    href={entry.source_href}
+                                                    className="ml-2 text-xs font-medium text-primary underline underline-offset-2"
+                                                >
+                                                    Open source
+                                                </Link>
+                                            )}
                                         </span>
                                     ) : (
                                         ''

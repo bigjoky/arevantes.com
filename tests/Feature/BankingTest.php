@@ -516,6 +516,7 @@ class BankingTest extends TestCase
         $this->assertSame('629', $custom->parent_code);
         $this->assertSame('expense', $custom->type);
         $this->assertSame('custom', $custom->source);
+        $this->assertSame(LedgerAccount::where('code', '629')->value('financial_category_id'), $custom->financial_category_id);
         $posting = BankTransactionPosting::with('journalEntry.lines.account')->firstOrFail();
         $this->assertNull($posting->counterpart_account_id);
         $this->assertCount(2, $posting->allocation_data);

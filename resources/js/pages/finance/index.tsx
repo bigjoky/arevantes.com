@@ -268,6 +268,30 @@ type FinancialTaxonomyItem = FinancialCategory & {
     isActive: boolean;
     usageCount: number;
 };
+type TaxonomyComparison = {
+    rows: {
+        id: number;
+        code: string;
+        name: string;
+        reportingGroup: FinancialCategory['reportingGroup'];
+        isActive: boolean;
+        budget: number;
+        forecast: number;
+        actual: number;
+        budgetVariance: number;
+        forecastVariance: number;
+        actualHref: string;
+    }[];
+    selectedCategory: FinancialCategory | null;
+    evidence: {
+        id: string;
+        date: string;
+        reference: string;
+        description: string;
+        amount: number;
+        href: string | null;
+    }[];
+};
 type BankPosition = {
     id: number;
     name: string;
@@ -307,6 +331,7 @@ export default function FinanceIndex({
     financeUsers,
     financialCategories,
     financialTaxonomy,
+    taxonomyComparison,
     can,
 }: {
     year: number;
@@ -403,6 +428,7 @@ export default function FinanceIndex({
     financeUsers: FinanceUser[];
     financialCategories: FinancialCategory[];
     financialTaxonomy: FinancialTaxonomyItem[];
+    taxonomyComparison: TaxonomyComparison;
     can: {
         manageTreasury: boolean;
         manageAccounting: boolean;
@@ -1518,6 +1544,10 @@ export default function FinanceIndex({
                     items={financialTaxonomy}
                     canManage={can.manageAccounting}
                 />
+                <TaxonomyComparisonPanel
+                    year={year}
+                    comparison={taxonomyComparison}
+                />
                 <section>
                     <div className="mb-3 flex items-center gap-2">
                         <CircleAlert className="size-4 text-muted-foreground" />
@@ -2521,6 +2551,153 @@ function FinancialTaxonomyPanel({
         </details>
     );
 }
+function TaxonomyComparisonPanel({
+    year,
+    comparison,
+}: {
+    year: number;
+    comparison: TaxonomyComparison;
+}) {
+    return (
+        <section className="space-y-4" id="taxonomy-comparison">
+            <div>
+                <h2 className="font-semibold">
+                    Actual vs budget vs forecast by taxonomy
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                    Accounting actuals and cash movements use the same stable
+                    categories as financial planning.
+                </p>
+            </div>
+            <div className="overflow-x-auto rounded-lg border">
+                <table className="w-full min-w-[64rem] text-sm">
+                    <thead>
+                        <tr className="border-b bg-muted/40 text-left text-muted-foreground">
+                            <th className="px-3 py-2">Category</th>
+                            <th className="px-3 py-2">Group</th>
+                            <th className="px-3 py-2 text-right">Budget</th>
+                            <th className="px-3 py-2 text-right">Forecast</th>
+                            <th className="px-3 py-2 text-right">Actual</th>
+                            <th className="px-3 py-2 text-right">
+                                Actual − budget
+                            </th>
+                            <th className="px-3 py-2 text-right">
+                                Actual − forecast
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {comparison.rows.map((row) => (
+                            <tr key={row.id} className="border-b last:border-0">
+                                <td className="px-3 py-2">
+                                    <div className="font-medium">
+                                        {row.name}
+                                    </div>
+                                    <div className="font-mono text-xs text-muted-foreground">
+                                        {row.code}
+                                    </div>
+                                </td>
+                                <td className="px-3 py-2 capitalize">
+                                    {row.reportingGroup.replace('_', ' ')}
+                                </td>
+                                <td className="px-3 py-2 text-right">
+                                    {money(row.budget)}
+                                </td>
+                                <td className="px-3 py-2 text-right">
+                                    {money(row.forecast)}
+                                </td>
+                                <td className="px-3 py-2 text-right font-semibold">
+                                    <Link
+                                        href={row.actualHref}
+                                        className="underline underline-offset-2"
+                                    >
+                                        {money(row.actual)}
+                                    </Link>
+                                </td>
+                                <td
+                                    className={`px-3 py-2 text-right ${taxonomyVarianceIsAdverse(row.reportingGroup, row.budgetVariance) ? 'text-destructive' : ''}`}
+                                >
+                                    {money(row.budgetVariance)}
+                                </td>
+                                <td
+                                    className={`px-3 py-2 text-right ${taxonomyVarianceIsAdverse(row.reportingGroup, row.forecastVariance) ? 'text-destructive' : ''}`}
+                                >
+                                    {money(row.forecastVariance)}
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+            {comparison.selectedCategory && (
+                <div id="taxonomy-evidence" className="rounded-lg border">
+                    <div className="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3">
+                        <div>
+                            <h3 className="font-semibold">
+                                Source evidence ·{' '}
+                                {comparison.selectedCategory.name}
+                            </h3>
+                            <p className="text-sm text-muted-foreground">
+                                Up to 200 most recent movements for {year}.
+                            </p>
+                        </div>
+                        <Button variant="outline" size="sm" asChild>
+                            <Link
+                                href={`/finance?year=${year}#taxonomy-comparison`}
+                            >
+                                Clear evidence
+                            </Link>
+                        </Button>
+                    </div>
+                    <div className="max-h-96 overflow-auto">
+                        <table className="w-full min-w-[42rem] text-sm">
+                            <thead className="sticky top-0 bg-background">
+                                <tr className="border-b text-left text-muted-foreground">
+                                    <th className="px-3 py-2">Date</th>
+                                    <th className="px-3 py-2">Reference</th>
+                                    <th className="px-3 py-2">Origin</th>
+                                    <th className="px-3 py-2 text-right">
+                                        Amount
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {comparison.evidence.map((item) => (
+                                    <tr key={item.id} className="border-b">
+                                        <td className="px-3 py-2">
+                                            {date(item.date)}
+                                        </td>
+                                        <td className="px-3 py-2 font-medium">
+                                            {item.href ? (
+                                                <Link
+                                                    href={item.href}
+                                                    className="underline underline-offset-2"
+                                                >
+                                                    {item.reference}
+                                                </Link>
+                                            ) : (
+                                                item.reference
+                                            )}
+                                        </td>
+                                        <td className="px-3 py-2">
+                                            {item.description}
+                                        </td>
+                                        <td className="px-3 py-2 text-right font-medium">
+                                            {money(item.amount)}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                        {comparison.evidence.length === 0 && (
+                            <Empty text="No direct cash evidence for this category. Open the accounting drill-down for posted entries." />
+                        )}
+                    </div>
+                </div>
+            )}
+        </section>
+    );
+}
 function BudgetGovernance({
     year,
     period,
@@ -2989,6 +3166,12 @@ function Total({
             <span>{money(value)}</span>
         </div>
     );
+}
+function taxonomyVarianceIsAdverse(
+    group: FinancialCategory['reportingGroup'],
+    variance: number,
+) {
+    return ['revenue', 'cash_in'].includes(group) ? variance < 0 : variance > 0;
 }
 function ForecastMetric({ label, value }: { label: string; value: string }) {
     return (

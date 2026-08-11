@@ -24,6 +24,8 @@ use App\Models\SalesDocument;
 use App\Models\Supplier;
 use App\Models\SupplierPayment;
 use App\Models\User;
+use App\Services\Accounting\AccountingSynchronizer;
+use App\Services\Finance\FinancialTaxonomyComparison;
 use App\Services\Finance\TreasuryForecast;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -239,6 +241,76 @@ class FinanceTest extends TestCase
             'financial_category_id' => $custom->id,
             'amount' => 100,
         ])->assertSessionHasErrors('financial_category_id');
+    }
+
+    public function test_taxonomy_comparison_reconciles_planning_with_actuals_and_source_documents(): void
+    {
+        $this->travelTo('2026-08-11');
+        $user = User::factory()->create(['role' => 'commercial']);
+        $salesCategory = FinancialCategory::where('code', 'sales_revenue')->firstOrFail();
+        $collectionsCategory = FinancialCategory::where('code', 'customer_collections')->firstOrFail();
+        FinancialBudget::create([
+            'year' => 2026,
+            'month' => 8,
+            'category' => 'revenue',
+            'financial_category_id' => $salesCategory->id,
+            'amount' => 1000,
+            'created_by' => $user->id,
+        ]);
+        FinancialForecastItem::create([
+            'direction' => 'in',
+            'category' => 'customer_collections',
+            'financial_category_id' => $collectionsCategory->id,
+            'description' => 'Expected August collection',
+            'amount' => 500,
+            'baseline_amount' => 500,
+            'due_on' => '2026-08-15',
+            'baseline_due_on' => '2026-08-15',
+            'probability' => 100,
+            'status' => 'planned',
+            'created_by' => $user->id,
+        ]);
+        $sale = SalesDocument::create([
+            'type' => 'invoice',
+            'number' => 'FAC-TAXONOMY-1',
+            'status' => 'partial',
+            'issue_date' => '2026-08-01',
+            'due_date' => '2026-08-31',
+            'issued_at' => now(),
+            'locked_at' => now(),
+            'subtotal' => 800,
+            'discount_amount' => 0,
+            'tax_amount' => 0,
+            'amount' => 800,
+            'paid_amount' => 300,
+            'customer_snapshot' => [],
+        ]);
+        app(AccountingSynchronizer::class)->syncSalesDocument($sale, $user->id);
+        $sale->payments()->create([
+            'created_by' => $user->id,
+            'paid_at' => '2026-08-10',
+            'amount' => 300,
+            'method' => 'bank_transfer',
+        ]);
+
+        $comparison = app(FinancialTaxonomyComparison::class)->build(2026, $collectionsCategory->id);
+        $sales = $comparison['rows']->firstWhere('code', 'sales_revenue');
+        $collections = $comparison['rows']->firstWhere('code', 'customer_collections');
+
+        $this->assertSame(1000.0, $sales['budget']);
+        $this->assertSame(800.0, $sales['actual']);
+        $this->assertSame(-200.0, $sales['budgetVariance']);
+        $this->assertSame(500.0, $collections['forecast']);
+        $this->assertSame(300.0, $collections['actual']);
+        $this->assertSame('/sales/'.$sale->id, $comparison['evidence']->sole()['href']);
+
+        $this->actingAs($user)->get(route('accounting.index', [
+            'year' => 2026,
+            'financial_category' => $salesCategory->id,
+        ]))->assertInertia(fn (Assert $page) => $page
+            ->where('selectedFinancialCategory.code', 'sales_revenue')
+            ->has('entries', 1)
+            ->where('entries.0.source_href', '/sales/'.$sale->id));
     }
 
     public function test_annual_budget_can_be_copied_adjusted_overwritten_and_deleted(): void

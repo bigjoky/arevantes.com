@@ -22,6 +22,7 @@ use App\Models\User;
 use App\Services\Accounting\AccountingSynchronizer;
 use App\Services\Finance\BudgetCsvImporter;
 use App\Services\Finance\FinancialAlertService;
+use App\Services\Finance\FinancialTaxonomyComparison;
 use App\Services\Finance\OutstandingBalanceCalculator;
 use App\Services\Finance\ProjectProfitability;
 use App\Services\Finance\TreasuryForecast;
@@ -45,10 +46,11 @@ class FinanceController extends Controller
         private FinancialAlertService $financialAlerts,
     ) {}
 
-    public function index(Request $request, TreasuryForecast $forecast, ProjectProfitability $profitability): Response
+    public function index(Request $request, TreasuryForecast $forecast, ProjectProfitability $profitability, FinancialTaxonomyComparison $taxonomyComparison): Response
     {
         $year = $this->year($request);
         $scenario = $request->validate(['scenario' => ['nullable', Rule::in(['conservative', 'probable', 'optimistic'])]])['scenario'] ?? 'probable';
+        $taxonomyId = $request->validate(['taxonomy' => ['nullable', 'integer', 'exists:financial_categories,id']])['taxonomy'] ?? null;
         $customerPayments = SalesDocumentPayment::with('document:id,number,person_id,installation_id')->whereYear('paid_at', $year)->get();
         $supplierPayments = SupplierPayment::with(['expense:id,number', 'purchaseDocument:id,number'])->whereYear('paid_at', $year)->get();
         $sales = SalesDocument::whereIn('type', ['invoice', 'credit_note'])->whereNotNull('locked_at')->whereYear('issue_date', $year)->get();
@@ -243,6 +245,7 @@ class FinanceController extends Controller
                     'isActive' => $category->is_active,
                     'usageCount' => $category->budgets_count + $category->forecast_items_count + $category->ledger_accounts_count,
                 ]),
+            'taxonomyComparison' => $taxonomyComparison->build($year, $taxonomyId ? (int) $taxonomyId : null),
             'budgetPeriod' => [
                 'status' => $budgetPeriod?->status ?? 'draft',
                 'currentRevision' => $budgetPeriod?->current_revision ?? 0,

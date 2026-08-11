@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\AccountingPeriod;
 use App\Models\Expense;
 use App\Models\ExpenseCategory;
+use App\Models\FinancialCategory;
 use App\Models\FiscalYear;
 use App\Models\JournalEntry;
 use App\Models\JournalLine;
@@ -12,7 +13,9 @@ use App\Models\LedgerAccount;
 use App\Models\Person;
 use App\Models\PurchaseDocument;
 use App\Models\SalesDocument;
+use App\Models\SalesDocumentPayment;
 use App\Models\Supplier;
+use App\Models\SupplierPayment;
 use App\Models\TaxRate;
 use App\Services\Accounting\AccountingPeriodManager;
 use App\Services\Accounting\AccountingSynchronizer;
@@ -31,7 +34,20 @@ class AccountingController extends Controller
     {
         $year = $request->integer('year', now()->year);
         $month = min(12, max(1, $request->integer('month', $year === now()->year ? now()->month : 12)));
-        $entries = JournalEntry::with(['lines.account:id,code,name', 'reversal:id,reverses_entry_id'])->whereYear('entry_date', $year)->latest('entry_date')->latest('id')->limit(250)->get();
+        $selectedFinancialCategory = $request->filled('financial_category')
+            ? FinancialCategory::findOrFail($request->integer('financial_category'))
+            : null;
+        $entries = JournalEntry::with(['lines.account:id,code,name', 'reversal:id,reverses_entry_id', 'source'])
+            ->whereYear('entry_date', $year)
+            ->when($selectedFinancialCategory, fn ($query) => $query->whereHas('lines.account', fn ($account) => $account->where('financial_category_id', $selectedFinancialCategory->id)))
+            ->latest('entry_date')
+            ->latest('id')
+            ->limit(250)
+            ->get()
+            ->each(function (JournalEntry $entry) {
+                $entry->setAttribute('source_href', $this->journalSourceHref($entry));
+                $entry->unsetRelation('source');
+            });
         $accounts = LedgerAccount::where('is_postable', true)->withSum(['lines as debit' => fn ($query) => $query->whereHas('entry', fn ($entry) => $entry->whereYear('entry_date', $year))], 'debit')->withSum(['lines as credit' => fn ($query) => $query->whereHas('entry', fn ($entry) => $entry->whereYear('entry_date', $year))], 'credit')->orderBy('code')->get()->map(function ($account) {
             $debit = round((float) $account->debit, 2);
             $credit = round((float) $account->credit, 2);
@@ -77,6 +93,7 @@ class AccountingController extends Controller
                 ->values(),
             'periodSummary' => $periods->summary($year, $month),
             'entries' => $entries,
+            'selectedFinancialCategory' => $selectedFinancialCategory?->only(['id', 'code', 'name', 'reporting_group']),
             'accounts' => $accounts,
             'selectedAccount' => $selectedAccount,
             'ledger' => $ledger,
@@ -202,6 +219,19 @@ class AccountingController extends Controller
         })->filter(fn ($row) => $row['outstanding'] != 0 || $row['ledgerBalance'] != 0)->values();
 
         return compact('customers', 'suppliers');
+    }
+
+    private function journalSourceHref(JournalEntry $entry): ?string
+    {
+        return match (true) {
+            $entry->source instanceof SalesDocument => '/sales/'.$entry->source->id,
+            $entry->source instanceof PurchaseDocument => '/purchases/'.$entry->source->id,
+            $entry->source instanceof Expense => '/expenses/'.$entry->source->id,
+            $entry->source instanceof SalesDocumentPayment && $entry->source->sales_document_id => '/sales/'.$entry->source->sales_document_id,
+            $entry->source instanceof SupplierPayment && $entry->source->expense_id => '/expenses/'.$entry->source->expense_id,
+            $entry->source instanceof SupplierPayment && $entry->source->purchase_document_id => '/purchases/'.$entry->source->purchase_document_id,
+            default => null,
+        };
     }
 
     private function partyRow(int $id, string $name, string $code, float $ledgerBalance, $items, string $kind): array
