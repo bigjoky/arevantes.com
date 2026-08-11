@@ -226,6 +226,8 @@ Route::middleware(['auth'])->group(function () {
     Route::get('expenses', [ExpenseController::class, 'index'])->middleware('can:manage-catalog')->name('expenses.index');
     Route::get('finance', [FinanceController::class, 'index'])->middleware('can:view-finance')->name('finance.index');
     Route::post('finance/forecast-items', [FinanceController::class, 'storeForecast'])->middleware('can:manage-treasury')->name('finance.forecast-items.store');
+    Route::post('finance/categories', [FinanceController::class, 'storeFinancialCategory'])->middleware('can:manage-accounting')->name('finance.categories.store');
+    Route::patch('finance/categories/{financialCategory}', [FinanceController::class, 'updateFinancialCategory'])->middleware('can:manage-accounting')->name('finance.categories.update');
     Route::patch('finance/forecast-items/{forecastItem}', [FinanceController::class, 'updateForecast'])->middleware('can:manage-treasury')->name('finance.forecast-items.update');
     Route::delete('finance/forecast-items/{forecastItem}', [FinanceController::class, 'destroyForecast'])->middleware('can:manage-treasury')->name('finance.forecast-items.destroy');
     Route::post('finance/budgets', [FinanceController::class, 'storeBudget'])->middleware('can:manage-treasury')->name('finance.budgets.store');

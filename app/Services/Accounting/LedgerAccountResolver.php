@@ -45,6 +45,7 @@ class LedgerAccountResolver
             'is_postable' => true,
             'is_active' => true,
             'source' => 'custom',
+            'financial_category_id' => $parent->financial_category_id,
         ]);
     }
 }

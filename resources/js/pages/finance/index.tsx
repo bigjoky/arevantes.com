@@ -16,6 +16,7 @@ import {
     Wallet,
     WalletCards,
 } from 'lucide-react';
+import { useState } from 'react';
 import {
     Bar,
     BarChart,
@@ -153,6 +154,15 @@ type TreasuryWeek = {
     closing: number;
     events: TreasuryEvent[];
 };
+type TreasuryDay = {
+    date: string;
+    label: string;
+    opening: number;
+    in: number;
+    out: number;
+    closing: number;
+    maturities: number;
+};
 type TreasuryEvent = {
     date: string;
     direction: 'in' | 'out';
@@ -173,6 +183,12 @@ type ForecastItem = {
     id: number;
     direction: 'in' | 'out';
     category: string;
+    financial_category: {
+        id: number;
+        code: string;
+        name: string;
+        reporting_group: string;
+    } | null;
     description: string;
     amount: string;
     baseline_amount: string | null;
@@ -190,6 +206,13 @@ type Budget = {
     id: number;
     month: number;
     category: string;
+    financial_category_id: number | null;
+    financial_category: {
+        id: number;
+        code: string;
+        name: string;
+        reporting_group: string;
+    } | null;
     amount: string;
 };
 type BudgetAlert = {
@@ -234,6 +257,41 @@ type PaymentBatch = {
     }[];
 };
 type FinanceUser = { id: number; name: string };
+type FinancialCategory = {
+    id: number;
+    code: string;
+    name: string;
+    reportingGroup: 'revenue' | 'costs' | 'cash_in' | 'cash_out';
+};
+type FinancialTaxonomyItem = FinancialCategory & {
+    isSystem: boolean;
+    isActive: boolean;
+    usageCount: number;
+};
+type TaxonomyComparison = {
+    rows: {
+        id: number;
+        code: string;
+        name: string;
+        reportingGroup: FinancialCategory['reportingGroup'];
+        isActive: boolean;
+        budget: number;
+        forecast: number;
+        actual: number;
+        budgetVariance: number;
+        forecastVariance: number;
+        actualHref: string;
+    }[];
+    selectedCategory: FinancialCategory | null;
+    evidence: {
+        id: string;
+        date: string;
+        reference: string;
+        description: string;
+        amount: number;
+        href: string | null;
+    }[];
+};
 type BankPosition = {
     id: number;
     name: string;
@@ -271,6 +329,9 @@ export default function FinanceIndex({
     bankPosition,
     bankAccounts,
     financeUsers,
+    financialCategories,
+    financialTaxonomy,
+    taxonomyComparison,
     can,
 }: {
     year: number;
@@ -299,6 +360,7 @@ export default function FinanceIndex({
         baseCurrency: string;
         openingBalance: number;
         lowestBalance: number;
+        lowestBalanceOn: string;
         closingBalance: number;
         openingSources: {
             id: number;
@@ -312,6 +374,7 @@ export default function FinanceIndex({
             balance: number;
             accounts: number;
         }[];
+        days: TreasuryDay[];
         weeks: TreasuryWeek[];
     };
     forecastItems: ForecastItem[];
@@ -363,6 +426,9 @@ export default function FinanceIndex({
     bankPosition: BankPosition[];
     bankAccounts: { id: number; name: string; iban: string | null }[];
     financeUsers: FinanceUser[];
+    financialCategories: FinancialCategory[];
+    financialTaxonomy: FinancialTaxonomyItem[];
+    taxonomyComparison: TaxonomyComparison;
     can: {
         manageTreasury: boolean;
         manageAccounting: boolean;
@@ -797,7 +863,7 @@ export default function FinanceIndex({
                                 value={treasuryForecast.openingBalance}
                             />
                             <Total
-                                label="Lowest balance"
+                                label={`Lowest balance · ${date(treasuryForecast.lowestBalanceOn)}`}
                                 value={treasuryForecast.lowestBalance}
                             />
                             <Total
@@ -870,6 +936,68 @@ export default function FinanceIndex({
                                 </div>
                             )}
                         </div>
+                        <details className="rounded-md border">
+                            <summary className="cursor-pointer px-3 py-2 text-sm font-medium">
+                                Daily liquidity and maturities · 13 weeks
+                            </summary>
+                            <div className="max-h-[28rem] overflow-auto border-t">
+                                <table className="w-full min-w-[44rem] text-sm">
+                                    <thead className="sticky top-0 bg-background">
+                                        <tr className="border-b text-left text-muted-foreground">
+                                            <th className="px-3 py-2">Date</th>
+                                            <th className="px-3 py-2 text-right">
+                                                Opening
+                                            </th>
+                                            <th className="px-3 py-2 text-right">
+                                                Due in
+                                            </th>
+                                            <th className="px-3 py-2 text-right">
+                                                Due out
+                                            </th>
+                                            <th className="px-3 py-2 text-right">
+                                                Closing
+                                            </th>
+                                            <th className="px-3 py-2 text-right">
+                                                Maturities
+                                            </th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {treasuryForecast.days.map((day) => (
+                                            <tr
+                                                key={day.date}
+                                                className={`border-b ${day.closing < 0 ? 'bg-destructive/5' : ''}`}
+                                            >
+                                                <td className="px-3 py-2 font-medium">
+                                                    {day.label}
+                                                </td>
+                                                <td className="px-3 py-2 text-right">
+                                                    {money(day.opening)}
+                                                </td>
+                                                <td className="px-3 py-2 text-right text-green-700 dark:text-green-400">
+                                                    {day.in > 0
+                                                        ? `+${money(day.in)}`
+                                                        : '—'}
+                                                </td>
+                                                <td className="px-3 py-2 text-right">
+                                                    {day.out > 0
+                                                        ? `−${money(day.out)}`
+                                                        : '—'}
+                                                </td>
+                                                <td
+                                                    className={`px-3 py-2 text-right font-semibold ${day.closing < 0 ? 'text-destructive' : ''}`}
+                                                >
+                                                    {money(day.closing)}
+                                                </td>
+                                                <td className="px-3 py-2 text-right">
+                                                    {day.maturities || '—'}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </details>
                         <div className="overflow-x-auto rounded-md border">
                             <table className="w-full min-w-[58rem] text-sm">
                                 <thead>
@@ -944,7 +1072,7 @@ export default function FinanceIndex({
                     <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
                         <div>
                             <h2 className="font-semibold">
-                                Daily bank position
+                                Bank position by account
                             </h2>
                             <p className="text-sm text-muted-foreground">
                                 Current balance, pending reconciliation and
@@ -1236,6 +1364,7 @@ export default function FinanceIndex({
                                     cashFlow={cashFlow}
                                     alertSettings={alertSettings}
                                     alertCount={budgetAlerts.length}
+                                    financialCategories={financialCategories}
                                 />
                             )}
                     </div>
@@ -1246,7 +1375,11 @@ export default function FinanceIndex({
                                 Planned treasury items
                             </h2>
                         </div>
-                        {can.manageTreasury && <ForecastForm />}
+                        {can.manageTreasury && (
+                            <ForecastForm
+                                financialCategories={financialCategories}
+                            />
+                        )}
                         {forecastAccuracy.settledCount > 0 && (
                             <div className="mt-4 grid grid-cols-2 border-y text-sm sm:grid-cols-4">
                                 <ForecastMetric
@@ -1292,7 +1425,9 @@ export default function FinanceIndex({
                                             <div className="text-xs text-muted-foreground">
                                                 {date(item.due_on)} ·{' '}
                                                 {item.probability}% ·{' '}
-                                                {item.status}
+                                                {item.status} ·{' '}
+                                                {item.financial_category
+                                                    ?.name ?? item.category}
                                             </div>
                                         </div>
                                         <div className="flex items-center gap-2">
@@ -1405,6 +1540,14 @@ export default function FinanceIndex({
                         </div>
                     </div>
                 </section>
+                <FinancialTaxonomyPanel
+                    items={financialTaxonomy}
+                    canManage={can.manageAccounting}
+                />
+                <TaxonomyComparisonPanel
+                    year={year}
+                    comparison={taxonomyComparison}
+                />
                 <section>
                     <div className="mb-3 flex items-center gap-2">
                         <CircleAlert className="size-4 text-muted-foreground" />
@@ -2171,7 +2314,17 @@ function PaymentPlanForm({
         </details>
     );
 }
-function ForecastForm() {
+function ForecastForm({
+    financialCategories,
+}: {
+    financialCategories: FinancialCategory[];
+}) {
+    const [direction, setDirection] = useState<'in' | 'out'>('out');
+    const reportingGroup = direction === 'in' ? 'cash_in' : 'cash_out';
+    const categories = financialCategories.filter(
+        (category) => category.reportingGroup === reportingGroup,
+    );
+
     return (
         <Form
             action="/finance/forecast-items"
@@ -2186,14 +2339,29 @@ function ForecastForm() {
                     required
                 />
             </Field>
-            <Field label="Category">
-                <Input name="category" placeholder="Payroll" required />
+            <Field label="Financial category">
+                <select
+                    key={reportingGroup}
+                    name="financial_category_id"
+                    className={nativeSelectClass}
+                    defaultValue={categories[0]?.id}
+                    required
+                >
+                    {categories.map((category) => (
+                        <option key={category.id} value={category.id}>
+                            {category.name}
+                        </option>
+                    ))}
+                </select>
             </Field>
             <Field label="Direction">
                 <select
                     name="direction"
                     className={nativeSelectClass}
-                    defaultValue="out"
+                    value={direction}
+                    onChange={(event) =>
+                        setDirection(event.target.value as 'in' | 'out')
+                    }
                 >
                     <option value="in">Incoming</option>
                     <option value="out">Outgoing</option>
@@ -2238,6 +2406,296 @@ function ForecastForm() {
                 <Plus /> Add forecast item
             </Button>
         </Form>
+    );
+}
+function FinancialTaxonomyPanel({
+    items,
+    canManage,
+}: {
+    items: FinancialTaxonomyItem[];
+    canManage: boolean;
+}) {
+    return (
+        <details className="rounded-lg border">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3">
+                <div>
+                    <div className="font-semibold">Financial taxonomy</div>
+                    <div className="text-sm text-muted-foreground">
+                        {items.filter((item) => item.isActive).length} active
+                        categories shared by budget, forecast and accounting.
+                    </div>
+                </div>
+                <Badge variant="outline">{items.length} categories</Badge>
+            </summary>
+            <div className="grid gap-5 border-t p-4 lg:grid-cols-[1fr_1.4fr]">
+                <div className="overflow-x-auto rounded-md border">
+                    <table className="w-full min-w-[34rem] text-sm">
+                        <thead>
+                            <tr className="border-b bg-muted/40 text-left text-muted-foreground">
+                                <th className="px-3 py-2">Category</th>
+                                <th className="px-3 py-2">Group</th>
+                                <th className="px-3 py-2 text-right">Usage</th>
+                                <th className="px-3 py-2 text-right">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {items.map((item) => (
+                                <tr
+                                    key={item.id}
+                                    className="border-b last:border-0"
+                                >
+                                    <td className="px-3 py-2">
+                                        <div className="font-medium">
+                                            {item.name}
+                                        </div>
+                                        <div className="font-mono text-xs text-muted-foreground">
+                                            {item.code}
+                                        </div>
+                                    </td>
+                                    <td className="px-3 py-2 capitalize">
+                                        {item.reportingGroup.replace('_', ' ')}
+                                    </td>
+                                    <td className="px-3 py-2 text-right">
+                                        {item.usageCount}
+                                    </td>
+                                    <td className="px-3 py-2 text-right">
+                                        {canManage && !item.isSystem ? (
+                                            <Form
+                                                action={`/finance/categories/${item.id}`}
+                                                method="patch"
+                                            >
+                                                <input
+                                                    type="hidden"
+                                                    name="name"
+                                                    value={item.name}
+                                                />
+                                                <input
+                                                    type="hidden"
+                                                    name="is_active"
+                                                    value={
+                                                        item.isActive
+                                                            ? '0'
+                                                            : '1'
+                                                    }
+                                                />
+                                                <Button
+                                                    size="sm"
+                                                    variant="ghost"
+                                                >
+                                                    {item.isActive
+                                                        ? 'Deactivate'
+                                                        : 'Activate'}
+                                                </Button>
+                                            </Form>
+                                        ) : (
+                                            <Badge
+                                                variant={
+                                                    item.isActive
+                                                        ? 'outline'
+                                                        : 'secondary'
+                                                }
+                                            >
+                                                {item.isSystem
+                                                    ? 'System'
+                                                    : 'Inactive'}
+                                            </Badge>
+                                        )}
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+                {canManage && (
+                    <Form
+                        action="/finance/categories"
+                        method="post"
+                        resetOnSuccess
+                        className="grid content-start gap-3 sm:grid-cols-2"
+                    >
+                        <Field label="Name">
+                            <Input name="name" maxLength={255} required />
+                        </Field>
+                        <Field label="Stable code">
+                            <Input
+                                name="code"
+                                pattern="[a-z][a-z0-9_]{2,59}"
+                                placeholder="vehicle_fleet_costs"
+                                maxLength={60}
+                                required
+                            />
+                        </Field>
+                        <Field label="Reporting group">
+                            <select
+                                name="reporting_group"
+                                className={nativeSelectClass}
+                            >
+                                <option value="revenue">Revenue</option>
+                                <option value="costs">Costs</option>
+                                <option value="cash_in">Cash in</option>
+                                <option value="cash_out">Cash out</option>
+                            </select>
+                        </Field>
+                        <div className="flex items-end">
+                            <Button className="w-full">
+                                <Plus /> Create category
+                            </Button>
+                        </div>
+                        <p className="text-xs text-muted-foreground sm:col-span-2">
+                            Codes are immutable. Deactivation preserves all
+                            historical links.
+                        </p>
+                    </Form>
+                )}
+            </div>
+        </details>
+    );
+}
+function TaxonomyComparisonPanel({
+    year,
+    comparison,
+}: {
+    year: number;
+    comparison: TaxonomyComparison;
+}) {
+    return (
+        <section className="space-y-4" id="taxonomy-comparison">
+            <div>
+                <h2 className="font-semibold">
+                    Actual vs budget vs forecast by taxonomy
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                    Accounting actuals and cash movements use the same stable
+                    categories as financial planning.
+                </p>
+            </div>
+            <div className="overflow-x-auto rounded-lg border">
+                <table className="w-full min-w-[64rem] text-sm">
+                    <thead>
+                        <tr className="border-b bg-muted/40 text-left text-muted-foreground">
+                            <th className="px-3 py-2">Category</th>
+                            <th className="px-3 py-2">Group</th>
+                            <th className="px-3 py-2 text-right">Budget</th>
+                            <th className="px-3 py-2 text-right">Forecast</th>
+                            <th className="px-3 py-2 text-right">Actual</th>
+                            <th className="px-3 py-2 text-right">
+                                Actual − budget
+                            </th>
+                            <th className="px-3 py-2 text-right">
+                                Actual − forecast
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {comparison.rows.map((row) => (
+                            <tr key={row.id} className="border-b last:border-0">
+                                <td className="px-3 py-2">
+                                    <div className="font-medium">
+                                        {row.name}
+                                    </div>
+                                    <div className="font-mono text-xs text-muted-foreground">
+                                        {row.code}
+                                    </div>
+                                </td>
+                                <td className="px-3 py-2 capitalize">
+                                    {row.reportingGroup.replace('_', ' ')}
+                                </td>
+                                <td className="px-3 py-2 text-right">
+                                    {money(row.budget)}
+                                </td>
+                                <td className="px-3 py-2 text-right">
+                                    {money(row.forecast)}
+                                </td>
+                                <td className="px-3 py-2 text-right font-semibold">
+                                    <Link
+                                        href={row.actualHref}
+                                        className="underline underline-offset-2"
+                                    >
+                                        {money(row.actual)}
+                                    </Link>
+                                </td>
+                                <td
+                                    className={`px-3 py-2 text-right ${taxonomyVarianceIsAdverse(row.reportingGroup, row.budgetVariance) ? 'text-destructive' : ''}`}
+                                >
+                                    {money(row.budgetVariance)}
+                                </td>
+                                <td
+                                    className={`px-3 py-2 text-right ${taxonomyVarianceIsAdverse(row.reportingGroup, row.forecastVariance) ? 'text-destructive' : ''}`}
+                                >
+                                    {money(row.forecastVariance)}
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+            {comparison.selectedCategory && (
+                <div id="taxonomy-evidence" className="rounded-lg border">
+                    <div className="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3">
+                        <div>
+                            <h3 className="font-semibold">
+                                Source evidence ·{' '}
+                                {comparison.selectedCategory.name}
+                            </h3>
+                            <p className="text-sm text-muted-foreground">
+                                Up to 200 most recent movements for {year}.
+                            </p>
+                        </div>
+                        <Button variant="outline" size="sm" asChild>
+                            <Link
+                                href={`/finance?year=${year}#taxonomy-comparison`}
+                            >
+                                Clear evidence
+                            </Link>
+                        </Button>
+                    </div>
+                    <div className="max-h-96 overflow-auto">
+                        <table className="w-full min-w-[42rem] text-sm">
+                            <thead className="sticky top-0 bg-background">
+                                <tr className="border-b text-left text-muted-foreground">
+                                    <th className="px-3 py-2">Date</th>
+                                    <th className="px-3 py-2">Reference</th>
+                                    <th className="px-3 py-2">Origin</th>
+                                    <th className="px-3 py-2 text-right">
+                                        Amount
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {comparison.evidence.map((item) => (
+                                    <tr key={item.id} className="border-b">
+                                        <td className="px-3 py-2">
+                                            {date(item.date)}
+                                        </td>
+                                        <td className="px-3 py-2 font-medium">
+                                            {item.href ? (
+                                                <Link
+                                                    href={item.href}
+                                                    className="underline underline-offset-2"
+                                                >
+                                                    {item.reference}
+                                                </Link>
+                                            ) : (
+                                                item.reference
+                                            )}
+                                        </td>
+                                        <td className="px-3 py-2">
+                                            {item.description}
+                                        </td>
+                                        <td className="px-3 py-2 text-right font-medium">
+                                            {money(item.amount)}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                        {comparison.evidence.length === 0 && (
+                            <Empty text="No direct cash evidence for this category. Open the accounting drill-down for posted entries." />
+                        )}
+                    </div>
+                </div>
+            )}
+        </section>
     );
 }
 function BudgetGovernance({
@@ -2379,6 +2837,7 @@ function BudgetForm({
     cashFlow,
     alertSettings,
     alertCount,
+    financialCategories,
 }: {
     year: number;
     budgets: Budget[];
@@ -2390,13 +2849,20 @@ function BudgetForm({
         liquidityBufferAmount: number;
     };
     alertCount: number;
+    financialCategories: FinancialCategory[];
 }) {
+    const [reportingGroup, setReportingGroup] =
+        useState<FinancialCategory['reportingGroup']>('revenue');
+    const categories = financialCategories.filter(
+        (category) => category.reportingGroup === reportingGroup,
+    );
+
     return (
         <div className="mt-4 space-y-3 border-y py-3">
             <Form
                 action="/finance/budgets"
                 method="post"
-                className="grid gap-3 sm:grid-cols-4"
+                className="grid gap-3 sm:grid-cols-5"
             >
                 <input type="hidden" name="year" value={year} />
                 <Field label="Month">
@@ -2419,12 +2885,33 @@ function BudgetForm({
                     <select
                         name="category"
                         className={nativeSelectClass}
-                        defaultValue="revenue"
+                        value={reportingGroup}
+                        onChange={(event) =>
+                            setReportingGroup(
+                                event.target
+                                    .value as FinancialCategory['reportingGroup'],
+                            )
+                        }
                     >
                         <option value="revenue">Revenue</option>
                         <option value="costs">Costs</option>
                         <option value="cash_in">Cash in</option>
                         <option value="cash_out">Cash out</option>
+                    </select>
+                </Field>
+                <Field label="Financial category">
+                    <select
+                        key={reportingGroup}
+                        name="financial_category_id"
+                        className={nativeSelectClass}
+                        defaultValue={categories[0]?.id}
+                        required
+                    >
+                        {categories.map((category) => (
+                            <option key={category.id} value={category.id}>
+                                {category.name}
+                            </option>
+                        ))}
                     </select>
                 </Field>
                 <Field label="Amount">
@@ -2679,6 +3166,12 @@ function Total({
             <span>{money(value)}</span>
         </div>
     );
+}
+function taxonomyVarianceIsAdverse(
+    group: FinancialCategory['reportingGroup'],
+    variance: number,
+) {
+    return ['revenue', 'cash_in'].includes(group) ? variance < 0 : variance > 0;
 }
 function ForecastMetric({ label, value }: { label: string; value: string }) {
     return (

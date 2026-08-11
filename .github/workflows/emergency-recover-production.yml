@@ -1,10 +1,10 @@
-name: emergency recover production schema
+name: "legacy: emergency recover shared hosting"
 
 on:
   workflow_dispatch:
     inputs:
       confirmation:
-        description: 'Write RECOVER to repair the production schema'
+        description: 'Write RECOVER_LEGACY to repair the retired shared-hosting schema'
         required: true
 
 permissions:
@@ -22,7 +22,7 @@ jobs:
 
     steps:
       - name: Confirm production recovery
-        if: ${{ inputs.confirmation != 'RECOVER' }}
+        if: ${{ inputs.confirmation != 'RECOVER_LEGACY' }}
         run: exit 1
 
       - name: Checkout hotfix

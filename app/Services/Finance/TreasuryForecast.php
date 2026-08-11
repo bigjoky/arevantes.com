@@ -81,6 +81,29 @@ class TreasuryForecast
                 }
             });
 
+        $dailyRunning = $opening;
+        $days = collect(range(0, 90))->map(function (int $offset) use ($start, $events, &$dailyRunning) {
+            $date = $start->addDays($offset);
+            $dayEvents = $events
+                ->filter(fn (array $event) => $event['date']->isSameDay($date))
+                ->sortBy(fn (array $event) => [$event['direction'] === 'out' ? 0 : 1, $event['label']]);
+            $in = round((float) $dayEvents->where('direction', 'in')->sum('amount'), 2);
+            $out = round((float) $dayEvents->where('direction', 'out')->sum('amount'), 2);
+            $openingBalance = $dailyRunning;
+            $dailyRunning = round($dailyRunning + $in - $out, 2);
+
+            return [
+                'date' => $date->toDateString(),
+                'label' => $date->translatedFormat('D d M'),
+                'opening' => $openingBalance,
+                'in' => $in,
+                'out' => $out,
+                'closing' => $dailyRunning,
+                'maturities' => $dayEvents->count(),
+            ];
+        });
+        $lowestDay = $days->sortBy('closing')->first();
+
         $running = $opening;
         $weeks = collect(range(0, 12))->map(function (int $offset) use ($start, $events, &$running) {
             $from = $start->addWeeks($offset);
@@ -109,8 +132,10 @@ class TreasuryForecast
             'openingBalance' => $opening,
             'openingSources' => $openingSources,
             'excludedCurrencyBalances' => $excludedCurrencyBalances,
-            'lowestBalance' => round((float) $weeks->min('closing'), 2),
+            'lowestBalance' => round((float) $lowestDay['closing'], 2),
+            'lowestBalanceOn' => $lowestDay['date'],
             'closingBalance' => round((float) $weeks->last()['closing'], 2),
+            'days' => $days,
             'weeks' => $weeks,
         ];
     }

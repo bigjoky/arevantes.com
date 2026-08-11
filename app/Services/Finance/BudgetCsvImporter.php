@@ -3,6 +3,7 @@
 namespace App\Services\Finance;
 
 use App\Models\FinancialBudget;
+use App\Models\FinancialCategory;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -16,21 +17,30 @@ class BudgetCsvImporter
         $rows = $this->read($path, $year);
 
         return DB::transaction(function () use ($rows, $overwrite, $userId) {
+            $defaultCodes = ['revenue' => 'sales_revenue', 'costs' => 'operating_costs', 'cash_in' => 'customer_collections', 'cash_out' => 'supplier_payments'];
+            $categoryIds = FinancialCategory::active()->pluck('id', 'code');
             $imported = 0;
             $skipped = 0;
 
             foreach ($rows as $row) {
-                $budget = FinancialBudget::firstOrNew([
+                $taxonomyId = $categoryIds[$row['taxonomy_code'] ?: $defaultCodes[$row['category']]];
+                $budget = FinancialBudget::query()->where([
                     'year' => $row['year'],
                     'month' => $row['month'],
                     'category' => $row['category'],
-                ]);
+                ])->where(fn ($query) => $query->where('financial_category_id', $taxonomyId)->orWhereNull('financial_category_id'))->first()
+                    ?? new FinancialBudget([
+                        'year' => $row['year'],
+                        'month' => $row['month'],
+                        'category' => $row['category'],
+                    ]);
                 if ($budget->exists && ! $overwrite) {
                     $skipped++;
 
                     continue;
                 }
                 $budget->fill([
+                    'financial_category_id' => $taxonomyId,
                     'amount' => $row['amount'],
                     'notes' => $row['notes'],
                     'created_by' => $userId,
@@ -42,7 +52,7 @@ class BudgetCsvImporter
         });
     }
 
-    /** @return array<int, array{year: int, month: int, category: string, amount: float, notes: ?string}> */
+    /** @return array<int, array{year: int, month: int, category: string, taxonomy_code: ?string, amount: float, notes: ?string}> */
     private function read(string $path, int $expectedYear): array
     {
         $handle = fopen($path, 'r');
@@ -71,6 +81,7 @@ class BudgetCsvImporter
 
             $rows = [];
             $seen = [];
+            $financialCategories = FinancialCategory::active()->get(['code', 'reporting_group'])->keyBy('code');
             $line = 1;
             while (($values = fgetcsv($handle, 0, $delimiter, '"', '')) !== false) {
                 $line++;
@@ -84,6 +95,7 @@ class BudgetCsvImporter
                 $rowYear = filter_var($this->value($values, $indexes, 'year'), FILTER_VALIDATE_INT);
                 $month = filter_var($this->value($values, $indexes, 'month'), FILTER_VALIDATE_INT);
                 $category = strtolower(trim($this->value($values, $indexes, 'category')));
+                $taxonomyCode = strtolower(trim($this->value($values, $indexes, 'taxonomy_code')));
                 $amount = $this->amount($this->value($values, $indexes, 'amount'));
                 $notes = trim($this->value($values, $indexes, 'notes'));
 
@@ -96,6 +108,9 @@ class BudgetCsvImporter
                 if (! in_array($category, self::CATEGORIES, true)) {
                     throw $this->lineError($line, __('Unknown category: :category.', ['category' => $category]));
                 }
+                if ($taxonomyCode !== '' && $financialCategories->get($taxonomyCode)?->reporting_group !== $category) {
+                    throw $this->lineError($line, __('Unknown or incompatible taxonomy code: :category.', ['category' => $taxonomyCode]));
+                }
                 if ($amount === null || $amount < 0 || $amount > 999999999999.99) {
                     throw $this->lineError($line, __('Amount must be a non-negative numeric value.'));
                 }
@@ -103,7 +118,7 @@ class BudgetCsvImporter
                     throw $this->lineError($line, __('Notes cannot exceed 1000 characters.'));
                 }
 
-                $key = $rowYear.'-'.$month.'-'.$category;
+                $key = $rowYear.'-'.$month.'-'.$category.'-'.$taxonomyCode;
                 if (isset($seen[$key])) {
                     throw $this->lineError($line, __('The month and category are duplicated in the file.'));
                 }
@@ -112,6 +127,7 @@ class BudgetCsvImporter
                     'year' => $rowYear,
                     'month' => $month,
                     'category' => $category,
+                    'taxonomy_code' => $taxonomyCode !== '' ? $taxonomyCode : null,
                     'amount' => round($amount, 2),
                     'notes' => $notes !== '' ? $notes : null,
                 ];

@@ -1,40 +1,92 @@
-# Despliegue en Laravel Cloud
+# Publicación de Arevantes en Laravel Cloud
 
-Laravel Cloud es el destino de los nuevos despliegues. El workflow SSH de GitHub se conserva temporalmente como mecanismo de recuperación mientras se valida Cloud y se migra la producción actual.
+## Destino de producción
 
-## Estrategia de transición
+- Organización: `Joaquin`
+- Aplicación: `Arevantes`
+- Entorno: `production`
+- Rama desplegada: `main`
+- Región: `eu-central-1`
+- URL técnica: `https://arevantes-production-qb0eq7.laravel.cloud`
 
-1. Crear un entorno `staging` en una región de la UE con PostgreSQL 18 de desarrollo.
-2. Configurar variables, workers, scheduler y endpoint `/up`.
-3. Ejecutar migraciones y pruebas de humo sin datos de producción.
-4. Migrar adjuntos al bucket privado S3-compatible de Laravel Cloud.
-5. Ensayar la migración de SQLite a PostgreSQL y reconciliar recuentos e importes.
-6. Crear el entorno `production`, importar los datos, validar y cambiar el dominio.
-7. Retirar el despliegue SSH cuando haya pasado el periodo de observación.
+Los identificadores públicos del destino están versionados en `.cloud/config.json`. Las claves API,
+variables de entorno y credenciales nunca se guardan en el repositorio.
 
-## Requisitos antes del corte de producción
+## Flujo de publicación
 
-- Configurar `PRIVATE_FILESYSTEM_DISK=s3` para documentos que deban sobrevivir a un despliegue.
-- Verificar las copias gestionadas de PostgreSQL y realizar una restauración de prueba.
-- Mantener `APP_DEBUG=false` y generar un `APP_KEY` exclusivo por entorno.
-- Ejecutar la cola como proceso persistente y el scheduler mediante Laravel Cloud.
-- Validar autenticación, CRM, generación de presupuestos, subida y descarga de adjuntos, correo y `/up`.
-- Comparar por tabla los recuentos y totales financieros entre SQLite y PostgreSQL.
+1. Integrar mediante pull request los cambios verificados de `develop` en `main`.
+2. Crear la etiqueta de versión correspondiente.
+3. Laravel Cloud inicia automáticamente el despliegue de `main` en `production` mediante Push to
+   Deploy.
+4. Monitorizar el despliegue desde Laravel Cloud o con el CLI:
 
-## Operación
+   ```bash
+   cloud deploy:monitor Arevantes production -n
+   ```
 
-Todos los comandos de Laravel Cloud se ejecutan de forma no interactiva y los despliegues se monitorizan hasta obtener un estado terminal. Un despliegue no se considera completado únicamente porque el código se haya enviado.
+5. Confirmar que la versión publicada coincide con el commit de `main` y comprobar:
 
-La organización del proyecto queda fijada en `.cloud/config.json`. Los secretos y variables de entorno nunca se guardan en Git.
+   ```bash
+   curl --fail --show-error --silent https://arevantes-production-qb0eq7.laravel.cloud/up
+   curl --fail --show-error --silent https://arevantes-production-qb0eq7.laravel.cloud/login >/dev/null
+   ```
 
-## Almacenamiento privado
+## Despliegue manual controlado
 
-El bucket `arevantes-production-private` está en `eu-central-1`, bajo jurisdicción UE, con visibilidad privada. Facturas, justificantes fiscales, documentos laborales, partes, firmas y fuentes de conocimiento se sirven siempre mediante controladores autenticados.
+Si Push to Deploy no inicia el despliegue, se puede lanzar manualmente desde una copia limpia de
+`main`:
 
-Antes de activar el bucket en un entorno con archivos locales, ejecutar:
+```bash
+cloud deploy Arevantes production -n
+cloud deploy:monitor Arevantes production -n
+```
+
+Nunca se considera terminada una publicación hasta que el monitor indique éxito y las comprobaciones
+HTTP respondan correctamente.
+
+## Configuración actual
+
+Laravel Cloud ejecuta estas fases:
+
+```bash
+composer install --no-dev --prefer-dist --optimize-autoloader --no-interaction
+npm ci
+npm run build
+php artisan optimize
+```
+
+Después del build ejecuta las migraciones con `php artisan migrate --force`. Cualquier cambio en estos
+comandos, variables, dominio, base de datos o caché debe revisarse primero en el entorno y documentarse
+en la misma pull request.
+
+## Persistencia y almacenamiento privado
+
+- La base de datos de producción usa PostgreSQL.
+- Los documentos privados se almacenan mediante `PRIVATE_FILESYSTEM_DISK=s3` en el bucket privado
+  `arevantes-production-private`, ubicado en `eu-central-1`.
+- Facturas, justificantes fiscales, documentos laborales, partes, firmas y fuentes de conocimiento
+  se sirven siempre mediante controladores autenticados.
+
+Antes de activar el bucket en un entorno que todavía conserve archivos locales, ejecutar:
 
 ```bash
 php artisan storage:migrate-private local s3
 ```
 
-El comando copia sin borrar el origen, omite objetos idénticos y verifica SHA-256 después de cada escritura. Solo después de una migración correcta se configura `PRIVATE_FILESYSTEM_DISK=s3`.
+El comando copia sin borrar el origen, omite objetos idénticos y verifica SHA-256 después de cada
+escritura. Solo después de una migración correcta se configura `PRIVATE_FILESYSTEM_DISK=s3`.
+
+## Controles de producción
+
+- Mantener `APP_DEBUG=false` y un `APP_KEY` exclusivo para el entorno.
+- Verificar periódicamente las copias de PostgreSQL y realizar pruebas de restauración.
+- Ejecutar las colas como procesos persistentes y el scheduler mediante Laravel Cloud.
+- Validar autenticación, CRM, finanzas, documentos privados, correo y `/up` después de cambios de
+  infraestructura.
+
+## Recuperación
+
+El workflow SSH heredado no forma parte del flujo de publicación. La recuperación debe priorizar el
+historial de despliegues de Laravel Cloud. Mientras siga existiendo el alojamiento anterior, su
+procedimiento queda documentado en [`deployment-github.md`](deployment-github.md) únicamente como
+referencia temporal.
