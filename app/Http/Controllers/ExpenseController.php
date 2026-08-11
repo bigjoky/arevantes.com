@@ -59,7 +59,7 @@ class ExpenseController extends Controller
             $amount = round((float) $data['subtotal'] + (float) $data['tax_amount'], 2);
             $expense = Expense::create([...$data, 'created_by' => $request->user()->id, 'number' => $number, 'amount' => $amount, 'status' => 'pending']);
             foreach ($files as $file) {
-                $path = $file->store("expenses/{$expense->id}", 'local');
+                $path = $file->store("expenses/{$expense->id}", config('filesystems.private'));
                 $expense->attachments()->create(['uploaded_by' => $request->user()->id, 'original_name' => $file->getClientOriginalName(), 'path' => $path, 'mime_type' => $file->getMimeType() ?: 'application/octet-stream', 'size' => $file->getSize()]);
             }
             $accounting->syncExpense($expense, $request->user()->id);
@@ -75,7 +75,7 @@ class ExpenseController extends Controller
         abort_if($expense->payments()->exists(), 422, __('Expenses with payments cannot be deleted.'));
         abort_if($expense->accountingEntry()->exists(), 422, __('Posted expenses cannot be deleted. Reverse the accounting entry first.'));
         foreach ($expense->attachments as $attachment) {
-            Storage::disk('local')->delete($attachment->path);
+            Storage::disk(config('filesystems.private'))->delete($attachment->path);
         }
         $expense->delete();
 
@@ -84,15 +84,15 @@ class ExpenseController extends Controller
 
     public function download(Expense $expense, ExpenseAttachment $attachment): StreamedResponse
     {
-        abort_unless($attachment->expense_id === $expense->id && Storage::disk('local')->exists($attachment->path), 404);
+        abort_unless($attachment->expense_id === $expense->id && Storage::disk(config('filesystems.private'))->exists($attachment->path), 404);
 
-        return Storage::disk('local')->download($attachment->path, $attachment->original_name, ['Content-Type' => $attachment->mime_type]);
+        return Storage::disk(config('filesystems.private'))->download($attachment->path, $attachment->original_name, ['Content-Type' => $attachment->mime_type]);
     }
 
     public function destroyAttachment(Expense $expense, ExpenseAttachment $attachment): RedirectResponse
     {
         abort_unless($attachment->expense_id === $expense->id, 404);
-        Storage::disk('local')->delete($attachment->path);
+        Storage::disk(config('filesystems.private'))->delete($attachment->path);
         $attachment->delete();
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Attachment deleted.')]);

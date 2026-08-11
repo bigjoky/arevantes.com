@@ -59,6 +59,31 @@ Después del build ejecuta las migraciones con `php artisan migrate --force`. Cu
 comandos, variables, dominio, base de datos o caché debe revisarse primero en el entorno y documentarse
 en la misma pull request.
 
+## Persistencia y almacenamiento privado
+
+- La base de datos de producción usa PostgreSQL.
+- Los documentos privados se almacenan mediante `PRIVATE_FILESYSTEM_DISK=s3` en el bucket privado
+  `arevantes-production-private`, ubicado en `eu-central-1`.
+- Facturas, justificantes fiscales, documentos laborales, partes, firmas y fuentes de conocimiento
+  se sirven siempre mediante controladores autenticados.
+
+Antes de activar el bucket en un entorno que todavía conserve archivos locales, ejecutar:
+
+```bash
+php artisan storage:migrate-private local s3
+```
+
+El comando copia sin borrar el origen, omite objetos idénticos y verifica SHA-256 después de cada
+escritura. Solo después de una migración correcta se configura `PRIVATE_FILESYSTEM_DISK=s3`.
+
+## Controles de producción
+
+- Mantener `APP_DEBUG=false` y un `APP_KEY` exclusivo para el entorno.
+- Verificar periódicamente las copias de PostgreSQL y realizar pruebas de restauración.
+- Ejecutar las colas como procesos persistentes y el scheduler mediante Laravel Cloud.
+- Validar autenticación, CRM, finanzas, documentos privados, correo y `/up` después de cambios de
+  infraestructura.
+
 ## Recuperación
 
 El workflow SSH heredado no forma parte del flujo de publicación. La recuperación debe priorizar el

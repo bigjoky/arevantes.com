@@ -16,9 +16,9 @@ class PurchaseDocumentPdf
         $profile = CompanyProfile::first();
         $company = $profile?->toArray() ?? config('company');
         $company['logo_data'] = null;
-        if ($profile?->logo_path && Storage::disk('local')->exists($profile->logo_path)) {
-            $mime = Storage::disk('local')->mimeType($profile->logo_path) ?: 'image/png';
-            $company['logo_data'] = 'data:'.$mime.';base64,'.base64_encode(Storage::disk('local')->get($profile->logo_path));
+        if ($profile?->logo_path && Storage::disk(config('filesystems.private'))->exists($profile->logo_path)) {
+            $mime = Storage::disk(config('filesystems.private'))->mimeType($profile->logo_path) ?: 'image/png';
+            $company['logo_data'] = 'data:'.$mime.';base64,'.base64_encode(Storage::disk(config('filesystems.private'))->get($profile->logo_path));
         }
 
         $options = new Options;

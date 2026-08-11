@@ -160,9 +160,9 @@ class MyHumanResourcesController extends Controller
     {
         $person = $this->staffProfile($request);
         abort_unless($document->person_id === $person->id && $document->visibility === 'employee', 404);
-        abort_unless(Storage::disk('local')->exists($document->path), 404);
+        abort_unless(Storage::disk(config('filesystems.private'))->exists($document->path), 404);
 
-        return Storage::disk('local')->download($document->path, $document->original_name, [
+        return Storage::disk(config('filesystems.private'))->download($document->path, $document->original_name, [
             'Content-Type' => $document->mime_type,
             'Cache-Control' => 'private, no-store',
         ]);
@@ -172,9 +172,9 @@ class MyHumanResourcesController extends Controller
     {
         $person = $this->staffProfile($request);
         abort_unless($leave->person_id === $person->id && $attachment->leave_request_id === $leave->id, 404);
-        abort_unless(Storage::disk('local')->exists($attachment->path), 404);
+        abort_unless(Storage::disk(config('filesystems.private'))->exists($attachment->path), 404);
 
-        return Storage::disk('local')->download($attachment->path, $attachment->original_name, [
+        return Storage::disk(config('filesystems.private'))->download($attachment->path, $attachment->original_name, [
             'Content-Type' => $attachment->mime_type,
             'Cache-Control' => 'private, no-store',
         ]);

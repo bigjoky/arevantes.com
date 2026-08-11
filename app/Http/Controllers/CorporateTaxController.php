@@ -12,7 +12,7 @@ use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
-use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class CorporateTaxController extends Controller
 {
@@ -53,19 +53,19 @@ class CorporateTaxController extends Controller
         abort_unless($corporateTaxReturn->status === 'prepared', 422);
         $data = $request->validate(['filing_reference' => ['required', 'string', 'max:100'], 'filed_on' => ['required', 'date', 'after:'.$corporateTaxReturn->fiscalYear->ends_on->toDateString()], 'receipt' => ['required', 'file', 'mimes:pdf', 'max:10240']]);
         if ($corporateTaxReturn->receipt_path) {
-            Storage::disk('local')->delete($corporateTaxReturn->receipt_path);
+            Storage::disk(config('filesystems.private'))->delete($corporateTaxReturn->receipt_path);
         }
-        $path = $data['receipt']->store("tax/corporate/{$corporateTaxReturn->id}", 'local');
-        $corporateTaxReturn->update(['status' => 'filed', 'filing_reference' => $data['filing_reference'], 'filed_on' => $data['filed_on'], 'filed_by' => $request->user()->id, 'receipt_path' => $path, 'receipt_original_name' => $data['receipt']->getClientOriginalName(), 'receipt_sha256' => hash_file('sha256', Storage::disk('local')->path($path))]);
+        $path = $data['receipt']->store("tax/corporate/{$corporateTaxReturn->id}", config('filesystems.private'));
+        $corporateTaxReturn->update(['status' => 'filed', 'filing_reference' => $data['filing_reference'], 'filed_on' => $data['filed_on'], 'filed_by' => $request->user()->id, 'receipt_path' => $path, 'receipt_original_name' => $data['receipt']->getClientOriginalName(), 'receipt_sha256' => hash('sha256', Storage::disk(config('filesystems.private'))->get($path))]);
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Corporate tax filing recorded.')]);
     }
 
-    public function receipt(CorporateTaxReturn $corporateTaxReturn): BinaryFileResponse
+    public function receipt(CorporateTaxReturn $corporateTaxReturn): StreamedResponse
     {
-        abort_unless($corporateTaxReturn->receipt_path && Storage::disk('local')->exists($corporateTaxReturn->receipt_path), 404);
+        abort_unless($corporateTaxReturn->receipt_path && Storage::disk(config('filesystems.private'))->exists($corporateTaxReturn->receipt_path), 404);
 
-        return response()->download(Storage::disk('local')->path($corporateTaxReturn->receipt_path));
+        return Storage::disk(config('filesystems.private'))->download($corporateTaxReturn->receipt_path, $corporateTaxReturn->receipt_original_name ?? 'corporate-tax-receipt.pdf');
     }
 
     private function validated(Request $request): array

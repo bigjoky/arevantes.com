@@ -13,7 +13,7 @@ class SavedCrmFilterController extends Controller
 {
     private const FILTER_KEYS = [
         'customers' => ['search', 'customer_type', 'lifecycle_status', 'lead_source', 'tag'],
-        'opportunities' => ['search', 'stage', 'owner', 'source', 'attention', 'period', 'view'],
+        'opportunities' => ['search', 'stage', 'owner', 'source', 'commercial_kind', 'attention', 'period', 'view'],
     ];
 
     public function store(Request $request): RedirectResponse

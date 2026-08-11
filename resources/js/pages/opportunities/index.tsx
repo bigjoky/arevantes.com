@@ -12,6 +12,7 @@ import {
     Plus,
     RotateCcw,
     Search,
+    Settings2,
     Target,
     Timer,
     TrendingUp,
@@ -65,6 +66,12 @@ type Installation = {
     site_name: string | null;
 };
 type UserOption = { id: number; name: string };
+type WonOpportunity = {
+    id: number;
+    person_id: number;
+    code: string;
+    title: string;
+};
 type Activity = {
     id: number;
     title: string;
@@ -84,9 +91,17 @@ type Opportunity = {
     id: number;
     code: string;
     title: string;
+    commercial_kind: string;
+    parent_opportunity_id: number | null;
+    recurrence_interval: string | null;
+    renewal_due_on: string | null;
     stage: string;
     probability: number;
     commercial_score: number;
+    score_breakdown: Record<
+        string,
+        { met: boolean; points: number; weight: number }
+    >;
     estimated_value: string;
     expected_close_on: string | null;
     source: string | null;
@@ -100,6 +115,7 @@ type Opportunity = {
     customer: Customer | null;
     installation: Installation | null;
     owner: UserOption | null;
+    parent_opportunity: WonOpportunity | null;
     quote: { id: number; number: string; status: string } | null;
     next_activity: Activity | null;
     stage_history: StageHistory[];
@@ -133,6 +149,10 @@ type FormData = {
     installation_id: string;
     owner_user_id: string;
     title: string;
+    commercial_kind: string;
+    parent_opportunity_id: string;
+    recurrence_interval: string;
+    renewal_due_on: string;
     stage: string;
     probability: string;
     estimated_value: string;
@@ -144,11 +164,26 @@ type FormData = {
     notes: string;
 };
 
+type CrmSettings = {
+    stale_after_days: number;
+    customer_contactable_weight: number;
+    source_identified_weight: number;
+    owner_assigned_weight: number;
+    expected_close_set_weight: number;
+    next_action_scheduled_weight: number;
+    estimated_value_set_weight: number;
+    advanced_stage_weight: number;
+};
+
 const emptyForm: FormData = {
     person_id: '',
     installation_id: '',
     owner_user_id: '',
     title: '',
+    commercial_kind: 'new_business',
+    parent_opportunity_id: '',
+    recurrence_interval: '',
+    renewal_due_on: '',
     stage: 'new',
     probability: '10',
     estimated_value: '0',
@@ -166,23 +201,32 @@ export default function OpportunitiesIndex({
     installations,
     users,
     sourceOptions,
+    commercialKindOptions,
+    recurrenceOptions,
     lostReasonOptions,
+    wonOpportunities,
     filters = {},
     metrics,
     forecast = [],
     savedFilters = [],
+    crmSettings,
+    canConfigureCrm = false,
 }: {
     opportunities: Opportunity[];
     customers: Customer[];
     installations: Installation[];
     users: UserOption[];
     sourceOptions: Record<string, string>;
+    commercialKindOptions: Record<string, string>;
+    recurrenceOptions: Record<string, string>;
     lostReasonOptions: Record<string, string>;
+    wonOpportunities: WonOpportunity[];
     filters: {
         search?: string;
         stage?: string;
         owner?: string;
         source?: string;
+        commercial_kind?: string;
         attention?: string;
         archived?: string;
         period?: string;
@@ -200,6 +244,7 @@ export default function OpportunitiesIndex({
         overdue: number;
         without_next_action: number;
         stale: number;
+        renewals_due: number;
         funnel: Record<string, number>;
         stage_days: Record<string, number | null>;
     };
@@ -210,6 +255,8 @@ export default function OpportunitiesIndex({
         filters: Record<string, string>;
         is_default: boolean;
     }>;
+    crmSettings: CrmSettings;
+    canConfigureCrm?: boolean;
 }) {
     const [open, setOpen] = useState(false);
     const [editing, setEditing] = useState<Opportunity | null>(null);
@@ -220,6 +267,15 @@ export default function OpportunitiesIndex({
                 (item) => String(item.person_id) === form.data.person_id,
             ),
         [form.data.person_id, installations],
+    );
+    const availableOrigins = useMemo(
+        () =>
+            wonOpportunities.filter(
+                (item) =>
+                    String(item.person_id) === form.data.person_id &&
+                    item.id !== editing?.id,
+            ),
+        [editing?.id, form.data.person_id, wonOpportunities],
     );
 
     useEffect(() => {
@@ -254,6 +310,12 @@ export default function OpportunitiesIndex({
                 : '',
             owner_user_id: item.owner_user_id ? String(item.owner_user_id) : '',
             title: item.title,
+            commercial_kind: item.commercial_kind,
+            parent_opportunity_id: item.parent_opportunity_id
+                ? String(item.parent_opportunity_id)
+                : '',
+            recurrence_interval: item.recurrence_interval || '',
+            renewal_due_on: item.renewal_due_on || '',
             stage: item.stage,
             probability: String(item.probability),
             estimated_value: item.estimated_value,
@@ -299,6 +361,10 @@ export default function OpportunitiesIndex({
                 installation_id: item.installation_id,
                 owner_user_id: item.owner_user_id,
                 title: item.title,
+                commercial_kind: item.commercial_kind,
+                parent_opportunity_id: item.parent_opportunity_id,
+                recurrence_interval: item.recurrence_interval,
+                renewal_due_on: item.renewal_due_on,
                 stage,
                 probability,
                 estimated_value: item.estimated_value,
@@ -325,6 +391,9 @@ export default function OpportunitiesIndex({
                         </p>
                     </div>
                     <div className="flex gap-2">
+                        {canConfigureCrm && (
+                            <CrmSettingsDialog settings={crmSettings} />
+                        )}
                         <Button variant="outline" asChild>
                             <Link
                                 href={
@@ -394,6 +463,12 @@ export default function OpportunitiesIndex({
                         label="Sin próxima acción"
                         value={String(metrics.without_next_action)}
                         detail={`${metrics.stale} estancadas`}
+                    />
+                    <Metric
+                        icon={CalendarClock}
+                        label="Renovaciones próximas"
+                        value={String(metrics.renewals_due)}
+                        detail="Próximos 30 días"
                     />
                 </section>
 
@@ -477,7 +552,7 @@ export default function OpportunitiesIndex({
                 <Form
                     action="/opportunities"
                     method="get"
-                    className="grid gap-3 rounded-md border p-3 md:grid-cols-2 xl:grid-cols-[minmax(14rem,1fr)_10rem_11rem_12rem_12rem_11rem_auto]"
+                    className="grid gap-3 rounded-md border p-3 md:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-[minmax(14rem,1fr)_10rem_11rem_11rem_12rem_12rem_11rem_auto]"
                 >
                     {filters.archived && (
                         <input type="hidden" name="archived" value="1" />
@@ -523,6 +598,14 @@ export default function OpportunitiesIndex({
                         ]}
                     />
                     <NativeSelect
+                        name="commercial_kind"
+                        defaultValue={filters.commercial_kind}
+                        options={[
+                            ['', 'Todos los tipos'],
+                            ...Object.entries(commercialKindOptions),
+                        ]}
+                    />
+                    <NativeSelect
                         name="attention"
                         defaultValue={filters.attention}
                         options={[
@@ -530,6 +613,7 @@ export default function OpportunitiesIndex({
                             ['overdue', 'Cierre vencido'],
                             ['no_action', 'Sin próxima acción'],
                             ['stale', 'Estancada en etapa'],
+                            ['renewal_due', 'Renovación próxima'],
                         ]}
                     />
                     <NativeSelect
@@ -609,6 +693,7 @@ export default function OpportunitiesIndex({
                     <OpportunityTable
                         opportunities={opportunities}
                         sourceOptions={sourceOptions}
+                        commercialKindOptions={commercialKindOptions}
                         onEdit={openEditor}
                     />
                 ) : (
@@ -673,6 +758,23 @@ export default function OpportunitiesIndex({
                                                                     ] ||
                                                                         item.source}
                                                                 </Badge>
+                                                            </span>
+                                                        )}
+                                                        <span className="mt-2 block">
+                                                            <Badge variant="secondary">
+                                                                {commercialKindOptions[
+                                                                    item
+                                                                        .commercial_kind
+                                                                ] ||
+                                                                    item.commercial_kind}
+                                                            </Badge>
+                                                        </span>
+                                                        {item.renewal_due_on && (
+                                                            <span className="mt-1 block text-xs text-muted-foreground">
+                                                                Renovación:{' '}
+                                                                {date(
+                                                                    item.renewal_due_on,
+                                                                )}
                                                             </span>
                                                         )}
                                                         <span className="mt-2 block text-xs text-muted-foreground">
@@ -883,6 +985,7 @@ export default function OpportunitiesIndex({
                                 onChange={(value) => {
                                     form.setData('person_id', value);
                                     form.setData('installation_id', '');
+                                    form.setData('parent_opportunity_id', '');
                                 }}
                                 options={customers.map((item) => [
                                     String(item.id),
@@ -907,6 +1010,97 @@ export default function OpportunitiesIndex({
                                     ]),
                                 ]}
                             />
+                            <SelectField
+                                label="Tipo comercial"
+                                value={form.data.commercial_kind}
+                                error={form.errors.commercial_kind}
+                                onChange={(value) => {
+                                    form.setData('commercial_kind', value);
+
+                                    if (value === 'new_business') {
+                                        form.setData(
+                                            'parent_opportunity_id',
+                                            '',
+                                        );
+                                    }
+
+                                    if (value !== 'recurring') {
+                                        form.setData('recurrence_interval', '');
+                                    }
+
+                                    if (
+                                        !['renewal', 'recurring'].includes(
+                                            value,
+                                        )
+                                    ) {
+                                        form.setData('renewal_due_on', '');
+                                    }
+                                }}
+                                options={Object.entries(commercialKindOptions)}
+                            />
+                            {['renewal', 'upsell', 'recurring'].includes(
+                                form.data.commercial_kind,
+                            ) && (
+                                <SelectField
+                                    label="Oportunidad de origen"
+                                    value={
+                                        form.data.parent_opportunity_id ||
+                                        'none'
+                                    }
+                                    error={form.errors.parent_opportunity_id}
+                                    onChange={(value) =>
+                                        form.setData(
+                                            'parent_opportunity_id',
+                                            value === 'none' ? '' : value,
+                                        )
+                                    }
+                                    options={[
+                                        ['none', 'Sin vincular'],
+                                        ...availableOrigins.map((item) => [
+                                            String(item.id),
+                                            `${item.code} · ${item.title}`,
+                                        ]),
+                                    ]}
+                                />
+                            )}
+                            {form.data.commercial_kind === 'recurring' && (
+                                <SelectField
+                                    label="Periodicidad"
+                                    value={
+                                        form.data.recurrence_interval || 'none'
+                                    }
+                                    error={form.errors.recurrence_interval}
+                                    onChange={(value) =>
+                                        form.setData(
+                                            'recurrence_interval',
+                                            value === 'none' ? '' : value,
+                                        )
+                                    }
+                                    options={[
+                                        ['none', 'Seleccionar'],
+                                        ...Object.entries(recurrenceOptions),
+                                    ]}
+                                />
+                            )}
+                            {['renewal', 'recurring'].includes(
+                                form.data.commercial_kind,
+                            ) && (
+                                <Field
+                                    label="Próxima renovación"
+                                    error={form.errors.renewal_due_on}
+                                >
+                                    <Input
+                                        type="date"
+                                        value={form.data.renewal_due_on}
+                                        onChange={(event) =>
+                                            form.setData(
+                                                'renewal_due_on',
+                                                event.target.value,
+                                            )
+                                        }
+                                    />
+                                </Field>
+                            )}
                             <SelectField
                                 label="Stage"
                                 value={form.data.stage}
@@ -1073,6 +1267,41 @@ export default function OpportunitiesIndex({
                                     }
                                 />
                             </Field>
+                            {editing && (
+                                <div className="sm:col-span-2">
+                                    <div className="mb-2 flex items-center justify-between gap-3 text-sm font-medium">
+                                        <span>Explicación del scoring</span>
+                                        <Badge variant="outline">
+                                            {editing.commercial_score}/100
+                                        </Badge>
+                                    </div>
+                                    <div className="grid gap-2 rounded-md border p-3 sm:grid-cols-2">
+                                        {Object.entries(
+                                            editing.score_breakdown,
+                                        ).map(([criterion, result]) => (
+                                            <div
+                                                key={criterion}
+                                                className="flex items-center justify-between gap-3 text-xs"
+                                            >
+                                                <span
+                                                    className={
+                                                        result.met
+                                                            ? 'text-foreground'
+                                                            : 'text-muted-foreground'
+                                                    }
+                                                >
+                                                    {result.met ? '✓' : '○'}{' '}
+                                                    {scoreLabel(criterion)}
+                                                </span>
+                                                <span className="font-medium tabular-nums">
+                                                    {result.points}/
+                                                    {result.weight}
+                                                </span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                             {editing && editing.stage_history.length > 0 && (
                                 <div className="sm:col-span-2">
                                     <div className="mb-2 flex items-center gap-2 text-sm font-medium">
@@ -1440,10 +1669,12 @@ function OpportunityActivityDialog({
 function OpportunityTable({
     opportunities,
     sourceOptions,
+    commercialKindOptions,
     onEdit,
 }: {
     opportunities: Opportunity[];
     sourceOptions: Record<string, string>;
+    commercialKindOptions: Record<string, string>;
     onEdit: (opportunity: Opportunity) => void;
 }) {
     return (
@@ -1453,6 +1684,7 @@ function OpportunityTable({
                     <tr>
                         <th className="p-3">Oportunidad</th>
                         <th className="p-3">Cliente</th>
+                        <th className="p-3">Tipo</th>
                         <th className="p-3">Etapa</th>
                         <th className="p-3">Responsable</th>
                         <th className="p-3 text-right">Importe</th>
@@ -1483,6 +1715,18 @@ function OpportunityTable({
                                 {item.customer
                                     ? customerName(item.customer)
                                     : '—'}
+                            </td>
+                            <td className="p-3">
+                                <Badge variant="secondary">
+                                    {commercialKindOptions[
+                                        item.commercial_kind
+                                    ] || item.commercial_kind}
+                                </Badge>
+                                {item.renewal_due_on && (
+                                    <div className="mt-1 text-xs text-muted-foreground">
+                                        {date(item.renewal_due_on)}
+                                    </div>
+                                )}
                             </td>
                             <td className="p-3">
                                 <Badge variant="outline">
@@ -1518,6 +1762,131 @@ function OpportunityTable({
                 </tbody>
             </table>
         </div>
+    );
+}
+
+function CrmSettingsDialog({ settings }: { settings: CrmSettings }) {
+    const [open, setOpen] = useState(false);
+    const form = useForm(
+        Object.fromEntries(
+            Object.entries(settings).map(([key, value]) => [
+                key,
+                String(value),
+            ]),
+        ) as Record<keyof CrmSettings, string>,
+    );
+    const weightFields: Array<[keyof CrmSettings, string]> = [
+        ['customer_contactable_weight', 'Cliente contactable'],
+        ['source_identified_weight', 'Origen identificado'],
+        ['owner_assigned_weight', 'Responsable asignado'],
+        ['expected_close_set_weight', 'Fecha prevista'],
+        ['next_action_scheduled_weight', 'Próxima acción'],
+        ['estimated_value_set_weight', 'Importe estimado'],
+        ['advanced_stage_weight', 'Etapa avanzada'],
+    ];
+    const total = weightFields.reduce(
+        (sum, [field]) => sum + (Number(form.data[field]) || 0),
+        0,
+    );
+    const globalError = (form.errors as Record<string, string>).weights;
+
+    return (
+        <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+                <Button variant="outline">
+                    <Settings2 /> Configuración CRM
+                </Button>
+            </DialogTrigger>
+            <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+                <DialogHeader>
+                    <DialogTitle>Gobierno comercial</DialogTitle>
+                    <DialogDescription>
+                        Define cuándo una oportunidad está estancada y cómo se
+                        calcula su scoring. Los pesos deben sumar 100 puntos.
+                    </DialogDescription>
+                </DialogHeader>
+                <form
+                    className="grid gap-5"
+                    onSubmit={(event) => {
+                        event.preventDefault();
+                        form.patch('/crm/settings', {
+                            preserveScroll: true,
+                            onSuccess: () => setOpen(false),
+                        });
+                    }}
+                >
+                    <Field
+                        label="Días para considerar una etapa estancada"
+                        error={form.errors.stale_after_days}
+                    >
+                        <Input
+                            type="number"
+                            min="1"
+                            max="365"
+                            value={form.data.stale_after_days}
+                            onChange={(event) =>
+                                form.setData(
+                                    'stale_after_days',
+                                    event.target.value,
+                                )
+                            }
+                        />
+                    </Field>
+                    <div>
+                        <div className="mb-3 flex items-center justify-between gap-3">
+                            <Label>Pesos del scoring</Label>
+                            <Badge
+                                variant={
+                                    total === 100 ? 'outline' : 'destructive'
+                                }
+                            >
+                                {total}/100 puntos
+                            </Badge>
+                        </div>
+                        <div className="grid gap-3 sm:grid-cols-2">
+                            {weightFields.map(([field, label]) => (
+                                <Field
+                                    key={field}
+                                    label={label}
+                                    error={form.errors[field]}
+                                >
+                                    <Input
+                                        type="number"
+                                        min="0"
+                                        max="100"
+                                        value={form.data[field]}
+                                        onChange={(event) =>
+                                            form.setData(
+                                                field,
+                                                event.target.value,
+                                            )
+                                        }
+                                    />
+                                </Field>
+                            ))}
+                        </div>
+                        {globalError && (
+                            <InputError
+                                className="mt-2"
+                                message={globalError}
+                            />
+                        )}
+                    </div>
+                    <DialogFooter>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setOpen(false)}
+                        >
+                            Cancelar
+                        </Button>
+                        <Button disabled={form.processing || total !== 100}>
+                            Guardar y recalcular
+                        </Button>
+                    </DialogFooter>
+                </form>
+            </DialogContent>
+        </Dialog>
     );
 }
 
@@ -1668,6 +2037,19 @@ function isOverdue(value: string) {
 }
 function stageLabel(value: string) {
     return stages.find((stage) => stage.value === value)?.label || value;
+}
+function scoreLabel(value: string) {
+    const labels: Record<string, string> = {
+        customer_contactable: 'Cliente contactable',
+        source_identified: 'Origen identificado',
+        owner_assigned: 'Responsable asignado',
+        expected_close_set: 'Fecha prevista',
+        next_action_scheduled: 'Próxima acción',
+        estimated_value_set: 'Importe estimado',
+        advanced_stage: 'Etapa avanzada',
+    };
+
+    return labels[value] || value;
 }
 function periodLabel(value?: string) {
     if (value === '30') {

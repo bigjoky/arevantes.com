@@ -89,7 +89,7 @@ class PurchaseMailboxSynchronizer
                     continue;
                 }
                 $path = 'purchase-inbox/email/'.now()->format('Y/m').'/'.Str::uuid().'.'.$extension;
-                Storage::disk('local')->put($path, $content);
+                Storage::disk(config('filesystems.private'))->put($path, $content);
                 try {
                     PurchaseInboxDocument::create([
                         'purchase_mailbox_message_id' => $message->id,
@@ -101,7 +101,7 @@ class PurchaseMailboxSynchronizer
                         'file_hash' => $hash,
                     ]);
                 } catch (Throwable $exception) {
-                    Storage::disk('local')->delete($path);
+                    Storage::disk(config('filesystems.private'))->delete($path);
                     throw $exception;
                 }
                 $imported++;

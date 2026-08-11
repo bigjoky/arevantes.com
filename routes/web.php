@@ -12,6 +12,7 @@ use App\Http\Controllers\BankingController;
 use App\Http\Controllers\CatalogController;
 use App\Http\Controllers\ChartOfAccountsController;
 use App\Http\Controllers\CorporateTaxController;
+use App\Http\Controllers\CrmSettingsController;
 use App\Http\Controllers\CustomerConsentController;
 use App\Http\Controllers\CustomerContactController;
 use App\Http\Controllers\CustomerMergeController;
@@ -131,6 +132,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('people/{person}/merge', CustomerMergeController::class)->middleware('can:manage-customers')->name('people.merge');
     Route::post('crm/filters', [SavedCrmFilterController::class, 'store'])->middleware('can:manage-customers')->name('crm-filters.store');
     Route::delete('crm/filters/{filter}', [SavedCrmFilterController::class, 'destroy'])->middleware('can:manage-customers')->name('crm-filters.destroy');
+    Route::patch('crm/settings', [CrmSettingsController::class, 'update'])->middleware('can:manage-customers')->name('crm-settings.update');
     Route::post('opportunities/{opportunity}/activities', [OpportunityController::class, 'storeActivity'])
         ->middleware('can:manage-customers')
         ->name('opportunities.activities.store');

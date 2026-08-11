@@ -3,13 +3,15 @@
 namespace App\Services\Crm;
 
 use App\Models\CrmActivity;
+use App\Models\CrmSetting;
 use App\Models\Opportunity;
 use App\Models\User;
-use Illuminate\Support\Arr;
 use Illuminate\Validation\ValidationException;
 
 class OpportunitySalesCycle
 {
+    private ?CrmSetting $settings = null;
+
     private const CLOSED_STAGES = ['won', 'lost'];
 
     private const TRANSITIONS = [
@@ -111,8 +113,16 @@ class OpportunitySalesCycle
 
     public function refreshScore(Opportunity $opportunity): int
     {
+        $score = (int) collect($this->scoreBreakdown($opportunity))->sum('points');
+        $opportunity->updateQuietly(['commercial_score' => min(100, $score)]);
+
+        return min(100, $score);
+    }
+
+    /** @return array<string, array{met: bool, points: int, weight: int}> */
+    public function scoreBreakdown(Opportunity $opportunity): array
+    {
         $opportunity->loadMissing('customer', 'nextActivity');
-        $weights = config('crm.scoring');
         $facts = [
             'customer_contactable' => ! $opportunity->customer?->do_not_contact
                 && filled($opportunity->customer?->email ?: $opportunity->customer?->phone),
@@ -123,9 +133,25 @@ class OpportunitySalesCycle
             'estimated_value_set' => (float) $opportunity->estimated_value > 0,
             'advanced_stage' => in_array($opportunity->stage, ['survey', 'proposal', 'negotiation', 'won'], true),
         ];
-        $score = (int) collect($facts)->sum(fn (bool $met, string $key) => $met ? (int) Arr::get($weights, $key, 0) : 0);
-        $opportunity->updateQuietly(['commercial_score' => min(100, $score)]);
 
-        return min(100, $score);
+        $weights = $this->settings()->scoringWeights();
+
+        return collect($facts)->mapWithKeys(fn (bool $met, string $key) => [
+            $key => [
+                'met' => $met,
+                'points' => $met ? ($weights[$key] ?? 0) : 0,
+                'weight' => $weights[$key] ?? 0,
+            ],
+        ])->all();
+    }
+
+    public function forgetSettings(): void
+    {
+        $this->settings = null;
+    }
+
+    private function settings(): CrmSetting
+    {
+        return $this->settings ??= CrmSetting::current();
     }
 }
