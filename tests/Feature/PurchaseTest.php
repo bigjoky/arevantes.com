@@ -241,4 +241,83 @@ class PurchaseTest extends TestCase
         $this->assertSame('partially_invoiced', $order->refresh()->invoicing_status);
         $this->assertDatabaseHas('stock_movements', ['purchase_document_id' => $order->id, 'type' => 'purchase_return']);
     }
+
+    public function test_a_serialized_unit_can_only_be_returned_against_its_originating_purchase_order(): void
+    {
+        $user = User::factory()->create(['role' => 'commercial']);
+        $warehouse = Warehouse::create(['code' => 'TRACE', 'name' => 'Traceability warehouse']);
+        $product = Product::create([
+            'type' => 'product',
+            'sku' => 'TRACE-SERIAL',
+            'name' => 'Traceable inverter',
+            'unit_id' => Unit::firstOrFail()->id,
+            'tax_rate_id' => TaxRate::firstOrFail()->id,
+            'sale_price' => 1000,
+            'cost_price' => 700,
+            'track_stock' => true,
+            'track_serials' => true,
+            'is_active' => true,
+        ]);
+        $this->actingAs($user);
+
+        $orders = collect(['A', 'B'])->map(function (string $suffix) use ($user, $product): PurchaseDocument {
+            $supplier = Supplier::create(['legal_name' => "Supplier {$suffix}", 'country' => 'ES']);
+            $order = PurchaseDocument::create([
+                'type' => 'purchase_order',
+                'supplier_id' => $supplier->id,
+                'created_by' => $user->id,
+                'number' => "PC-TRACE-{$suffix}",
+                'status' => 'ordered',
+                'issue_date' => '2026-08-11',
+                'subtotal' => 700,
+                'tax_amount' => 147,
+                'amount' => 847,
+            ]);
+            $order->lines()->create([
+                'product_id' => $product->id,
+                'position' => 1,
+                'description' => $product->name,
+                'quantity' => 1,
+                'unit_price' => 700,
+                'discount_percent' => 0,
+                'tax_percent' => 21,
+                'subtotal' => 700,
+                'tax_amount' => 147,
+                'total' => 847,
+            ]);
+
+            return $order;
+        });
+
+        foreach ($orders as $index => $order) {
+            $line = $order->lines()->firstOrFail();
+            $this->post(route('purchases.receive', $order), [
+                'warehouse_id' => $warehouse->id,
+                'quantities' => [$line->id => 1],
+                'serials' => [$line->id => 'TRACE-'.($index + 1)],
+            ])->assertRedirect();
+        }
+
+        $firstSerial = SerialNumber::where('serial_number', 'TRACE-1')->firstOrFail();
+        $this->assertSame($orders[0]->id, $firstSerial->origin_purchase_document_id);
+
+        $secondOrder = $orders[1];
+        $secondLine = $secondOrder->lines()->firstOrFail();
+        $this->post(route('purchases.return', $secondOrder), [
+            'warehouse_id' => $warehouse->id,
+            'quantities' => [$secondLine->id => 1],
+            'serials' => [$secondLine->id => 'TRACE-1'],
+        ])->assertSessionHasErrors('lines');
+
+        $this->assertSame('0.000', $secondLine->refresh()->returned_quantity);
+        $this->assertSame('available', $firstSerial->refresh()->status);
+
+        $this->post(route('purchases.return', $secondOrder), [
+            'warehouse_id' => $warehouse->id,
+            'quantities' => [$secondLine->id => 1],
+            'serials' => [$secondLine->id => 'TRACE-2'],
+        ])->assertRedirect();
+
+        $this->assertSame('returned', SerialNumber::where('serial_number', 'TRACE-2')->value('status'));
+    }
 }
