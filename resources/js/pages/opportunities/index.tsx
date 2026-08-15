@@ -58,6 +58,8 @@ type Customer = {
     first_name: string;
     last_name: string | null;
     company_name: string | null;
+    phone: string | null;
+    email: string | null;
 };
 type Installation = {
     id: number;
@@ -146,6 +148,11 @@ type ForecastRow = {
 
 type FormData = {
     person_id: string;
+    customer_phone: string;
+    customer_first_name: string;
+    customer_last_name: string;
+    customer_company_name: string;
+    customer_email: string;
     installation_id: string;
     owner_user_id: string;
     title: string;
@@ -177,6 +184,11 @@ type CrmSettings = {
 
 const emptyForm: FormData = {
     person_id: '',
+    customer_phone: '',
+    customer_first_name: '',
+    customer_last_name: '',
+    customer_company_name: '',
+    customer_email: '',
     installation_id: '',
     owner_user_id: '',
     title: '',
@@ -260,6 +272,12 @@ export default function OpportunitiesIndex({
 }) {
     const [open, setOpen] = useState(false);
     const [editing, setEditing] = useState<Opportunity | null>(null);
+    const [matchedCustomer, setMatchedCustomer] = useState<Customer | null>(
+        null,
+    );
+    const [customerLookup, setCustomerLookup] = useState<
+        'idle' | 'checking' | 'found' | 'new' | 'invalid'
+    >('idle');
     const form = useForm<FormData>(emptyForm);
     const availableInstallations = useMemo(
         () =>
@@ -279,6 +297,77 @@ export default function OpportunitiesIndex({
     );
 
     useEffect(() => {
+        if (!open || editing) {
+            return;
+        }
+
+        const phone = form.data.customer_phone.trim();
+        const digits = phone.replace(/\D/g, '');
+
+        if (digits.length < 9) {
+            return;
+        }
+
+        const abortController = new AbortController();
+        const timer = window.setTimeout(async () => {
+            setCustomerLookup('checking');
+
+            try {
+                const response = await fetch(
+                    `/crm/customers/lookup?phone=${encodeURIComponent(phone)}`,
+                    {
+                        headers: { Accept: 'application/json' },
+                        signal: abortController.signal,
+                    },
+                );
+
+                if (!response.ok) {
+                    setMatchedCustomer(null);
+                    setCustomerLookup('invalid');
+
+                    return;
+                }
+
+                const result = (await response.json()) as {
+                    customer: Customer | null;
+                };
+
+                if (result.customer) {
+                    setMatchedCustomer(result.customer);
+                    setCustomerLookup('found');
+                    form.setData('person_id', String(result.customer.id));
+                    form.setData('customer_first_name', '');
+                    form.setData('customer_last_name', '');
+                    form.setData('customer_company_name', '');
+                    form.setData('customer_email', '');
+                } else {
+                    setMatchedCustomer(null);
+                    setCustomerLookup('new');
+                    form.setData('person_id', '');
+                    form.setData('installation_id', '');
+                    form.setData('parent_opportunity_id', '');
+                }
+            } catch (error) {
+                if (
+                    error instanceof DOMException &&
+                    error.name === 'AbortError'
+                ) {
+                    return;
+                }
+
+                setCustomerLookup('invalid');
+            }
+        }, 350);
+
+        return () => {
+            window.clearTimeout(timer);
+            abortController.abort();
+        };
+        // The lookup must only restart when the entered mobile changes.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [editing, form.data.customer_phone, open]);
+
+    useEffect(() => {
         const params = new URLSearchParams(window.location.search);
         const selected = opportunities.find(
             (item) => String(item.id) === params.get('opportunity'),
@@ -294,17 +383,34 @@ export default function OpportunitiesIndex({
     }, []);
 
     function openCreator(customerId?: string) {
+        const customer = customers.find(
+            (item) => String(item.id) === customerId,
+        );
+
         setEditing(null);
+        setMatchedCustomer(customer || null);
+        setCustomerLookup(customer ? 'found' : 'idle');
         form.clearErrors();
-        form.setData({ ...emptyForm, person_id: customerId || '' });
+        form.setData({
+            ...emptyForm,
+            person_id: customer ? String(customer.id) : '',
+            customer_phone: customer?.phone || '',
+        });
         setOpen(true);
     }
 
     function openEditor(item: Opportunity) {
         setEditing(item);
+        setMatchedCustomer(null);
+        setCustomerLookup('idle');
         form.clearErrors();
         form.setData({
             person_id: String(item.person_id),
+            customer_phone: '',
+            customer_first_name: '',
+            customer_last_name: '',
+            customer_company_name: '',
+            customer_email: '',
             installation_id: item.installation_id
                 ? String(item.installation_id)
                 : '',
@@ -978,20 +1084,192 @@ export default function OpportunitiesIndex({
                                     }
                                 />
                             </Field>
-                            <SelectField
-                                label="Customer"
-                                value={form.data.person_id}
-                                error={form.errors.person_id}
-                                onChange={(value) => {
-                                    form.setData('person_id', value);
-                                    form.setData('installation_id', '');
-                                    form.setData('parent_opportunity_id', '');
-                                }}
-                                options={customers.map((item) => [
-                                    String(item.id),
-                                    customerName(item),
-                                ])}
-                            />
+                            {editing ? (
+                                <SelectField
+                                    label="Cliente"
+                                    value={form.data.person_id}
+                                    error={form.errors.person_id}
+                                    onChange={(value) => {
+                                        form.setData('person_id', value);
+                                        form.setData('installation_id', '');
+                                        form.setData(
+                                            'parent_opportunity_id',
+                                            '',
+                                        );
+                                    }}
+                                    options={customers.map((item) => [
+                                        String(item.id),
+                                        customerName(item),
+                                    ])}
+                                />
+                            ) : (
+                                <div className="grid gap-3 rounded-md border bg-muted/20 p-4 sm:col-span-2">
+                                    <div>
+                                        <div className="text-sm font-medium">
+                                            Cliente por teléfono móvil
+                                        </div>
+                                        <p className="text-xs text-muted-foreground">
+                                            Buscaremos primero un cliente
+                                            existente. Si no coincide ninguno,
+                                            se creará junto con la oportunidad.
+                                        </p>
+                                    </div>
+                                    <Field
+                                        label="Teléfono móvil"
+                                        error={form.errors.customer_phone}
+                                    >
+                                        <Input
+                                            type="tel"
+                                            autoComplete="tel"
+                                            placeholder="600 123 123"
+                                            value={form.data.customer_phone}
+                                            onChange={(event) => {
+                                                const phone =
+                                                    event.target.value;
+                                                form.setData(
+                                                    'customer_phone',
+                                                    phone,
+                                                );
+                                                form.clearErrors(
+                                                    'customer_phone',
+                                                    'customer_first_name',
+                                                );
+
+                                                if (
+                                                    phone.replace(/\D/g, '')
+                                                        .length < 9
+                                                ) {
+                                                    setMatchedCustomer(null);
+                                                    setCustomerLookup('idle');
+                                                    form.setData(
+                                                        'person_id',
+                                                        '',
+                                                    );
+                                                    form.setData(
+                                                        'installation_id',
+                                                        '',
+                                                    );
+                                                    form.setData(
+                                                        'parent_opportunity_id',
+                                                        '',
+                                                    );
+                                                }
+                                            }}
+                                        />
+                                    </Field>
+                                    {customerLookup === 'checking' && (
+                                        <p className="text-xs text-muted-foreground">
+                                            Buscando coincidencias…
+                                        </p>
+                                    )}
+                                    {customerLookup === 'invalid' && (
+                                        <p className="text-xs text-destructive">
+                                            Introduce un teléfono móvil válido.
+                                        </p>
+                                    )}
+                                    {customerLookup === 'found' &&
+                                        matchedCustomer && (
+                                            <div className="rounded-md border border-emerald-300 bg-emerald-50 p-3 text-sm text-emerald-950 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-100">
+                                                <div className="font-medium">
+                                                    Cliente encontrado:{' '}
+                                                    {customerName(
+                                                        matchedCustomer,
+                                                    )}
+                                                </div>
+                                                <div className="mt-1 text-xs opacity-80">
+                                                    {matchedCustomer.phone}
+                                                    {matchedCustomer.email
+                                                        ? ` · ${matchedCustomer.email}`
+                                                        : ''}
+                                                </div>
+                                            </div>
+                                        )}
+                                    {customerLookup === 'new' && (
+                                        <div className="grid gap-3 border-t pt-3 sm:grid-cols-2">
+                                            <div className="sm:col-span-2">
+                                                <p className="text-sm font-medium">
+                                                    Nuevo cliente
+                                                </p>
+                                                <p className="text-xs text-muted-foreground">
+                                                    No hay coincidencias. Indica
+                                                    un nombre o una empresa.
+                                                </p>
+                                            </div>
+                                            <Field
+                                                label="Nombre"
+                                                error={
+                                                    form.errors
+                                                        .customer_first_name
+                                                }
+                                            >
+                                                <Input
+                                                    autoComplete="given-name"
+                                                    value={
+                                                        form.data
+                                                            .customer_first_name
+                                                    }
+                                                    onChange={(event) =>
+                                                        form.setData(
+                                                            'customer_first_name',
+                                                            event.target.value,
+                                                        )
+                                                    }
+                                                />
+                                            </Field>
+                                            <Field label="Apellidos">
+                                                <Input
+                                                    autoComplete="family-name"
+                                                    value={
+                                                        form.data
+                                                            .customer_last_name
+                                                    }
+                                                    onChange={(event) =>
+                                                        form.setData(
+                                                            'customer_last_name',
+                                                            event.target.value,
+                                                        )
+                                                    }
+                                                />
+                                            </Field>
+                                            <Field label="Empresa">
+                                                <Input
+                                                    autoComplete="organization"
+                                                    value={
+                                                        form.data
+                                                            .customer_company_name
+                                                    }
+                                                    onChange={(event) =>
+                                                        form.setData(
+                                                            'customer_company_name',
+                                                            event.target.value,
+                                                        )
+                                                    }
+                                                />
+                                            </Field>
+                                            <Field
+                                                label="Email"
+                                                error={
+                                                    form.errors.customer_email
+                                                }
+                                            >
+                                                <Input
+                                                    type="email"
+                                                    autoComplete="email"
+                                                    value={
+                                                        form.data.customer_email
+                                                    }
+                                                    onChange={(event) =>
+                                                        form.setData(
+                                                            'customer_email',
+                                                            event.target.value,
+                                                        )
+                                                    }
+                                                />
+                                            </Field>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                             <SelectField
                                 label="Installation"
                                 value={form.data.installation_id || 'none'}
