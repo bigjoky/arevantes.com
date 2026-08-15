@@ -10,13 +10,16 @@ use App\Models\Person;
 use App\Models\SavedCrmFilter;
 use App\Models\User;
 use App\Services\Crm\OpportunitySalesCycle;
+use App\Services\Customers\OpportunityCustomerResolver;
 use App\Support\Crm\OpportunityCatalog;
+use App\Support\PhoneNormalizer;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -78,7 +81,7 @@ class OpportunityController extends Controller
                         && $this->stageEnteredAt($item)->lessThan(now()->subDays($settings->stale_after_days)),
                 ];
             }),
-            'customers' => Person::where('category', 'customer')->orderBy('company_name')->orderBy('first_name')->get(['id', 'first_name', 'last_name', 'company_name']),
+            'customers' => Person::where('category', 'customer')->orderBy('company_name')->orderBy('first_name')->get(['id', 'first_name', 'last_name', 'company_name', 'phone', 'email']),
             'installations' => Installation::orderBy('project_reference')->get(['id', 'person_id', 'project_reference', 'site_name']),
             'users' => User::whereIn('role', ['admin', 'commercial'])->orderBy('name')->get(['id', 'name']),
             'sourceOptions' => OpportunityCatalog::SOURCES,
@@ -117,20 +120,45 @@ class OpportunityController extends Controller
         ]);
     }
 
-    public function store(Request $request, OpportunitySalesCycle $salesCycle): RedirectResponse
-    {
-        $data = $salesCycle->prepareActiveData($this->validated($request), $request->user());
-        $this->ensureInstallationBelongsToCustomer($data);
-        $this->ensureCommercialOrigin($data);
+    public function store(
+        Request $request,
+        OpportunitySalesCycle $salesCycle,
+        OpportunityCustomerResolver $customerResolver,
+    ): RedirectResponse {
+        $customerInput = $this->validatedCustomerInput($request);
+        $opportunityInput = $this->validated($request, true);
+        $createdCustomer = false;
 
-        DB::transaction(function () use ($data, $request, $salesCycle) {
+        DB::transaction(function () use ($customerInput, $opportunityInput, $request, $salesCycle, $customerResolver, &$createdCustomer): void {
+            $customer = filled($customerInput['phone'])
+                ? $customerResolver->resolve(
+                    $customerInput['phone'],
+                    $customerInput['attributes'],
+                    $opportunityInput['person_id'] ?? null,
+                )
+                : Person::query()
+                    ->where('category', 'customer')
+                    ->findOrFail($opportunityInput['person_id']);
+            $createdCustomer = $customer->wasRecentlyCreated;
+            $data = $salesCycle->prepareActiveData([
+                ...$opportunityInput,
+                'person_id' => $customer->id,
+            ], $request->user());
+            $this->ensureInstallationBelongsToCustomer($data);
+            $this->ensureCommercialOrigin($data);
+
             $opportunity = Opportunity::create([...$data, 'created_by' => $request->user()->id]);
             $opportunity->update(['code' => 'OPP-'.now()->format('Y').'-'.str_pad((string) $opportunity->id, 5, '0', STR_PAD_LEFT)]);
             $salesCycle->ensureNextAction($opportunity, $request->user());
             $salesCycle->refreshScore($opportunity);
         });
 
-        return back()->with('toast', ['type' => 'success', 'message' => __('Opportunity created.')]);
+        return back()->with('toast', [
+            'type' => 'success',
+            'message' => $createdCustomer
+                ? __('Customer and opportunity created.')
+                : __('Opportunity created.'),
+        ]);
     }
 
     public function update(Request $request, Opportunity $opportunity, OpportunitySalesCycle $salesCycle): RedirectResponse
@@ -195,12 +223,12 @@ class OpportunityController extends Controller
         return to_route('opportunities.index')->with('toast', ['type' => 'success', 'message' => __('Opportunity restored.')]);
     }
 
-    private function validated(Request $request): array
+    private function validated(Request $request, bool $creating = false): array
     {
         $request->merge(['commercial_kind' => $request->input('commercial_kind', 'new_business')]);
 
         $data = $request->validate([
-            'person_id' => ['required', Rule::exists('people', 'id')->where('category', 'customer')],
+            'person_id' => [$creating ? 'nullable' : 'required', Rule::exists('people', 'id')->where('category', 'customer')],
             'installation_id' => ['nullable', 'exists:installations,id'],
             'owner_user_id' => ['nullable', Rule::exists('users', 'id')->where(fn ($query) => $query->whereIn('role', ['admin', 'commercial']))],
             'title' => ['required', 'string', 'max:255'],
@@ -250,6 +278,52 @@ class OpportunityController extends Controller
         }
 
         return $data;
+    }
+
+    /** @return array{phone: ?string, attributes: array{first_name: ?string, last_name: ?string, company_name: ?string, email: ?string}} */
+    private function validatedCustomerInput(Request $request): array
+    {
+        $data = $request->validate([
+            'customer_phone' => [
+                Rule::requiredIf(! $request->filled('person_id')),
+                'nullable',
+                'string',
+                'max:40',
+                function (string $attribute, mixed $value, \Closure $fail): void {
+                    if (filled($value) && ! PhoneNormalizer::isPlausibleMobile((string) $value)) {
+                        $fail(__('Enter a valid mobile number.'));
+                    }
+                },
+            ],
+            'customer_first_name' => ['nullable', 'string', 'max:255'],
+            'customer_last_name' => ['nullable', 'string', 'max:255'],
+            'customer_company_name' => ['nullable', 'string', 'max:255'],
+            'customer_email' => ['nullable', 'email:rfc', 'max:255'],
+        ]);
+
+        $phone = filled($data['customer_phone'] ?? null) ? trim((string) $data['customer_phone']) : null;
+        if ($phone && ! $request->filled('person_id')) {
+            $existing = Person::query()
+                ->where('category', 'customer')
+                ->where('phone_normalized', PhoneNormalizer::normalize($phone))
+                ->exists();
+
+            if (! $existing && blank($data['customer_first_name'] ?? null) && blank($data['customer_company_name'] ?? null)) {
+                throw ValidationException::withMessages([
+                    'customer_first_name' => __('Enter a customer name or company name to create the customer.'),
+                ]);
+            }
+        }
+
+        return [
+            'phone' => $phone,
+            'attributes' => [
+                'first_name' => $data['customer_first_name'] ?? null,
+                'last_name' => $data['customer_last_name'] ?? null,
+                'company_name' => $data['customer_company_name'] ?? null,
+                'email' => $data['customer_email'] ?? null,
+            ],
+        ];
     }
 
     private function ensureInstallationBelongsToCustomer(array $data): void

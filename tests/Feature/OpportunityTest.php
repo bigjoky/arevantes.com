@@ -93,6 +93,80 @@ class OpportunityTest extends TestCase
         );
     }
 
+    public function test_opportunity_creation_finds_an_existing_customer_by_normalized_mobile(): void
+    {
+        $user = User::factory()->create(['role' => 'commercial']);
+        $customer = Person::create([
+            'category' => 'customer',
+            'first_name' => 'Ana',
+            'phone' => '+34 600 123 123',
+            'email' => 'ana@example.test',
+        ]);
+
+        $this->assertSame('34600123123', $customer->phone_normalized);
+        $this->actingAs($user)
+            ->getJson(route('crm-customers.lookup', ['phone' => '600-123-123']))
+            ->assertOk()
+            ->assertJsonPath('normalized_phone', '34600123123')
+            ->assertJsonPath('customer.id', $customer->id)
+            ->assertJsonPath('customer.email', 'ana@example.test');
+
+        $this->post(route('opportunities.store'), [
+            'customer_phone' => '(600) 123 123',
+            'title' => 'Battery expansion',
+            'stage' => 'new',
+            'probability' => 10,
+            'estimated_value' => 4500,
+        ])->assertRedirect();
+
+        $this->assertSame(1, Person::where('category', 'customer')->count());
+        $this->assertDatabaseHas('opportunities', [
+            'person_id' => $customer->id,
+            'title' => 'Battery expansion',
+        ]);
+    }
+
+    public function test_opportunity_creation_builds_a_customer_when_the_mobile_has_no_match(): void
+    {
+        $user = User::factory()->create(['role' => 'commercial']);
+        $payload = [
+            'customer_phone' => '611 222 333',
+            'title' => 'Industrial self-consumption',
+            'stage' => 'new',
+            'probability' => 10,
+            'estimated_value' => 25000,
+        ];
+
+        $this->actingAs($user)->post(route('opportunities.store'), $payload)
+            ->assertSessionHasErrors('customer_first_name');
+
+        $this->post(route('opportunities.store'), [
+            ...$payload,
+            'customer_company_name' => 'Nueva Industria SL',
+            'customer_email' => 'VENTAS@NUEVA-INDUSTRIA.TEST',
+        ])->assertRedirect();
+
+        $customer = Person::where('phone_normalized', '34611222333')->sole();
+        $this->assertSame('Nueva Industria SL', $customer->first_name);
+        $this->assertSame('Nueva Industria SL', $customer->company_name);
+        $this->assertSame('ventas@nueva-industria.test', $customer->email);
+        $this->assertSame('lead', $customer->lifecycle_status);
+        $this->assertSame('opportunity_form', $customer->data_source);
+        $this->assertDatabaseHas('opportunities', [
+            'person_id' => $customer->id,
+            'title' => 'Industrial self-consumption',
+        ]);
+
+        $this->post(route('opportunities.store'), [
+            ...$payload,
+            'customer_phone' => '+34 611 222 333',
+            'title' => 'Industrial storage',
+        ])->assertRedirect();
+
+        $this->assertSame(1, Person::where('phone_normalized', '34611222333')->count());
+        $this->assertSame(2, Opportunity::where('person_id', $customer->id)->count());
+    }
+
     public function test_opportunity_rejects_an_installation_from_another_customer(): void
     {
         $user = User::factory()->create(['role' => 'commercial']);
