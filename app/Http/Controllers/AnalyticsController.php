@@ -37,8 +37,13 @@ class AnalyticsController extends Controller
             'dictionary' => $definitions->map(fn (array $definition, string $key) => ['key' => $key, ...$definition])->values(),
             'selectedMetric' => $selectedMetric,
             'records' => $selectedMetric ? $analytics->records($metricKey, $filter) : [],
-            'commercials' => User::query()->whereIn('role', ['admin', 'commercial'])->orderBy('name')->get(['id', 'name']),
-            'projects' => Installation::query()->when($request->user()->hasRole('technician'), fn ($query) => $query->where('technician_user_id', $request->user()->id))->orderByDesc('created_at')->limit(500)->get(['id', 'project_reference', 'site_name']),
+            'commercials' => User::query()->whereIn('role', ['admin', 'commercial'])
+                ->when($filter->restrictsToOwnCommercialScope(), fn ($query) => $query->whereKey($request->user()->id))
+                ->orderBy('name')->get(['id', 'name']),
+            'projects' => Installation::query()
+                ->when($request->user()->hasRole('technician'), fn ($query) => $query->where('technician_user_id', $request->user()->id))
+                ->when($filter->restrictsToOwnCommercialScope(), fn ($query) => $query->where('commercial_user_id', $request->user()->id))
+                ->orderByDesc('created_at')->limit(500)->get(['id', 'project_reference', 'site_name']),
             'alerts' => $request->user()->analyticsAlerts()->latest()->get()->map(function (AnalyticsAlert $alert) use ($currentValues) {
                 $current = $currentValues->get($alert->metric_key)['value'] ?? null;
 

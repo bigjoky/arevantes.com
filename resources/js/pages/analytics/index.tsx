@@ -28,7 +28,7 @@ type Filter = {
 };
 
 type Quality = {
-    score: number;
+    score: number | null;
     complete: number;
     total: number;
     label: string;
@@ -44,6 +44,7 @@ type Metric = {
     frequency: string;
     unit: 'currency' | 'percent' | 'number';
     areas: string[];
+    direction: 'up' | 'down';
     value: number;
     previous: number;
     previous_delta_percent: number | null;
@@ -344,11 +345,13 @@ function Dashboard({
                                 <Comparison
                                     label="Periodo anterior"
                                     value={metric.previous_delta_percent}
+                                    direction={metric.direction}
                                 />
                                 <Comparison
                                     label="Objetivo / presupuesto"
                                     value={metric.target_delta_percent}
                                     missing={metric.target === null}
+                                    direction={metric.direction}
                                 />
                             </div>
                             <div className="flex items-center justify-between border-t pt-3 text-xs">
@@ -357,13 +360,16 @@ function Dashboard({
                                 </span>
                                 <Badge
                                     variant={
+                                        metric.quality.score === null ||
                                         metric.quality.score >= 98
                                             ? 'outline'
                                             : 'destructive'
                                     }
                                 >
-                                    {metric.quality.score}% ·{' '}
-                                    {metric.quality.label}
+                                    {metric.quality.score === null
+                                        ? '—'
+                                        : `${metric.quality.score}%`}{' '}
+                                    · {metric.quality.label}
                                 </Badge>
                             </div>
                         </Card>
@@ -776,16 +782,25 @@ function Comparison({
     label,
     value,
     missing = false,
+    direction,
 }: {
     label: string;
     value: number | null;
     missing?: boolean;
+    direction: Metric['direction'];
 }) {
+    const favorable =
+        value === null || value === 0
+            ? null
+            : direction === 'up'
+              ? value > 0
+              : value < 0;
+
     return (
         <div>
             <div className="text-muted-foreground">{label}</div>
             <div
-                className={`mt-1 font-medium ${value !== null && value < 0 ? 'text-destructive' : ''}`}
+                className={`mt-1 font-medium ${favorable === true ? 'text-emerald-600 dark:text-emerald-400' : favorable === false ? 'text-destructive' : ''}`}
             >
                 {missing
                     ? 'Sin objetivo'

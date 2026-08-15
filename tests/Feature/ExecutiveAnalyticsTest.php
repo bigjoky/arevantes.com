@@ -6,6 +6,7 @@ use App\Models\AnalyticsAlert;
 use App\Models\FinancialBudget;
 use App\Models\Installation;
 use App\Models\Opportunity;
+use App\Models\OpportunityStageHistory;
 use App\Models\PurchaseDocument;
 use App\Models\SalesDocument;
 use App\Models\Supplier;
@@ -34,7 +35,7 @@ class ExecutiveAnalyticsTest extends TestCase
 
     public function test_totals_are_reconciled_with_operational_records_and_explainable(): void
     {
-        $user = User::factory()->create(['role' => 'commercial']);
+        $user = User::factory()->create(['role' => 'admin']);
         $project = Installation::create([
             'commercial_user_id' => $user->id,
             'service_type' => 'solar',
@@ -43,11 +44,15 @@ class ExecutiveAnalyticsTest extends TestCase
             'site_address_line_1' => 'Analytics street',
             'completed_date' => today(),
         ]);
-        SalesDocument::create([
+        $invoice = SalesDocument::create([
             'type' => 'invoice', 'installation_id' => $project->id, 'created_by' => $user->id,
             'number' => 'INV-AN-1', 'status' => 'issued', 'issue_date' => today(), 'due_date' => today()->addMonth(),
             'subtotal' => 1000, 'discount_amount' => 0, 'tax_amount' => 210, 'amount' => 1210, 'paid_amount' => 210,
             'customer_snapshot' => [],
+        ]);
+        $invoice->payments()->create([
+            'created_by' => $user->id,
+            'paid_at' => today(), 'amount' => 210, 'method' => 'transfer',
         ]);
         SalesDocument::create([
             'type' => 'credit_note', 'installation_id' => $project->id, 'created_by' => $user->id,
@@ -72,27 +77,28 @@ class ExecutiveAnalyticsTest extends TestCase
         ]);
         FinancialBudget::create(['year' => today()->year, 'month' => today()->month, 'category' => 'revenue', 'amount' => 1500, 'created_by' => $user->id]);
 
-        $this->actingAs($user)->get(route('analytics.index', ['area' => 'executive', 'period' => 'month']))
+        $response = $this->actingAs($user)->get(route('analytics.index', ['area' => 'executive', 'period' => 'month']));
+        $response
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->component('analytics/index')
                 ->where('metrics.0.key', 'net_revenue')
-                ->where('metrics.0.value', 1089)
-                ->where('metrics.0.target', 1500)
+                ->where('metrics.0.value', 900)
+                ->where('metrics.0.target', round(1500 * today()->day / today()->daysInMonth, 2))
                 ->where('metrics.1.key', 'open_pipeline')
                 ->where('metrics.1.value', 5000)
                 ->where('metrics.2.key', 'completed_projects')
                 ->where('metrics.2.value', 1)
                 ->where('metrics.3.key', 'purchase_spend')
-                ->where('metrics.3.value', 484)
+                ->where('metrics.3.value', 400)
                 ->where('metrics.4.key', 'outstanding_receivables')
                 ->where('metrics.4.value', 1000)
                 ->where('metrics.5.key', 'gross_margin')
-                ->where('metrics.5.value', 605));
+                ->where('metrics.5.value', 900));
 
         $this->get(route('analytics.index', ['area' => 'executive', 'period' => 'month', 'metric' => 'net_revenue']))
             ->assertInertia(fn (Assert $page) => $page
-                ->where('selectedMetric.value', 1089)
+                ->where('selectedMetric.value', 900)
                 ->has('records', 2)
                 ->where('records.0.url', route('sales-documents.show', 2))
                 ->where('records.1.url', route('sales-documents.show', 1)));
@@ -120,8 +126,8 @@ class ExecutiveAnalyticsTest extends TestCase
 
     public function test_alerts_subscriptions_and_exports_respect_the_current_user(): void
     {
-        $user = User::factory()->create(['role' => 'commercial']);
-        $other = User::factory()->create(['role' => 'commercial']);
+        $user = User::factory()->create(['role' => 'admin']);
+        $other = User::factory()->create(['role' => 'admin']);
 
         $this->actingAs($user)->post(route('analytics.alerts.store'), [
             'area' => 'finance', 'metric_key' => 'outstanding_receivables', 'operator' => '>', 'threshold' => 10000,
@@ -139,5 +145,79 @@ class ExecutiveAnalyticsTest extends TestCase
             ->assertOk()->assertHeader('Content-Type', 'application/vnd.ms-excel; charset=UTF-8');
         $this->get(route('analytics.export', ['format' => 'pdf', 'area' => 'finance', 'period' => 'month']))
             ->assertOk()->assertHeader('Content-Type', 'application/pdf');
+    }
+
+    public function test_commercial_users_only_see_sales_and_their_own_pipeline(): void
+    {
+        $user = User::factory()->create(['role' => 'commercial']);
+        $other = User::factory()->create(['role' => 'commercial']);
+        Opportunity::create([
+            'owner_user_id' => $user->id, 'created_by' => $user->id, 'code' => 'OWN-PIPELINE',
+            'title' => 'Own pipeline', 'stage' => 'qualified', 'estimated_value' => 1200, 'expected_close_on' => today(),
+        ]);
+        Opportunity::create([
+            'owner_user_id' => $other->id, 'created_by' => $other->id, 'code' => 'OTHER-PIPELINE',
+            'title' => 'Other pipeline', 'stage' => 'qualified', 'estimated_value' => 9000, 'expected_close_on' => today(),
+        ]);
+
+        $this->actingAs($user)->get(route('analytics.index', ['period' => 'month']))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('areas', 1)
+                ->where('areas.0.key', 'sales')
+                ->where('metrics.1.key', 'open_pipeline')
+                ->where('metrics.1.value', 1200)
+                ->has('commercials', 1)
+                ->where('commercials.0.id', $user->id));
+    }
+
+    public function test_win_rate_uses_the_real_closing_stage_date(): void
+    {
+        $user = User::factory()->create(['role' => 'admin']);
+        $won = Opportunity::create([
+            'owner_user_id' => $user->id, 'created_by' => $user->id, 'code' => 'WON-NOW',
+            'title' => 'Won now', 'stage' => 'won', 'estimated_value' => 1000, 'expected_close_on' => today(),
+        ]);
+        $lostPreviously = Opportunity::create([
+            'owner_user_id' => $user->id, 'created_by' => $user->id, 'code' => 'LOST-BEFORE',
+            'title' => 'Lost before', 'stage' => 'lost', 'estimated_value' => 1000, 'expected_close_on' => today(),
+        ]);
+        OpportunityStageHistory::where('opportunity_id', $lostPreviously->id)->update(['changed_at' => now()->subMonth()]);
+
+        $this->actingAs($user)->get(route('analytics.index', ['area' => 'sales', 'period' => 'month']))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('metrics.2.key', 'win_rate')
+                ->where('metrics.2.value', 100));
+    }
+
+    public function test_receivables_are_an_as_of_balance_not_period_issuance(): void
+    {
+        $user = User::factory()->create(['role' => 'admin']);
+        $invoice = SalesDocument::create([
+            'type' => 'invoice', 'created_by' => $user->id, 'number' => 'OLD-OPEN', 'status' => 'partial',
+            'issue_date' => today()->subMonths(2), 'due_date' => today()->subMonth(), 'subtotal' => 1000,
+            'discount_amount' => 0, 'tax_amount' => 210, 'amount' => 1210, 'paid_amount' => 210, 'customer_snapshot' => [],
+        ]);
+        $invoice->payments()->create([
+            'created_by' => $user->id, 'paid_at' => today()->addDay(), 'amount' => 210, 'method' => 'transfer',
+        ]);
+
+        $this->actingAs($user)->get(route('analytics.index', [
+            'area' => 'finance', 'period' => 'custom', 'from' => today()->startOfMonth()->toDateString(), 'to' => today()->toDateString(),
+        ]))->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->where('metrics.2.key', 'outstanding_receivables')
+            ->where('metrics.2.value', 1210));
+    }
+
+    public function test_empty_kpis_report_no_data_instead_of_perfect_quality(): void
+    {
+        $user = User::factory()->create(['role' => 'admin']);
+
+        $this->actingAs($user)->get(route('analytics.index', ['area' => 'executive', 'period' => 'month']))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('metrics.0.quality.score', null)
+                ->where('metrics.0.quality.label', 'Sin datos'));
     }
 }
