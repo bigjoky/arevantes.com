@@ -184,6 +184,19 @@ type AiGeneration = {
     model: string | null;
     duration_ms: number | null;
     message: string | null;
+    action_proposals: {
+        uuid: string;
+        action: 'create_crm_activity';
+        status: 'proposed' | 'executed' | 'cancelled' | 'failed';
+        payload: {
+            title: string;
+            type: 'task' | 'visit' | 'reminder';
+            priority: 'low' | 'normal' | 'high';
+            reason: string;
+            due_in_days: number;
+        };
+        executed_at: string | null;
+    }[];
 };
 const MonitoringChart = lazy(
     () => import('@/components/installations/monitoring-chart'),
@@ -227,6 +240,11 @@ export default function InstallationShow({
         null,
     );
     const [aiActivityLoading, setAiActivityLoading] = useState(false);
+    const [aiActionConfirmationOpen, setAiActionConfirmationOpen] =
+        useState(false);
+    const [selectedAiProposals, setSelectedAiProposals] = useState<string[]>(
+        [],
+    );
     const [aiFeedbackMessage, setAiFeedbackMessage] = useState<string | null>(
         null,
     );
@@ -237,7 +255,10 @@ export default function InstallationShow({
     const [aiCorrectionActions, setAiCorrectionActions] = useState('');
     const [aiCorrectionNotes, setAiCorrectionNotes] = useState('');
     const aiResult = aiGeneration?.result;
-    const aiActionItems = aiResult?.action_items ?? [];
+    const aiActionProposals = aiGeneration?.action_proposals ?? [];
+    const pendingAiActionProposals = aiActionProposals.filter(
+        (proposal) => proposal.status === 'proposed',
+    );
 
     async function generateBriefing(mode: 'quick' | 'operational') {
         setAiLoading(true);
@@ -339,7 +360,7 @@ export default function InstallationShow({
                     },
                     body: JSON.stringify({
                         confirmed: true,
-                        indexes: aiActionItems.map((_, index) => index),
+                        proposal_uuids: selectedAiProposals,
                     }),
                 },
             );
@@ -355,6 +376,25 @@ export default function InstallationShow({
             setAiActivityMessage(
                 `${data.created?.length ?? 0} CRM activities ready in Operations.`,
             );
+            setAiGeneration((current) =>
+                current
+                    ? {
+                          ...current,
+                          action_proposals: current.action_proposals.map(
+                              (proposal) =>
+                                  selectedAiProposals.includes(proposal.uuid)
+                                      ? {
+                                            ...proposal,
+                                            status: 'executed',
+                                            executed_at:
+                                                new Date().toISOString(),
+                                        }
+                                      : proposal,
+                          ),
+                      }
+                    : current,
+            );
+            setAiActionConfirmationOpen(false);
         } catch (error) {
             setAiError(
                 error instanceof Error
@@ -1215,7 +1255,7 @@ export default function InstallationShow({
                                             </div>
                                         ))}
                                         {aiGeneration.mode === 'operational' &&
-                                        aiActionItems.length > 0 ? (
+                                        aiActionProposals.length > 0 ? (
                                             <div className="border-t pt-3">
                                                 <div className="flex flex-wrap items-center justify-between gap-3">
                                                     <div>
@@ -1223,68 +1263,222 @@ export default function InstallationShow({
                                                             CRM action items
                                                         </div>
                                                         <p className="text-xs">
-                                                            Convert these
-                                                            suggestions into
-                                                            operational tasks.
+                                                            Review each proposal
+                                                            before it can modify
+                                                            CRM data.
                                                         </p>
                                                     </div>
-                                                    <Button
-                                                        size="sm"
-                                                        variant="outline"
-                                                        onClick={
-                                                            createAiActivities
-                                                        }
-                                                        disabled={
-                                                            aiActivityLoading
-                                                        }
-                                                    >
-                                                        {aiActivityLoading ? (
-                                                            <LoaderCircle className="size-4 animate-spin" />
-                                                        ) : (
+                                                    {pendingAiActionProposals.length >
+                                                    0 ? (
+                                                        <Button
+                                                            size="sm"
+                                                            variant="outline"
+                                                            onClick={() => {
+                                                                setSelectedAiProposals(
+                                                                    pendingAiActionProposals.map(
+                                                                        (
+                                                                            proposal,
+                                                                        ) =>
+                                                                            proposal.uuid,
+                                                                    ),
+                                                                );
+                                                                setAiActionConfirmationOpen(
+                                                                    true,
+                                                                );
+                                                            }}
+                                                        >
                                                             <Sparkles className="size-4" />
-                                                        )}
-                                                        Create tasks
-                                                    </Button>
+                                                            Review tasks
+                                                        </Button>
+                                                    ) : (
+                                                        <Badge variant="outline">
+                                                            Executed
+                                                        </Badge>
+                                                    )}
                                                 </div>
                                                 <div className="mt-3 grid gap-2">
-                                                    {aiActionItems.map(
-                                                        (item) => (
+                                                    {aiActionProposals.map(
+                                                        (proposal) => (
                                                             <div
-                                                                key={`${item.type}-${item.title}`}
+                                                                key={
+                                                                    proposal.uuid
+                                                                }
                                                                 className="rounded-md border p-3"
                                                             >
                                                                 <div className="flex flex-wrap items-center gap-2">
                                                                     <span className="font-medium text-foreground">
                                                                         {
-                                                                            item.title
+                                                                            proposal
+                                                                                .payload
+                                                                                .title
                                                                         }
                                                                     </span>
                                                                     <Badge variant="outline">
                                                                         {
-                                                                            item.type
+                                                                            proposal
+                                                                                .payload
+                                                                                .type
                                                                         }
                                                                     </Badge>
                                                                     <Badge variant="outline">
                                                                         {
-                                                                            item.priority
+                                                                            proposal
+                                                                                .payload
+                                                                                .priority
                                                                         }
                                                                     </Badge>
                                                                     <Badge variant="outline">
                                                                         {
-                                                                            item.due_in_days
+                                                                            proposal
+                                                                                .payload
+                                                                                .due_in_days
                                                                         }{' '}
                                                                         days
                                                                     </Badge>
                                                                 </div>
                                                                 <p className="mt-1">
                                                                     {
-                                                                        item.reason
+                                                                        proposal
+                                                                            .payload
+                                                                            .reason
+                                                                    }
+                                                                </p>
+                                                                <p className="mt-1 text-xs font-medium tracking-wide uppercase">
+                                                                    {
+                                                                        proposal.status
                                                                     }
                                                                 </p>
                                                             </div>
                                                         ),
                                                     )}
                                                 </div>
+                                                <Dialog
+                                                    open={
+                                                        aiActionConfirmationOpen
+                                                    }
+                                                    onOpenChange={
+                                                        setAiActionConfirmationOpen
+                                                    }
+                                                >
+                                                    <DialogContent>
+                                                        <DialogHeader>
+                                                            <DialogTitle>
+                                                                Confirm CRM
+                                                                changes
+                                                            </DialogTitle>
+                                                        </DialogHeader>
+                                                        <p className="text-sm text-muted-foreground">
+                                                            Select the tasks to
+                                                            create. This action
+                                                            will write to CRM
+                                                            and will be fully
+                                                            audited.
+                                                        </p>
+                                                        <div className="grid gap-3">
+                                                            {pendingAiActionProposals.map(
+                                                                (proposal) => (
+                                                                    <label
+                                                                        key={
+                                                                            proposal.uuid
+                                                                        }
+                                                                        className="flex cursor-pointer gap-3 rounded-md border p-3"
+                                                                    >
+                                                                        <input
+                                                                            type="checkbox"
+                                                                            className="mt-1 size-4"
+                                                                            checked={selectedAiProposals.includes(
+                                                                                proposal.uuid,
+                                                                            )}
+                                                                            onChange={() =>
+                                                                                setSelectedAiProposals(
+                                                                                    (
+                                                                                        current,
+                                                                                    ) =>
+                                                                                        current.includes(
+                                                                                            proposal.uuid,
+                                                                                        )
+                                                                                            ? current.filter(
+                                                                                                  (
+                                                                                                      uuid,
+                                                                                                  ) =>
+                                                                                                      uuid !==
+                                                                                                      proposal.uuid,
+                                                                                              )
+                                                                                            : [
+                                                                                                  ...current,
+                                                                                                  proposal.uuid,
+                                                                                              ],
+                                                                                )
+                                                                            }
+                                                                        />
+                                                                        <span>
+                                                                            <span className="block font-medium">
+                                                                                {
+                                                                                    proposal
+                                                                                        .payload
+                                                                                        .title
+                                                                                }
+                                                                            </span>
+                                                                            <span className="text-xs text-muted-foreground">
+                                                                                {
+                                                                                    proposal
+                                                                                        .payload
+                                                                                        .type
+                                                                                }{' '}
+                                                                                ·{' '}
+                                                                                {
+                                                                                    proposal
+                                                                                        .payload
+                                                                                        .priority
+                                                                                }{' '}
+                                                                                ·
+                                                                                due
+                                                                                in{' '}
+                                                                                {
+                                                                                    proposal
+                                                                                        .payload
+                                                                                        .due_in_days
+                                                                                }{' '}
+                                                                                days
+                                                                            </span>
+                                                                        </span>
+                                                                    </label>
+                                                                ),
+                                                            )}
+                                                        </div>
+                                                        <div className="flex justify-end gap-2">
+                                                            <Button
+                                                                variant="outline"
+                                                                onClick={() =>
+                                                                    setAiActionConfirmationOpen(
+                                                                        false,
+                                                                    )
+                                                                }
+                                                            >
+                                                                Cancel
+                                                            </Button>
+                                                            <Button
+                                                                onClick={
+                                                                    createAiActivities
+                                                                }
+                                                                disabled={
+                                                                    aiActivityLoading ||
+                                                                    selectedAiProposals.length ===
+                                                                        0
+                                                                }
+                                                            >
+                                                                {aiActivityLoading ? (
+                                                                    <LoaderCircle className="size-4 animate-spin" />
+                                                                ) : null}
+                                                                Confirm and
+                                                                create{' '}
+                                                                {
+                                                                    selectedAiProposals.length
+                                                                }
+                                                            </Button>
+                                                        </div>
+                                                    </DialogContent>
+                                                </Dialog>
                                                 {aiActivityMessage ? (
                                                     <div className="mt-3 rounded-md border border-emerald-500/30 bg-emerald-500/10 p-3 text-emerald-700">
                                                         {aiActivityMessage}

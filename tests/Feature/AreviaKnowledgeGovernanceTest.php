@@ -7,6 +7,7 @@ use App\Models\AiAuditLog;
 use App\Models\Installation;
 use App\Models\KnowledgeDocument;
 use App\Models\User;
+use App\Services\Ai\AiActionProposalService;
 use App\Services\Ai\AreviaCitationValidator;
 use App\Services\Ai\KnowledgeIndexer;
 use App\Services\Ai\KnowledgeRetriever;
@@ -103,16 +104,20 @@ class AreviaKnowledgeGovernanceTest extends TestCase
                 'title' => 'Review the inverter', 'type' => 'task', 'priority' => 'normal', 'reason' => 'Diagnostic draft', 'due_in_days' => 2,
             ]]],
         ]);
+        $proposal = app(AiActionProposalService::class)->proposeFor($generation)->firstOrFail();
         $route = route('installations.ai.briefing.activities', [$installation, $generation->uuid]);
 
-        $this->actingAs($user)->postJson($route, ['indexes' => [0]])->assertUnprocessable();
+        $this->actingAs($user)->postJson($route, ['proposal_uuids' => [$proposal->uuid]])->assertUnprocessable();
         $this->assertDatabaseCount('crm_activities', 0);
 
-        $this->postJson($route, ['confirmed' => true, 'indexes' => [0]])->assertCreated();
+        $this->postJson($route, ['confirmed' => true, 'proposal_uuids' => [$proposal->uuid]])->assertCreated();
         $this->assertDatabaseHas('ai_audit_logs', [
             'user_id' => $user->id, 'event' => 'action_confirmed', 'action' => 'create_crm_activities',
         ]);
         $this->assertNotNull(AiAuditLog::firstOrFail()->confirmed_at);
+        $this->assertDatabaseHas('ai_action_proposals', [
+            'uuid' => $proposal->uuid, 'status' => 'executed', 'confirmed_by' => $user->id,
+        ]);
     }
 
     public function test_every_module_has_evaluation_questions(): void
