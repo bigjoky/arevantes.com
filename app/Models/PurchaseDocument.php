@@ -72,6 +72,11 @@ class PurchaseDocument extends Model
         return $this->hasMany(PurchaseDocumentEvent::class)->latest('occurred_at');
     }
 
+    public function orderApprovals(): HasMany
+    {
+        return $this->hasMany(PurchaseOrderApproval::class)->orderBy('id');
+    }
+
     public function installation(): BelongsTo
     {
         return $this->belongsTo(Installation::class);

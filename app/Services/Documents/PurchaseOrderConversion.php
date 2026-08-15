@@ -3,12 +3,11 @@
 namespace App\Services\Documents;
 
 use App\Models\PurchaseDocument;
-use App\Models\PurchaseSetting;
 use Illuminate\Support\Facades\DB;
 
 class PurchaseOrderConversion
 {
-    public function __construct(private DocumentNumber $numbers) {}
+    public function __construct(private DocumentNumber $numbers, private PurchaseOrderApprovalWorkflow $approvals) {}
 
     public function convert(PurchaseDocument $request, int $userId, bool $requireQuote = false): PurchaseDocument
     {
@@ -23,7 +22,6 @@ class PurchaseOrderConversion
             $fromStatus = $request->status;
 
             $issued = $this->numbers->next('purchase_order', now());
-            $requiresApproval = (float) $request->amount >= (float) PurchaseSetting::current()->order_approval_threshold;
             $order = PurchaseDocument::create([
                 'type' => 'purchase_order',
                 'source_document_id' => $request->id,
@@ -39,7 +37,7 @@ class PurchaseOrderConversion
                 'assigned_by' => $userId,
                 'assigned_at' => now(),
                 'number' => $issued['number'],
-                'status' => $requiresApproval ? 'pending_approval' : 'ordered',
+                'status' => 'ordered',
                 'issue_date' => now()->toDateString(),
                 'delivery_days' => $request->delivery_days,
                 'expected_delivery_date' => $request->expected_delivery_date,
@@ -49,12 +47,15 @@ class PurchaseOrderConversion
                 'amount' => $request->amount,
                 'notes' => $request->notes,
                 'quote_notes' => $request->quote_notes,
-                'locked_at' => $requiresApproval ? null : now(),
+                'locked_at' => now(),
             ]);
             $order->lines()->createMany($request->lines->map(fn ($line) => $line->only(['product_id', 'position', 'description', 'quantity', 'unit_price', 'estimated_unit_price', 'discount_percent', 'tax_percent', 'subtotal', 'tax_amount', 'total']))->all());
+            $requiresApproval = $this->approvals->request($order, $userId);
             $request->update(['status' => 'accepted', 'is_selected' => true, 'locked_at' => now()]);
             app(PurchaseWorkflow::class)->record($request, 'converted_to_order', $userId, $fromStatus, 'accepted', ['order' => $order->number]);
-            app(PurchaseWorkflow::class)->record($order, $requiresApproval ? 'approval_requested' : 'created_from_request', $userId, null, $order->status, ['request' => $request->number, 'threshold' => PurchaseSetting::current()->order_approval_threshold]);
+            if (! $requiresApproval) {
+                app(PurchaseWorkflow::class)->record($order, 'created_from_request', $userId, null, $order->status, ['request' => $request->number]);
+            }
             if ($request->procurement_batch_id) {
                 PurchaseDocument::where('type', 'purchase_rfq')
                     ->where('procurement_batch_id', $request->procurement_batch_id)

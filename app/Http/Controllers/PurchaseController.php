@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\GoodsReceipt;
 use App\Models\GoodsReturn;
 use App\Models\Product;
+use App\Models\PurchaseApprovalRule;
 use App\Models\PurchaseDocument;
 use App\Models\PurchaseSetting;
 use App\Models\Supplier;
@@ -13,6 +14,7 @@ use App\Models\Warehouse;
 use App\Services\Accounting\AccountingSynchronizer;
 use App\Services\Documents\DocumentNumber;
 use App\Services\Documents\PurchaseInvoiceMatcher;
+use App\Services\Documents\PurchaseOrderApprovalWorkflow;
 use App\Services\Documents\PurchaseOrderConversion;
 use App\Services\Documents\PurchaseWorkflow;
 use App\Services\Documents\SupplierInvoiceExtraction;
@@ -33,11 +35,11 @@ class PurchaseController extends Controller
             'search' => ['nullable', 'string', 'max:100'],
             'type' => ['nullable', Rule::in(['purchase_rfq', 'purchase_order', 'supplier_invoice', 'supplier_credit_note'])],
             'status' => ['nullable', 'string', 'max:30'],
-            'attention' => ['nullable', Rule::in(['late', 'receiving', 'review'])],
+            'attention' => ['nullable', Rule::in(['late', 'receiving', 'review', 'approval'])],
         ]);
         $lateOrders = fn ($query) => $query
             ->where('type', 'purchase_order')
-            ->whereNotIn('status', ['received', 'closed', 'cancelled'])
+            ->whereIn('status', ['ordered', 'partially_received'])
             ->where(function ($query) {
                 $query->where(fn ($query) => $query
                     ->whereNotNull('supplier_confirmed_delivery_date')
@@ -56,7 +58,8 @@ class PurchaseController extends Controller
             ->when($filters['status'] ?? null, fn ($query, $status) => $query->where('status', $status))
             ->when(($filters['attention'] ?? null) === 'late', $lateOrders)
             ->when(($filters['attention'] ?? null) === 'receiving', fn ($query) => $query->where('type', 'purchase_order')->whereIn('status', ['ordered', 'partially_received']))
-            ->when(($filters['attention'] ?? null) === 'review', fn ($query) => $query->where('matching_status', 'review_required'));
+            ->when(($filters['attention'] ?? null) === 'review', fn ($query) => $query->where('matching_status', 'review_required'))
+            ->when(($filters['attention'] ?? null) === 'approval', fn ($query) => $query->where('type', 'purchase_order')->where('status', 'pending_approval'));
 
         return Inertia::render('purchases/index', [
             'documents' => $query->latest('issue_date')->latest()->paginate(25)->withQueryString(),
@@ -65,18 +68,20 @@ class PurchaseController extends Controller
                 'late' => $lateOrders(PurchaseDocument::query())->count(),
                 'receiving' => PurchaseDocument::where('type', 'purchase_order')->whereIn('status', ['ordered', 'partially_received'])->count(),
                 'review' => PurchaseDocument::where('matching_status', 'review_required')->count(),
+                'approval' => PurchaseDocument::where('type', 'purchase_order')->where('status', 'pending_approval')->count(),
             ],
             'filters' => $filters,
             'settings' => PurchaseSetting::current(),
             'suppliers' => Supplier::where('is_active', true)->orderBy('legal_name')->get(['id', 'legal_name', 'trade_name']),
             'products' => Product::where('is_active', true)->orderBy('name')->get(['id', 'sku', 'name', 'description', 'cost_price', 'tax_rate_id', 'track_stock', 'track_serials'])->load('taxRate:id,rate'),
+            'approvalRules' => PurchaseApprovalRule::with('supplier:id,legal_name,trade_name')->orderBy('priority')->orderBy('name')->get(),
         ]);
     }
 
     public function show(PurchaseDocument $purchaseDocument, PurchaseInvoiceMatcher $matcher): Response
     {
         $orderSummary = $purchaseDocument->type === 'purchase_order' ? $matcher->summary($purchaseDocument) : null;
-        $purchaseDocument->load(['supplier', 'assignee:id,name', 'destinationWarehouse:id,code,name', 'sourceDocument:id,number,type,shipping_cost', 'derivedDocuments:id,source_document_id,number,type,status,matching_status,amount,issue_date,supplier_number', 'salesOrder:id,number', 'approver:id,name', 'lines.product:id,name,sku,track_stock,track_serials', 'receipts.movement:id,number', 'returns.movement:id,number', 'payments', 'attachment.verifier:id,name', 'events.user:id,name', 'qualityIncidents.product:id,sku,name', 'qualityIncidents.warehouse:id,code,name', 'qualityIncidents.reporter:id,name', 'qualityIncidents.resolver:id,name']);
+        $purchaseDocument->load(['supplier', 'assignee:id,name', 'destinationWarehouse:id,code,name', 'sourceDocument:id,number,type,shipping_cost', 'derivedDocuments:id,source_document_id,number,type,status,matching_status,amount,issue_date,supplier_number', 'salesOrder:id,number', 'approver:id,name', 'orderApprovals.rule:id,name', 'orderApprovals.requester:id,name', 'orderApprovals.decider:id,name', 'lines.product:id,name,sku,track_stock,track_serials', 'receipts.movement:id,number', 'returns.movement:id,number', 'payments', 'attachment.verifier:id,name', 'events.user:id,name', 'qualityIncidents.product:id,sku,name', 'qualityIncidents.warehouse:id,code,name', 'qualityIncidents.reporter:id,name', 'qualityIncidents.resolver:id,name']);
 
         return Inertia::render('purchases/show', [
             'document' => $purchaseDocument,
@@ -97,11 +102,12 @@ class PurchaseController extends Controller
             $totals = $this->calculate($data['lines'], (float) ($data['shipping_cost'] ?? 0));
             $issued = app(DocumentNumber::class)->next($data['type'], $data['issue_date']);
             $isOrder = $data['type'] === 'purchase_order';
-            $requiresApproval = $isOrder && (float) $totals['totals']['amount'] >= (float) PurchaseSetting::current()->order_approval_threshold;
-            $status = $isOrder ? ($requiresApproval ? 'pending_approval' : 'ordered') : 'draft';
-            $document = PurchaseDocument::create(['type' => $data['type'], 'supplier_id' => $data['supplier_id'], 'document_series_id' => $issued['series']->id, 'created_by' => $request->user()->id, 'assigned_to' => $isOrder ? $request->user()->id : null, 'assigned_by' => $isOrder ? $request->user()->id : null, 'assigned_at' => $isOrder ? now() : null, 'number' => $issued['number'], 'status' => $status, 'invoicing_status' => $isOrder ? 'not_invoiced' : null, 'issue_date' => $data['issue_date'], 'expected_delivery_date' => $data['expected_delivery_date'] ?? null, 'notes' => $data['notes'] ?? null, 'locked_at' => $isOrder && ! $requiresApproval ? now() : null, ...$totals['totals']]);
+            $document = PurchaseDocument::create(['type' => $data['type'], 'supplier_id' => $data['supplier_id'], 'document_series_id' => $issued['series']->id, 'created_by' => $request->user()->id, 'assigned_to' => $isOrder ? $request->user()->id : null, 'assigned_by' => $isOrder ? $request->user()->id : null, 'assigned_at' => $isOrder ? now() : null, 'number' => $issued['number'], 'status' => $isOrder ? 'ordered' : 'draft', 'invoicing_status' => $isOrder ? 'not_invoiced' : null, 'issue_date' => $data['issue_date'], 'expected_delivery_date' => $data['expected_delivery_date'] ?? null, 'notes' => $data['notes'] ?? null, 'locked_at' => $isOrder ? now() : null, ...$totals['totals']]);
             $document->lines()->createMany($totals['lines']);
-            app(PurchaseWorkflow::class)->record($document, $requiresApproval ? 'approval_requested' : 'created', $request->user()->id, null, $document->status, $requiresApproval ? ['threshold' => PurchaseSetting::current()->order_approval_threshold] : []);
+            $requiresApproval = $isOrder && app(PurchaseOrderApprovalWorkflow::class)->request($document, $request->user()->id);
+            if (! $requiresApproval) {
+                app(PurchaseWorkflow::class)->record($document, 'created', $request->user()->id, null, $document->status);
+            }
 
             return $document;
         });
@@ -368,26 +374,17 @@ class PurchaseController extends Controller
         return back()->with('toast', ['type' => 'success', 'message' => __('Invoice variance approved and posted to accounting.')]);
     }
 
-    public function approveOrder(Request $request, PurchaseDocument $purchaseDocument): RedirectResponse
+    public function approveOrder(Request $request, PurchaseDocument $purchaseDocument, PurchaseOrderApprovalWorkflow $approvals): RedirectResponse
     {
         abort_unless($purchaseDocument->type === 'purchase_order' && $purchaseDocument->status === 'pending_approval', 422);
-        $data = $request->validate(['approval_notes' => ['required', 'string', 'max:2000']]);
-        abort_if($purchaseDocument->created_by === $request->user()->id && ! $request->user()->hasRole('admin'), 403, __('A different authorised user must approve this purchase order.'));
+        $data = $request->validate([
+            'decision' => ['nullable', Rule::in(['approved', 'rejected'])],
+            'approval_notes' => ['required', 'string', 'max:2000'],
+        ]);
 
-        DB::transaction(function () use ($request, $purchaseDocument, $data): void {
-            $order = PurchaseDocument::lockForUpdate()->findOrFail($purchaseDocument->id);
-            abort_unless($order->status === 'pending_approval', 422);
-            $order->update([
-                'status' => 'ordered',
-                'approved_at' => now(),
-                'approved_by' => $request->user()->id,
-                'approval_notes' => $data['approval_notes'],
-                'locked_at' => now(),
-            ]);
-            app(PurchaseWorkflow::class)->record($order, 'purchase_order_approved', $request->user()->id, 'pending_approval', 'ordered', ['notes' => $data['approval_notes']]);
-        });
+        DB::transaction(fn () => $approvals->decide($purchaseDocument, $request->user(), $data['decision'] ?? 'approved', $data['approval_notes']));
 
-        return back()->with('toast', ['type' => 'success', 'message' => __('Purchase order approved and released for execution.')]);
+        return back()->with('toast', ['type' => 'success', 'message' => ($data['decision'] ?? 'approved') === 'rejected' ? __('Purchase order rejected.') : __('Purchase approval recorded.')]);
     }
 
     private function validateDocument(Request $request): array
