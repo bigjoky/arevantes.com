@@ -12,11 +12,19 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Str;
+use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
 class MobilePushTest extends TestCase
 {
     use RefreshDatabase;
+
+    private function mobileAs(User $user): self
+    {
+        Sanctum::actingAs($user, ['mobile']);
+
+        return $this;
+    }
 
     public function test_user_can_register_update_and_revoke_their_ios_device(): void
     {
@@ -24,7 +32,7 @@ class MobilePushTest extends TestCase
         $deviceId = (string) Str::uuid();
         $token = str_repeat('ab', 32);
 
-        $this->actingAs($user, 'sanctum')->putJson("/api/mobile/v1/devices/{$deviceId}", [
+        $this->mobileAs($user)->putJson("/api/mobile/v1/devices/{$deviceId}", [
             'push_token' => strtoupper($token),
             'environment' => 'development',
             'app_version' => '1.0',
