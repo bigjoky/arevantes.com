@@ -20,18 +20,20 @@ class RelevantBusinessContext
         $tokens = collect(preg_split('/[^\pL\pN@._-]+/u', Str::lower($query)))->filter(fn ($token) => mb_strlen($token) >= 3)->unique()->take(8)->values();
         $sections = collect();
 
-        $installationId = preg_match('#/installations/(\d+)#', (string) $pageUrl, $match) ? (int) $match[1] : null;
-        $installations = Installation::with('customer:id,first_name,last_name,company_name')->when($installationId, fn ($builder) => $builder->whereKey($installationId), fn ($builder) => $this->whereTokens($builder, $tokens, ['project_reference', 'site_name', 'site_address_line_1', 'site_city', 'site_postal_code']))->limit(5)->get();
-        if ($installations->isNotEmpty()) {
-            $sections->push("Relevant installations:\n".$installations->map(fn ($item) => sprintf('- #%d %s · %s · %s · %.2f kW · customer %s · monitoring %s · today %.3f kWh', $item->id, $item->project_reference ?: $item->site_name ?: 'unnamed', $item->service_type, $item->status, (float) $item->system_power_kw, $item->customer?->company_name ?: trim(($item->customer?->first_name ?? '').' '.($item->customer?->last_name ?? '')) ?: 'unassigned', $item->huawei_status ?: $item->deye_status ?: 'not linked', (float) ($item->huawei_today_energy_kwh ?: $item->deye_today_energy_kwh)))->implode("\n"));
-        }
-
-        $customers = Person::where('category', 'customer')->tap(fn ($builder) => $this->whereTokens($builder, $tokens, ['first_name', 'last_name', 'company_name', 'email', 'phone', 'tax_id']))->limit(5)->get();
-        if ($customers->isNotEmpty()) {
-            $sections->push("Relevant customers:\n".$customers->map(fn ($person) => sprintf('- #%d %s · %s · %s · %s · %d installations', $person->id, $person->company_name ?: trim($person->first_name.' '.$person->last_name), $person->email ?: 'no email', $person->phone ?: 'no phone', collect([$person->city, $person->province_state])->filter()->implode(', ') ?: 'no location', $person->installations()->count()))->implode("\n"));
+        if (Gate::forUser($user)->allows('view-installations')) {
+            $installationId = preg_match('#/installations/(\d+)#', (string) $pageUrl, $match) ? (int) $match[1] : null;
+            $installations = Installation::with('customer:id,first_name,last_name,company_name')->when($installationId, fn ($builder) => $builder->whereKey($installationId), fn ($builder) => $this->whereTokens($builder, $tokens, ['project_reference', 'site_name', 'site_address_line_1', 'site_city', 'site_postal_code']))->limit(5)->get();
+            if ($installations->isNotEmpty()) {
+                $sections->push("Relevant installations:\n".$installations->map(fn ($item) => sprintf('- #%d %s · %s · %s · %.2f kW · customer %s · monitoring %s · today %.3f kWh', $item->id, $item->project_reference ?: $item->site_name ?: 'unnamed', $item->service_type, $item->status, (float) $item->system_power_kw, $item->customer?->company_name ?: trim(($item->customer?->first_name ?? '').' '.($item->customer?->last_name ?? '')) ?: 'unassigned', $item->huawei_status ?: $item->deye_status ?: 'not linked', (float) ($item->huawei_today_energy_kwh ?: $item->deye_today_energy_kwh)))->implode("\n"));
+            }
         }
 
         if (Gate::forUser($user)->allows('manage-customers')) {
+            $customers = Person::where('category', 'customer')->tap(fn ($builder) => $this->whereTokens($builder, $tokens, ['first_name', 'last_name', 'company_name', 'email', 'phone', 'tax_id']))->limit(5)->get();
+            if ($customers->isNotEmpty()) {
+                $sections->push("Relevant customers:\n".$customers->map(fn ($person) => sprintf('- #%d %s · %s · %s · %s · %d installations', $person->id, $person->company_name ?: trim($person->first_name.' '.$person->last_name), $person->email ?: 'no email', $person->phone ?: 'no phone', collect([$person->city, $person->province_state])->filter()->implode(', ') ?: 'no location', $person->installations()->count()))->implode("\n"));
+            }
+
             $opportunities = Opportunity::with(['customer:id,first_name,last_name,company_name', 'owner:id,name'])->tap(fn ($builder) => $this->whereTokens($builder, $tokens, ['code', 'title', 'stage', 'source', 'notes']))->latest()->limit(5)->get();
             if ($opportunities->isNotEmpty()) {
                 $sections->push("Relevant sales opportunities:\n".$opportunities->map(fn ($item) => sprintf('- %s %s · %s · %.2f EUR · %d%% · close %s · customer %s · owner %s', $item->code, $item->title, $item->stage, (float) $item->estimated_value, $item->probability, $item->expected_close_on?->format('Y-m-d') ?: 'not set', $item->customer?->company_name ?: trim(($item->customer?->first_name ?? '').' '.($item->customer?->last_name ?? '')) ?: 'unassigned', $item->owner?->name ?: 'unassigned'))->implode("\n"));

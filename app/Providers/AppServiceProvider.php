@@ -64,10 +64,13 @@ use App\Services\Security\PermissionResolver;
 use App\Services\Security\SecurityEventRecorder;
 use Carbon\CarbonImmutable;
 use Illuminate\Auth\Events\Login;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
@@ -89,6 +92,7 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->configureDefaults();
         $this->configureAuthorization();
+        $this->configureAreviaRateLimits();
         Person::observe(AuditableObserver::class);
         Person::observe(PartyLedgerObserver::class);
         Supplier::observe(AuditableObserver::class);
@@ -165,6 +169,15 @@ class AppServiceProvider extends ServiceProvider
         foreach ($permissions as $permission) {
             Gate::define($permission, fn (User $user) => app(PermissionResolver::class)->allows($user, $permission));
         }
+    }
+
+    private function configureAreviaRateLimits(): void
+    {
+        $key = fn (Request $request) => (string) ($request->user()?->id ?? $request->ip());
+
+        RateLimiter::for('arevia-messages', fn (Request $request) => Limit::perMinute(config('arevia.rate_limits.messages_per_minute', 8))->by($key($request)));
+        RateLimiter::for('arevia-briefings', fn (Request $request) => Limit::perMinute(config('arevia.rate_limits.briefings_per_minute', 4))->by($key($request)));
+        RateLimiter::for('arevia-actions', fn (Request $request) => Limit::perMinute(config('arevia.rate_limits.actions_per_minute', 12))->by($key($request)));
     }
 
     /**

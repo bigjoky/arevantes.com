@@ -5,6 +5,7 @@ namespace App\Jobs;
 use App\Ai\Agents\AreviaChat;
 use App\Models\AiAuditLog;
 use App\Models\AiMessage;
+use App\Services\Ai\AreviaCitationValidator;
 use App\Services\Ai\AreviaResponseEvaluator;
 use App\Services\Ai\BusinessContextBuilder;
 use App\Services\Ai\KnowledgeRetriever;
@@ -25,7 +26,7 @@ class GenerateAreviaReply implements ShouldQueue
 
     public function __construct(public int $messageId) {}
 
-    public function handle(KnowledgeRetriever $retriever, BusinessContextBuilder $businessContext, RelevantBusinessContext $relevantContext, AreviaResponseEvaluator $evaluator, KnowledgeSourceLoader $sourceLoader, KnowledgeSafetyScanner $safetyScanner): void
+    public function handle(KnowledgeRetriever $retriever, BusinessContextBuilder $businessContext, RelevantBusinessContext $relevantContext, AreviaResponseEvaluator $evaluator, AreviaCitationValidator $citations, KnowledgeSourceLoader $sourceLoader, KnowledgeSafetyScanner $safetyScanner): void
     {
         $message = AiMessage::with(['conversation.messages', 'conversation.user'])->findOrFail($this->messageId);
         $message->update(['status' => 'processing', 'error' => null]);
@@ -54,7 +55,31 @@ class GenerateAreviaReply implements ShouldQueue
                 "\n\nAnswer the latest USER message. Cite material source-backed claims and recommendations with [S#]. If a supplied URL could not be read, explain that clearly.";
             $message->update(['prompt' => $prompt, 'source_context' => $sources]);
             $response = AreviaChat::make()->prompt($prompt, timeout: 180);
-            $usage = isset($response->usage) && method_exists($response->usage, 'toArray') ? $response->usage->toArray() : [];
+            $text = trim($response->text);
+            $usage = $response->usage;
+            $citationAnalysis = $citations->analyze($text, $sources);
+            $citationRepairAttempted = false;
+            $citationRepairPrompt = null;
+            $citationRepairOriginal = null;
+            $abstained = false;
+
+            if (! $citationAnalysis['passes']) {
+                $citationRepairAttempted = true;
+                $citationRepairOriginal = $text;
+                $citationRepairPrompt = $citations->repairPrompt($prompt, $text, $sources);
+                $response = AreviaChat::make()->prompt($citationRepairPrompt, timeout: 180);
+                $text = trim($response->text);
+                $usage = $usage->add($response->usage);
+                $citationAnalysis = $citations->analyze($text, $sources);
+            }
+
+            if (! $citationAnalysis['passes']) {
+                $abstained = true;
+                $text = $citations->safeAbstention($sources);
+                $citationAnalysis = $citations->analyze($text, $sources);
+            }
+
+            $usage = method_exists($usage, 'toArray') ? $usage->toArray() : [];
             $publicSources = collect($sources)->map(fn (array $source) => [
                 'chunk_id' => $source['chunk_id'] ?? null,
                 'title' => $source['title'],
@@ -66,19 +91,28 @@ class GenerateAreviaReply implements ShouldQueue
 
             $message->update([
                 'status' => 'completed',
-                'content' => trim($response->text),
+                'content' => $text,
                 'sources' => $publicSources,
                 'provider' => $response->meta->provider,
                 'model' => $response->meta->model,
                 'usage' => $usage,
                 'cost_micros' => $evaluator->costMicros($usage),
-                'automated_score' => $evaluator->score(trim($response->text), $sources),
+                'automated_score' => $evaluator->score($text, $sources, $abstained),
                 'duration_ms' => (int) ((hrtime(true) - $started) / 1_000_000),
             ]);
             AiAuditLog::create([
                 'ai_message_id' => $message->id, 'user_id' => $user->id, 'event' => 'response_generated',
                 'context_module' => $module, 'prompt' => $prompt, 'sources' => $sources,
-                'response' => trim($response->text), 'metadata' => ['provider' => $response->meta->provider, 'model' => $response->meta->model, 'usage' => $usage],
+                'response' => $text, 'metadata' => [
+                    'provider' => $response->meta->provider,
+                    'model' => $response->meta->model,
+                    'usage' => $usage,
+                    'citation_analysis' => $citationAnalysis,
+                    'citation_repair_attempted' => $citationRepairAttempted,
+                    'citation_repair_prompt' => $citationRepairPrompt,
+                    'citation_repair_original' => $citationRepairOriginal,
+                    'abstained' => $abstained,
+                ],
             ]);
         } catch (Throwable $exception) {
             $willRetry = $this->attempts() < $this->tries;

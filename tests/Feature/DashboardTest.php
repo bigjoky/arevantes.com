@@ -11,6 +11,7 @@ use App\Models\KnowledgeDocument;
 use App\Models\Person;
 use App\Models\RemoteStation;
 use App\Models\User;
+use App\Services\Ai\AiActionProposalService;
 use App\Services\Deye\DeyeCloudClient;
 use App\Services\Huawei\FusionSolarClient;
 use App\Services\Monitoring\RemoteStationCatalog;
@@ -1210,10 +1211,11 @@ class DashboardTest extends TestCase
                 'confidence' => 0.8,
             ],
         ]);
+        $proposal = app(AiActionProposalService::class)->proposeFor($generation)->firstOrFail();
 
         $this->postJson(route('installations.ai.briefing.activities', [$installation, $generation->uuid]), [
             'confirmed' => true,
-            'indexes' => [0],
+            'proposal_uuids' => [$proposal->uuid],
         ])->assertCreated()
             ->assertJsonPath('created.0.title', 'Programar visita tecnica');
 
@@ -1225,6 +1227,12 @@ class DashboardTest extends TestCase
             'title' => 'Programar visita tecnica',
             'priority' => 'normal',
         ]);
+
+        $this->postJson(route('installations.ai.briefing.activities', [$installation, $generation->uuid]), [
+            'confirmed' => true,
+            'proposal_uuids' => [$proposal->uuid],
+        ])->assertCreated();
+        $this->assertDatabaseCount('crm_activities', 1);
     }
 
     public function test_guest_users_cannot_create_people()

@@ -13,6 +13,7 @@ use App\Models\FiscalYear;
 use App\Models\Installation;
 use App\Models\JournalEntry;
 use App\Models\LedgerAccount;
+use App\Models\Permission;
 use App\Models\Person;
 use App\Models\PurchaseDocument;
 use App\Models\SalesDocument;
@@ -46,6 +47,7 @@ class AccountingTest extends TestCase
         $this->assertStringContainsString('Installations:', $commercialContext);
         $this->assertStringContainsString('Bank accounts:', $commercialContext);
         $this->assertStringNotContainsString('Bank accounts:', $builder->build($technician));
+        $this->assertStringNotContainsString('Customers:', $builder->build($technician));
     }
 
     public function test_arevia_finds_specific_crm_records_and_hides_finance_from_technicians(): void
@@ -60,7 +62,24 @@ class AccountingTest extends TestCase
         $pageContext = $retriever->search($technician, '¿Cómo va esta instalación?', '/installations/'.$installation->id);
         $this->assertStringContainsString('SOL-CORD-77', $pageContext);
         $this->assertStringNotContainsString('FAC-AREVIA-77', $pageContext);
+        $this->assertStringNotContainsString('ana@solar.test', $retriever->search($technician, 'ana@solar.test'));
         $this->assertStringContainsString('FAC-AREVIA-77', $retriever->search($commercial, 'Revisa FAC-AREVIA-77'));
+    }
+
+    public function test_arevia_installation_routes_require_direct_installation_access(): void
+    {
+        $technician = User::factory()->create(['role' => 'technician']);
+        $viewInstallations = Permission::where('key', 'view-installations')->firstOrFail();
+        $technician->permissionOverrides()->attach($viewInstallations, ['allowed' => false]);
+        $installation = Installation::create([
+            'service_type' => 'solar',
+            'status' => 'lead',
+            'site_address_line_1' => 'Calle Privada 1',
+        ]);
+
+        $this->actingAs($technician)
+            ->postJson(route('installations.ai.briefing', $installation))
+            ->assertForbidden();
     }
 
     public function test_admin_can_manage_custom_accounts_without_deleting_history(): void
