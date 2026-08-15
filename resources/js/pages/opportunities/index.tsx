@@ -53,6 +53,13 @@ const stages = [
     { value: 'lost', label: 'Perdida', probability: 0 },
 ] as const;
 
+const contactChannelOptions = [
+    ['phone', 'Teléfono'],
+    ['whatsapp', 'WhatsApp'],
+    ['email', 'Email'],
+    ['sms', 'SMS'],
+];
+
 type Customer = {
     id: number;
     first_name: string;
@@ -60,6 +67,8 @@ type Customer = {
     company_name: string | null;
     phone: string | null;
     email: string | null;
+    preferred_contact_channel: string | null;
+    do_not_contact: boolean;
 };
 type Installation = {
     id: number;
@@ -153,6 +162,10 @@ type FormData = {
     customer_last_name: string;
     customer_company_name: string;
     customer_email: string;
+    customer_preferred_contact_channel: string;
+    customer_consent_status: string;
+    customer_consent_channel: string;
+    customer_consent_notes: string;
     installation_id: string;
     owner_user_id: string;
     title: string;
@@ -169,6 +182,10 @@ type FormData = {
     lost_reason: string;
     lost_reason_detail: string;
     notes: string;
+    next_action_type: string;
+    next_action_title: string;
+    next_action_priority: string;
+    next_action_due_at: string;
 };
 
 type CrmSettings = {
@@ -189,6 +206,10 @@ const emptyForm: FormData = {
     customer_last_name: '',
     customer_company_name: '',
     customer_email: '',
+    customer_preferred_contact_channel: 'phone',
+    customer_consent_status: 'not_recorded',
+    customer_consent_channel: 'phone',
+    customer_consent_notes: '',
     installation_id: '',
     owner_user_id: '',
     title: '',
@@ -205,6 +226,10 @@ const emptyForm: FormData = {
     lost_reason: '',
     lost_reason_detail: '',
     notes: '',
+    next_action_type: 'call',
+    next_action_title: 'Contactar y cualificar al cliente',
+    next_action_priority: 'normal',
+    next_action_due_at: nextBusinessAction(),
 };
 
 export default function OpportunitiesIndex({
@@ -340,6 +365,14 @@ export default function OpportunitiesIndex({
                     form.setData('customer_last_name', '');
                     form.setData('customer_company_name', '');
                     form.setData('customer_email', '');
+                    form.setData(
+                        'customer_preferred_contact_channel',
+                        result.customer.preferred_contact_channel || 'phone',
+                    );
+                    form.setData(
+                        'customer_consent_channel',
+                        result.customer.preferred_contact_channel || 'phone',
+                    );
                 } else {
                     setMatchedCustomer(null);
                     setCustomerLookup('new');
@@ -395,6 +428,11 @@ export default function OpportunitiesIndex({
             ...emptyForm,
             person_id: customer ? String(customer.id) : '',
             customer_phone: customer?.phone || '',
+            customer_preferred_contact_channel:
+                customer?.preferred_contact_channel || 'phone',
+            customer_consent_channel:
+                customer?.preferred_contact_channel || 'phone',
+            next_action_due_at: nextBusinessAction(),
         });
         setOpen(true);
     }
@@ -411,6 +449,10 @@ export default function OpportunitiesIndex({
             customer_last_name: '',
             customer_company_name: '',
             customer_email: '',
+            customer_preferred_contact_channel: 'phone',
+            customer_consent_status: 'not_recorded',
+            customer_consent_channel: 'phone',
+            customer_consent_notes: '',
             installation_id: item.installation_id
                 ? String(item.installation_id)
                 : '',
@@ -431,6 +473,10 @@ export default function OpportunitiesIndex({
             lost_reason: item.lost_reason || '',
             lost_reason_detail: item.lost_reason_detail || '',
             notes: item.notes || '',
+            next_action_type: 'call',
+            next_action_title: 'Contactar y cualificar al cliente',
+            next_action_priority: 'normal',
+            next_action_due_at: nextBusinessAction(),
         });
         setOpen(true);
     }
@@ -1266,6 +1312,131 @@ export default function OpportunitiesIndex({
                                                     }
                                                 />
                                             </Field>
+                                            <SelectField
+                                                label="Canal de contacto preferido"
+                                                value={
+                                                    form.data
+                                                        .customer_preferred_contact_channel
+                                                }
+                                                error={
+                                                    form.errors
+                                                        .customer_preferred_contact_channel
+                                                }
+                                                onChange={(value) => {
+                                                    form.setData(
+                                                        'customer_preferred_contact_channel',
+                                                        value,
+                                                    );
+                                                    form.setData(
+                                                        'customer_consent_channel',
+                                                        value,
+                                                    );
+                                                }}
+                                                options={contactChannelOptions}
+                                            />
+                                        </div>
+                                    )}
+                                    {['found', 'new'].includes(
+                                        customerLookup,
+                                    ) && (
+                                        <div className="grid gap-3 border-t pt-3 sm:grid-cols-2">
+                                            <div className="sm:col-span-2">
+                                                <p className="text-sm font-medium">
+                                                    Comunicaciones comerciales
+                                                </p>
+                                                <p className="text-xs text-muted-foreground">
+                                                    Registra únicamente lo que
+                                                    el cliente haya manifestado.
+                                                    La aceptación de privacidad
+                                                    no equivale a consentimiento
+                                                    comercial.
+                                                </p>
+                                            </div>
+                                            {matchedCustomer?.do_not_contact && (
+                                                <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-950 sm:col-span-2 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-100">
+                                                    Este cliente figura como no
+                                                    contactable. Solo cambia el
+                                                    estado si ha dado una nueva
+                                                    autorización expresa.
+                                                </div>
+                                            )}
+                                            <SelectField
+                                                label="Estado"
+                                                value={
+                                                    form.data
+                                                        .customer_consent_status
+                                                }
+                                                error={
+                                                    form.errors
+                                                        .customer_consent_status
+                                                }
+                                                onChange={(value) =>
+                                                    form.setData(
+                                                        'customer_consent_status',
+                                                        value,
+                                                    )
+                                                }
+                                                options={[
+                                                    [
+                                                        'not_recorded',
+                                                        'No registrar ahora',
+                                                    ],
+                                                    [
+                                                        'granted',
+                                                        'Autoriza comunicaciones',
+                                                    ],
+                                                    ['denied', 'No autoriza'],
+                                                ]}
+                                            />
+                                            {form.data
+                                                .customer_consent_status !==
+                                                'not_recorded' && (
+                                                <>
+                                                    <SelectField
+                                                        label="Canal registrado"
+                                                        value={
+                                                            form.data
+                                                                .customer_consent_channel
+                                                        }
+                                                        error={
+                                                            form.errors
+                                                                .customer_consent_channel
+                                                        }
+                                                        onChange={(value) =>
+                                                            form.setData(
+                                                                'customer_consent_channel',
+                                                                value,
+                                                            )
+                                                        }
+                                                        options={
+                                                            contactChannelOptions
+                                                        }
+                                                    />
+                                                    <Field
+                                                        label="Evidencia o notas"
+                                                        error={
+                                                            form.errors
+                                                                .customer_consent_notes
+                                                        }
+                                                        className="sm:col-span-2"
+                                                    >
+                                                        <Textarea
+                                                            placeholder="Ej.: autorización verbal durante llamada"
+                                                            value={
+                                                                form.data
+                                                                    .customer_consent_notes
+                                                            }
+                                                            onChange={(event) =>
+                                                                form.setData(
+                                                                    'customer_consent_notes',
+                                                                    event.target
+                                                                        .value,
+                                                                )
+                                                            }
+                                                        />
+                                                    </Field>
+                                                </>
+                                            )}
                                         </div>
                                     )}
                                 </div>
@@ -1502,6 +1673,97 @@ export default function OpportunitiesIndex({
                                     />
                                 </Field>
                             )}
+                            {!editing &&
+                                !['won', 'lost'].includes(form.data.stage) && (
+                                    <div className="grid gap-3 rounded-md border bg-muted/20 p-4 sm:col-span-2 sm:grid-cols-2">
+                                        <div className="sm:col-span-2">
+                                            <p className="text-sm font-medium">
+                                                Próxima acción obligatoria
+                                            </p>
+                                            <p className="text-xs text-muted-foreground">
+                                                La oportunidad se crea ya con
+                                                responsable, acción y fecha de
+                                                seguimiento.
+                                            </p>
+                                        </div>
+                                        <SelectField
+                                            label="Tipo de acción"
+                                            value={form.data.next_action_type}
+                                            error={form.errors.next_action_type}
+                                            onChange={(value) =>
+                                                form.setData(
+                                                    'next_action_type',
+                                                    value,
+                                                )
+                                            }
+                                            options={[
+                                                ['call', 'Llamada'],
+                                                ['task', 'Tarea'],
+                                                ['meeting', 'Reunión'],
+                                                ['visit', 'Visita'],
+                                                ['email', 'Email'],
+                                                ['reminder', 'Recordatorio'],
+                                            ]}
+                                        />
+                                        <SelectField
+                                            label="Prioridad"
+                                            value={
+                                                form.data.next_action_priority
+                                            }
+                                            error={
+                                                form.errors.next_action_priority
+                                            }
+                                            onChange={(value) =>
+                                                form.setData(
+                                                    'next_action_priority',
+                                                    value,
+                                                )
+                                            }
+                                            options={[
+                                                ['low', 'Baja'],
+                                                ['normal', 'Normal'],
+                                                ['high', 'Alta'],
+                                            ]}
+                                        />
+                                        <Field
+                                            label="Acción"
+                                            error={
+                                                form.errors.next_action_title
+                                            }
+                                        >
+                                            <Input
+                                                value={
+                                                    form.data.next_action_title
+                                                }
+                                                onChange={(event) =>
+                                                    form.setData(
+                                                        'next_action_title',
+                                                        event.target.value,
+                                                    )
+                                                }
+                                            />
+                                        </Field>
+                                        <Field
+                                            label="Fecha y hora"
+                                            error={
+                                                form.errors.next_action_due_at
+                                            }
+                                        >
+                                            <Input
+                                                type="datetime-local"
+                                                value={
+                                                    form.data.next_action_due_at
+                                                }
+                                                onChange={(event) =>
+                                                    form.setData(
+                                                        'next_action_due_at',
+                                                        event.target.value,
+                                                    )
+                                                }
+                                            />
+                                        </Field>
+                                    </div>
+                                )}
                             {form.data.stage === 'lost' && (
                                 <SelectField
                                     label="Motivo de pérdida"
@@ -2275,6 +2537,23 @@ function customerName(customer: Customer) {
         customer.company_name ||
         `${customer.first_name} ${customer.last_name || ''}`.trim()
     );
+}
+function nextBusinessAction() {
+    const value = new Date();
+
+    value.setDate(value.getDate() + 1);
+
+    while ([0, 6].includes(value.getDay())) {
+        value.setDate(value.getDate() + 1);
+    }
+
+    value.setHours(9, 0, 0, 0);
+
+    const localValue = new Date(
+        value.getTime() - value.getTimezoneOffset() * 60_000,
+    );
+
+    return localValue.toISOString().slice(0, 16);
 }
 function installationName(item: Installation) {
     return (

@@ -144,6 +144,15 @@ class OpportunityTest extends TestCase
             ...$payload,
             'customer_company_name' => 'Nueva Industria SL',
             'customer_email' => 'VENTAS@NUEVA-INDUSTRIA.TEST',
+            'customer_preferred_contact_channel' => 'whatsapp',
+            'customer_consent_status' => 'granted',
+            'customer_consent_channel' => 'whatsapp',
+            'customer_consent_notes' => 'Autorización verbal durante la llamada inicial.',
+            'source' => 'referral',
+            'next_action_type' => 'meeting',
+            'next_action_title' => 'Reunión de cualificación',
+            'next_action_priority' => 'high',
+            'next_action_due_at' => now()->addDays(2)->format('Y-m-d H:i:s'),
         ])->assertRedirect();
 
         $customer = Person::where('phone_normalized', '34611222333')->sole();
@@ -152,9 +161,29 @@ class OpportunityTest extends TestCase
         $this->assertSame('ventas@nueva-industria.test', $customer->email);
         $this->assertSame('lead', $customer->lifecycle_status);
         $this->assertSame('opportunity_form', $customer->data_source);
+        $this->assertSame('referral', $customer->lead_source);
+        $this->assertSame('whatsapp', $customer->preferred_contact_channel);
+        $this->assertFalse($customer->do_not_contact);
+        $this->assertDatabaseHas('customer_consents', [
+            'person_id' => $customer->id,
+            'recorded_by' => $user->id,
+            'channel' => 'whatsapp',
+            'status' => 'granted',
+            'lawful_basis' => 'consent',
+            'source' => 'opportunity_form',
+        ]);
         $this->assertDatabaseHas('opportunities', [
             'person_id' => $customer->id,
             'title' => 'Industrial self-consumption',
+        ]);
+        $opportunity = Opportunity::where('title', 'Industrial self-consumption')->firstOrFail();
+        $this->assertDatabaseHas('crm_activities', [
+            'opportunity_id' => $opportunity->id,
+            'assigned_user_id' => $user->id,
+            'type' => 'meeting',
+            'title' => 'Reunión de cualificación',
+            'priority' => 'high',
+            'status' => 'pending',
         ]);
 
         $this->post(route('opportunities.store'), [
@@ -165,6 +194,37 @@ class OpportunityTest extends TestCase
 
         $this->assertSame(1, Person::where('phone_normalized', '34611222333')->count());
         $this->assertSame(2, Opportunity::where('person_id', $customer->id)->count());
+    }
+
+    public function test_opportunity_creation_records_a_customer_commercial_refusal(): void
+    {
+        $user = User::factory()->create(['role' => 'commercial']);
+        $customer = Person::create([
+            'category' => 'customer',
+            'first_name' => 'Ana',
+            'phone' => '622 333 444',
+            'preferred_contact_channel' => 'phone',
+        ]);
+
+        $this->actingAs($user)->post(route('opportunities.store'), [
+            'customer_phone' => '+34 622 333 444',
+            'customer_consent_status' => 'denied',
+            'customer_consent_channel' => 'phone',
+            'customer_consent_notes' => 'Solicita no recibir comunicaciones comerciales.',
+            'title' => 'Technical assessment only',
+            'stage' => 'new',
+            'probability' => 10,
+            'estimated_value' => 1200,
+        ])->assertRedirect()->assertSessionHasNoErrors();
+
+        $this->assertTrue($customer->refresh()->do_not_contact);
+        $this->assertDatabaseHas('customer_consents', [
+            'person_id' => $customer->id,
+            'status' => 'denied',
+            'channel' => 'phone',
+            'source' => 'opportunity_form',
+        ]);
+        $this->assertSame(1, Opportunity::where('person_id', $customer->id)->count());
     }
 
     public function test_opportunity_rejects_an_installation_from_another_customer(): void

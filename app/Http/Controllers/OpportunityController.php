@@ -81,7 +81,7 @@ class OpportunityController extends Controller
                         && $this->stageEnteredAt($item)->lessThan(now()->subDays($settings->stale_after_days)),
                 ];
             }),
-            'customers' => Person::where('category', 'customer')->orderBy('company_name')->orderBy('first_name')->get(['id', 'first_name', 'last_name', 'company_name', 'phone', 'email']),
+            'customers' => Person::where('category', 'customer')->orderBy('company_name')->orderBy('first_name')->get(['id', 'first_name', 'last_name', 'company_name', 'phone', 'email', 'preferred_contact_channel', 'do_not_contact']),
             'installations' => Installation::orderBy('project_reference')->get(['id', 'person_id', 'project_reference', 'site_name']),
             'users' => User::whereIn('role', ['admin', 'commercial'])->orderBy('name')->get(['id', 'name']),
             'sourceOptions' => OpportunityCatalog::SOURCES,
@@ -127,19 +127,26 @@ class OpportunityController extends Controller
     ): RedirectResponse {
         $customerInput = $this->validatedCustomerInput($request);
         $opportunityInput = $this->validated($request, true);
+        $nextActionInput = $this->validatedNextAction($request, $opportunityInput['stage']);
         $createdCustomer = false;
 
-        DB::transaction(function () use ($customerInput, $opportunityInput, $request, $salesCycle, $customerResolver, &$createdCustomer): void {
+        DB::transaction(function () use ($customerInput, $opportunityInput, $nextActionInput, $request, $salesCycle, $customerResolver, &$createdCustomer): void {
             $customer = filled($customerInput['phone'])
                 ? $customerResolver->resolve(
                     $customerInput['phone'],
-                    $customerInput['attributes'],
+                    [
+                        ...$customerInput['attributes'],
+                        'lead_source' => ($opportunityInput['source'] ?? null) === 'other'
+                            ? $opportunityInput['source_detail']
+                            : ($opportunityInput['source'] ?? null),
+                    ],
                     $opportunityInput['person_id'] ?? null,
                 )
                 : Person::query()
                     ->where('category', 'customer')
                     ->findOrFail($opportunityInput['person_id']);
             $createdCustomer = $customer->wasRecentlyCreated;
+            $this->recordCustomerConsent($customer, $customerInput['consent'], $request);
             $data = $salesCycle->prepareActiveData([
                 ...$opportunityInput,
                 'person_id' => $customer->id,
@@ -149,7 +156,7 @@ class OpportunityController extends Controller
 
             $opportunity = Opportunity::create([...$data, 'created_by' => $request->user()->id]);
             $opportunity->update(['code' => 'OPP-'.now()->format('Y').'-'.str_pad((string) $opportunity->id, 5, '0', STR_PAD_LEFT)]);
-            $salesCycle->ensureNextAction($opportunity, $request->user());
+            $salesCycle->ensureNextAction($opportunity, $request->user(), $nextActionInput);
             $salesCycle->refreshScore($opportunity);
         });
 
@@ -280,7 +287,7 @@ class OpportunityController extends Controller
         return $data;
     }
 
-    /** @return array{phone: ?string, attributes: array{first_name: ?string, last_name: ?string, company_name: ?string, email: ?string}} */
+    /** @return array{phone: ?string, attributes: array{first_name: ?string, last_name: ?string, company_name: ?string, email: ?string, preferred_contact_channel: string}, consent: array{status: string, channel: string, notes: ?string}} */
     private function validatedCustomerInput(Request $request): array
     {
         $data = $request->validate([
@@ -299,6 +306,14 @@ class OpportunityController extends Controller
             'customer_last_name' => ['nullable', 'string', 'max:255'],
             'customer_company_name' => ['nullable', 'string', 'max:255'],
             'customer_email' => ['nullable', 'email:rfc', 'max:255'],
+            'customer_preferred_contact_channel' => ['nullable', Rule::in(['phone', 'whatsapp', 'email', 'sms'])],
+            'customer_consent_status' => ['nullable', Rule::in(['not_recorded', 'granted', 'denied'])],
+            'customer_consent_channel' => [
+                Rule::requiredIf(in_array($request->input('customer_consent_status'), ['granted', 'denied'], true)),
+                'nullable',
+                Rule::in(['phone', 'whatsapp', 'email', 'sms']),
+            ],
+            'customer_consent_notes' => ['nullable', 'string', 'max:1000'],
         ]);
 
         $phone = filled($data['customer_phone'] ?? null) ? trim((string) $data['customer_phone']) : null;
@@ -322,8 +337,64 @@ class OpportunityController extends Controller
                 'last_name' => $data['customer_last_name'] ?? null,
                 'company_name' => $data['customer_company_name'] ?? null,
                 'email' => $data['customer_email'] ?? null,
+                'preferred_contact_channel' => $data['customer_preferred_contact_channel'] ?? 'phone',
+            ],
+            'consent' => [
+                'status' => $data['customer_consent_status'] ?? 'not_recorded',
+                'channel' => $data['customer_consent_channel'] ?? $data['customer_preferred_contact_channel'] ?? 'phone',
+                'notes' => $data['customer_consent_notes'] ?? null,
             ],
         ];
+    }
+
+    /** @return array{type: string, title: string, priority: string, due_at: string}|null */
+    private function validatedNextAction(Request $request, string $stage): ?array
+    {
+        if (in_array($stage, ['won', 'lost'], true)) {
+            return null;
+        }
+
+        $data = $request->validate([
+            'next_action_type' => ['nullable', Rule::in(['task', 'visit', 'reminder', 'call', 'email', 'meeting'])],
+            'next_action_title' => ['nullable', 'string', 'max:255'],
+            'next_action_priority' => ['nullable', Rule::in(['low', 'normal', 'high'])],
+            'next_action_due_at' => ['nullable', 'date', 'after:now'],
+        ]);
+        $dueAt = now()->addDay();
+        while ($dueAt->isWeekend()) {
+            $dueAt = $dueAt->addDay();
+        }
+
+        return [
+            'type' => $data['next_action_type'] ?? 'call',
+            'title' => filled($data['next_action_title'] ?? null)
+                ? trim((string) $data['next_action_title'])
+                : __('Contact and qualify customer'),
+            'priority' => $data['next_action_priority'] ?? 'normal',
+            'due_at' => $data['next_action_due_at'] ?? $dueAt->setTime(9, 0)->toDateTimeString(),
+        ];
+    }
+
+    /** @param  array{status: string, channel: string, notes: ?string}  $consent */
+    private function recordCustomerConsent(Person $customer, array $consent, Request $request): void
+    {
+        if ($consent['status'] === 'not_recorded') {
+            return;
+        }
+
+        $customer->consents()->create([
+            'recorded_by' => $request->user()->id,
+            'channel' => $consent['channel'],
+            'status' => $consent['status'],
+            'lawful_basis' => 'consent',
+            'source' => 'opportunity_form',
+            'captured_at' => now(),
+            'notes' => $consent['notes'],
+        ]);
+        $customer->update([
+            'preferred_contact_channel' => $consent['channel'],
+            'do_not_contact' => $consent['status'] === 'denied',
+        ]);
     }
 
     private function ensureInstallationBelongsToCustomer(array $data): void
