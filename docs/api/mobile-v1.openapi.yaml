@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Arevantes Mobile API
-  version: 1.0.0
+  version: 1.1.0
 servers:
   - url: https://arevantes.com/api/mobile/v1
 security:
@@ -99,6 +99,7 @@ paths:
                     type: [object, 'null']
                     properties:
                       id: { type: integer }
+                      client_uuid: { type: [string, 'null'], format: uuid }
                       started_at: { type: string, format: date-time }
                       work_order_id: { type: integer }
   /work-orders/{workOrder}:
@@ -121,6 +122,14 @@ paths:
       parameters:
         - { $ref: '#/components/parameters/WorkOrderId' }
         - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                client_uuid: { type: [string, 'null'], format: uuid, description: Device-generated identifier used to stop an offline timer after synchronization. }
+                started_at: { type: [string, 'null'], format: date-time, description: Device capture time, no more than seven days old. }
       responses:
         '201': { description: Timer started }
         '422': { description: Another timer is active or order cannot be executed }
@@ -136,10 +145,67 @@ paths:
             schema:
               type: object
               properties:
+                ended_at: { type: [string, 'null'], format: date-time }
                 travel_km: { type: number, minimum: 0 }
                 notes: { type: [string, 'null'] }
       responses:
         '200': { description: Timer stopped }
+  /time-entries/client/{clientUuid}/stop:
+    patch:
+      operationId: stopTimerByClientUuid
+      parameters:
+        - { name: clientUuid, in: path, required: true, schema: { type: string, format: uuid } }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ended_at]
+              properties:
+                ended_at: { type: string, format: date-time }
+                travel_km: { type: number, minimum: 0 }
+                notes: { type: [string, 'null'] }
+      responses:
+        '200': { description: Offline-created timer stopped }
+        '404': { description: Client timer identifier not found for this user }
+  /work-orders/{workOrder}/complete:
+    patch:
+      operationId: completeWorkOrder
+      parameters:
+        - { $ref: '#/components/parameters/WorkOrderId' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [completion_notes]
+              properties:
+                completion_notes: { type: string, minLength: 1, maxLength: 5000 }
+      responses:
+        '200': { description: Work order completed or a previous response replayed }
+        '422': { description: Completion requirements are not satisfied }
+  /work-orders/{workOrder}/materials/{reservation}/consume:
+    post:
+      operationId: consumeReservedMaterial
+      parameters:
+        - { $ref: '#/components/parameters/WorkOrderId' }
+        - { name: reservation, in: path, required: true, schema: { type: integer } }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [quantity]
+              properties:
+                quantity: { type: number, exclusiveMinimum: 0 }
+                serials: { type: [string, 'null'], maxLength: 10000 }
+      responses:
+        '200': { description: Material consumption stored or a previous response replayed }
   /work-orders/{workOrder}/checklist/{item}:
     patch:
       operationId: updateChecklist
@@ -245,7 +311,7 @@ components:
         name: { type: string }
         email: { type: string, format: email }
         role: { type: string, enum: [admin, commercial, technician] }
-    WorkOrderStatus: { type: string, enum: [planned, in_progress, completed, cancelled] }
+    WorkOrderStatus: { type: string, enum: [planned, in_progress, blocked, completed, cancelled] }
     WorkOrder:
       type: object
       required: [id, number, title, status, updated_at]
@@ -254,6 +320,9 @@ components:
         number: { type: string }
         title: { type: string }
         status: { $ref: '#/components/schemas/WorkOrderStatus' }
+        allowed_transitions:
+          type: array
+          items: { $ref: '#/components/schemas/WorkOrderStatus' }
         scheduled_start: { type: [string, 'null'], format: date-time }
         scheduled_end: { type: [string, 'null'], format: date-time }
         updated_at: { type: string, format: date-time }

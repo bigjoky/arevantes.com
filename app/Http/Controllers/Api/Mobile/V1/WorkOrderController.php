@@ -11,11 +11,13 @@ use App\Models\WorkOrderChecklistItem;
 use App\Services\Inventory\WorkOrderMaterialConsumer;
 use App\Services\Work\WorkOrderStateManager;
 use App\Services\Work\WorkOrderWorkflow;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 
 class WorkOrderController extends Controller
 {
@@ -39,6 +41,7 @@ class WorkOrderController extends Controller
             'meta' => ['current_page' => $orders->currentPage(), 'last_page' => $orders->lastPage(), 'per_page' => $orders->perPage(), 'total' => $orders->total()],
             'running_time_entry' => ($entry = TimeEntry::with('workOrder:id,number,title')->where('user_id', $request->user()->id)->whereNull('ended_at')->first()) ? [
                 'id' => $entry->id,
+                'client_uuid' => $entry->client_uuid,
                 'started_at' => $entry->started_at->toISOString(),
                 'work_order_id' => $entry->work_order_id,
             ] : null,
@@ -60,7 +63,7 @@ class WorkOrderController extends Controller
                 'is_required' => $item->is_required, 'completed_at' => $item->completed_at?->toISOString(), 'notes' => $item->notes,
             ]),
             'time_entries' => $workOrder->timeEntries->map(fn ($entry) => [
-                'id' => $entry->id, 'started_at' => $entry->started_at->toISOString(), 'ended_at' => $entry->ended_at?->toISOString(),
+                'id' => $entry->id, 'client_uuid' => $entry->client_uuid, 'started_at' => $entry->started_at->toISOString(), 'ended_at' => $entry->ended_at?->toISOString(),
                 'duration_minutes' => $entry->duration_minutes, 'travel_km' => (float) $entry->travel_km, 'notes' => $entry->notes,
             ]),
             'attachments' => $workOrder->attachments->map(fn ($attachment) => [
@@ -74,18 +77,23 @@ class WorkOrderController extends Controller
     public function startTimer(Request $request, WorkOrder $workOrder, WorkOrderStateManager $states): JsonResponse
     {
         $this->ensureAccess($request, $workOrder);
-        $entry = DB::transaction(function () use ($request, $workOrder, $states): TimeEntry {
+        $data = $request->validate([
+            'client_uuid' => ['nullable', 'uuid', Rule::unique('time_entries', 'client_uuid')],
+            'started_at' => ['nullable', 'date', 'before_or_equal:now', 'after_or_equal:'.now()->subDays(7)->toISOString()],
+        ]);
+        $startedAt = isset($data['started_at']) ? CarbonImmutable::parse($data['started_at'])->setTimezone(config('app.timezone')) : now();
+        $entry = DB::transaction(function () use ($request, $workOrder, $states, $data, $startedAt): TimeEntry {
             User::query()->whereKey($request->user()->id)->lockForUpdate()->firstOrFail();
             $locked = WorkOrder::query()->lockForUpdate()->findOrFail($workOrder->id);
             $this->ensureAccess($request, $locked);
             abort_if(TimeEntry::where('user_id', $request->user()->id)->whereNull('ended_at')->exists(), 422, __('You already have a running timer.'));
-            $entry = TimeEntry::create(['work_order_id' => $locked->id, 'user_id' => $request->user()->id, 'created_by' => $request->user()->id, 'started_at' => now(), 'hourly_cost' => config('work.default_hourly_cost'), 'mileage_rate' => config('work.mileage_rate')]);
+            $entry = TimeEntry::create(['client_uuid' => $data['client_uuid'] ?? null, 'work_order_id' => $locked->id, 'user_id' => $request->user()->id, 'created_by' => $request->user()->id, 'started_at' => $startedAt, 'hourly_cost' => config('work.default_hourly_cost'), 'mileage_rate' => config('work.mileage_rate')]);
             $states->transition($locked, 'in_progress');
 
             return $entry;
         });
 
-        return response()->json(['data' => ['id' => $entry->id, 'started_at' => $entry->started_at->toISOString()]], 201);
+        return response()->json(['data' => ['id' => $entry->id, 'client_uuid' => $entry->client_uuid, 'started_at' => $entry->started_at->toISOString()]], 201);
     }
 
     public function complete(Request $request, WorkOrder $workOrder, WorkOrderStateManager $states): JsonResponse
@@ -117,12 +125,28 @@ class WorkOrderController extends Controller
 
     public function stopTimer(Request $request, TimeEntry $timeEntry): JsonResponse
     {
+        return $this->stop($request, $timeEntry);
+    }
+
+    public function stopTimerByClient(Request $request, string $clientUuid): JsonResponse
+    {
+        $timeEntry = TimeEntry::where('user_id', $request->user()->id)->where('client_uuid', $clientUuid)->firstOrFail();
+
+        return $this->stop($request, $timeEntry);
+    }
+
+    private function stop(Request $request, TimeEntry $timeEntry): JsonResponse
+    {
         abort_unless($timeEntry->user_id === $request->user()->id && ! $timeEntry->ended_at, 403);
-        $data = $request->validate(['travel_km' => ['nullable', 'numeric', 'min:0'], 'notes' => ['nullable', 'string']]);
-        $endedAt = now();
+        $data = $request->validate([
+            'ended_at' => ['nullable', 'date', 'before_or_equal:now', 'after_or_equal:'.$timeEntry->started_at->toISOString()],
+            'travel_km' => ['nullable', 'numeric', 'min:0'],
+            'notes' => ['nullable', 'string'],
+        ]);
+        $endedAt = isset($data['ended_at']) ? CarbonImmutable::parse($data['ended_at'])->setTimezone(config('app.timezone')) : now();
         $timeEntry->update([...$data, 'ended_at' => $endedAt, 'duration_minutes' => max(1, (int) round($timeEntry->started_at->diffInMinutes($endedAt)))]);
 
-        return response()->json(['data' => ['id' => $timeEntry->id, 'ended_at' => $endedAt->toISOString(), 'duration_minutes' => $timeEntry->duration_minutes]]);
+        return response()->json(['data' => ['id' => $timeEntry->id, 'client_uuid' => $timeEntry->client_uuid, 'ended_at' => $endedAt->toISOString(), 'duration_minutes' => $timeEntry->duration_minutes]]);
     }
 
     public function updateChecklist(Request $request, WorkOrder $workOrder, WorkOrderChecklistItem $item): JsonResponse
