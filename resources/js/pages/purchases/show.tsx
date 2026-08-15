@@ -147,6 +147,17 @@ type Document = {
         occurred_at: string;
         user: { id: number; name: string } | null;
     }[];
+    order_approvals: {
+        id: number;
+        status: 'pending' | 'approved' | 'rejected' | 'cancelled';
+        reason: string;
+        notes: string | null;
+        requested_at: string;
+        decided_at: string | null;
+        rule: { id: number; name: string } | null;
+        requester: { id: number; name: string } | null;
+        decider: { id: number; name: string } | null;
+    }[];
 };
 type MatchDetail = {
     line_id: number;
@@ -313,20 +324,49 @@ export default function PurchaseShow({
                     </div>
                 </header>
                 {document.type === 'purchase_order' &&
-                    document.status === 'pending_approval' && (
-                        <section className="border border-amber-300 bg-amber-50 p-4 dark:bg-amber-950/20">
+                    ['pending_approval', 'approval_rejected'].includes(
+                        document.status,
+                    ) && (
+                        <section
+                            className={`border p-4 ${document.status === 'approval_rejected' ? 'border-red-300 bg-red-50 dark:bg-red-950/20' : 'border-amber-300 bg-amber-50 dark:bg-amber-950/20'}`}
+                        >
                             <div className="flex items-start gap-3">
                                 <ShieldCheck className="mt-0.5 size-5" />
                                 <div className="flex-1">
                                     <h2 className="font-semibold">
-                                        Approval required
+                                        {document.status ===
+                                        'approval_rejected'
+                                            ? 'Order rejected'
+                                            : 'Approval required'}
                                     </h2>
                                     <p className="mt-1 text-sm text-muted-foreground">
-                                        This order cannot be received or invoiced
-                                        until a different authorised user releases
-                                        it.
+                                        This order cannot be sent, received or
+                                        invoiced until every requirement is
+                                        approved by a different authorised user.
                                     </p>
+                                    <div className="mt-3 space-y-2 text-sm">
+                                        {document.order_approvals.map(
+                                            (approval) => (
+                                                <div
+                                                    key={approval.id}
+                                                    className="flex flex-wrap items-center justify-between gap-2 border bg-background/60 p-2"
+                                                >
+                                                    <span>
+                                                        {approval.reason}
+                                                    </span>
+                                                    <span className="capitalize text-muted-foreground">
+                                                        {approval.status}
+                                                        {approval.decider
+                                                            ? ` · ${approval.decider.name}`
+                                                            : ''}
+                                                    </span>
+                                                </div>
+                                            ),
+                                        )}
+                                    </div>
                                     {abilities.approvePurchaseOrders &&
+                                        document.status ===
+                                            'pending_approval' &&
                                         (document.created_by !== user.id ||
                                             user.role === 'admin') && (
                                             <Form
@@ -340,7 +380,14 @@ export default function PurchaseShow({
                                                     required
                                                 />
                                                 <Button>
-                                                    <ShieldCheck /> Approve order
+                                                    <ShieldCheck /> Approve next
+                                                </Button>
+                                                <Button
+                                                    name="decision"
+                                                    value="rejected"
+                                                    variant="destructive"
+                                                >
+                                                    Reject
                                                 </Button>
                                             </Form>
                                         )}
