@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\PermissionProfile;
 use App\Models\Product;
+use App\Models\PurchaseApprovalRule;
 use App\Models\PurchaseDocument;
 use App\Models\SerialNumber;
 use App\Models\Supplier;
@@ -88,6 +89,11 @@ class PurchaseTest extends TestCase
             'purchase_document_id' => $order->id,
             'event' => 'approval_requested',
         ]);
+        $this->assertDatabaseHas('purchase_order_approvals', [
+            'purchase_document_id' => $order->id,
+            'status' => 'pending',
+            'reason' => 'Default order amount threshold',
+        ]);
 
         $this->post(route('purchases.receive', $order), [
             'warehouse_id' => $warehouse->id,
@@ -113,6 +119,102 @@ class PurchaseTest extends TestCase
             'purchase_document_id' => $order->id,
             'event' => 'purchase_order_approved',
         ]);
+    }
+
+    public function test_matching_approval_rules_are_sequential_and_visible_in_the_action_center(): void
+    {
+        $creator = User::factory()->create(['role' => 'commercial']);
+        $approver = User::factory()->create(['role' => 'commercial']);
+        $supplier = Supplier::create(['legal_name' => 'Matrix Supply SL', 'country' => 'ES']);
+        $product = Product::create([
+            'type' => 'product',
+            'sku' => 'MATRIX-10',
+            'name' => 'Matrix panel',
+            'unit_id' => Unit::firstOrFail()->id,
+            'tax_rate_id' => TaxRate::firstOrFail()->id,
+            'sale_price' => 200,
+            'cost_price' => 100,
+            'track_stock' => true,
+            'is_active' => true,
+        ]);
+        PurchaseApprovalRule::create([
+            'name' => 'Product control',
+            'product_type' => 'product',
+            'min_amount' => 100,
+            'priority' => 10,
+            'is_active' => true,
+            'created_by' => $approver->id,
+        ]);
+        PurchaseApprovalRule::create([
+            'name' => 'Strategic supplier control',
+            'supplier_id' => $supplier->id,
+            'min_amount' => 200,
+            'priority' => 20,
+            'is_active' => true,
+            'created_by' => $approver->id,
+        ]);
+
+        $this->actingAs($creator)->post(route('purchases.store'), [
+            'type' => 'purchase_order',
+            'supplier_id' => $supplier->id,
+            'issue_date' => today()->toDateString(),
+            'lines' => [[
+                'product_id' => $product->id,
+                'description' => $product->name,
+                'quantity' => 2,
+                'unit_price' => 100,
+                'discount_percent' => 0,
+                'tax_percent' => 21,
+            ]],
+        ])->assertRedirect();
+
+        $order = PurchaseDocument::where('type', 'purchase_order')->firstOrFail();
+        $this->assertSame('pending_approval', $order->status);
+        $this->assertSame(2, $order->orderApprovals()->where('status', 'pending')->count());
+
+        $this->actingAs($approver)->getJson(route('action-center'))
+            ->assertOk()
+            ->assertJsonPath('groups.0.label', 'Purchase approvals')
+            ->assertJsonPath('groups.0.items.0.id', 'purchase-approval-'.$order->id);
+
+        $this->post(route('purchases.approve', $order), [
+            'approval_notes' => 'Product scope checked.',
+        ])->assertRedirect();
+        $this->assertSame('pending_approval', $order->refresh()->status);
+        $this->assertSame(1, $order->orderApprovals()->where('status', 'pending')->count());
+
+        $this->post(route('purchases.approve', $order), [
+            'approval_notes' => 'Supplier scope checked.',
+        ])->assertRedirect();
+        $this->assertSame('ordered', $order->refresh()->status);
+        $this->assertSame(2, $order->orderApprovals()->where('status', 'approved')->count());
+    }
+
+    public function test_an_approval_requirement_can_reject_an_order(): void
+    {
+        $creator = User::factory()->create(['role' => 'commercial']);
+        $approver = User::factory()->create(['role' => 'commercial']);
+        $supplier = Supplier::create(['legal_name' => 'Rejected Supply SL', 'country' => 'ES']);
+        $product = Product::create(['type' => 'service', 'sku' => 'REJECT-10', 'name' => 'Commissioning', 'unit_id' => Unit::firstOrFail()->id, 'tax_rate_id' => TaxRate::firstOrFail()->id, 'sale_price' => 500, 'cost_price' => 300, 'is_active' => true]);
+        PurchaseApprovalRule::create(['name' => 'Service review', 'product_type' => 'service', 'min_amount' => 100, 'priority' => 10, 'is_active' => true, 'created_by' => $approver->id]);
+        PurchaseApprovalRule::create(['name' => 'Supplier review', 'supplier_id' => $supplier->id, 'min_amount' => 100, 'priority' => 20, 'is_active' => true, 'created_by' => $approver->id]);
+
+        $this->actingAs($creator)->post(route('purchases.store'), [
+            'type' => 'purchase_order', 'supplier_id' => $supplier->id, 'issue_date' => today()->toDateString(),
+            'lines' => [['product_id' => $product->id, 'description' => $product->name, 'quantity' => 1, 'unit_price' => 300, 'discount_percent' => 0, 'tax_percent' => 21]],
+        ])->assertRedirect();
+        $order = PurchaseDocument::where('type', 'purchase_order')->firstOrFail();
+
+        $this->actingAs($approver)->post(route('purchases.approve', $order), [
+            'decision' => 'rejected',
+            'approval_notes' => 'Commercial terms need renegotiation.',
+        ])->assertRedirect();
+
+        $this->assertSame('approval_rejected', $order->refresh()->status);
+        $this->assertDatabaseHas('purchase_order_approvals', ['purchase_document_id' => $order->id, 'status' => 'rejected', 'decided_by' => $approver->id]);
+        $this->assertDatabaseHas('purchase_order_approvals', ['purchase_document_id' => $order->id, 'status' => 'cancelled', 'decided_by' => $approver->id]);
+        $this->assertSame(0, $order->orderApprovals()->where('status', 'pending')->count());
+        $this->post(route('purchases.receive', $order), [])->assertUnprocessable();
     }
 
     public function test_a_purchase_order_receives_serialized_stock_and_creates_a_supplier_invoice(): void

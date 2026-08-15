@@ -47,6 +47,7 @@ use App\Http\Controllers\MyHumanResourcesController;
 use App\Http\Controllers\OperationsController;
 use App\Http\Controllers\OpportunityController;
 use App\Http\Controllers\PersonController;
+use App\Http\Controllers\PurchaseApprovalRuleController;
 use App\Http\Controllers\PurchaseComparisonController;
 use App\Http\Controllers\PurchaseController;
 use App\Http\Controllers\PurchaseDeliveryController;
@@ -332,6 +333,9 @@ Route::middleware(['auth'])->group(function () {
     Route::post('purchases/{purchaseDocument}/close', [PurchaseWorkflowController::class, 'close'])->middleware('can:manage-purchases')->name('purchases.close');
     Route::post('purchases/{purchaseDocument}/reopen', [PurchaseWorkflowController::class, 'reopen'])->middleware('can:manage-purchases')->name('purchases.reopen');
     Route::patch('purchase-settings', [PurchaseSettingsController::class, 'update'])->middleware('can:manage-staff')->name('purchase-settings.update');
+    Route::post('purchase-approval-rules', [PurchaseApprovalRuleController::class, 'store'])->middleware('can:manage-staff')->name('purchase-approval-rules.store');
+    Route::patch('purchase-approval-rules/{purchaseApprovalRule}', [PurchaseApprovalRuleController::class, 'update'])->middleware('can:manage-staff')->name('purchase-approval-rules.update');
+    Route::delete('purchase-approval-rules/{purchaseApprovalRule}', [PurchaseApprovalRuleController::class, 'destroy'])->middleware('can:manage-staff')->name('purchase-approval-rules.destroy');
     Route::get('supplier-intelligence', [SupplierIntelligenceController::class, 'index'])->middleware('can:manage-purchases')->name('supplier-intelligence.index');
     Route::get('supplier-intelligence/{supplier}', [SupplierIntelligenceController::class, 'show'])->middleware('can:manage-purchases')->name('supplier-intelligence.show');
     Route::post('supplier-intelligence/{supplier}/products', [SupplierIntelligenceController::class, 'storeProduct'])->middleware('can:manage-purchases')->name('supplier-intelligence.products.store');
