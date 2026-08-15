@@ -43,6 +43,10 @@ class ActionCenterController extends Controller
             $groups->push($this->supply());
         }
 
+        if (Gate::allows('approve-purchase-orders')) {
+            $groups->push($this->purchaseApprovals());
+        }
+
         if (Gate::allows('view-finance')) {
             $groups->push($this->purchaseInbox(), $this->collections($request), $this->payments(), $this->paymentBatches(), $this->banking(), $this->financialAlertsGroup());
         }
@@ -125,6 +129,33 @@ class ActionCenterController extends Controller
             ->values();
 
         return $this->group(__('Supply'), (clone $query)->count(), $items);
+    }
+
+    /** @return array<string, mixed> */
+    private function purchaseApprovals(): array
+    {
+        $query = PurchaseDocument::query()
+            ->where('type', 'purchase_order')
+            ->where('status', 'pending_approval');
+        $items = (clone $query)
+            ->with(['supplier:id,legal_name,trade_name', 'orderApprovals' => fn ($query) => $query->where('status', 'pending')])
+            ->oldest('created_at')
+            ->limit(10)
+            ->get()
+            ->map(function (PurchaseDocument $order): array {
+                $supplier = $order->supplier?->trade_name ?: $order->supplier?->legal_name ?: __('Supplier');
+
+                return [
+                    'id' => 'purchase-approval-'.$order->id,
+                    'title' => $order->number.' · '.$supplier,
+                    'subtitle' => __(':count approval(s) pending · :amount', ['count' => $order->orderApprovals->count(), 'amount' => number_format((float) $order->amount, 2, ',', '.').' €']),
+                    'href' => '/purchases/'.$order->id,
+                    'severity' => $order->created_at->lt(now()->subDay()) ? 'critical' : 'warning',
+                    'due_at' => $order->created_at->addDay()->toIso8601String(),
+                ];
+            });
+
+        return $this->group(__('Purchase approvals'), (clone $query)->count(), $items);
     }
 
     /** @return array<string, mixed> */
