@@ -30,6 +30,16 @@ Schedule::command('monitoring:discover huawei')->cron('2 */6 * * *')->withoutOve
 Schedule::command('locations:sync-spain')->monthly()->withoutOverlapping();
 Schedule::command('database:backup')->dailyAt('02:30')->when(fn () => DB::getDriverName() === 'sqlite')->withoutOverlapping();
 Schedule::command('database:verify-backup')->weeklyOn(1, '03:30')->when(fn () => DB::getDriverName() === 'sqlite')->withoutOverlapping();
+Schedule::command('database:backup-postgres')
+    ->dailyAt('02:30')
+    ->when(fn () => DB::getDriverName() === 'pgsql' && config('backup.postgres.enabled'))
+    ->onOneServer()
+    ->withoutOverlapping(120);
+Schedule::command('database:verify-postgres-backup')
+    ->weeklyOn(1, '03:30')
+    ->when(fn () => DB::getDriverName() === 'pgsql' && config('backup.postgres.restore_enabled'))
+    ->onOneServer()
+    ->withoutOverlapping(180);
 Schedule::command('system:heartbeat')->everyMinute();
 Schedule::command('system:health-check')->everyFiveMinutes()->withoutOverlapping();
 Schedule::command('data:prune-retention')->weekly()->withoutOverlapping();
