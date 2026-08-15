@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Mail\PurchaseDocumentMail;
 use App\Models\Product;
+use App\Models\PurchaseApprovalRule;
 use App\Models\PurchaseDocument;
 use App\Models\PurchaseSetting;
 use App\Models\Supplier;
@@ -94,6 +95,18 @@ class SupplyWorkflowTest extends TestCase
         $this->assertSame('2.00', $settings->matching_percent_tolerance);
         $this->assertSame('10.00', $settings->shipping_tax_percent);
         $this->assertSame('15000.00', $settings->order_approval_threshold);
+
+        $this->actingAs($technician)->post(route('purchase-approval-rules.store'), [
+            'name' => 'Forbidden rule', 'min_amount' => 100, 'priority' => 100, 'is_active' => true,
+        ])->assertForbidden();
+        $this->actingAs($admin)->post(route('purchase-approval-rules.store'), [
+            'name' => 'Administrative rule', 'min_amount' => 5000, 'priority' => 50, 'is_active' => true,
+        ])->assertRedirect();
+        $rule = PurchaseApprovalRule::firstOrFail();
+        $this->patch(route('purchase-approval-rules.update', $rule), [
+            'name' => $rule->name, 'min_amount' => 5000, 'priority' => 50, 'is_active' => false,
+        ])->assertRedirect();
+        $this->assertFalse($rule->refresh()->is_active);
     }
 
     private function catalog(): array

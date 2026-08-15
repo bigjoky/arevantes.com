@@ -17,9 +17,11 @@ class TreasuryForecast
     public function __construct(
         private OutstandingBalanceCalculator $balances,
         private CardSettlementSchedule $cardSettlements,
+        private PurchaseCommitmentAnalysis $commitments,
     ) {}
 
-    public function build(int $year, string $scenario = 'probable'): array
+    /** @param Collection<int, array<string, mixed>>|null $purchaseCommitments */
+    public function build(int $year, string $scenario = 'probable', ?Collection $purchaseCommitments = null): array
     {
         $start = $year === now()->year
             ? CarbonImmutable::today()
@@ -59,6 +61,21 @@ class TreasuryForecast
             ->each(function (Expense $expense) use ($events, $start) {
                 $outstanding = $this->balances->expense($expense);
                 $this->addEvent($events, $this->effectiveDate($expense->due_date, $start), 'out', $outstanding, $outstanding, 'expense', $expense->id, $expense->number ?: $expense->document_number ?: __('Expense #:id', ['id' => $expense->id]), '/expenses/'.$expense->id);
+            });
+        ($purchaseCommitments ?? $this->commitments->build($year)['rows'])
+            ->filter(fn (array $commitment) => CarbonImmutable::parse($commitment['expectedPaymentOn'])->lessThanOrEqualTo($end))
+            ->each(function (array $commitment) use ($events, $start) {
+                $this->addEvent(
+                    $events,
+                    $this->effectiveDate($commitment['expectedPaymentOn'], $start),
+                    'out',
+                    (float) $commitment['remainingCash'],
+                    (float) $commitment['remainingCash'],
+                    'purchase_commitment',
+                    (int) $commitment['id'],
+                    __('Commitment :number', ['number' => $commitment['number']]),
+                    $commitment['href'],
+                );
             });
         FinancialForecastItem::where('status', 'planned')->whereDate('due_on', '<=', $end)->get()
             ->each(function (FinancialForecastItem $item) use ($events, $scenario, $start, $end) {
