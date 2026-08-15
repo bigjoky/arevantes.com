@@ -9,6 +9,7 @@ use App\Models\Opportunity;
 use App\Models\Person;
 use App\Models\SavedCrmFilter;
 use App\Models\User;
+use App\Services\Crm\LeadResponseSla;
 use App\Services\Crm\OpportunitySalesCycle;
 use App\Services\Customers\OpportunityCustomerResolver;
 use App\Support\Crm\OpportunityCatalog;
@@ -63,9 +64,17 @@ class OpportunityController extends Controller
         })->filter(fn ($days) => $days !== null)->average();
 
         $salesCycle = app(OpportunitySalesCycle::class);
+        $responseSla = app(LeadResponseSla::class);
+        $responseStatuses = $opportunities->mapWithKeys(
+            fn (Opportunity $item) => [$item->id => $responseSla->status($item)],
+        );
+        $measuredResponses = $responseStatuses->filter(fn (string $status) => in_array($status, ['met', 'breached'], true));
+        $responseMinutes = $opportunities
+            ->map(fn (Opportunity $item) => $responseSla->responseMinutes($item))
+            ->filter(fn (?int $minutes) => $minutes !== null);
 
         return Inertia::render('opportunities/index', [
-            'opportunities' => $opportunities->map(function (Opportunity $item) use ($salesCycle, $settings): array {
+            'opportunities' => $opportunities->map(function (Opportunity $item) use ($salesCycle, $responseSla, $settings): array {
                 $scoreBreakdown = $salesCycle->scoreBreakdown($item);
 
                 return [
@@ -79,6 +88,10 @@ class OpportunityController extends Controller
                     'days_in_stage' => round($this->stageEnteredAt($item)->diffInHours(now()) / 24, 1),
                     'is_stale' => ! in_array($item->stage, ['won', 'lost'], true)
                         && $this->stageEnteredAt($item)->lessThan(now()->subDays($settings->stale_after_days)),
+                    'first_response_due_at' => $item->first_response_due_at?->toIso8601String(),
+                    'first_responded_at' => $item->first_responded_at?->toIso8601String(),
+                    'first_response_minutes' => $responseSla->responseMinutes($item),
+                    'response_sla_status' => $responseSla->status($item),
                 ];
             }),
             'customers' => Person::where('category', 'customer')->orderBy('company_name')->orderBy('first_name')->get(['id', 'first_name', 'last_name', 'company_name', 'phone', 'email', 'preferred_contact_channel', 'do_not_contact']),
@@ -110,6 +123,14 @@ class OpportunityController extends Controller
                 'stale' => $open->filter(fn (Opportunity $item) => $this->stageEnteredAt($item)->lessThan(now()->subDays($settings->stale_after_days)))->count(),
                 'renewals_due' => $open->filter(fn (Opportunity $item) => in_array($item->commercial_kind, ['renewal', 'recurring'], true)
                     && $item->renewal_due_on?->lessThanOrEqualTo(today()->addDays(30)))->count(),
+                'response_sla_breached' => $responseStatuses->filter(fn (string $status) => $status === 'breached')->count(),
+                'response_sla_pending' => $responseStatuses->filter(fn (string $status) => $status === 'pending')->count(),
+                'response_sla_met_rate' => $measuredResponses->isNotEmpty()
+                    ? round($measuredResponses->filter(fn (string $status) => $status === 'met')->count() / $measuredResponses->count() * 100, 1)
+                    : null,
+                'average_first_response_minutes' => $responseMinutes->isNotEmpty()
+                    ? round((float) $responseMinutes->average(), 1)
+                    : null,
                 'funnel' => collect(self::STAGES)->mapWithKeys(fn (string $stage) => [$stage => $opportunities->where('stage', $stage)->count()]),
                 'stage_days' => $this->averageDaysByStage($opportunities),
             ],
@@ -124,13 +145,14 @@ class OpportunityController extends Controller
         Request $request,
         OpportunitySalesCycle $salesCycle,
         OpportunityCustomerResolver $customerResolver,
+        LeadResponseSla $responseSla,
     ): RedirectResponse {
         $customerInput = $this->validatedCustomerInput($request);
         $opportunityInput = $this->validated($request, true);
         $nextActionInput = $this->validatedNextAction($request, $opportunityInput['stage']);
         $createdCustomer = false;
 
-        DB::transaction(function () use ($customerInput, $opportunityInput, $nextActionInput, $request, $salesCycle, $customerResolver, &$createdCustomer): void {
+        DB::transaction(function () use ($customerInput, $opportunityInput, $nextActionInput, $request, $salesCycle, $customerResolver, $responseSla, &$createdCustomer): void {
             $customer = filled($customerInput['phone'])
                 ? $customerResolver->resolve(
                     $customerInput['phone'],
@@ -156,6 +178,7 @@ class OpportunityController extends Controller
 
             $opportunity = Opportunity::create([...$data, 'created_by' => $request->user()->id]);
             $opportunity->update(['code' => 'OPP-'.now()->format('Y').'-'.str_pad((string) $opportunity->id, 5, '0', STR_PAD_LEFT)]);
+            $responseSla->start($opportunity);
             $salesCycle->ensureNextAction($opportunity, $request->user(), $nextActionInput);
             $salesCycle->refreshScore($opportunity);
         });
@@ -453,6 +476,11 @@ class OpportunityController extends Controller
                     'coalesce((select max(changed_at) from opportunity_stage_histories where opportunity_id = opportunities.id), opportunities.created_at) < ?',
                     [now()->subDays($staleAfterDays)],
                 ))
+            ->when($request->input('attention') === 'response_sla', fn ($query) => $query
+                ->whereNotIn('stage', ['won', 'lost'])
+                ->whereNull('first_responded_at')
+                ->whereNotNull('first_response_due_at')
+                ->where('first_response_due_at', '<', now()))
             ->when($request->input('attention') === 'renewal_due', fn ($query) => $query
                 ->whereNotIn('stage', ['won', 'lost'])
                 ->whereIn('commercial_kind', ['renewal', 'recurring'])

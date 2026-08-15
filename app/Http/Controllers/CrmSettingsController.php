@@ -16,7 +16,10 @@ class CrmSettingsController extends Controller
     {
         abort_unless($request->user()->hasRole('admin'), 403);
 
-        $rules = ['stale_after_days' => ['required', 'integer', 'between:1,365']];
+        $rules = [
+            'stale_after_days' => ['required', 'integer', 'between:1,365'],
+            'lead_response_sla_minutes' => ['required', 'integer', 'between:15,10080'],
+        ];
         foreach (CrmSetting::WEIGHT_FIELDS as $field) {
             $rules[$field] = ['required', 'integer', 'between:0,100'];
         }

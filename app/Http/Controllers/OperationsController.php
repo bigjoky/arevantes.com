@@ -10,6 +10,7 @@ use App\Models\ServiceTicket;
 use App\Models\User;
 use App\Models\WorkOrder;
 use App\Models\WorkOrderTemplate;
+use App\Services\Crm\LeadResponseSla;
 use App\Services\Crm\OpportunitySalesCycle;
 use App\Services\Work\TechnicianSchedule;
 use App\Services\Work\WorkOrderFactory;
@@ -126,7 +127,7 @@ class OperationsController extends Controller
         ]);
     }
 
-    public function store(Request $request, OpportunitySalesCycle $salesCycle): RedirectResponse
+    public function store(Request $request, OpportunitySalesCycle $salesCycle, LeadResponseSla $responseSla): RedirectResponse
     {
         $this->normaliseEmptySelects($request);
         $data = $this->validateActivity($request);
@@ -142,8 +143,8 @@ class OperationsController extends Controller
         abort_if($opportunity && $installation && $opportunity->installation_id && $opportunity->installation_id !== $installation->id, 422, __('The installation does not belong to this opportunity.'));
 
         $status = $data['status'] ?? 'pending';
-        DB::transaction(function () use ($data, $opportunity, $installation, $status, $request, $salesCycle): void {
-            CrmActivity::create([
+        DB::transaction(function () use ($data, $opportunity, $installation, $status, $request, $salesCycle, $responseSla): void {
+            $activity = CrmActivity::create([
                 ...$data,
                 'person_id' => $data['person_id'] ?? $opportunity?->person_id ?? $installation?->person_id,
                 'installation_id' => $data['installation_id'] ?? $opportunity?->installation_id,
@@ -152,6 +153,7 @@ class OperationsController extends Controller
                 'completed_at' => $status === 'completed' ? now() : null,
                 'created_by' => $request->user()->id,
             ]);
+            $responseSla->record($activity);
             if ($opportunity) {
                 $salesCycle->synchronizeStage($opportunity, $request->user());
                 $salesCycle->refreshScore($opportunity);
@@ -161,7 +163,7 @@ class OperationsController extends Controller
         return back()->with('toast', ['type' => 'success', 'message' => __('Activity created.')]);
     }
 
-    public function update(Request $request, CrmActivity $activity, OpportunitySalesCycle $salesCycle): RedirectResponse
+    public function update(Request $request, CrmActivity $activity, OpportunitySalesCycle $salesCycle, LeadResponseSla $responseSla): RedirectResponse
     {
         Gate::authorize('update', $activity);
         abort_if($activity->work_order_id !== null, 422, __('Update linked work through its work order.'));
@@ -189,8 +191,9 @@ class OperationsController extends Controller
             __('Closed opportunities cannot receive active activities.'),
         );
 
-        DB::transaction(function () use ($activity, $data, $previousOpportunity, $targetOpportunity, $request, $salesCycle): void {
+        DB::transaction(function () use ($activity, $data, $previousOpportunity, $targetOpportunity, $request, $salesCycle, $responseSla): void {
             $activity->update($data);
+            $responseSla->record($activity);
             collect([$previousOpportunity, $targetOpportunity])->filter()->unique('id')->each(function (Opportunity $opportunity) use ($request, $salesCycle): void {
                 $salesCycle->synchronizeStage($opportunity, $request->user());
                 $salesCycle->refreshScore($opportunity);
