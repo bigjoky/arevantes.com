@@ -31,6 +31,8 @@ class CustomerPhoneLookupController extends Controller
                 'company_name' => $customer->company_name,
                 'phone' => $customer->phone,
                 'email' => $customer->email,
+                'preferred_contact_channel' => $customer->preferred_contact_channel,
+                'do_not_contact' => $customer->do_not_contact,
             ] : null,
         ]);
     }

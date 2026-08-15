@@ -24,7 +24,7 @@ final class OpportunityCustomerResolver
     }
 
     /**
-     * @param  array{first_name?: ?string, last_name?: ?string, company_name?: ?string, email?: ?string}  $attributes
+     * @param  array{first_name?: ?string, last_name?: ?string, company_name?: ?string, email?: ?string, preferred_contact_channel?: ?string, lead_source?: ?string}  $attributes
      */
     public function resolve(string $phone, array $attributes, ?int $preferredPersonId = null): Person
     {
@@ -72,8 +72,8 @@ final class OpportunityCustomerResolver
             'email' => filled($attributes['email'] ?? null) ? mb_strtolower(trim((string) $attributes['email'])) : null,
             'country' => 'Spain',
             'preferred_language' => 'es',
-            'preferred_contact_channel' => 'phone',
-            'lead_source' => 'CRM',
+            'preferred_contact_channel' => $attributes['preferred_contact_channel'] ?? 'phone',
+            'lead_source' => $attributes['lead_source'] ?? 'CRM',
             'data_source' => 'opportunity_form',
         ]);
     }
