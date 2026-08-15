@@ -22,7 +22,7 @@ Una restauración real de producción requiere ventana de mantenimiento, copia d
 
 Las subidas sensibles usan una lista explícita de extensiones, límite de tamaño y detección MIME del framework. Si `CLAMAV_SOCKET` está configurado, la validación usa el protocolo INSTREAM de ClamAV y falla de forma cerrada si el escáner no responde.
 
-`data:prune-retention --dry-run` muestra el impacto. La ejecución semanal conserva auditoría 7 años, eventos de seguridad 2 años y telemetría de salud 90 días. Los documentos fiscales/contractuales no se eliminan con este proceso; su borrado requiere el flujo funcional correspondiente y sus obligaciones legales.
+`data:prune-retention --dry-run` muestra el impacto. La ejecución semanal conserva auditoría 7 años, eventos de seguridad 2 años, telemetría de salud 90 días y respuestas de idempotencia móvil 30 días. Los documentos fiscales/contractuales no se eliminan con este proceso; su borrado requiere el flujo funcional correspondiente y sus obligaciones legales.
 
 ## Despliegue y rollback
 
