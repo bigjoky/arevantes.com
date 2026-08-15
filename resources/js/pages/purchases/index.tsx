@@ -21,6 +21,17 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 type Supplier = { id: number; legal_name: string; trade_name: string | null };
+type ApprovalRule = {
+    id: number;
+    name: string;
+    supplier_id: number | null;
+    product_type: string | null;
+    min_amount: string;
+    max_amount: string | null;
+    priority: number;
+    is_active: boolean;
+    supplier: Supplier | null;
+};
 type Product = {
     id: number;
     sku: string | null;
@@ -65,10 +76,16 @@ export default function PurchasesIndex({
     settings,
     suppliers,
     products,
+    approvalRules,
 }: {
     documents: Page<Document>;
     counts: Record<string, number>;
-    attention: { late: number; receiving: number; review: number };
+    attention: {
+        late: number;
+        receiving: number;
+        review: number;
+        approval: number;
+    };
     filters: { search?: string; type?: string; status?: string };
     settings: {
         matching_amount_tolerance: string;
@@ -78,6 +95,7 @@ export default function PurchasesIndex({
     };
     suppliers: Supplier[];
     products: Product[];
+    approvalRules: ApprovalRule[];
 }) {
     const page = usePage<{
         auth: {
@@ -127,11 +145,12 @@ export default function PurchasesIndex({
                         </div>
                     ))}
                 </section>
-                <section className="grid gap-3 sm:grid-cols-3">
+                <section className="grid gap-3 sm:grid-cols-4">
                     {[
                         ['late', 'Late orders', attention.late],
                         ['receiving', 'Awaiting receipt', attention.receiving],
                         ['review', 'Invoices to review', attention.review],
+                        ['approval', 'Orders to approve', attention.approval],
                     ].map(([key, label, value]) => (
                         <Link
                             key={String(key)}
@@ -185,7 +204,7 @@ export default function PurchasesIndex({
                 {page.props.auth.abilities.managePurchaseSettings && (
                     <details className="border p-4">
                         <summary className="cursor-pointer font-medium">
-                            Matching and tax settings
+                            Purchase controls and approval matrix
                         </summary>
                         <Form
                             action="/purchase-settings"
@@ -218,6 +237,170 @@ export default function PurchasesIndex({
                             />
                             <Button className="self-end">Save settings</Button>
                         </Form>
+                        <div className="mt-6 border-t pt-5">
+                            <h3 className="font-medium">Approval rules</h3>
+                            <p className="mt-1 text-sm text-muted-foreground">
+                                Every matching active rule creates a sequential
+                                approval requirement. The default amount
+                                threshold is used only when no rule matches.
+                            </p>
+                            <Form
+                                action="/purchase-approval-rules"
+                                method="post"
+                                className="mt-4 grid gap-3 lg:grid-cols-7"
+                            >
+                                <Field label="Rule name" name="name" />
+                                <select
+                                    name="supplier_id"
+                                    defaultValue=""
+                                    className="h-9 self-end border bg-transparent px-3 text-sm"
+                                >
+                                    <option value="">Any supplier</option>
+                                    {suppliers.map((supplier) => (
+                                        <option
+                                            key={supplier.id}
+                                            value={supplier.id}
+                                        >
+                                            {supplier.trade_name ||
+                                                supplier.legal_name}
+                                        </option>
+                                    ))}
+                                </select>
+                                <select
+                                    name="product_type"
+                                    defaultValue=""
+                                    className="h-9 self-end border bg-transparent px-3 text-sm"
+                                >
+                                    <option value="">Any line type</option>
+                                    <option value="product">Product</option>
+                                    <option value="service">Service</option>
+                                </select>
+                                <Field
+                                    label="Minimum"
+                                    name="min_amount"
+                                    type="number"
+                                    value="0"
+                                />
+                                <Field
+                                    label="Maximum"
+                                    name="max_amount"
+                                    type="number"
+                                />
+                                <Field
+                                    label="Priority"
+                                    name="priority"
+                                    type="number"
+                                    value="100"
+                                />
+                                <input
+                                    type="hidden"
+                                    name="is_active"
+                                    value="1"
+                                />
+                                <Button className="self-end">Add rule</Button>
+                            </Form>
+                            <div className="mt-4 space-y-2">
+                                {approvalRules.map((rule) => (
+                                    <div
+                                        key={rule.id}
+                                        className="flex flex-wrap items-center justify-between gap-3 border p-3 text-sm"
+                                    >
+                                        <div>
+                                            <div className="flex items-center gap-2 font-medium">
+                                                {rule.name}
+                                                <Badge variant="outline">
+                                                    {rule.is_active
+                                                        ? 'Active'
+                                                        : 'Inactive'}
+                                                </Badge>
+                                            </div>
+                                            <p className="mt-1 text-muted-foreground">
+                                                {rule.supplier?.trade_name ||
+                                                    rule.supplier?.legal_name ||
+                                                    'Any supplier'}{' '}
+                                                ·{' '}
+                                                {rule.product_type ||
+                                                    'any line type'}{' '}
+                                                · {rule.min_amount} € –{' '}
+                                                {rule.max_amount
+                                                    ? `${rule.max_amount} €`
+                                                    : 'no limit'}{' '}
+                                                · priority {rule.priority}
+                                            </p>
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <Form
+                                                action={`/purchase-approval-rules/${rule.id}`}
+                                                method="patch"
+                                            >
+                                                <input
+                                                    type="hidden"
+                                                    name="name"
+                                                    value={rule.name}
+                                                />
+                                                <input
+                                                    type="hidden"
+                                                    name="supplier_id"
+                                                    value={
+                                                        rule.supplier_id || ''
+                                                    }
+                                                />
+                                                <input
+                                                    type="hidden"
+                                                    name="product_type"
+                                                    value={
+                                                        rule.product_type || ''
+                                                    }
+                                                />
+                                                <input
+                                                    type="hidden"
+                                                    name="min_amount"
+                                                    value={rule.min_amount}
+                                                />
+                                                <input
+                                                    type="hidden"
+                                                    name="max_amount"
+                                                    value={
+                                                        rule.max_amount || ''
+                                                    }
+                                                />
+                                                <input
+                                                    type="hidden"
+                                                    name="priority"
+                                                    value={rule.priority}
+                                                />
+                                                <input
+                                                    type="hidden"
+                                                    name="is_active"
+                                                    value={
+                                                        rule.is_active ? '0' : '1'
+                                                    }
+                                                />
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                >
+                                                    {rule.is_active
+                                                        ? 'Disable'
+                                                        : 'Enable'}
+                                                </Button>
+                                            </Form>
+                                            <Form
+                                                action={`/purchase-approval-rules/${rule.id}`}
+                                                method="delete"
+                                            >
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                >
+                                                    <Trash2 />
+                                                </Button>
+                                            </Form>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
                     </details>
                 )}
                 <section className="overflow-x-auto">
