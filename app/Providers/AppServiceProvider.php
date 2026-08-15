@@ -188,7 +188,8 @@ class AppServiceProvider extends ServiceProvider
             'manage-accounting', 'approve-payments', 'approve-budgets', 'manage-tax',
             'view-purchases', 'manage-purchases', 'receive-purchases', 'approve-purchase-invoices',
             'approve-purchase-orders', 'manage-purchase-payments', 'manage-staff', 'view-sensitive-hr', 'manage-sensitive-hr',
-            'view-analytics',
+            'view-analytics', 'view-analytics-executive', 'view-analytics-sales',
+            'view-analytics-operations', 'view-analytics-supply', 'view-analytics-finance',
         ];
         foreach ($permissions as $permission) {
             Gate::define($permission, fn (User $user) => app(PermissionResolver::class)->allows($user, $permission));
