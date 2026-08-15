@@ -417,16 +417,16 @@ Route::middleware(['auth'])->group(function () {
     Route::get('admin/audit/export', [AdminController::class, 'exportAudit'])->middleware('can:export-audit')->name('admin.audit.export');
     Route::get('admin/health', [AdminController::class, 'health'])->middleware('can:view-system-health')->name('admin.health.index');
     Route::post('installations/{installation}/ai/briefing', [InstallationAiController::class, 'briefing'])
-        ->middleware('can:use-ai')
+        ->middleware(['can:use-ai', 'can:view-installations'])
         ->name('installations.ai.briefing');
     Route::get('installations/{installation}/ai/briefings/{aiGeneration:uuid}', [InstallationAiController::class, 'status'])
-        ->middleware('can:use-ai')
+        ->middleware(['can:use-ai', 'can:view-installations'])
         ->name('installations.ai.briefing.status');
     Route::post('installations/{installation}/ai/briefings/{aiGeneration:uuid}/activities', [InstallationAiController::class, 'createActivities'])
-        ->middleware('can:manage-operations')
+        ->middleware(['can:manage-operations', 'can:view-installations'])
         ->name('installations.ai.briefing.activities');
     Route::post('installations/{installation}/ai/briefings/{aiGeneration:uuid}/feedback', [AiFeedbackController::class, 'store'])
-        ->middleware('can:use-ai')
+        ->middleware(['can:use-ai', 'can:view-installations'])
         ->name('installations.ai.briefing.feedback');
     Route::post('knowledge/feedback/{aiFeedback}/approve', [AiFeedbackController::class, 'approve'])
         ->middleware('can:manage-staff')
