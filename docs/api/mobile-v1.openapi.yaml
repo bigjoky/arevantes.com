@@ -35,7 +35,9 @@ paths:
                     type: object
                     properties:
                       token: { type: string }
+                      expires_at: { type: string, format: date-time }
                       user: { $ref: '#/components/schemas/User' }
+        '403': { description: User lacks the manage-operations permission }
         '422': { $ref: '#/components/responses/ValidationError' }
   /auth/token:
     delete:

@@ -4,6 +4,7 @@ namespace Tests\Feature\Api;
 
 use App\Models\Installation;
 use App\Models\MobileOperation;
+use App\Models\PermissionProfile;
 use App\Models\Product;
 use App\Models\StockReservation;
 use App\Models\TaxRate;
@@ -40,9 +41,12 @@ class MobileV1Test extends TestCase
             'email' => $user->email,
             'password' => 'secret-password',
             'device_name' => 'iPhone test',
-        ])->assertOk()->assertJsonPath('data.user.role', 'technician');
+        ])->assertOk()
+            ->assertJsonPath('data.user.role', 'technician')
+            ->assertJsonPath('data.expires_at', fn ($value) => is_string($value));
 
         $token = $login->json('data.token');
+        $this->assertNotNull($user->tokens()->firstOrFail()->expires_at);
         $this->withToken($token)->getJson('/api/mobile/v1/me')->assertOk()->assertJsonPath('data.email', $user->email);
         $this->withToken($token)->deleteJson('/api/mobile/v1/auth/token')->assertNoContent();
         $this->assertDatabaseCount('personal_access_tokens', 0);
@@ -70,13 +74,42 @@ class MobileV1Test extends TestCase
         $this->getJson('/api/mobile/v1/me')->assertForbidden();
     }
 
-    public function test_mobile_routes_recheck_the_current_role_on_every_request(): void
+    public function test_mobile_routes_recheck_the_current_permission_profile_on_every_request(): void
     {
-        $user = User::factory()->create(['role' => 'finance']);
+        $finance = PermissionProfile::where('slug', 'finance')->firstOrFail();
+        $user = User::factory()->create(['role' => 'commercial', 'permission_profile_id' => $finance->id]);
 
         Sanctum::actingAs($user, ['mobile']);
 
         $this->getJson('/api/mobile/v1/work-orders')->assertForbidden();
+    }
+
+    public function test_finance_profile_cannot_login_to_mobile_even_with_legacy_commercial_role(): void
+    {
+        $finance = PermissionProfile::where('slug', 'finance')->firstOrFail();
+        $user = User::factory()->create([
+            'role' => 'commercial',
+            'permission_profile_id' => $finance->id,
+            'password' => 'secret-password',
+        ]);
+
+        $this->postJson('/api/mobile/v1/auth/login', [
+            'email' => $user->email,
+            'password' => 'secret-password',
+            'device_name' => 'Finance phone',
+        ])->assertForbidden();
+
+        $this->assertDatabaseCount('personal_access_tokens', 0);
+    }
+
+    public function test_mobile_api_responses_include_a_correlation_identifier(): void
+    {
+        $technician = User::factory()->create(['role' => 'technician']);
+
+        $this->mobileAs($technician)
+            ->getJson('/api/mobile/v1/me')
+            ->assertOk()
+            ->assertHeader('X-Correlation-ID');
     }
 
     public function test_mobile_api_accepts_capacitor_cors_preflight(): void

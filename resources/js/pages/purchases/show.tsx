@@ -322,9 +322,9 @@ export default function PurchaseShow({
                                         Approval required
                                     </h2>
                                     <p className="mt-1 text-sm text-muted-foreground">
-                                        This order cannot be received or invoiced
-                                        until a different authorised user releases
-                                        it.
+                                        This order cannot be received or
+                                        invoiced until a different authorised
+                                        user releases it.
                                     </p>
                                     {abilities.approvePurchaseOrders &&
                                         (document.created_by !== user.id ||
@@ -340,7 +340,8 @@ export default function PurchaseShow({
                                                     required
                                                 />
                                                 <Button>
-                                                    <ShieldCheck /> Approve order
+                                                    <ShieldCheck /> Approve
+                                                    order
                                                 </Button>
                                             </Form>
                                         )}
@@ -1368,7 +1369,8 @@ export default function PurchaseShow({
                                 Outstanding: {money(String(outstandingAmount))}
                             </p>
                             {abilities.managePurchasePayments &&
-                                document.matching_status !== 'review_required' &&
+                                document.matching_status !==
+                                    'review_required' &&
                                 outstandingAmount > 0 && (
                                     <Form
                                         action={`/supplier-invoices/${document.id}/payments`}
