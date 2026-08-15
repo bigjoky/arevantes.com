@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\AuditLog;
+use App\Models\DatabaseBackup;
 use App\Models\Permission;
 use App\Models\PermissionProfile;
 use App\Models\Person;
@@ -12,12 +13,16 @@ use App\Models\Supplier;
 use App\Models\SystemHealthCheck;
 use App\Models\User;
 use App\Rules\SafeUpload;
+use App\Services\Backup\BackupCipher;
+use App\Services\Backup\PostgresBackupService;
+use App\Services\Backup\PostgresRestoreVerifier;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use PDO;
 use Tests\TestCase;
@@ -159,6 +164,10 @@ class SecurityAdministrationTest extends TestCase
         $this->assertDatabaseHas('system_health_checks', ['component' => 'queue', 'status' => 'failed']);
         $this->assertTrue(SecurityEvent::where('type', 'system_component_failed')->exists());
         $this->assertTrue(SystemHealthCheck::where('component', 'queue')->exists());
+        $alerts = SecurityEvent::where('type', 'system_component_failed')->count();
+
+        $this->artisan('system:health-check')->assertFailed();
+        $this->assertSame($alerts, SecurityEvent::where('type', 'system_component_failed')->count());
     }
 
     public function test_deye_health_uses_the_credentials_required_by_the_client(): void
@@ -212,6 +221,72 @@ class SecurityAdministrationTest extends TestCase
         } finally {
             File::delete([$plain, $backup]);
         }
+    }
+
+    public function test_postgres_backup_is_encrypted_streamed_and_manifested_on_private_storage(): void
+    {
+        Storage::fake('backup-test');
+        $script = tempnam(sys_get_temp_dir(), 'fake-pg-dump-');
+        File::put($script, <<<'SH'
+#!/bin/sh
+for argument in "$@"; do
+    case "$argument" in
+        --file=*) destination="${argument#--file=}" ;;
+    esac
+done
+printf 'PGDMP-test-database-content' > "$destination"
+SH);
+        chmod($script, 0700);
+        config()->set([
+            'filesystems.disks.backup-test' => ['driver' => 'local', 'root' => storage_path('framework/testing/disks/backup-test')],
+            'backup.postgres.enabled' => true,
+            'backup.postgres.disk' => 'backup-test',
+            'backup.postgres.source_connection' => 'backup_source_test',
+            'backup.postgres.encryption_key' => 'base64:'.base64_encode(random_bytes(32)),
+            'backup.postgres.pg_dump_binary' => $script,
+            'database.connections.backup_source_test' => [
+                'driver' => 'pgsql', 'host' => 'database.internal', 'port' => 5432,
+                'database' => 'arevantes', 'username' => 'backup_reader', 'password' => 'secret', 'sslmode' => 'require',
+            ],
+        ]);
+
+        try {
+            $backup = app(PostgresBackupService::class)->create();
+            $this->assertSame('success', $backup->status);
+            $this->assertNotSame('secret', $backup->error);
+            Storage::disk('backup-test')->assertExists($backup->path);
+            Storage::disk('backup-test')->assertExists($backup->path.'.json');
+
+            $restored = tempnam(sys_get_temp_dir(), 'decrypted-pg-dump-');
+            app(BackupCipher::class)->decrypt(Storage::disk('backup-test')->path($backup->path), $restored);
+            $this->assertSame('PGDMP-test-database-content', File::get($restored));
+            File::delete($restored);
+        } finally {
+            File::delete($script);
+        }
+    }
+
+    public function test_postgres_restore_refuses_the_production_database_as_target(): void
+    {
+        $backup = DatabaseBackup::create([
+            'engine' => 'pgsql', 'status' => 'success', 'disk' => 'local', 'path' => 'unused',
+            'started_at' => now(), 'completed_at' => now(),
+        ]);
+        $connection = [
+            'driver' => 'pgsql', 'host' => 'production.internal', 'port' => 5432,
+            'database' => 'arevantes', 'username' => 'postgres', 'password' => 'secret', 'sslmode' => 'require',
+        ];
+        config()->set([
+            'backup.postgres.restore_enabled' => true,
+            'backup.postgres.source_connection' => 'backup_source_test',
+            'backup.postgres.restore_connection' => 'backup_restore_test',
+            'database.connections.backup_source_test' => $connection,
+            'database.connections.backup_restore_test' => $connection,
+        ]);
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('production database');
+        app(PostgresRestoreVerifier::class)->verify($backup);
     }
 
     public function test_all_administration_routes_have_explicit_permission_middleware(): void
