@@ -12,7 +12,10 @@ use Illuminate\Support\Collection;
 
 class ProjectProfitability
 {
-    public function forYear(int $year): Collection
+    public function __construct(private PurchaseCommitmentAnalysis $commitments) {}
+
+    /** @param Collection<int, array<string, mixed>>|null $purchaseCommitments */
+    public function forYear(int $year, ?Collection $purchaseCommitments = null): Collection
     {
         $revenue = SalesDocument::whereIn('type', ['invoice', 'credit_note'])->whereNotNull('locked_at')->whereNotNull('installation_id')
             ->whereYear('issue_date', $year)->get()->groupBy('installation_id')
@@ -36,17 +39,23 @@ class ProjectProfitability
             ->groupBy('purchase_documents.installation_id')->pluck('total', 'installation_id');
         $directExpenses = Expense::whereNotNull('installation_id')->whereYear('expense_date', $year)
             ->selectRaw('installation_id, coalesce(sum(subtotal), 0) total')->groupBy('installation_id')->pluck('total', 'installation_id');
-        $ids = $revenue->keys()->concat($material->keys())->concat($labour->keys())->concat($supplierServices->keys())->concat($directExpenses->keys())->unique();
+        $committedCosts = ($purchaseCommitments ?? $this->commitments->build($year)['rows'])
+            ->whereNotNull('installationId')
+            ->groupBy('installationId')
+            ->map(fn (Collection $items) => (float) $items->sum('remainingNet'));
+        $ids = $revenue->keys()->concat($material->keys())->concat($labour->keys())->concat($supplierServices->keys())->concat($directExpenses->keys())->concat($committedCosts->keys())->unique();
         $installations = Installation::whereIn('id', $ids)->get(['id', 'project_reference', 'site_name'])->keyBy('id');
 
-        return $ids->map(function ($id) use ($revenue, $material, $labour, $supplierServices, $directExpenses, $installations) {
+        return $ids->map(function ($id) use ($revenue, $material, $labour, $supplierServices, $directExpenses, $committedCosts, $installations) {
             $income = (float) ($revenue[$id] ?? 0);
             $materialCost = (float) ($material[$id] ?? 0);
             $labourCost = (float) ($labour[$id] ?? 0);
             $supplierCost = (float) ($supplierServices[$id] ?? 0);
             $expenseCost = (float) ($directExpenses[$id] ?? 0);
+            $committedCost = (float) ($committedCosts[$id] ?? 0);
             $totalCost = $materialCost + $labourCost + $supplierCost + $expenseCost;
             $margin = $income - $totalCost;
+            $projectedMargin = $margin - $committedCost;
             $installation = $installations[$id] ?? null;
 
             return [
@@ -58,8 +67,11 @@ class ProjectProfitability
                 'supplier_cost' => round($supplierCost, 2),
                 'direct_expenses' => round($expenseCost, 2),
                 'total_cost' => round($totalCost, 2),
+                'committed_cost' => round($committedCost, 2),
                 'margin' => round($margin, 2),
                 'margin_percent' => $income !== 0.0 ? round($margin / $income * 100, 1) : null,
+                'projected_margin' => round($projectedMargin, 2),
+                'projected_margin_percent' => $income !== 0.0 ? round($projectedMargin / $income * 100, 1) : null,
             ];
         })->sortByDesc('margin')->values();
     }
