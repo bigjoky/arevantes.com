@@ -28,6 +28,7 @@ Route::prefix('mobile/v1')->name('api.mobile.v1.')->group(function () {
         Route::delete('devices/{deviceId}', [MobileDeviceController::class, 'destroy'])->whereUuid('deviceId')->name('devices.destroy');
         Route::get('work-orders', [MobileWorkOrderController::class, 'index'])->name('work-orders.index');
         Route::get('work-orders/{workOrder}', [MobileWorkOrderController::class, 'show'])->name('work-orders.show');
+        Route::patch('work-orders/{workOrder}/status', [MobileWorkOrderController::class, 'changeStatus'])->middleware(EnsureMobileIdempotency::class)->name('work-orders.status.update');
         Route::patch('work-orders/{workOrder}/complete', [MobileWorkOrderController::class, 'complete'])->middleware(EnsureMobileIdempotency::class)->name('work-orders.complete');
         Route::post('work-orders/{workOrder}/materials/{reservation}/consume', [MobileWorkOrderController::class, 'consumeMaterial'])->middleware(EnsureMobileIdempotency::class)->name('work-orders.materials.consume');
         Route::post('work-orders/{workOrder}/timer', [MobileWorkOrderController::class, 'startTimer'])->middleware(EnsureMobileIdempotency::class)->name('work-orders.timer.start');

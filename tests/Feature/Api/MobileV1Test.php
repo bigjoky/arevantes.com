@@ -229,6 +229,49 @@ class MobileV1Test extends TestCase
         ]);
     }
 
+    public function test_technician_can_block_and_resume_an_assigned_order_idempotently(): void
+    {
+        $technician = User::factory()->create(['role' => 'technician']);
+        $installation = Installation::create(['service_type' => 'solar', 'status' => 'in_progress', 'site_address_line_1' => 'Calle Sol 1']);
+        $order = WorkOrder::create(['installation_id' => $installation->id, 'assigned_user_id' => $technician->id, 'number' => 'WO-BLOCK', 'title' => 'Blocked order', 'status' => 'in_progress']);
+        $activity = $order->activities()->create(['assigned_user_id' => $technician->id, 'type' => 'task', 'title' => $order->title, 'status' => 'in_progress']);
+        $blockKey = (string) Str::uuid();
+
+        $this->mobileAs($technician)->withHeader('Idempotency-Key', $blockKey)
+            ->patchJson("/api/mobile/v1/work-orders/{$order->id}/status", [
+                'status' => 'blocked',
+                'blocked_reason' => 'No hay acceso al cuarto técnico.',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.status', 'blocked')
+            ->assertJsonPath('data.blocked_reason', 'No hay acceso al cuarto técnico.');
+        $this->app['auth']->forgetGuards();
+        $this->mobileAs($technician)->withHeader('Idempotency-Key', $blockKey)
+            ->patchJson("/api/mobile/v1/work-orders/{$order->id}/status", ['status' => 'blocked', 'blocked_reason' => 'Different'])
+            ->assertOk()->assertHeader('Idempotency-Replayed', 'true')
+            ->assertJsonPath('data.blocked_reason', 'No hay acceso al cuarto técnico.');
+
+        $this->withHeader('Idempotency-Key', (string) Str::uuid())
+            ->patchJson("/api/mobile/v1/work-orders/{$order->id}/status", ['status' => 'in_progress'])
+            ->assertOk()->assertJsonPath('data.status', 'in_progress')->assertJsonPath('data.blocked_reason', null);
+        $this->assertNull($activity->refresh()->blocked_reason);
+    }
+
+    public function test_technician_must_stop_the_timer_before_blocking_an_order(): void
+    {
+        $technician = User::factory()->create(['role' => 'technician']);
+        $installation = Installation::create(['service_type' => 'solar', 'status' => 'in_progress', 'site_address_line_1' => 'Calle Sol 1']);
+        $order = WorkOrder::create(['installation_id' => $installation->id, 'assigned_user_id' => $technician->id, 'number' => 'WO-BLOCK-TIMER', 'title' => 'Running order', 'status' => 'in_progress']);
+        $order->timeEntries()->create(['user_id' => $technician->id, 'created_by' => $technician->id, 'started_at' => now()]);
+
+        $this->mobileAs($technician)->withHeader('Idempotency-Key', (string) Str::uuid())
+            ->patchJson("/api/mobile/v1/work-orders/{$order->id}/status", ['status' => 'blocked', 'blocked_reason' => 'Sin material.'])
+            ->assertUnprocessable();
+
+        $this->assertSame('in_progress', $order->refresh()->status);
+        $this->assertDatabaseCount('mobile_operations', 0);
+    }
+
     public function test_technician_can_complete_a_ready_work_order_idempotently(): void
     {
         $technician = User::factory()->create(['role' => 'technician']);

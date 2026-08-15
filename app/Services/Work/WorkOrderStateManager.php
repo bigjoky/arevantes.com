@@ -13,9 +13,9 @@ class WorkOrderStateManager
         private InstallationWorkOrderSynchronizer $installations,
     ) {}
 
-    public function transition(WorkOrder $order, string $status, ?string $completionNotes = null): WorkOrder
+    public function transition(WorkOrder $order, string $status, ?string $completionNotes = null, ?string $blockedReason = null): WorkOrder
     {
-        return DB::transaction(function () use ($order, $status, $completionNotes): WorkOrder {
+        return DB::transaction(function () use ($order, $status, $completionNotes, $blockedReason): WorkOrder {
             $locked = WorkOrder::query()->with(['template', 'installation'])->lockForUpdate()->findOrFail($order->id);
             $this->workflow->assertTransition($locked, $status);
             if ($status === 'completed') {
@@ -39,6 +39,7 @@ class WorkOrderStateManager
             };
             $locked->activities()->update([
                 'status' => $activityStatus,
+                'blocked_reason' => $status === 'blocked' ? $blockedReason : null,
                 'completed_at' => $status === 'completed' ? $locked->completed_at : null,
             ]);
             $this->installations->sync($locked);

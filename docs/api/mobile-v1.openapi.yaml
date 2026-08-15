@@ -189,6 +189,25 @@ paths:
       responses:
         '200': { description: Work order completed or a previous response replayed }
         '422': { description: Completion requirements are not satisfied }
+  /work-orders/{workOrder}/status:
+    patch:
+      operationId: changeWorkOrderStatus
+      parameters:
+        - { $ref: '#/components/parameters/WorkOrderId' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { type: string, enum: [blocked, planned, in_progress] }
+                blocked_reason: { type: [string, 'null'], maxLength: 1000, description: Required when status is blocked. }
+      responses:
+        '200': { description: Work order status changed or a previous response replayed }
+        '422': { description: Transition is not allowed, reason is missing, or a timer is running }
   /work-orders/{workOrder}/materials/{reservation}/consume:
     post:
       operationId: consumeReservedMaterial
@@ -322,6 +341,7 @@ components:
         number: { type: string }
         title: { type: string }
         status: { $ref: '#/components/schemas/WorkOrderStatus' }
+        blocked_reason: { type: [string, 'null'] }
         allowed_transitions:
           type: array
           items: { $ref: '#/components/schemas/WorkOrderStatus' }
