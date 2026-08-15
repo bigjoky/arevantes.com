@@ -8,6 +8,7 @@ use App\Models\TimeEntry;
 use App\Models\User;
 use App\Models\WorkOrder;
 use App\Models\WorkOrderChecklistItem;
+use App\Rules\SafeUpload;
 use App\Services\Inventory\WorkOrderMaterialConsumer;
 use App\Services\Work\WorkOrderStateManager;
 use App\Services\Work\WorkOrderWorkflow;
@@ -29,7 +30,7 @@ class WorkOrderController extends Controller
             'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
         ]);
         $orders = $this->accessible($request)
-            ->with(['installation:id,project_reference,site_name,site_address_line_1,site_city,site_postal_code,site_latitude,site_longitude', 'assignedUser:id,name', 'checklistItems'])
+            ->with(['installation:id,project_reference,site_name,site_address_line_1,site_city,site_postal_code,site_latitude,site_longitude', 'assignedUser:id,name', 'checklistItems', 'activities:id,work_order_id,blocked_reason'])
             ->when($validated['updated_after'] ?? null, fn (Builder $query, string $date) => $query->where('updated_at', '>', $date))
             ->when($validated['status'] ?? null, fn (Builder $query, string $status) => $query->where('status', $status))
             ->orderByRaw("case when status = 'completed' then 1 else 0 end")
@@ -51,7 +52,7 @@ class WorkOrderController extends Controller
     public function show(Request $request, WorkOrder $workOrder): JsonResponse
     {
         $this->ensureAccess($request, $workOrder);
-        $workOrder->load(['installation', 'assignedUser:id,name', 'timeEntries.user:id,name', 'checklistItems', 'attachments', 'stockReservations.product:id,sku,name,track_serials', 'stockReservations.warehouse:id,code,name']);
+        $workOrder->load(['installation', 'assignedUser:id,name', 'timeEntries.user:id,name', 'checklistItems', 'attachments', 'stockReservations.product:id,sku,name,track_serials', 'stockReservations.warehouse:id,code,name', 'activities:id,work_order_id,blocked_reason']);
 
         return response()->json(['data' => [...$this->summary($workOrder),
             'instructions' => $workOrder->instructions,
@@ -110,6 +111,22 @@ class WorkOrderController extends Controller
         ]]);
     }
 
+    public function changeStatus(Request $request, WorkOrder $workOrder, WorkOrderStateManager $states): JsonResponse
+    {
+        $this->ensureAccess($request, $workOrder);
+        $data = $request->validate([
+            'status' => ['required', Rule::in(['blocked', 'planned', 'in_progress'])],
+            'blocked_reason' => ['nullable', 'string', 'max:1000', 'required_if:status,blocked'],
+        ]);
+        if ($data['status'] === 'blocked') {
+            abort_if(TimeEntry::where('work_order_id', $workOrder->id)->where('user_id', $request->user()->id)->whereNull('ended_at')->exists(), 422, __('Stop the running timer before blocking the work order.'));
+        }
+        $updated = $states->transition($workOrder, $data['status'], blockedReason: $data['blocked_reason'] ?? null);
+        $updated->load(['installation', 'assignedUser:id,name', 'checklistItems', 'activities:id,work_order_id,blocked_reason']);
+
+        return response()->json(['data' => $this->summary($updated)]);
+    }
+
     public function consumeMaterial(Request $request, WorkOrder $workOrder, StockReservation $reservation, WorkOrderMaterialConsumer $consumer): JsonResponse
     {
         $this->ensureAccess($request, $workOrder);
@@ -163,7 +180,7 @@ class WorkOrderController extends Controller
     {
         $this->ensureAccess($request, $workOrder);
         $data = $request->validate([
-            'file' => ['required', 'file', 'mimes:jpg,jpeg,png,webp,pdf', 'max:12288'],
+            'file' => ['required', 'file', new SafeUpload(['jpg', 'jpeg', 'png', 'webp', 'pdf'], 12288)],
             'caption' => ['nullable', 'string', 'max:500'],
         ]);
         $file = $data['file'];
@@ -193,7 +210,7 @@ class WorkOrderController extends Controller
         $this->ensureAccess($request, $workOrder);
         $data = $request->validate([
             'signed_by_name' => ['required', 'string', 'max:255'],
-            'signature' => ['required', 'file', 'mimes:png', 'max:750'],
+            'signature' => ['required', 'file', new SafeUpload(['png'], 750)],
         ]);
         $binary = $data['signature']->get();
         abort_unless(str_starts_with($binary, "\x89PNG\r\n\x1a\n"), 422, __('Invalid signature data.'));
@@ -255,6 +272,7 @@ class WorkOrderController extends Controller
             'scheduled_start' => $order->scheduled_start?->toISOString(), 'scheduled_end' => $order->scheduled_end?->toISOString(),
             'updated_at' => $order->updated_at->toISOString(), 'assigned_user' => $order->assignedUser?->only(['id', 'name']),
             'signed_by_name' => $order->signed_by_name, 'signed_at' => $order->signed_at?->toISOString(),
+            'blocked_reason' => $order->relationLoaded('activities') ? $order->activities->first()?->blocked_reason : null,
             'installation' => $order->installation ? ['id' => $order->installation->id, 'project_reference' => $order->installation->project_reference,
                 'site_name' => $order->installation->site_name, 'address' => $order->installation->site_address_line_1,
                 'city' => $order->installation->site_city, 'postal_code' => $order->installation->site_postal_code,

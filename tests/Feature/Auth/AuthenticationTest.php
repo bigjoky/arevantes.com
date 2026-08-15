@@ -30,6 +30,7 @@ class AuthenticationTest extends TestCase
 
         $this->assertAuthenticated();
         $response->assertRedirect(route('dashboard', absolute: false));
+        $this->assertDatabaseHas('security_events', ['type' => 'login_succeeded', 'user_id' => $user->id]);
     }
 
     public function test_users_with_two_factor_enabled_are_redirected_to_two_factor_challenge()
@@ -63,6 +64,7 @@ class AuthenticationTest extends TestCase
         ]);
 
         $this->assertGuest();
+        $this->assertDatabaseHas('security_events', ['type' => 'login_failed', 'user_id' => $user->id]);
     }
 
     public function test_users_can_logout()
@@ -74,6 +76,7 @@ class AuthenticationTest extends TestCase
         $response->assertRedirect(route('home'));
 
         $this->assertGuest();
+        $this->assertDatabaseHas('security_events', ['type' => 'logout', 'user_id' => $user->id]);
     }
 
     public function test_users_are_rate_limited()

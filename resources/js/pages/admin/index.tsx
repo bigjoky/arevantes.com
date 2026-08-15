@@ -96,6 +96,7 @@ export default function AdminIndex({
     healthChecks = [],
     securityEvents = [],
     accessReviewsDue = 0,
+    backupSupported = true,
 }: {
     section: 'access' | 'backups' | 'audit' | 'health';
     users?: UserRow[];
@@ -107,6 +108,7 @@ export default function AdminIndex({
     healthChecks?: HealthCheck[];
     securityEvents?: SecurityEvent[];
     accessReviewsDue?: number;
+    backupSupported?: boolean;
 }) {
     return (
         <>
@@ -337,11 +339,18 @@ export default function AdminIndex({
                                 </h2>
                             </div>
                             <Form action="/admin/backups" method="post">
-                                <Button>
+                                <Button disabled={!backupSupported}>
                                     <DatabaseBackup /> Create backup
                                 </Button>
                             </Form>
                         </div>
+                        {!backupSupported ? (
+                            <p className="mb-4 text-sm text-amber-700 dark:text-amber-400">
+                                PostgreSQL backups are managed by the hosting
+                                platform. Verify their status and restoration
+                                tests in Laravel Cloud.
+                            </p>
+                        ) : null}
                         <div className="grid gap-2">
                             {backups.map((backup) => (
                                 <div

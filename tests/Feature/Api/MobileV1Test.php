@@ -4,6 +4,7 @@ namespace Tests\Feature\Api;
 
 use App\Models\Installation;
 use App\Models\MobileOperation;
+use App\Models\PermissionProfile;
 use App\Models\Product;
 use App\Models\StockReservation;
 use App\Models\TaxRate;
@@ -40,9 +41,12 @@ class MobileV1Test extends TestCase
             'email' => $user->email,
             'password' => 'secret-password',
             'device_name' => 'iPhone test',
-        ])->assertOk()->assertJsonPath('data.user.role', 'technician');
+        ])->assertOk()
+            ->assertJsonPath('data.user.role', 'technician')
+            ->assertJsonPath('data.expires_at', fn ($value) => is_string($value));
 
         $token = $login->json('data.token');
+        $this->assertNotNull($user->tokens()->firstOrFail()->expires_at);
         $this->withToken($token)->getJson('/api/mobile/v1/me')->assertOk()->assertJsonPath('data.email', $user->email);
         $this->withToken($token)->deleteJson('/api/mobile/v1/auth/token')->assertNoContent();
         $this->assertDatabaseCount('personal_access_tokens', 0);
@@ -70,13 +74,42 @@ class MobileV1Test extends TestCase
         $this->getJson('/api/mobile/v1/me')->assertForbidden();
     }
 
-    public function test_mobile_routes_recheck_the_current_role_on_every_request(): void
+    public function test_mobile_routes_recheck_the_current_permission_profile_on_every_request(): void
     {
-        $user = User::factory()->create(['role' => 'finance']);
+        $finance = PermissionProfile::where('slug', 'finance')->firstOrFail();
+        $user = User::factory()->create(['role' => 'commercial', 'permission_profile_id' => $finance->id]);
 
         Sanctum::actingAs($user, ['mobile']);
 
         $this->getJson('/api/mobile/v1/work-orders')->assertForbidden();
+    }
+
+    public function test_finance_profile_cannot_login_to_mobile_even_with_legacy_commercial_role(): void
+    {
+        $finance = PermissionProfile::where('slug', 'finance')->firstOrFail();
+        $user = User::factory()->create([
+            'role' => 'commercial',
+            'permission_profile_id' => $finance->id,
+            'password' => 'secret-password',
+        ]);
+
+        $this->postJson('/api/mobile/v1/auth/login', [
+            'email' => $user->email,
+            'password' => 'secret-password',
+            'device_name' => 'Finance phone',
+        ])->assertForbidden();
+
+        $this->assertDatabaseCount('personal_access_tokens', 0);
+    }
+
+    public function test_mobile_api_responses_include_a_correlation_identifier(): void
+    {
+        $technician = User::factory()->create(['role' => 'technician']);
+
+        $this->mobileAs($technician)
+            ->getJson('/api/mobile/v1/me')
+            ->assertOk()
+            ->assertHeader('X-Correlation-ID');
     }
 
     public function test_mobile_api_accepts_capacitor_cors_preflight(): void
@@ -194,6 +227,49 @@ class MobileV1Test extends TestCase
             'user_id' => $technician->id,
             'travel_km' => 18.5,
         ]);
+    }
+
+    public function test_technician_can_block_and_resume_an_assigned_order_idempotently(): void
+    {
+        $technician = User::factory()->create(['role' => 'technician']);
+        $installation = Installation::create(['service_type' => 'solar', 'status' => 'in_progress', 'site_address_line_1' => 'Calle Sol 1']);
+        $order = WorkOrder::create(['installation_id' => $installation->id, 'assigned_user_id' => $technician->id, 'number' => 'WO-BLOCK', 'title' => 'Blocked order', 'status' => 'in_progress']);
+        $activity = $order->activities()->create(['assigned_user_id' => $technician->id, 'type' => 'task', 'title' => $order->title, 'status' => 'in_progress']);
+        $blockKey = (string) Str::uuid();
+
+        $this->mobileAs($technician)->withHeader('Idempotency-Key', $blockKey)
+            ->patchJson("/api/mobile/v1/work-orders/{$order->id}/status", [
+                'status' => 'blocked',
+                'blocked_reason' => 'No hay acceso al cuarto técnico.',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.status', 'blocked')
+            ->assertJsonPath('data.blocked_reason', 'No hay acceso al cuarto técnico.');
+        $this->app['auth']->forgetGuards();
+        $this->mobileAs($technician)->withHeader('Idempotency-Key', $blockKey)
+            ->patchJson("/api/mobile/v1/work-orders/{$order->id}/status", ['status' => 'blocked', 'blocked_reason' => 'Different'])
+            ->assertOk()->assertHeader('Idempotency-Replayed', 'true')
+            ->assertJsonPath('data.blocked_reason', 'No hay acceso al cuarto técnico.');
+
+        $this->withHeader('Idempotency-Key', (string) Str::uuid())
+            ->patchJson("/api/mobile/v1/work-orders/{$order->id}/status", ['status' => 'in_progress'])
+            ->assertOk()->assertJsonPath('data.status', 'in_progress')->assertJsonPath('data.blocked_reason', null);
+        $this->assertNull($activity->refresh()->blocked_reason);
+    }
+
+    public function test_technician_must_stop_the_timer_before_blocking_an_order(): void
+    {
+        $technician = User::factory()->create(['role' => 'technician']);
+        $installation = Installation::create(['service_type' => 'solar', 'status' => 'in_progress', 'site_address_line_1' => 'Calle Sol 1']);
+        $order = WorkOrder::create(['installation_id' => $installation->id, 'assigned_user_id' => $technician->id, 'number' => 'WO-BLOCK-TIMER', 'title' => 'Running order', 'status' => 'in_progress']);
+        $order->timeEntries()->create(['user_id' => $technician->id, 'created_by' => $technician->id, 'started_at' => now()]);
+
+        $this->mobileAs($technician)->withHeader('Idempotency-Key', (string) Str::uuid())
+            ->patchJson("/api/mobile/v1/work-orders/{$order->id}/status", ['status' => 'blocked', 'blocked_reason' => 'Sin material.'])
+            ->assertUnprocessable();
+
+        $this->assertSame('in_progress', $order->refresh()->status);
+        $this->assertDatabaseCount('mobile_operations', 0);
     }
 
     public function test_technician_can_complete_a_ready_work_order_idempotently(): void

@@ -19,9 +19,11 @@ class SecurityEventRecorder
             'context' => $context,
         ]);
         if ($alertAdmins) {
-            User::query()->where('role', 'admin')->get()->each->notify(
-                new SecurityAlertNotification(__('Security alert'), __(str_replace('_', ' ', ucfirst($type))), ['security_event_id' => $event->id])
-            );
+            User::query()->with(['permissionProfile.permissions', 'permissionOverrides'])->get()
+                ->filter(fn (User $recipient) => app(PermissionResolver::class)->allows($recipient, 'manage-admin'))
+                ->each->notify(
+                    new SecurityAlertNotification(__('Security alert'), __(str_replace('_', ' ', ucfirst($type))), ['security_event_id' => $event->id])
+                );
         }
 
         return $event;

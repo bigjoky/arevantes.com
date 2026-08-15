@@ -16,6 +16,7 @@ use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
@@ -53,6 +54,7 @@ class AdminController extends Controller
             'section' => 'backups',
             'backups' => $backups,
             'restorations' => BackupRestoration::latest()->limit(20)->get(),
+            'backupSupported' => DB::getDriverName() === 'sqlite',
         ]);
     }
 
@@ -89,8 +91,18 @@ class AdminController extends Controller
             'overrides.*' => ['nullable', Rule::in(['allow', 'deny', 'inherit'])],
         ]);
         $administrator = PermissionProfile::where('slug', 'administrator')->firstOrFail();
+        $overrideIds = collect(array_keys($data['overrides'] ?? []))->map(fn ($id) => (int) $id)->unique();
+        if ($overrideIds->count() !== Permission::whereKey($overrideIds)->count()) {
+            throw ValidationException::withMessages(['overrides' => __('One or more permission overrides are invalid.')]);
+        }
+        $protectedPermissionIds = Permission::whereIn('key', ['manage-admin', 'manage-access', 'export-audit', 'view-system-health'])->pluck('id')->map(fn ($id) => (string) $id);
+        $deniesProtectedPermission = collect($data['overrides'] ?? [])->contains(
+            fn ($choice, $permissionId) => $choice === 'deny' && $protectedPermissionIds->contains((string) $permissionId)
+        );
+        $isLastAdministrator = $user->permission_profile_id === $administrator->id
+            && User::where('permission_profile_id', $administrator->id)->count() === 1;
 
-        if ($user->id === $request->user()->id && (int) $data['permission_profile_id'] !== $administrator->id && User::where('permission_profile_id', $administrator->id)->count() === 1) {
+        if ($isLastAdministrator && ((int) $data['permission_profile_id'] !== $administrator->id || $deniesProtectedPermission)) {
             return back()->withErrors(['role' => __('The last administrator cannot be demoted.')]);
         }
 
@@ -166,7 +178,23 @@ class AdminController extends Controller
 
     public function backup(): RedirectResponse
     {
-        Artisan::call('database:backup');
+        if (DB::getDriverName() !== 'sqlite') {
+            app(SecurityEventRecorder::class)->record('backup_creation_failed', request()->user(), [
+                'database_driver' => DB::getDriverName(),
+                'reason' => 'unsupported_driver',
+            ], 'critical', true);
+
+            return back()->withErrors(['backup' => __('Application-managed backups are not available for this database. Verify the managed PostgreSQL backup instead.')]);
+        }
+        $exitCode = Artisan::call('database:backup');
+        if ($exitCode !== 0) {
+            app(SecurityEventRecorder::class)->record('backup_creation_failed', request()->user(), [
+                'database_driver' => DB::getDriverName(),
+                'exit_code' => $exitCode,
+            ], 'critical', true);
+
+            return back()->withErrors(['backup' => __('The encrypted backup could not be created.')]);
+        }
         app(SecurityEventRecorder::class)->record('backup_created', request()->user(), [], 'warning');
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Encrypted backup created.')]);
