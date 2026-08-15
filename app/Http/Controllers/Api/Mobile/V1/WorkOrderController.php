@@ -29,7 +29,7 @@ class WorkOrderController extends Controller
             'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
         ]);
         $orders = $this->accessible($request)
-            ->with(['installation:id,project_reference,site_name,site_address_line_1,site_city,site_postal_code,site_latitude,site_longitude', 'assignedUser:id,name', 'checklistItems'])
+            ->with(['installation:id,project_reference,site_name,site_address_line_1,site_city,site_postal_code,site_latitude,site_longitude', 'assignedUser:id,name', 'checklistItems', 'activities:id,work_order_id,blocked_reason'])
             ->when($validated['updated_after'] ?? null, fn (Builder $query, string $date) => $query->where('updated_at', '>', $date))
             ->when($validated['status'] ?? null, fn (Builder $query, string $status) => $query->where('status', $status))
             ->orderByRaw("case when status = 'completed' then 1 else 0 end")
@@ -51,7 +51,7 @@ class WorkOrderController extends Controller
     public function show(Request $request, WorkOrder $workOrder): JsonResponse
     {
         $this->ensureAccess($request, $workOrder);
-        $workOrder->load(['installation', 'assignedUser:id,name', 'timeEntries.user:id,name', 'checklistItems', 'attachments', 'stockReservations.product:id,sku,name,track_serials', 'stockReservations.warehouse:id,code,name']);
+        $workOrder->load(['installation', 'assignedUser:id,name', 'timeEntries.user:id,name', 'checklistItems', 'attachments', 'stockReservations.product:id,sku,name,track_serials', 'stockReservations.warehouse:id,code,name', 'activities:id,work_order_id,blocked_reason']);
 
         return response()->json(['data' => [...$this->summary($workOrder),
             'instructions' => $workOrder->instructions,
@@ -108,6 +108,22 @@ class WorkOrderController extends Controller
             'completion_notes' => $updated->completion_notes,
             'completed_at' => $updated->completed_at?->toISOString(),
         ]]);
+    }
+
+    public function changeStatus(Request $request, WorkOrder $workOrder, WorkOrderStateManager $states): JsonResponse
+    {
+        $this->ensureAccess($request, $workOrder);
+        $data = $request->validate([
+            'status' => ['required', Rule::in(['blocked', 'planned', 'in_progress'])],
+            'blocked_reason' => ['nullable', 'string', 'max:1000', 'required_if:status,blocked'],
+        ]);
+        if ($data['status'] === 'blocked') {
+            abort_if(TimeEntry::where('work_order_id', $workOrder->id)->where('user_id', $request->user()->id)->whereNull('ended_at')->exists(), 422, __('Stop the running timer before blocking the work order.'));
+        }
+        $updated = $states->transition($workOrder, $data['status'], blockedReason: $data['blocked_reason'] ?? null);
+        $updated->load(['installation', 'assignedUser:id,name', 'checklistItems', 'activities:id,work_order_id,blocked_reason']);
+
+        return response()->json(['data' => $this->summary($updated)]);
     }
 
     public function consumeMaterial(Request $request, WorkOrder $workOrder, StockReservation $reservation, WorkOrderMaterialConsumer $consumer): JsonResponse
@@ -255,6 +271,7 @@ class WorkOrderController extends Controller
             'scheduled_start' => $order->scheduled_start?->toISOString(), 'scheduled_end' => $order->scheduled_end?->toISOString(),
             'updated_at' => $order->updated_at->toISOString(), 'assigned_user' => $order->assignedUser?->only(['id', 'name']),
             'signed_by_name' => $order->signed_by_name, 'signed_at' => $order->signed_at?->toISOString(),
+            'blocked_reason' => $order->relationLoaded('activities') ? $order->activities->first()?->blocked_reason : null,
             'installation' => $order->installation ? ['id' => $order->installation->id, 'project_reference' => $order->installation->project_reference,
                 'site_name' => $order->installation->site_name, 'address' => $order->installation->site_address_line_1,
                 'city' => $order->installation->site_city, 'postal_code' => $order->installation->site_postal_code,
