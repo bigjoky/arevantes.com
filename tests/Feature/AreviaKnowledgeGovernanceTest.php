@@ -127,6 +127,21 @@ class AreviaKnowledgeGovernanceTest extends TestCase
         }
     }
 
+    public function test_arevia_message_generation_is_rate_limited_per_user(): void
+    {
+        config()->set('arevia.rate_limits.messages_per_minute', 1);
+        $user = User::factory()->create(['role' => 'commercial']);
+        AreviaChat::fake(['Primera respuesta sin fuentes disponibles.']);
+
+        $this->actingAs($user)->postJson(route('arevia.messages.store'), [
+            'content' => 'Primera pregunta',
+        ])->assertAccepted();
+
+        $this->postJson(route('arevia.messages.store'), [
+            'content' => 'Segunda pregunta',
+        ])->assertTooManyRequests();
+    }
+
     public function test_reindexing_a_web_source_downloads_and_versions_its_current_content(): void
     {
         Http::fake([
