@@ -6,6 +6,8 @@ Los accesos se conceden mediante perfiles separados de Administración, Finanzas
 
 Las rutas de negocio sensibles usan una habilidad explícita (`can:*`). Los enlaces de navegación se generan a partir de las mismas habilidades, pero la autorización efectiva siempre se comprueba en el servidor. Nunca se debe usar la visibilidad de la interfaz como control de acceso.
 
+La API móvil exige `manage-operations` además de la capacidad `mobile` del token. Los perfiles técnicos solo pueden operar sobre órdenes asignadas. Los tokens de dispositivo caducan a los 30 días por defecto mediante `MOBILE_TOKEN_EXPIRATION_MINUTES`.
+
 ## Auditoría y alertas
 
 La auditoría registra usuario, operación, ruta, método, IP, valores modificados y un UUID de correlación. Los secretos se sustituyen por `[REDACTED]`. `/admin/audit/export` exporta el resultado filtrado como CSV. Inicios de sesión, cambios de perfiles/permisos y fallos operativos se registran en `security_events` y notifican a administración.
@@ -14,9 +16,9 @@ Cada respuesta incluye `X-Correlation-ID`; el mismo valor aparece en logs y audi
 
 ## Copias y restauración
 
-`database:backup` crea una copia SQLite cifrada diaria. `database:verify-backup` descifra la última copia en un fichero temporal aislado, ejecuta `PRAGMA integrity_check`, comprueba el esquema de la aplicación y elimina el temporal. La prueba se ejecuta semanalmente y queda registrada en `backup_restorations`.
+`database:backup` crea una copia SQLite cifrada diaria en instalaciones que utilicen ese motor. `database:verify-backup` descifra la última copia en un fichero temporal aislado, ejecuta `PRAGMA integrity_check`, comprueba el esquema de la aplicación y elimina el temporal. La prueba se ejecuta semanalmente y queda registrada en `backup_restorations`.
 
-Una restauración real de producción requiere ventana de mantenimiento, copia de seguridad previa y `database:restore <fichero> --force`. Después se reinician workers y scheduler y se ejecutan migraciones, `/up`, `system:health-check` y una prueba de autenticación de solo lectura.
+Producción usa PostgreSQL en Laravel Cloud: sus copias, retención y restauraciones se gestionan y verifican en la plataforma. El panel no simula una copia local ni comunica éxito cuando el motor no es compatible. Después de cualquier restauración se reinician workers y scheduler y se ejecutan migraciones, `/up`, `system:health-check` y una prueba de autenticación de solo lectura.
 
 ## Ficheros y retención
 

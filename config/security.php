@@ -12,4 +12,7 @@ return [
         'mobile_operation_days' => (int) env('MOBILE_OPERATION_RETENTION_DAYS', 30),
     ],
     'access_review_months' => (int) env('ACCESS_REVIEW_MONTHS', 3),
+    'mobile' => [
+        'token_expiration_minutes' => (int) env('MOBILE_TOKEN_EXPIRATION_MINUTES', 43200),
+    ],
 ];

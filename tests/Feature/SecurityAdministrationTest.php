@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\AuditLog;
 use App\Models\Permission;
 use App\Models\PermissionProfile;
+use App\Models\Person;
 use App\Models\PurchaseDocument;
 use App\Models\SecurityEvent;
 use App\Models\Supplier;
@@ -63,6 +64,71 @@ class SecurityAdministrationTest extends TestCase
         $this->assertDatabaseHas('security_events', ['type' => 'permissions_changed', 'user_id' => $user->id]);
         $this->assertTrue(AuditLog::where('auditable_type', User::class)->where('auditable_id', $user->id)->exists());
         $this->assertNotNull($user->refresh()->access_review_due_at);
+    }
+
+    public function test_manage_staff_cannot_manage_user_access_without_manage_access(): void
+    {
+        $hrProfile = PermissionProfile::where('slug', 'human-resources')->firstOrFail();
+        $hrUser = User::factory()->create(['role' => 'commercial', 'permission_profile_id' => $hrProfile->id]);
+        $staff = Person::create(['category' => 'staff', 'first_name' => 'Irene', 'last_name' => 'Ruiz']);
+
+        $this->actingAs($hrUser)->post(route('staff.access.store', $staff), [
+            'email' => 'irene@example.com',
+            'role' => 'technician',
+            'password' => 'Strong-Password-2026!',
+            'password_confirmation' => 'Strong-Password-2026!',
+        ])->assertForbidden();
+
+        $this->assertDatabaseMissing('users', ['email' => 'irene@example.com']);
+    }
+
+    public function test_last_administrator_cannot_be_demoted_by_another_access_manager(): void
+    {
+        $administrator = PermissionProfile::where('slug', 'administrator')->firstOrFail();
+        $technician = PermissionProfile::where('slug', 'technician')->firstOrFail();
+        $lastAdmin = User::factory()->create(['role' => 'admin', 'permission_profile_id' => $administrator->id]);
+        $accessManager = User::factory()->create(['role' => 'commercial', 'permission_profile_id' => $technician->id]);
+        $accessManager->permissionOverrides()->attach(
+            Permission::where('key', 'manage-access')->firstOrFail(),
+            ['allowed' => true],
+        );
+
+        $this->actingAs($accessManager)
+            ->patch(route('admin.users.update', $lastAdmin), ['permission_profile_id' => $technician->id])
+            ->assertSessionHasErrors('role');
+
+        $this->assertSame($administrator->id, $lastAdmin->refresh()->permission_profile_id);
+    }
+
+    public function test_last_administrator_cannot_deny_essential_permissions(): void
+    {
+        $administrator = PermissionProfile::where('slug', 'administrator')->firstOrFail();
+        $lastAdmin = User::factory()->create(['role' => 'admin', 'permission_profile_id' => $administrator->id]);
+        $manageAccess = Permission::where('key', 'manage-access')->firstOrFail();
+
+        $this->actingAs($lastAdmin)->patch(route('admin.users.update', $lastAdmin), [
+            'permission_profile_id' => $administrator->id,
+            'overrides' => [$manageAccess->id => 'deny'],
+        ])->assertSessionHasErrors('role');
+
+        $this->assertDatabaseMissing('user_permission_overrides', [
+            'user_id' => $lastAdmin->id,
+            'permission_id' => $manageAccess->id,
+            'allowed' => false,
+        ]);
+    }
+
+    public function test_role_command_keeps_legacy_role_and_permission_profile_in_sync(): void
+    {
+        $commercial = PermissionProfile::where('slug', 'commercial')->firstOrFail();
+        $technician = PermissionProfile::where('slug', 'technician')->firstOrFail();
+        $user = User::factory()->create(['role' => 'commercial', 'permission_profile_id' => $commercial->id]);
+
+        $this->artisan('user:role', ['email' => $user->email, 'role' => 'technician'])->assertSuccessful();
+
+        $this->assertSame('technician', $user->refresh()->role);
+        $this->assertSame($technician->id, $user->permission_profile_id);
+        $this->assertNotNull($user->access_reviewed_at);
     }
 
     public function test_audit_export_requires_permission_and_contains_correlation_data(): void
@@ -148,6 +214,21 @@ class SecurityAdministrationTest extends TestCase
 
         try {
             $validator = Validator::make(['document' => $file], ['document' => [new SafeUpload(['pdf'])]]);
+
+            $this->assertTrue($validator->fails());
+        } finally {
+            File::delete($path);
+        }
+    }
+
+    public function test_upload_validation_rejects_a_zip_renamed_as_docx(): void
+    {
+        $path = tempnam(sys_get_temp_dir(), 'spoofed-docx-');
+        File::put($path, "PK\x03\x04not-a-word-package");
+        $file = new UploadedFile($path, 'contract.docx', 'application/zip', null, true);
+
+        try {
+            $validator = Validator::make(['document' => $file], ['document' => [new SafeUpload(['docx'])]]);
 
             $this->assertTrue($validator->fails());
         } finally {

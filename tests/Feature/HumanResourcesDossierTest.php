@@ -6,6 +6,8 @@ use App\Models\HrContractChange;
 use App\Models\HrEmergencyContact;
 use App\Models\HrEmploymentDocument;
 use App\Models\HrEmploymentProfile;
+use App\Models\Permission;
+use App\Models\PermissionProfile;
 use App\Models\Person;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -125,6 +127,38 @@ class HumanResourcesDossierTest extends TestCase
         $this->actingAs($otherUser)
             ->get(route('my-human-resources.documents.download', $shared))
             ->assertNotFound();
+    }
+
+    public function test_sensitive_hr_denial_hides_and_blocks_employment_documents(): void
+    {
+        Storage::fake('local');
+        $admin = User::factory()->create(['role' => 'admin']);
+        $employee = $this->staff('Nora', 'Campos');
+
+        $this->actingAs($admin)->post(route('human-resources.employees.documents.store', $employee), [
+            'category' => 'payroll',
+            'title' => 'Nómina privada',
+            'visibility' => 'hr_only',
+            'file' => UploadedFile::fake()->create('nomina.pdf', 20, 'application/pdf'),
+        ])->assertRedirect();
+        $document = HrEmploymentDocument::firstOrFail();
+
+        $hrProfile = PermissionProfile::where('slug', 'human-resources')->firstOrFail();
+        $hrUser = User::factory()->create(['role' => 'commercial', 'permission_profile_id' => $hrProfile->id]);
+        foreach (['view-sensitive-hr', 'manage-sensitive-hr'] as $permissionKey) {
+            $hrUser->permissionOverrides()->attach(
+                Permission::where('key', $permissionKey)->firstOrFail(),
+                ['allowed' => false],
+            );
+        }
+
+        $this->actingAs($hrUser)
+            ->get(route('human-resources.employees.show', $employee))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('canViewSensitive', false)
+                ->has('employee.documents', 0));
+        $this->get(route('human-resources.employees.documents.download', [$employee, $document]))->assertForbidden();
+        $this->delete(route('human-resources.employees.documents.destroy', [$employee, $document]))->assertForbidden();
     }
 
     public function test_admin_can_open_and_export_a_complete_dossier(): void

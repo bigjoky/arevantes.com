@@ -8,6 +8,7 @@ use App\Models\TimeEntry;
 use App\Models\User;
 use App\Models\WorkOrder;
 use App\Models\WorkOrderChecklistItem;
+use App\Rules\SafeUpload;
 use App\Services\Inventory\WorkOrderMaterialConsumer;
 use App\Services\Work\WorkOrderStateManager;
 use App\Services\Work\WorkOrderWorkflow;
@@ -163,7 +164,7 @@ class WorkOrderController extends Controller
     {
         $this->ensureAccess($request, $workOrder);
         $data = $request->validate([
-            'file' => ['required', 'file', 'mimes:jpg,jpeg,png,webp,pdf', 'max:12288'],
+            'file' => ['required', 'file', new SafeUpload(['jpg', 'jpeg', 'png', 'webp', 'pdf'], 12288)],
             'caption' => ['nullable', 'string', 'max:500'],
         ]);
         $file = $data['file'];
@@ -193,7 +194,7 @@ class WorkOrderController extends Controller
         $this->ensureAccess($request, $workOrder);
         $data = $request->validate([
             'signed_by_name' => ['required', 'string', 'max:255'],
-            'signature' => ['required', 'file', 'mimes:png', 'max:750'],
+            'signature' => ['required', 'file', new SafeUpload(['png'], 750)],
         ]);
         $binary = $data['signature']->get();
         abort_unless(str_starts_with($binary, "\x89PNG\r\n\x1a\n"), 422, __('Invalid signature data.'));
