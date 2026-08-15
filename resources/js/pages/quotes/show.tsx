@@ -159,10 +159,21 @@ type BillingPlan = {
         issue_date: string;
     }>;
 };
+type Profitability = {
+    planned_revenue: number;
+    actual_revenue: number;
+    planned_cost: number;
+    actual_cost: number;
+    planned_margin: number;
+    actual_margin: number;
+    margin_variance: number;
+    has_actuals: boolean;
+};
 
 export default function QuoteShow({
     quote,
     billing,
+    profitability,
     technicians,
     projectDefaults,
     canApprove,
@@ -170,6 +181,7 @@ export default function QuoteShow({
 }: {
     quote: Quote;
     billing: BillingPlan;
+    profitability: Profitability | null;
     technicians: Array<{ id: number; name: string }>;
     projectDefaults: ProjectDefaults;
     canApprove: boolean;
@@ -347,14 +359,48 @@ export default function QuoteShow({
                                 }
                             />
                             <Info
-                                label="Actual margin"
+                                label="Margen real actualizado"
                                 value={
                                     quote.actual_margin_amount
                                         ? money(quote.actual_margin_amount)
-                                        : 'Pending costs'
+                                        : 'Pendiente de ingresos o costes'
                                 }
                             />
                         </div>
+                        {profitability && (
+                            <div className="mt-3 grid gap-2 rounded-md bg-muted/40 p-3 text-xs sm:grid-cols-3">
+                                <Info
+                                    label="Ingreso previsto (sin IVA)"
+                                    value={money(profitability.planned_revenue)}
+                                />
+                                <Info
+                                    label="Ingreso real facturado"
+                                    value={money(profitability.actual_revenue)}
+                                />
+                                <Info
+                                    label="Coste real registrado"
+                                    value={money(profitability.actual_cost)}
+                                />
+                                <Info
+                                    label="Coste previsto"
+                                    value={money(profitability.planned_cost)}
+                                />
+                                <Info
+                                    label="Desviación de margen"
+                                    value={
+                                        profitability.has_actuals
+                                            ? money(
+                                                  profitability.margin_variance,
+                                              )
+                                            : 'Pendiente'
+                                    }
+                                />
+                                <Info
+                                    label="Origen"
+                                    value="Facturas, materiales y horas"
+                                />
+                            </div>
+                        )}
                         {quote.approval_status === 'pending' && canApprove && (
                             <Form
                                 action={`/quotes/${quote.id}/approval`}
