@@ -134,6 +134,10 @@ type Opportunity = {
     stage_entered_at: string;
     days_in_stage: number;
     is_stale: boolean;
+    first_response_due_at: string | null;
+    first_responded_at: string | null;
+    first_response_minutes: number | null;
+    response_sla_status: 'met' | 'breached' | 'pending' | 'not_applicable';
     deleted_at: string | null;
 };
 
@@ -190,6 +194,7 @@ type FormData = {
 
 type CrmSettings = {
     stale_after_days: number;
+    lead_response_sla_minutes: number;
     customer_contactable_weight: number;
     source_identified_weight: number;
     owner_assigned_weight: number;
@@ -282,6 +287,10 @@ export default function OpportunitiesIndex({
         without_next_action: number;
         stale: number;
         renewals_due: number;
+        response_sla_breached: number;
+        response_sla_pending: number;
+        response_sla_met_rate: number | null;
+        average_first_response_minutes: number | null;
         funnel: Record<string, number>;
         stage_days: Record<string, number | null>;
     };
@@ -622,6 +631,26 @@ export default function OpportunitiesIndex({
                         value={String(metrics.renewals_due)}
                         detail="Próximos 30 días"
                     />
+                    <Metric
+                        icon={Clock3}
+                        label="Leads fuera de SLA"
+                        value={String(metrics.response_sla_breached)}
+                        detail={`${metrics.response_sla_pending} pendientes dentro de plazo`}
+                    />
+                    <Metric
+                        icon={Timer}
+                        label="Cumplimiento primera respuesta"
+                        value={
+                            metrics.response_sla_met_rate === null
+                                ? '—'
+                                : `${metrics.response_sla_met_rate}%`
+                        }
+                        detail={
+                            metrics.average_first_response_minutes === null
+                                ? 'Sin respuestas registradas'
+                                : `Media ${formatMinutes(metrics.average_first_response_minutes)}`
+                        }
+                    />
                 </section>
 
                 <FunnelSummary funnel={metrics.funnel} />
@@ -765,6 +794,7 @@ export default function OpportunitiesIndex({
                             ['overdue', 'Cierre vencido'],
                             ['no_action', 'Sin próxima acción'],
                             ['stale', 'Estancada en etapa'],
+                            ['response_sla', 'Primera respuesta fuera de SLA'],
                             ['renewal_due', 'Renovación próxima'],
                         ]}
                     />
@@ -945,6 +975,9 @@ export default function OpportunitiesIndex({
                                                                 ? ' · estancada'
                                                                 : ''}
                                                         </span>
+                                                        <ResponseSlaBadge
+                                                            opportunity={item}
+                                                        />
                                                     </button>
                                                     <div className="mt-3 flex items-end justify-between gap-2 border-t pt-2">
                                                         <div>
@@ -2277,6 +2310,7 @@ function OpportunityTable({
                                 >
                                     {item.days_in_stage} días
                                 </div>
+                                <ResponseSlaBadge opportunity={item} />
                             </td>
                             <td className="p-3">{item.owner?.name || '—'}</td>
                             <td className="p-3 text-right tabular-nums">
@@ -2367,6 +2401,24 @@ function CrmSettingsDialog({ settings }: { settings: CrmSettings }) {
                             onChange={(event) =>
                                 form.setData(
                                     'stale_after_days',
+                                    event.target.value,
+                                )
+                            }
+                        />
+                    </Field>
+                    <Field
+                        label="SLA de primera respuesta (minutos)"
+                        error={form.errors.lead_response_sla_minutes}
+                    >
+                        <Input
+                            type="number"
+                            min="15"
+                            max="10080"
+                            step="15"
+                            value={form.data.lead_response_sla_minutes}
+                            onChange={(event) =>
+                                form.setData(
+                                    'lead_response_sla_minutes',
                                     event.target.value,
                                 )
                             }
@@ -2538,6 +2590,32 @@ function customerName(customer: Customer) {
         `${customer.first_name} ${customer.last_name || ''}`.trim()
     );
 }
+function ResponseSlaBadge({ opportunity }: { opportunity: Opportunity }) {
+    if (opportunity.response_sla_status === 'not_applicable') {
+        return null;
+    }
+
+    const met = opportunity.response_sla_status === 'met';
+    const breached = opportunity.response_sla_status === 'breached';
+    const label = met
+        ? `Respuesta en ${formatMinutes(opportunity.first_response_minutes || 0)}`
+        : breached
+          ? opportunity.first_responded_at
+              ? `Respuesta tardía · ${formatMinutes(opportunity.first_response_minutes || 0)}`
+              : 'Primera respuesta fuera de SLA'
+          : opportunity.first_response_due_at
+            ? `Responder antes de ${dateTime(opportunity.first_response_due_at)}`
+            : 'SLA pendiente';
+
+    return (
+        <Badge
+            variant={breached ? 'destructive' : 'outline'}
+            className={`mt-2 max-w-full ${met ? 'border-emerald-300 text-emerald-700 dark:border-emerald-900 dark:text-emerald-300' : ''}`}
+        >
+            <span className="truncate">{label}</span>
+        </Badge>
+    );
+}
 function nextBusinessAction() {
     const value = new Date();
 
@@ -2565,6 +2643,18 @@ function money(value: number) {
         style: 'currency',
         currency: 'EUR',
     }).format(value);
+}
+function formatMinutes(value: number) {
+    const minutes = Math.max(0, Math.round(value));
+
+    if (minutes < 60) {
+        return `${minutes} min`;
+    }
+
+    const hours = Math.floor(minutes / 60);
+    const remainder = minutes % 60;
+
+    return remainder > 0 ? `${hours} h ${remainder} min` : `${hours} h`;
 }
 function date(value: string | null) {
     return value

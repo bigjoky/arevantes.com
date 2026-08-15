@@ -369,6 +369,7 @@ class OpportunityTest extends TestCase
         ]);
         $settings = [
             'stale_after_days' => 30,
+            'lead_response_sla_minutes' => 120,
             'customer_contactable_weight' => 0,
             'source_identified_weight' => 0,
             'owner_assigned_weight' => 100,
@@ -382,12 +383,14 @@ class OpportunityTest extends TestCase
         $this->actingAs($admin)->patch(route('crm-settings.update'), $settings)->assertRedirect();
 
         $this->assertSame(30, CrmSetting::current()->stale_after_days);
+        $this->assertSame(120, CrmSetting::current()->lead_response_sla_minutes);
         $this->assertSame(100, $opportunity->refresh()->commercial_score);
         $this->get(route('opportunities.index'))
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->where('canConfigureCrm', true)
                 ->where('crmSettings.stale_after_days', 30)
+                ->where('crmSettings.lead_response_sla_minutes', 120)
                 ->where('opportunities.0.score_breakdown.owner_assigned.met', true)
                 ->where('opportunities.0.score_breakdown.owner_assigned.points', 100)
                 ->where('opportunities.0.score_breakdown.estimated_value_set.met', false));
@@ -399,6 +402,7 @@ class OpportunityTest extends TestCase
 
         $this->actingAs($admin)->patch(route('crm-settings.update'), [
             'stale_after_days' => 14,
+            'lead_response_sla_minutes' => 240,
             'customer_contactable_weight' => 20,
             'source_identified_weight' => 10,
             'owner_assigned_weight' => 15,
@@ -460,6 +464,64 @@ class OpportunityTest extends TestCase
             ->assertInertia(fn (Assert $page) => $page
                 ->has('opportunities', 1)
                 ->where('opportunities.0.code', 'OPP-OTHER-1'));
+    }
+
+    public function test_first_response_sla_is_started_measured_and_filterable(): void
+    {
+        $user = User::factory()->create(['role' => 'commercial']);
+        $customer = Person::create(['category' => 'customer', 'first_name' => 'Ana']);
+        CrmSetting::current()->update(['lead_response_sla_minutes' => 60]);
+
+        $this->travelTo('2026-08-17 08:00:00');
+        $this->actingAs($user)->post(route('opportunities.store'), [
+            'person_id' => $customer->id,
+            'title' => 'Lead answered on time',
+            'stage' => 'new',
+            'probability' => 10,
+            'estimated_value' => 3000,
+        ])->assertRedirect();
+
+        $answered = Opportunity::where('title', 'Lead answered on time')->firstOrFail();
+        $this->assertSame('2026-08-17 09:00:00', $answered->first_response_due_at?->format('Y-m-d H:i:s'));
+
+        $this->travelTo('2026-08-17 08:30:00');
+        $this->patch(route('activities.update', $answered->nextActivity), [
+            'status' => 'in_progress',
+        ])->assertRedirect();
+        $this->assertSame('2026-08-17 08:30:00', $answered->refresh()->first_responded_at?->format('Y-m-d H:i:s'));
+
+        $this->travelTo('2026-08-17 10:00:00');
+        $this->post(route('opportunities.store'), [
+            'person_id' => $customer->id,
+            'title' => 'Lead outside SLA',
+            'stage' => 'new',
+            'probability' => 10,
+            'estimated_value' => 4000,
+        ])->assertRedirect();
+        $overdue = Opportunity::where('title', 'Lead outside SLA')->firstOrFail();
+
+        $this->travelTo('2026-08-17 11:01:00');
+        $this->get(route('opportunities.index'))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('metrics.response_sla_breached', 1)
+                ->where('metrics.response_sla_pending', 0)
+                ->where('metrics.response_sla_met_rate', 50)
+                ->where('metrics.average_first_response_minutes', 30)
+                ->where('opportunities.0.id', $overdue->id)
+                ->where('opportunities.0.response_sla_status', 'breached')
+                ->where('opportunities.1.id', $answered->id)
+                ->where('opportunities.1.response_sla_status', 'met')
+                ->where('opportunities.1.first_response_minutes', 30));
+
+        $this->get(route('opportunities.index', ['attention' => 'response_sla']))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('opportunities', 1)
+                ->where('opportunities.0.id', $overdue->id)
+                ->where('filters.attention', 'response_sla'));
+
+        $this->travelBack();
     }
 
     public function test_pipeline_metrics_use_the_selected_commercial_period(): void
