@@ -7,6 +7,7 @@ use App\Models\AiAuditLog;
 use App\Models\Installation;
 use App\Models\KnowledgeDocument;
 use App\Models\User;
+use App\Services\Ai\AreviaCitationValidator;
 use App\Services\Ai\KnowledgeIndexer;
 use App\Services\Ai\KnowledgeRetriever;
 use App\Services\Ai\KnowledgeSourceLoader;
@@ -250,6 +251,62 @@ class AreviaKnowledgeGovernanceTest extends TestCase
         $response->assertJsonPath('conversation.messages.1.sources.0.url', 'https://example.com/article')
             ->assertJsonPath('conversation.messages.1.sources.0.title', 'example.com');
         AreviaChat::assertPrompted(fn ($prompt) => $prompt->contains('Solar maintenance interval is twelve months.'));
+    }
+
+    public function test_arevia_repairs_an_uncited_answer_before_returning_it(): void
+    {
+        Http::fake([
+            'https://example.com/procedure' => Http::response('The inspection interval is twelve months.', 200, ['Content-Type' => 'text/plain']),
+        ]);
+        $user = User::factory()->create(['role' => 'commercial']);
+        AreviaChat::fake([
+            'Se recomienda revisar la instalación cada doce meses.',
+            'Se recomienda revisar la instalación cada doce meses [S1].',
+        ]);
+
+        $response = $this->actingAs($user)->postJson(route('arevia.messages.store'), [
+            'content' => 'Analiza https://example.com/procedure',
+            'page_url' => '/dashboard',
+        ])->assertAccepted();
+
+        $response->assertJsonPath('conversation.messages.1.content', 'Se recomienda revisar la instalación cada doce meses [S1].');
+        $audit = AiAuditLog::where('event', 'response_generated')->firstOrFail();
+        $this->assertTrue($audit->metadata['citation_repair_attempted']);
+        $this->assertFalse($audit->metadata['abstained']);
+        $this->assertTrue($audit->metadata['citation_analysis']['passes']);
+    }
+
+    public function test_arevia_abstains_when_a_sourced_answer_cannot_be_made_traceable(): void
+    {
+        Http::fake([
+            'https://example.com/procedure' => Http::response('The inspection interval is twelve months.', 200, ['Content-Type' => 'text/plain']),
+        ]);
+        $user = User::factory()->create(['role' => 'commercial']);
+        AreviaChat::fake([
+            'Se recomienda actuar sin citar.',
+            'Todavía recomiendo actuar sin citar.',
+        ]);
+
+        $response = $this->actingAs($user)->postJson(route('arevia.messages.store'), [
+            'content' => 'Analiza https://example.com/procedure',
+            'page_url' => '/dashboard',
+        ])->assertAccepted();
+
+        $this->assertStringStartsWith(
+            'No he podido generar una respuesta con trazabilidad suficiente',
+            $response->json('conversation.messages.1.content'),
+        );
+        $this->assertTrue(AiAuditLog::where('event', 'response_generated')->firstOrFail()->metadata['abstained']);
+    }
+
+    public function test_citation_validation_rejects_unknown_sources_and_uncited_recommendations(): void
+    {
+        $validator = app(AreviaCitationValidator::class);
+        $sources = [['title' => 'Procedure']];
+
+        $this->assertFalse($validator->analyze('Se recomienda revisar el equipo.', $sources)['passes']);
+        $this->assertFalse($validator->analyze('Dato no verificable [S9].', $sources)['passes']);
+        $this->assertTrue($validator->analyze('Se recomienda revisar el equipo [S1].', $sources)['passes']);
     }
 
     public function test_web_source_loader_follows_a_public_redirect(): void
