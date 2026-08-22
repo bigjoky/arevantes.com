@@ -174,6 +174,100 @@ class MobileV1Test extends TestCase
         $this->mobileAs($technician)->getJson("/api/mobile/v1/work-orders/{$hidden->id}")->assertForbidden();
     }
 
+    public function test_mobile_sync_uses_a_stable_cursor_and_exposes_a_snapshot_checkpoint(): void
+    {
+        $technician = User::factory()->create(['role' => 'technician']);
+        $installation = Installation::create(['service_type' => 'solar', 'status' => 'scheduled', 'site_address_line_1' => 'Calle Sol 1']);
+        $orders = collect(range(1, 3))->map(fn (int $index) => WorkOrder::create([
+            'installation_id' => $installation->id,
+            'assigned_user_id' => $technician->id,
+            'number' => "WO-SYNC-{$index}",
+            'title' => "Sync {$index}",
+        ]));
+        $orders->each(fn (WorkOrder $order, int $index) => $order->updateQuietly([
+            'updated_at' => now()->subMinutes(10)->addSeconds($index),
+        ]));
+
+        $first = $this->mobileAs($technician)
+            ->getJson('/api/mobile/v1/work-orders?sync=1&per_page=2')
+            ->assertOk()
+            ->assertJsonCount(2, 'data')
+            ->assertJsonPath('data.0.id', $orders[0]->id)
+            ->assertJsonPath('data.1.id', $orders[1]->id)
+            ->assertJsonPath('meta.snapshot_at', fn ($value) => is_string($value));
+
+        $cursor = $first->json('meta.next_cursor');
+        $snapshotAt = $first->json('meta.snapshot_at');
+        $this->assertIsString($cursor);
+        $this->travel(2)->minutes();
+        $newer = WorkOrder::create([
+            'installation_id' => $installation->id,
+            'assigned_user_id' => $technician->id,
+            'number' => 'WO-SYNC-NEW',
+            'title' => 'Created during sync',
+        ]);
+
+        $this->getJson('/api/mobile/v1/work-orders?'.http_build_query([
+            'sync' => 1,
+            'per_page' => 2,
+            'cursor' => $cursor,
+            'snapshot_at' => $snapshotAt,
+        ]))
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $orders[2]->id)
+            ->assertJsonPath('meta.next_cursor', null);
+        $this->getJson('/api/mobile/v1/work-orders?'.http_build_query([
+            'sync' => 1,
+            'updated_after' => $snapshotAt,
+        ]))
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $newer->id);
+    }
+
+    public function test_mobile_status_changes_detect_a_stale_work_order_version(): void
+    {
+        $technician = User::factory()->create(['role' => 'technician']);
+        $installation = Installation::create(['service_type' => 'solar', 'status' => 'scheduled', 'site_address_line_1' => 'Calle Sol 1']);
+        $order = WorkOrder::create(['installation_id' => $installation->id, 'assigned_user_id' => $technician->id, 'number' => 'WO-CONFLICT', 'title' => 'Original']);
+        $expected = $order->updated_at->toISOString();
+        WorkOrder::query()->whereKey($order)->update([
+            'title' => 'Changed on server',
+            'updated_at' => now()->addMinute(),
+        ]);
+
+        $this->mobileAs($technician)
+            ->withHeader('Idempotency-Key', (string) Str::uuid())
+            ->patchJson("/api/mobile/v1/work-orders/{$order->id}/status", [
+                'status' => 'in_progress',
+                'expected_updated_at' => $expected,
+            ])
+            ->assertConflict()
+            ->assertJsonPath('conflict.work_order_id', $order->id)
+            ->assertJsonPath('conflict.expected_updated_at', $expected);
+
+        $this->assertSame('planned', $order->fresh()->status);
+    }
+
+    public function test_nested_execution_changes_advance_the_work_order_sync_version(): void
+    {
+        $technician = User::factory()->create(['role' => 'technician']);
+        $installation = Installation::create(['service_type' => 'solar', 'status' => 'scheduled', 'site_address_line_1' => 'Calle Sol 1']);
+        $order = WorkOrder::create(['installation_id' => $installation->id, 'assigned_user_id' => $technician->id, 'number' => 'WO-TOUCH', 'title' => 'Touch parent']);
+        WorkOrder::query()->whereKey($order)->update(['updated_at' => now()->subDay()]);
+        $previousVersion = $order->fresh()->updated_at;
+
+        $order->checklistItems()->create(['position' => 1, 'label' => 'Evidence', 'is_required' => true]);
+
+        $this->assertTrue($order->fresh()->updated_at->isAfter($previousVersion));
+        $this->mobileAs($technician)
+            ->getJson('/api/mobile/v1/work-orders?'.http_build_query(['sync' => 1, 'updated_after' => $previousVersion->toISOString()]))
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $order->id)
+            ->assertJsonPath('data.0.checklist.0.label', 'Evidence');
+    }
+
     public function test_technician_can_execute_assigned_work_order(): void
     {
         $technician = User::factory()->create(['role' => 'technician']);

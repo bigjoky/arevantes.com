@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class WorkOrderChecklistItem extends Model
 {
+    protected $touches = ['workOrder'];
+
     protected $fillable = ['position', 'label', 'is_required', 'completed_by', 'completed_at', 'notes'];
 
     protected function casts(): array
