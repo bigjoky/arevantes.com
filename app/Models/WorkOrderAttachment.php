@@ -7,7 +7,12 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class WorkOrderAttachment extends Model
 {
-    protected $fillable = ['uploaded_by', 'kind', 'original_name', 'path', 'mime_type', 'size', 'caption'];
+    protected $fillable = ['uploaded_by', 'kind', 'customer_visible', 'published_at', 'original_name', 'path', 'mime_type', 'size', 'caption'];
+
+    protected function casts(): array
+    {
+        return ['customer_visible' => 'boolean', 'published_at' => 'datetime'];
+    }
 
     public function workOrder(): BelongsTo
     {

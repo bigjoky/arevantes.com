@@ -41,13 +41,15 @@ class CustomerPortalController extends Controller
         $data = $request->validate(['recipient_email' => ['required', 'email', 'max:255'], 'expires_days' => ['nullable', 'integer', 'min:1', 'max:365']]);
         $token = Str::random(64);
         $expires = now()->addDays($data['expires_days'] ?? 90);
-        $person->portalAccesses()->whereNull('revoked_at')->update(['revoked_at' => now()]);
         $access = CustomerPortalAccess::create(['person_id' => $person->id, 'created_by' => $request->user()->id, 'recipient_email' => $data['recipient_email'], 'token_hash' => hash('sha256', $token), 'expires_at' => $expires]);
         $name = $person->company_name ?: trim($person->first_name.' '.$person->last_name);
         try {
             Mail::to($access->recipient_email)->send(new CustomerPortalMail($name, route('customer-portal.show', $token), $expires->format('d/m/Y')));
-            $access->update(['sent_at' => now()]);
-            CustomerPortalEvent::record($person, 'portal_invited', $access, $request, null, ['recipient_email' => $access->recipient_email, 'expires_at' => $expires->toIso8601String()]);
+            DB::transaction(function () use ($person, $access, $request, $expires): void {
+                $person->portalAccesses()->whereKeyNot($access->id)->whereNull('revoked_at')->update(['revoked_at' => now()]);
+                $access->update(['sent_at' => now()]);
+                CustomerPortalEvent::record($person, 'portal_invited', $access, $request, null, ['recipient_email' => $access->recipient_email, 'expires_at' => $expires->toIso8601String()]);
+            });
         } catch (\Throwable $exception) {
             report($exception);
             $access->update(['revoked_at' => now()]);
@@ -87,16 +89,16 @@ class CustomerPortalController extends Controller
             'quotes' => $quotes->map(function (Quote $quote) use ($fingerprints, $acceptances) {
                 $fingerprint = $fingerprints->for($quote);
 
-                return [...$quote->only(['id', 'number', 'version', 'status', 'issue_date', 'valid_until', 'amount']), 'document_version' => $fingerprint['version'], 'accepted_at' => $acceptances->get('quote-'.$quote->id.'-'.$fingerprint['version'])?->accepted_at?->toIso8601String(), 'can_accept' => in_array($quote->status, ['sent'], true)];
+                return [...$quote->only(['id', 'number', 'version', 'status', 'issue_date', 'valid_until', 'amount']), 'document_version' => $fingerprint['version'], 'document_hash' => $fingerprint['hash'], 'accepted_at' => $acceptances->get('quote-'.$quote->id.'-'.$fingerprint['version'])?->accepted_at?->toIso8601String(), 'can_accept' => $quote->status === 'sent' && ! $quote->valid_until?->isPast()];
             }),
             'documents' => $documents->map(function (SalesDocument $document) use ($fingerprints, $acceptances) {
                 $fingerprint = $fingerprints->for($document);
 
-                return [...$document->only(['id', 'type', 'number', 'status', 'issue_date', 'due_date', 'amount', 'paid_amount']), 'document_version' => $fingerprint['version'], 'accepted_at' => $acceptances->get('sales-'.$document->id.'-'.$fingerprint['version'])?->accepted_at?->toIso8601String(), 'can_accept' => ! in_array($document->status, ['draft', 'cancelled'], true)];
+                return [...$document->only(['id', 'type', 'number', 'status', 'issue_date', 'due_date', 'amount', 'paid_amount']), 'document_version' => $fingerprint['version'], 'document_hash' => $fingerprint['hash'], 'accepted_at' => $acceptances->get('sales-'.$document->id.'-'.$fingerprint['version'])?->accepted_at?->toIso8601String(), 'can_accept' => ! in_array($document->status, ['draft', 'cancelled'], true)];
             }),
             'tickets' => ServiceTicket::whereIn('installation_id', $installationIds)->latest()->get(['id', 'installation_id', 'number', 'kind', 'priority', 'status', 'title', 'description', 'resolution', 'created_at', 'updated_at', 'resolved_at']),
             'maintenance' => MaintenancePlan::whereIn('installation_id', $installationIds)->where('is_active', true)->orderBy('next_due_on')->get(['id', 'installation_id', 'name', 'next_due_on', 'last_completed_on']),
-            'certificates' => WorkOrderAttachment::query()->where('kind', 'document')->whereHas('workOrder.installation', fn ($query) => $query->where('person_id', $customer->id))->with('workOrder:id,installation_id,number')->latest()->get()->map(fn ($item) => ['id' => $item->id, 'name' => $item->original_name, 'caption' => $item->caption, 'size' => $item->size, 'work_order' => $item->workOrder->number, 'created_at' => $item->created_at->toIso8601String()]),
+            'certificates' => WorkOrderAttachment::query()->where('kind', 'document')->where('customer_visible', true)->whereNotNull('published_at')->where('published_at', '<=', now())->whereHas('workOrder.installation', fn ($query) => $query->where('person_id', $customer->id))->with('workOrder:id,installation_id,number')->latest('published_at')->get()->map(fn ($item) => ['id' => $item->id, 'name' => $item->original_name, 'caption' => $item->caption, 'size' => $item->size, 'work_order' => $item->workOrder->number, 'created_at' => $item->published_at]),
             'timeline' => $customer->portalEvents()->latest('occurred_at')->limit(30)->get()->map(fn ($event) => ['id' => $event->id, 'type' => $event->event_type, 'title' => $this->eventTitle($event->event_type, $event->metadata ?? []), 'occurred_at' => $event->occurred_at->toIso8601String()]),
             'preferences' => ['email_documents' => $preference->exists ? $preference->email_documents : true, 'email_tickets' => $preference->exists ? $preference->email_tickets : true, 'email_maintenance' => $preference->exists ? $preference->email_maintenance : true],
             'surveyed_ticket_ids' => $surveyedTickets,
@@ -136,13 +138,20 @@ class CustomerPortalController extends Controller
     {
         $access = $this->access($token);
         abort_unless(in_array($kind, ['quote', 'sales'], true), 404);
-        $item = $kind === 'quote'
-            ? Quote::with('lines')->where('person_id', $access->person_id)->findOrFail($document)
-            : SalesDocument::with('lines')->where('person_id', $access->person_id)->findOrFail($document);
-        abort_if($kind === 'quote' ? ! in_array($item->status, ['sent', 'accepted'], true) : in_array($item->status, ['draft', 'cancelled'], true), 422, __('This document cannot be accepted.'));
-        $fingerprint = $fingerprints->for($item);
+        $owned = $kind === 'quote'
+            ? Quote::where('person_id', $access->person_id)->whereKey($document)->exists()
+            : SalesDocument::where('person_id', $access->person_id)->whereKey($document)->exists();
+        abort_unless($owned, 404);
+        $data = $request->validate(['expected_version' => ['required', 'string', 'max:80'], 'expected_hash' => ['required', 'string', 'size:64']]);
 
-        DB::transaction(function () use ($access, $request, $kind, $item, $fingerprint, $workflow): void {
+        DB::transaction(function () use ($access, $request, $kind, $document, $data, $fingerprints, $workflow): void {
+            $item = $kind === 'quote'
+                ? Quote::with('lines')->where('person_id', $access->person_id)->lockForUpdate()->findOrFail($document)
+                : SalesDocument::with('lines')->where('person_id', $access->person_id)->lockForUpdate()->findOrFail($document);
+            abort_if($kind === 'quote' ? ! in_array($item->status, ['sent', 'accepted'], true) : in_array($item->status, ['draft', 'cancelled'], true), 422, __('This document cannot be accepted.'));
+            abort_if($item instanceof Quote && $item->valid_until?->isPast(), 422, __('This quote has expired.'));
+            $fingerprint = $fingerprints->for($item);
+            abort_unless(hash_equals($fingerprint['version'], $data['expected_version']) && hash_equals($fingerprint['hash'], $data['expected_hash']), 409, __('This document changed before it was accepted. Review the updated version and try again.'));
             $acceptance = CustomerDocumentAcceptance::firstOrCreate([
                 'person_id' => $access->person_id,
                 'document_type' => $kind,
@@ -204,7 +213,7 @@ class CustomerPortalController extends Controller
     public function certificate(Request $request, string $token, WorkOrderAttachment $attachment): StreamedResponse
     {
         $access = $this->access($token);
-        abort_unless($attachment->kind === 'document' && $attachment->workOrder()->whereHas('installation', fn ($query) => $query->where('person_id', $access->person_id))->exists(), 404);
+        abort_unless($attachment->kind === 'document' && $attachment->customer_visible && $attachment->published_at && now()->gte($attachment->published_at) && $attachment->workOrder()->whereHas('installation', fn ($query) => $query->where('person_id', $access->person_id))->exists(), 404);
         abort_unless(Storage::disk(config('filesystems.private'))->exists($attachment->path), 404);
         CustomerPortalEvent::record($access->customer, 'certificate_downloaded', $access, $request, $attachment, ['name' => $attachment->original_name]);
 

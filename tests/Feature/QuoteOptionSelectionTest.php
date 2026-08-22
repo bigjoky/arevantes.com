@@ -8,6 +8,7 @@ use App\Models\Person;
 use App\Models\Quote;
 use App\Models\SalesDocument;
 use App\Models\User;
+use App\Services\Documents\DocumentFingerprint;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
 use Tests\TestCase;
@@ -40,8 +41,11 @@ class QuoteOptionSelectionTest extends TestCase
         });
 
         $token = basename((string) parse_url($sharedUrl, PHP_URL_PATH));
+        $delivery = DocumentDelivery::where('quote_id', $quote->id)->firstOrFail();
         $this->post(route('documents.shared.respond', $token), [
             'response' => 'accepted',
+            'expected_version' => $delivery->document_version,
+            'expected_hash' => $delivery->document_hash,
             'selected_line_ids' => [$optional->id, $alternativeB->id],
         ])->assertRedirect();
 
@@ -82,9 +86,13 @@ class QuoteOptionSelectionTest extends TestCase
             'expires_at' => now()->addDay(),
             'sent_at' => now(),
         ]);
+        $fingerprint = app(DocumentFingerprint::class)->for($quote);
+        $delivery->update(['document_version' => $fingerprint['version'], 'document_hash' => $fingerprint['hash']]);
 
         $this->post(route('documents.shared.respond', $token), [
             'response' => 'accepted',
+            'expected_version' => $fingerprint['version'],
+            'expected_hash' => $fingerprint['hash'],
             'selected_line_ids' => [$optional->id],
         ])->assertSessionHasErrors('status');
 

@@ -13,8 +13,11 @@ use App\Models\Person;
 use App\Models\Quote;
 use App\Models\ServiceTicket;
 use App\Models\User;
+use App\Models\WorkOrder;
+use App\Services\Documents\DocumentFingerprint;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class CustomerPortalTest extends TestCase
@@ -41,7 +44,7 @@ class CustomerPortalTest extends TestCase
         });
         $this->assertSame(hash('sha256', $token), $access->token_hash);
 
-        $this->get(route('customer-portal.show', $token))->assertOk()->assertInertia(fn ($page) => $page->component('portal/index')->where('installations.0.project_reference', 'FV-ANA')->has('installations', 1));
+        $this->get(route('customer-portal.show', $token))->assertOk()->assertHeader('Referrer-Policy', 'no-referrer')->assertInertia(fn ($page) => $page->component('portal/index')->where('installations.0.project_reference', 'FV-ANA')->has('installations', 1));
         $this->post(route('customer-portal.tickets.store', $token), ['installation_id' => $installation->id, 'title' => 'Low production', 'description' => 'Production appears lower than expected.', 'priority' => 'normal'])->assertRedirect();
         $this->assertDatabaseHas('service_tickets', ['installation_id' => $installation->id, 'title' => 'Low production']);
         $this->post(route('customer-portal.tickets.store', $token), ['installation_id' => $foreignInstallation->id, 'title' => 'Foreign', 'description' => 'Must not be accepted.', 'priority' => 'normal'])->assertForbidden();
@@ -64,8 +67,10 @@ class CustomerPortalTest extends TestCase
         CustomerPortalAccess::create(['person_id' => $customer->id, 'recipient_email' => 'ana@example.com', 'token_hash' => hash('sha256', $token), 'expires_at' => now()->addWeek()]);
 
         $this->get(route('customer-portal.show', $token))->assertOk();
-        $this->post(route('customer-portal.documents.accept', [$token, 'quote', $foreignQuote]))->assertNotFound();
-        $this->post(route('customer-portal.documents.accept', [$token, 'quote', $quote]))->assertRedirect();
+        $fingerprint = app(DocumentFingerprint::class)->for($quote);
+        $acceptanceRequest = ['expected_version' => $fingerprint['version'], 'expected_hash' => $fingerprint['hash']];
+        $this->post(route('customer-portal.documents.accept', [$token, 'quote', $foreignQuote]), $acceptanceRequest)->assertNotFound();
+        $this->post(route('customer-portal.documents.accept', [$token, 'quote', $quote]), $acceptanceRequest)->assertRedirect();
         $this->assertSame('accepted', $quote->refresh()->status);
         $acceptance = CustomerDocumentAcceptance::firstOrFail();
         $this->assertStringStartsWith('quote-v3-', $acceptance->document_version);
@@ -82,5 +87,34 @@ class CustomerPortalTest extends TestCase
         $this->assertTrue(CustomerPortalEvent::where('person_id', $customer->id)->where('event_type', 'document_accepted')->exists());
         $this->assertTrue(CustomerPortalEvent::where('person_id', $customer->id)->where('event_type', 'preferences_updated')->exists());
         $this->assertTrue(CustomerPortalEvent::where('person_id', $customer->id)->where('event_type', 'survey_submitted')->exists());
+    }
+
+    public function test_failed_invitation_keeps_the_previous_portal_access_active(): void
+    {
+        $commercial = User::factory()->create(['role' => 'commercial']);
+        $customer = Person::create(['category' => 'customer', 'first_name' => 'Ana', 'email' => 'ana@example.com']);
+        $previous = CustomerPortalAccess::create(['person_id' => $customer->id, 'recipient_email' => 'ana@example.com', 'token_hash' => hash('sha256', 'previous-token'), 'sent_at' => now(), 'expires_at' => now()->addWeek()]);
+        Mail::shouldReceive('to')->once()->with('new@example.com')->andReturnSelf();
+        Mail::shouldReceive('send')->once()->andThrow(new \RuntimeException('SMTP unavailable'));
+        $this->actingAs($commercial)->post(route('people.portal.invite', $customer), ['recipient_email' => 'new@example.com'])->assertSessionHasErrors('recipient_email');
+        $this->assertNull($previous->refresh()->revoked_at);
+        $this->assertNotNull(CustomerPortalAccess::where('recipient_email', 'new@example.com')->firstOrFail()->revoked_at);
+    }
+
+    public function test_only_published_customer_documents_are_available_as_certificates(): void
+    {
+        Storage::fake(config('filesystems.private'));
+        $customer = Person::create(['category' => 'customer', 'first_name' => 'Ana', 'email' => 'ana@example.com']);
+        $installation = Installation::create(['person_id' => $customer->id, 'service_type' => 'solar', 'status' => 'completed', 'project_reference' => 'FV-ANA', 'site_address_line_1' => 'Calle Sol 1']);
+        $order = WorkOrder::create(['installation_id' => $installation->id, 'number' => 'OT-2026-00001', 'kind' => 'maintenance', 'status' => 'completed', 'title' => 'Maintenance']);
+        $internal = $order->attachments()->create(['kind' => 'document', 'original_name' => 'internal.pdf', 'path' => 'work-orders/internal.pdf', 'mime_type' => 'application/pdf', 'size' => 10]);
+        $published = $order->attachments()->create(['kind' => 'document', 'original_name' => 'certificate.pdf', 'path' => 'work-orders/certificate.pdf', 'mime_type' => 'application/pdf', 'size' => 10, 'customer_visible' => true, 'published_at' => now()]);
+        Storage::disk(config('filesystems.private'))->put($internal->path, 'internal');
+        Storage::disk(config('filesystems.private'))->put($published->path, 'certificate');
+        $token = 'certificate-token';
+        CustomerPortalAccess::create(['person_id' => $customer->id, 'recipient_email' => 'ana@example.com', 'token_hash' => hash('sha256', $token), 'expires_at' => now()->addWeek()]);
+        $this->get(route('customer-portal.show', $token))->assertOk()->assertInertia(fn ($page) => $page->has('certificates', 1)->where('certificates.0.name', 'certificate.pdf'));
+        $this->get(route('customer-portal.certificates.download', [$token, $internal]))->assertNotFound();
+        $this->get(route('customer-portal.certificates.download', [$token, $published]))->assertOk();
     }
 }
