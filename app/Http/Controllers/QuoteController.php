@@ -18,6 +18,7 @@ use App\Services\Crm\OpportunitySalesCycle;
 use App\Services\Documents\DocumentNumber;
 use App\Services\Documents\QuoteBillingPlan;
 use App\Services\Inventory\ProjectMaterialPlanner;
+use App\Services\Operations\ProjectProfitability;
 use App\Services\Quotes\QuoteCalculator;
 use App\Services\Quotes\QuoteOperationalPlanner;
 use App\Services\Quotes\QuoteStatusWorkflow;
@@ -57,14 +58,22 @@ class QuoteController extends Controller
         ]);
     }
 
-    public function show(Quote $quote, QuoteBillingPlan $billing): Response
+    public function show(Quote $quote, QuoteBillingPlan $billing, ProjectProfitability $profitability): Response
     {
         $quote->load(['customer', 'installation', 'opportunity:id,code,title', 'lines.components.unit:id,symbol', 'versions', 'statusHistory.changedBy:id,name', 'deliveries:id,quote_id,recipient_email,status,sent_at,first_viewed_at,responded_at,revoked_at']);
         [$street, $streetNumber] = $this->splitStreetAddress($quote->customer?->address_line_1);
+        $projectProfitability = $quote->installation ? $profitability->for($quote->installation, $quote) : null;
+        $quote->setAttribute(
+            'actual_margin_amount',
+            $projectProfitability && $projectProfitability['has_actuals']
+                ? $projectProfitability['actual_margin']
+                : null,
+        );
 
         return Inertia::render('quotes/show', [
             'quote' => $quote,
             'billing' => $billing->summary($quote),
+            'profitability' => $projectProfitability,
             'canApprove' => Gate::allows('approve-quotes') && (int) $quote->created_by !== (int) request()->user()->id,
             'availableStatuses' => app(QuoteStatusWorkflow::class)->availableTransitions($quote),
             'technicians' => User::whereIn('role', ['technician', 'admin'])->orderBy('name')->get(['id', 'name']),

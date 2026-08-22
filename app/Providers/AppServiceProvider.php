@@ -63,7 +63,11 @@ use App\Services\Mailbox\NativeImapPurchaseMailboxClient;
 use App\Services\Security\PermissionResolver;
 use App\Services\Security\SecurityEventRecorder;
 use Carbon\CarbonImmutable;
+use Illuminate\Auth\Events\Failed;
+use Illuminate\Auth\Events\Lockout;
 use Illuminate\Auth\Events\Login;
+use Illuminate\Auth\Events\Logout;
+use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Date;
@@ -149,7 +153,27 @@ class AppServiceProvider extends ServiceProvider
             if (Schema::hasTable('security_events')) {
                 app(SecurityEventRecorder::class)->record('login_succeeded', $event->user, [
                     'user_agent' => request()->userAgent(),
-                ], 'info', true);
+                ]);
+            }
+        });
+        Event::listen(Failed::class, function (Failed $event): void {
+            if (Schema::hasTable('security_events')) {
+                app(SecurityEventRecorder::class)->record('login_failed', $event->user, [], 'warning');
+            }
+        });
+        Event::listen(Lockout::class, function (): void {
+            if (Schema::hasTable('security_events')) {
+                app(SecurityEventRecorder::class)->record('login_locked_out', null, [], 'critical', true);
+            }
+        });
+        Event::listen(Logout::class, function (Logout $event): void {
+            if (Schema::hasTable('security_events')) {
+                app(SecurityEventRecorder::class)->record('logout', $event->user);
+            }
+        });
+        Event::listen(PasswordReset::class, function (PasswordReset $event): void {
+            if (Schema::hasTable('security_events')) {
+                app(SecurityEventRecorder::class)->record('password_reset', $event->user, [], 'warning', true);
             }
         });
     }

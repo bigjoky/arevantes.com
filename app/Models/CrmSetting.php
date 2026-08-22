@@ -18,6 +18,7 @@ class CrmSetting extends Model
 
     protected $fillable = [
         'stale_after_days',
+        'lead_response_sla_minutes',
         ...self::WEIGHT_FIELDS,
     ];
 

@@ -16,6 +16,7 @@ use App\Http\Controllers\CrmSettingsController;
 use App\Http\Controllers\CustomerConsentController;
 use App\Http\Controllers\CustomerContactController;
 use App\Http\Controllers\CustomerMergeController;
+use App\Http\Controllers\CustomerPhoneLookupController;
 use App\Http\Controllers\CustomerPortalController;
 use App\Http\Controllers\CustomerTagController;
 use App\Http\Controllers\DashboardController;
@@ -132,6 +133,9 @@ Route::middleware(['auth'])->group(function () {
     Route::post('people/{person}/consents', [CustomerConsentController::class, 'store'])->middleware('can:manage-customers')->name('people.consents.store');
     Route::post('people/{person}/merge', CustomerMergeController::class)->middleware('can:manage-customers')->name('people.merge');
     Route::post('crm/filters', [SavedCrmFilterController::class, 'store'])->middleware('can:manage-customers')->name('crm-filters.store');
+    Route::get('crm/customers/lookup', CustomerPhoneLookupController::class)
+        ->middleware(['can:manage-customers', 'throttle:60,1'])
+        ->name('crm-customers.lookup');
     Route::delete('crm/filters/{filter}', [SavedCrmFilterController::class, 'destroy'])->middleware('can:manage-customers')->name('crm-filters.destroy');
     Route::patch('crm/settings', [CrmSettingsController::class, 'update'])->middleware('can:manage-customers')->name('crm-settings.update');
     Route::post('opportunities/{opportunity}/activities', [OpportunityController::class, 'storeActivity'])
@@ -152,9 +156,9 @@ Route::middleware(['auth'])->group(function () {
     Route::put('human-resources/employees/{staff}/sensitive', [HrEmploymentController::class, 'updateSensitive'])->middleware('can:manage-sensitive-hr')->name('human-resources.employees.sensitive.update');
     Route::post('human-resources/employees/{staff}/emergency-contacts', [HrEmployeeDossierController::class, 'storeContact'])->middleware('can:manage-sensitive-hr')->name('human-resources.employees.contacts.store');
     Route::delete('human-resources/employees/{staff}/emergency-contacts/{contact}', [HrEmployeeDossierController::class, 'destroyContact'])->middleware('can:manage-sensitive-hr')->name('human-resources.employees.contacts.destroy');
-    Route::post('human-resources/employees/{staff}/documents', [HrEmployeeDossierController::class, 'storeDocument'])->middleware('can:manage-staff')->name('human-resources.employees.documents.store');
-    Route::get('human-resources/employees/{staff}/documents/{document}', [HrEmployeeDossierController::class, 'downloadDocument'])->middleware('can:manage-staff')->name('human-resources.employees.documents.download');
-    Route::delete('human-resources/employees/{staff}/documents/{document}', [HrEmployeeDossierController::class, 'destroyDocument'])->middleware('can:manage-staff')->name('human-resources.employees.documents.destroy');
+    Route::post('human-resources/employees/{staff}/documents', [HrEmployeeDossierController::class, 'storeDocument'])->middleware('can:manage-sensitive-hr')->name('human-resources.employees.documents.store');
+    Route::get('human-resources/employees/{staff}/documents/{document}', [HrEmployeeDossierController::class, 'downloadDocument'])->middleware('can:view-sensitive-hr')->name('human-resources.employees.documents.download');
+    Route::delete('human-resources/employees/{staff}/documents/{document}', [HrEmployeeDossierController::class, 'destroyDocument'])->middleware('can:manage-sensitive-hr')->name('human-resources.employees.documents.destroy');
     Route::get('human-resources/employees/{staff}/export', [HrEmployeeDossierController::class, 'export'])->middleware('can:view-sensitive-hr')->name('human-resources.employees.export');
     Route::resource('human-resources/departments', HrDepartmentController::class)->only(['index', 'store', 'update', 'destroy'])->middleware('can:manage-staff')->names('human-resources.departments');
     Route::resource('human-resources/leave', HrLeaveController::class)->only(['index', 'store', 'update', 'destroy'])->middleware('can:manage-staff')->names('human-resources.leave');
@@ -168,9 +172,9 @@ Route::middleware(['auth'])->group(function () {
     Route::patch('my-human-resources/tasks/{task}/complete', [MyHumanResourcesController::class, 'completeTask'])->name('my-human-resources.tasks.complete');
     Route::get('my-human-resources/documents/{document}', [MyHumanResourcesController::class, 'downloadDocument'])->name('my-human-resources.documents.download');
     Route::get('my-human-resources/leave/{leave}/attachments/{attachment}', [MyHumanResourcesController::class, 'downloadLeaveAttachment'])->name('my-human-resources.leave.attachments.download');
-    Route::post('staff/{staff}/access', [StaffAccessController::class, 'store'])->middleware('can:manage-staff')->name('staff.access.store');
-    Route::patch('staff/{staff}/access', [StaffAccessController::class, 'update'])->middleware('can:manage-staff')->name('staff.access.update');
-    Route::delete('staff/{staff}/access', [StaffAccessController::class, 'destroy'])->middleware('can:manage-staff')->name('staff.access.destroy');
+    Route::post('staff/{staff}/access', [StaffAccessController::class, 'store'])->middleware('can:manage-access')->name('staff.access.store');
+    Route::patch('staff/{staff}/access', [StaffAccessController::class, 'update'])->middleware('can:manage-access')->name('staff.access.update');
+    Route::delete('staff/{staff}/access', [StaffAccessController::class, 'destroy'])->middleware('can:manage-access')->name('staff.access.destroy');
     Route::get('knowledge', [KnowledgeDocumentController::class, 'index'])->middleware('can:manage-staff')->name('knowledge.index');
     Route::post('knowledge', [KnowledgeDocumentController::class, 'store'])->middleware('can:manage-staff')->name('knowledge.store');
     Route::patch('knowledge/{knowledgeDocument}', [KnowledgeDocumentController::class, 'update'])->middleware('can:manage-staff')->name('knowledge.update');

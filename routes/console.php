@@ -10,6 +10,7 @@ use App\Services\AfterSales\ServiceWorkGenerator;
 use App\Services\AfterSales\SlaManager;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schedule;
 
 Artisan::command('accounting:sync', function (AccountingSynchronizer $synchronizer) {
@@ -27,8 +28,8 @@ Schedule::command('huawei:sync')->everyFiveMinutes()->withoutOverlapping();
 Schedule::command('monitoring:discover deye')->everyFiveMinutes()->withoutOverlapping();
 Schedule::command('monitoring:discover huawei')->cron('2 */6 * * *')->withoutOverlapping();
 Schedule::command('locations:sync-spain')->monthly()->withoutOverlapping();
-Schedule::command('database:backup')->dailyAt('02:30')->withoutOverlapping();
-Schedule::command('database:verify-backup')->weeklyOn(1, '03:30')->withoutOverlapping();
+Schedule::command('database:backup')->dailyAt('02:30')->when(fn () => DB::getDriverName() === 'sqlite')->withoutOverlapping();
+Schedule::command('database:verify-backup')->weeklyOn(1, '03:30')->when(fn () => DB::getDriverName() === 'sqlite')->withoutOverlapping();
 Schedule::command('system:heartbeat')->everyMinute();
 Schedule::command('system:health-check')->everyFiveMinutes()->withoutOverlapping();
 Schedule::command('data:prune-retention')->weekly()->withoutOverlapping();

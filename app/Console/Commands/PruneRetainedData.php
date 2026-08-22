@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\AuditLog;
+use App\Models\MobileOperation;
 use App\Models\SecurityEvent;
 use App\Models\SystemHealthCheck;
 use Illuminate\Console\Command;
@@ -20,6 +21,7 @@ class PruneRetainedData extends Command
             'audit logs' => [AuditLog::where('created_at', '<', now()->subYears((int) config('security.retention.audit_years', 7))), null],
             'security events' => [SecurityEvent::where('created_at', '<', now()->subYears((int) config('security.retention.security_event_years', 2))), null],
             'health checks' => [SystemHealthCheck::where('checked_at', '<', now()->subDays((int) config('security.retention.health_days', 90))), null],
+            'mobile operations' => [MobileOperation::where('created_at', '<', now()->subDays((int) config('security.retention.mobile_operation_days', 30))), null],
         ];
         foreach ($targets as $label => [$query]) {
             $count = (clone $query)->count();

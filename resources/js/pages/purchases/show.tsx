@@ -1415,7 +1415,8 @@ export default function PurchaseShow({
                                 Outstanding: {money(String(outstandingAmount))}
                             </p>
                             {abilities.managePurchasePayments &&
-                                document.matching_status !== 'review_required' &&
+                                document.matching_status !==
+                                    'review_required' &&
                                 outstandingAmount > 0 && (
                                     <Form
                                         action={`/supplier-invoices/${document.id}/payments`}

@@ -6,6 +6,7 @@ use App\Models\CrmActivity;
 use App\Models\CrmSetting;
 use App\Models\Opportunity;
 use App\Models\User;
+use Illuminate\Support\Carbon;
 use Illuminate\Validation\ValidationException;
 
 class OpportunitySalesCycle
@@ -86,14 +87,17 @@ class OpportunitySalesCycle
         $this->ensureNextAction($opportunity, $actor);
     }
 
-    public function ensureNextAction(Opportunity $opportunity, ?User $actor = null): void
+    /** @param  array{type?: string, title?: string, priority?: string, due_at?: mixed}|null  $attributes */
+    public function ensureNextAction(Opportunity $opportunity, ?User $actor = null, ?array $attributes = null): void
     {
         if (in_array($opportunity->stage, self::CLOSED_STAGES, true) || $opportunity->nextActivity()->exists()) {
             return;
         }
 
-        $dueAt = now()->addDay();
-        while ($dueAt->isWeekend()) {
+        $dueAt = isset($attributes['due_at'])
+            ? Carbon::parse($attributes['due_at'])
+            : now()->addDay();
+        while (! isset($attributes['due_at']) && $dueAt->isWeekend()) {
             $dueAt = $dueAt->addDay();
         }
 
@@ -103,11 +107,11 @@ class OpportunitySalesCycle
             'installation_id' => $opportunity->installation_id,
             'assigned_user_id' => $opportunity->owner_user_id,
             'created_by' => $actor?->id,
-            'type' => 'task',
-            'title' => __('Review opportunity and define next step'),
-            'priority' => 'normal',
+            'type' => $attributes['type'] ?? 'task',
+            'title' => $attributes['title'] ?? __('Review opportunity and define next step'),
+            'priority' => $attributes['priority'] ?? 'normal',
             'status' => 'pending',
-            'due_at' => $dueAt->setTime(9, 0),
+            'due_at' => isset($attributes['due_at']) ? $dueAt : $dueAt->setTime(9, 0),
         ]);
     }
 

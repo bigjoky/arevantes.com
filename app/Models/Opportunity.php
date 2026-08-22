@@ -26,6 +26,8 @@ class Opportunity extends Model
         'stage',
         'probability',
         'commercial_score',
+        'first_response_due_at',
+        'first_responded_at',
         'estimated_value',
         'expected_close_on',
         'source',
@@ -91,6 +93,8 @@ class Opportunity extends Model
         return [
             'probability' => 'integer',
             'commercial_score' => 'integer',
+            'first_response_due_at' => 'datetime',
+            'first_responded_at' => 'datetime',
             'estimated_value' => 'decimal:2',
             'expected_close_on' => 'date',
             'renewal_due_on' => 'date',

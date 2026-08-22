@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\HrEmergencyContact;
 use App\Models\HrEmploymentDocument;
 use App\Models\Person;
+use App\Rules\SafeUpload;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -79,6 +80,7 @@ class HrEmployeeDossierController extends Controller
                         'isPrimary' => $contact->is_primary,
                     ]) : [],
                 'documents' => $staff->employmentDocuments
+                    ->when(! $canViewSensitive, fn ($documents) => $documents->where('visibility', 'employee'))
                     ->sortByDesc('created_at')
                     ->values()
                     ->map(fn (HrEmploymentDocument $document) => [
@@ -133,7 +135,7 @@ class HrEmployeeDossierController extends Controller
             'title' => ['required', 'string', 'max:255'],
             'visibility' => ['required', Rule::in(['hr_only', 'employee'])],
             'expires_at' => ['nullable', 'date'],
-            'file' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png,doc,docx', 'max:12288'],
+            'file' => ['required', 'file', new SafeUpload(['pdf', 'jpg', 'jpeg', 'png', 'doc', 'docx'], 12288)],
         ]);
 
         $file = $data['file'];
