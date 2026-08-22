@@ -2,7 +2,6 @@
 
 namespace App\Mail;
 
-use App\Services\Documents\DocumentPdf;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Attachment;
@@ -14,7 +13,7 @@ class DocumentSharedMail extends Mailable
 {
     use Queueable, SerializesModels;
 
-    public function __construct(public object $document, public string $kind, public string $url, public string $expires) {}
+    public function __construct(public object $document, public string $kind, public string $url, public string $expires, public string $pdfData) {}
 
     public function envelope(): Envelope
     {
@@ -28,6 +27,6 @@ class DocumentSharedMail extends Mailable
 
     public function attachments(): array
     {
-        return [Attachment::fromData(fn () => app(DocumentPdf::class)->render($this->document->loadMissing('lines'), $this->kind), $this->document->number.'.pdf')->withMime('application/pdf')];
+        return [Attachment::fromData(fn () => $this->pdfData, $this->document->number.'.pdf')->withMime('application/pdf')];
     }
 }

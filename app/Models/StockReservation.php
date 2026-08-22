@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class StockReservation extends Model
 {
+    protected $touches = ['workOrder'];
+
     protected $fillable = ['installation_id', 'work_order_id', 'sales_document_id', 'warehouse_id', 'product_id', 'quantity', 'consumed_quantity', 'status', 'reserved_until'];
 
     protected function casts(): array

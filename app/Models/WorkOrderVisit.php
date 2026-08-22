@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class WorkOrderVisit extends Model
 {
+    protected $touches = ['workOrder'];
+
     protected $fillable = ['work_order_id', 'user_id', 'latitude', 'longitude', 'accuracy_meters', 'arrived_at'];
 
     protected function casts(): array

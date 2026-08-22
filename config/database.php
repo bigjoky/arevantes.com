@@ -99,6 +99,23 @@ return [
             'sslmode' => env('DB_SSLMODE', 'prefer'),
         ],
 
+        // Disposable PostgreSQL target used only by database:verify-postgres-backup.
+        // It deliberately has no fallback to the application connection.
+        'backup_restore' => [
+            'driver' => 'pgsql',
+            'url' => env('POSTGRES_RESTORE_URL'),
+            'host' => env('POSTGRES_RESTORE_HOST'),
+            'port' => env('POSTGRES_RESTORE_PORT', '5432'),
+            'database' => env('POSTGRES_RESTORE_DATABASE'),
+            'username' => env('POSTGRES_RESTORE_USERNAME'),
+            'password' => env('POSTGRES_RESTORE_PASSWORD'),
+            'charset' => 'utf8',
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'search_path' => 'public',
+            'sslmode' => env('POSTGRES_RESTORE_SSLMODE', 'require'),
+        ],
+
         'sqlsrv' => [
             'driver' => 'sqlsrv',
             'url' => env('DB_URL'),

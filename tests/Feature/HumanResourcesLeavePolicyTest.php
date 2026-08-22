@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\HrCalendarHoliday;
 use App\Models\HrLeaveAttachment;
 use App\Models\HrLeavePolicy;
 use App\Models\HrLeaveRequest;
@@ -9,6 +10,7 @@ use App\Models\Installation;
 use App\Models\Person;
 use App\Models\User;
 use App\Models\WorkOrder;
+use App\Services\HumanResources\LeaveBalanceCalculator;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -55,6 +57,7 @@ class HumanResourcesLeavePolicyTest extends TestCase
         $person = $this->staff('Iván', 'Campo');
         $technician = User::factory()->create(['person_id' => $person->id, 'role' => 'technician']);
         $substitute = $this->staff('Sara', 'Luz');
+        $substituteUser = User::factory()->create(['person_id' => $substitute->id, 'role' => 'technician']);
         $installation = Installation::create([
             'service_type' => 'solar',
             'status' => 'scheduled',
@@ -98,6 +101,10 @@ class HumanResourcesLeavePolicyTest extends TestCase
             'status' => 'approved',
             'substitute_person_id' => $substitute->id,
         ]);
+        $this->assertDatabaseHas('work_orders', [
+            'number' => 'WO-COVERAGE-1',
+            'assigned_user_id' => $substituteUser->id,
+        ]);
     }
 
     public function test_monthly_accrual_used_days_and_policy_changes_are_exposed(): void
@@ -119,8 +126,8 @@ class HumanResourcesLeavePolicyTest extends TestCase
             ->assertInertia(fn (Assert $page) => $page
                 ->where('staff.0.balances.3.name', 'Vacaciones')
                 ->where('staff.0.balances.3.accrued', 14.67)
-                ->where('staff.0.balances.3.used', 5)
-                ->where('staff.0.balances.3.available', 9.67));
+                ->where('staff.0.balances.3.used', 3)
+                ->where('staff.0.balances.3.available', 11.67));
 
         $policy = HrLeavePolicy::where('type', 'vacation')->firstOrFail();
         $this->put(route('human-resources.leave.policies.update', $policy), [
@@ -136,6 +143,81 @@ class HumanResourcesLeavePolicyTest extends TestCase
             'name' => 'Vacaciones laborables',
             'annual_allowance_days' => 24,
         ]);
+    }
+
+    public function test_working_day_requests_exclude_weekends_and_configured_holidays(): void
+    {
+        $this->travelTo('2026-08-10 09:00:00');
+        $person = $this->staff('Lara', 'Díaz');
+        $user = User::factory()->create(['person_id' => $person->id, 'role' => 'technician']);
+        HrCalendarHoliday::create(['holiday_date' => '2026-08-17', 'name' => 'Festivo local']);
+
+        $this->actingAs($user)->post(route('my-human-resources.leave.store'), [
+            'type' => 'vacation',
+            'start_date' => '2026-08-14',
+            'end_date' => '2026-08-17',
+        ])->assertRedirect()->assertSessionHasNoErrors();
+
+        $this->assertDatabaseHas('hr_leave_requests', [
+            'person_id' => $person->id,
+            'requested_days' => 1,
+            'status' => 'pending',
+        ]);
+    }
+
+    public function test_cross_year_leave_is_allocated_to_the_correct_balance_year(): void
+    {
+        $this->travelTo('2026-08-10 09:00:00');
+        $person = $this->staff('Álex', 'Sanz');
+        HrCalendarHoliday::create(['holiday_date' => '2027-01-01', 'name' => 'Año Nuevo']);
+        HrLeaveRequest::create([
+            'person_id' => $person->id,
+            'type' => 'vacation',
+            'start_date' => '2026-12-31',
+            'end_date' => '2027-01-04',
+            'requested_days' => 2,
+            'status' => 'approved',
+        ]);
+
+        $policy = HrLeavePolicy::where('type', 'vacation')->firstOrFail();
+        $calculator = app(LeaveBalanceCalculator::class);
+        $this->assertSame(1, $calculator->calculate($person, $policy, 2026)['used']);
+        $this->assertSame(1, $calculator->calculate($person, $policy, 2027)['used']);
+    }
+
+    public function test_employee_cannot_request_more_days_than_the_available_balance(): void
+    {
+        $this->travelTo('2026-08-10 09:00:00');
+        $person = $this->staff('Eva', 'Paz');
+        $user = User::factory()->create(['person_id' => $person->id, 'role' => 'technician']);
+
+        $this->actingAs($user)->post(route('my-human-resources.leave.store'), [
+            'type' => 'personal',
+            'start_date' => '2026-08-17',
+            'end_date' => '2026-08-21',
+        ])->assertSessionHasErrors('start_date');
+
+        $this->assertDatabaseMissing('hr_leave_requests', ['person_id' => $person->id]);
+    }
+
+    public function test_reviewed_leave_cannot_be_decided_twice(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $person = $this->staff('Leo', 'Serra');
+        $leave = HrLeaveRequest::create([
+            'person_id' => $person->id,
+            'type' => 'sick',
+            'start_date' => '2026-08-18',
+            'end_date' => '2026-08-18',
+            'requested_days' => 1,
+            'status' => 'approved',
+        ]);
+
+        $this->actingAs($admin)->put(route('human-resources.leave.update', $leave), [
+            'status' => 'rejected',
+        ])->assertSessionHasErrors('status');
+
+        $this->assertDatabaseHas('hr_leave_requests', ['id' => $leave->id, 'status' => 'approved']);
     }
 
     private function staff(string $firstName, string $lastName): Person

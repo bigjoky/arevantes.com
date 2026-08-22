@@ -27,7 +27,9 @@ type Balance = {
     name: string;
     accrued: number;
     used: number;
+    pending: number;
     available: number;
+    requestable: number;
 };
 type StaffOption = { id: number; name: string; balances: Balance[] };
 type Policy = {
@@ -36,6 +38,7 @@ type Policy = {
     name: string;
     annualAllowanceDays: string;
     accrualMethod: string;
+    dayCountMethod: string;
     carryoverLimitDays: string;
     requiresAttachment: boolean;
     isActive: boolean;
@@ -153,6 +156,21 @@ export default function Leave({
                                                     Sin saldo
                                                 </option>
                                             </select>
+                                            <Label>Cómputo de días</Label>
+                                            <select
+                                                name="day_count_method"
+                                                className={selectClass}
+                                                defaultValue={
+                                                    policy.dayCountMethod
+                                                }
+                                            >
+                                                <option value="working_days">
+                                                    Laborables
+                                                </option>
+                                                <option value="calendar_days">
+                                                    Naturales
+                                                </option>
+                                            </select>
                                             <Label>Límite de arrastre</Label>
                                             <Input
                                                 name="carryover_limit_days"
@@ -204,6 +222,46 @@ export default function Leave({
                                     )}
                                 </Form>
                             </details>
+                        ))}
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Saldos y compromisos</CardTitle>
+                        <CardDescription>
+                            Saldo devengado, solicitudes aprobadas y días
+                            pendientes por persona.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                        {staff.map((person) => (
+                            <div
+                                key={person.id}
+                                className="rounded-lg border p-4"
+                            >
+                                <div className="font-medium">{person.name}</div>
+                                <div className="mt-3 grid gap-2">
+                                    {person.balances.map((balance) => (
+                                        <div
+                                            key={balance.type}
+                                            className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 text-sm"
+                                        >
+                                            <span>{balance.name}</span>
+                                            <span className="font-medium tabular-nums">
+                                                {balance.requestable} días
+                                            </span>
+                                            <span className="text-xs text-muted-foreground">
+                                                {balance.used} usados ·{' '}
+                                                {balance.pending} pendientes
+                                            </span>
+                                            <span className="text-xs text-muted-foreground">
+                                                {balance.accrued} devengados
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
                         ))}
                     </CardContent>
                 </Card>

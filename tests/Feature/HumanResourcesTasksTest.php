@@ -65,7 +65,7 @@ class HumanResourcesTasksTest extends TestCase
 
         $this->delete(route('human-resources.tasks.destroy', $task))
             ->assertRedirect();
-        $this->assertDatabaseMissing('hr_employee_tasks', ['id' => $task->id]);
+        $this->assertSoftDeleted('hr_employee_tasks', ['id' => $task->id]);
     }
 
     public function test_task_overview_reports_open_overdue_and_completed_work(): void

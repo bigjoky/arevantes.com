@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class TimeEntry extends Model
 {
+    protected $touches = ['workOrder'];
+
     protected $appends = ['cost'];
 
     protected $fillable = ['client_uuid', 'work_order_id', 'user_id', 'created_by', 'started_at', 'ended_at', 'duration_minutes', 'hourly_cost', 'travel_km', 'mileage_rate', 'notes'];

@@ -88,9 +88,11 @@ const selectClass =
 export default function Dossier({
     employee,
     canViewSensitive,
+    canManageSensitive,
 }: {
     employee: Employee;
     canViewSensitive: boolean;
+    canManageSensitive: boolean;
 }) {
     const employment = employee.employment;
 
@@ -199,7 +201,7 @@ export default function Dossier({
                             </CardContent>
                         </Card>
 
-                        {canViewSensitive ? (
+                        {canManageSensitive ? (
                             <Card>
                                 <CardHeader>
                                     <CardTitle className="flex items-center gap-2">
@@ -292,14 +294,63 @@ export default function Dossier({
                                     </Form>
                                 </CardContent>
                             </Card>
+                        ) : canViewSensitive ? (
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle className="flex items-center gap-2">
+                                        <LockKeyhole className="size-5" />
+                                        Datos restringidos
+                                    </CardTitle>
+                                    <CardDescription>
+                                        Consulta autorizada en modo de solo
+                                        lectura.
+                                    </CardDescription>
+                                </CardHeader>
+                                <CardContent>
+                                    <dl className="grid gap-5 sm:grid-cols-2">
+                                        <Detail
+                                            label="Salario bruto anual de referencia"
+                                            value={
+                                                employment?.annualReferenceSalary ??
+                                                null
+                                            }
+                                        />
+                                        <Detail
+                                            label="Convenio colectivo"
+                                            value={
+                                                employment?.collectiveAgreement ??
+                                                null
+                                            }
+                                        />
+                                        <Detail
+                                            label="Centro de coste"
+                                            value={
+                                                employment?.costCenter ?? null
+                                            }
+                                        />
+                                        <Detail
+                                            label="Código de nómina"
+                                            value={
+                                                employment?.payrollCode ?? null
+                                            }
+                                        />
+                                    </dl>
+                                </CardContent>
+                            </Card>
                         ) : null}
 
-                        <Documents employee={employee} />
+                        <Documents
+                            employee={employee}
+                            canManageSensitive={canManageSensitive}
+                        />
                     </div>
 
                     <div className="grid content-start gap-6">
                         {canViewSensitive ? (
-                            <EmergencyContacts employee={employee} />
+                            <EmergencyContacts
+                                employee={employee}
+                                canManageSensitive={canManageSensitive}
+                            />
                         ) : null}
                         <HistoryCard history={employee.history} />
                     </div>
@@ -309,7 +360,13 @@ export default function Dossier({
     );
 }
 
-function Documents({ employee }: { employee: Employee }) {
+function Documents({
+    employee,
+    canManageSensitive,
+}: {
+    employee: Employee;
+    canManageSensitive: boolean;
+}) {
     return (
         <Card>
             <CardHeader>
@@ -321,72 +378,79 @@ function Documents({ employee }: { employee: Employee }) {
                 </CardDescription>
             </CardHeader>
             <CardContent className="grid gap-5">
-                <Form
-                    action={`/human-resources/employees/${employee.id}/documents`}
-                    method="post"
-                    className="grid gap-3 rounded-lg border p-4 sm:grid-cols-2"
-                >
-                    {({ processing, errors }) => (
-                        <>
-                            <Field
-                                label="Título"
-                                name="title"
-                                required
-                                error={errors.title}
-                            />
-                            <div className="grid gap-2">
-                                <Label>Categoría</Label>
-                                <select name="category" className={selectClass}>
-                                    <option value="contract">Contrato</option>
-                                    <option value="identity">
-                                        Identificación
-                                    </option>
-                                    <option value="certificate">
-                                        Certificado
-                                    </option>
-                                    <option value="prevention">
-                                        Prevención
-                                    </option>
-                                    <option value="payroll">Nómina</option>
-                                    <option value="other">Otro</option>
-                                </select>
-                            </div>
-                            <div className="grid gap-2">
-                                <Label>Visibilidad</Label>
-                                <select
-                                    name="visibility"
-                                    className={selectClass}
-                                >
-                                    <option value="hr_only">
-                                        Solo RR. HH.
-                                    </option>
-                                    <option value="employee">
-                                        RR. HH. y empleado
-                                    </option>
-                                </select>
-                            </div>
-                            <Field
-                                label="Caducidad"
-                                name="expires_at"
-                                type="date"
-                                error={errors.expires_at}
-                            />
-                            <Field
-                                label="Archivo"
-                                name="file"
-                                type="file"
-                                required
-                                accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
-                                error={errors.file}
-                            />
-                            <div className="flex items-end">
-                                <Button disabled={processing}>
-                                    <Upload /> Subir documento
-                                </Button>
-                            </div>
-                        </>
-                    )}
-                </Form>
+                {canManageSensitive ? (
+                    <Form
+                        action={`/human-resources/employees/${employee.id}/documents`}
+                        method="post"
+                        className="grid gap-3 rounded-lg border p-4 sm:grid-cols-2"
+                    >
+                        {({ processing, errors }) => (
+                            <>
+                                <Field
+                                    label="Título"
+                                    name="title"
+                                    required
+                                    error={errors.title}
+                                />
+                                <div className="grid gap-2">
+                                    <Label>Categoría</Label>
+                                    <select
+                                        name="category"
+                                        className={selectClass}
+                                    >
+                                        <option value="contract">
+                                            Contrato
+                                        </option>
+                                        <option value="identity">
+                                            Identificación
+                                        </option>
+                                        <option value="certificate">
+                                            Certificado
+                                        </option>
+                                        <option value="prevention">
+                                            Prevención
+                                        </option>
+                                        <option value="payroll">Nómina</option>
+                                        <option value="other">Otro</option>
+                                    </select>
+                                </div>
+                                <div className="grid gap-2">
+                                    <Label>Visibilidad</Label>
+                                    <select
+                                        name="visibility"
+                                        className={selectClass}
+                                    >
+                                        <option value="hr_only">
+                                            Solo RR. HH.
+                                        </option>
+                                        <option value="employee">
+                                            RR. HH. y empleado
+                                        </option>
+                                    </select>
+                                </div>
+                                <Field
+                                    label="Caducidad"
+                                    name="expires_at"
+                                    type="date"
+                                    error={errors.expires_at}
+                                />
+                                <Field
+                                    label="Archivo"
+                                    name="file"
+                                    type="file"
+                                    required
+                                    accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                                    error={errors.file}
+                                />
+                                <div className="flex items-end">
+                                    <Button disabled={processing}>
+                                        <Upload /> Subir documento
+                                    </Button>
+                                </div>
+                            </>
+                        )}
+                    </Form>
+                ) : null}
                 <div className="grid gap-3">
                     {employee.documents.map((document) => (
                         <div
@@ -426,21 +490,23 @@ function Documents({ employee }: { employee: Employee }) {
                                         <Download />
                                     </a>
                                 </Button>
-                                <Form
-                                    action={`/human-resources/employees/${employee.id}/documents/${document.id}`}
-                                    method="delete"
-                                >
-                                    {({ processing }) => (
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            disabled={processing}
-                                            aria-label="Eliminar documento"
-                                        >
-                                            <Trash2 />
-                                        </Button>
-                                    )}
-                                </Form>
+                                {canManageSensitive ? (
+                                    <Form
+                                        action={`/human-resources/employees/${employee.id}/documents/${document.id}`}
+                                        method="delete"
+                                    >
+                                        {({ processing }) => (
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                disabled={processing}
+                                                aria-label="Eliminar documento"
+                                            >
+                                                <Trash2 />
+                                            </Button>
+                                        )}
+                                    </Form>
+                                ) : null}
                             </div>
                         </div>
                     ))}
@@ -455,7 +521,13 @@ function Documents({ employee }: { employee: Employee }) {
     );
 }
 
-function EmergencyContacts({ employee }: { employee: Employee }) {
+function EmergencyContacts({
+    employee,
+    canManageSensitive,
+}: {
+    employee: Employee;
+    canManageSensitive: boolean;
+}) {
     return (
         <Card>
             <CardHeader>
@@ -487,60 +559,68 @@ function EmergencyContacts({ employee }: { employee: Employee }) {
                                     </p>
                                 ) : null}
                             </div>
-                            <Form
-                                action={`/human-resources/employees/${employee.id}/emergency-contacts/${contact.id}`}
-                                method="delete"
-                            >
-                                <Button variant="ghost" size="icon">
-                                    <Trash2 />
-                                </Button>
-                            </Form>
+                            {canManageSensitive ? (
+                                <Form
+                                    action={`/human-resources/employees/${employee.id}/emergency-contacts/${contact.id}`}
+                                    method="delete"
+                                >
+                                    <Button variant="ghost" size="icon">
+                                        <Trash2 />
+                                    </Button>
+                                </Form>
+                            ) : null}
                         </div>
                     </div>
                 ))}
-                <Form
-                    action={`/human-resources/employees/${employee.id}/emergency-contacts`}
-                    method="post"
-                    className="grid gap-3 border-t pt-4"
-                >
-                    {({ processing, errors }) => (
-                        <>
-                            <Field
-                                label="Nombre"
-                                name="name"
-                                required
-                                error={errors.name}
-                            />
-                            <Field
-                                label="Relación"
-                                name="relationship"
-                                error={errors.relationship}
-                            />
-                            <Field
-                                label="Teléfono"
-                                name="phone"
-                                required
-                                error={errors.phone}
-                            />
-                            <div className="grid gap-2">
-                                <Label>Datos necesarios de prevención</Label>
-                                <Textarea name="prevention_notes" />
-                                <InputError message={errors.prevention_notes} />
-                            </div>
-                            <label className="flex items-center gap-2 text-sm">
-                                <input
-                                    type="checkbox"
-                                    name="is_primary"
-                                    value="1"
+                {canManageSensitive ? (
+                    <Form
+                        action={`/human-resources/employees/${employee.id}/emergency-contacts`}
+                        method="post"
+                        className="grid gap-3 border-t pt-4"
+                    >
+                        {({ processing, errors }) => (
+                            <>
+                                <Field
+                                    label="Nombre"
+                                    name="name"
+                                    required
+                                    error={errors.name}
                                 />
-                                Contacto principal
-                            </label>
-                            <Button disabled={processing}>
-                                Añadir contacto
-                            </Button>
-                        </>
-                    )}
-                </Form>
+                                <Field
+                                    label="Relación"
+                                    name="relationship"
+                                    error={errors.relationship}
+                                />
+                                <Field
+                                    label="Teléfono"
+                                    name="phone"
+                                    required
+                                    error={errors.phone}
+                                />
+                                <div className="grid gap-2">
+                                    <Label>
+                                        Datos necesarios de prevención
+                                    </Label>
+                                    <Textarea name="prevention_notes" />
+                                    <InputError
+                                        message={errors.prevention_notes}
+                                    />
+                                </div>
+                                <label className="flex items-center gap-2 text-sm">
+                                    <input
+                                        type="checkbox"
+                                        name="is_primary"
+                                        value="1"
+                                    />
+                                    Contacto principal
+                                </label>
+                                <Button disabled={processing}>
+                                    Añadir contacto
+                                </Button>
+                            </>
+                        )}
+                    </Form>
+                ) : null}
             </CardContent>
         </Card>
     );
