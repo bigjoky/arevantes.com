@@ -17,6 +17,7 @@ use App\Models\FinancialBudgetPeriod;
 use App\Models\FinancialBudgetVersion;
 use App\Models\FinancialCategory;
 use App\Models\FinancialForecastItem;
+use App\Models\Installation;
 use App\Models\LedgerAccount;
 use App\Models\PaymentBatch;
 use App\Models\PurchaseDocument;
@@ -36,6 +37,124 @@ use Tests\TestCase;
 class FinanceTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_open_purchase_commitments_feed_treasury_and_projected_margin_without_double_counting_invoices(): void
+    {
+        $this->travelTo('2026-08-15');
+        $user = User::factory()->create(['role' => 'commercial']);
+        $supplier = Supplier::create([
+            'legal_name' => 'Committed Supply SL',
+            'country' => 'ES',
+            'payment_terms_days' => 10,
+        ]);
+        $installation = Installation::create([
+            'service_type' => 'solar',
+            'status' => 'approved',
+            'project_reference' => 'SOL-COMMIT-1',
+            'site_address_line_1' => 'Calle Compromiso 1',
+        ]);
+        SalesDocument::create([
+            'type' => 'invoice',
+            'installation_id' => $installation->id,
+            'number' => 'FAC-COMMIT-1',
+            'status' => 'issued',
+            'issue_date' => '2026-08-01',
+            'due_date' => '2026-09-01',
+            'issued_at' => now(),
+            'locked_at' => now(),
+            'subtotal' => 2000,
+            'discount_amount' => 0,
+            'tax_amount' => 420,
+            'amount' => 2420,
+            'paid_amount' => 0,
+            'customer_snapshot' => [],
+        ]);
+        $order = PurchaseDocument::create([
+            'type' => 'purchase_order',
+            'installation_id' => $installation->id,
+            'supplier_id' => $supplier->id,
+            'number' => 'PC-COMMIT-1',
+            'status' => 'partially_received',
+            'issue_date' => '2026-08-01',
+            'expected_delivery_date' => '2026-08-20',
+            'subtotal' => 1000,
+            'shipping_cost' => 0,
+            'tax_amount' => 210,
+            'amount' => 1210,
+        ]);
+        $acceptedInvoice = PurchaseDocument::create([
+            'type' => 'supplier_invoice',
+            'source_document_id' => $order->id,
+            'installation_id' => $installation->id,
+            'supplier_id' => $supplier->id,
+            'number' => 'FR-COMMIT-1',
+            'supplier_number' => 'SUP-COMMIT-1',
+            'status' => 'registered',
+            'matching_status' => 'matched',
+            'issue_date' => '2026-08-10',
+            'due_date' => '2026-09-09',
+            'subtotal' => 400,
+            'shipping_cost' => 0,
+            'tax_amount' => 84,
+            'amount' => 484,
+            'paid_amount' => 0,
+        ]);
+        PurchaseDocument::create([
+            'type' => 'supplier_credit_note',
+            'source_document_id' => $acceptedInvoice->id,
+            'installation_id' => $installation->id,
+            'supplier_id' => $supplier->id,
+            'number' => 'RC-COMMIT-1',
+            'supplier_number' => 'SUP-CREDIT-1',
+            'status' => 'registered',
+            'matching_status' => 'matched',
+            'issue_date' => '2026-08-12',
+            'subtotal' => -100,
+            'shipping_cost' => 0,
+            'tax_amount' => -21,
+            'amount' => -121,
+            'paid_amount' => 0,
+        ]);
+        PurchaseDocument::create([
+            'type' => 'supplier_invoice',
+            'source_document_id' => $order->id,
+            'installation_id' => $installation->id,
+            'supplier_id' => $supplier->id,
+            'number' => 'FR-COMMIT-REVIEW',
+            'supplier_number' => 'SUP-COMMIT-REVIEW',
+            'status' => 'review_required',
+            'matching_status' => 'review_required',
+            'issue_date' => '2026-08-11',
+            'subtotal' => 100,
+            'shipping_cost' => 0,
+            'tax_amount' => 21,
+            'amount' => 121,
+            'paid_amount' => 0,
+        ]);
+
+        $this->actingAs($user)->get(route('finance.index', ['year' => 2026]))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('purchaseCommitments.summary.orders', 1)
+                ->where('purchaseCommitments.summary.remainingNet', 700)
+                ->where('purchaseCommitments.summary.remainingCash', 847)
+                ->where('purchaseCommitments.summary.dueWithin30Days', 847)
+                ->where('purchaseCommitments.summary.unconfirmedOrders', 1)
+                ->where('purchaseCommitments.rows.0.number', 'PC-COMMIT-1')
+                ->where('purchaseCommitments.rows.0.invoiceCount', 1)
+                ->where('purchaseCommitments.rows.0.expectedPaymentOn', '2026-08-30')
+                ->where('purchaseCommitments.rows.0.href', '/purchases/'.$order->id)
+                ->where('profitability.0.committed_cost', 700)
+                ->where('profitability.0.margin', 2000)
+                ->where('profitability.0.projected_margin', 1300));
+
+        $event = collect(app(TreasuryForecast::class)->build(2026)['weeks'])
+            ->flatMap(fn (array $week) => $week['events'])
+            ->firstWhere('sourceType', 'purchase_commitment');
+        $this->assertNotNull($event);
+        $this->assertSame(847.0, $event['amount']);
+        $this->assertSame('/purchases/'.$order->id, $event['href']);
+    }
 
     public function test_finance_exposes_daily_bank_position_and_statement_integrity(): void
     {

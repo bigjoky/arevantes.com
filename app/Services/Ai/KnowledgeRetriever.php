@@ -21,12 +21,12 @@ class KnowledgeRetriever
         }
 
         try {
-            $queryVector = Embeddings::for([$query])
-                ->dimensions(config('ai.providers.ollama.models.embeddings.dimensions'))
+            $response = Embeddings::for([$query])
                 ->timeout(30)
-                ->generate(config('ai.default_for_embeddings'))->first();
+                ->generate(config('ai.default_for_embeddings'));
+            $queryVector = $response->first();
 
-            $results = $this->authorizedQuery($user, $area)->whereNotNull('embedding')->get()
+            $results = $this->authorizedQuery($user, $area, $response->meta->model)->whereNotNull('embedding')->get()
                 ->map(fn (KnowledgeChunk $chunk) => $this->result($chunk, $this->cosine($queryVector, $chunk->embedding)))
                 ->sortByDesc('score')->take($limit)->values()->all();
 
@@ -73,12 +73,13 @@ class KnowledgeRetriever
         ];
     }
 
-    private function authorizedQuery(?User $user, ?string $area): Builder
+    private function authorizedQuery(?User $user, ?string $area, ?string $embeddingModel = null): Builder
     {
         return KnowledgeChunk::query()->with('document')
-            ->whereHas('document', function (Builder $query) use ($user, $area): void {
+            ->whereHas('document', function (Builder $query) use ($user, $area, $embeddingModel): void {
                 $query->where('status', 'indexed')
-                    ->where(fn (Builder $areas) => $areas->where('area', 'general')->when($area, fn (Builder $builder) => $builder->orWhere('area', $area)));
+                    ->where(fn (Builder $areas) => $areas->where('area', 'general')->when($area, fn (Builder $builder) => $builder->orWhere('area', $area)))
+                    ->when($embeddingModel, fn (Builder $builder) => $builder->where('embedding_model', $embeddingModel));
                 if ($user && ! $user->hasRole('admin')) {
                     $query->where(fn (Builder $roles) => $roles->whereNull('allowed_roles')->orWhereJsonContains('allowed_roles', $user->role));
                 }

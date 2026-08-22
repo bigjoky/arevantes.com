@@ -5,6 +5,7 @@ namespace App\Jobs;
 use App\Ai\Agents\InstallationAdvisor;
 use App\Ai\Agents\InstallationSnapshot;
 use App\Models\AiGeneration;
+use App\Services\Ai\AiActionProposalService;
 use App\Services\Ai\InstallationBriefingPrompt;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -20,7 +21,7 @@ class GenerateInstallationBriefing implements ShouldQueue
 
     public function __construct(public int $generationId) {}
 
-    public function handle(InstallationBriefingPrompt $promptBuilder): void
+    public function handle(InstallationBriefingPrompt $promptBuilder, AiActionProposalService $actionProposals): void
     {
         $generation = AiGeneration::with([
             'installation.customer',
@@ -61,6 +62,7 @@ class GenerateInstallationBriefing implements ShouldQueue
                 'duration_ms' => (int) ((hrtime(true) - $started) / 1_000_000),
                 'completed_at' => now(),
             ]);
+            $actionProposals->proposeFor($generation->refresh());
         } catch (Throwable $exception) {
             $willRetry = $this->attempts() < $this->tries;
             $generation->update([
