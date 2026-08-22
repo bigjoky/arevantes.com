@@ -84,7 +84,6 @@ class DocumentDeliveryTest extends TestCase
         $customer = Person::create(['category' => 'customer', 'first_name' => 'Ana', 'email' => 'ana@example.com']);
         $quote = Quote::create(['person_id' => $customer->id, 'number' => 'PRE-2026-00004', 'status' => 'draft', 'issue_date' => '2026-08-06', 'subtotal' => 100, 'discount_amount' => 0, 'tax_amount' => 21, 'amount' => 121]);
         $quote->lines()->create(['position' => 1, 'description' => 'Initial scope', 'quantity' => 1, 'unit_price' => 100, 'discount_percent' => 0, 'tax_percent' => 21, 'subtotal' => 100, 'discount_amount' => 0, 'tax_amount' => 21, 'total' => 121]);
-
         $this->actingAs($user)->post(route('quotes.send', $quote), ['recipient_email' => 'ana@example.com'])->assertRedirect();
         $delivery = DocumentDelivery::firstOrFail();
         $token = null;

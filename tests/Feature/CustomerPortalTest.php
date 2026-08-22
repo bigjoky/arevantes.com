@@ -117,7 +117,6 @@ class CustomerPortalTest extends TestCase
         Storage::disk(config('filesystems.private'))->put($published->path, 'certificate');
         $token = 'certificate-token';
         CustomerPortalAccess::create(['person_id' => $customer->id, 'recipient_email' => 'ana@example.com', 'token_hash' => hash('sha256', $token), 'expires_at' => now()->addWeek()]);
-
         $this->get(route('customer-portal.show', $token))->assertOk()->assertInertia(fn ($page) => $page->has('certificates', 1)->where('certificates.0.name', 'certificate.pdf'));
         $this->get(route('customer-portal.certificates.download', [$token, $internal]))->assertNotFound();
         $this->get(route('customer-portal.certificates.download', [$token, $published]))->assertOk();
