@@ -63,7 +63,9 @@ type LeaveBalance = {
     carryover: number;
     adjustment: number;
     used: number;
+    pending: number;
     available: number;
+    requestable: number;
 };
 type EmployeeTask = {
     id: number;
@@ -362,11 +364,12 @@ export default function MySpace({
                                             {balance.name}
                                         </div>
                                         <div className="mt-2 text-2xl font-semibold">
-                                            {balance.available}
+                                            {balance.requestable}
                                         </div>
                                         <div className="text-xs text-muted-foreground">
                                             días disponibles · {balance.used}{' '}
-                                            usados · {balance.accrued}{' '}
+                                            usados · {balance.pending}{' '}
+                                            pendientes · {balance.accrued}{' '}
                                             devengados
                                         </div>
                                     </div>

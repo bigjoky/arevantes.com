@@ -6,8 +6,10 @@ use App\Models\HrEmergencyContact;
 use App\Models\HrEmploymentDocument;
 use App\Models\Person;
 use App\Rules\SafeUpload;
+use App\Services\Security\SecurityEventRecorder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
@@ -30,9 +32,11 @@ class HrEmployeeDossierController extends Controller
 
         $profile = $staff->employmentProfile;
         $canViewSensitive = Gate::allows('view-sensitive-hr');
+        $canManageSensitive = Gate::allows('manage-sensitive-hr');
 
         return Inertia::render('human-resources/dossier', [
             'canViewSensitive' => $canViewSensitive,
+            'canManageSensitive' => $canManageSensitive,
             'employee' => [
                 'id' => $staff->id,
                 'name' => $this->displayName($staff),
@@ -109,11 +113,13 @@ class HrEmployeeDossierController extends Controller
             'is_primary' => ['boolean'],
         ]);
 
-        if ($data['is_primary'] ?? false) {
-            $staff->emergencyContacts()->update(['is_primary' => false]);
-        }
-
-        $staff->emergencyContacts()->create($data);
+        DB::transaction(function () use ($staff, $data) {
+            Person::query()->whereKey($staff->id)->lockForUpdate()->firstOrFail();
+            if ($data['is_primary'] ?? false) {
+                $staff->emergencyContacts()->update(['is_primary' => false]);
+            }
+            $staff->emergencyContacts()->create($data);
+        });
 
         return back()->with('success', __('Emergency contact added.'));
     }
@@ -139,24 +145,37 @@ class HrEmployeeDossierController extends Controller
         ]);
 
         $file = $data['file'];
-        $path = $file->store("human-resources/{$staff->id}", config('filesystems.private'));
-        $staff->employmentDocuments()->create([
-            ...$data,
-            'uploaded_by' => $request->user()->id,
-            'original_name' => $file->getClientOriginalName(),
-            'path' => $path,
-            'mime_type' => $file->getMimeType() ?: 'application/octet-stream',
-            'size' => $file->getSize(),
-            'file' => null,
-        ]);
+        $path = null;
+        try {
+            $path = $file->store("human-resources/{$staff->id}", config('filesystems.private'));
+            DB::transaction(fn () => $staff->employmentDocuments()->create([
+                ...$data,
+                'uploaded_by' => $request->user()->id,
+                'original_name' => $file->getClientOriginalName(),
+                'path' => $path,
+                'mime_type' => $file->getMimeType() ?: 'application/octet-stream',
+                'size' => $file->getSize(),
+                'file' => null,
+            ]));
+        } catch (\Throwable $exception) {
+            if ($path) {
+                Storage::disk(config('filesystems.private'))->delete($path);
+            }
+            throw $exception;
+        }
 
         return back()->with('success', __('Employment document uploaded.'));
     }
 
-    public function downloadDocument(Person $staff, HrEmploymentDocument $document): StreamedResponse
+    public function downloadDocument(Person $staff, HrEmploymentDocument $document, SecurityEventRecorder $events): StreamedResponse
     {
         $this->ensureStaff($staff);
         abort_unless($document->person_id === $staff->id && Storage::disk(config('filesystems.private'))->exists($document->path), 404);
+        abort_if($document->visibility === 'hr_only' && Gate::denies('view-sensitive-hr'), 403);
+        $events->record('hr_document_downloaded', request()->user(), [
+            'document_id' => $document->id,
+            'person_id' => $staff->id,
+        ]);
 
         return Storage::disk(config('filesystems.private'))->download($document->path, $document->original_name, [
             'Content-Type' => $document->mime_type,
@@ -168,22 +187,23 @@ class HrEmployeeDossierController extends Controller
     {
         $this->ensureStaff($staff);
         abort_unless($document->person_id === $staff->id, 404);
-        Storage::disk(config('filesystems.private'))->delete($document->path);
         $document->delete();
 
         return back()->with('success', __('Employment document deleted.'));
     }
 
-    public function export(Person $staff): StreamedResponse
+    public function export(Person $staff, SecurityEventRecorder $events): StreamedResponse
     {
         $this->ensureStaff($staff);
         $staff->load('employmentProfile.department');
         $profile = $staff->employmentProfile;
+        $events->record('hr_dossier_exported', request()->user(), ['person_id' => $staff->id], 'warning');
 
         return response()->streamDownload(function () use ($staff, $profile) {
             $output = fopen('php://output', 'w');
+            fwrite($output, "\xEF\xBB\xBF");
             fputcsv($output, ['employee_number', 'name', 'tax_id', 'job_title', 'professional_category', 'contract_type', 'weekly_hours', 'work_location', 'department', 'start_date', 'end_date', 'annual_reference_salary', 'collective_agreement', 'cost_center', 'payroll_code']);
-            fputcsv($output, [
+            fputcsv($output, array_map($this->csvSafe(...), [
                 $profile?->employee_number,
                 $this->displayName($staff),
                 $staff->tax_id,
@@ -199,7 +219,7 @@ class HrEmployeeDossierController extends Controller
                 $profile?->collective_agreement,
                 $profile?->cost_center,
                 $profile?->payroll_code,
-            ]);
+            ]));
             fclose($output);
         }, "gestoria-empleado-{$staff->id}.csv", ['Content-Type' => 'text/csv; charset=UTF-8']);
     }
@@ -223,5 +243,14 @@ class HrEmployeeDossierController extends Controller
     private function displayName(Person $person): string
     {
         return $person->company_name ?: trim($person->first_name.' '.($person->last_name ?? ''));
+    }
+
+    private function csvSafe(mixed $value): mixed
+    {
+        if (is_string($value) && preg_match('/^[=+\-@\t\r]/u', $value) === 1) {
+            return "'{$value}";
+        }
+
+        return $value;
     }
 }

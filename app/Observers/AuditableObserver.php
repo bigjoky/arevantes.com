@@ -35,7 +35,11 @@ class AuditableObserver
 
         $request = app()->bound('request') ? request() : null;
 
-        $sensitive = ['password', 'remember_token', 'two_factor_secret', 'two_factor_recovery_codes', 'mailbox_password'];
+        $sensitive = [
+            'password', 'remember_token', 'two_factor_secret', 'two_factor_recovery_codes', 'mailbox_password',
+            'tax_id', 'document_number', 'date_of_birth', 'emergency_contact_name', 'emergency_contact_phone',
+            'annual_reference_salary', 'phone', 'prevention_notes', 'notes', 'decision_notes',
+        ];
         $sanitize = fn (?array $values) => $values === null ? null : collect($values)->mapWithKeys(
             fn ($value, $key) => [$key => in_array($key, $sensitive, true) ? '[REDACTED]' : $value]
         )->all();
