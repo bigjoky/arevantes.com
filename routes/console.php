@@ -45,6 +45,7 @@ Schedule::command('system:health-check')->everyFiveMinutes()->withoutOverlapping
 Schedule::command('data:prune-retention')->weekly()->withoutOverlapping();
 Schedule::command('accounting:sync')->everyFiveMinutes()->withoutOverlapping();
 Schedule::command('accounting:recurring')->everyFiveMinutes()->withoutOverlapping();
+Schedule::command('analytics:dispatch')->everyFiveMinutes()->withoutOverlapping();
 Schedule::command('purchase-inbox:sync')->everyFiveMinutes()->withoutOverlapping();
 Schedule::command('purchase-inbox:extract --limit=3')->everyFiveMinutes()->withoutOverlapping();
 Schedule::command('crm:send-reminders')->dailyAt('07:30')->timezone('Europe/Madrid')->withoutOverlapping();

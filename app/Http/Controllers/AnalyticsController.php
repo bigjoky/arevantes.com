@@ -6,10 +6,10 @@ use App\Models\AnalyticsAlert;
 use App\Models\AnalyticsReportSubscription;
 use App\Models\Installation;
 use App\Models\User;
+use App\Services\Analytics\AnalyticsAutomationService;
+use App\Services\Analytics\AnalyticsExportService;
 use App\Services\Analytics\AnalyticsFilter;
 use App\Services\Analytics\AnalyticsService;
-use Dompdf\Dompdf;
-use Dompdf\Options;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -28,7 +28,6 @@ class AnalyticsController extends Controller
             ? $analytics->metric($metricKey, $definitions[$metricKey], $filter)
             : null;
         $metrics = $analytics->metrics($filter);
-        $currentValues = $metrics->keyBy('key');
 
         return Inertia::render('analytics/index', [
             'filters' => $filter->toArray(),
@@ -44,22 +43,11 @@ class AnalyticsController extends Controller
                 ->when($request->user()->hasRole('technician'), fn ($query) => $query->where('technician_user_id', $request->user()->id))
                 ->when($filter->restrictsToOwnCommercialScope(), fn ($query) => $query->where('commercial_user_id', $request->user()->id))
                 ->orderByDesc('created_at')->limit(500)->get(['id', 'project_reference', 'site_name']),
-            'alerts' => $request->user()->analyticsAlerts()->latest()->get()->map(function (AnalyticsAlert $alert) use ($currentValues) {
-                $current = $currentValues->get($alert->metric_key)['value'] ?? null;
-
-                return [
-                    ...$alert->toArray(),
-                    'current_value' => $current,
-                    'triggered' => $alert->enabled && $current !== null && match ($alert->operator) {
-                        '>' => $current > (float) $alert->threshold,
-                        '>=' => $current >= (float) $alert->threshold,
-                        '<' => $current < (float) $alert->threshold,
-                        '<=' => $current <= (float) $alert->threshold,
-                        '=' => $current === (float) $alert->threshold,
-                        default => false,
-                    },
-                ];
-            }),
+            'alerts' => $request->user()->analyticsAlerts()->latest()->get()->map(fn (AnalyticsAlert $alert) => [
+                ...$alert->toArray(),
+                'current_value' => $alert->last_value !== null ? (float) $alert->last_value : null,
+                'triggered' => $alert->enabled && $alert->is_triggered,
+            ]),
             'subscriptions' => $request->user()->analyticsReportSubscriptions()->get(),
         ]);
     }
@@ -73,8 +61,14 @@ class AnalyticsController extends Controller
             'metric_key' => ['required', Rule::in(array_keys(config('analytics.metrics')))],
             'operator' => ['required', Rule::in(['>', '>=', '<', '<=', '='])],
             'threshold' => ['required', 'numeric', 'between:-99999999999999,99999999999999'],
+            'channel' => ['nullable', Rule::in(['database', 'mail'])],
         ]);
-        $request->user()->analyticsAlerts()->create($data);
+        $request->user()->analyticsAlerts()->create([
+            ...$data,
+            'area' => $filter->area,
+            'filters' => $filter->toArray(),
+            'channel' => $data['channel'] ?? 'database',
+        ]);
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Alerta de KPI creada.')]);
     }
@@ -96,16 +90,23 @@ class AnalyticsController extends Controller
         return back()->with('toast', ['type' => 'success', 'message' => __('Alerta eliminada.')]);
     }
 
-    public function storeSubscription(Request $request): RedirectResponse
+    public function storeSubscription(Request $request, AnalyticsAutomationService $automation): RedirectResponse
     {
+        $filter = AnalyticsFilter::fromRequest($request);
         $data = $request->validate([
             'area' => ['required', Rule::in(AnalyticsFilter::allowedAreas($request->user()))],
             'frequency' => ['required', Rule::in(['daily', 'weekly', 'monthly'])],
             'format' => ['required', Rule::in(['excel', 'pdf'])],
         ]);
         AnalyticsReportSubscription::updateOrCreate(
-            ['user_id' => $request->user()->id, 'area' => $data['area']],
-            [...$data, 'enabled' => true],
+            ['user_id' => $request->user()->id, 'area' => $data['area'], 'frequency' => $data['frequency'], 'format' => $data['format']],
+            [
+                ...$data,
+                'filters' => $filter->toArray(),
+                'timezone' => config('app.timezone', 'Europe/Madrid'),
+                'enabled' => true,
+                'next_send_at' => $automation->nextSendAt($data['frequency'], config('app.timezone', 'Europe/Madrid')),
+            ],
         );
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Suscripción guardada.')]);
@@ -119,30 +120,16 @@ class AnalyticsController extends Controller
         return back()->with('toast', ['type' => 'success', 'message' => __('Suscripción eliminada.')]);
     }
 
-    public function export(Request $request, AnalyticsService $analytics, string $format): HttpResponse
+    public function export(Request $request, AnalyticsService $analytics, AnalyticsExportService $exports, string $format): HttpResponse
     {
         abort_unless(in_array($format, ['excel', 'pdf'], true), 404);
         $filter = AnalyticsFilter::fromRequest($request);
-        $metrics = $analytics->metrics($filter);
-        $records = $metrics->mapWithKeys(fn (array $metric) => [$metric['key'] => $analytics->records($metric['key'], $filter)]);
         $filename = 'analytics-'.$filter->area.'-'.$filter->from->toDateString().'-'.$filter->to->toDateString();
+        $report = $exports->render($filter, $analytics, $format);
 
-        if ($format === 'pdf') {
-            $options = new Options;
-            $options->set('defaultFont', 'DejaVu Sans');
-            $pdf = new Dompdf($options);
-            $pdf->loadHtml(view('pdf.analytics-report', compact('filter', 'metrics', 'records'))->render());
-            $pdf->setPaper('A4', 'landscape');
-            $pdf->render();
-
-            return response($pdf->output(), 200, ['Content-Type' => 'application/pdf', 'Content-Disposition' => "attachment; filename=\"{$filename}.pdf\""]);
-        }
-
-        $xml = view('exports.analytics-excel', compact('filter', 'metrics', 'records'))->render();
-
-        return response("\xEF\xBB\xBF".$xml, 200, [
-            'Content-Type' => 'application/vnd.ms-excel; charset=UTF-8',
-            'Content-Disposition' => "attachment; filename=\"{$filename}.xls\"",
+        return response($report['contents'], 200, [
+            'Content-Type' => $report['mime'],
+            'Content-Disposition' => "attachment; filename=\"{$filename}.{$report['extension']}\"",
         ]);
     }
 }

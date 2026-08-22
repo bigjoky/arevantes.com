@@ -68,9 +68,12 @@ type Alert = {
     metric_key: string;
     operator: string;
     threshold: string;
+    area: string | null;
+    channel: 'database' | 'mail';
     enabled: boolean;
     current_value: number | null;
     triggered: boolean;
+    last_evaluated_at: string | null;
 };
 
 type Subscription = {
@@ -78,6 +81,7 @@ type Subscription = {
     area: string;
     frequency: string;
     format: string;
+    next_send_at: string | null;
 };
 
 type Props = {
@@ -525,11 +529,17 @@ function Automation(props: Props) {
         period: props.filters.period,
         from: props.filters.from,
         to: props.filters.to,
+        channel: 'database',
     });
     const subscription = useForm({
         area: props.filters.area,
         frequency: 'weekly',
         format: 'pdf',
+        period: props.filters.period,
+        from: props.filters.from,
+        to: props.filters.to,
+        commercial_id: props.filters.commercial_id,
+        project_id: props.filters.project_id,
     });
 
     return (
@@ -540,7 +550,7 @@ function Automation(props: Props) {
                     <h2 className="font-semibold">Alertas configurables</h2>
                 </div>
                 <form
-                    className="grid gap-3 sm:grid-cols-3"
+                    className="grid gap-3 sm:grid-cols-4"
                     onSubmit={(event) => {
                         event.preventDefault();
                         alert.post('/analytics/alerts', {
@@ -586,6 +596,20 @@ function Automation(props: Props) {
                             }
                         />
                     </div>
+                    <select
+                        className={selectClass}
+                        value={alert.data.channel}
+                        onChange={(e) =>
+                            alert.setData(
+                                'channel',
+                                e.target.value as 'database' | 'mail',
+                            )
+                        }
+                        aria-label="Canal de notificación"
+                    >
+                        <option value="database">En la aplicación</option>
+                        <option value="mail">Aplicación y correo</option>
+                    </select>
                     <Button disabled={alert.processing}>Crear alerta</Button>
                 </form>
                 <div className="divide-y">
@@ -594,15 +618,28 @@ function Automation(props: Props) {
                             key={item.id}
                             className="flex items-center justify-between py-3 text-sm"
                         >
-                            <span>
-                                {
-                                    props.dictionary.find(
-                                        (metric) =>
-                                            metric.key === item.metric_key,
-                                    )?.name
-                                }{' '}
-                                {item.operator} {item.threshold}
-                            </span>
+                            <div>
+                                <span>
+                                    {
+                                        props.dictionary.find(
+                                            (metric) =>
+                                                metric.key === item.metric_key,
+                                        )?.name
+                                    }{' '}
+                                    {item.operator} {item.threshold}
+                                </span>
+                                <div className="text-xs text-muted-foreground">
+                                    {item.area
+                                        ? props.areas.find(
+                                              (area) => area.key === item.area,
+                                          )?.name
+                                        : 'Panel anterior'}
+                                    {' · '}
+                                    {item.current_value === null
+                                        ? 'Pendiente de evaluación'
+                                        : `Último valor: ${item.current_value}`}
+                                </div>
+                            </div>
                             <div className="flex items-center gap-2">
                                 <Badge
                                     variant={
@@ -719,7 +756,11 @@ function Automation(props: Props) {
                                         (area) => area.key === item.area,
                                     )?.name
                                 }{' '}
-                                · {item.frequency} · {item.format.toUpperCase()}
+                                · {frequencyLabel(item.frequency)} ·{' '}
+                                {item.format.toUpperCase()}
+                                {item.next_send_at
+                                    ? ` · Próximo ${formatDate(item.next_send_at)}`
+                                    : ''}
                             </span>
                             <Button
                                 size="icon"
@@ -825,6 +866,9 @@ const formatDate = (date: string | null) =>
     date
         ? new Intl.DateTimeFormat('es-ES').format(new Date(date))
         : 'Sin fecha';
+const frequencyLabel = (frequency: string) =>
+    ({ daily: 'Diario', weekly: 'Semanal', monthly: 'Mensual' })[frequency] ??
+    frequency;
 const exportUrl = (format: string, filter: Filter) =>
     `/analytics/export/${format}?${new URLSearchParams(
         Object.entries(filter)

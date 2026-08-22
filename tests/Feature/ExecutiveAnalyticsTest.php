@@ -2,7 +2,9 @@
 
 namespace Tests\Feature;
 
+use App\Jobs\SendAnalyticsReport;
 use App\Models\AnalyticsAlert;
+use App\Models\AnalyticsReportSubscription;
 use App\Models\FinancialBudget;
 use App\Models\Installation;
 use App\Models\Opportunity;
@@ -12,7 +14,10 @@ use App\Models\SalesDocument;
 use App\Models\Supplier;
 use App\Models\User;
 use App\Models\WorkOrder;
+use App\Notifications\AnalyticsThresholdNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Queue;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
@@ -219,5 +224,39 @@ class ExecutiveAnalyticsTest extends TestCase
             ->assertInertia(fn (Assert $page) => $page
                 ->where('metrics.0.quality.score', null)
                 ->where('metrics.0.quality.label', 'Sin datos'));
+    }
+
+    public function test_automation_evaluates_alerts_once_and_queues_due_reports(): void
+    {
+        Notification::fake();
+        Queue::fake();
+        $user = User::factory()->create(['role' => 'admin']);
+        SalesDocument::create([
+            'type' => 'invoice', 'created_by' => $user->id, 'number' => 'ALERT-INV', 'status' => 'issued',
+            'issue_date' => today(), 'due_date' => today()->addMonth(), 'subtotal' => 500,
+            'discount_amount' => 0, 'tax_amount' => 105, 'amount' => 605, 'paid_amount' => 0, 'customer_snapshot' => [],
+        ]);
+        $this->actingAs($user)->post(route('analytics.alerts.store'), [
+            'area' => 'executive', 'period' => 'month', 'metric_key' => 'net_revenue',
+            'operator' => '>', 'threshold' => 100, 'channel' => 'database',
+        ])->assertRedirect()->assertSessionHasNoErrors();
+
+        $this->artisan('analytics:dispatch')->assertSuccessful();
+        Notification::assertSentTo($user, AnalyticsThresholdNotification::class);
+        $alert = AnalyticsAlert::firstOrFail();
+        $this->assertTrue($alert->fresh()->is_triggered);
+        $this->assertSame(500.0, (float) $alert->fresh()->last_value);
+
+        $this->artisan('analytics:dispatch')->assertSuccessful();
+        Notification::assertSentToTimes($user, AnalyticsThresholdNotification::class, 1);
+
+        $this->actingAs($user)->post(route('analytics.subscriptions.store'), [
+            'area' => 'executive', 'period' => 'month', 'frequency' => 'daily', 'format' => 'pdf',
+        ])->assertRedirect()->assertSessionHasNoErrors();
+        $subscription = AnalyticsReportSubscription::firstOrFail();
+        $subscription->update(['next_send_at' => now()->subMinute()]);
+
+        $this->artisan('analytics:dispatch')->assertSuccessful();
+        Queue::assertPushed(SendAnalyticsReport::class, fn (SendAnalyticsReport $job) => $job->subscriptionId === $subscription->id);
     }
 }
