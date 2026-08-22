@@ -160,14 +160,14 @@ Route::middleware(['auth'])->group(function () {
     Route::post('human-resources/employees/{staff}/emergency-contacts', [HrEmployeeDossierController::class, 'storeContact'])->middleware('can:manage-sensitive-hr')->name('human-resources.employees.contacts.store');
     Route::delete('human-resources/employees/{staff}/emergency-contacts/{contact}', [HrEmployeeDossierController::class, 'destroyContact'])->middleware('can:manage-sensitive-hr')->name('human-resources.employees.contacts.destroy');
     Route::post('human-resources/employees/{staff}/documents', [HrEmployeeDossierController::class, 'storeDocument'])->middleware('can:manage-sensitive-hr')->name('human-resources.employees.documents.store');
-    Route::get('human-resources/employees/{staff}/documents/{document}', [HrEmployeeDossierController::class, 'downloadDocument'])->middleware('can:view-sensitive-hr')->name('human-resources.employees.documents.download');
+    Route::get('human-resources/employees/{staff}/documents/{document}', [HrEmployeeDossierController::class, 'downloadDocument'])->middleware('can:manage-staff')->name('human-resources.employees.documents.download');
     Route::delete('human-resources/employees/{staff}/documents/{document}', [HrEmployeeDossierController::class, 'destroyDocument'])->middleware('can:manage-sensitive-hr')->name('human-resources.employees.documents.destroy');
     Route::get('human-resources/employees/{staff}/export', [HrEmployeeDossierController::class, 'export'])->middleware('can:view-sensitive-hr')->name('human-resources.employees.export');
     Route::resource('human-resources/departments', HrDepartmentController::class)->only(['index', 'store', 'update', 'destroy'])->middleware('can:manage-staff')->names('human-resources.departments');
     Route::resource('human-resources/leave', HrLeaveController::class)->only(['index', 'store', 'update', 'destroy'])->middleware('can:manage-staff')->names('human-resources.leave');
     Route::put('human-resources/leave/policies/{policy}', [HrLeaveController::class, 'updatePolicy'])->middleware('can:manage-staff')->name('human-resources.leave.policies.update');
     Route::put('human-resources/leave/balances/{staff}/{policy}', [HrLeaveController::class, 'updateBalance'])->middleware('can:manage-staff')->name('human-resources.leave.balances.update');
-    Route::get('human-resources/leave/{leave}/attachments/{attachment}', [HrLeaveController::class, 'downloadAttachment'])->middleware('can:manage-staff')->name('human-resources.leave.attachments.download');
+    Route::get('human-resources/leave/{leave}/attachments/{attachment}', [HrLeaveController::class, 'downloadAttachment'])->middleware('can:view-sensitive-hr')->name('human-resources.leave.attachments.download');
     Route::resource('human-resources/tasks', HrTaskController::class)->only(['index', 'store', 'update', 'destroy'])->middleware('can:manage-staff')->names('human-resources.tasks');
     Route::get('my-human-resources', [MyHumanResourcesController::class, 'index'])->name('my-human-resources.index');
     Route::post('my-human-resources/leave', [MyHumanResourcesController::class, 'store'])->name('my-human-resources.leave.store');
