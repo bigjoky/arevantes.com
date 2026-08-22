@@ -62,6 +62,19 @@ return [
             'report' => false,
         ],
 
+        'backups' => [
+            'driver' => 's3',
+            'key' => env('POSTGRES_BACKUP_ACCESS_KEY_ID'),
+            'secret' => env('POSTGRES_BACKUP_SECRET_ACCESS_KEY'),
+            'region' => env('POSTGRES_BACKUP_REGION', 'auto'),
+            'bucket' => env('POSTGRES_BACKUP_BUCKET'),
+            'endpoint' => env('POSTGRES_BACKUP_ENDPOINT'),
+            'use_path_style_endpoint' => false,
+            'visibility' => 'private',
+            'throw' => true,
+            'report' => true,
+        ],
+
     ],
 
     /*

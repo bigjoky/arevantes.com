@@ -68,12 +68,14 @@ class OperationsController extends Controller
             ->paginate(25)
             ->withQueryString();
 
-        $boardActivities = (clone $baseActivities)
-            ->whereIn('status', ['pending', 'in_progress', 'blocked'])
-            ->orderByRaw('case when due_at is null then 1 else 0 end')
-            ->orderBy('due_at')
-            ->limit(200)
-            ->get();
+        $boardActivities = $filters['view'] === 'board'
+            ? (clone $baseActivities)
+                ->whereIn('status', ['pending', 'in_progress', 'blocked'])
+                ->orderByRaw('case when due_at is null then 1 else 0 end')
+                ->orderBy('due_at')
+                ->limit(200)
+                ->get()
+            : collect();
 
         $selectedDate = isset($filters['week'])
             ? Carbon::createFromFormat('Y-m-d', $filters['week'])
@@ -85,19 +87,28 @@ class OperationsController extends Controller
         $rangeEnd = $filters['view'] === 'month' ? $anchor->copy()->endOfMonth()->endOfWeek() : $anchor->copy()->endOfWeek();
         $workOrdersQuery = WorkOrder::query()
             ->with(['installation:id,project_reference,site_name,status,site_postal_code,site_latitude,site_longitude', 'installation.materialRequirements:id,installation_id', 'assignedUser:id,name,role', 'assignedUser.fieldServiceProfile', 'stockReservations:id,work_order_id,status'])
-            ->whereNotIn('status', ['completed', 'cancelled']);
+            ->whereIn('status', ['planned', 'in_progress', 'blocked']);
         if ($request->user()->hasRole('technician')) {
             $workOrdersQuery->where('assigned_user_id', $request->user()->id);
         }
         $planningOrdersQuery = (clone $workOrdersQuery)
             ->when($filters['owner'] ?? null, fn (Builder $query, int $owner) => $query->where('assigned_user_id', $owner))
             ->when($filters['q'] ?? null, fn (Builder $query, string $search) => $query->where(fn (Builder $query) => $query->where('title', 'like', "%{$search}%")->orWhere('number', 'like', "%{$search}%")));
-        $planningOrders = $planningOrdersQuery
-            ->where(fn (Builder $query) => $query->whereNull('scheduled_start')->orWhereBetween('scheduled_start', [$rangeStart, $rangeEnd]))
-            ->orderByRaw('case when scheduled_start is null then 1 else 0 end')
-            ->orderBy('scheduled_start')
-            ->limit(200)
-            ->get();
+        $isPlanningView = in_array($filters['view'], ['week', 'month'], true);
+        $scheduledOrdersQuery = (clone $planningOrdersQuery)
+            ->whereNotNull('scheduled_start')
+            ->where('scheduled_start', '<=', $rangeEnd)
+            ->where(fn (Builder $query) => $query->whereNull('scheduled_end')->orWhere('scheduled_end', '>=', $rangeStart));
+        $unscheduledOrdersQuery = (clone $planningOrdersQuery)->whereNull('scheduled_start');
+        $scheduledTotal = $isPlanningView ? (clone $scheduledOrdersQuery)->count() : 0;
+        $unscheduledTotal = $isPlanningView ? (clone $unscheduledOrdersQuery)->count() : 0;
+        $scheduledOrders = $isPlanningView
+            ? $scheduledOrdersQuery->orderBy('scheduled_start')->orderBy('id')->limit(500)->get()
+            : collect();
+        $unscheduledOrders = $isPlanningView
+            ? $unscheduledOrdersQuery->orderBy('created_at')->orderBy('id')->limit(50)->get()
+            : collect();
+        $planningOrders = $scheduledOrders->concat($unscheduledOrders);
         $planningIssues = $schedule->planningIssues($planningOrders);
         $planningOrders->each(function (WorkOrder $order) use ($planningIssues): void {
             $order->setAttribute('planning_issues', $planningIssues[$order->id] ?? []);
@@ -115,7 +126,16 @@ class OperationsController extends Controller
             'activities' => $activities,
             'boardActivities' => $boardActivities,
             'planningOrders' => $planningOrders,
-            'weekActivities' => $weekActivities->orderBy('starts_at')->orderBy('due_at')->limit(200)->get(),
+            'planningMeta' => [
+                'scheduled_total' => $scheduledTotal,
+                'scheduled_loaded' => $scheduledOrders->count(),
+                'unscheduled_total' => $unscheduledTotal,
+                'unscheduled_loaded' => $unscheduledOrders->count(),
+                'truncated' => $scheduledTotal > $scheduledOrders->count() || $unscheduledTotal > $unscheduledOrders->count(),
+            ],
+            'weekActivities' => $isPlanningView
+                ? $weekActivities->orderBy('starts_at')->orderBy('due_at')->limit(500)->get()
+                : collect(),
             'metrics' => $this->metrics($request, $workOrdersQuery),
             'exceptions' => $this->operationalExceptions($request, $workOrdersQuery),
             'installations' => Installation::where('status', '!=', 'cancelled')->orderBy('project_reference')->get(['id', 'project_reference', 'site_name', 'status']),

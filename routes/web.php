@@ -75,6 +75,7 @@ use App\Http\Controllers\TaxController;
 use App\Http\Controllers\WebsiteContactController;
 use App\Http\Controllers\WorkOrderController;
 use App\Http\Controllers\WorkOrderMaterialsController;
+use App\Http\Middleware\ProtectCustomerPortalLinks;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -84,16 +85,18 @@ Route::post('contact', WebsiteContactController::class)->middleware('throttle:5,
 Route::get('aviso-legal', [LegalController::class, 'notice'])->name('legal.notice');
 Route::get('privacidad', [LegalController::class, 'privacy'])->name('legal.privacy');
 Route::get('cookies', [LegalController::class, 'cookies'])->name('legal.cookies');
-Route::get('documents/shared/{token}', [DocumentDeliveryController::class, 'show'])->name('documents.shared.show');
-Route::post('documents/shared/{token}/respond', [DocumentDeliveryController::class, 'respond'])->middleware('throttle:10,1')->name('documents.shared.respond');
-Route::get('documents/shared/{token}/pdf', [DocumentDeliveryController::class, 'pdf'])->middleware('throttle:30,1')->name('documents.shared.pdf');
-Route::get('portal/{token}', [CustomerPortalController::class, 'show'])->middleware('throttle:60,1')->name('customer-portal.show');
-Route::post('portal/{token}/tickets', [CustomerPortalController::class, 'storeTicket'])->middleware('throttle:10,1')->name('customer-portal.tickets.store');
-Route::get('portal/{token}/documents/{kind}/{document}/pdf', [CustomerPortalController::class, 'pdf'])->middleware('throttle:30,1')->name('customer-portal.documents.pdf');
-Route::post('portal/{token}/documents/{kind}/{document}/accept', [CustomerPortalController::class, 'accept'])->middleware('throttle:10,1')->name('customer-portal.documents.accept');
-Route::patch('portal/{token}/preferences', [CustomerPortalController::class, 'updatePreferences'])->middleware('throttle:10,1')->name('customer-portal.preferences.update');
-Route::post('portal/{token}/surveys', [CustomerPortalController::class, 'storeSurvey'])->middleware('throttle:10,1')->name('customer-portal.surveys.store');
-Route::get('portal/{token}/certificates/{attachment}', [CustomerPortalController::class, 'certificate'])->middleware('throttle:30,1')->name('customer-portal.certificates.download');
+Route::middleware(ProtectCustomerPortalLinks::class)->group(function (): void {
+    Route::get('documents/shared/{token}', [DocumentDeliveryController::class, 'show'])->name('documents.shared.show');
+    Route::post('documents/shared/{token}/respond', [DocumentDeliveryController::class, 'respond'])->middleware('throttle:10,1')->name('documents.shared.respond');
+    Route::get('documents/shared/{token}/pdf', [DocumentDeliveryController::class, 'pdf'])->middleware('throttle:30,1')->name('documents.shared.pdf');
+    Route::get('portal/{token}', [CustomerPortalController::class, 'show'])->middleware('throttle:60,1')->name('customer-portal.show');
+    Route::post('portal/{token}/tickets', [CustomerPortalController::class, 'storeTicket'])->middleware('throttle:10,1')->name('customer-portal.tickets.store');
+    Route::get('portal/{token}/documents/{kind}/{document}/pdf', [CustomerPortalController::class, 'pdf'])->middleware('throttle:30,1')->name('customer-portal.documents.pdf');
+    Route::post('portal/{token}/documents/{kind}/{document}/accept', [CustomerPortalController::class, 'accept'])->middleware('throttle:10,1')->name('customer-portal.documents.accept');
+    Route::patch('portal/{token}/preferences', [CustomerPortalController::class, 'updatePreferences'])->middleware('throttle:10,1')->name('customer-portal.preferences.update');
+    Route::post('portal/{token}/surveys', [CustomerPortalController::class, 'storeSurvey'])->middleware('throttle:10,1')->name('customer-portal.surveys.store');
+    Route::get('portal/{token}/certificates/{attachment}', [CustomerPortalController::class, 'certificate'])->middleware('throttle:30,1')->name('customer-portal.certificates.download');
+});
 
 Route::middleware(['auth'])->group(function () {
     Route::get('dashboard', DashboardController::class)->name('dashboard');
@@ -157,14 +160,14 @@ Route::middleware(['auth'])->group(function () {
     Route::post('human-resources/employees/{staff}/emergency-contacts', [HrEmployeeDossierController::class, 'storeContact'])->middleware('can:manage-sensitive-hr')->name('human-resources.employees.contacts.store');
     Route::delete('human-resources/employees/{staff}/emergency-contacts/{contact}', [HrEmployeeDossierController::class, 'destroyContact'])->middleware('can:manage-sensitive-hr')->name('human-resources.employees.contacts.destroy');
     Route::post('human-resources/employees/{staff}/documents', [HrEmployeeDossierController::class, 'storeDocument'])->middleware('can:manage-sensitive-hr')->name('human-resources.employees.documents.store');
-    Route::get('human-resources/employees/{staff}/documents/{document}', [HrEmployeeDossierController::class, 'downloadDocument'])->middleware('can:view-sensitive-hr')->name('human-resources.employees.documents.download');
+    Route::get('human-resources/employees/{staff}/documents/{document}', [HrEmployeeDossierController::class, 'downloadDocument'])->middleware('can:manage-staff')->name('human-resources.employees.documents.download');
     Route::delete('human-resources/employees/{staff}/documents/{document}', [HrEmployeeDossierController::class, 'destroyDocument'])->middleware('can:manage-sensitive-hr')->name('human-resources.employees.documents.destroy');
     Route::get('human-resources/employees/{staff}/export', [HrEmployeeDossierController::class, 'export'])->middleware('can:view-sensitive-hr')->name('human-resources.employees.export');
     Route::resource('human-resources/departments', HrDepartmentController::class)->only(['index', 'store', 'update', 'destroy'])->middleware('can:manage-staff')->names('human-resources.departments');
     Route::resource('human-resources/leave', HrLeaveController::class)->only(['index', 'store', 'update', 'destroy'])->middleware('can:manage-staff')->names('human-resources.leave');
     Route::put('human-resources/leave/policies/{policy}', [HrLeaveController::class, 'updatePolicy'])->middleware('can:manage-staff')->name('human-resources.leave.policies.update');
     Route::put('human-resources/leave/balances/{staff}/{policy}', [HrLeaveController::class, 'updateBalance'])->middleware('can:manage-staff')->name('human-resources.leave.balances.update');
-    Route::get('human-resources/leave/{leave}/attachments/{attachment}', [HrLeaveController::class, 'downloadAttachment'])->middleware('can:manage-staff')->name('human-resources.leave.attachments.download');
+    Route::get('human-resources/leave/{leave}/attachments/{attachment}', [HrLeaveController::class, 'downloadAttachment'])->middleware('can:view-sensitive-hr')->name('human-resources.leave.attachments.download');
     Route::resource('human-resources/tasks', HrTaskController::class)->only(['index', 'store', 'update', 'destroy'])->middleware('can:manage-staff')->names('human-resources.tasks');
     Route::get('my-human-resources', [MyHumanResourcesController::class, 'index'])->name('my-human-resources.index');
     Route::post('my-human-resources/leave', [MyHumanResourcesController::class, 'store'])->name('my-human-resources.leave.store');

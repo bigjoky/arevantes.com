@@ -334,8 +334,7 @@ export default function PurchaseShow({
                                 <ShieldCheck className="mt-0.5 size-5" />
                                 <div className="flex-1">
                                     <h2 className="font-semibold">
-                                        {document.status ===
-                                        'approval_rejected'
+                                        {document.status === 'approval_rejected'
                                             ? 'Order rejected'
                                             : 'Approval required'}
                                     </h2>
@@ -354,7 +353,7 @@ export default function PurchaseShow({
                                                     <span>
                                                         {approval.reason}
                                                     </span>
-                                                    <span className="capitalize text-muted-foreground">
+                                                    <span className="text-muted-foreground capitalize">
                                                         {approval.status}
                                                         {approval.decider
                                                             ? ` · ${approval.decider.name}`

@@ -24,26 +24,34 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
 
 class DocumentDeliveryController extends Controller
 {
-    public function sendQuote(Request $request, Quote $quote, QuoteStatusWorkflow $workflow): RedirectResponse
+    public function sendQuote(Request $request, Quote $quote, QuoteStatusWorkflow $workflow, DocumentPdf $pdf): RedirectResponse
     {
         abort_if(in_array($quote->status, ['accepted', 'rejected', 'expired'], true), 422, __('This quote can no longer be sent for acceptance.'));
         abort_if($quote->customer?->do_not_contact, 422, __('This customer has blocked commercial communications.'));
         $workflow->assertCanTransition($quote, 'sent');
 
-        return $this->send($request, $quote, 'quote', $workflow);
+        return $this->send($request, $quote, 'quote', $pdf, $workflow);
     }
 
-    public function sendSalesDocument(Request $request, SalesDocument $salesDocument): RedirectResponse
+    public function sendSalesDocument(Request $request, SalesDocument $salesDocument, DocumentPdf $pdf): RedirectResponse
     {
         abort_if($salesDocument->type === 'invoice' && ! $salesDocument->locked_at, 422, __('Issue the invoice before sending it.'));
 
-        return $this->send($request, $salesDocument, $salesDocument->type);
+        return $this->send($request, $salesDocument, $salesDocument->type, $pdf);
     }
 
     public function show(Request $request, string $token): Response
     {
         $delivery = $this->delivery($token);
         $document = $delivery->quote ?: $delivery->salesDocument;
+        $delivery->quote_id ? $document->load('lines.components.unit') : $document->load('lines');
+
+        $currentFingerprint = app(DocumentFingerprint::class)->for($document);
+        if (! $delivery->document_version || ! $delivery->document_hash) {
+            $delivery->update(['document_version' => $currentFingerprint['version'], 'document_hash' => $currentFingerprint['hash']]);
+        } else {
+            abort_unless(hash_equals($delivery->document_version, $currentFingerprint['version']) && hash_equals($delivery->document_hash, $currentFingerprint['hash']), 409, __('This shared document has been replaced by a newer version.'));
+        }
         if (! $delivery->first_viewed_at) {
             $delivery->update(['first_viewed_at' => now(), 'status' => $delivery->status === 'sent' ? 'viewed' : $delivery->status]);
             if ($document->customer) {
@@ -51,20 +59,28 @@ class DocumentDeliveryController extends Controller
             }
         }
 
-        $delivery->quote_id ? $document->load('lines.components.unit') : $document->load('lines');
-
-        return Inertia::render('shared/document', ['company' => CompanyProfile::first()?->only(['legal_name', 'trade_name', 'email', 'phone']), 'document' => $document, 'kind' => $delivery->quote_id ? 'quote' : $delivery->salesDocument->type, 'token' => $token, 'canRespond' => (bool) $delivery->quote_id && in_array($delivery->quote->status, ['draft', 'sent'], true) && ! $delivery->responded_at, 'deliveryStatus' => $delivery->status]);
+        return Inertia::render('shared/document', ['company' => CompanyProfile::first()?->only(['legal_name', 'trade_name', 'email', 'phone']), 'document' => $document, 'kind' => $delivery->quote_id ? 'quote' : $delivery->salesDocument->type, 'token' => $token, 'canRespond' => (bool) $delivery->quote_id && in_array($delivery->quote->status, ['draft', 'sent'], true) && ! $delivery->quote->valid_until?->isPast() && ! $delivery->responded_at, 'deliveryStatus' => $delivery->status, 'documentVersion' => $currentFingerprint['version'], 'documentHash' => $currentFingerprint['hash']]);
     }
 
     public function respond(Request $request, string $token, QuoteStatusWorkflow $workflow, QuoteSelection $selection): RedirectResponse
     {
-        $data = $request->validate(['response' => ['required', 'in:accepted,rejected'], 'selected_line_ids' => ['sometimes', 'array'], 'selected_line_ids.*' => ['integer']]);
+        $data = $request->validate(['response' => ['required', 'in:accepted,rejected'], 'expected_version' => ['required', 'string', 'max:80'], 'expected_hash' => ['required', 'string', 'size:64'], 'selected_line_ids' => ['sometimes', 'array'], 'selected_line_ids.*' => ['integer']]);
 
         DB::transaction(function () use ($request, $token, $workflow, $selection, $data): void {
             $delivery = $this->delivery($token, true);
             abort_unless($delivery->quote_id && ! $delivery->responded_at, 422);
-            $quote = $delivery->quote;
+            $quote = Quote::with('lines.components')->lockForUpdate()->findOrFail($delivery->quote_id);
             abort_unless(in_array($quote->status, ['draft', 'sent'], true), 422);
+            abort_if($quote->valid_until?->isPast(), 422, __('This quote has expired.'));
+            $sentFingerprint = app(DocumentFingerprint::class)->for($quote);
+            abort_unless(
+                hash_equals((string) $delivery->document_version, $data['expected_version'])
+                && hash_equals((string) $delivery->document_hash, $data['expected_hash'])
+                && hash_equals($sentFingerprint['version'], $data['expected_version'])
+                && hash_equals($sentFingerprint['hash'], $data['expected_hash']),
+                409,
+                __('This document changed after it was shared. Request an updated version before responding.'),
+            );
 
             if ($data['response'] === 'accepted') {
                 $quote = $selection->apply($quote, $data['selected_line_ids'] ?? []);
@@ -102,6 +118,8 @@ class DocumentDeliveryController extends Controller
         $delivery = $this->delivery($token);
         $document = $delivery->quote ?: $delivery->salesDocument;
         $kind = $delivery->quote_id ? 'quote' : $delivery->salesDocument->type;
+        $currentFingerprint = app(DocumentFingerprint::class)->for($document);
+        abort_unless($delivery->document_version && $delivery->document_hash && hash_equals($delivery->document_version, $currentFingerprint['version']) && hash_equals($delivery->document_hash, $currentFingerprint['hash']), 409, __('This shared document has been replaced by a newer version.'));
         $delivery->update(['last_downloaded_at' => now()]);
         if ($document->customer) {
             CustomerPortalEvent::record($document->customer, 'document_downloaded', null, $request, $document, ['number' => $document->number, 'delivery_id' => $delivery->id]);
@@ -110,7 +128,7 @@ class DocumentDeliveryController extends Controller
         return response($pdf->render($document->load('lines'), $kind), 200, ['Content-Type' => 'application/pdf', 'Content-Disposition' => 'inline; filename="'.$document->number.'.pdf"']);
     }
 
-    private function send(Request $request, object $document, string $kind, ?QuoteStatusWorkflow $quoteWorkflow = null): RedirectResponse
+    private function send(Request $request, object $document, string $kind, DocumentPdf $pdf, ?QuoteStatusWorkflow $quoteWorkflow = null): RedirectResponse
     {
         $snapshot = $document->customer_snapshot ?? [];
         $default = $snapshot['billing_email'] ?? $snapshot['email'] ?? null;
@@ -119,10 +137,17 @@ class DocumentDeliveryController extends Controller
         $expires = now()->addDays($kind === 'quote' ? 30 : 90);
         $relation = $document instanceof Quote ? 'quote_id' : 'sales_document_id';
         $fingerprint = app(DocumentFingerprint::class)->for($document);
-        $document->deliveries()->whereIn('status', ['pending', 'sent', 'viewed'])->update(['status' => 'superseded']);
+        try {
+            $pdfData = $pdf->render($document, $kind, final: true);
+        } catch (\Throwable $exception) {
+            report($exception);
+
+            return back()->withErrors(['recipient_email' => __('The document PDF could not be generated.')]);
+        }
         $delivery = DocumentDelivery::create([$relation => $document->id, 'sent_by' => $request->user()->id, 'recipient_email' => $data['recipient_email'] ?: $default, 'token_hash' => hash('sha256', $token), 'status' => 'pending', 'document_version' => $fingerprint['version'], 'document_hash' => $fingerprint['hash'], 'expires_at' => $expires]);
         try {
-            Mail::to($delivery->recipient_email)->send(new DocumentSharedMail($document, $kind, route('documents.shared.show', $token), $expires->format('d/m/Y')));
+            Mail::to($delivery->recipient_email)->send(new DocumentSharedMail($document, $kind, route('documents.shared.show', $token), $expires->format('d/m/Y'), $pdfData));
+            $document->deliveries()->whereKeyNot($delivery->id)->whereIn('status', ['pending', 'sent', 'viewed'])->update(['status' => 'superseded']);
             $delivery->update(['status' => 'sent', 'sent_at' => now()]);
             if ($document instanceof Quote && $document->status === 'draft') {
                 $quoteWorkflow?->apply($document, 'sent', $request->user(), 'email');

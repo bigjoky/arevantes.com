@@ -18,7 +18,11 @@ Cada respuesta incluye `X-Correlation-ID`; el mismo valor aparece en logs y audi
 
 `database:backup` crea una copia SQLite cifrada diaria en instalaciones que utilicen ese motor. `database:verify-backup` descifra la última copia en un fichero temporal aislado, ejecuta `PRAGMA integrity_check`, comprueba el esquema de la aplicación y elimina el temporal. La prueba se ejecuta semanalmente y queda registrada en `backup_restorations`.
 
-Producción usa PostgreSQL en Laravel Cloud: sus copias, retención y restauraciones se gestionan y verifican en la plataforma. El panel no simula una copia local ni comunica éxito cuando el motor no es compatible. Después de cualquier restauración se reinician workers y scheduler y se ejecutan migraciones, `/up`, `system:health-check` y una prueba de autenticación de solo lectura.
+Para PostgreSQL, `database:backup-postgres` ejecuta `pg_dump` en formato custom, cifra el resultado por streaming con XChaCha20-Poly1305 y una clave independiente de `APP_KEY`, calcula SHA-256 y guarda el artefacto y su manifiesto firmado en almacenamiento de objetos privado. Las contraseñas solo se entregan al proceso mediante su entorno y nunca aparecen en argumentos, manifiestos o auditoría. El almacenamiento local queda bloqueado en producción.
+
+`database:verify-postgres-backup` descarga y autentica el artefacto, lo restaura realmente en la conexión desechable configurada y comprueba tablas y migraciones. Rechaza el destino si coincide con producción, si comparte host sin autorización expresa o si el nombre no cumple el patrón de aislamiento. Tras la prueba elimina el esquema restaurado y registra RPO, RTO, resultado y métricas en `backup_restorations`. La creación es diaria y la restauración semanal; `system:health-check` falla cuando una copia o restauración supera su antigüedad máxima.
+
+Variables imprescindibles: `POSTGRES_BACKUP_ENABLED`, `POSTGRES_BACKUP_DISK`, `POSTGRES_BACKUP_ENCRYPTION_KEY` y una conexión `POSTGRES_RESTORE_*` dedicada. Habilitar `POSTGRES_RESTORE_VERIFICATION_ENABLED` solo después de validar que esa base es desechable y está aislada. Después de una restauración de contingencia real se reinician workers y scheduler y se ejecutan migraciones, `/up`, `system:health-check` y una prueba de autenticación de solo lectura.
 
 ## Ficheros y retención
 
