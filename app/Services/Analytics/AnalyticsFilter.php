@@ -33,14 +33,7 @@ final readonly class AnalyticsFilter
             'area' => ['nullable', Rule::in($allowedAreas)],
         ]);
         $period = $data['period'] ?? 'year';
-        $today = CarbonImmutable::today();
-        [$from, $to] = match ($period) {
-            'month' => [$today->startOfMonth(), $today],
-            'quarter' => [$today->startOfQuarter(), $today],
-            'last_12_months' => [$today->subMonths(11)->startOfMonth(), $today],
-            'custom' => [CarbonImmutable::parse($data['from']), CarbonImmutable::parse($data['to'])],
-            default => [$today->startOfYear(), $today],
-        };
+        [$from, $to] = self::resolveDates($period, $data);
 
         return new self(
             $from->startOfDay(),
@@ -50,6 +43,29 @@ final readonly class AnalyticsFilter
             isset($data['project_id']) ? (int) $data['project_id'] : null,
             $data['area'] ?? $allowedAreas[0],
             $request->user(),
+        );
+    }
+
+    /** @param array<string, mixed> $stored */
+    public static function fromStored(User $user, string $area, array $stored): self
+    {
+        abort_unless(in_array($area, self::allowedAreas($user), true), 403);
+        $period = in_array($stored['period'] ?? null, ['month', 'quarter', 'year', 'last_12_months', 'custom'], true)
+            ? $stored['period']
+            : 'year';
+        if ($period === 'custom' && (empty($stored['from']) || empty($stored['to']))) {
+            $period = 'year';
+        }
+        [$from, $to] = self::resolveDates($period, $stored);
+
+        return new self(
+            $from->startOfDay(),
+            $to->endOfDay(),
+            $period,
+            isset($stored['commercial_id']) ? (int) $stored['commercial_id'] : null,
+            isset($stored['project_id']) ? (int) $stored['project_id'] : null,
+            $area,
+            $user,
         );
     }
 
@@ -96,5 +112,21 @@ final readonly class AnalyticsFilter
             'project_id' => $this->projectId,
             'area' => $this->area,
         ];
+    }
+
+    /** @param array<string, mixed> $values
+     * @return array{CarbonImmutable, CarbonImmutable}
+     */
+    private static function resolveDates(string $period, array $values): array
+    {
+        $today = CarbonImmutable::today();
+
+        return match ($period) {
+            'month' => [$today->startOfMonth(), $today],
+            'quarter' => [$today->startOfQuarter(), $today],
+            'last_12_months' => [$today->subMonths(11)->startOfMonth(), $today],
+            'custom' => [CarbonImmutable::parse($values['from']), CarbonImmutable::parse($values['to'])],
+            default => [$today->startOfYear(), $today],
+        };
     }
 }
