@@ -259,4 +259,26 @@ class ExecutiveAnalyticsTest extends TestCase
         $this->artisan('analytics:dispatch')->assertSuccessful();
         Queue::assertPushed(SendAnalyticsReport::class, fn (SendAnalyticsReport $job) => $job->subscriptionId === $subscription->id);
     }
+
+    public function test_drilldown_is_bounded_without_changing_the_kpi_total(): void
+    {
+        $user = User::factory()->create(['role' => 'admin']);
+        $now = now();
+        $documents = collect(range(1, 205))->map(fn (int $index) => [
+            'type' => 'invoice', 'created_by' => $user->id, 'number' => "BOUND-{$index}", 'status' => 'issued',
+            'issue_date' => today(), 'due_date' => today()->addMonth(), 'subtotal' => 1,
+            'discount_amount' => 0, 'tax_amount' => 0, 'amount' => 1, 'paid_amount' => 0,
+            'customer_snapshot' => '[]', 'created_at' => $now, 'updated_at' => $now,
+        ]);
+        foreach ($documents->chunk(100) as $chunk) {
+            \DB::table('sales_documents')->insert($chunk->all());
+        }
+
+        $this->actingAs($user)->get(route('analytics.index', [
+            'area' => 'executive', 'period' => 'month', 'metric' => 'net_revenue',
+        ]))->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->where('selectedMetric.value', 205)
+            ->has('records', 200)
+            ->where('recordsHasMore', true));
+    }
 }

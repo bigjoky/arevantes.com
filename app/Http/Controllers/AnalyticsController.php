@@ -28,14 +28,18 @@ class AnalyticsController extends Controller
             ? $analytics->metric($metricKey, $definitions[$metricKey], $filter)
             : null;
         $metrics = $analytics->metrics($filter);
+        $recordLimit = 200;
+        $selectedRecords = $selectedMetric ? $analytics->records($metricKey, $filter, $recordLimit + 1) : collect();
 
         return Inertia::render('analytics/index', [
             'filters' => $filter->toArray(),
+            'generatedAt' => now()->toIso8601String(),
             'areas' => collect(AnalyticsFilter::allowedAreas($request->user()))->map(fn ($key) => ['key' => $key, 'name' => config("analytics.areas.{$key}")])->values(),
             'metrics' => $metrics,
             'dictionary' => $definitions->map(fn (array $definition, string $key) => ['key' => $key, ...$definition])->values(),
             'selectedMetric' => $selectedMetric,
-            'records' => $selectedMetric ? $analytics->records($metricKey, $filter) : [],
+            'records' => $selectedRecords->take($recordLimit)->values(),
+            'recordsHasMore' => $selectedRecords->count() > $recordLimit,
             'commercials' => User::query()->whereIn('role', ['admin', 'commercial'])
                 ->when($filter->restrictsToOwnCommercialScope(), fn ($query) => $query->whereKey($request->user()->id))
                 ->orderBy('name')->get(['id', 'name']),
