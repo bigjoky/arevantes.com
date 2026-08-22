@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class WorkOrderAttachment extends Model
 {
+    protected $touches = ['workOrder'];
+
     protected $fillable = ['uploaded_by', 'kind', 'customer_visible', 'published_at', 'original_name', 'path', 'mime_type', 'size', 'caption'];
 
     protected function casts(): array

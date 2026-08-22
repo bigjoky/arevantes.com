@@ -28,24 +28,58 @@ class WorkOrderController extends Controller
             'updated_after' => ['nullable', 'date'],
             'status' => ['nullable', 'in:planned,in_progress,blocked,completed,cancelled'],
             'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
+            'sync' => ['nullable', 'boolean'],
+            'cursor' => ['nullable', 'string', 'max:2048'],
+            'snapshot_at' => ['nullable', 'date', 'before_or_equal:now'],
         ]);
-        $orders = $this->accessible($request)
+        $updatedAfter = isset($validated['updated_after'])
+            ? CarbonImmutable::parse($validated['updated_after'])->setTimezone(config('app.timezone'))
+            : null;
+        $query = $this->accessible($request)
             ->with(['installation:id,project_reference,site_name,site_address_line_1,site_city,site_postal_code,site_latitude,site_longitude', 'assignedUser:id,name', 'checklistItems', 'activities:id,work_order_id,blocked_reason'])
-            ->when($validated['updated_after'] ?? null, fn (Builder $query, string $date) => $query->where('updated_at', '>', $date))
-            ->when($validated['status'] ?? null, fn (Builder $query, string $status) => $query->where('status', $status))
+            ->when($updatedAfter, fn (Builder $query, CarbonImmutable $date) => $query->where('updated_at', '>', $date))
+            ->when($validated['status'] ?? null, fn (Builder $query, string $status) => $query->where('status', $status));
+        $perPage = $validated['per_page'] ?? 30;
+
+        if ($validated['sync'] ?? false) {
+            $snapshotAt = isset($validated['snapshot_at'])
+                ? CarbonImmutable::parse($validated['snapshot_at'])->setTimezone(config('app.timezone'))
+                : now();
+            $orders = $query
+                ->where('updated_at', '<=', $snapshotAt)
+                ->orderBy('updated_at')
+                ->orderBy('id')
+                ->cursorPaginate($perPage);
+            $orders->appends([
+                'sync' => 1,
+                'per_page' => $perPage,
+                'updated_after' => $validated['updated_after'] ?? null,
+                'status' => $validated['status'] ?? null,
+                'snapshot_at' => $snapshotAt->toISOString(),
+            ]);
+
+            return response()->json([
+                'data' => collect($orders->items())->map(fn (WorkOrder $order) => $this->summary($order)),
+                'meta' => [
+                    'per_page' => $orders->perPage(),
+                    'next_cursor' => $orders->nextCursor()?->encode(),
+                    'next_page_url' => $orders->nextPageUrl(),
+                    'snapshot_at' => $snapshotAt->toISOString(),
+                ],
+                'running_time_entry' => $this->runningTimeEntry($request),
+            ]);
+        }
+
+        $orders = $query
             ->orderByRaw("case when status = 'completed' then 1 else 0 end")
             ->orderBy('scheduled_start')
-            ->paginate($validated['per_page'] ?? 30);
+            ->orderBy('id')
+            ->paginate($perPage);
 
         return response()->json([
             'data' => collect($orders->items())->map(fn (WorkOrder $order) => $this->summary($order)),
             'meta' => ['current_page' => $orders->currentPage(), 'last_page' => $orders->lastPage(), 'per_page' => $orders->perPage(), 'total' => $orders->total()],
-            'running_time_entry' => ($entry = TimeEntry::with('workOrder:id,number,title')->where('user_id', $request->user()->id)->whereNull('ended_at')->first()) ? [
-                'id' => $entry->id,
-                'client_uuid' => $entry->client_uuid,
-                'started_at' => $entry->started_at->toISOString(),
-                'work_order_id' => $entry->work_order_id,
-            ] : null,
+            'running_time_entry' => $this->runningTimeEntry($request),
         ]);
     }
 
@@ -81,6 +115,7 @@ class WorkOrderController extends Controller
         $data = $request->validate([
             'client_uuid' => ['nullable', 'uuid', Rule::unique('time_entries', 'client_uuid')],
             'started_at' => ['nullable', 'date', 'before_or_equal:now', 'after_or_equal:'.now()->subDays(7)->toISOString()],
+            'expected_updated_at' => ['nullable', 'date'],
         ]);
         $startedAt = isset($data['started_at']) ? CarbonImmutable::parse($data['started_at'])->setTimezone(config('app.timezone')) : now();
         $entry = DB::transaction(function () use ($request, $workOrder, $states, $data, $startedAt): TimeEntry {
@@ -88,8 +123,8 @@ class WorkOrderController extends Controller
             $locked = WorkOrder::query()->lockForUpdate()->findOrFail($workOrder->id);
             $this->ensureAccess($request, $locked);
             abort_if(TimeEntry::where('user_id', $request->user()->id)->whereNull('ended_at')->exists(), 422, __('You already have a running timer.'));
+            $states->transition($locked, 'in_progress', expectedUpdatedAt: $data['expected_updated_at'] ?? null);
             $entry = TimeEntry::create(['client_uuid' => $data['client_uuid'] ?? null, 'work_order_id' => $locked->id, 'user_id' => $request->user()->id, 'created_by' => $request->user()->id, 'started_at' => $startedAt, 'hourly_cost' => config('work.default_hourly_cost'), 'mileage_rate' => config('work.mileage_rate')]);
-            $states->transition($locked, 'in_progress');
 
             return $entry;
         });
@@ -100,8 +135,11 @@ class WorkOrderController extends Controller
     public function complete(Request $request, WorkOrder $workOrder, WorkOrderStateManager $states): JsonResponse
     {
         $this->ensureAccess($request, $workOrder);
-        $data = $request->validate(['completion_notes' => ['required', 'string', 'max:5000']]);
-        $updated = $states->transition($workOrder, 'completed', $data['completion_notes']);
+        $data = $request->validate([
+            'completion_notes' => ['required', 'string', 'max:5000'],
+            'expected_updated_at' => ['nullable', 'date'],
+        ]);
+        $updated = $states->transition($workOrder, 'completed', $data['completion_notes'], expectedUpdatedAt: $data['expected_updated_at'] ?? null);
         $updated->load(['installation', 'assignedUser:id,name', 'checklistItems']);
 
         return response()->json(['data' => [
@@ -117,11 +155,17 @@ class WorkOrderController extends Controller
         $data = $request->validate([
             'status' => ['required', Rule::in(['blocked', 'planned', 'in_progress'])],
             'blocked_reason' => ['nullable', 'string', 'max:1000', 'required_if:status,blocked'],
+            'expected_updated_at' => ['nullable', 'date'],
         ]);
         if ($data['status'] === 'blocked') {
             abort_if(TimeEntry::where('work_order_id', $workOrder->id)->where('user_id', $request->user()->id)->whereNull('ended_at')->exists(), 422, __('Stop the running timer before blocking the work order.'));
         }
-        $updated = $states->transition($workOrder, $data['status'], blockedReason: $data['blocked_reason'] ?? null);
+        $updated = $states->transition(
+            $workOrder,
+            $data['status'],
+            blockedReason: $data['blocked_reason'] ?? null,
+            expectedUpdatedAt: $data['expected_updated_at'] ?? null,
+        );
         $updated->load(['installation', 'assignedUser:id,name', 'checklistItems', 'activities:id,work_order_id,blocked_reason']);
 
         return response()->json(['data' => $this->summary($updated)]);
@@ -262,6 +306,22 @@ class WorkOrderController extends Controller
         if ($request->user()->hasRole('technician')) {
             abort_unless($workOrder->assigned_user_id === $request->user()->id, 403);
         }
+    }
+
+    /** @return array<string, mixed>|null */
+    private function runningTimeEntry(Request $request): ?array
+    {
+        $entry = TimeEntry::query()
+            ->where('user_id', $request->user()->id)
+            ->whereNull('ended_at')
+            ->first();
+
+        return $entry ? [
+            'id' => $entry->id,
+            'client_uuid' => $entry->client_uuid,
+            'started_at' => $entry->started_at->toISOString(),
+            'work_order_id' => $entry->work_order_id,
+        ] : null;
     }
 
     /** @return array<string, mixed> */

@@ -25,6 +25,7 @@ use App\Services\Finance\FinancialAlertService;
 use App\Services\Finance\FinancialTaxonomyComparison;
 use App\Services\Finance\OutstandingBalanceCalculator;
 use App\Services\Finance\ProjectProfitability;
+use App\Services\Finance\PurchaseCommitmentAnalysis;
 use App\Services\Finance\TreasuryForecast;
 use Carbon\CarbonInterface;
 use Illuminate\Http\RedirectResponse;
@@ -46,7 +47,7 @@ class FinanceController extends Controller
         private FinancialAlertService $financialAlerts,
     ) {}
 
-    public function index(Request $request, TreasuryForecast $forecast, ProjectProfitability $profitability, FinancialTaxonomyComparison $taxonomyComparison): Response
+    public function index(Request $request, TreasuryForecast $forecast, ProjectProfitability $profitability, FinancialTaxonomyComparison $taxonomyComparison, PurchaseCommitmentAnalysis $commitmentAnalysis): Response
     {
         $year = $this->year($request);
         $scenario = $request->validate(['scenario' => ['nullable', Rule::in(['conservative', 'probable', 'optimistic'])]])['scenario'] ?? 'probable';
@@ -119,7 +120,8 @@ class FinanceController extends Controller
             ];
         });
         $company = CompanyProfile::firstOrFail();
-        $treasuryForecast = $forecast->build($year, $scenario);
+        $purchaseCommitments = $commitmentAnalysis->build($year);
+        $treasuryForecast = $forecast->build($year, $scenario, $purchaseCommitments['rows']);
         $budgetAlerts = $this->financialAlerts->evaluate($year, $performance, $cashFlow, $treasuryForecast, $company);
         $receivableRows = $receivables->map(function ($item) {
             $promiseBreached = $item->collectionAction?->status === 'promised'
@@ -213,7 +215,8 @@ class FinanceController extends Controller
             ],
             'receivables' => $receivableRows,
             'payables' => $payables,
-            'profitability' => $profitability->forYear($year),
+            'profitability' => $profitability->forYear($year, $purchaseCommitments['rows']),
+            'purchaseCommitments' => $purchaseCommitments,
             'treasuryForecast' => $treasuryForecast,
             'forecastItems' => $forecastItems,
             'forecastAccuracy' => $this->forecastAccuracy($forecastItems

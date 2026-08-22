@@ -1,8 +1,9 @@
-import { Form, Head, Link, router, usePage } from '@inertiajs/react';
+import { Form, Head, Link, usePage } from '@inertiajs/react';
 import {
     AlertTriangle,
     ArrowLeft,
     ArrowRight,
+    CalendarClock,
     CalendarDays,
     Check,
     CircleDashed,
@@ -122,6 +123,14 @@ type OperationalException = {
     href: string;
     severity: 'critical' | 'warning';
 };
+type PlanningMeta = {
+    scheduled_total: number;
+    scheduled_loaded: number;
+    unscheduled_total: number;
+    unscheduled_loaded: number;
+    truncated: boolean;
+};
+type RescheduleRequest = { order: WorkOrder; day?: string };
 
 const statuses = [
     ['pending', 'Pending'],
@@ -143,6 +152,7 @@ export default function OperationsIndex({
     activities,
     boardActivities,
     planningOrders,
+    planningMeta,
     weekActivities,
     metrics,
     exceptions,
@@ -155,6 +165,7 @@ export default function OperationsIndex({
     activities: PaginatedActivities;
     boardActivities: Activity[];
     planningOrders: WorkOrder[];
+    planningMeta: PlanningMeta;
     weekActivities: Activity[];
     metrics: Metrics;
     exceptions: OperationalException[];
@@ -168,6 +179,9 @@ export default function OperationsIndex({
         new URLSearchParams(usePage().url.split('?')[1] || '').get('focus'),
     );
     const focusRef = useRef<HTMLTableRowElement>(null);
+    const [reschedule, setReschedule] = useState<RescheduleRequest | null>(
+        null,
+    );
     useEffect(() => {
         if (focusedId && focusRef.current) {
             focusRef.current.scrollIntoView({
@@ -207,7 +221,7 @@ export default function OperationsIndex({
                     </div>
                 </header>
 
-                <section className="grid gap-px overflow-hidden rounded-lg border bg-border sm:grid-cols-3 xl:grid-cols-6">
+                <section className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border bg-border sm:grid-cols-3 xl:grid-cols-6">
                     <Metric
                         label="Due today"
                         value={metrics.today}
@@ -299,6 +313,10 @@ export default function OperationsIndex({
                         filters={filters}
                         activities={weekActivities}
                         orders={planningOrders}
+                        planningMeta={planningMeta}
+                        onReschedule={(order, day) =>
+                            setReschedule({ order, day })
+                        }
                     />
                 )}
                 {filters.view === 'month' && (
@@ -307,8 +325,16 @@ export default function OperationsIndex({
                         filters={filters}
                         activities={weekActivities}
                         orders={planningOrders}
+                        planningMeta={planningMeta}
+                        onReschedule={(order, day) =>
+                            setReschedule({ order, day })
+                        }
                     />
                 )}
+                <RescheduleDialog
+                    request={reschedule}
+                    onOpenChange={(open) => !open && setReschedule(null)}
+                />
             </div>
         </>
     );
@@ -770,11 +796,15 @@ function Week({
     filters,
     activities,
     orders,
+    planningMeta,
+    onReschedule,
 }: {
     week: string;
     filters: Filters;
     activities: Activity[];
     orders: WorkOrder[];
+    planningMeta: PlanningMeta;
+    onReschedule: (order: WorkOrder, day?: string) => void;
 }) {
     const days = useMemo(
         () => Array.from({ length: 7 }, (_, index) => addDays(week, index)),
@@ -815,7 +845,10 @@ function Week({
                     </Button>
                 </div>
             </div>
-            <div className="grid min-w-[70rem] grid-cols-7 divide-x overflow-x-auto">
+            {planningMeta.truncated && (
+                <PlanningLimitNotice meta={planningMeta} />
+            )}
+            <div className="grid grid-cols-1 divide-y md:min-w-[70rem] md:grid-cols-7 md:divide-x md:divide-y-0 md:overflow-x-auto">
                 {days.map((day) => {
                     const dayActivities = activities.filter(
                         (activity) =>
@@ -829,9 +862,15 @@ function Week({
                     return (
                         <div
                             key={day}
-                            className="min-h-80 p-2"
+                            className="min-h-32 p-2 md:min-h-80"
                             onDragOver={(event) => event.preventDefault()}
-                            onDrop={(event) => dropOrder(event, day)}
+                            onDrop={(event) => {
+                                const order = droppedOrder(event);
+
+                                if (order) {
+onReschedule(order, day);
+}
+                            }}
                         >
                             <div className="mb-2 border-b pb-2 text-sm font-medium">
                                 {new Intl.DateTimeFormat('en', {
@@ -842,7 +881,7 @@ function Week({
                             </div>
                             <div className="grid gap-2">
                                 {dayOrders.map((order) => (
-                                    <Link
+                                    <article
                                         key={`order-${order.id}`}
                                         draggable
                                         onDragStart={(event) =>
@@ -851,20 +890,38 @@ function Week({
                                                 JSON.stringify(order),
                                             )
                                         }
-                                        href={`/work-orders?work_order=${order.id}`}
-                                        className={`rounded border p-2 text-xs hover:bg-muted ${order.has_schedule_conflict ? 'border-destructive bg-destructive/5' : 'border-blue-300 bg-blue-50 dark:bg-blue-950/20'}`}
+                                        className={`relative rounded border p-2 pr-9 text-xs ${order.has_schedule_conflict ? 'border-destructive bg-destructive/5' : 'border-blue-300 bg-blue-50 dark:bg-blue-950/20'}`}
                                     >
-                                        <div className="font-medium">
-                                            {order.number}
-                                        </div>
-                                        <div>
-                                            {formatTime(order.scheduled_start)}{' '}
-                                            · {order.title}
-                                        </div>
-                                        <div className="mt-1 text-muted-foreground">
-                                            {order.assigned_user?.name ||
-                                                'Unassigned'}
-                                        </div>
+                                        <Link
+                                            href={`/work-orders?work_order=${order.id}`}
+                                            className="block hover:underline"
+                                        >
+                                            <div className="font-medium">
+                                                {order.number}
+                                            </div>
+                                            <div>
+                                                {formatTime(
+                                                    order.scheduled_start,
+                                                )}{' '}
+                                                · {order.title}
+                                            </div>
+                                            <div className="mt-1 text-muted-foreground">
+                                                {order.assigned_user?.name ||
+                                                    'Unassigned'}
+                                            </div>
+                                        </Link>
+                                        <Button
+                                            type="button"
+                                            size="icon"
+                                            variant="ghost"
+                                            className="absolute top-1 right-1 size-7"
+                                            aria-label={`Reschedule ${order.number}`}
+                                            onClick={() =>
+                                                onReschedule(order, day)
+                                            }
+                                        >
+                                            <CalendarClock />
+                                        </Button>
                                         {order.planning_issues?.map((issue) => (
                                             <div
                                                 key={`${issue.type}-${issue.message}`}
@@ -873,7 +930,7 @@ function Week({
                                                 {issue.message}
                                             </div>
                                         ))}
-                                    </Link>
+                                    </article>
                                 ))}
                                 {dayActivities.map((activity) => (
                                     <Link
@@ -915,18 +972,27 @@ function Week({
                         {orders
                             .filter((order) => !order.scheduled_start)
                             .map((order) => (
-                                <Button
+                                <div
                                     key={order.id}
-                                    asChild
-                                    size="sm"
-                                    variant="outline"
+                                    className="flex items-center rounded-md border"
                                 >
                                     <Link
                                         href={`/work-orders?work_order=${order.id}`}
+                                        className="px-3 py-1.5 text-sm hover:underline"
                                     >
                                         {order.number} · {order.title}
                                     </Link>
-                                </Button>
+                                    <Button
+                                        type="button"
+                                        size="icon"
+                                        variant="ghost"
+                                        className="size-8"
+                                        aria-label={`Schedule ${order.number}`}
+                                        onClick={() => onReschedule(order, week)}
+                                    >
+                                        <CalendarClock />
+                                    </Button>
+                                </div>
                             ))}
                     </div>
                 </div>
@@ -940,11 +1006,15 @@ function Month({
     filters,
     activities,
     orders,
+    planningMeta,
+    onReschedule,
 }: {
     month: string;
     filters: Filters;
     activities: Activity[];
     orders: WorkOrder[];
+    planningMeta: PlanningMeta;
+    onReschedule: (order: WorkOrder, day?: string) => void;
 }) {
     const first = new Date(`${month}T12:00:00`);
     const offset = (first.getDay() + 6) % 7;
@@ -952,6 +1022,8 @@ function Month({
     const days = Array.from({ length: 42 }, (_, index) =>
         addDays(gridStart, index),
     );
+    const hasMonthItems =
+        orders.some((order) => order.scheduled_start) || activities.length > 0;
 
     return (
         <section className="overflow-hidden rounded-lg border">
@@ -983,7 +1055,15 @@ function Month({
                     ))}
                 </div>
             </div>
-            <div className="grid min-w-[60rem] grid-cols-7 divide-x divide-y overflow-x-auto">
+            {planningMeta.truncated && (
+                <PlanningLimitNotice meta={planningMeta} />
+            )}
+            {!hasMonthItems && (
+                <div className="p-8 text-center text-sm text-muted-foreground md:hidden">
+                    No scheduled work in this month.
+                </div>
+            )}
+            <div className="grid grid-cols-1 divide-y md:min-w-[60rem] md:grid-cols-7 md:divide-x md:overflow-x-auto">
                 {days.map((day) => {
                     const dayOrders = orders.filter(
                         (order) => dateKey(order.scheduled_start) === day,
@@ -993,19 +1073,35 @@ function Month({
                             dateKey(activity.starts_at || activity.due_at) ===
                             day,
                     ).length;
+                    const hasItems = dayOrders.length > 0 || count > 0;
 
                     return (
                         <div
                             key={day}
-                            className="min-h-28 p-2"
+                            className={`${hasItems ? 'block' : 'hidden md:block'} min-h-20 p-2 md:min-h-28`}
                             onDragOver={(event) => event.preventDefault()}
-                            onDrop={(event) => dropOrder(event, day)}
+                            onDrop={(event) => {
+                                const order = droppedOrder(event);
+
+                                if (order) {
+onReschedule(order, day);
+}
+                            }}
                         >
                             <div className="mb-1 text-xs font-medium">
-                                {day.slice(8)}
+                                <span className="md:hidden">
+                                    {new Intl.DateTimeFormat('en', {
+                                        weekday: 'short',
+                                        day: 'numeric',
+                                        month: 'short',
+                                    }).format(new Date(`${day}T12:00:00`))}
+                                </span>
+                                <span className="hidden md:inline">
+                                    {day.slice(8)}
+                                </span>
                             </div>
                             {dayOrders.slice(0, 3).map((order) => (
-                                <Link
+                                <div
                                     key={order.id}
                                     draggable
                                     onDragStart={(event) =>
@@ -1014,13 +1110,34 @@ function Month({
                                             JSON.stringify(order),
                                         )
                                     }
-                                    href={`/work-orders?work_order=${order.id}`}
-                                    className="mb-1 block truncate rounded bg-blue-50 px-1 py-0.5 text-xs dark:bg-blue-950/30"
+                                    className="mb-1 flex items-center rounded bg-blue-50 text-xs dark:bg-blue-950/30"
                                 >
-                                    {formatTime(order.scheduled_start)}{' '}
-                                    {order.number}
-                                </Link>
+                                    <Link
+                                        href={`/work-orders?work_order=${order.id}`}
+                                        className="min-w-0 flex-1 truncate px-1 py-0.5 hover:underline"
+                                    >
+                                        {formatTime(order.scheduled_start)}{' '}
+                                        {order.number}
+                                    </Link>
+                                    <Button
+                                        type="button"
+                                        size="icon"
+                                        variant="ghost"
+                                        className="size-7 shrink-0"
+                                        aria-label={`Reschedule ${order.number}`}
+                                        onClick={() =>
+                                            onReschedule(order, day)
+                                        }
+                                    >
+                                        <CalendarClock />
+                                    </Button>
+                                </div>
                             ))}
+                            {dayOrders.length > 3 && (
+                                <div className="text-xs font-medium text-muted-foreground">
+                                    +{dayOrders.length - 3} more work orders
+                                </div>
+                            )}
                             {count > 0 && (
                                 <div className="text-xs text-muted-foreground">
                                     {count} activities
@@ -1034,40 +1151,119 @@ function Month({
     );
 }
 
-function dropOrder(event: React.DragEvent, day: string) {
+function droppedOrder(event: React.DragEvent): WorkOrder | null {
     const raw = event.dataTransfer.getData('application/x-work-order');
 
     if (!raw) {
-        return;
+        return null;
     }
 
-    const order = JSON.parse(raw) as WorkOrder;
-    const reason = window.prompt('Reason for rescheduling');
-
-    if (!reason?.trim()) {
-        return;
+    try {
+        return JSON.parse(raw) as WorkOrder;
+    } catch {
+        return null;
     }
+}
+
+function rescheduleDefaults(request: RescheduleRequest) {
+    const { order, day } = request;
 
     const localStart = order.scheduled_start
         ? dateTimeInput(order.scheduled_start)
         : null;
+    const targetDay =
+        day || localStart?.slice(0, 10) || localIso(new Date()).slice(0, 10);
     const start = localStart
-        ? `${day}T${localStart.slice(11)}:00`
-        : `${day}T08:00:00`;
+        ? `${targetDay}T${localStart.slice(11)}:00`
+        : `${targetDay}T08:00:00`;
     const duration =
         order.scheduled_start && order.scheduled_end
             ? new Date(order.scheduled_end).getTime() -
               new Date(order.scheduled_start).getTime()
             : 60 * 60 * 1000;
     const end = localIso(new Date(new Date(start).getTime() + duration));
-    router.patch(
-        `/work-orders/${order.id}/schedule`,
-        {
-            scheduled_start: start,
-            scheduled_end: end,
-            reschedule_reason: reason,
-        },
-        { preserveScroll: true },
+
+    return { start, end };
+}
+
+function PlanningLimitNotice({ meta }: { meta: PlanningMeta }) {
+    return (
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b bg-amber-50 px-4 py-2 text-xs text-amber-950 dark:bg-amber-950/20 dark:text-amber-100">
+            <span>
+                Showing {meta.scheduled_loaded} of {meta.scheduled_total}{' '}
+                scheduled and {meta.unscheduled_loaded} of{' '}
+                {meta.unscheduled_total} unscheduled work orders. Narrow the
+                filters to review every result.
+            </span>
+            <Link href="/work-orders" className="font-medium underline">
+                Open all work orders
+            </Link>
+        </div>
+    );
+}
+
+function RescheduleDialog({
+    request,
+    onOpenChange,
+}: {
+    request: RescheduleRequest | null;
+    onOpenChange: (open: boolean) => void;
+}) {
+    if (!request) {
+        return null;
+    }
+
+    const defaults = rescheduleDefaults(request);
+
+    return (
+        <Dialog open onOpenChange={onOpenChange}>
+            <DialogContent key={`${request.order.id}-${request.day || 'open'}`}>
+                <DialogHeader>
+                    <DialogTitle>
+                        Reschedule {request.order.number}
+                    </DialogTitle>
+                    <DialogDescription>
+                        Review the new time and record why the plan changed. The
+                        reason remains in the work-order audit trail.
+                    </DialogDescription>
+                </DialogHeader>
+                <Form
+                    action={`/work-orders/${request.order.id}/schedule`}
+                    method="patch"
+                    onSuccess={() => onOpenChange(false)}
+                    className="grid gap-4"
+                >
+                    {({ errors, processing }) => (
+                        <>
+                            <div className="grid gap-4 sm:grid-cols-2">
+                                <Field
+                                    label="Starts"
+                                    name="scheduled_start"
+                                    type="datetime-local"
+                                    defaultValue={defaults.start.slice(0, 16)}
+                                    error={errors.scheduled_start}
+                                />
+                                <Field
+                                    label="Ends"
+                                    name="scheduled_end"
+                                    type="datetime-local"
+                                    defaultValue={defaults.end.slice(0, 16)}
+                                    error={errors.scheduled_end}
+                                />
+                            </div>
+                            <TextAreaField
+                                label="Reason for rescheduling"
+                                name="reschedule_reason"
+                                error={errors.reschedule_reason}
+                            />
+                            <Button disabled={processing}>
+                                <CalendarClock /> Confirm new schedule
+                            </Button>
+                        </>
+                    )}
+                </Form>
+            </DialogContent>
+        </Dialog>
     );
 }
 
