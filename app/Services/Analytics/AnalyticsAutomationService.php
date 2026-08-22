@@ -59,11 +59,11 @@ class AnalyticsAutomationService
     {
         $now = CarbonImmutable::now($timezone);
 
-        return (match ($frequency) {
+        return match ($frequency) {
             'daily' => $now->addDay()->startOfDay()->addHours(7),
             'monthly' => $now->addMonth()->startOfMonth()->addHours(7),
             default => $now->addWeek()->startOfWeek()->addHours(7),
-        })->utc();
+        };
     }
 
     private function matches(float $value, string $operator, float $threshold): bool
