@@ -126,6 +126,12 @@ type PeopleShowProps = {
     person: Person;
     customer360?: Customer360;
     activityUsers?: Array<{ id: number; name: string; role: string }>;
+    availableAccessUsers?: Array<{
+        id: number;
+        name: string;
+        email: string;
+        role: string;
+    }>;
     availableTags?: Array<{ id: number; name: string; color: string }>;
     basePath?: string;
     showBackLabel?: string;
@@ -181,6 +187,7 @@ export default function PeopleShow({
     person,
     customer360,
     activityUsers = [],
+    availableAccessUsers = [],
     availableTags = [],
     basePath = '/people',
     showBackLabel = 'All customers',
@@ -589,6 +596,86 @@ export default function PeopleShow({
                                 </CardDescription>
                             </CardHeader>
                             <CardContent className="space-y-4">
+                                {!person.access &&
+                                availableAccessUsers.length > 0 ? (
+                                    <div className="space-y-3 rounded-md border bg-muted/30 p-4">
+                                        <div>
+                                            <p className="text-sm font-medium">
+                                                Link an existing CRM account
+                                            </p>
+                                            <p className="text-xs text-muted-foreground">
+                                                Keeps its password, role and
+                                                permissions unchanged.
+                                            </p>
+                                        </div>
+                                        <Form
+                                            action={`/staff/${person.id}/access/link`}
+                                            method="post"
+                                            className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]"
+                                        >
+                                            {({ processing, errors }) => (
+                                                <>
+                                                    <div className="grid gap-2">
+                                                        <Label htmlFor="existing_access_user">
+                                                            CRM account
+                                                        </Label>
+                                                        <Select name="user_id">
+                                                            <SelectTrigger
+                                                                id="existing_access_user"
+                                                                className="w-full"
+                                                            >
+                                                                <SelectValue placeholder="Select an account" />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                {availableAccessUsers.map(
+                                                                    (user) => (
+                                                                        <SelectItem
+                                                                            key={
+                                                                                user.id
+                                                                            }
+                                                                            value={String(
+                                                                                user.id,
+                                                                            )}
+                                                                        >
+                                                                            {
+                                                                                user.name
+                                                                            }{' '}
+                                                                            ·{' '}
+                                                                            {
+                                                                                user.email
+                                                                            }{' '}
+                                                                            ·{' '}
+                                                                            {
+                                                                                user.role
+                                                                            }
+                                                                        </SelectItem>
+                                                                    ),
+                                                                )}
+                                                            </SelectContent>
+                                                        </Select>
+                                                        {errors.user_id ? (
+                                                            <p className="text-xs text-destructive">
+                                                                {errors.user_id}
+                                                            </p>
+                                                        ) : null}
+                                                    </div>
+                                                    <Button
+                                                        className="self-end"
+                                                        variant="secondary"
+                                                        disabled={processing}
+                                                    >
+                                                        Link account
+                                                    </Button>
+                                                </>
+                                            )}
+                                        </Form>
+                                    </div>
+                                ) : null}
+                                {!person.access ? (
+                                    <div className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                                        Create a new CRM account
+                                    </div>
+                                ) : null}
                                 <Form
                                     action={`/staff/${person.id}/access`}
                                     method={person.access ? 'patch' : 'post'}

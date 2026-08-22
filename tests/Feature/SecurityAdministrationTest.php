@@ -82,6 +82,86 @@ class SecurityAdministrationTest extends TestCase
         $this->assertDatabaseMissing('users', ['email' => 'irene@example.com']);
     }
 
+    public function test_existing_unlinked_crm_account_can_be_linked_to_staff_without_changing_access(): void
+    {
+        $administrator = PermissionProfile::where('slug', 'administrator')->firstOrFail();
+        $admin = User::factory()->create(['role' => 'admin', 'permission_profile_id' => $administrator->id]);
+        $staff = Person::create(['category' => 'staff', 'first_name' => 'Joaquín', 'last_name' => 'Arévalo Bueno']);
+        $existing = User::factory()->create([
+            'person_id' => null,
+            'email' => 'j.arevalo@arevantes.com',
+            'role' => 'admin',
+            'permission_profile_id' => $administrator->id,
+        ]);
+        $password = $existing->password;
+
+        $this->actingAs($admin)
+            ->post(route('staff.access.link', $staff), ['user_id' => $existing->id])
+            ->assertRedirect()
+            ->assertSessionHas('toast');
+
+        $existing->refresh();
+        $this->assertSame($staff->id, $existing->person_id);
+        $this->assertSame('admin', $existing->role);
+        $this->assertSame($administrator->id, $existing->permission_profile_id);
+        $this->assertSame($password, $existing->password);
+        $this->assertNotNull($existing->access_reviewed_at);
+        $this->assertDatabaseHas('security_events', [
+            'type' => 'staff_access_linked',
+            'user_id' => $existing->id,
+        ]);
+    }
+
+    public function test_linked_crm_account_cannot_be_reassigned_through_staff_linking(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $currentStaff = Person::create(['category' => 'staff', 'first_name' => 'Current']);
+        $targetStaff = Person::create(['category' => 'staff', 'first_name' => 'Target']);
+        $existing = User::factory()->create(['person_id' => $currentStaff->id]);
+
+        $this->actingAs($admin)
+            ->post(route('staff.access.link', $targetStaff), ['user_id' => $existing->id])
+            ->assertSessionHasErrors('user_id');
+
+        $this->assertSame($currentStaff->id, $existing->refresh()->person_id);
+    }
+
+    public function test_staff_profile_offers_only_unlinked_crm_accounts(): void
+    {
+        $adminStaff = Person::create(['category' => 'staff', 'first_name' => 'Administrator']);
+        $admin = User::factory()->create(['role' => 'admin', 'person_id' => $adminStaff->id]);
+        $staff = Person::create(['category' => 'staff', 'first_name' => 'Target']);
+        $linkedStaff = Person::create(['category' => 'staff', 'first_name' => 'Linked']);
+        $available = User::factory()->create(['person_id' => null, 'email' => 'available@example.com']);
+        $linked = User::factory()->create(['person_id' => $linkedStaff->id, 'email' => 'linked@example.com']);
+
+        $this->actingAs($admin)
+            ->get(route('staff.show', $staff))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->has('availableAccessUsers', 1)
+                ->where('availableAccessUsers.0.id', $available->id)
+                ->missing('availableAccessUsers.1'));
+
+        $this->assertNotSame($available->id, $linked->id);
+    }
+
+    public function test_staff_manager_without_access_permission_cannot_see_unlinked_accounts(): void
+    {
+        $humanResources = PermissionProfile::where('slug', 'human-resources')->firstOrFail();
+        $staffManager = User::factory()->create([
+            'role' => 'commercial',
+            'permission_profile_id' => $humanResources->id,
+        ]);
+        $staff = Person::create(['category' => 'staff', 'first_name' => 'Target']);
+        User::factory()->create(['person_id' => null, 'email' => 'private@example.com']);
+
+        $this->actingAs($staffManager)
+            ->get(route('staff.show', $staff))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page->has('availableAccessUsers', 0));
+    }
+
     public function test_last_administrator_cannot_be_demoted_by_another_access_manager(): void
     {
         $administrator = PermissionProfile::where('slug', 'administrator')->firstOrFail();
