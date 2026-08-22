@@ -86,11 +86,13 @@ type Subscription = {
 
 type Props = {
     filters: Filter;
+    generatedAt: string;
     areas: Array<{ key: string; name: string }>;
     metrics: Metric[];
     dictionary: Omit<Metric, 'value' | 'previous' | 'quality'>[];
     selectedMetric: Metric | null;
     records: RecordRow[];
+    recordsHasMore: boolean;
     commercials: Array<{ id: number; name: string }>;
     projects: Array<{
         id: number;
@@ -132,7 +134,7 @@ export default function AnalyticsIndex(props: Props) {
             <PageShell>
                 <PageHeader
                     title="Analítica y dirección"
-                    description="KPIs reconciliados con sus módulos de origen, trazables hasta cada registro."
+                    description={`Corte ${formatDate(props.filters.to)} · calculado ${formatDateTime(props.generatedAt)} · trazable hasta el registro de origen.`}
                     actions={
                         <div className="flex gap-2">
                             <Button variant="outline" asChild>
@@ -301,6 +303,7 @@ export default function AnalyticsIndex(props: Props) {
                         metrics={props.metrics}
                         selectedMetric={props.selectedMetric}
                         records={props.records}
+                        recordsHasMore={props.recordsHasMore}
                         onOpen={openMetric}
                     />
                 ) : null}
@@ -317,11 +320,13 @@ function Dashboard({
     metrics,
     selectedMetric,
     records,
+    recordsHasMore,
     onOpen,
 }: {
     metrics: Metric[];
     selectedMetric: Metric | null;
     records: RecordRow[];
+    recordsHasMore: boolean;
     onOpen: (key: string) => void;
 }) {
     return (
@@ -381,7 +386,11 @@ function Dashboard({
                 ))}
             </section>
             {selectedMetric ? (
-                <Drilldown metric={selectedMetric} records={records} />
+                <Drilldown
+                    metric={selectedMetric}
+                    records={records}
+                    recordsHasMore={recordsHasMore}
+                />
             ) : (
                 <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
                     Selecciona un KPI para explicar su fórmula y abrir los
@@ -395,9 +404,11 @@ function Dashboard({
 function Drilldown({
     metric,
     records,
+    recordsHasMore,
 }: {
     metric: Metric;
     records: RecordRow[];
+    recordsHasMore: boolean;
 }) {
     return (
         <Card className="gap-0 overflow-hidden py-0">
@@ -406,7 +417,7 @@ function Drilldown({
                     <div className="flex items-center gap-2">
                         <h2 className="text-lg font-semibold">{metric.name}</h2>
                         <Badge variant="outline">
-                            {records.length} registros
+                            {records.length} registros mostrados
                         </Badge>
                     </div>
                     <p className="mt-1 text-sm text-muted-foreground">
@@ -427,6 +438,12 @@ function Drilldown({
                     </div>
                 </div>
             </div>
+            {recordsHasMore ? (
+                <div className="border-b bg-amber-50 px-5 py-3 text-xs text-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
+                    Hay más registros. Acota el periodo o el proyecto para
+                    mantener el análisis rápido y obtener un detalle completo.
+                </div>
+            ) : null}
             <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                     <thead className="bg-muted/50 text-left text-xs text-muted-foreground">
@@ -866,6 +883,11 @@ const formatDate = (date: string | null) =>
     date
         ? new Intl.DateTimeFormat('es-ES').format(new Date(date))
         : 'Sin fecha';
+const formatDateTime = (date: string) =>
+    new Intl.DateTimeFormat('es-ES', {
+        dateStyle: 'short',
+        timeStyle: 'short',
+    }).format(new Date(date));
 const frequencyLabel = (frequency: string) =>
     ({ daily: 'Diario', weekly: 'Semanal', monthly: 'Mensual' })[frequency] ??
     frequency;

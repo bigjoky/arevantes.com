@@ -43,65 +43,65 @@ class AnalyticsService
     }
 
     /** @return Collection<int, array<string, mixed>> */
-    public function records(string $key, AnalyticsFilter $filter): Collection
+    public function records(string $key, AnalyticsFilter $filter, ?int $limit = null): Collection
     {
         abort_unless(array_key_exists($key, config('analytics.metrics')), 404);
         abort_unless(in_array($filter->area, config("analytics.metrics.{$key}.areas"), true), 403);
 
         return match ($key) {
-            'net_revenue' => $this->salesQuery($filter, $filter->from, $filter->to)
+            'net_revenue' => $this->limitQuery($this->salesQuery($filter, $filter->from, $filter->to)
                 ->select(['sales_documents.id', 'sales_documents.number', 'sales_documents.issue_date', 'sales_documents.status', 'sales_documents.subtotal', 'installations.project_reference'])
-                ->orderByDesc('sales_documents.issue_date')->get()->map(fn ($row) => [
+                ->orderByDesc('sales_documents.issue_date'), $limit)->get()->map(fn ($row) => [
                     'id' => $row->id, 'date' => $row->issue_date, 'reference' => $row->number,
                     'project' => $row->project_reference, 'status' => $row->status,
                     'value' => (float) $row->subtotal,
                     'url' => route('sales-documents.show', $row->id),
                 ]),
-            'outstanding_receivables' => $this->receivableQuery($filter, $filter->to)
-                ->orderByDesc('sales_documents.issue_date')->get()->map(fn ($row) => [
+            'outstanding_receivables' => $this->limitQuery($this->receivableQuery($filter, $filter->to)
+                ->orderByDesc('sales_documents.issue_date'), $limit)->get()->map(fn ($row) => [
                     'id' => $row->id, 'date' => $row->issue_date, 'reference' => $row->number,
                     'project' => $row->project_reference, 'status' => $row->status,
                     'value' => round((float) $row->outstanding_amount, 2),
                     'url' => route('sales-documents.show', $row->id),
                 ]),
-            'open_pipeline' => $this->opportunityQuery($filter, $filter->from, $filter->to)
+            'open_pipeline' => $this->limitQuery($this->opportunityQuery($filter, $filter->from, $filter->to)
                 ->select(['opportunities.id', 'opportunities.code', 'opportunities.title', 'opportunities.stage', 'opportunities.estimated_value', 'opportunities.expected_close_on', 'installations.project_reference'])
-                ->orderByDesc('opportunities.expected_close_on')->get()->map(fn ($row) => [
+                ->orderByDesc('opportunities.expected_close_on'), $limit)->get()->map(fn ($row) => [
                     'id' => $row->id, 'date' => $row->expected_close_on, 'reference' => $row->code ?: $row->title,
                     'project' => $row->project_reference, 'status' => $row->stage,
                     'value' => (float) $row->estimated_value,
                     'url' => route('opportunities.index', ['search' => $row->code ?: $row->title]),
                 ]),
-            'win_rate' => $this->opportunityQuery($filter, $filter->from, $filter->to, true)
+            'win_rate' => $this->limitQuery($this->opportunityQuery($filter, $filter->from, $filter->to, true)
                 ->select(['opportunities.id', 'opportunities.code', 'opportunities.title', 'opportunities.stage', 'installations.project_reference', 'latest_closure.closed_at'])
-                ->orderByDesc('latest_closure.closed_at')->get()->map(fn ($row) => [
+                ->orderByDesc('latest_closure.closed_at'), $limit)->get()->map(fn ($row) => [
                     'id' => $row->id, 'date' => $row->closed_at, 'reference' => $row->code ?: $row->title,
                     'project' => $row->project_reference, 'status' => $row->stage,
                     'value' => $row->stage === 'won' ? 1 : 0,
                     'url' => route('opportunities.index', ['search' => $row->code ?: $row->title]),
                 ]),
-            'completed_projects' => $this->installationQuery($filter, $filter->from, $filter->to)
+            'completed_projects' => $this->limitQuery($this->installationQuery($filter, $filter->from, $filter->to)
                 ->select(['installations.id', 'installations.project_reference', 'installations.site_name', 'installations.status', 'installations.completed_date'])
-                ->orderByDesc('completed_date')->get()->map(fn ($row) => [
+                ->orderByDesc('completed_date'), $limit)->get()->map(fn ($row) => [
                     'id' => $row->id, 'date' => $row->completed_date, 'reference' => $row->project_reference ?: $row->site_name,
                     'project' => $row->project_reference, 'status' => $row->status, 'value' => 1,
                     'url' => route('installations.show', $row->id),
                 ]),
-            'work_order_completion' => $this->workOrderQuery($filter, $filter->from, $filter->to)
+            'work_order_completion' => $this->limitQuery($this->workOrderQuery($filter, $filter->from, $filter->to)
                 ->select(['work_orders.id', 'work_orders.number', 'work_orders.title', 'work_orders.status', 'work_orders.scheduled_start', 'installations.project_reference'])
-                ->orderByDesc('work_orders.scheduled_start')->get()->map(fn ($row) => [
+                ->orderByDesc('work_orders.scheduled_start'), $limit)->get()->map(fn ($row) => [
                     'id' => $row->id, 'date' => $row->scheduled_start, 'reference' => $row->number ?: $row->title,
                     'project' => $row->project_reference, 'status' => $row->status, 'value' => $row->status === 'completed' ? 1 : 0,
                     'url' => route('work-orders.index', ['work_order' => $row->id]),
                 ]),
-            'purchase_spend' => $this->purchaseQuery($filter, $filter->from, $filter->to)
+            'purchase_spend' => $this->limitQuery($this->purchaseQuery($filter, $filter->from, $filter->to)
                 ->select(['purchase_documents.id', 'purchase_documents.number', 'purchase_documents.issue_date', 'purchase_documents.status', 'purchase_documents.subtotal', 'installations.project_reference'])
-                ->orderByDesc('purchase_documents.issue_date')->get()->map(fn ($row) => [
+                ->orderByDesc('purchase_documents.issue_date'), $limit)->get()->map(fn ($row) => [
                     'id' => $row->id, 'date' => $row->issue_date, 'reference' => $row->number,
                     'project' => $row->project_reference, 'status' => $row->status, 'value' => (float) $row->subtotal,
                     'url' => route('purchases.show', $row->id),
                 ]),
-            'gross_margin' => $this->grossMarginRecords($filter),
+            'gross_margin' => $this->grossMarginRecords($filter, $limit),
         };
     }
 
@@ -371,26 +371,33 @@ class AnalyticsService
     }
 
     /** @return Collection<int, array<string, mixed>> */
-    private function grossMarginRecords(AnalyticsFilter $filter): Collection
+    private function grossMarginRecords(AnalyticsFilter $filter, ?int $limit = null): Collection
     {
-        $revenue = $this->records('net_revenue', $filter)->map(fn (array $row) => [...$row, 'status' => __('Ingreso neto')]);
-        $materials = $this->materialQuery($filter, $filter->from, $filter->to)
+        $revenue = $this->records('net_revenue', $filter, $limit)->map(fn (array $row) => [...$row, 'status' => __('Ingreso neto')]);
+        $materials = $this->limitQuery($this->materialQuery($filter, $filter->from, $filter->to)
             ->select(['stock_movement_lines.id', 'stock_movements.posted_at', 'stock_movements.number', 'stock_movement_lines.quantity', 'stock_movement_lines.unit_cost', 'installations.id as installation_id', 'installations.project_reference'])
-            ->get()->map(fn ($row) => [
+            ->orderByDesc('stock_movements.posted_at'), $limit)->get()->map(fn ($row) => [
                 'id' => $row->id, 'date' => $row->posted_at, 'reference' => $row->number,
                 'project' => $row->project_reference, 'status' => __('Material consumido'),
                 'value' => -round(-(float) $row->quantity * (float) ($row->unit_cost ?? 0), 2),
                 'url' => $row->installation_id ? route('installations.show', $row->installation_id) : route('inventory.index'),
             ]);
-        $labour = $this->labourQuery($filter, $filter->from, $filter->to)
+        $labour = $this->limitQuery($this->labourQuery($filter, $filter->from, $filter->to)
             ->select(['time_entries.id', 'time_entries.started_at', 'time_entries.duration_minutes', 'time_entries.hourly_cost', 'work_orders.id as work_order_id', 'work_orders.number', 'installations.project_reference'])
-            ->get()->map(fn ($row) => [
+            ->orderByDesc('time_entries.started_at'), $limit)->get()->map(fn ($row) => [
                 'id' => $row->id, 'date' => $row->started_at, 'reference' => $row->number,
                 'project' => $row->project_reference, 'status' => __('Mano de obra directa'),
                 'value' => -round(((float) ($row->duration_minutes ?? 0) / 60) * (float) $row->hourly_cost, 2),
                 'url' => route('work-orders.index', ['work_order' => $row->work_order_id]),
             ]);
 
-        return $revenue->concat($materials)->concat($labour)->sortByDesc('date')->values();
+        $records = $revenue->concat($materials)->concat($labour)->sortByDesc('date')->values();
+
+        return $limit === null ? $records : $records->take($limit)->values();
+    }
+
+    private function limitQuery(Builder $query, ?int $limit): Builder
+    {
+        return $limit === null ? $query : $query->limit(max(1, $limit));
     }
 }
