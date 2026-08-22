@@ -114,8 +114,43 @@ type Profit = {
     supplier_cost: number;
     direct_expenses: number;
     total_cost: number;
+    committed_cost: number;
     margin: number;
     margin_percent: number | null;
+    projected_margin: number;
+    projected_margin_percent: number | null;
+};
+type PurchaseCommitments = {
+    summary: {
+        orders: number;
+        remainingNet: number;
+        remainingCash: number;
+        dueWithin30Days: number;
+        unconfirmedOrders: number;
+    };
+    rows: {
+        id: number;
+        number: string;
+        status: string;
+        supplier: string | null;
+        installationId: number | null;
+        installation: string | null;
+        orderedNet: number;
+        invoicedNet: number;
+        remainingNet: number;
+        remainingCash: number;
+        invoiceCount: number;
+        deliveryOn: string;
+        deliveryConfirmed: boolean;
+        expectedPaymentOn: string;
+        dueWithin30Days: boolean;
+        href: string;
+    }[];
+    bySupplier: {
+        supplier: string;
+        orders: number;
+        remainingCash: number;
+    }[];
 };
 type Flow = {
     month: string;
@@ -171,6 +206,7 @@ type TreasuryEvent = {
     sourceType:
         | 'receivable'
         | 'supplier_invoice'
+        | 'purchase_commitment'
         | 'expense'
         | 'forecast_item'
         | 'credit_card'
@@ -315,6 +351,7 @@ export default function FinanceIndex({
     receivables,
     payables,
     profitability,
+    purchaseCommitments,
     treasuryForecast,
     forecastItems,
     forecastAccuracy,
@@ -355,6 +392,7 @@ export default function FinanceIndex({
     receivables: Due[];
     payables: Due[];
     profitability: Profit[];
+    purchaseCommitments: PurchaseCommitments;
     treasuryForecast: {
         scenario: string;
         baseCurrency: string;
@@ -1574,6 +1612,138 @@ export default function FinanceIndex({
                     />
                 </section>
                 <section>
+                    <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
+                        <div>
+                            <div className="flex items-center gap-2">
+                                <WalletCards className="size-4 text-muted-foreground" />
+                                <h2 className="font-semibold">
+                                    Purchase commitments not yet invoiced
+                                </h2>
+                            </div>
+                            <p className="mt-1 text-sm text-muted-foreground">
+                                Approved purchase orders less accepted supplier
+                                invoices. Net affects projected margin; gross
+                                affects treasury.
+                            </p>
+                        </div>
+                        <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-right text-sm sm:grid-cols-4">
+                            <ForecastMetric
+                                label="Open orders"
+                                value={String(
+                                    purchaseCommitments.summary.orders,
+                                )}
+                            />
+                            <ForecastMetric
+                                label="Net commitment"
+                                value={money(
+                                    purchaseCommitments.summary.remainingNet,
+                                )}
+                            />
+                            <ForecastMetric
+                                label="Cash exposure"
+                                value={money(
+                                    purchaseCommitments.summary.remainingCash,
+                                )}
+                            />
+                            <ForecastMetric
+                                label="Due in 30 days"
+                                value={money(
+                                    purchaseCommitments.summary.dueWithin30Days,
+                                )}
+                            />
+                        </div>
+                    </div>
+                    <div className="overflow-x-auto border-y">
+                        <table className="w-full min-w-[64rem] text-sm">
+                            <thead>
+                                <tr className="border-b text-left text-muted-foreground">
+                                    <th className="py-2">Order</th>
+                                    <th>Supplier</th>
+                                    <th>Installation</th>
+                                    <th>Expected payment</th>
+                                    <th className="text-right">Ordered net</th>
+                                    <th className="text-right">Invoiced net</th>
+                                    <th className="text-right">Open net</th>
+                                    <th className="text-right">
+                                        Cash exposure
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {purchaseCommitments.rows.map((item) => (
+                                    <tr
+                                        key={item.id}
+                                        className="border-b last:border-0"
+                                    >
+                                        <td className="py-3 font-medium">
+                                            <Link
+                                                href={item.href}
+                                                className="underline underline-offset-2"
+                                            >
+                                                {item.number}
+                                            </Link>
+                                            <div className="mt-1 text-xs font-normal text-muted-foreground">
+                                                {item.status} ·{' '}
+                                                {item.invoiceCount} accepted
+                                                invoice
+                                                {item.invoiceCount === 1
+                                                    ? ''
+                                                    : 's'}
+                                            </div>
+                                        </td>
+                                        <td>{item.supplier || '—'}</td>
+                                        <td>
+                                            {item.installationId ? (
+                                                <Link
+                                                    href={`/installations/${item.installationId}`}
+                                                    className="underline underline-offset-2"
+                                                >
+                                                    {item.installation ||
+                                                        `#${item.installationId}`}
+                                                </Link>
+                                            ) : (
+                                                '—'
+                                            )}
+                                        </td>
+                                        <td>
+                                            {date(item.expectedPaymentOn)}
+                                            <div className="mt-1 text-xs text-muted-foreground">
+                                                Delivery{' '}
+                                                {item.deliveryConfirmed
+                                                    ? 'confirmed'
+                                                    : 'estimated'}{' '}
+                                                {date(item.deliveryOn)}
+                                            </div>
+                                        </td>
+                                        <td className="text-right">
+                                            {money(item.orderedNet)}
+                                        </td>
+                                        <td className="text-right">
+                                            {money(item.invoicedNet)}
+                                        </td>
+                                        <td className="text-right font-medium">
+                                            {money(item.remainingNet)}
+                                        </td>
+                                        <td className="text-right font-semibold">
+                                            {money(item.remainingCash)}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                        {purchaseCommitments.rows.length === 0 && (
+                            <Empty text="No uninvoiced purchase commitments for this year." />
+                        )}
+                    </div>
+                    {purchaseCommitments.summary.unconfirmedOrders > 0 && (
+                        <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">
+                            {purchaseCommitments.summary.unconfirmedOrders}{' '}
+                            order(s) use an estimated delivery date because the
+                            supplier has not confirmed delivery.
+                        </p>
+                    )}
+                </section>
+                <section>
                     <div className="mb-3 flex items-center gap-2">
                         <ListChecks className="size-4 text-muted-foreground" />
                         <h2 className="font-semibold">Payment batches</h2>
@@ -1797,12 +1967,11 @@ export default function FinanceIndex({
                             Tracked margin by installation
                         </h2>
                         <p className="mb-3 text-sm text-muted-foreground">
-                            Revenue including credit notes, less dispatched
-                            material, labour, supplier services and linked
-                            direct expenses.
+                            Actual margin from posted costs, plus projected
+                            margin after open purchase commitments.
                         </p>
                         <div className="overflow-x-auto border-y">
-                            <table className="w-full min-w-[54rem] text-sm">
+                            <table className="w-full min-w-[68rem] text-sm">
                                 <thead>
                                     <tr className="border-b text-left text-muted-foreground">
                                         <th className="py-2">Installation</th>
@@ -1817,7 +1986,15 @@ export default function FinanceIndex({
                                         <th className="text-right">
                                             Direct expenses
                                         </th>
-                                        <th className="text-right">Margin</th>
+                                        <th className="text-right">
+                                            Open commitments
+                                        </th>
+                                        <th className="text-right">
+                                            Actual margin
+                                        </th>
+                                        <th className="text-right">
+                                            Projected margin
+                                        </th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -1850,12 +2027,28 @@ export default function FinanceIndex({
                                             <td className="text-right">
                                                 {money(item.direct_expenses)}
                                             </td>
+                                            <td className="text-right">
+                                                {money(item.committed_cost)}
+                                            </td>
                                             <td className="text-right font-semibold">
                                                 {money(item.margin)}
                                                 {item.margin_percent !==
                                                     null && (
                                                     <span className="ml-1 text-xs text-muted-foreground">
                                                         ({item.margin_percent}%)
+                                                    </span>
+                                                )}
+                                            </td>
+                                            <td className="text-right font-semibold">
+                                                {money(item.projected_margin)}
+                                                {item.projected_margin_percent !==
+                                                    null && (
+                                                    <span className="ml-1 text-xs text-muted-foreground">
+                                                        (
+                                                        {
+                                                            item.projected_margin_percent
+                                                        }
+                                                        %)
                                                     </span>
                                                 )}
                                             </td>
@@ -3197,6 +3390,7 @@ const forecastSourceLabel = (source: TreasuryEvent['sourceType']) =>
     ({
         receivable: 'Customer invoice',
         supplier_invoice: 'Supplier invoice',
+        purchase_commitment: 'Purchase commitment',
         expense: 'Expense',
         forecast_item: 'Planned item',
         credit_card: 'Credit card settlement',

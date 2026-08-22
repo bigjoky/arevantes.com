@@ -9,9 +9,9 @@ use App\Models\AiAuditLog;
 use App\Models\AiGeneration;
 use App\Models\CrmActivity;
 use App\Models\Installation;
+use App\Services\Ai\AiActionProposalService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Arr;
 
 class InstallationAiController extends Controller
 {
@@ -40,7 +40,7 @@ class InstallationAiController extends Controller
         return response()->json(['generation' => $this->payload($aiGeneration)]);
     }
 
-    public function createActivities(Request $request, Installation $installation, AiGeneration $aiGeneration): JsonResponse
+    public function createActivities(Request $request, Installation $installation, AiGeneration $aiGeneration, AiActionProposalService $actionProposals): JsonResponse
     {
         abort_unless($aiGeneration->installation_id === $installation->id, 404);
         abort_unless($aiGeneration->status === 'completed', 422);
@@ -48,38 +48,11 @@ class InstallationAiController extends Controller
             return response()->json(['message' => __('Human confirmation is required before Arevia can modify CRM data.')], 422);
         }
 
-        $indexes = collect($request->validate([
-            'indexes' => ['nullable', 'array'],
-            'indexes.*' => ['integer', 'min:0'],
-        ])['indexes'] ?? []);
-        $items = collect($aiGeneration->structured_response['action_items'] ?? [])
-            ->when($indexes->isNotEmpty(), fn ($items) => $items->filter(fn ($item, $index) => $indexes->contains($index)))
-            ->take(10);
-
-        $created = $items->map(function (array $item) use ($request, $installation, $aiGeneration) {
-            $title = trim((string) Arr::get($item, 'title', 'AI suggested action'));
-            $notes = trim((string) Arr::get($item, 'reason', 'Suggested by AI briefing.'));
-            $type = in_array(Arr::get($item, 'type'), ['task', 'visit', 'reminder'], true) ? Arr::get($item, 'type') : 'task';
-            $priority = in_array(Arr::get($item, 'priority'), ['low', 'normal', 'high'], true) ? Arr::get($item, 'priority') : 'normal';
-            $dueInDays = min(max((int) Arr::get($item, 'due_in_days', 3), 0), 90);
-
-            return CrmActivity::firstOrCreate(
-                [
-                    'installation_id' => $installation->id,
-                    'title' => $title,
-                    'status' => 'pending',
-                ],
-                [
-                    'person_id' => $installation->person_id,
-                    'assigned_user_id' => $request->user()->id,
-                    'created_by' => $request->user()->id,
-                    'type' => $type,
-                    'notes' => $notes."\n\nAI briefing: {$aiGeneration->uuid}",
-                    'priority' => $priority,
-                    'due_at' => now()->addDays($dueInDays),
-                ],
-            );
-        })->values();
+        $validated = $request->validate([
+            'proposal_uuids' => ['required', 'array', 'min:1', 'max:10'],
+            'proposal_uuids.*' => ['required', 'uuid', 'distinct'],
+        ]);
+        $created = $actionProposals->execute($aiGeneration, $request->user(), $validated['proposal_uuids']);
 
         AiAuditLog::create([
             'user_id' => $request->user()->id,
@@ -89,7 +62,12 @@ class InstallationAiController extends Controller
             'response' => $aiGeneration->raw_response,
             'action' => 'create_crm_activities',
             'confirmed_at' => now(),
-            'metadata' => ['generation_uuid' => $aiGeneration->uuid, 'installation_id' => $installation->id, 'created_ids' => $created->pluck('id')->all()],
+            'metadata' => [
+                'generation_uuid' => $aiGeneration->uuid,
+                'installation_id' => $installation->id,
+                'proposal_uuids' => $validated['proposal_uuids'],
+                'created_ids' => $created->pluck('id')->all(),
+            ],
         ]);
 
         return response()->json([
@@ -121,6 +99,13 @@ class InstallationAiController extends Controller
             ])->all(),
             'model' => $generation->model,
             'duration_ms' => $generation->duration_ms,
+            'action_proposals' => $generation->actionProposals()->orderBy('id')->get()->map(fn ($proposal) => [
+                'uuid' => $proposal->uuid,
+                'action' => $proposal->action,
+                'status' => $proposal->status,
+                'payload' => $proposal->payload,
+                'executed_at' => $proposal->executed_at?->toIso8601String(),
+            ])->all(),
             'message' => $generation->status === 'failed'
                 ? (str_contains((string) $generation->error, 'timed out')
                     ? __('Arevia needed more time than expected. Please try the quick summary or run the operational plan again.')

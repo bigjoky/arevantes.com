@@ -35,6 +35,11 @@ class AiGeneration extends Model
         return $this->hasMany(AiFeedback::class);
     }
 
+    public function actionProposals(): HasMany
+    {
+        return $this->hasMany(AiActionProposal::class);
+    }
+
     protected function casts(): array
     {
         return [

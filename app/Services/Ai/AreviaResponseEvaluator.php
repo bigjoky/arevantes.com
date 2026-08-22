@@ -4,17 +4,29 @@ namespace App\Services\Ai;
 
 class AreviaResponseEvaluator
 {
-    public function score(string $response, array $sources): int
+    public function __construct(private AreviaCitationValidator $citations) {}
+
+    public function score(string $response, array $sources, bool $abstained = false): int
     {
-        $score = trim($response) === '' ? 0 : 35;
-        $score += min(20, (int) floor(mb_strlen($response) / 80));
-        if ($sources === []) {
-            return min($score + (str_contains(mb_strtolower($response), 'no ') ? 15 : 0), 70);
+        if (trim($response) === '') {
+            return 0;
         }
 
-        $cited = collect(array_keys($sources))->contains(fn (int $index) => str_contains($response, '[S'.($index + 1).']'));
+        $score = 25 + min(15, (int) floor(mb_strlen($response) / 120));
+        if ($sources === []) {
+            return min($score + (str_contains(mb_strtolower($response), 'no ') ? 15 : 0), 55);
+        }
 
-        return min($score + ($cited ? 35 : 0), 100);
+        if ($abstained) {
+            return 50;
+        }
+
+        $analysis = $this->citations->analyze($response, $sources);
+        if (! $analysis['passes']) {
+            return min($score, 35);
+        }
+
+        return min($score + 40 + (int) round(20 * $analysis['source_coverage']), 100);
     }
 
     public function costMicros(array $usage): int

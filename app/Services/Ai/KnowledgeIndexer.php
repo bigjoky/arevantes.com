@@ -37,7 +37,7 @@ class KnowledgeIndexer
             'title' => $title,
             'version' => $document->version ?: 1,
             'content_hash' => $hash,
-            'embedding_model' => $withEmbeddings ? config('ai.providers.ollama.models.embeddings.default') : null,
+            'embedding_model' => null,
             'indexed_at' => null,
             'stale_at' => null,
             'status' => 'processing',
@@ -65,10 +65,11 @@ class KnowledgeIndexer
 
         if ($withEmbeddings && $chunks !== []) {
             try {
-                $vectors = Embeddings::for($chunks)
-                    ->dimensions(config('ai.providers.ollama.models.embeddings.dimensions'))
+                $response = Embeddings::for($chunks)
                     ->timeout(120)
-                    ->generate(config('ai.default_for_embeddings'))->embeddings;
+                    ->generate(config('ai.default_for_embeddings'));
+                $vectors = $response->embeddings;
+                $document->update(['embedding_model' => $response->meta->model]);
             } catch (Throwable) {
                 // Knowledge remains usable through keyword retrieval when the optional
                 // embedding provider (for example, local Ollama) is unavailable.

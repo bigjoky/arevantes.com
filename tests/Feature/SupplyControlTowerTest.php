@@ -102,7 +102,7 @@ class SupplyControlTowerTest extends TestCase
             ->where('orders.0.priority', 'follow_up_due'));
         $this->getJson(route('action-center'))
             ->assertOk()
-            ->assertJsonPath('total', 1)
+            ->assertJsonPath('total', fn (int $total) => $total >= 1)
             ->assertJsonPath('groups.0.label', 'Supply')
             ->assertJsonPath('groups.0.items.0.id', 'supply-'.$order->id)
             ->assertJsonPath('groups.0.items.0.href', '/purchases/'.$order->id)

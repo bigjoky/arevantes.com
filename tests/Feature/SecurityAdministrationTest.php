@@ -17,6 +17,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Validator;
 use PDO;
 use Tests\TestCase;
@@ -147,6 +148,7 @@ class SecurityAdministrationTest extends TestCase
 
     public function test_failed_queue_or_scheduler_health_creates_an_alert(): void
     {
+        Http::fake(['http://localhost:11434/api/tags' => Http::response(['models' => []])]);
         Cache::forget('system.scheduler.heartbeat');
         $this->app['db']->table('failed_jobs')->insert([
             'uuid' => (string) str()->uuid(), 'connection' => 'database', 'queue' => 'default',
@@ -161,6 +163,7 @@ class SecurityAdministrationTest extends TestCase
 
     public function test_deye_health_uses_the_credentials_required_by_the_client(): void
     {
+        Http::fake(['http://localhost:11434/api/tags' => Http::response(['models' => []])]);
         config()->set([
             'services.deye.app_id' => 'app-id',
             'services.deye.app_secret' => 'app-secret',
@@ -175,6 +178,20 @@ class SecurityAdministrationTest extends TestCase
             'component' => 'integration:deye',
             'status' => 'healthy',
             'message' => 'Integration is configured.',
+        ]);
+    }
+
+    public function test_arevia_embedding_outage_is_visible_in_system_health(): void
+    {
+        Http::fake(['http://localhost:11434/api/tags' => Http::response([], 503)]);
+        Cache::put('system.scheduler.heartbeat', now());
+
+        $this->artisan('system:health-check')->assertFailed();
+
+        $this->assertDatabaseHas('system_health_checks', [
+            'component' => 'arevia:embeddings',
+            'status' => 'failed',
+            'message' => 'Embedding provider ollama returned HTTP 503.',
         ]);
     }
 

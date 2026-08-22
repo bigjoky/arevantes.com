@@ -36,6 +36,11 @@ class AreviaChatController extends Controller
             ['user_id' => $request->user()->id],
             ['last_message_at' => now()],
         );
+        if ($conversation->messages()->where('role', 'assistant')->whereIn('status', ['queued', 'processing'])->exists()) {
+            return response()->json([
+                'message' => __('Arevia is still processing your previous message. Please wait for it to finish.'),
+            ], 409);
+        }
         $module = AreviaContext::module($data['page_url'] ?? null, $data['content']);
         $conversation->messages()->create([
             'role' => 'user', 'status' => 'completed', 'content' => trim($data['content']), 'page_url' => $data['page_url'] ?? null,

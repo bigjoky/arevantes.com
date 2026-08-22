@@ -25,14 +25,17 @@ class BusinessContextBuilder
             'Live CRM snapshot generated at '.now()->toIso8601String().'.',
             'Company: '.($company?->legal_name ?: 'Arevantes').($company?->tax_id ? ' · tax ID '.$company->tax_id : '').($company?->city ? ' · '.$company->city.', '.$company->province : '').'.',
             'Current fiscal year: '.($year ? $year->year.' ('.$year->status.')' : 'not configured').'.',
-            'Customers: '.Person::where('category', 'customer')->count().'.',
-            'Installations: '.$this->counts(Installation::query(), 'status').'.',
         ];
 
         if (Gate::forUser($user)->allows('manage-customers')) {
+            $lines[] = 'Customers: '.Person::where('category', 'customer')->count().'.';
             $open = Opportunity::whereNotIn('stage', ['won', 'lost']);
             $weighted = (clone $open)->get()->sum(fn (Opportunity $item) => (float) $item->estimated_value * $item->probability / 100);
             $lines[] = 'Sales opportunities: '.$this->counts(Opportunity::query(), 'stage').' · open pipeline '.number_format((float) (clone $open)->sum('estimated_value'), 2, '.', '').' EUR · weighted forecast '.number_format($weighted, 2, '.', '').' EUR.';
+        }
+
+        if (Gate::forUser($user)->allows('view-installations')) {
+            $lines[] = 'Installations: '.$this->counts(Installation::query(), 'status').'.';
         }
 
         if (Gate::forUser($user)->allows('manage-catalog')) {
