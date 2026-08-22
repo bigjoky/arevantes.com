@@ -44,6 +44,8 @@ export default function SharedDocument({
     token,
     canRespond,
     deliveryStatus,
+    documentVersion,
+    documentHash,
 }: {
     company: {
         legal_name: string;
@@ -56,6 +58,8 @@ export default function SharedDocument({
     token: string;
     canRespond: boolean;
     deliveryStatus: string;
+    documentVersion: string;
+    documentHash: string;
 }) {
     const snapshot = document.customer_snapshot || {};
     const customer =
@@ -315,6 +319,8 @@ export default function SharedDocument({
                                     name="response"
                                     value="rejected"
                                 />
+                                <input type="hidden" name="expected_version" value={documentVersion} />
+                                <input type="hidden" name="expected_hash" value={documentHash} />
                                 <Button variant="outline">
                                     <X /> Reject
                                 </Button>
@@ -322,12 +328,19 @@ export default function SharedDocument({
                             <Form
                                 action={`/documents/shared/${token}/respond`}
                                 method="post"
+                                onSubmit={(event) => {
+                                    if (!window.confirm(`¿Confirmas la aceptación de ${document.number}, versión ${documentVersion}?`)) {
+                                        event.preventDefault();
+                                    }
+                                }}
                             >
                                 <input
                                     type="hidden"
                                     name="response"
                                     value="accepted"
                                 />
+                                <input type="hidden" name="expected_version" value={documentVersion} />
+                                <input type="hidden" name="expected_hash" value={documentHash} />
                                 {selectedLineIds.map((lineId) => (
                                     <input
                                         key={lineId}

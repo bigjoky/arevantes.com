@@ -133,6 +133,8 @@ type Attachment = {
     original_name: string;
     size: number;
     caption: string | null;
+    customer_visible: boolean;
+    published_at: string | null;
 };
 type Selected = Order & {
     instructions: string | null;
@@ -718,7 +720,10 @@ function ExecutionEvidence({ order }: { order: Selected }) {
                                 </div>
                                 <div className="text-xs text-muted-foreground">
                                     {file.kind} · {Math.ceil(file.size / 1024)}{' '}
-                                    KB
+                                    KB ·{' '}
+                                    {file.customer_visible
+                                        ? 'Visible para el cliente'
+                                        : 'Uso interno'}
                                 </div>
                             </div>
                             <div className="flex">
@@ -759,6 +764,14 @@ function ExecutionEvidence({ order }: { order: Selected }) {
                             accept="image/jpeg,image/png,image/webp,application/pdf"
                             required
                         />
+                        <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <input
+                                type="checkbox"
+                                name="customer_visible"
+                                value="1"
+                            />
+                            Publicar los PDF para el cliente
+                        </label>
                     </div>
                     <Button variant="outline">
                         <ImagePlus /> Upload evidence
