@@ -12,6 +12,7 @@ use App\Models\WorkOrder;
 use App\Models\WorkOrderTemplate;
 use App\Services\Crm\LeadResponseSla;
 use App\Services\Crm\OpportunitySalesCycle;
+use App\Services\Planning\WorkforceCapacityForecast;
 use App\Services\Work\TechnicianSchedule;
 use App\Services\Work\WorkOrderFactory;
 use Illuminate\Database\Eloquent\Builder;
@@ -26,7 +27,7 @@ use Inertia\Response;
 
 class OperationsController extends Controller
 {
-    public function index(Request $request, TechnicianSchedule $schedule): Response
+    public function index(Request $request, TechnicianSchedule $schedule, WorkforceCapacityForecast $capacityForecast): Response
     {
         $filters = $request->validate([
             'q' => ['nullable', 'string', 'max:100'],
@@ -144,6 +145,9 @@ class OperationsController extends Controller
             'filters' => [...$filters, 'week' => $anchor->toDateString()],
             'canManage' => $request->user()->can('manage-installations'),
             'currentUserId' => $request->user()->id,
+            'capacityForecast' => $isPlanningView
+                ? $capacityForecast->forecast($anchor->copy()->startOfWeek(), 6, $request->user())
+                : null,
         ]);
     }
 
