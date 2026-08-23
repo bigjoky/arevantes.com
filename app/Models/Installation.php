@@ -50,6 +50,8 @@ class Installation extends Model
         'deye_synced_at',
         'huawei_station_code', 'huawei_station_name', 'huawei_status', 'huawei_current_power_kw', 'huawei_today_energy_kwh', 'huawei_status_message', 'huawei_data', 'huawei_synced_at',
         'status',
+        'financial_status',
+        'financially_cleared_at',
         'project_reference',
         'site_name',
         'site_address_line_1',
@@ -203,6 +205,7 @@ class Installation extends Model
             'battery_capacity_kwh' => 'decimal:2',
             'charger_power_kw' => 'decimal:2',
             'extra_details' => 'array',
+            'financially_cleared_at' => 'datetime',
         ];
     }
 }

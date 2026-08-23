@@ -42,8 +42,11 @@ class QuoteBillingPlan
                 'billing_percentage' => (float) ($document->billing_percentage ?? 100),
                 'billing_sequence' => $document->billing_sequence,
                 'billing_label' => $document->billing_label,
+                'is_acceptance_invoice' => $document->is_acceptance_invoice,
                 'amount' => (float) $document->amount,
+                'paid_amount' => (float) $document->paid_amount,
                 'issue_date' => $document->issue_date?->toDateString(),
+                'due_date' => $document->due_date?->toDateString(),
             ])->all(),
         ];
     }

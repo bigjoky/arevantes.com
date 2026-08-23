@@ -70,6 +70,8 @@ type Installation = {
     huawei_status_message: string | null;
     huawei_synced_at: string | null;
     status: keyof typeof statusLabels;
+    financial_status: 'not_required' | 'pending' | 'partial' | 'cleared';
+    financially_cleared_at: string | null;
     project_reference: string | null;
     site_name: string | null;
     site_address_line_1: string | null;
@@ -108,6 +110,15 @@ type MonitoringAlert = {
     last_seen_at: string;
     resolved_at: string | null;
 };
+
+function financialStatusLabel(status: Installation['financial_status']) {
+    return {
+        not_required: 'No payment required',
+        pending: 'Acceptance payment pending',
+        partial: 'Acceptance payment partial',
+        cleared: 'Financially cleared',
+    }[status];
+}
 type Activity = {
     id: number;
     type: string;
@@ -505,6 +516,11 @@ export default function InstallationShow({
                                 <Badge variant="outline">
                                     {statusLabels[installation.status]}
                                 </Badge>
+                                <Badge variant="outline">
+                                    {financialStatusLabel(
+                                        installation.financial_status,
+                                    )}
+                                </Badge>
                             </div>
                             <CardDescription>
                                 {installation.customer_company ||
@@ -560,6 +576,10 @@ export default function InstallationShow({
                                 ['Scheduled', installation.scheduled_date],
                                 ['Completed', installation.completed_date],
                                 ['Budget', installation.estimated_budget],
+                                [
+                                    'Financial clearance',
+                                    installation.financially_cleared_at,
+                                ],
                             ]}
                         />
                         <InfoBlock
