@@ -4,9 +4,10 @@ namespace App\Notifications;
 
 use App\Models\Opportunity;
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueueAfterCommit;
 use Illuminate\Notifications\Notification;
 
-class WebsiteLeadNotification extends Notification
+class WebsiteLeadNotification extends Notification implements ShouldQueueAfterCommit
 {
     use Queueable;
 

@@ -144,6 +144,11 @@
     body {
         @apply bg-background text-foreground;
     }
+
+    :focus-visible {
+        outline: 3px solid #217a3b;
+        outline-offset: 3px;
+    }
 }
 
 @keyframes website-rise {

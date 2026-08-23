@@ -101,11 +101,10 @@ const solutionModes = [
     },
 ];
 
-const siteUrl = 'https://www.arevantes.com';
 const siteDescription =
     'Arevantes diseña, instala y mantiene soluciones fotovoltaicas, eléctricas y de recarga en Córdoba y Andalucía.';
 
-export default function Welcome() {
+export default function Welcome({ siteUrl }: { siteUrl: string }) {
     const { auth } = usePage().props;
     const privateArea = auth.user ? dashboard() : login();
     const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -114,57 +113,99 @@ export default function Welcome() {
     const ActiveModeIcon = activeMode.icon;
 
     useEffect(() => {
-        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        if (!isMenuOpen) {
             return;
         }
 
-        const interval = window.setInterval(() => {
-            setActiveModeIndex(
-                (currentIndex) => (currentIndex + 1) % solutionModes.length,
-            );
-        }, 5000);
+        const closeOnEscape = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') {
+                setIsMenuOpen(false);
+            }
+        };
 
-        return () => window.clearInterval(interval);
-    }, []);
+        document.addEventListener('keydown', closeOnEscape);
+
+        return () => document.removeEventListener('keydown', closeOnEscape);
+    }, [isMenuOpen]);
 
     const closeMenu = () => setIsMenuOpen(false);
 
     return (
         <>
-            <Head title="Energía bien instalada">
-                <meta name="description" content={siteDescription} />
-                <meta name="robots" content="index, follow" />
-                <link rel="canonical" href={siteUrl} />
-                <meta property="og:type" content="website" />
-                <meta property="og:locale" content="es_ES" />
-                <meta property="og:site_name" content="Arevantes" />
+            <Head>
+                <title head-key="title">
+                    Arevantes · Energía bien instalada
+                </title>
                 <meta
+                    head-key="description"
+                    name="description"
+                    content={siteDescription}
+                />
+                <meta head-key="robots" name="robots" content="index, follow" />
+                <link head-key="canonical" rel="canonical" href={siteUrl} />
+                <meta head-key="og-type" property="og:type" content="website" />
+                <meta
+                    head-key="og-locale"
+                    property="og:locale"
+                    content="es_ES"
+                />
+                <meta
+                    head-key="og-site-name"
+                    property="og:site_name"
+                    content="Arevantes"
+                />
+                <meta
+                    head-key="og-title"
                     property="og:title"
                     content="Arevantes · Energía bien instalada"
                 />
-                <meta property="og:description" content={siteDescription} />
-                <meta property="og:url" content={siteUrl} />
                 <meta
-                    property="og:image"
-                    content={`${siteUrl}/brand/arevantes-social.png`}
+                    head-key="og-description"
+                    property="og:description"
+                    content={siteDescription}
                 />
-                <meta property="og:image:width" content="1200" />
-                <meta property="og:image:height" content="630" />
+                <meta head-key="og-url" property="og:url" content={siteUrl} />
                 <meta
+                    head-key="og-image"
+                    property="og:image"
+                    content={`${siteUrl}/og.png`}
+                />
+                <meta
+                    head-key="og-image-width"
+                    property="og:image:width"
+                    content="1200"
+                />
+                <meta
+                    head-key="og-image-height"
+                    property="og:image:height"
+                    content="630"
+                />
+                <meta
+                    head-key="og-image-alt"
                     property="og:image:alt"
                     content="Arevantes, energía bien instalada"
                 />
-                <meta name="twitter:card" content="summary_large_image" />
                 <meta
+                    head-key="twitter-card"
+                    name="twitter:card"
+                    content="summary_large_image"
+                />
+                <meta
+                    head-key="twitter-title"
                     name="twitter:title"
                     content="Arevantes · Energía bien instalada"
                 />
-                <meta name="twitter:description" content={siteDescription} />
                 <meta
-                    name="twitter:image"
-                    content={`${siteUrl}/brand/arevantes-social.png`}
+                    head-key="twitter-description"
+                    name="twitter:description"
+                    content={siteDescription}
                 />
-                <script type="application/ld+json">
+                <meta
+                    head-key="twitter-image"
+                    name="twitter:image"
+                    content={`${siteUrl}/og.png`}
+                />
+                <script head-key="structured-data" type="application/ld+json">
                     {JSON.stringify({
                         '@context': 'https://schema.org',
                         '@type': 'Electrician',
@@ -187,6 +228,12 @@ export default function Welcome() {
             </Head>
 
             <div className="min-h-screen bg-[#f7f8f4] text-zinc-950 antialiased">
+                <a
+                    href="#main-content"
+                    className="fixed top-3 left-3 z-[100] -translate-y-20 rounded-full bg-zinc-950 px-5 py-3 font-semibold text-white shadow-xl transition-transform focus:translate-y-0"
+                >
+                    Saltar al contenido
+                </a>
                 <header className="sticky top-0 z-50 border-b border-zinc-200/70 bg-[#f7f8f4]/85 backdrop-blur-2xl">
                     <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-5 sm:px-8 lg:px-10">
                         <a
@@ -201,22 +248,25 @@ export default function Welcome() {
                             />
                         </a>
 
-                        <nav className="hidden items-center gap-8 text-sm font-medium text-zinc-600 md:flex">
+                        <nav
+                            aria-label="Navegación principal"
+                            className="hidden items-center gap-8 text-sm font-medium text-zinc-600 md:flex"
+                        >
                             <a
                                 href="#servicios"
-                                className="transition hover:text-[#289548]"
+                                className="transition hover:text-[#217a3b]"
                             >
                                 Servicios
                             </a>
                             <a
                                 href="#metodo"
-                                className="transition hover:text-[#289548]"
+                                className="transition hover:text-[#217a3b]"
                             >
                                 Cómo trabajamos
                             </a>
                             <a
                                 href="#contacto"
-                                className="transition hover:text-[#289548]"
+                                className="transition hover:text-[#217a3b]"
                             >
                                 Contacto
                             </a>
@@ -256,7 +306,10 @@ export default function Welcome() {
                             id="mobile-navigation"
                             className="website-menu-enter border-t border-zinc-200/80 bg-[#f7f8f4] px-5 py-5 md:hidden"
                         >
-                            <nav className="mx-auto grid max-w-7xl gap-1 text-lg font-semibold">
+                            <nav
+                                aria-label="Navegación móvil"
+                                className="mx-auto grid max-w-7xl gap-1 text-lg font-semibold"
+                            >
                                 {[
                                     ['Servicios', '#servicios'],
                                     ['Cómo trabajamos', '#metodo'],
@@ -284,10 +337,10 @@ export default function Welcome() {
                     )}
                 </header>
 
-                <main>
+                <main id="main-content" tabIndex={-1}>
                     <section
                         id="inicio"
-                        className="relative isolate overflow-hidden bg-zinc-950 text-white"
+                        className="relative isolate scroll-mt-20 overflow-hidden bg-zinc-950 text-white"
                     >
                         <div className="website-aurora absolute inset-0 -z-20 bg-[radial-gradient(circle_at_78%_28%,rgba(40,149,72,0.30),transparent_34%),radial-gradient(circle_at_15%_85%,rgba(135,181,80,0.16),transparent_30%)]" />
                         <div className="absolute inset-0 -z-10 [background-image:linear-gradient(rgba(255,255,255,.6)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.6)_1px,transparent_1px)] [background-size:56px_56px] opacity-[0.08]" />
@@ -313,7 +366,7 @@ export default function Welcome() {
                                 <div className="mt-10 flex flex-col gap-4 sm:flex-row">
                                     <a
                                         href="#contacto"
-                                        className="group inline-flex items-center justify-center gap-2 rounded-full bg-[#289548] px-6 py-3.5 font-semibold text-white shadow-[0_14px_40px_rgba(40,149,72,.28)] transition hover:-translate-y-0.5 hover:bg-[#237f3e]"
+                                        className="group inline-flex items-center justify-center gap-2 rounded-full bg-[#217a3b] px-6 py-3.5 font-semibold text-white shadow-[0_14px_40px_rgba(40,149,72,.28)] transition hover:-translate-y-0.5 hover:bg-[#185f2d]"
                                     >
                                         Cuéntanos tu proyecto
                                         <ArrowRight className="size-5 transition-transform group-hover:translate-x-1" />
@@ -351,7 +404,10 @@ export default function Welcome() {
                                             Solución conectada
                                         </div>
                                         <span className="flex items-center gap-2 rounded-full bg-[#87b550]/10 px-3 py-1 text-xs text-[#b8df8c]">
-                                            <span className="website-status-dot size-1.5 rounded-full bg-[#87b550]" />
+                                            <span
+                                                aria-hidden="true"
+                                                className="website-status-dot size-1.5 rounded-full bg-[#87b550]"
+                                            />
                                             En evolución
                                         </span>
                                     </div>
@@ -393,6 +449,7 @@ export default function Welcome() {
                                                                 index,
                                                             )
                                                         }
+                                                        aria-label={`Mostrar solución: ${mode.label}`}
                                                         aria-pressed={
                                                             activeModeIndex ===
                                                             index
@@ -400,7 +457,7 @@ export default function Welcome() {
                                                         className={`rounded-xl px-2 py-2.5 text-xs font-medium transition sm:text-sm ${
                                                             activeModeIndex ===
                                                             index
-                                                                ? 'bg-[#289548] text-white shadow-lg'
+                                                                ? 'bg-[#217a3b] text-white shadow-lg'
                                                                 : 'bg-white/5 text-zinc-400 hover:bg-white/10 hover:text-white'
                                                         }`}
                                                     >
@@ -451,12 +508,12 @@ export default function Welcome() {
 
                     <section
                         id="servicios"
-                        className="px-5 py-24 sm:px-8 lg:py-32"
+                        className="scroll-mt-20 px-5 py-24 sm:px-8 lg:py-32"
                     >
                         <div className="mx-auto max-w-7xl">
                             <div className="grid gap-8 lg:grid-cols-[.8fr_1.2fr] lg:items-end">
                                 <div>
-                                    <p className="text-sm font-bold tracking-[0.18em] text-[#289548] uppercase">
+                                    <p className="text-sm font-bold tracking-[0.18em] text-[#217a3b] uppercase">
                                         Lo que hacemos
                                     </p>
                                     <h2 className="mt-4 text-4xl leading-tight font-semibold tracking-[-0.04em] sm:text-5xl">
@@ -573,11 +630,11 @@ export default function Welcome() {
 
                     <section
                         id="metodo"
-                        className="bg-white px-5 py-24 sm:px-8 lg:py-32"
+                        className="scroll-mt-20 bg-white px-5 py-24 sm:px-8 lg:py-32"
                     >
                         <div className="mx-auto max-w-7xl">
                             <div className="max-w-2xl">
-                                <p className="text-sm font-bold tracking-[0.18em] text-[#289548] uppercase">
+                                <p className="text-sm font-bold tracking-[0.18em] text-[#217a3b] uppercase">
                                     Cómo trabajamos
                                 </p>
                                 <h2 className="mt-4 text-4xl leading-tight font-semibold tracking-[-0.04em] sm:text-5xl">
@@ -591,7 +648,7 @@ export default function Welcome() {
                                         key={step.number}
                                         className="group relative bg-white p-7 transition duration-300 hover:bg-[#f5f9f2] sm:p-8"
                                     >
-                                        <span className="inline-flex size-9 items-center justify-center rounded-full bg-[#eaf5ec] text-sm font-bold text-[#289548] transition group-hover:bg-[#289548] group-hover:text-white">
+                                        <span className="inline-flex size-9 items-center justify-center rounded-full bg-[#eaf5ec] text-sm font-bold text-[#217a3b] transition group-hover:bg-[#217a3b] group-hover:text-white">
                                             {step.number}
                                         </span>
                                         <h3 className="mt-12 text-2xl font-semibold tracking-tight">
@@ -608,9 +665,9 @@ export default function Welcome() {
 
                     <section
                         id="contacto"
-                        className="px-5 py-8 sm:px-8 lg:pb-10"
+                        className="scroll-mt-20 px-5 py-8 sm:px-8 lg:pb-10"
                     >
-                        <div className="relative mx-auto max-w-7xl overflow-hidden rounded-[2.25rem] bg-[#289548] px-6 py-12 text-white sm:px-12 sm:py-16 lg:px-20">
+                        <div className="relative mx-auto max-w-7xl overflow-hidden rounded-[2.25rem] bg-[#217a3b] px-6 py-12 text-white sm:px-12 sm:py-16 lg:px-20">
                             <div className="absolute -top-40 -right-32 size-96 rounded-full border-[70px] border-white/10" />
                             <div className="relative grid gap-12 lg:grid-cols-[.85fr_1.15fr] lg:items-center">
                                 <div className="max-w-3xl">
@@ -643,6 +700,7 @@ export default function Welcome() {
                                             <div
                                                 className="flex min-h-96 flex-col items-center justify-center text-center"
                                                 role="status"
+                                                aria-live="polite"
                                             >
                                                 <span className="grid size-14 place-items-center rounded-full bg-[#eaf5ec] text-[#217a3b]">
                                                     <Check className="size-7" />
@@ -663,36 +721,54 @@ export default function Welcome() {
                                                     <ContactField
                                                         label="Nombre"
                                                         name="name"
+                                                        autoComplete="name"
                                                         error={errors.name}
                                                     />
                                                     <ContactField
                                                         label="Correo electrónico"
                                                         name="email"
                                                         type="email"
+                                                        autoComplete="email"
                                                         error={errors.email}
                                                     />
                                                     <ContactField
                                                         label="Teléfono"
                                                         name="phone"
                                                         type="tel"
+                                                        autoComplete="tel"
                                                         error={errors.phone}
                                                     />
                                                     <ContactField
                                                         label="Código postal"
                                                         name="postal_code"
                                                         inputMode="numeric"
+                                                        autoComplete="postal-code"
                                                         error={
                                                             errors.postal_code
                                                         }
                                                     />
                                                 </div>
 
-                                                <label className="mt-5 grid gap-2 text-sm font-medium">
+                                                <label
+                                                    htmlFor="service"
+                                                    className="mt-5 grid gap-2 text-sm font-medium"
+                                                >
                                                     ¿En qué podemos ayudarte?
                                                     <select
+                                                        id="service"
                                                         name="service"
                                                         defaultValue=""
-                                                        className="h-12 rounded-xl border border-zinc-300 bg-white px-3 font-normal transition outline-none focus:border-[#289548] focus:ring-3 focus:ring-[#289548]/15"
+                                                        aria-invalid={
+                                                            errors.service
+                                                                ? true
+                                                                : undefined
+                                                        }
+                                                        aria-describedby={
+                                                            errors.service
+                                                                ? 'service-error'
+                                                                : undefined
+                                                        }
+                                                        className="h-12 rounded-xl border border-zinc-300 bg-white px-3 font-normal transition outline-none focus:border-[#217a3b] focus:ring-3 focus:ring-[#217a3b]/25"
                                                         required
                                                     >
                                                         <option
@@ -719,25 +795,47 @@ export default function Welcome() {
                                                         </option>
                                                     </select>
                                                     {errors.service && (
-                                                        <span className="text-xs text-red-600">
+                                                        <span
+                                                            id="service-error"
+                                                            role="alert"
+                                                            className="text-xs text-red-700"
+                                                        >
                                                             {errors.service}
                                                         </span>
                                                     )}
                                                 </label>
 
-                                                <label className="mt-5 grid gap-2 text-sm font-medium">
+                                                <label
+                                                    htmlFor="message"
+                                                    className="mt-5 grid gap-2 text-sm font-medium"
+                                                >
                                                     Cuéntanos brevemente tu
                                                     proyecto
                                                     <textarea
+                                                        id="message"
                                                         name="message"
                                                         rows={4}
                                                         minLength={20}
                                                         maxLength={2000}
-                                                        className="resize-none rounded-xl border border-zinc-300 bg-white p-3 font-normal transition outline-none focus:border-[#289548] focus:ring-3 focus:ring-[#289548]/15"
+                                                        aria-invalid={
+                                                            errors.message
+                                                                ? true
+                                                                : undefined
+                                                        }
+                                                        aria-describedby={
+                                                            errors.message
+                                                                ? 'message-error'
+                                                                : undefined
+                                                        }
+                                                        className="resize-none rounded-xl border border-zinc-300 bg-white p-3 font-normal transition outline-none focus:border-[#217a3b] focus:ring-3 focus:ring-[#217a3b]/25"
                                                         required
                                                     />
                                                     {errors.message && (
-                                                        <span className="text-xs text-red-600">
+                                                        <span
+                                                            id="message-error"
+                                                            role="alert"
+                                                            className="text-xs text-red-700"
+                                                        >
                                                             {errors.message}
                                                         </span>
                                                     )}
@@ -757,12 +855,26 @@ export default function Welcome() {
                                                     </label>
                                                 </div>
 
-                                                <label className="mt-5 flex items-start gap-3 text-sm leading-6 text-zinc-600">
+                                                <label
+                                                    htmlFor="privacy"
+                                                    className="mt-5 flex items-start gap-3 text-sm leading-6 text-zinc-600"
+                                                >
                                                     <input
+                                                        id="privacy"
                                                         type="checkbox"
                                                         name="privacy"
                                                         value="1"
-                                                        className="mt-1 size-4 rounded border-zinc-300 accent-[#289548]"
+                                                        aria-invalid={
+                                                            errors.privacy
+                                                                ? true
+                                                                : undefined
+                                                        }
+                                                        aria-describedby={
+                                                            errors.privacy
+                                                                ? 'privacy-error'
+                                                                : undefined
+                                                        }
+                                                        className="mt-1 size-4 rounded border-zinc-300 accent-[#217a3b]"
                                                         required
                                                     />
                                                     <span>
@@ -779,7 +891,11 @@ export default function Welcome() {
                                                         </Link>
                                                         .
                                                         {errors.privacy && (
-                                                            <span className="mt-1 block text-xs text-red-600">
+                                                            <span
+                                                                id="privacy-error"
+                                                                role="alert"
+                                                                className="mt-1 block text-xs text-red-700"
+                                                            >
                                                                 {errors.privacy}
                                                             </span>
                                                         )}
@@ -789,6 +905,7 @@ export default function Welcome() {
                                                 <button
                                                     type="submit"
                                                     disabled={processing}
+                                                    aria-busy={processing}
                                                     className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-full bg-zinc-950 px-6 py-3.5 font-semibold text-white transition hover:bg-zinc-800 disabled:cursor-wait disabled:opacity-60"
                                                 >
                                                     {processing
@@ -868,25 +985,41 @@ function ContactField({
     name,
     type = 'text',
     inputMode,
+    autoComplete,
     error,
 }: {
     label: string;
     name: string;
     type?: string;
     inputMode?: 'numeric';
+    autoComplete?: string;
     error?: string;
 }) {
+    const errorId = `${name}-error`;
+
     return (
-        <label className="grid gap-2 text-sm font-medium">
+        <label htmlFor={name} className="grid gap-2 text-sm font-medium">
             {label}
             <input
+                id={name}
                 name={name}
                 type={type}
                 inputMode={inputMode}
-                className="h-12 rounded-xl border border-zinc-300 bg-white px-3 font-normal transition outline-none focus:border-[#289548] focus:ring-3 focus:ring-[#289548]/15"
+                autoComplete={autoComplete}
+                aria-invalid={error ? true : undefined}
+                aria-describedby={error ? errorId : undefined}
+                className="h-12 rounded-xl border border-zinc-300 bg-white px-3 font-normal transition outline-none focus:border-[#217a3b] focus:ring-3 focus:ring-[#217a3b]/25"
                 required={name === 'name' || name === 'email'}
             />
-            {error && <span className="text-xs text-red-600">{error}</span>}
+            {error && (
+                <span
+                    id={errorId}
+                    role="alert"
+                    className="text-xs text-red-700"
+                >
+                    {error}
+                </span>
+            )}
         </label>
     );
 }

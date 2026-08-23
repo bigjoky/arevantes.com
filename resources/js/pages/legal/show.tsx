@@ -44,9 +44,11 @@ const documents = {
 
 export default function LegalPage({
     document,
+    siteUrl,
     company,
 }: {
     document: DocumentKind;
+    siteUrl: string;
     company: Company;
 }) {
     const metadata = documents[document];
@@ -56,14 +58,19 @@ export default function LegalPage({
         privacy: 'privacidad',
         cookies: 'cookies',
     };
-    const canonical = `https://www.arevantes.com/${paths[document]}`;
+    const canonical = `${siteUrl}/${paths[document]}`;
 
     return (
         <>
-            <Head title={metadata.title}>
-                <meta name="description" content={metadata.description} />
-                <meta name="robots" content="index, follow" />
-                <link rel="canonical" href={canonical} />
+            <Head>
+                <title head-key="title">{`${metadata.title} · Arevantes`}</title>
+                <meta
+                    head-key="description"
+                    name="description"
+                    content={metadata.description}
+                />
+                <meta head-key="robots" name="robots" content="index, follow" />
+                <link head-key="canonical" rel="canonical" href={canonical} />
             </Head>
             <div className="min-h-screen bg-[#f7f8f4] text-zinc-950 antialiased">
                 <header className="border-b border-zinc-200 bg-[#f7f8f4]">
@@ -98,7 +105,7 @@ export default function LegalPage({
                                 {metadata.description}
                             </p>
                             <p className="mt-3 text-sm text-zinc-500">
-                                Última actualización: 13 de julio de 2026
+                                Última actualización: 23 de agosto de 2026
                             </p>
                         </div>
 
@@ -337,12 +344,17 @@ function CookiesPolicy({ company }: { company: Company }) {
                             <CookieRow
                                 name="XSRF-TOKEN"
                                 purpose="Protección de los formularios frente a solicitudes maliciosas."
-                                duration="Sesión"
+                                duration="2 horas"
                             />
                             <CookieRow
                                 name="Cookie de sesión"
                                 purpose="Mantiene de forma segura la sesión y el estado necesario de la aplicación."
-                                duration="Sesión"
+                                duration="2 horas"
+                            />
+                            <CookieRow
+                                name="__cf_bm"
+                                purpose="Ayuda a Cloudflare a distinguir el tráfico legítimo y proteger el sitio frente a abusos automatizados."
+                                duration="30 minutos"
                             />
                             <CookieRow
                                 name="appearance"
