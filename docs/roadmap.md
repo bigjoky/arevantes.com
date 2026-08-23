@@ -8,11 +8,11 @@ base y no mantienen implementaciones funcionales aisladas.
 | Area | Capacidades alineadas | Siguiente incremento |
 | --- | --- | --- |
 | CRM y ventas | ciclo comercial, captacion, cartera, agenda y rutas comerciales moviles offline, conversion atribuida por origen y comercial, aprobaciones, opciones, SLA y trazabilidad | automatizacion de renovaciones y forecast por cohortes |
-| Finanzas | contabilidad, banca, cobros, riesgo de clientes y alertas | cierre asistido y conciliacion de excepciones |
-| Operaciones | planificacion, ordenes, mantenimiento, RMA y sincronizacion movil | capacidad predictiva y repuestos por criticidad |
-| Suministro | compras, aprobaciones, reposicion, calidad y control tower | simulacion de abastecimiento y riesgo de proveedor |
-| Recursos humanos | expediente, contratos, ausencias, tareas y controles sensibles | capacidad, turnos y coste operativo planificado |
-| Portal de cliente | documentos protegidos, aceptacion y certificados publicados | autoservicio de incidencias y seguimiento de hitos |
+| Finanzas | contabilidad, banca, cobros, riesgo de clientes, alertas, cierre asistido y bloqueo por excepciones | conciliacion guiada de excepciones y simulacion de caja |
+| Operaciones | planificacion, ordenes, mantenimiento, RMA, sincronizacion movil y prevision semanal de capacidad | repuestos por criticidad y simulacion de escenarios |
+| Suministro | compras, aprobaciones, reposicion, calidad, control tower y riesgo operativo de entregas | simulacion de abastecimiento y riesgo de proveedor |
+| Recursos humanos | expediente, contratos, ausencias, tareas, controles sensibles y capacidad coordinada con operaciones | turnos y coste operativo planificado |
+| Portal de cliente | documentos protegidos, aceptacion, certificados y autoservicio de incidencias | seguimiento de hitos y comunicaciones proactivas |
 | Analitica | drilldowns acotados, alertas e informes programados | objetivos versionados y explicacion de desviaciones |
 | Arevia | conocimiento gobernado, acciones, URLs y contexto operativo | evaluacion continua y aprobacion humana por riesgo |
 | Plataforma | permisos, navegacion autorizada, auditoria, seguridad, copias y observabilidad | modularizacion progresiva de rutas y proveedores |
@@ -53,3 +53,6 @@ Un incremento solo se considera alineado cuando incluye:
   por proximidad y ejecutable offline con llegada GPS, notas y cierre sincronizado.
 - Conversion comercial explicable por origen y responsable, con valor ganado,
   tendencia mensual, calidad de atribucion y alcance propio en la app movil.
+- Prevision unica de capacidad tecnica a seis semanas, compartida por Recursos
+  Humanos y Operaciones, que descuenta ausencias aprobadas sin revelar sus
+  motivos y detecta sobrecargas por semana y profesional.

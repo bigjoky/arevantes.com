@@ -7,6 +7,7 @@ use App\Models\HrEmployeeTask;
 use App\Models\HrEmploymentProfile;
 use App\Models\HrLeaveRequest;
 use App\Models\Person;
+use App\Services\Planning\WorkforceCapacityForecast;
 use Illuminate\Support\Collection;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -16,7 +17,7 @@ class HumanResourcesController extends Controller
     /**
      * Show the human resources overview.
      */
-    public function __invoke(): Response
+    public function __invoke(WorkforceCapacityForecast $capacityForecast): Response
     {
         $staff = Person::query()
             ->where('category', 'staff')
@@ -59,6 +60,7 @@ class HumanResourcesController extends Controller
                     'createdAt' => $person->created_at?->toDateString(),
                 ])
                 ->values(),
+            'capacityForecast' => $capacityForecast->forecast(today()->startOfWeek(), 6),
         ]);
     }
 

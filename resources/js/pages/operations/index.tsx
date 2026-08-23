@@ -130,6 +130,24 @@ type PlanningMeta = {
     unscheduled_loaded: number;
     truncated: boolean;
 };
+type CapacityMetrics = {
+    capacity_minutes: number;
+    unavailable_minutes: number;
+    available_minutes: number;
+    planned_minutes: number;
+    remaining_minutes: number;
+    overload_minutes: number;
+    utilization_percent: number;
+};
+type CapacityTechnician = CapacityMetrics & { user_id: number; name: string };
+type CapacityForecast = {
+    summary: CapacityMetrics & { overloaded_weeks: number };
+    weeks: (CapacityMetrics & {
+        week_start: string;
+        week_end: string;
+        technicians: CapacityTechnician[];
+    })[];
+};
 type RescheduleRequest = { order: WorkOrder; day?: string };
 
 const statuses = [
@@ -161,6 +179,7 @@ export default function OperationsIndex({
     filters,
     canManage,
     currentUserId,
+    capacityForecast,
 }: {
     activities: PaginatedActivities;
     boardActivities: Activity[];
@@ -174,6 +193,7 @@ export default function OperationsIndex({
     filters: Filters;
     canManage: boolean;
     currentUserId: number;
+    capacityForecast: CapacityForecast | null;
 }) {
     const focusedId = Number(
         new URLSearchParams(usePage().url.split('?')[1] || '').get('focus'),
@@ -293,6 +313,11 @@ export default function OperationsIndex({
 
                 <FiltersBar filters={filters} users={users} />
 
+                {(filters.view === 'week' || filters.view === 'month') &&
+                    capacityForecast && (
+                        <CapacityForecastPanel forecast={capacityForecast} />
+                    )}
+
                 {filters.view === 'today' && (
                     <Agenda
                         activities={activities}
@@ -337,6 +362,92 @@ export default function OperationsIndex({
                 />
             </div>
         </>
+    );
+}
+
+function CapacityForecastPanel({ forecast }: { forecast: CapacityForecast }) {
+    const hours = (minutes: number) => Math.round((minutes / 60) * 10) / 10;
+
+    return (
+        <section className="overflow-hidden rounded-lg border">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3">
+                <div>
+                    <h2 className="font-semibold">Workforce capacity</h2>
+                    <p className="text-xs text-muted-foreground">
+                        Six-week plan aligned with approved availability from
+                        HR.
+                    </p>
+                </div>
+                <div className="flex items-center gap-2 text-sm">
+                    <Badge
+                        variant={
+                            forecast.summary.overloaded_weeks > 0
+                                ? 'destructive'
+                                : 'secondary'
+                        }
+                    >
+                        {forecast.summary.utilization_percent}% utilised
+                    </Badge>
+                    <span className="text-muted-foreground">
+                        {hours(forecast.summary.remaining_minutes)} h free
+                    </span>
+                </div>
+            </div>
+            <div className="grid gap-px bg-border sm:grid-cols-2 xl:grid-cols-3">
+                {forecast.weeks.map((week) => {
+                    const overloaded = week.technicians.filter(
+                        (technician) => technician.overload_minutes > 0,
+                    );
+
+                    return (
+                        <div
+                            key={week.week_start}
+                            className="bg-background p-4"
+                        >
+                            <div className="flex items-center justify-between gap-2 text-sm">
+                                <span className="font-medium">
+                                    {new Intl.DateTimeFormat('en', {
+                                        day: 'numeric',
+                                        month: 'short',
+                                    }).format(
+                                        new Date(`${week.week_start}T12:00:00`),
+                                    )}
+                                </span>
+                                <span
+                                    className={
+                                        week.overload_minutes > 0
+                                            ? 'font-medium text-destructive'
+                                            : 'text-muted-foreground'
+                                    }
+                                >
+                                    {week.utilization_percent}%
+                                </span>
+                            </div>
+                            <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted">
+                                <div
+                                    className={`h-full rounded-full ${week.overload_minutes > 0 ? 'bg-destructive' : 'bg-primary'}`}
+                                    style={{
+                                        width: `${Math.min(week.utilization_percent, 100)}%`,
+                                    }}
+                                />
+                            </div>
+                            <p className="mt-2 text-xs text-muted-foreground">
+                                {hours(week.planned_minutes)} h planned ·{' '}
+                                {hours(week.available_minutes)} h available
+                            </p>
+                            {overloaded.length > 0 ? (
+                                <p className="mt-2 text-xs text-destructive">
+                                    Over capacity:{' '}
+                                    {overloaded
+                                        .map((item) => item.name)
+                                        .join(', ')}
+                                </p>
+                            ) : null}
+                        </div>
+                    );
+                })}
+            </div>
+        </section>
     );
 }
 

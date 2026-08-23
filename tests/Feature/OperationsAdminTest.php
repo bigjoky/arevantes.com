@@ -247,7 +247,9 @@ class OperationsAdminTest extends TestCase
                 ->has('planningOrders', 50)
                 ->where('planningMeta.unscheduled_total', 51)
                 ->where('planningMeta.unscheduled_loaded', 50)
-                ->where('planningMeta.truncated', true));
+                ->where('planningMeta.truncated', true)
+                ->where('capacityForecast.period.weeks', 6)
+                ->has('capacityForecast.weeks', 6));
     }
 
     public function test_commercial_user_can_convert_an_activity_to_a_work_order(): void

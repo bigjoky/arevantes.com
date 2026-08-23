@@ -48,6 +48,8 @@ class HumanResourcesTest extends TestCase
                 ->where('recentStaff.0.id', $staffWithoutAccess->id)
                 ->where('recentStaff.1.name', 'Lucía García')
                 ->where('recentStaff.1.accessRole', 'technician')
+                ->where('capacityForecast.period.weeks', 6)
+                ->has('capacityForecast.weeks', 6)
             );
     }
 
