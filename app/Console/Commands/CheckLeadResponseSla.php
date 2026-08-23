@@ -14,7 +14,9 @@ class CheckLeadResponseSla extends Command
     public function handle(LeadResponseSlaNotifier $notifier): int
     {
         $count = $notifier->notifyBreaches();
+        $escalated = $notifier->escalatePersistentBreaches();
         $this->info("{$count} lead response SLA alerts sent.");
+        $this->info("{$escalated} persistent lead response SLA breaches escalated.");
 
         return self::SUCCESS;
     }

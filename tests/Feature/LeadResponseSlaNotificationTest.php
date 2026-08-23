@@ -2,10 +2,12 @@
 
 namespace Tests\Feature;
 
+use App\Models\CrmSetting;
 use App\Models\Opportunity;
 use App\Models\Person;
 use App\Models\User;
 use App\Notifications\LeadResponseSlaBreachedNotification;
+use App\Notifications\LeadResponseSlaEscalatedNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification;
 use Tests\TestCase;
@@ -60,6 +62,34 @@ class LeadResponseSlaNotificationTest extends TestCase
             ->assertSuccessful();
 
         Notification::assertNothingSent();
+    }
+
+    public function test_persistent_breach_is_escalated_to_administrators_once(): void
+    {
+        Notification::fake();
+        CrmSetting::current()->update(['lead_response_escalation_minutes' => 60]);
+        $owner = User::factory()->create(['role' => 'commercial']);
+        $firstAdmin = User::factory()->create(['role' => 'admin']);
+        $secondAdmin = User::factory()->create(['role' => 'admin']);
+        $opportunity = $this->opportunity($owner, [
+            'first_response_due_at' => now()->subHours(2),
+            'first_response_sla_alerted_at' => now()->subMinutes(61),
+        ]);
+
+        $this->artisan('crm:check-response-sla')
+            ->expectsOutput('0 lead response SLA alerts sent.')
+            ->expectsOutput('1 persistent lead response SLA breaches escalated.')
+            ->assertSuccessful();
+
+        Notification::assertSentTo([$firstAdmin, $secondAdmin], LeadResponseSlaEscalatedNotification::class);
+        Notification::assertNotSentTo($owner, LeadResponseSlaEscalatedNotification::class);
+        $this->assertNotNull($opportunity->refresh()->first_response_sla_escalated_at);
+
+        $this->artisan('crm:check-response-sla')
+            ->expectsOutput('0 persistent lead response SLA breaches escalated.')
+            ->assertSuccessful();
+        Notification::assertSentToTimes($firstAdmin, LeadResponseSlaEscalatedNotification::class, 1);
+        Notification::assertSentToTimes($secondAdmin, LeadResponseSlaEscalatedNotification::class, 1);
     }
 
     private function opportunity(?User $owner, array $attributes = []): Opportunity

@@ -370,6 +370,7 @@ class OpportunityTest extends TestCase
         $settings = [
             'stale_after_days' => 30,
             'lead_response_sla_minutes' => 120,
+            'lead_response_escalation_minutes' => 180,
             'customer_contactable_weight' => 0,
             'source_identified_weight' => 0,
             'owner_assigned_weight' => 100,
@@ -384,6 +385,7 @@ class OpportunityTest extends TestCase
 
         $this->assertSame(30, CrmSetting::current()->stale_after_days);
         $this->assertSame(120, CrmSetting::current()->lead_response_sla_minutes);
+        $this->assertSame(180, CrmSetting::current()->lead_response_escalation_minutes);
         $this->assertSame(100, $opportunity->refresh()->commercial_score);
         $this->get(route('opportunities.index'))
             ->assertOk()
@@ -391,6 +393,7 @@ class OpportunityTest extends TestCase
                 ->where('canConfigureCrm', true)
                 ->where('crmSettings.stale_after_days', 30)
                 ->where('crmSettings.lead_response_sla_minutes', 120)
+                ->where('crmSettings.lead_response_escalation_minutes', 180)
                 ->where('opportunities.0.score_breakdown.owner_assigned.met', true)
                 ->where('opportunities.0.score_breakdown.owner_assigned.points', 100)
                 ->where('opportunities.0.score_breakdown.estimated_value_set.met', false));
@@ -403,6 +406,7 @@ class OpportunityTest extends TestCase
         $this->actingAs($admin)->patch(route('crm-settings.update'), [
             'stale_after_days' => 14,
             'lead_response_sla_minutes' => 240,
+            'lead_response_escalation_minutes' => 120,
             'customer_contactable_weight' => 20,
             'source_identified_weight' => 10,
             'owner_assigned_weight' => 15,
@@ -508,6 +512,14 @@ class OpportunityTest extends TestCase
                 ->where('metrics.response_sla_pending', 0)
                 ->where('metrics.response_sla_met_rate', 50)
                 ->where('metrics.average_first_response_minutes', 30)
+                ->has('responsePerformance', 1)
+                ->where('responsePerformance.0.owner_id', $user->id)
+                ->where('responsePerformance.0.total', 2)
+                ->where('responsePerformance.0.met', 1)
+                ->where('responsePerformance.0.breached', 1)
+                ->where('responsePerformance.0.pending', 0)
+                ->where('responsePerformance.0.met_rate', 50)
+                ->where('responsePerformance.0.average_minutes', 30)
                 ->where('opportunities.0.id', $overdue->id)
                 ->where('opportunities.0.response_sla_status', 'breached')
                 ->where('opportunities.1.id', $answered->id)
