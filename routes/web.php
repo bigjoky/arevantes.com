@@ -176,6 +176,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('my-human-resources/documents/{document}', [MyHumanResourcesController::class, 'downloadDocument'])->name('my-human-resources.documents.download');
     Route::get('my-human-resources/leave/{leave}/attachments/{attachment}', [MyHumanResourcesController::class, 'downloadLeaveAttachment'])->name('my-human-resources.leave.attachments.download');
     Route::post('staff/{staff}/access', [StaffAccessController::class, 'store'])->middleware('can:manage-access')->name('staff.access.store');
+    Route::post('staff/{staff}/access/link', [StaffAccessController::class, 'link'])->middleware('can:manage-access')->name('staff.access.link');
     Route::patch('staff/{staff}/access', [StaffAccessController::class, 'update'])->middleware('can:manage-access')->name('staff.access.update');
     Route::delete('staff/{staff}/access', [StaffAccessController::class, 'destroy'])->middleware('can:manage-access')->name('staff.access.destroy');
     Route::get('knowledge', [KnowledgeDocumentController::class, 'index'])->middleware('can:manage-staff')->name('knowledge.index');

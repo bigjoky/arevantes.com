@@ -19,6 +19,7 @@ class CrmSettingsController extends Controller
         $rules = [
             'stale_after_days' => ['required', 'integer', 'between:1,365'],
             'lead_response_sla_minutes' => ['required', 'integer', 'between:15,10080'],
+            'lead_response_escalation_minutes' => ['required', 'integer', 'between:15,10080'],
         ];
         foreach (CrmSetting::WEIGHT_FIELDS as $field) {
             $rules[$field] = ['required', 'integer', 'between:0,100'];

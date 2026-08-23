@@ -5,11 +5,14 @@ namespace App\Http\Controllers;
 use App\Models\PermissionProfile;
 use App\Models\Person;
 use App\Models\User;
+use App\Services\Security\SecurityEventRecorder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
+use Illuminate\Validation\ValidationException;
 
 class StaffAccessController extends Controller
 {
@@ -60,6 +63,45 @@ class StaffAccessController extends Controller
         ]);
 
         return back()->with('toast', ['type' => 'success', 'message' => __('CRM access updated.')]);
+    }
+
+    public function link(Request $request, Person $staff, SecurityEventRecorder $events): RedirectResponse
+    {
+        $this->ensureStaff($staff);
+        $data = $request->validate([
+            'user_id' => ['required', 'integer', 'exists:users,id'],
+        ]);
+
+        $user = DB::transaction(function () use ($staff, $data): User {
+            $lockedStaff = Person::query()->whereKey($staff->id)->lockForUpdate()->firstOrFail();
+            if ($lockedStaff->user()->exists()) {
+                throw ValidationException::withMessages([
+                    'user_id' => __('This staff member already has CRM access.'),
+                ]);
+            }
+
+            $user = User::query()->whereKey($data['user_id'])->lockForUpdate()->firstOrFail();
+            if ($user->person_id !== null) {
+                throw ValidationException::withMessages([
+                    'user_id' => __('This CRM account is already linked to another staff member.'),
+                ]);
+            }
+
+            $user->update([
+                'person_id' => $lockedStaff->id,
+                'access_reviewed_at' => now(),
+                'access_review_due_at' => now()->addMonths((int) config('security.access_review_months', 3)),
+            ]);
+
+            return $user;
+        });
+
+        $events->record('staff_access_linked', $user, [
+            'linked_by' => $request->user()->id,
+            'person_id' => $staff->id,
+        ], 'warning');
+
+        return back()->with('toast', ['type' => 'success', 'message' => __('Existing CRM account linked.')]);
     }
 
     public function destroy(Request $request, Person $staff): RedirectResponse

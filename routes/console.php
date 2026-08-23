@@ -49,6 +49,7 @@ Schedule::command('analytics:dispatch')->everyFiveMinutes()->withoutOverlapping(
 Schedule::command('purchase-inbox:sync')->everyFiveMinutes()->withoutOverlapping();
 Schedule::command('purchase-inbox:extract --limit=3')->everyFiveMinutes()->withoutOverlapping();
 Schedule::command('crm:send-reminders')->dailyAt('07:30')->timezone('Europe/Madrid')->withoutOverlapping();
+Schedule::command('crm:check-response-sla')->everyFiveMinutes()->withoutOverlapping();
 Schedule::command('ai:reindex --stale')->dailyAt('03:15')->withoutOverlapping();
 Schedule::call(fn () => MonitoringReading::where('recorded_at', '<', now()->subYears(2))->delete())
     ->weekly()

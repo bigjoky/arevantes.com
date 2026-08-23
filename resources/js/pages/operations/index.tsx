@@ -868,8 +868,8 @@ function Week({
                                 const order = droppedOrder(event);
 
                                 if (order) {
-onReschedule(order, day);
-}
+                                    onReschedule(order, day);
+                                }
                             }}
                         >
                             <div className="mb-2 border-b pb-2 text-sm font-medium">
@@ -988,7 +988,9 @@ onReschedule(order, day);
                                         variant="ghost"
                                         className="size-8"
                                         aria-label={`Schedule ${order.number}`}
-                                        onClick={() => onReschedule(order, week)}
+                                        onClick={() =>
+                                            onReschedule(order, week)
+                                        }
                                     >
                                         <CalendarClock />
                                     </Button>
@@ -1084,8 +1086,8 @@ function Month({
                                 const order = droppedOrder(event);
 
                                 if (order) {
-onReschedule(order, day);
-}
+                                    onReschedule(order, day);
+                                }
                             }}
                         >
                             <div className="mb-1 text-xs font-medium">
@@ -1125,9 +1127,7 @@ onReschedule(order, day);
                                         variant="ghost"
                                         className="size-7 shrink-0"
                                         aria-label={`Reschedule ${order.number}`}
-                                        onClick={() =>
-                                            onReschedule(order, day)
-                                        }
+                                        onClick={() => onReschedule(order, day)}
                                     >
                                         <CalendarClock />
                                     </Button>
@@ -1219,9 +1219,7 @@ function RescheduleDialog({
         <Dialog open onOpenChange={onOpenChange}>
             <DialogContent key={`${request.order.id}-${request.day || 'open'}`}>
                 <DialogHeader>
-                    <DialogTitle>
-                        Reschedule {request.order.number}
-                    </DialogTitle>
+                    <DialogTitle>Reschedule {request.order.number}</DialogTitle>
                     <DialogDescription>
                         Review the new time and record why the plan changed. The
                         reason remains in the work-order audit trail.

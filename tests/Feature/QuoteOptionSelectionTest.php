@@ -8,6 +8,7 @@ use App\Models\Person;
 use App\Models\Quote;
 use App\Models\SalesDocument;
 use App\Models\User;
+use App\Services\Documents\DocumentFingerprint;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
 use Tests\TestCase;
@@ -85,7 +86,7 @@ class QuoteOptionSelectionTest extends TestCase
             'expires_at' => now()->addDay(),
             'sent_at' => now(),
         ]);
-        $fingerprint = app(\App\Services\Documents\DocumentFingerprint::class)->for($quote);
+        $fingerprint = app(DocumentFingerprint::class)->for($quote);
         $delivery->update(['document_version' => $fingerprint['version'], 'document_hash' => $fingerprint['hash']]);
 
         $this->post(route('documents.shared.respond', $token), [

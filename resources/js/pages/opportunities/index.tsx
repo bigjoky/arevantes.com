@@ -195,6 +195,7 @@ type FormData = {
 type CrmSettings = {
     stale_after_days: number;
     lead_response_sla_minutes: number;
+    lead_response_escalation_minutes: number;
     customer_contactable_weight: number;
     source_identified_weight: number;
     owner_assigned_weight: number;
@@ -202,6 +203,17 @@ type CrmSettings = {
     next_action_scheduled_weight: number;
     estimated_value_set_weight: number;
     advanced_stage_weight: number;
+};
+
+type ResponsePerformanceRow = {
+    owner_id: number;
+    owner_name: string;
+    total: number;
+    met: number;
+    breached: number;
+    pending: number;
+    met_rate: number | null;
+    average_minutes: number | null;
 };
 
 const emptyForm: FormData = {
@@ -250,6 +262,7 @@ export default function OpportunitiesIndex({
     filters = {},
     metrics,
     forecast = [],
+    responsePerformance = [],
     savedFilters = [],
     crmSettings,
     canConfigureCrm = false,
@@ -295,6 +308,7 @@ export default function OpportunitiesIndex({
         stage_days: Record<string, number | null>;
     };
     forecast?: ForecastRow[];
+    responsePerformance?: ResponsePerformanceRow[];
     savedFilters?: Array<{
         id: number;
         name: string;
@@ -654,6 +668,10 @@ export default function OpportunitiesIndex({
                 </section>
 
                 <FunnelSummary funnel={metrics.funnel} />
+
+                {responsePerformance.length > 0 && (
+                    <ResponsePerformanceSummary rows={responsePerformance} />
+                )}
 
                 {forecast.length > 0 && <ForecastSummary rows={forecast} />}
 
@@ -2033,6 +2051,92 @@ function FunnelSummary({ funnel }: { funnel: Record<string, number> }) {
     );
 }
 
+function ResponsePerformanceSummary({
+    rows,
+}: {
+    rows: ResponsePerformanceRow[];
+}) {
+    return (
+        <section className="rounded-md border">
+            <div className="border-b px-4 py-3">
+                <h2 className="font-semibold">
+                    Rendimiento de primera respuesta
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                    Comparativa por responsable sobre las oportunidades
+                    visibles con SLA aplicable. Datos en tiempo real según los
+                    filtros actuales.
+                </p>
+            </div>
+            <div className="overflow-x-auto">
+                <table className="w-full min-w-[52rem] text-sm">
+                    <thead className="border-b bg-muted/40 text-left text-xs text-muted-foreground">
+                        <tr>
+                            <th className="p-3">Responsable</th>
+                            <th className="p-3 text-right">Leads</th>
+                            <th className="p-3">Cumplimiento</th>
+                            <th className="p-3 text-right">En SLA</th>
+                            <th className="p-3 text-right">Fuera de SLA</th>
+                            <th className="p-3 text-right">Pendientes</th>
+                            <th className="p-3 text-right">Tiempo medio</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                        {rows.map((row) => (
+                            <tr key={row.owner_id}>
+                                <td className="p-3 font-medium">
+                                    <Link
+                                        className="text-primary hover:underline"
+                                        href={`/opportunities?owner=${row.owner_id}`}
+                                    >
+                                        {row.owner_name}
+                                    </Link>
+                                </td>
+                                <td className="p-3 text-right tabular-nums">
+                                    {row.total}
+                                </td>
+                                <td className="p-3">
+                                    <div className="flex items-center gap-3">
+                                        <div className="h-2 min-w-24 flex-1 overflow-hidden rounded-full bg-muted">
+                                            <div
+                                                className="h-full rounded-full bg-emerald-500"
+                                                style={{
+                                                    width: `${row.met_rate ?? 0}%`,
+                                                }}
+                                            />
+                                        </div>
+                                        <span className="w-12 text-right font-medium tabular-nums">
+                                            {row.met_rate === null
+                                                ? '—'
+                                                : `${row.met_rate}%`}
+                                        </span>
+                                    </div>
+                                </td>
+                                <td className="p-3 text-right tabular-nums text-emerald-700 dark:text-emerald-300">
+                                    {row.met}
+                                </td>
+                                <td
+                                    className={`p-3 text-right tabular-nums ${row.breached > 0 ? 'font-semibold text-destructive' : ''}`}
+                                >
+                                    {row.breached}
+                                </td>
+                                <td className="p-3 text-right tabular-nums">
+                                    {row.pending}
+                                </td>
+                                <td className="p-3 text-right tabular-nums">
+                                    {row.average_minutes === null
+                                        ? '—'
+                                        : formatMinutes(row.average_minutes)}
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    );
+}
+
 function ForecastSummary({ rows }: { rows: ForecastRow[] }) {
     return (
         <section className="rounded-md border">
@@ -2419,6 +2523,24 @@ function CrmSettingsDialog({ settings }: { settings: CrmSettings }) {
                             onChange={(event) =>
                                 form.setData(
                                     'lead_response_sla_minutes',
+                                    event.target.value,
+                                )
+                            }
+                        />
+                    </Field>
+                    <Field
+                        label="Escalado tras el primer aviso (minutos)"
+                        error={form.errors.lead_response_escalation_minutes}
+                    >
+                        <Input
+                            type="number"
+                            min="15"
+                            max="10080"
+                            step="15"
+                            value={form.data.lead_response_escalation_minutes}
+                            onChange={(event) =>
+                                form.setData(
+                                    'lead_response_escalation_minutes',
                                     event.target.value,
                                 )
                             }

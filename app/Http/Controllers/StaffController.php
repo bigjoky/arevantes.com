@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\ManagesPersonProfiles;
 use App\Models\Person;
+use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -75,6 +76,16 @@ class StaffController extends Controller
                     'created_at' => $staff->user->created_at->toIso8601String(),
                 ] : null,
             ],
+            'availableAccessUsers' => $staff->user || ! request()->user()->can('manage-access') ? [] : User::query()
+                ->whereNull('person_id')
+                ->orderBy('name')
+                ->get(['id', 'name', 'email', 'role'])
+                ->map(fn (User $user) => [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'role' => $user->role,
+                ]),
             ...$this->sectionProps('staff'),
         ]);
     }
