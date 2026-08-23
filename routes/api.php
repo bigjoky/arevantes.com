@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\Mobile\V1\ActivityController as MobileActivityController;
 use App\Http\Controllers\Api\Mobile\V1\AuthController as MobileAuthController;
 use App\Http\Controllers\Api\Mobile\V1\DeviceController as MobileDeviceController;
 use App\Http\Controllers\Api\Mobile\V1\WorkOrderController as MobileWorkOrderController;
@@ -26,6 +27,9 @@ Route::prefix('mobile/v1')->name('api.mobile.v1.')->group(function () {
         Route::delete('auth/token', [MobileAuthController::class, 'logout'])->name('auth.logout');
         Route::put('devices/{deviceId}', [MobileDeviceController::class, 'update'])->whereUuid('deviceId')->name('devices.update');
         Route::delete('devices/{deviceId}', [MobileDeviceController::class, 'destroy'])->whereUuid('deviceId')->name('devices.destroy');
+        Route::get('activities', [MobileActivityController::class, 'index'])->name('activities.index');
+        Route::get('activities/{activity}', [MobileActivityController::class, 'show'])->name('activities.show');
+        Route::patch('activities/{activity}/status', [MobileActivityController::class, 'changeStatus'])->middleware(EnsureMobileIdempotency::class)->name('activities.status.update');
         Route::get('work-orders', [MobileWorkOrderController::class, 'index'])->name('work-orders.index');
         Route::get('work-orders/{workOrder}', [MobileWorkOrderController::class, 'show'])->name('work-orders.show');
         Route::patch('work-orders/{workOrder}/status', [MobileWorkOrderController::class, 'changeStatus'])->middleware(EnsureMobileIdempotency::class)->name('work-orders.status.update');

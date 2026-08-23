@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Api;
 
+use App\Models\CrmActivity;
 use App\Models\Installation;
 use App\Models\MobileOperation;
 use App\Models\PermissionProfile;
@@ -121,6 +122,58 @@ class MobileV1Test extends TestCase
         ])->assertNoContent()
             ->assertHeader('Access-Control-Allow-Origin', 'capacitor://localhost')
             ->assertHeader('Access-Control-Allow-Methods');
+    }
+
+    public function test_mobile_agenda_lists_only_current_users_active_unlinked_activities(): void
+    {
+        $technician = User::factory()->create(['role' => 'technician']);
+        $other = User::factory()->create(['role' => 'technician']);
+        $installation = Installation::create(['service_type' => 'solar', 'status' => 'in_progress', 'project_reference' => 'FV-MOBILE', 'site_address_line_1' => 'Calle Sol 1']);
+        $visible = CrmActivity::create(['installation_id' => $installation->id, 'assigned_user_id' => $technician->id, 'type' => 'visit', 'title' => 'Long maintenance', 'priority' => 'normal', 'status' => 'pending', 'starts_at' => now()->subDays(2), 'due_at' => now()->addDays(5)]);
+        CrmActivity::create(['assigned_user_id' => $other->id, 'type' => 'task', 'title' => 'Other user', 'priority' => 'normal', 'status' => 'pending']);
+        CrmActivity::create(['assigned_user_id' => $technician->id, 'type' => 'task', 'title' => 'Non operational task', 'priority' => 'normal', 'status' => 'pending']);
+        CrmActivity::create(['assigned_user_id' => $technician->id, 'type' => 'task', 'title' => 'Completed', 'priority' => 'normal', 'status' => 'completed', 'completed_at' => now()]);
+        $linkedOrder = WorkOrder::create(['installation_id' => $installation->id, 'assigned_user_id' => $technician->id, 'number' => 'WO-LINKED', 'title' => 'Linked', 'status' => 'planned']);
+        CrmActivity::create(['work_order_id' => $linkedOrder->id, 'assigned_user_id' => $technician->id, 'type' => 'visit', 'title' => 'Linked duplicate', 'priority' => 'normal', 'status' => 'pending']);
+
+        $this->mobileAs($technician)->getJson('/api/mobile/v1/activities')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $visible->id)
+            ->assertJsonPath('data.0.installation.project_reference', 'FV-MOBILE');
+    }
+
+    public function test_mobile_user_can_read_and_change_an_assigned_activity_idempotently(): void
+    {
+        $technician = User::factory()->create(['role' => 'technician']);
+        $installation = Installation::create(['service_type' => 'solar', 'status' => 'in_progress', 'site_address_line_1' => 'Calle Sol 1']);
+        $activity = CrmActivity::create(['installation_id' => $installation->id, 'assigned_user_id' => $technician->id, 'type' => 'task', 'title' => 'Assigned task', 'notes' => 'Detailed instructions', 'priority' => 'high', 'status' => 'pending']);
+        $key = (string) Str::uuid();
+
+        $this->mobileAs($technician)->getJson("/api/mobile/v1/activities/{$activity->id}")
+            ->assertOk()->assertJsonPath('data.notes', 'Detailed instructions');
+        $this->withHeader('Idempotency-Key', $key)->patchJson("/api/mobile/v1/activities/{$activity->id}/status", [
+            'status' => 'blocked',
+            'blocked_reason' => 'Waiting for site access.',
+        ])->assertOk()->assertJsonPath('data.blocked_reason', 'Waiting for site access.');
+        $this->withHeader('Idempotency-Key', $key)->patchJson("/api/mobile/v1/activities/{$activity->id}/status", [
+            'status' => 'completed',
+        ])->assertOk()->assertHeader('Idempotency-Replayed', 'true')->assertJsonPath('data.status', 'blocked');
+        $this->withHeader('Idempotency-Key', (string) Str::uuid())->patchJson("/api/mobile/v1/activities/{$activity->id}/status", [
+            'status' => 'completed',
+        ])->assertOk()->assertJsonPath('data.status', 'completed');
+
+        $this->assertNotNull($activity->refresh()->completed_at);
+    }
+
+    public function test_mobile_user_cannot_access_another_users_activity(): void
+    {
+        $technician = User::factory()->create(['role' => 'technician']);
+        $installation = Installation::create(['service_type' => 'solar', 'status' => 'in_progress', 'site_address_line_1' => 'Calle Sol 1']);
+        $activity = CrmActivity::create(['installation_id' => $installation->id, 'assigned_user_id' => User::factory()->create()->id, 'type' => 'task', 'title' => 'Private task', 'priority' => 'normal', 'status' => 'pending']);
+
+        $this->mobileAs($technician)->getJson("/api/mobile/v1/activities/{$activity->id}")->assertForbidden();
+        $this->withHeader('Idempotency-Key', (string) Str::uuid())->patchJson("/api/mobile/v1/activities/{$activity->id}/status", ['status' => 'completed'])->assertForbidden();
     }
 
     public function test_retention_prunes_only_expired_mobile_idempotency_responses(): void
