@@ -2,10 +2,12 @@
 
 namespace Tests\Feature\Api;
 
+use App\Models\CommercialVisit;
 use App\Models\CrmActivity;
 use App\Models\Installation;
 use App\Models\MobileOperation;
 use App\Models\PermissionProfile;
+use App\Models\Person;
 use App\Models\Product;
 use App\Models\StockReservation;
 use App\Models\TaxRate;
@@ -122,6 +124,94 @@ class MobileV1Test extends TestCase
         ])->assertNoContent()
             ->assertHeader('Access-Control-Allow-Origin', 'capacitor://localhost')
             ->assertHeader('Access-Control-Allow-Methods');
+    }
+
+    public function test_commercial_can_capture_a_visit_as_a_lead_offline_idempotently(): void
+    {
+        $commercial = User::factory()->create(['role' => 'commercial']);
+        $key = (string) Str::uuid();
+        $clientUuid = (string) Str::uuid();
+        $payload = [
+            'client_uuid' => $clientUuid,
+            'first_name' => 'María',
+            'last_name' => 'Solar',
+            'phone' => '612 345 678',
+            'email' => 'maria@example.test',
+            'preferred_contact_channel' => 'whatsapp',
+            'consent_status' => 'granted',
+            'consent_notes' => 'Aceptado durante la visita.',
+            'service_interest' => 'solar_photovoltaic',
+            'source' => 'outbound',
+            'estimated_value' => 8500,
+            'address' => 'Calle Sol 10',
+            'city' => 'Sevilla',
+            'postal_code' => '41001',
+            'notes' => 'Quiere reducir su factura eléctrica.',
+            'visited_at' => now()->subMinute()->toISOString(),
+            'latitude' => 37.3891,
+            'longitude' => -5.9845,
+            'accuracy_meters' => 8.5,
+            'next_action_at' => now()->addDay()->toISOString(),
+        ];
+
+        $this->mobileAs($commercial)->withHeader('Idempotency-Key', $key)
+            ->postJson('/api/mobile/v1/commercial/leads', $payload)
+            ->assertCreated()
+            ->assertJsonPath('data.client_uuid', $clientUuid)
+            ->assertJsonPath('data.opportunity.owner_user_id', $commercial->id)
+            ->assertJsonPath('data.opportunity.stage', 'new');
+        $this->withHeader('Idempotency-Key', $key)
+            ->postJson('/api/mobile/v1/commercial/leads', $payload)
+            ->assertCreated()
+            ->assertHeader('Idempotency-Replayed', 'true');
+
+        $visit = CommercialVisit::firstOrFail();
+        $customer = Person::findOrFail($visit->person_id);
+        $this->assertDatabaseCount('commercial_visits', 1);
+        $this->assertDatabaseCount('opportunities', 1);
+        $this->assertDatabaseHas('customer_consents', ['person_id' => $customer->id, 'status' => 'granted', 'source' => 'mobile_commercial_visit']);
+        $this->assertDatabaseHas('crm_activities', ['opportunity_id' => $visit->opportunity_id, 'type' => 'visit', 'status' => 'completed']);
+        $this->assertDatabaseHas('crm_activities', ['opportunity_id' => $visit->opportunity_id, 'type' => 'call', 'status' => 'pending']);
+        $this->assertSame(['solar_photovoltaic'], $customer->service_interests);
+    }
+
+    public function test_commercial_lead_capture_reuses_customer_and_rejects_technician(): void
+    {
+        $existing = Person::create([
+            'category' => 'customer',
+            'customer_type' => 'residential',
+            'lifecycle_status' => 'lead',
+            'first_name' => 'Cliente',
+            'phone' => '612345678',
+            'country' => 'Spain',
+        ]);
+        $payload = [
+            'client_uuid' => (string) Str::uuid(),
+            'first_name' => 'Cliente actualizado',
+            'phone' => '+34 612 345 678',
+            'preferred_contact_channel' => 'phone',
+            'consent_status' => 'denied',
+            'service_interest' => 'maintenance',
+            'source' => 'referral',
+            'visited_at' => now()->subMinute()->toISOString(),
+            'next_action_at' => now()->addDay()->toISOString(),
+        ];
+        $commercial = User::factory()->create(['role' => 'commercial']);
+
+        $this->mobileAs($commercial)->withHeader('Idempotency-Key', (string) Str::uuid())
+            ->postJson('/api/mobile/v1/commercial/leads', $payload)
+            ->assertCreated();
+        $this->assertDatabaseCount('people', 1);
+        $this->assertSame($existing->id, CommercialVisit::firstOrFail()->person_id);
+        $this->assertTrue($existing->refresh()->do_not_contact);
+        $this->assertDatabaseHas('crm_activities', ['opportunity_id' => CommercialVisit::firstOrFail()->opportunity_id, 'type' => 'task', 'status' => 'pending']);
+        $this->assertDatabaseMissing('crm_activities', ['opportunity_id' => CommercialVisit::firstOrFail()->opportunity_id, 'type' => 'call']);
+
+        $technician = User::factory()->create(['role' => 'technician']);
+        $this->mobileAs($technician)->withHeader('Idempotency-Key', (string) Str::uuid())
+            ->postJson('/api/mobile/v1/commercial/leads', [...$payload, 'client_uuid' => (string) Str::uuid()])
+            ->assertForbidden();
+        $this->assertDatabaseCount('commercial_visits', 1);
     }
 
     public function test_mobile_agenda_lists_only_current_users_active_unlinked_activities(): void
