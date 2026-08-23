@@ -16,6 +16,7 @@ use App\Services\Documents\QuoteBillingPlan;
 use App\Services\Documents\SalesDocumentConversion;
 use App\Services\Inventory\SalesStockAllocator;
 use App\Services\Inventory\StockLedger;
+use App\Services\Operations\FinancialClearanceGuard;
 use App\Services\Quotes\QuoteCalculator;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -267,9 +268,12 @@ class SalesDocumentController extends Controller
         return to_route('sales-documents.show', $document)->with('toast', ['type' => 'success', 'message' => __('Derived document created.')]);
     }
 
-    public function dispatch(Request $request, SalesDocument $salesDocument, StockLedger $ledger, SalesStockAllocator $allocator, SalesDocumentConversion $conversion): RedirectResponse
+    public function dispatch(Request $request, SalesDocument $salesDocument, StockLedger $ledger, SalesStockAllocator $allocator, SalesDocumentConversion $conversion, FinancialClearanceGuard $financialClearance): RedirectResponse
     {
         abort_unless($salesDocument->type === 'delivery_note' && $salesDocument->status === 'draft', 422, __('Only draft delivery notes can be dispatched.'));
+        if ($salesDocument->installation) {
+            $financialClearance->assertAllows($salesDocument->installation, 'reserve');
+        }
         $data = $request->validate(['warehouse_id' => ['nullable', 'exists:warehouses,id'], 'serials' => ['nullable', 'array'], 'serials.*' => ['nullable', 'string']]);
         $stockLines = $salesDocument->lines->filter(fn ($line) => $line->product?->track_stock)->groupBy('product_id')->map(function ($lines, $productId) use ($data) {
             return ['product_id' => (int) $productId, 'quantity' => $lines->sum(fn ($line) => abs((float) $line->quantity)), 'unit_cost' => $lines->first()->product?->cost_price, 'serials' => $data['serials'][$productId] ?? null];

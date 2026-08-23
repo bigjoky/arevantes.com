@@ -8,6 +8,7 @@ use App\Http\Controllers\AfterSalesController;
 use App\Http\Controllers\AiFeedbackController;
 use App\Http\Controllers\AnalyticsController;
 use App\Http\Controllers\AreviaChatController;
+use App\Http\Controllers\AssetRmaController;
 use App\Http\Controllers\BankingController;
 use App\Http\Controllers\CatalogController;
 use App\Http\Controllers\ChartOfAccountsController;
@@ -455,6 +456,8 @@ Route::middleware(['auth'])->group(function () {
     Route::post('installations/{installation}/assets', [InstallationAssetController::class, 'store'])->middleware('can:manage-installations')->name('installations.assets.store');
     Route::patch('installations/{installation}/assets/{asset}', [InstallationAssetController::class, 'update'])->middleware('can:manage-installations')->name('installations.assets.update');
     Route::post('installations/{installation}/assets/{asset}/events', [InstallationAssetController::class, 'storeEvent'])->middleware('can:manage-operations')->name('installations.assets.events.store');
+    Route::post('installations/{installation}/assets/{asset}/rmas', [AssetRmaController::class, 'store'])->middleware('can:manage-installations')->name('installations.assets.rmas.store');
+    Route::patch('installations/{installation}/assets/{asset}/rmas/{rma}', [AssetRmaController::class, 'update'])->middleware('can:manage-installations')->name('installations.assets.rmas.update');
     Route::post('installations/{installation}/assets/{asset}/replacement', [InstallationAssetController::class, 'replace'])->middleware('can:manage-installations')->name('installations.assets.replace');
     Route::resource('installations', InstallationController::class)
         ->except(['index', 'show'])

@@ -96,7 +96,7 @@ class InstallationController extends Controller
      */
     public function show(Request $request, Installation $installation, ProjectProfitability $profitability): Response
     {
-        $installation->load(['customer', 'people', 'remoteStation', 'assets.product:id,name,sku', 'assets.serial:id,serial_number', 'assets.sourcePurchase:id,number', 'assets.replacement:id,asset_tag,name', 'assets.events']);
+        $installation->load(['customer', 'people', 'remoteStation', 'assets.product:id,name,sku', 'assets.serial:id,serial_number', 'assets.sourcePurchase:id,number', 'assets.replacement:id,asset_tag,name', 'assets.events', 'assets.rmas.workOrder:id,number,title', 'assets.rmas.serviceTicket:id,number,title']);
 
         return Inertia::render('installations/show', [
             'installation' => $this->installationPayload($installation),

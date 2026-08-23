@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\AssetRma;
 use App\Models\FieldServiceProfile;
 use App\Models\Installation;
 use App\Models\InstallationAsset;
@@ -256,6 +257,81 @@ class FieldServiceOperationsTest extends TestCase
         $this->assertSame($replacement->id, $asset->replaced_by_asset_id);
         $this->assertTrue($asset->events()->where('type', 'replacement')->exists());
         $this->assertTrue($replacement->events()->where('type', 'commissioned')->exists());
+    }
+
+    public function test_an_asset_rma_is_numbered_linked_and_added_to_the_technical_history(): void
+    {
+        $commercial = User::factory()->create(['role' => 'commercial']);
+        $installation = $this->installation();
+        $asset = InstallationAsset::create([
+            'installation_id' => $installation->id,
+            'asset_tag' => 'AST-RMA-001',
+            'name' => 'Main inverter',
+            'category' => 'inverter',
+            'status' => 'active',
+        ]);
+
+        $this->actingAs($commercial)->post(route('installations.assets.rmas.store', [$installation, $asset]), [
+            'provider' => 'Solar Manufacturer',
+            'external_reference' => 'EXT-7788',
+            'reason' => 'The inverter shuts down under load.',
+        ])->assertRedirect()->assertSessionHasNoErrors();
+
+        $rma = AssetRma::firstOrFail();
+        $this->assertSame('RMA-'.now()->format('Y').'-00001', $rma->number);
+        $this->assertSame('requested', $rma->status);
+        $this->assertSame($commercial->id, $rma->opened_by);
+        $this->assertSame('rma', $asset->refresh()->status);
+        $this->assertTrue($asset->events()->where('type', 'rma')->where('summary', 'like', "%{$rma->number}%")->exists());
+
+        $this->actingAs($commercial)->post(route('installations.assets.rmas.store', [$installation, $asset]), [
+            'reason' => 'Duplicated request.',
+        ])->assertStatus(422);
+
+        $this->assertDatabaseCount('asset_rmas', 1);
+    }
+
+    public function test_an_rma_follows_its_workflow_and_restores_the_asset_when_resolved(): void
+    {
+        $commercial = User::factory()->create(['role' => 'commercial']);
+        $installation = $this->installation();
+        $asset = InstallationAsset::create([
+            'installation_id' => $installation->id,
+            'asset_tag' => 'AST-RMA-002',
+            'name' => 'EV charger',
+            'category' => 'charger',
+            'status' => 'rma',
+        ]);
+        $rma = AssetRma::create([
+            'installation_asset_id' => $asset->id,
+            'opened_by' => $commercial->id,
+            'number' => 'RMA-2026-00002',
+            'status' => 'requested',
+            'reason' => 'Connector failure.',
+            'requested_at' => now(),
+        ]);
+
+        $url = fn () => route('installations.assets.rmas.update', [$installation, $asset, $rma]);
+        $this->actingAs($commercial)->patch($url(), ['status' => 'shipped'])
+            ->assertStatus(422);
+        $this->assertSame('requested', $rma->refresh()->status);
+
+        foreach (['approved', 'shipped', 'received'] as $status) {
+            $this->actingAs($commercial)->patch($url(), ['status' => $status])
+                ->assertRedirect()->assertSessionHasNoErrors();
+        }
+        $this->assertNotNull($rma->refresh()->shipped_at);
+
+        $this->actingAs($commercial)->patch($url(), [
+            'status' => 'resolved',
+            'resolution' => 'Replacement unit received and commissioned.',
+        ])->assertRedirect()->assertSessionHasNoErrors();
+
+        $this->assertSame('resolved', $rma->refresh()->status);
+        $this->assertNotNull($rma->resolved_at);
+        $this->assertSame($commercial->id, $rma->closed_by);
+        $this->assertSame('active', $asset->refresh()->status);
+        $this->assertSame(4, $asset->events()->where('type', 'rma')->count());
     }
 
     public function test_due_maintenance_generates_the_ticket_and_required_work_order(): void

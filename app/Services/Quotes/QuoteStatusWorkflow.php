@@ -5,6 +5,7 @@ namespace App\Services\Quotes;
 use App\Models\Quote;
 use App\Models\User;
 use App\Services\Crm\OpportunitySalesCycle;
+use App\Services\Finance\AcceptancePaymentManager;
 use App\Services\Inventory\ProjectMaterialPlanner;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -23,6 +24,7 @@ class QuoteStatusWorkflow
         private readonly ProjectMaterialPlanner $materials,
         private readonly QuoteOperationalPlanner $operations,
         private readonly OpportunitySalesCycle $salesCycle,
+        private readonly AcceptancePaymentManager $acceptancePayments,
     ) {}
 
     public function assertCanTransition(Quote $quote, string $status): void
@@ -39,12 +41,17 @@ class QuoteStatusWorkflow
             return;
         }
 
+        if ($quote->status === 'accepted' && $quote->acceptanceInvoice()->exists()) {
+            throw ValidationException::withMessages([
+                'status' => __('An accepted quote with an issued acceptance invoice cannot change status. Correct the invoice first.'),
+            ]);
+        }
+
         if (! in_array($status, self::TRANSITIONS[$quote->status] ?? [], true)) {
             throw ValidationException::withMessages([
                 'status' => __('The quote cannot move from :from to :to.', ['from' => $quote->status, 'to' => $status]),
             ]);
         }
-
     }
 
     /** @return array<int, string> */
@@ -84,6 +91,10 @@ class QuoteStatusWorkflow
                 $quote->installation->update(['status' => 'approved', 'estimated_budget' => $quote->amount]);
                 $this->materials->syncFromQuote($quote, $quote->installation);
                 $this->operations->sync($quote, $quote->installation, $actor?->id);
+            }
+
+            if ($status === 'accepted') {
+                $this->acceptancePayments->activate($quote);
             }
 
             if (! $quote->opportunity) {

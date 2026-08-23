@@ -3,10 +3,13 @@
 namespace App\Services\Work;
 
 use App\Models\WorkOrder;
+use App\Services\Operations\FinancialClearanceGuard;
 use Illuminate\Validation\ValidationException;
 
 class WorkOrderWorkflow
 {
+    public function __construct(private FinancialClearanceGuard $financialClearance) {}
+
     public const DEFAULT_TRANSITIONS = [
         'planned' => ['in_progress', 'blocked', 'completed', 'cancelled'],
         'in_progress' => ['blocked', 'completed', 'cancelled'],
@@ -19,6 +22,9 @@ class WorkOrderWorkflow
     {
         if ($to === $order->status) {
             return;
+        }
+        if (in_array($to, ['in_progress', 'completed'], true)) {
+            $this->financialClearance->assertAllows($order->loadMissing('installation')->installation, $order->kind);
         }
         $transitions = $order->allowed_transitions_snapshot ?: self::DEFAULT_TRANSITIONS;
         if (! in_array($to, $transitions[$order->status] ?? [], true)) {

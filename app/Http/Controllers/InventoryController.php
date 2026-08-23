@@ -12,6 +12,7 @@ use App\Models\StockReservation;
 use App\Models\Warehouse;
 use App\Services\Inventory\StockLedger;
 use App\Services\Inventory\StockPositionService;
+use App\Services\Operations\FinancialClearanceGuard;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -68,9 +69,10 @@ class InventoryController extends Controller
         return back()->with('toast', ['type' => 'success', 'message' => __('Stock movement posted.')]);
     }
 
-    public function storeReservation(Request $request): RedirectResponse
+    public function storeReservation(Request $request, FinancialClearanceGuard $financialClearance): RedirectResponse
     {
         $data = $request->validate(['installation_id' => ['required', 'exists:installations,id'], 'warehouse_id' => ['required', 'exists:warehouses,id'], 'product_id' => ['required', 'exists:products,id'], 'quantity' => ['required', 'numeric', 'gt:0'], 'reserved_until' => ['nullable', 'date', 'after:now']]);
+        $financialClearance->assertAllows(Installation::findOrFail($data['installation_id']), 'reserve');
         DB::transaction(function () use ($data): void {
             $ledgerQuantity = (float) StockMovementLine::where('warehouse_id', $data['warehouse_id'])->where('product_id', $data['product_id'])->sum('quantity');
             StockBalance::query()->insertOrIgnore([
