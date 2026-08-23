@@ -84,6 +84,36 @@ type Subscription = {
     next_send_at: string | null;
 };
 
+type ConversionRow = {
+    key: string;
+    label: string;
+    closed: number;
+    won: number;
+    lost: number;
+    win_rate: number;
+    won_value: number;
+};
+
+type CommercialConversions = {
+    period: { from: string; to: string };
+    summary: {
+        closed: number;
+        won: number;
+        lost: number;
+        win_rate: number;
+        won_value: number;
+        attribution_rate: number;
+    };
+    by_source: ConversionRow[];
+    by_commercial: ConversionRow[];
+    trend: Array<{
+        period: string;
+        closed: number;
+        won: number;
+        win_rate: number;
+    }>;
+};
+
 type Props = {
     filters: Filter;
     generatedAt: string;
@@ -101,6 +131,7 @@ type Props = {
     }>;
     alerts: Alert[];
     subscriptions: Subscription[];
+    commercialConversions: CommercialConversions | null;
 };
 
 export default function AnalyticsIndex(props: Props) {
@@ -304,6 +335,7 @@ export default function AnalyticsIndex(props: Props) {
                         selectedMetric={props.selectedMetric}
                         records={props.records}
                         recordsHasMore={props.recordsHasMore}
+                        conversions={props.commercialConversions}
                         onOpen={openMetric}
                     />
                 ) : null}
@@ -321,12 +353,14 @@ function Dashboard({
     selectedMetric,
     records,
     recordsHasMore,
+    conversions,
     onOpen,
 }: {
     metrics: Metric[];
     selectedMetric: Metric | null;
     records: RecordRow[];
     recordsHasMore: boolean;
+    conversions: CommercialConversions | null;
     onOpen: (key: string) => void;
 }) {
     return (
@@ -385,6 +419,9 @@ function Dashboard({
                     </button>
                 ))}
             </section>
+            {conversions ? (
+                <CommercialConversionPanel conversions={conversions} />
+            ) : null}
             {selectedMetric ? (
                 <Drilldown
                     metric={selectedMetric}
@@ -398,6 +435,162 @@ function Dashboard({
                 </div>
             )}
         </>
+    );
+}
+
+function CommercialConversionPanel({
+    conversions,
+}: {
+    conversions: CommercialConversions;
+}) {
+    const summary = conversions.summary;
+
+    return (
+        <section className="grid gap-4" aria-labelledby="conversion-title">
+            <div>
+                <h2 id="conversion-title" className="text-lg font-semibold">
+                    Conversión por atribución
+                </h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                    Resultados cerrados entre{' '}
+                    {formatDate(conversions.period.from)} y{' '}
+                    {formatDate(conversions.period.to)}, calculados desde el
+                    historial real de etapas.
+                </p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                <ConversionKpi
+                    label="Cerradas"
+                    value={String(summary.closed)}
+                />
+                <ConversionKpi label="Ganadas" value={String(summary.won)} />
+                <ConversionKpi
+                    label="Conversión"
+                    value={`${summary.win_rate}%`}
+                />
+                <ConversionKpi
+                    label="Valor ganado"
+                    value={formatValue(summary.won_value, 'currency')}
+                />
+            </div>
+            {summary.attribution_rate < 100 && summary.closed > 0 ? (
+                <div className="rounded-lg border border-amber-300/60 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
+                    El {summary.attribution_rate}% de los cierres tiene un
+                    origen informado. Completa el origen para comparar canales
+                    con precisión.
+                </div>
+            ) : null}
+            <div className="grid gap-4 xl:grid-cols-2">
+                <ConversionTable
+                    title="Por origen"
+                    rows={conversions.by_source}
+                />
+                <ConversionTable
+                    title="Por comercial"
+                    rows={conversions.by_commercial}
+                />
+            </div>
+            <Card className="p-5">
+                <h3 className="font-semibold">Evolución mensual</h3>
+                <div className="mt-3 grid gap-3">
+                    {conversions.trend.map((point) => (
+                        <div
+                            key={point.period}
+                            className="grid grid-cols-[5rem_1fr_auto] items-center gap-3 text-sm"
+                        >
+                            <span className="text-muted-foreground">
+                                {formatMonth(point.period)}
+                            </span>
+                            <div
+                                className="h-2 overflow-hidden rounded-full bg-muted"
+                                aria-hidden="true"
+                            >
+                                <div
+                                    className="h-full rounded-full bg-primary"
+                                    style={{ width: `${point.win_rate}%` }}
+                                />
+                            </div>
+                            <span className="w-20 text-right tabular-nums">
+                                {point.win_rate}%{' '}
+                                <span className="text-xs text-muted-foreground">
+                                    ({point.won}/{point.closed})
+                                </span>
+                            </span>
+                        </div>
+                    ))}
+                    {!conversions.trend.length ? (
+                        <p className="text-sm text-muted-foreground">
+                            No hay cierres en este periodo.
+                        </p>
+                    ) : null}
+                </div>
+            </Card>
+        </section>
+    );
+}
+
+function ConversionKpi({ label, value }: { label: string; value: string }) {
+    return (
+        <Card className="gap-1 p-4">
+            <span className="text-xs text-muted-foreground">{label}</span>
+            <strong className="text-2xl tabular-nums">{value}</strong>
+        </Card>
+    );
+}
+
+function ConversionTable({
+    title,
+    rows,
+}: {
+    title: string;
+    rows: ConversionRow[];
+}) {
+    return (
+        <Card className="gap-0 overflow-hidden py-0">
+            <h3 className="border-b p-4 font-semibold">{title}</h3>
+            <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                    <thead className="bg-muted/50 text-left text-xs text-muted-foreground">
+                        <tr>
+                            <th className="px-4 py-3">Atribución</th>
+                            <th className="px-3 py-3 text-right">Cierres</th>
+                            <th className="px-3 py-3 text-right">Conversión</th>
+                            <th className="px-4 py-3 text-right">
+                                Valor ganado
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                        {rows.map((row) => (
+                            <tr key={row.key}>
+                                <td className="px-4 py-3 font-medium">
+                                    {row.label}
+                                </td>
+                                <td className="px-3 py-3 text-right tabular-nums">
+                                    {row.won}/{row.closed}
+                                </td>
+                                <td className="px-3 py-3 text-right tabular-nums">
+                                    {row.win_rate}%
+                                </td>
+                                <td className="px-4 py-3 text-right tabular-nums">
+                                    {formatValue(row.won_value, 'currency')}
+                                </td>
+                            </tr>
+                        ))}
+                        {!rows.length ? (
+                            <tr>
+                                <td
+                                    colSpan={4}
+                                    className="p-6 text-center text-muted-foreground"
+                                >
+                                    Sin cierres para este desglose.
+                                </td>
+                            </tr>
+                        ) : null}
+                    </tbody>
+                </table>
+            </div>
+        </Card>
     );
 }
 
@@ -888,6 +1081,11 @@ const formatDateTime = (date: string) =>
         dateStyle: 'short',
         timeStyle: 'short',
     }).format(new Date(date));
+const formatMonth = (period: string) =>
+    new Intl.DateTimeFormat('es-ES', {
+        month: 'short',
+        year: 'numeric',
+    }).format(new Date(`${period}-01T12:00:00`));
 const frequencyLabel = (frequency: string) =>
     ({ daily: 'Diario', weekly: 'Semanal', monthly: 'Mensual' })[frequency] ??
     frequency;

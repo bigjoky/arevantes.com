@@ -196,6 +196,48 @@ class ExecutiveAnalyticsTest extends TestCase
                 ->where('metrics.2.value', 100));
     }
 
+    public function test_sales_analytics_attributes_conversions_by_source_and_commercial_with_authorized_scope(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $commercial = User::factory()->create(['role' => 'commercial', 'name' => 'Ana Comercial']);
+        $other = User::factory()->create(['role' => 'commercial', 'name' => 'Bruno Comercial']);
+        Opportunity::create([
+            'owner_user_id' => $commercial->id, 'created_by' => $commercial->id, 'code' => 'CONV-WEB-WON',
+            'title' => 'Web ganada', 'stage' => 'won', 'estimated_value' => 5000, 'source' => 'website',
+        ]);
+        Opportunity::create([
+            'owner_user_id' => $commercial->id, 'created_by' => $commercial->id, 'code' => 'CONV-REF-LOST',
+            'title' => 'Referido perdido', 'stage' => 'lost', 'estimated_value' => 3000, 'source' => 'referral',
+        ]);
+        Opportunity::create([
+            'owner_user_id' => $other->id, 'created_by' => $other->id, 'code' => 'CONV-WEB-OTHER',
+            'title' => 'Web de otro comercial', 'stage' => 'won', 'estimated_value' => 7000, 'source' => 'website',
+        ]);
+
+        $this->actingAs($admin)->get(route('analytics.index', ['area' => 'sales', 'period' => 'month']))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('commercialConversions.summary.closed', 3)
+                ->where('commercialConversions.summary.won', 2)
+                ->where('commercialConversions.summary.win_rate', 66.7)
+                ->where('commercialConversions.summary.won_value', 12000)
+                ->where('commercialConversions.summary.attribution_rate', 100)
+                ->where('commercialConversions.by_source.0.key', 'website')
+                ->where('commercialConversions.by_source.0.closed', 2)
+                ->where('commercialConversions.by_source.0.win_rate', 100)
+                ->where('commercialConversions.by_commercial.0.key', (string) $commercial->id)
+                ->where('commercialConversions.by_commercial.0.closed', 2)
+                ->has('commercialConversions.trend', 1));
+
+        $this->actingAs($commercial)->get(route('analytics.index', [
+            'area' => 'sales', 'period' => 'month', 'commercial_id' => $other->id,
+        ]))->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->where('commercialConversions.summary.closed', 2)
+            ->where('commercialConversions.summary.won', 1)
+            ->where('commercialConversions.by_commercial.0.key', (string) $commercial->id)
+            ->has('commercialConversions.by_commercial', 1));
+    }
+
     public function test_receivables_are_an_as_of_balance_not_period_issuance(): void
     {
         $user = User::factory()->create(['role' => 'admin']);

@@ -281,7 +281,12 @@ class MobileV1Test extends TestCase
             ->assertJsonPath('data.leads.0.customer.name', 'Lead propio')
             ->assertJsonPath('data.leads.0.last_visit.latitude', 37.3891)
             ->assertJsonCount(1, 'data.agenda')
-            ->assertJsonPath('data.agenda.0.id', $action->id);
+            ->assertJsonPath('data.agenda.0.id', $action->id)
+            ->assertJsonPath('data.conversions.summary.closed', 1)
+            ->assertJsonPath('data.conversions.summary.won', 1)
+            ->assertJsonPath('data.conversions.summary.win_rate', 100)
+            ->assertJsonPath('data.conversions.summary.attribution_rate', 0)
+            ->assertJsonCount(0, 'data.conversions.by_commercial');
 
         $technician = User::factory()->create(['role' => 'technician']);
         $this->mobileAs($technician)->getJson('/api/mobile/v1/commercial/dashboard')->assertForbidden();

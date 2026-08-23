@@ -8,6 +8,7 @@ use App\Models\CommercialVisit;
 use App\Models\CrmActivity;
 use App\Models\Opportunity;
 use App\Models\Person;
+use App\Services\Analytics\CommercialConversionAnalytics;
 use App\Services\Crm\LeadResponseSla;
 use App\Services\Crm\OpportunitySalesCycle;
 use App\Services\Customers\OpportunityCustomerResolver;
@@ -54,7 +55,7 @@ class CommercialLeadController extends Controller
         ]]);
     }
 
-    public function index(Request $request): JsonResponse
+    public function index(Request $request, CommercialConversionAnalytics $conversionAnalytics): JsonResponse
     {
         $validated = $request->validate([
             'limit' => ['nullable', 'integer', 'min:1', 'max:200'],
@@ -138,6 +139,11 @@ class CommercialLeadController extends Controller
                 ] : null,
             ])->values(),
             'route' => CommercialRoutePayload::make($route),
+            'conversions' => $conversionAnalytics->forCommercial(
+                $request->user(),
+                today()->subMonths(11)->startOfMonth(),
+                now(),
+            ),
             'generated_at' => now()->toISOString(),
         ]]);
     }
