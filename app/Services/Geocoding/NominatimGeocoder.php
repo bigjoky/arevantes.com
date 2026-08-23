@@ -9,6 +9,26 @@ use Illuminate\Support\Str;
 class NominatimGeocoder
 {
     /**
+     * @return array<string, mixed>
+     */
+    public function reverse(float $latitude, float $longitude, string $language = 'es'): array
+    {
+        $cacheKey = 'geocoding:nominatim:reverse:v1:'.hash('sha256', json_encode([
+            round($latitude, 6),
+            round($longitude, 6),
+            $language,
+        ]));
+
+        return Cache::remember($cacheKey, now()->addDays(30), function () use ($latitude, $longitude, $language): array {
+            return Cache::lock('geocoding:nominatim:request', 5)->block(6, function () use ($latitude, $longitude, $language): array {
+                $place = $this->reverseRequest($latitude, $longitude, $language);
+
+                return $this->normalize($place);
+            });
+        });
+    }
+
+    /**
      * @return array<int, array<string, mixed>>
      */
     public function search(string $query, string $language = 'es', array $components = []): array
@@ -108,6 +128,40 @@ class NominatimGeocoder
     }
 
     /**
+     * @return array<string, mixed>
+     */
+    private function reverseRequest(float $latitude, float $longitude, string $language): array
+    {
+        $lastRequestAt = (float) Cache::get('geocoding:nominatim:last_request_at', 0);
+        $remainingDelay = 1 - (microtime(true) - $lastRequestAt);
+
+        if ($remainingDelay > 0) {
+            usleep((int) ceil($remainingDelay * 1_000_000));
+        }
+
+        $response = Http::baseUrl(rtrim(config('services.nominatim.url'), '/'))
+            ->withHeaders([
+                'Accept-Language' => $language,
+                'User-Agent' => config('services.nominatim.user_agent'),
+            ])
+            ->acceptJson()
+            ->timeout(10)
+            ->retry(2, 250)
+            ->get('/reverse', [
+                'lat' => $latitude,
+                'lon' => $longitude,
+                'format' => 'jsonv2',
+                'addressdetails' => 1,
+                'zoom' => 18,
+            ]);
+
+        Cache::put('geocoding:nominatim:last_request_at', microtime(true), now()->addMinute());
+        $response->throw();
+
+        return $response->json();
+    }
+
+    /**
      * @param  array<string, mixed>  $place
      * @return array<string, mixed>
      */
@@ -131,9 +185,9 @@ class NominatimGeocoder
             'house_number_match' => $requestedHouseNumber === null
                 || strcasecmp(trim((string) ($address['house_number'] ?? '')), trim($requestedHouseNumber)) === 0,
             'address' => [
-                'road' => $address['road'] ?? $address['pedestrian'] ?? null,
+                'road' => $address['road'] ?? $address['pedestrian'] ?? $address['footway'] ?? $address['path'] ?? null,
                 'house_number' => $address['house_number'] ?? null,
-                'locality' => $address['village'] ?? $address['hamlet'] ?? $address['suburb'] ?? null,
+                'locality' => $address['village'] ?? $address['hamlet'] ?? $address['suburb'] ?? $address['neighbourhood'] ?? null,
                 'municipality' => $address['city'] ?? $address['town'] ?? $address['municipality'] ?? null,
                 'province' => $address['state'] ?? $address['province'] ?? null,
                 'postal_code' => $address['postcode'] ?? null,

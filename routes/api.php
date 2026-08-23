@@ -31,6 +31,9 @@ Route::prefix('mobile/v1')->name('api.mobile.v1.')->group(function () {
         Route::get('commercial/dashboard', [MobileCommercialLeadController::class, 'index'])
             ->middleware('can:manage-customers')
             ->name('commercial.dashboard');
+        Route::get('commercial/location/reverse', [MobileCommercialLeadController::class, 'reverseGeocode'])
+            ->middleware(['can:manage-customers', 'throttle:30,1'])
+            ->name('commercial.location.reverse');
         Route::post('commercial/leads', [MobileCommercialLeadController::class, 'store'])
             ->middleware(['can:manage-customers', EnsureMobileIdempotency::class])
             ->name('commercial.leads.store');
