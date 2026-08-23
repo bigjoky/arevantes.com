@@ -1,3 +1,4 @@
+import { usePage } from '@inertiajs/react';
 import { ActionCenter } from '@/components/action-center';
 import { AreviaChat } from '@/components/arevia-chat';
 import { Breadcrumbs } from '@/components/breadcrumbs';
@@ -11,6 +12,21 @@ export function AppSidebarHeader({
 }: {
     breadcrumbs?: BreadcrumbItemType[];
 }) {
+    const { abilities } = usePage().props.auth;
+    const canSearch =
+        abilities.manageCustomers ||
+        abilities.viewInstallations ||
+        abilities.manageInstallations ||
+        abilities.manageOperations ||
+        abilities.manageCatalog ||
+        abilities.viewPurchases;
+    const hasActionCenter =
+        abilities.viewInstallations ||
+        abilities.manageOperations ||
+        abilities.managePurchases ||
+        abilities.approvePurchaseOrders ||
+        abilities.viewFinance;
+
     return (
         <header className="flex h-16 shrink-0 items-center gap-2 border-b border-sidebar-border/50 px-3 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12 md:px-4">
             <div className="flex min-w-0 items-center gap-2">
@@ -20,10 +36,10 @@ export function AppSidebarHeader({
                 </div>
             </div>
             <div className="ml-auto flex min-w-0 items-center gap-1">
-                <GlobalSearch />
+                {canSearch && <GlobalSearch />}
                 <QuickCreate />
-                <ActionCenter />
-                <AreviaChat />
+                {hasActionCenter && <ActionCenter />}
+                {abilities.useAi && <AreviaChat />}
             </div>
         </header>
     );

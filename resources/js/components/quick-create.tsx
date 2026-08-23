@@ -23,54 +23,77 @@ import {
     TooltipContent,
     TooltipTrigger,
 } from '@/components/ui/tooltip';
-import type { User } from '@/types';
+import type { AuthAbilities } from '@/types';
 
 const actions = [
-    { label: 'Customer', href: '/people/create', icon: UserPlus, group: 'CRM' },
+    {
+        label: 'Customer',
+        href: '/people/create',
+        icon: UserPlus,
+        group: 'CRM',
+        abilities: ['manageCustomers'],
+    },
     {
         label: 'Opportunity',
         href: '/opportunities?create=1',
         icon: Target,
         group: 'CRM',
+        abilities: ['manageCustomers'],
     },
     {
         label: 'Installation',
         href: '/installations/create',
         icon: Wrench,
         group: 'CRM',
+        abilities: ['manageInstallations'],
     },
     {
         label: 'Quote',
         href: '/quotes/create',
         icon: FilePlus2,
         group: 'CRM',
+        abilities: ['manageInstallations'],
     },
     {
         label: 'Work order',
         href: '/work-orders?create=1',
         icon: ClipboardPlus,
         group: 'Operations',
+        abilities: ['manageOperations', 'manageInstallations'],
     },
     {
         label: 'Purchase',
         href: '/purchases?create=1',
         icon: ShoppingCart,
         group: 'Supply',
+        abilities: ['managePurchases'],
     },
     {
         label: 'Expense',
         href: '/expenses?create=1',
         icon: ReceiptText,
         group: 'Supply',
+        abilities: ['manageCatalog', 'viewFinance'],
     },
-] as const;
+] as const satisfies ReadonlyArray<{
+    label: string;
+    href: string;
+    icon: typeof UserPlus;
+    group: string;
+    abilities: ReadonlyArray<keyof AuthAbilities>;
+}>;
 
 export function QuickCreate() {
-    const { user } = usePage<{ auth: { user: User } }>().props.auth;
+    const { abilities } = usePage().props.auth;
+    const allowedActions = actions.filter((action) =>
+        action.abilities.every((ability) => abilities[ability]),
+    );
 
-    if (user.role === 'technician') {
+    if (allowedActions.length === 0) {
         return null;
     }
+
+    const groups = [...new Set(allowedActions.map((action) => action.group))];
 
     return (
         <DropdownMenu>
@@ -89,13 +112,13 @@ export function QuickCreate() {
                 <TooltipContent>Create new</TooltipContent>
             </Tooltip>
             <DropdownMenuContent align="end" className="w-52">
-                {['CRM', 'Operations', 'Supply'].map((group, index) => (
+                {groups.map((group, index) => (
                     <div key={group}>
                         {index > 0 && <DropdownMenuSeparator />}
                         <DropdownMenuLabel className="text-xs text-muted-foreground">
                             {group}
                         </DropdownMenuLabel>
-                        {actions
+                        {allowedActions
                             .filter((action) => action.group === group)
                             .map((action) => (
                                 <DropdownMenuItem

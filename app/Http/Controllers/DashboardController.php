@@ -8,6 +8,7 @@ use App\Models\Opportunity;
 use App\Models\Person;
 use App\Models\SalesDocument;
 use App\Models\WorkOrder;
+use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -18,8 +19,14 @@ class DashboardController extends Controller
      */
     public function __invoke(): Response
     {
+        $canViewCustomers = Gate::allows('manage-customers');
+        $canViewInstallations = Gate::allows('view-installations');
+        $canViewOperations = Gate::allows('manage-operations');
+        $canViewFinance = Gate::allows('view-finance');
+        $canViewStaff = Gate::allows('manage-staff');
+
         return Inertia::render('dashboard', [
-            'installations' => Installation::query()
+            'installations' => $canViewInstallations ? Installation::query()
                 ->with('customer:id,first_name,last_name,company_name')
                 ->latest()
                 ->get()
@@ -53,24 +60,25 @@ class DashboardController extends Controller
                     'system_power_kw' => $installation->system_power_kw,
                     'charger_power_kw' => $installation->charger_power_kw,
                     'created_at' => $installation->created_at?->toDateString(),
-                ]),
+                ]) : [],
             'peopleSummary' => [
-                'total' => Person::count(),
-                'customers' => Person::where('category', 'customer')->count(),
-                'staff' => Person::where('category', 'staff')->count(),
+                'total' => ($canViewCustomers ? Person::where('category', 'customer')->count() : 0)
+                    + ($canViewStaff ? Person::where('category', 'staff')->count() : 0),
+                'customers' => $canViewCustomers ? Person::where('category', 'customer')->count() : 0,
+                'staff' => $canViewStaff ? Person::where('category', 'staff')->count() : 0,
             ],
             'installationSummary' => [
-                'total' => Installation::count(),
-                'active' => Installation::whereNotIn('status', ['completed', 'cancelled'])->count(),
-                'completed' => Installation::where('status', 'completed')->count(),
+                'total' => $canViewInstallations ? Installation::count() : 0,
+                'active' => $canViewInstallations ? Installation::whereNotIn('status', ['completed', 'cancelled'])->count() : 0,
+                'completed' => $canViewInstallations ? Installation::where('status', 'completed')->count() : 0,
             ],
             'businessSummary' => [
-                'open_opportunities' => Opportunity::whereNotIn('stage', ['won', 'lost'])->count(),
-                'active_work_orders' => WorkOrder::whereNotIn('status', ['completed', 'cancelled'])->count(),
-                'overdue_activities' => CrmActivity::whereIn('status', ['pending', 'in_progress'])->whereNotNull('due_at')->where('due_at', '<', now())->count(),
-                'outstanding_amount' => round((float) SalesDocument::where('type', 'invoice')->whereIn('status', ['issued', 'partial', 'overdue'])->selectRaw('coalesce(sum(amount - paid_amount), 0) as total')->value('total'), 2),
+                'open_opportunities' => $canViewCustomers ? Opportunity::whereNotIn('stage', ['won', 'lost'])->count() : 0,
+                'active_work_orders' => $canViewOperations ? WorkOrder::whereNotIn('status', ['completed', 'cancelled'])->count() : 0,
+                'overdue_activities' => $canViewOperations ? CrmActivity::whereIn('status', ['pending', 'in_progress'])->whereNotNull('due_at')->where('due_at', '<', now())->count() : 0,
+                'outstanding_amount' => $canViewFinance ? round((float) SalesDocument::where('type', 'invoice')->whereIn('status', ['issued', 'partial', 'overdue'])->selectRaw('coalesce(sum(amount - paid_amount), 0) as total')->value('total'), 2) : 0,
             ],
-            'agenda' => CrmActivity::query()
+            'agenda' => $canViewOperations ? CrmActivity::query()
                 ->with(['installation:id,project_reference,site_name', 'assignedUser:id,name'])
                 ->whereIn('status', ['pending', 'in_progress'])
                 ->where(fn ($query) => $query->whereNull('assigned_user_id')->orWhere('assigned_user_id', request()->user()->id))
@@ -85,7 +93,7 @@ class DashboardController extends Controller
                     'priority' => $activity->priority,
                     'when' => ($activity->starts_at ?? $activity->due_at)?->toIso8601String(),
                     'installation' => $activity->installation?->project_reference ?? $activity->installation?->site_name,
-                ]),
+                ]) : [],
         ]);
     }
 

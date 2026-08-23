@@ -3,13 +3,14 @@ import {
     BriefcaseBusiness,
     Building2,
     CalendarDays,
-    ChartSpline,
     ChartNoAxesCombined,
+    ChartSpline,
     LayoutGrid,
     Settings2,
     ShoppingCart,
     UsersRound,
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import AppLogo from '@/components/app-logo';
 import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
@@ -23,220 +24,29 @@ import {
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
 import { dashboard } from '@/routes';
-import type { NavItem } from '@/types';
+import type { NavItem, WorkspaceNavItem } from '@/types';
+
+const icons: Record<string, LucideIcon> = {
+    'briefcase-business': BriefcaseBusiness,
+    'building-2': Building2,
+    'calendar-days': CalendarDays,
+    'chart-no-axes-combined': ChartNoAxesCombined,
+    'chart-spline': ChartSpline,
+    'layout-grid': LayoutGrid,
+    'settings-2': Settings2,
+    'shopping-cart': ShoppingCart,
+    'users-round': UsersRound,
+};
+
+const toNavItem = (item: WorkspaceNavItem): NavItem => ({
+    title: item.title,
+    href: item.href,
+    icon: item.icon ? icons[item.icon] : undefined,
+    children: item.children?.map(toNavItem),
+});
 
 export function AppSidebar() {
-    const { abilities } = usePage<{
-        auth: {
-            abilities: Record<string, boolean>;
-        };
-    }>().props.auth;
-    const commercial = abilities.manageCustomers;
-    const items: NavItem[] = [
-        { title: 'Dashboard', href: dashboard(), icon: LayoutGrid },
-        ...(abilities.viewAnalytics
-            ? [{ title: 'Analítica', href: '/analytics', icon: ChartSpline }]
-            : []),
-        {
-            title: 'Mi RR. HH.',
-            href: '/my-human-resources',
-            icon: CalendarDays,
-        },
-        ...(commercial
-            ? [
-                  {
-                      title: 'CRM',
-                      href: '/people',
-                      icon: BriefcaseBusiness,
-                      children: [
-                          { title: 'Customers', href: '/people' },
-                          { title: 'Opportunities', href: '/opportunities' },
-                          { title: 'Sales', href: '/sales' },
-                          { title: 'Installations', href: '/installations' },
-                      ],
-                  },
-              ]
-            : abilities.viewInstallations
-              ? [
-                    {
-                        title: 'Installations',
-                        href: '/installations',
-                        icon: BriefcaseBusiness,
-                    },
-                ]
-              : []),
-        ...(abilities.manageOperations
-            ? [
-                  {
-                      title: 'Operations',
-                      href: '/operations',
-                      icon: Building2,
-                      children: [
-                          { title: 'Planning', href: '/operations' },
-                          { title: 'Work orders', href: '/work-orders' },
-                          { title: 'After-sales', href: '/after-sales' },
-                      ],
-                  },
-              ]
-            : []),
-        ...(abilities.viewPurchases || abilities.manageCatalog
-            ? [
-                  {
-                      title: 'Supply',
-                      href: commercial ? '/catalog' : '/purchases',
-                      icon: ShoppingCart,
-                      children: commercial
-                          ? [
-                                { title: 'Catalog', href: '/catalog' },
-                                { title: 'Inventory', href: '/inventory' },
-                                {
-                                    title: 'Serial traceability',
-                                    href: '/inventory/serials',
-                                },
-                                {
-                                    title: 'Stock counts',
-                                    href: '/inventory/counts',
-                                },
-                                {
-                                    title: 'Document inbox',
-                                    href: '/purchase-inbox',
-                                },
-                                { title: 'Purchases', href: '/purchases' },
-                                {
-                                    title: 'Order control',
-                                    href: '/supply-control',
-                                },
-                                {
-                                    title: 'Supply analytics',
-                                    href: '/supply-analytics',
-                                },
-                                {
-                                    title: 'Supplier intelligence',
-                                    href: '/supplier-intelligence',
-                                },
-                                {
-                                    title: 'Replenishment',
-                                    href: '/replenishment',
-                                },
-                                {
-                                    title: 'Quality claims',
-                                    href: '/supplier-quality',
-                                },
-                                { title: 'Expenses', href: '/expenses' },
-                            ]
-                          : [
-                                { title: 'Purchases', href: '/purchases' },
-                                {
-                                    title: 'Serial traceability',
-                                    href: '/inventory/serials',
-                                },
-                                {
-                                    title: 'Order control',
-                                    href: '/supply-control',
-                                },
-                                {
-                                    title: 'Quality claims',
-                                    href: '/supplier-quality',
-                                },
-                            ],
-                  },
-              ]
-            : []),
-        ...(abilities.viewFinance
-            ? [
-                  {
-                      title: 'Finance',
-                      href: '/finance',
-                      icon: ChartNoAxesCombined,
-                      children: [
-                          { title: 'Overview', href: '/finance' },
-                          { title: 'Banking', href: '/banking' },
-                          { title: 'Journal & reports', href: '/accounting' },
-                          {
-                              title: 'Chart of accounts',
-                              href: '/accounting/accounts',
-                          },
-                          {
-                              title: 'Entry templates',
-                              href: '/accounting/templates',
-                          },
-                          { title: 'VAT', href: '/tax' },
-                          { title: 'Corporate tax', href: '/corporate-tax' },
-                      ],
-                  },
-              ]
-            : []),
-        ...(abilities.manageStaff
-            ? [
-                  {
-                      title: 'Recursos Humanos',
-                      href: '/human-resources',
-                      icon: UsersRound,
-                      children: [
-                          { title: 'Resumen', href: '/human-resources' },
-                          {
-                              title: 'Fichas laborales',
-                              href: '/human-resources/employees',
-                          },
-                          {
-                              title: 'Ausencias',
-                              href: '/human-resources/leave',
-                          },
-                          {
-                              title: 'Tareas y onboarding',
-                              href: '/human-resources/tasks',
-                          },
-                          {
-                              title: 'Departamentos',
-                              href: '/human-resources/departments',
-                          },
-                          { title: 'Equipo y accesos', href: '/staff' },
-                      ],
-                  },
-              ]
-            : []),
-        ...(abilities.manageAdmin ||
-        abilities.manageAccess ||
-        abilities.exportAudit ||
-        abilities.viewSystemHealth
-            ? [
-                  {
-                      title: 'Company',
-                      href: '/knowledge',
-                      icon: Settings2,
-                      children: [
-                          { title: 'Arevia knowledge', href: '/knowledge' },
-                          {
-                              title: 'Company & fiscal settings',
-                              href: '/company-fiscal',
-                          },
-                          ...(abilities.manageAccess
-                              ? [
-                                    {
-                                        title: 'Access & permissions',
-                                        href: '/admin/access',
-                                    },
-                                ]
-                              : []),
-                          ...(abilities.manageAdmin
-                              ? [{ title: 'Backups', href: '/admin/backups' }]
-                              : []),
-                          ...(abilities.exportAudit
-                              ? [{ title: 'Audit log', href: '/admin/audit' }]
-                              : []),
-                          ...(abilities.viewSystemHealth
-                              ? [
-                                    {
-                                        title: 'System health',
-                                        href: '/admin/health',
-                                    },
-                                ]
-                              : []),
-                      ],
-                  },
-              ]
-            : []),
-    ];
+    const navigation = usePage().props.auth.navigation.map(toNavItem);
 
     return (
         <Sidebar collapsible="icon" variant="inset">
@@ -252,7 +62,7 @@ export function AppSidebar() {
                 </SidebarMenu>
             </SidebarHeader>
             <SidebarContent>
-                <NavMain items={items} />
+                <NavMain items={navigation} />
             </SidebarContent>
             <SidebarFooter>
                 <NavUser />

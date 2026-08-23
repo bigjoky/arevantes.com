@@ -40,7 +40,7 @@ class ActionCenterController extends Controller
         }
 
         if (Gate::allows('manage-purchases')) {
-            $groups->push($this->supply());
+            $groups->push($this->supply(), $this->purchaseInbox());
         }
 
         if (Gate::allows('approve-purchase-orders')) {
@@ -48,7 +48,7 @@ class ActionCenterController extends Controller
         }
 
         if (Gate::allows('view-finance')) {
-            $groups->push($this->purchaseInbox(), $this->collections($request), $this->payments(), $this->paymentBatches(), $this->banking(), $this->financialAlertsGroup());
+            $groups->push($this->collections($request), $this->payments(), $this->paymentBatches(), $this->banking(), $this->financialAlertsGroup());
         }
 
         $groups = $groups->filter(fn (array $group) => $group['count'] > 0)->values();

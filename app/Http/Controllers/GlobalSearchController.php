@@ -34,9 +34,15 @@ class GlobalSearchController extends Controller
             WorkOrder::where(fn ($q) => $q->where('number', 'like', "%{$term}%")->orWhere('title', 'like', "%{$term}%")->orWhere('status', 'like', "%{$term}%"))->limit(5)->get()->each(fn ($item) => $results->push(['group' => 'Work orders', 'title' => $item->number.' · '.$item->title, 'subtitle' => $item->status, 'href' => route('work-orders.index', ['work_order' => $item->id], false)]));
         }
 
-        if (Gate::forUser($request->user())->allows('manage-catalog')) {
+        if (Gate::forUser($request->user())->allows('manage-installations')) {
             SalesDocument::with('customer:id,first_name,last_name,company_name')->where(fn ($q) => $q->where('number', 'like', "%{$term}%")->orWhere('status', 'like', "%{$term}%"))->limit(5)->get()->each(fn ($item) => $results->push(['group' => 'Sales', 'title' => $item->number, 'subtitle' => $item->type.' · '.$item->status.' · '.number_format((float) $item->amount, 2, ',', '.').' EUR', 'href' => route('sales-documents.show', $item, false)]));
+        }
+
+        if (Gate::forUser($request->user())->allows('view-purchases')) {
             PurchaseDocument::with('supplier:id,legal_name,trade_name')->where(fn ($q) => $q->where('number', 'like', "%{$term}%")->orWhere('supplier_number', 'like', "%{$term}%")->orWhere('status', 'like', "%{$term}%"))->limit(5)->get()->each(fn ($item) => $results->push(['group' => 'Purchases', 'title' => $item->number, 'subtitle' => ($item->supplier?->trade_name ?: $item->supplier?->legal_name ?: __('No supplier')).' · '.$item->status, 'href' => route('purchases.show', $item, false)]));
+        }
+
+        if (Gate::forUser($request->user())->allows('manage-catalog')) {
             Supplier::where(fn ($q) => $q->where('legal_name', 'like', "%{$term}%")->orWhere('trade_name', 'like', "%{$term}%")->orWhere('tax_id', 'like', "%{$term}%")->orWhere('email', 'like', "%{$term}%"))->limit(5)->get()->each(fn ($item) => $results->push(['group' => 'Suppliers', 'title' => $item->trade_name ?: $item->legal_name, 'subtitle' => collect([$item->tax_id, $item->email])->filter()->implode(' · '), 'href' => route('catalog.index', ['supplier' => $item->id], false)]));
         }
 

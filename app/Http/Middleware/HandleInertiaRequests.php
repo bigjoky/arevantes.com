@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Support\WorkspaceNavigation;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Middleware;
@@ -49,9 +50,15 @@ class HandleInertiaRequests extends Middleware
                     'viewAnalytics' => Gate::allows('view-analytics'),
                     'manageCustomers' => Gate::allows('manage-customers'),
                     'viewInstallations' => Gate::allows('view-installations'),
+                    'manageInstallations' => Gate::allows('manage-installations'),
+                    'useAi' => Gate::allows('use-ai'),
                     'manageOperations' => Gate::allows('manage-operations'),
                     'manageCatalog' => Gate::allows('manage-catalog'),
                     'viewFinance' => Gate::allows('view-finance'),
+                    'manageTreasury' => Gate::allows('manage-treasury'),
+                    'manageAccounting' => Gate::allows('manage-accounting'),
+                    'approvePayments' => Gate::allows('approve-payments'),
+                    'manageTax' => Gate::allows('manage-tax'),
                     'managePurchases' => Gate::allows('manage-purchases'),
                     'viewPurchases' => Gate::allows('view-purchases'),
                     'manageStaff' => Gate::allows('manage-staff'),
@@ -61,6 +68,9 @@ class HandleInertiaRequests extends Middleware
                     'managePurchasePayments' => Gate::allows('manage-purchase-payments'),
                     'managePurchaseSettings' => Gate::allows('manage-staff'),
                 ] : [],
+                'navigation' => fn () => $request->user()
+                    ? app(WorkspaceNavigation::class)->for($request->user())
+                    : [],
                 'notifications' => fn () => $request->user()?->unreadNotifications()->latest()->limit(5)->get()->map(fn ($notification) => [
                     'id' => $notification->id,
                     'message' => $notification->data['message'] ?? __('New notification'),

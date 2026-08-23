@@ -1,0 +1,98 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Models\Installation;
+use App\Models\Permission;
+use App\Models\PermissionProfile;
+use App\Models\Person;
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Collection;
+use Inertia\Testing\AssertableInertia as Assert;
+use Tests\TestCase;
+
+class WorkspaceNavigationAuthorizationTest extends TestCase
+{
+    use RefreshDatabase;
+
+    public function test_navigation_only_contains_sections_allowed_by_the_permission_profile(): void
+    {
+        $user = $this->userWithPermissions(['view-installations']);
+
+        $this->actingAs($user)
+            ->get(route('dashboard'))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('auth.abilities.viewInstallations', true)
+                ->where('auth.abilities.manageCustomers', false)
+                ->where('auth.abilities.manageInstallations', false)
+                ->where('auth.abilities.useAi', false)
+                ->where('auth.navigation', function (Collection $navigation): bool {
+                    $items = $navigation->keyBy('title');
+
+                    return $items->keys()->all() === ['Dashboard', 'Mi RR. HH.', 'CRM']
+                        && collect($items['CRM']['children'])->pluck('title')->all() === ['Installations'];
+                }));
+    }
+
+    public function test_hidden_sections_are_also_forbidden_by_direct_url(): void
+    {
+        $user = $this->userWithPermissions(['view-installations']);
+        $this->actingAs($user);
+
+        $this->get(route('installations.index'))->assertOk();
+        $this->get(route('people.index'))->assertForbidden();
+        $this->get(route('purchases.index'))->assertForbidden();
+        $this->get(route('finance.index'))->assertForbidden();
+        $this->get(route('knowledge.index'))->assertForbidden();
+        $this->post(route('geocoding.search'), ['query' => 'Madrid'])->assertForbidden();
+    }
+
+    public function test_dashboard_does_not_expose_data_from_unauthorized_sections(): void
+    {
+        $customer = Person::create([
+            'category' => 'customer',
+            'first_name' => 'Cliente',
+            'email' => 'cliente@example.test',
+        ]);
+        Installation::create([
+            'person_id' => $customer->id,
+            'service_type' => 'solar',
+            'status' => 'lead',
+            'site_address_line_1' => 'Calle Privada 1',
+        ]);
+        $user = $this->userWithPermissions([]);
+
+        $this->actingAs($user)
+            ->get(route('dashboard'))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('installations', [])
+                ->where('peopleSummary.total', 0)
+                ->where('peopleSummary.customers', 0)
+                ->where('installationSummary.total', 0)
+                ->where('installationSummary.active', 0)
+                ->where('businessSummary.open_opportunities', 0)
+                ->where('businessSummary.outstanding_amount', 0)
+                ->where('agenda', []));
+    }
+
+    /** @param array<int, string> $permissionKeys */
+    private function userWithPermissions(array $permissionKeys): User
+    {
+        $profile = PermissionProfile::create([
+            'name' => 'Perfil parcial',
+            'slug' => 'partial-'.str()->random(8),
+            'is_system' => false,
+        ]);
+        $profile->permissions()->sync(
+            Permission::whereIn('key', $permissionKeys)->pluck('id')->all(),
+        );
+
+        return User::factory()->create([
+            'role' => 'commercial',
+            'permission_profile_id' => $profile->id,
+        ]);
+    }
+}

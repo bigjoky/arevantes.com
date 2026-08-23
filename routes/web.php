@@ -122,7 +122,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('arevia/messages/{aiMessage}/feedback', [AreviaChatController::class, 'feedback'])->middleware('can:use-ai')->name('arevia.messages.feedback');
     Route::get('arevia/sources/{knowledgeDocument}/versions/{version}', [KnowledgeSourceController::class, 'show'])->middleware('can:use-ai')->name('arevia.sources.show');
     Route::post('geocoding/search', [GeocodingController::class, 'search'])
-        ->middleware('throttle:30,1')
+        ->middleware(['can:manage-installations', 'throttle:30,1'])
         ->name('geocoding.search');
     Route::post('remote-stations/refresh', [RemoteStationController::class, 'refresh'])
         ->middleware(['can:manage-installations', 'throttle:10,1'])
