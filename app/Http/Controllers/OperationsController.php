@@ -13,6 +13,7 @@ use App\Models\WorkOrderTemplate;
 use App\Services\Crm\LeadResponseSla;
 use App\Services\Crm\OpportunitySalesCycle;
 use App\Services\Planning\WorkforceCapacityForecast;
+use App\Services\Supply\CriticalMaterialRisk;
 use App\Services\Work\TechnicianSchedule;
 use App\Services\Work\WorkOrderFactory;
 use Illuminate\Database\Eloquent\Builder;
@@ -27,7 +28,7 @@ use Inertia\Response;
 
 class OperationsController extends Controller
 {
-    public function index(Request $request, TechnicianSchedule $schedule, WorkforceCapacityForecast $capacityForecast): Response
+    public function index(Request $request, TechnicianSchedule $schedule, WorkforceCapacityForecast $capacityForecast, CriticalMaterialRisk $criticalMaterialRisk): Response
     {
         $filters = $request->validate([
             'q' => ['nullable', 'string', 'max:100'],
@@ -115,6 +116,7 @@ class OperationsController extends Controller
             $order->setAttribute('planning_issues', $planningIssues[$order->id] ?? []);
             $order->setAttribute('has_schedule_conflict', collect($planningIssues[$order->id] ?? [])->contains('type', 'overlap'));
         });
+        $materialRisk = $criticalMaterialRisk->forecast(today(), 45, $request->user());
 
         $weekActivities = CrmActivity::query()
             ->with(['installation:id,project_reference,site_name', 'assignedUser:id,name,role', 'workOrder:id,number,status'])
@@ -138,7 +140,7 @@ class OperationsController extends Controller
                 ? $weekActivities->orderBy('starts_at')->orderBy('due_at')->limit(500)->get()
                 : collect(),
             'metrics' => $this->metrics($request, $workOrdersQuery),
-            'exceptions' => $this->operationalExceptions($request, $workOrdersQuery),
+            'exceptions' => $this->operationalExceptions($request, $materialRisk),
             'installations' => Installation::where('status', '!=', 'cancelled')->orderBy('project_reference')->get(['id', 'project_reference', 'site_name', 'status']),
             'users' => User::with('fieldServiceProfile')->whereIn('role', ['commercial', 'technician', 'admin'])->orderBy('name')->get(['id', 'name', 'role']),
             'templates' => WorkOrderTemplate::where('is_active', true)->orderBy('name')->get(),
@@ -350,10 +352,8 @@ class OperationsController extends Controller
         ];
     }
 
-    /** @param Builder<WorkOrder> $workOrdersQuery
-     * @return array<int, array<string, mixed>>
-     */
-    private function operationalExceptions(Request $request, Builder $workOrdersQuery): array
+    /** @return array<int, array<string, mixed>> */
+    private function operationalExceptions(Request $request, array $materialRisk): array
     {
         $tickets = ServiceTicket::query()
             ->with('installation:id,project_reference,site_name')
@@ -391,21 +391,22 @@ class OperationsController extends Controller
                 'sort_at' => $plan->next_due_on->startOfDay()->toIso8601String(),
             ]);
 
-        $materials = (clone $workOrdersQuery)
-            ->where(fn (Builder $query) => $query->whereNull('scheduled_start')->orWhere('scheduled_start', '<=', now()->addDays(14)))
-            ->whereHas('installation.materialRequirements')
-            ->whereDoesntHave('stockReservations', fn (Builder $query) => $query->where('status', 'active'))
-            ->orderBy('scheduled_start')
-            ->limit(6)
-            ->get()
-            ->map(fn (WorkOrder $order) => [
-                'id' => 'materials-'.$order->id,
+        $materials = collect($materialRisk['rows'])
+            ->whereIn('severity', ['blocked', 'critical', 'warning'])
+            ->take(6)
+            ->map(fn (array $risk) => [
+                'id' => 'materials-'.$risk['work_order_id'].'-'.$risk['product_id'],
                 'kind' => 'materials',
-                'title' => $order->number.' · '.__('Materials not reserved'),
-                'detail' => $order->title,
-                'href' => '/work-orders?work_order='.$order->id,
-                'severity' => 'warning',
-                'sort_at' => $order->scheduled_start?->toIso8601String(),
+                'title' => $risk['work_order_number'].' · '.$risk['product'],
+                'detail' => $request->user()->can('view-finance')
+                    ? __('Shortage :quantity · exposure :amount', [
+                        'quantity' => $risk['shortage_quantity'],
+                        'amount' => number_format($risk['shortage_exposure'], 2).' EUR',
+                    ])
+                    : __('Shortage :quantity', ['quantity' => $risk['shortage_quantity']]),
+                'href' => '/work-orders?work_order='.$risk['work_order_id'],
+                'severity' => in_array($risk['severity'], ['blocked', 'critical'], true) ? 'critical' : 'warning',
+                'sort_at' => $risk['scheduled_start'],
             ]);
 
         return $tickets->concat($maintenance)->concat($materials)

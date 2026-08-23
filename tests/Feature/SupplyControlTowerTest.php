@@ -32,6 +32,7 @@ class SupplyControlTowerTest extends TestCase
                 ->where('counts.late', 1)
                 ->where('counts.unconfirmed', 1)
                 ->where('counts.unassigned', 0)
+                ->where('materialRisk.summary.at_risk_work_orders', 0)
                 ->where('orders.0.priority', 'late')
                 ->where('orders.0.days_late', 2)
                 ->where('orders.0.receipt_progress', 0)
