@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Arevantes Mobile API
-  version: 1.1.0
+  version: 1.2.0
 servers:
   - url: https://arevantes.com/api/mobile/v1
 security:
@@ -81,6 +81,54 @@ paths:
         - { name: deviceId, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
         '204': { description: Device revoked }
+  /activities:
+    get:
+      operationId: listAssignedActivities
+      parameters:
+        - { name: per_page, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 100 } }
+      responses:
+        '200':
+          description: Active, installation-linked and unconverted activities assigned to the current user
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { $ref: '#/components/schemas/Activity' } }
+  /activities/{activity}:
+    get:
+      operationId: getAssignedActivity
+      parameters: [{ $ref: '#/components/parameters/ActivityId' }]
+      responses:
+        '200':
+          description: Assigned activity details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/Activity' }
+        '403': { description: Activity is not assigned to the current user }
+  /activities/{activity}/status:
+    patch:
+      operationId: changeAssignedActivityStatus
+      parameters:
+        - { $ref: '#/components/parameters/ActivityId' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { $ref: '#/components/schemas/ActivityStatus' }
+                blocked_reason: { type: [string, 'null'], maxLength: 1000, description: Required when status is blocked. }
+      responses:
+        '200': { description: Activity status changed or a previous response replayed }
+        '403': { description: Activity is not assigned to the current user }
+        '422': { $ref: '#/components/responses/ValidationError' }
   /work-orders:
     get:
       operationId: listWorkOrders
@@ -314,6 +362,7 @@ components:
   securitySchemes:
     bearerAuth: { type: http, scheme: bearer }
   parameters:
+    ActivityId: { name: activity, in: path, required: true, schema: { type: integer } }
     WorkOrderId: { name: workOrder, in: path, required: true, schema: { type: integer } }
     IdempotencyKey:
       name: Idempotency-Key
@@ -333,6 +382,32 @@ components:
         email: { type: string, format: email }
         role: { type: string, enum: [admin, commercial, technician] }
     WorkOrderStatus: { type: string, enum: [planned, in_progress, blocked, completed, cancelled] }
+    ActivityStatus: { type: string, enum: [pending, in_progress, blocked, completed] }
+    Activity:
+      type: object
+      required: [id, type, title, priority, status, updated_at]
+      properties:
+        id: { type: integer }
+        type: { type: string, enum: [task, visit, reminder, call, email, meeting] }
+        title: { type: string }
+        priority: { type: string, enum: [low, normal, high] }
+        status: { $ref: '#/components/schemas/ActivityStatus' }
+        blocked_reason: { type: [string, 'null'] }
+        starts_at: { type: [string, 'null'], format: date-time }
+        due_at: { type: [string, 'null'], format: date-time }
+        updated_at: { type: string, format: date-time }
+        notes: { type: [string, 'null'] }
+        installation:
+          type: [object, 'null']
+          properties:
+            id: { type: integer }
+            project_reference: { type: [string, 'null'] }
+            site_name: { type: [string, 'null'] }
+            address: { type: [string, 'null'] }
+            city: { type: [string, 'null'] }
+            postal_code: { type: [string, 'null'] }
+            latitude: { type: [number, 'null'] }
+            longitude: { type: [number, 'null'] }
     WorkOrder:
       type: object
       required: [id, number, title, status, updated_at]

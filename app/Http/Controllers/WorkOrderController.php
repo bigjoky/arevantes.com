@@ -25,6 +25,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -123,6 +124,44 @@ class WorkOrderController extends Controller
         $states->transition($workOrder, $data['status'], $data['completion_notes'] ?? null);
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Work order updated.')]);
+    }
+
+    public function updateDetails(Request $request, WorkOrder $workOrder, InstallationWorkOrderSynchronizer $installations): RedirectResponse
+    {
+        $this->ensureAccess($request, $workOrder);
+        $data = $request->validate([
+            'title' => ['required', 'string', 'max:255'],
+            'kind' => ['required', Rule::in(['survey', 'installation', 'commissioning', 'maintenance', 'repair'])],
+            'estimated_duration_minutes' => ['nullable', 'integer', 'between:1,1440'],
+            'required_skills' => ['nullable', 'string', 'max:2000'],
+            'service_zone' => ['nullable', 'string', 'max:100'],
+            'instructions' => ['nullable', 'string'],
+        ]);
+        $skills = collect(preg_split('/[,;\n]+/', (string) ($data['required_skills'] ?? '')))
+            ->map(fn (string $skill): string => trim($skill))
+            ->filter()
+            ->unique(fn (string $skill): string => mb_strtolower($skill))
+            ->values();
+        if ($skills->count() > 20 || $skills->contains(fn (string $skill): bool => mb_strlen($skill) > 100)) {
+            throw ValidationException::withMessages([
+                'required_skills' => __('Enter no more than 20 skills, with a maximum of 100 characters each.'),
+            ]);
+        }
+
+        unset($data['required_skills']);
+        DB::transaction(function () use ($workOrder, $data, $skills): void {
+            $locked = WorkOrder::query()->lockForUpdate()->findOrFail($workOrder->id);
+            $locked->update([...$data, 'required_skills' => $skills->all()]);
+            $locked->activities()->update([
+                'type' => in_array($locked->kind, ['survey', 'maintenance', 'repair'], true) ? 'visit' : 'task',
+                'title' => $locked->title,
+                'priority' => $locked->kind === 'repair' ? 'high' : 'normal',
+            ]);
+        });
+        $workOrder->refresh();
+        $installations->sync($workOrder);
+
+        return back()->with('toast', ['type' => 'success', 'message' => __('Work order details updated.')]);
     }
 
     public function start(Request $request, WorkOrder $workOrder, WorkOrderStateManager $states): RedirectResponse
