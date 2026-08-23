@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\PurchaseDocument;
 use App\Models\User;
 use App\Services\Documents\PurchaseWorkflow;
+use App\Services\Supply\CriticalMaterialRisk;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -13,8 +14,19 @@ use Inertia\Response;
 
 class SupplyControlTowerController extends Controller
 {
-    public function index(): Response
+    public function index(Request $request, CriticalMaterialRisk $criticalMaterialRisk): Response
     {
+        $materialRisk = $criticalMaterialRisk->forecast(today(), 45);
+        if (! $request->user()->can('view-finance')) {
+            $materialRisk['summary']['shortage_exposure'] = null;
+            $materialRisk['summary']['late_inbound_value'] = null;
+            $materialRisk['rows'] = collect($materialRisk['rows'])->map(fn (array $row) => [
+                ...$row,
+                'shortage_exposure' => null,
+                'late_inbound_value' => null,
+            ])->all();
+        }
+
         $orders = PurchaseDocument::query()
             ->with([
                 'supplier:id,legal_name,trade_name,email',
@@ -87,6 +99,7 @@ class SupplyControlTowerController extends Controller
                 'unassigned' => $orders->whereNull('assigned_to')->count(),
             ],
             'users' => User::query()->orderBy('name')->get(['id', 'name']),
+            'materialRisk' => $materialRisk,
         ]);
     }
 

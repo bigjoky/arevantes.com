@@ -88,6 +88,8 @@ class CatalogController extends Controller
             'cost_price' => ['required', 'numeric', 'min:0'],
             'track_stock' => ['boolean'],
             'track_serials' => ['boolean'],
+            'supply_criticality' => ['sometimes', Rule::in(['low', 'standard', 'critical'])],
+            'preferred_lead_time_days' => ['sometimes', 'integer', 'between:0,365'],
             'is_active' => ['boolean'],
             'components' => ['sometimes', 'array'],
             'components.*.component_product_id' => ['required', 'distinct', 'exists:products,id', Rule::notIn([$product?->id])],

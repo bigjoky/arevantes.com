@@ -46,6 +46,8 @@ type Product = {
     cost_price: string;
     track_stock: boolean;
     track_serials: boolean;
+    supply_criticality: 'low' | 'standard' | 'critical';
+    preferred_lead_time_days: number;
     is_active: boolean;
     unit_id: number;
     tax_rate_id: number;
@@ -201,6 +203,21 @@ export default function CatalogIndex({
                                                 <Badge variant="secondary">
                                                     {product.type}
                                                 </Badge>
+                                                {product.track_stock && (
+                                                    <Badge
+                                                        variant={
+                                                            product.supply_criticality ===
+                                                            'critical'
+                                                                ? 'destructive'
+                                                                : 'outline'
+                                                        }
+                                                        className="ml-1"
+                                                    >
+                                                        {
+                                                            product.supply_criticality
+                                                        }
+                                                    </Badge>
+                                                )}
                                             </td>
                                             <td>{product.unit.symbol}</td>
                                             <td>{money(product.cost_price)}</td>
@@ -538,6 +555,30 @@ function ProductDialog({
                                             account.code,
                                             `${account.code} · ${account.name}`,
                                         ])}
+                                />
+                                <SelectField
+                                    label="Supply criticality"
+                                    name="supply_criticality"
+                                    value={
+                                        product?.supply_criticality ??
+                                        'standard'
+                                    }
+                                    options={[
+                                        ['low', 'Low'],
+                                        ['standard', 'Standard'],
+                                        ['critical', 'Critical spare'],
+                                    ]}
+                                />
+                                <Field
+                                    label="Preferred lead time (days)"
+                                    name="preferred_lead_time_days"
+                                    value={String(
+                                        product?.preferred_lead_time_days ?? 7,
+                                    )}
+                                    type="number"
+                                    min="0"
+                                    max="365"
+                                    error={errors.preferred_lead_time_days}
                                 />
                             </div>
                             <div className="grid min-w-0 gap-3 border-t pt-4">
@@ -976,6 +1017,8 @@ function Field({
     error,
     type = 'text',
     step,
+    min,
+    max,
     className = '',
 }: {
     label: string;
@@ -984,6 +1027,8 @@ function Field({
     error?: string;
     type?: string;
     step?: string;
+    min?: string;
+    max?: string;
     className?: string;
 }) {
     return (
@@ -994,6 +1039,8 @@ function Field({
                 name={name}
                 type={type}
                 step={step}
+                min={min}
+                max={max}
                 defaultValue={value ?? ''}
             />
             <InputError message={error} />

@@ -44,10 +44,41 @@ type Order = {
         | 'on_track';
 };
 
+type MaterialRisk = {
+    summary: {
+        items: number;
+        critical_items: number;
+        blocked_work_orders: number;
+        at_risk_work_orders: number;
+        shortage_exposure: number | null;
+        late_inbound_value: number | null;
+    };
+    rows: {
+        work_order_id: number;
+        work_order_number: string;
+        installation: string | null;
+        scheduled_start: string;
+        days_until_work: number;
+        product_id: number;
+        sku: string | null;
+        product: string;
+        criticality: 'low' | 'standard' | 'critical';
+        required_quantity: number;
+        reserved_quantity: number;
+        free_quantity: number;
+        inbound_before_work: number;
+        shortage_quantity: number;
+        shortage_exposure: number | null;
+        late_inbound_value: number | null;
+        severity: 'blocked' | 'critical' | 'warning' | 'covered';
+    }[];
+};
+
 export default function SupplyControlTower({
     orders,
     counts,
     users,
+    materialRisk,
 }: {
     orders: Order[];
     counts: {
@@ -59,6 +90,7 @@ export default function SupplyControlTower({
         unassigned: number;
     };
     users: { id: number; name: string }[];
+    materialRisk: MaterialRisk;
 }) {
     const canManage = usePage<{
         auth: { abilities: { managePurchases: boolean } };
@@ -88,6 +120,7 @@ export default function SupplyControlTower({
                     <Metric label="Due within 7 days" value={counts.due_soon} />
                     <Metric label="Unassigned" value={counts.unassigned} />
                 </section>
+                <MaterialRiskPanel risk={materialRisk} />
                 <section className="grid gap-4">
                     {orders.map((order) => (
                         <article key={order.id} className="border p-4">
@@ -358,6 +391,157 @@ export default function SupplyControlTower({
     );
 }
 
+function MaterialRiskPanel({ risk }: { risk: MaterialRisk }) {
+    return (
+        <section className="overflow-hidden rounded-lg border">
+            <div className="flex flex-wrap items-start justify-between gap-3 border-b p-4">
+                <div>
+                    <h2 className="font-semibold">Critical material outlook</h2>
+                    <p className="text-xs text-muted-foreground">
+                        Scheduled work matched against reservations, free stock
+                        and inbound supply before its execution date.
+                    </p>
+                </div>
+                <Badge
+                    variant={
+                        risk.summary.blocked_work_orders > 0
+                            ? 'destructive'
+                            : 'secondary'
+                    }
+                >
+                    {risk.summary.blocked_work_orders} blocked work orders
+                </Badge>
+            </div>
+            <div className="grid grid-cols-2 gap-px bg-border lg:grid-cols-4">
+                <RiskMetric
+                    label="At-risk work"
+                    value={risk.summary.at_risk_work_orders}
+                />
+                <RiskMetric
+                    label="Critical spares"
+                    value={risk.summary.critical_items}
+                />
+                <RiskMetric
+                    label="Shortage exposure"
+                    value={money(risk.summary.shortage_exposure)}
+                />
+                <RiskMetric
+                    label="Late inbound value"
+                    value={money(risk.summary.late_inbound_value)}
+                />
+            </div>
+            {risk.rows.length > 0 ? (
+                <div className="divide-y">
+                    {risk.rows.map((row) => (
+                        <article
+                            key={`${row.work_order_id}-${row.product_id}`}
+                            className="grid gap-3 p-4 lg:grid-cols-[1.2fr_1fr_auto] lg:items-center"
+                        >
+                            <div>
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <Link
+                                        href={`/work-orders?work_order=${row.work_order_id}`}
+                                        className="font-medium underline underline-offset-2"
+                                    >
+                                        {row.work_order_number}
+                                    </Link>
+                                    <Badge
+                                        variant={
+                                            row.severity === 'blocked' ||
+                                            row.severity === 'critical'
+                                                ? 'destructive'
+                                                : row.severity === 'covered'
+                                                  ? 'secondary'
+                                                  : 'outline'
+                                        }
+                                    >
+                                        {row.severity}
+                                    </Badge>
+                                    {row.criticality === 'critical' && (
+                                        <Badge variant="outline">
+                                            Critical spare
+                                        </Badge>
+                                    )}
+                                </div>
+                                <div className="mt-1 text-sm">
+                                    {row.product}
+                                    {row.sku ? ` · ${row.sku}` : ''}
+                                </div>
+                                <div className="text-xs text-muted-foreground">
+                                    {row.installation || 'Installation'} ·{' '}
+                                    {date(row.scheduled_start)}
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-3 text-xs">
+                                <div>
+                                    <span className="text-muted-foreground">
+                                        Required
+                                    </span>
+                                    <div className="font-medium">
+                                        {row.required_quantity}
+                                    </div>
+                                </div>
+                                <div>
+                                    <span className="text-muted-foreground">
+                                        Shortage
+                                    </span>
+                                    <div className="font-medium text-destructive">
+                                        {row.shortage_quantity}
+                                    </div>
+                                </div>
+                                <div>
+                                    <span className="text-muted-foreground">
+                                        Covered now
+                                    </span>
+                                    <div className="font-medium">
+                                        {row.reserved_quantity +
+                                            row.free_quantity}
+                                    </div>
+                                </div>
+                                <div>
+                                    <span className="text-muted-foreground">
+                                        Inbound in time
+                                    </span>
+                                    <div className="font-medium">
+                                        {row.inbound_before_work}
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="text-right">
+                                <div className="text-xs text-muted-foreground">
+                                    Financial exposure
+                                </div>
+                                <div className="font-semibold">
+                                    {money(row.shortage_exposure)}
+                                </div>
+                            </div>
+                        </article>
+                    ))}
+                </div>
+            ) : (
+                <div className="p-8 text-center text-sm text-muted-foreground">
+                    No material risk for scheduled work in the next 45 days.
+                </div>
+            )}
+        </section>
+    );
+}
+
+function RiskMetric({
+    label,
+    value,
+}: {
+    label: string;
+    value: string | number;
+}) {
+    return (
+        <div className="bg-background p-4">
+            <div className="text-xs text-muted-foreground">{label}</div>
+            <div className="mt-1 text-xl font-semibold">{value}</div>
+        </div>
+    );
+}
+
 function Metric({ label, value }: { label: string; value: number }) {
     return (
         <div className="border-r p-4 last:border-0">
@@ -407,6 +591,13 @@ const dateTime = (value: string) =>
         dateStyle: 'medium',
         timeStyle: 'short',
     }).format(new Date(value));
+const money = (value: number | null) =>
+    value === null
+        ? 'Restricted'
+        : new Intl.NumberFormat(undefined, {
+              style: 'currency',
+              currency: 'EUR',
+          }).format(value);
 const daysFromNow = (days: number) => {
     const value = new Date();
     value.setDate(value.getDate() + days);

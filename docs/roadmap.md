@@ -9,8 +9,8 @@ base y no mantienen implementaciones funcionales aisladas.
 | --- | --- | --- |
 | CRM y ventas | ciclo comercial, captacion, cartera, agenda y rutas comerciales moviles offline, conversion atribuida por origen y comercial, aprobaciones, opciones, SLA y trazabilidad | automatizacion de renovaciones y forecast por cohortes |
 | Finanzas | contabilidad, banca, cobros, riesgo de clientes, alertas, cierre asistido y bloqueo por excepciones | conciliacion guiada de excepciones y simulacion de caja |
-| Operaciones | planificacion, ordenes, mantenimiento, RMA, sincronizacion movil y prevision semanal de capacidad | repuestos por criticidad y simulacion de escenarios |
-| Suministro | compras, aprobaciones, reposicion, calidad, control tower y riesgo operativo de entregas | simulacion de abastecimiento y riesgo de proveedor |
+| Operaciones | planificacion, ordenes, mantenimiento, RMA, sincronizacion movil, capacidad semanal y riesgo de repuestos criticos | simulacion operativa de escenarios y alternativas |
+| Suministro | compras, aprobaciones, reposicion, calidad, control tower, criticidad de repuestos y riesgo por fecha de ejecucion | simulacion de abastecimiento y riesgo de proveedor |
 | Recursos humanos | expediente, contratos, ausencias, tareas, controles sensibles y capacidad coordinada con operaciones | turnos y coste operativo planificado |
 | Portal de cliente | documentos protegidos, aceptacion, certificados y autoservicio de incidencias | seguimiento de hitos y comunicaciones proactivas |
 | Analitica | drilldowns acotados, alertas e informes programados | objetivos versionados y explicacion de desviaciones |
@@ -56,3 +56,6 @@ Un incremento solo se considera alineado cuando incluye:
 - Prevision unica de capacidad tecnica a seis semanas, compartida por Recursos
   Humanos y Operaciones, que descuenta ausencias aprobadas sin revelar sus
   motivos y detecta sobrecargas por semana y profesional.
+- Criticidad y plazo objetivo configurables por repuesto, con simulacion cronologica
+  de reservas, stock libre y entradas previstas; las carencias bloqueantes se
+  comparten entre Suministro y Operaciones junto con su exposicion economica.
