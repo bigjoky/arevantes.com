@@ -14,8 +14,10 @@ use App\Services\AfterSales\ServiceWorkGenerator;
 use App\Services\AfterSales\SlaManager;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -27,7 +29,7 @@ class AfterSalesController extends Controller
 
         return Inertia::render('after-sales/index', [
             'tickets' => $tickets,
-            'plans' => MaintenancePlan::with('installation:id,project_reference,site_name')->orderBy('next_due_on')->get(),
+            'plans' => MaintenancePlan::with(['installation:id,project_reference,site_name', 'assignedUser:id,name', 'template:id,name,kind'])->orderBy('next_due_on')->get(),
             'installations' => Installation::with(['customer:id,first_name,last_name,company_name'])->orderBy('project_reference')->get(['id', 'person_id', 'project_reference', 'site_name', 'service_type', 'status']),
             'users' => User::whereIn('role', ['technician', 'admin'])->orderBy('name')->get(['id', 'name']),
             'warranties' => SerialNumber::with(['product:id,name,sku'])->whereNotNull('installation_id')->orderBy('warranty_ends_on')->get(),
@@ -100,7 +102,13 @@ class AfterSalesController extends Controller
 
     public function storePlan(Request $request): RedirectResponse
     {
-        $data = $request->validate(['installation_id' => ['required', 'exists:installations,id'], 'work_order_template_id' => ['nullable', 'exists:work_order_templates,id'], 'assigned_user_id' => ['nullable', 'exists:users,id'], 'name' => ['required', 'string', 'max:255'], 'interval_months' => ['required', 'integer', 'between:1,120'], 'lead_days' => ['nullable', 'integer', 'between:0,90'], 'starts_on' => ['required', 'date'], 'next_due_on' => ['required', 'date', 'after_or_equal:starts_on'], 'generate_work_order' => ['nullable', 'boolean'], 'scope' => ['nullable', 'string']]);
+        if ($request->input('assigned_user_id') === 'none') {
+            $request->merge(['assigned_user_id' => null]);
+        }
+        if ($request->input('work_order_template_id') === 'none') {
+            $request->merge(['work_order_template_id' => null]);
+        }
+        $data = $request->validate(['installation_id' => ['required', 'exists:installations,id'], 'work_order_template_id' => ['nullable', 'exists:work_order_templates,id'], 'assigned_user_id' => ['nullable', Rule::exists('users', 'id')->where(fn ($query) => $query->whereIn('role', ['technician', 'admin']))], 'name' => ['required', 'string', 'max:255'], 'interval_months' => ['required', 'integer', 'between:1,120'], 'lead_days' => ['nullable', 'integer', 'between:0,90'], 'starts_on' => ['required', 'date'], 'next_due_on' => ['required', 'date', 'after_or_equal:starts_on'], 'generate_work_order' => ['nullable', 'boolean'], 'scope' => ['nullable', 'string']]);
         MaintenancePlan::create([...$data, 'is_active' => true, 'generate_work_order' => $data['generate_work_order'] ?? true]);
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Maintenance plan created.')]);
@@ -108,7 +116,32 @@ class AfterSalesController extends Controller
 
     public function updatePlan(Request $request, MaintenancePlan $plan): RedirectResponse
     {
-        $data = $request->validate(['is_active' => ['required', 'boolean'], 'next_due_on' => ['required', 'date']]);
+        if ($request->input('assigned_user_id') === 'none') {
+            $request->merge(['assigned_user_id' => null]);
+        }
+        if ($request->input('work_order_template_id') === 'none') {
+            $request->merge(['work_order_template_id' => null]);
+        }
+        $data = $request->validate([
+            'installation_id' => ['sometimes', 'required', 'exists:installations,id'],
+            'work_order_template_id' => ['sometimes', 'nullable', 'exists:work_order_templates,id'],
+            'assigned_user_id' => ['sometimes', 'nullable', Rule::exists('users', 'id')->where(fn ($query) => $query->whereIn('role', ['technician', 'admin']))],
+            'name' => ['sometimes', 'required', 'string', 'max:255'],
+            'interval_months' => ['sometimes', 'required', 'integer', 'between:1,120'],
+            'lead_days' => ['sometimes', 'nullable', 'integer', 'between:0,90'],
+            'starts_on' => ['sometimes', 'required', 'date'],
+            'next_due_on' => ['sometimes', 'required', 'date'],
+            'generate_work_order' => ['sometimes', 'boolean'],
+            'scope' => ['sometimes', 'nullable', 'string'],
+            'is_active' => ['sometimes', 'boolean'],
+        ]);
+        $startsOn = isset($data['starts_on']) ? Carbon::parse($data['starts_on'])->startOfDay() : $plan->starts_on;
+        $nextDueOn = isset($data['next_due_on']) ? Carbon::parse($data['next_due_on'])->startOfDay() : $plan->next_due_on;
+        if ($startsOn && $nextDueOn && $nextDueOn->lessThan($startsOn)) {
+            throw ValidationException::withMessages([
+                'next_due_on' => __('The next maintenance date cannot be before the plan start date.'),
+            ]);
+        }
         $plan->update($data);
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Maintenance plan updated.')]);
