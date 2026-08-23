@@ -14,7 +14,10 @@ use Illuminate\Support\Collection;
 
 class FinancialAlertService
 {
-    public function __construct(private TreasuryForecast $forecast) {}
+    public function __construct(
+        private TreasuryForecast $forecast,
+        private ReceivableRiskAnalysis $receivableRisk,
+    ) {}
 
     /** @return Collection<int, array<string, mixed>> */
     public function forYear(int $year, string $scenario = 'probable'): Collection
@@ -57,17 +60,20 @@ class FinancialAlertService
             ];
         });
 
+        $company = CompanyProfile::firstOrFail();
+
         return $this->evaluate(
             $year,
             $performance,
             $cashFlow,
             $this->forecast->build($year, $scenario),
-            CompanyProfile::firstOrFail(),
+            $company,
+            $this->receivableRisk->build(null, (float) $company->customer_concentration_alert_percent)['rows'],
         );
     }
 
     /** @return Collection<int, array<string, mixed>> */
-    public function evaluate(int $year, Collection $performance, Collection $cashFlow, array $treasuryForecast, CompanyProfile $company): Collection
+    public function evaluate(int $year, Collection $performance, Collection $cashFlow, array $treasuryForecast, CompanyProfile $company, ?Collection $receivableRisk = null): Collection
     {
         $lastCompletedMonth = $year < now()->year ? 12 : ($year === now()->year ? now()->month : 0);
         $operatingThreshold = (float) $company->operating_variance_alert_percent;
@@ -105,6 +111,27 @@ class FinancialAlertService
                 'variance' => round($shortfall, 2),
                 'variancePercent' => null,
                 'message' => __('Forecast minimum is :amount below the configured liquidity buffer.', ['amount' => number_format(abs($shortfall), 2)]),
+            ]);
+        }
+
+        foreach (($receivableRisk ?? collect())->where('isConcentrated', true) as $customer) {
+            if (! $customer['customerId']) {
+                continue;
+            }
+
+            $alerts->push([
+                'key' => 'concentration:'.$customer['customerId'],
+                'type' => 'concentration',
+                'month' => null,
+                'monthLabel' => null,
+                'severity' => $customer['riskLevel'] === 'critical' ? 'critical' : 'warning',
+                'variance' => $customer['outstanding'],
+                'variancePercent' => $customer['sharePercent'],
+                'message' => __(':customer represents :share% of accounts receivable.', [
+                    'customer' => $customer['customer'],
+                    'share' => number_format($customer['sharePercent'], 1),
+                ]),
+                'href' => $customer['customerHref'],
             ]);
         }
 
