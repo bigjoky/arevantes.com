@@ -44,4 +44,9 @@ class InstallationAsset extends Model
     {
         return $this->hasMany(AssetEvent::class)->latest('occurred_at');
     }
+
+    public function rmas(): HasMany
+    {
+        return $this->hasMany(AssetRma::class)->latest('requested_at');
+    }
 }
