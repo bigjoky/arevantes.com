@@ -12,6 +12,8 @@ import {
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { lazy, Suspense, useState } from 'react';
+import { AssetRmaPanel } from '@/components/installations/asset-rma-panel';
+import type { AssetRma } from '@/components/installations/asset-rma-panel';
 import {
     serviceLabels,
     statusLabels,
@@ -138,6 +140,7 @@ type Asset = {
         summary: string;
         occurred_at: string;
     }[];
+    rmas: AssetRma[];
 };
 type Profitability = {
     planned_revenue: number;
@@ -154,6 +157,8 @@ type AssetOptions = {
         product: { name: string; sku: string | null };
     }[];
     purchases: { id: number; number: string }[];
+    workOrders: { id: number; number: string; title: string }[];
+    tickets: { id: number; number: string; title: string }[];
 };
 type CustomerOption = {
     id: number;
@@ -1010,6 +1015,15 @@ export default function InstallationShow({
                                         <div className="mt-1 text-xs text-muted-foreground">
                                             Latest: {asset.events[0].summary}
                                         </div>
+                                    )}
+                                    {(canManageAssets ||
+                                        asset.rmas.length > 0) && (
+                                        <AssetRmaPanel
+                                            installationId={installation.id}
+                                            asset={asset}
+                                            options={assetOptions}
+                                            canManage={canManageAssets}
+                                        />
                                     )}
                                     {canManageAssets && (
                                         <div className="mt-2 flex flex-wrap gap-4">
