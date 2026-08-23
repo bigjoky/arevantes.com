@@ -2,6 +2,7 @@ import { Form, Head, Link } from '@inertiajs/react';
 import {
     CalendarClock,
     HeartPulse,
+    PenLine,
     Plus,
     ShieldCheck,
     Wrench,
@@ -67,12 +68,16 @@ type Plan = {
     id: number;
     name: string;
     interval_months: number;
+    lead_days: number;
     starts_on: string;
     next_due_on: string;
     last_completed_on: string | null;
     is_active: boolean;
+    generate_work_order: boolean;
     scope: string | null;
     installation: Installation;
+    assigned_user: User | null;
+    template: WorkTemplate | null;
 };
 type Warranty = {
     id: number;
@@ -364,7 +369,7 @@ export default function AfterSalesIndex({
                                     <th>Last completed</th>
                                     <th>Next due</th>
                                     <th>Status</th>
-                                    <th className="w-28" />
+                                    <th className="w-56" />
                                 </tr>
                             </thead>
                             <tbody>
@@ -403,37 +408,38 @@ export default function AfterSalesIndex({
                                         </td>
                                         <td>
                                             {canManage && (
-                                                <Form
-                                                    action={`/after-sales/plans/${plan.id}`}
-                                                    method="patch"
-                                                    className="flex gap-1"
-                                                >
-                                                    <input
-                                                        type="hidden"
-                                                        name="is_active"
-                                                        value={
-                                                            plan.is_active
-                                                                ? '0'
-                                                                : '1'
+                                                <div className="flex gap-1">
+                                                    <PlanDialog
+                                                        installations={
+                                                            installations
                                                         }
+                                                        users={users}
+                                                        templates={templates}
+                                                        plan={plan}
                                                     />
-                                                    <input
-                                                        type="hidden"
-                                                        name="next_due_on"
-                                                        value={plan.next_due_on.slice(
-                                                            0,
-                                                            10,
-                                                        )}
-                                                    />
-                                                    <Button
-                                                        size="sm"
-                                                        variant="outline"
+                                                    <Form
+                                                        action={`/after-sales/plans/${plan.id}`}
+                                                        method="patch"
                                                     >
-                                                        {plan.is_active
-                                                            ? 'Pause'
-                                                            : 'Resume'}
-                                                    </Button>
-                                                </Form>
+                                                        <input
+                                                            type="hidden"
+                                                            name="is_active"
+                                                            value={
+                                                                plan.is_active
+                                                                    ? '0'
+                                                                    : '1'
+                                                            }
+                                                        />
+                                                        <Button
+                                                            size="sm"
+                                                            variant="outline"
+                                                        >
+                                                            {plan.is_active
+                                                                ? 'Pause'
+                                                                : 'Resume'}
+                                                        </Button>
+                                                    </Form>
+                                                </div>
                                             )}
                                         </td>
                                     </tr>
@@ -626,27 +632,38 @@ function PlanDialog({
     installations,
     users,
     templates,
+    plan,
 }: {
     installations: Installation[];
     users: User[];
     templates: WorkTemplate[];
+    plan?: Plan;
 }) {
     const [open, setOpen] = useState(false);
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-                <Button>
-                    <Plus /> New plan
+                <Button
+                    variant={plan ? 'outline' : 'default'}
+                    size={plan ? 'sm' : 'default'}
+                >
+                    {plan ? <PenLine /> : <Plus />} {plan ? 'Edit' : 'New plan'}
                 </Button>
             </DialogTrigger>
             <DialogContent>
                 <DialogHeader>
-                    <DialogTitle>New maintenance plan</DialogTitle>
+                    <DialogTitle>
+                        {plan ? `Edit ${plan.name}` : 'New maintenance plan'}
+                    </DialogTitle>
                 </DialogHeader>
                 <Form
-                    action="/after-sales/plans"
-                    method="post"
+                    action={
+                        plan
+                            ? `/after-sales/plans/${plan.id}`
+                            : '/after-sales/plans'
+                    }
+                    method={plan ? 'patch' : 'post'}
                     onSuccess={() => setOpen(false)}
                     className="grid gap-4"
                 >
@@ -657,56 +674,74 @@ function PlanDialog({
                             String(i.id),
                             i.project_reference || i.site_name || `#${i.id}`,
                         ])}
+                        value={plan ? String(plan.installation.id) : undefined}
                     />
-                    <Field label="Plan name" name="name" />
+                    <Field label="Plan name" name="name" value={plan?.name} />
                     <div className="grid gap-4 sm:grid-cols-2">
                         <SelectField
                             label="Technician"
                             name="assigned_user_id"
-                            options={users.map((user) => [
-                                String(user.id),
-                                user.name,
-                            ])}
+                            options={[
+                                ['none', 'Unassigned'],
+                                ...users.map((user) => [
+                                    String(user.id),
+                                    user.name,
+                                ]),
+                            ]}
+                            value={
+                                plan?.assigned_user
+                                    ? String(plan.assigned_user.id)
+                                    : 'none'
+                            }
                         />
                         <SelectField
                             label="Work template"
                             name="work_order_template_id"
-                            options={templates.map((template) => [
-                                String(template.id),
-                                template.name,
-                            ])}
+                            options={[
+                                ['none', 'Default checklist'],
+                                ...templates.map((template) => [
+                                    String(template.id),
+                                    template.name,
+                                ]),
+                            ]}
+                            value={
+                                plan?.template
+                                    ? String(plan.template.id)
+                                    : 'none'
+                            }
                         />
                     </div>
                     <Field
                         label="Frequency (months)"
                         name="interval_months"
                         type="number"
-                        value="12"
+                        value={String(plan?.interval_months ?? 12)}
                     />
                     <Field
                         label="Generation lead time (days)"
                         name="lead_days"
                         type="number"
-                        value="14"
+                        value={String(plan?.lead_days ?? 14)}
                     />
                     <div className="grid gap-4 sm:grid-cols-2">
                         <Field
                             label="Starts"
                             name="starts_on"
                             type="date"
-                            value={today()}
+                            value={plan?.starts_on?.slice(0, 10) ?? today()}
                         />
                         <Field
                             label="First due"
                             name="next_due_on"
                             type="date"
-                            value={today()}
+                            value={plan?.next_due_on?.slice(0, 10) ?? today()}
                         />
                     </div>
                     <div className="grid gap-2">
                         <Label>Maintenance scope</Label>
                         <textarea
                             name="scope"
+                            defaultValue={plan?.scope ?? ''}
                             className="min-h-24 rounded-md border bg-transparent p-3 text-sm"
                         />
                     </div>
@@ -716,11 +751,11 @@ function PlanDialog({
                             type="checkbox"
                             name="generate_work_order"
                             value="1"
-                            defaultChecked
+                            defaultChecked={plan?.generate_work_order ?? true}
                         />
                         Generate work order automatically
                     </label>
-                    <Button>Create plan</Button>
+                    <Button>{plan ? 'Save changes' : 'Create plan'}</Button>
                 </Form>
             </DialogContent>
         </Dialog>

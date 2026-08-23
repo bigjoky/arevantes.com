@@ -78,6 +78,47 @@ class AfterSalesTest extends TestCase
         $this->assertSame('2036-07-01', $serial->refresh()->warranty_ends_on->toDateString());
     }
 
+    public function test_a_maintenance_plan_can_be_fully_edited_and_still_paused_independently(): void
+    {
+        $commercial = User::factory()->create(['role' => 'commercial']);
+        $technician = User::factory()->create(['role' => 'technician']);
+        $installation = Installation::create(['service_type' => 'solar', 'status' => 'completed', 'site_address_line_1' => 'Calle Plan 1']);
+        $plan = MaintenancePlan::create([
+            'installation_id' => $installation->id,
+            'name' => 'Basic maintenance',
+            'interval_months' => 12,
+            'starts_on' => '2026-01-01',
+            'next_due_on' => '2027-01-01',
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($commercial)->patch(route('after-sales.plans.update', $plan), [
+            'installation_id' => $installation->id,
+            'assigned_user_id' => $technician->id,
+            'work_order_template_id' => 'none',
+            'name' => 'Complete inverter maintenance',
+            'interval_months' => 6,
+            'lead_days' => 21,
+            'starts_on' => '2026-02-01',
+            'next_due_on' => '2026-08-01',
+            'generate_work_order' => true,
+            'scope' => 'Inspect protections, firmware and ventilation.',
+        ])->assertRedirect()->assertSessionHasNoErrors();
+
+        $plan->refresh();
+        $this->assertSame('Complete inverter maintenance', $plan->name);
+        $this->assertSame($technician->id, $plan->assigned_user_id);
+        $this->assertSame(6, $plan->interval_months);
+        $this->assertSame(21, $plan->lead_days);
+        $this->assertSame('2026-08-01', $plan->next_due_on->toDateString());
+        $this->assertTrue($plan->generate_work_order);
+        $this->assertSame('Inspect protections, firmware and ventilation.', $plan->scope);
+
+        $this->patch(route('after-sales.plans.update', $plan), ['is_active' => false])
+            ->assertRedirect()->assertSessionHasNoErrors();
+        $this->assertFalse($plan->refresh()->is_active);
+    }
+
     public function test_sla_uses_the_customer_specific_policy_and_respects_the_escalation_interval(): void
     {
         $this->travelTo('2026-08-11 10:00:00');
