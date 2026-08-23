@@ -112,9 +112,10 @@ class QuoteCompositionTest extends TestCase
         $this->assertSame(12, MaintenancePlan::where('installation_id', $installation->id)->firstOrFail()->interval_months);
 
         $this->post(route('quotes.convert', $quote), ['type' => 'invoice'])->assertRedirect();
-        $invoice = SalesDocument::where('quote_id', $quote->id)->where('type', 'invoice')->firstOrFail();
+        $invoice = SalesDocument::where('quote_id', $quote->id)->where('type', 'invoice')->where('is_acceptance_invoice', false)->firstOrFail();
         $this->assertCount(1, $invoice->lines);
-        $this->assertSame('2420.00', $invoice->amount);
+        $this->assertSame('1694.00', $invoice->amount);
+        $this->assertSame(2420.0, (float) SalesDocument::where('quote_id', $quote->id)->where('type', 'invoice')->sum('amount'));
         $this->assertSame('Instalación fotovoltaica completa', $invoice->lines->first()->description);
     }
 

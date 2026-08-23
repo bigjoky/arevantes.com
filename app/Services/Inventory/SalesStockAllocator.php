@@ -8,13 +8,17 @@ use App\Models\StockMovementLine;
 use App\Models\StockReservation;
 use App\Models\Warehouse;
 use App\Services\Documents\SalesDocumentConversion;
+use App\Services\Operations\FinancialClearanceGuard;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class SalesStockAllocator
 {
-    public function __construct(private SalesDocumentConversion $conversion) {}
+    public function __construct(
+        private SalesDocumentConversion $conversion,
+        private FinancialClearanceGuard $financialClearance,
+    ) {}
 
     /** @return array{lines: array<int, array<string, mixed>>, required: float, reserved: float, available: float, inbound: float, physical_shortage: float, shortage: float} */
     public function status(SalesDocument $order, ?array $summary = null): array
@@ -61,8 +65,11 @@ class SalesStockAllocator
     public function reserve(SalesDocument $order, Warehouse $warehouse, ?string $reservedUntil = null): int
     {
         return DB::transaction(function () use ($order, $warehouse, $reservedUntil): int {
-            $order = SalesDocument::lockForUpdate()->with('lines.product')->findOrFail($order->id);
+            $order = SalesDocument::lockForUpdate()->with(['lines.product', 'installation'])->findOrFail($order->id);
             abort_unless($order->type === 'order', 422, __('Only sales orders can reserve stock.'));
+            if ($order->installation) {
+                $this->financialClearance->assertAllows($order->installation, 'reserve');
+            }
             Warehouse::lockForUpdate()->findOrFail($warehouse->id);
 
             $requirements = $this->requirements($order, $this->conversion->summary($order));

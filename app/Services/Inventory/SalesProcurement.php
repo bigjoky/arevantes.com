@@ -7,6 +7,7 @@ use App\Models\PurchaseDocument;
 use App\Models\SalesDocument;
 use App\Models\Supplier;
 use App\Services\Documents\DocumentNumber;
+use App\Services\Operations\FinancialClearanceGuard;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -14,7 +15,11 @@ use Illuminate\Validation\ValidationException;
 
 class SalesProcurement
 {
-    public function __construct(private SalesStockAllocator $stock, private DocumentNumber $numbers) {}
+    public function __construct(
+        private SalesStockAllocator $stock,
+        private DocumentNumber $numbers,
+        private FinancialClearanceGuard $financialClearance,
+    ) {}
 
     public function createRequest(SalesDocument $order, Supplier $supplier, int $userId): PurchaseDocument
     {
@@ -25,8 +30,11 @@ class SalesProcurement
     public function createRequests(SalesDocument $order, Collection $suppliers, int $userId): Collection
     {
         return DB::transaction(function () use ($order, $suppliers, $userId): Collection {
-            $order = SalesDocument::lockForUpdate()->with('lines.product')->findOrFail($order->id);
+            $order = SalesDocument::lockForUpdate()->with(['lines.product', 'installation'])->findOrFail($order->id);
             abort_unless($order->type === 'order', 422, __('Only sales orders can create purchase requests.'));
+            if ($order->installation) {
+                $this->financialClearance->assertAllows($order->installation, 'procure');
+            }
             if ($suppliers->isEmpty()) {
                 throw ValidationException::withMessages(['supplier_ids' => __('Select at least one supplier.')]);
             }

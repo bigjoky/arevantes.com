@@ -38,6 +38,10 @@ type Quote = {
     status: string;
     approval_status: string;
     approval_notes: string | null;
+    acceptance_payment_percentage: string;
+    acceptance_payment_due_days: number;
+    financial_status: 'not_required' | 'pending' | 'partial' | 'cleared';
+    financially_cleared_at: string | null;
     issue_date: string;
     valid_until: string | null;
     subtotal: string;
@@ -155,8 +159,11 @@ type BillingPlan = {
         billing_percentage: number;
         billing_sequence: number | null;
         billing_label: string | null;
+        is_acceptance_invoice: boolean;
         amount: number;
+        paid_amount: number;
         issue_date: string;
+        due_date: string | null;
     }>;
 };
 type Profitability = {
@@ -339,6 +346,44 @@ export default function QuoteShow({
                     <Info label="Issue date" value={date(quote.issue_date)} />
                     <Info label="Valid until" value={date(quote.valid_until)} />
                 </section>
+                {(quote.status === 'accepted' ||
+                    quote.financial_status !== 'not_required') && (
+                    <section className="grid gap-4 rounded-md border p-4 text-sm md:grid-cols-4">
+                        <div className="flex flex-wrap items-center gap-2 md:col-span-4">
+                            <h2 className="font-semibold">
+                                Financial activation
+                            </h2>
+                            <Badge variant="outline">
+                                {financialStatusLabel(quote.financial_status)}
+                            </Badge>
+                        </div>
+                        <Info
+                            label="Acceptance payment"
+                            value={`${quote.acceptance_payment_percentage}%`}
+                        />
+                        <Info
+                            label="Payment term"
+                            value={`${quote.acceptance_payment_due_days} days`}
+                        />
+                        <Info
+                            label="Acceptance invoice"
+                            value={
+                                billing.documents.find(
+                                    (document) =>
+                                        document.is_acceptance_invoice,
+                                )?.number || 'Not issued'
+                            }
+                        />
+                        <Info
+                            label="Financial clearance"
+                            value={
+                                quote.financially_cleared_at
+                                    ? date(quote.financially_cleared_at)
+                                    : 'Pending bank confirmation'
+                            }
+                        />
+                    </section>
+                )}
                 <section className="grid gap-4 rounded-md border p-4 lg:grid-cols-[1fr_1fr]">
                     <div>
                         <div className="flex flex-wrap items-center gap-2">
@@ -667,12 +712,21 @@ export default function QuoteShow({
                                         <div className="text-xs text-muted-foreground">
                                             {document.number} ·{' '}
                                             {document.billing_percentage}%
+                                            {document.is_acceptance_invoice
+                                                ? ' · Acceptance'
+                                                : ''}
                                         </div>
                                     </div>
                                     <div className="text-right">
                                         <div className="font-medium">
                                             {money(document.amount)}
                                         </div>
+                                        {document.is_acceptance_invoice && (
+                                            <div className="text-xs text-muted-foreground">
+                                                Paid{' '}
+                                                {money(document.paid_amount)}
+                                            </div>
+                                        )}
                                         <Badge variant="outline">
                                             {document.status}
                                         </Badge>
@@ -1245,6 +1299,15 @@ function tomorrowMorning() {
     const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
 
     return local.toISOString().slice(0, 16);
+}
+
+function financialStatusLabel(status: Quote['financial_status']) {
+    return {
+        not_required: 'Not required',
+        pending: 'Acceptance payment pending',
+        partial: 'Partially paid',
+        cleared: 'Financially cleared',
+    }[status];
 }
 function DeliveryHistory({ deliveries }: { deliveries: Quote['deliveries'] }) {
     return (

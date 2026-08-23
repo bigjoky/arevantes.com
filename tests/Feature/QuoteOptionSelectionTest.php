@@ -60,9 +60,10 @@ class QuoteOptionSelectionTest extends TestCase
         $this->assertTrue($alternativeB->fresh()->is_selected);
 
         $this->actingAs($commercial)->post(route('quotes.convert', $quote), ['type' => 'invoice'])->assertRedirect();
-        $invoice = SalesDocument::where('quote_id', $quote->id)->firstOrFail();
+        $invoice = SalesDocument::where('quote_id', $quote->id)->where('is_acceptance_invoice', false)->firstOrFail();
         $this->assertCount(3, $invoice->lines);
-        $this->assertSame('2178.00', $invoice->amount);
+        $this->assertSame('1524.60', $invoice->amount);
+        $this->assertSame(2178.0, (float) SalesDocument::where('quote_id', $quote->id)->sum('amount'));
     }
 
     public function test_failed_acceptance_rolls_back_the_customer_option_selection(): void
