@@ -99,6 +99,9 @@ type Order = {
     title: string;
     kind: string;
     status: string;
+    estimated_duration_minutes: number | null;
+    required_skills: string[] | null;
+    service_zone: string | null;
     scheduled_start: string | null;
     scheduled_end: string | null;
     duration_minutes: string | null;
@@ -471,7 +474,10 @@ function WorkOrderDetail({
                     another work order during this period.
                 </div>
             )}
-            {canManage && <ScheduleDialog order={order} users={users} />}
+            <div className="flex flex-wrap gap-2">
+                <WorkOrderDetailsDialog order={order} />
+                {canManage && <ScheduleDialog order={order} users={users} />}
+            </div>
             {order.instructions && (
                 <div>
                     <h3 className="mb-1 text-sm font-medium">Instructions</h3>
@@ -1480,6 +1486,130 @@ function ScheduleDialog({ order, users }: { order: Selected; users: User[] }) {
                                 />
                             </div>
                             <Button disabled={processing}>Save schedule</Button>
+                        </>
+                    )}
+                </Form>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+function WorkOrderDetailsDialog({ order }: { order: Selected }) {
+    const [open, setOpen] = useState(false);
+
+    return (
+        <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+                <Button variant="outline">
+                    <PenLine /> Edit work order
+                </Button>
+            </DialogTrigger>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Edit {order.number}</DialogTitle>
+                </DialogHeader>
+                <Form
+                    action={`/work-orders/${order.id}/details`}
+                    method="patch"
+                    onSuccess={() => setOpen(false)}
+                    className="grid gap-4"
+                >
+                    {({ errors, processing }) => (
+                        <>
+                            <div className="grid gap-2">
+                                <Label>Title</Label>
+                                <Input
+                                    name="title"
+                                    defaultValue={order.title}
+                                />
+                                <InputError message={errors.title} />
+                            </div>
+                            <div className="grid gap-4 sm:grid-cols-2">
+                                <div className="grid gap-2">
+                                    <Label>Phase</Label>
+                                    <Select
+                                        name="kind"
+                                        defaultValue={order.kind}
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {[
+                                                ['survey', 'Technical survey'],
+                                                [
+                                                    'installation',
+                                                    'Installation',
+                                                ],
+                                                [
+                                                    'commissioning',
+                                                    'Commissioning',
+                                                ],
+                                                ['maintenance', 'Maintenance'],
+                                                ['repair', 'Repair'],
+                                            ].map(([value, label]) => (
+                                                <SelectItem
+                                                    key={value}
+                                                    value={value}
+                                                >
+                                                    {label}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    <InputError message={errors.kind} />
+                                </div>
+                                <div className="grid gap-2">
+                                    <Label>Estimated duration (minutes)</Label>
+                                    <Input
+                                        name="estimated_duration_minutes"
+                                        type="number"
+                                        min="1"
+                                        max="1440"
+                                        defaultValue={
+                                            order.estimated_duration_minutes ||
+                                            ''
+                                        }
+                                    />
+                                    <InputError
+                                        message={
+                                            errors.estimated_duration_minutes
+                                        }
+                                    />
+                                </div>
+                            </div>
+                            <div className="grid gap-2">
+                                <Label>Service zone</Label>
+                                <Input
+                                    name="service_zone"
+                                    defaultValue={order.service_zone || ''}
+                                />
+                                <InputError message={errors.service_zone} />
+                            </div>
+                            <div className="grid gap-2">
+                                <Label>Required skills</Label>
+                                <Input
+                                    name="required_skills"
+                                    defaultValue={(
+                                        order.required_skills || []
+                                    ).join(', ')}
+                                    placeholder="Electrical, commissioning"
+                                />
+                                <p className="text-xs text-muted-foreground">
+                                    Separate skills with commas.
+                                </p>
+                                <InputError message={errors.required_skills} />
+                            </div>
+                            <div className="grid gap-2">
+                                <Label>Instructions</Label>
+                                <textarea
+                                    name="instructions"
+                                    defaultValue={order.instructions || ''}
+                                    className="min-h-28 rounded-md border bg-transparent p-3 text-sm"
+                                />
+                                <InputError message={errors.instructions} />
+                            </div>
+                            <Button disabled={processing}>Save changes</Button>
                         </>
                     )}
                 </Form>

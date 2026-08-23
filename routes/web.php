@@ -197,6 +197,7 @@ Route::middleware(['auth'])->group(function () {
     Route::patch('work-orders/bulk-reschedule', [WorkOrderController::class, 'bulkReschedule'])->middleware('can:manage-installations')->name('work-orders.bulk-reschedule');
     Route::post('work-orders', [WorkOrderController::class, 'store'])->middleware('can:manage-installations')->name('work-orders.store');
     Route::patch('work-orders/{workOrder}', [WorkOrderController::class, 'update'])->middleware('can:manage-operations')->name('work-orders.update');
+    Route::patch('work-orders/{workOrder}/details', [WorkOrderController::class, 'updateDetails'])->middleware('can:manage-operations')->name('work-orders.details.update');
     Route::patch('work-orders/{workOrder}/schedule', [WorkOrderController::class, 'updateSchedule'])->middleware('can:manage-installations')->name('work-orders.schedule.update');
     Route::post('work-orders/{workOrder}/materials/procure', [WorkOrderMaterialsController::class, 'procure'])->middleware('can:manage-catalog')->name('work-orders.materials.procure');
     Route::post('work-orders/{workOrder}/materials', [WorkOrderMaterialsController::class, 'reserve'])->middleware('can:manage-catalog')->name('work-orders.materials.reserve');

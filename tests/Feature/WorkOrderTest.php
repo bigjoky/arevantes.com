@@ -127,6 +127,46 @@ class WorkOrderTest extends TestCase
         $this->assertSame(66.0, $entry->cost);
     }
 
+    public function test_a_technician_can_edit_the_details_of_their_maintenance_order(): void
+    {
+        $technician = User::factory()->create(['role' => 'technician']);
+        $other = User::factory()->create(['role' => 'technician']);
+        $installation = Installation::create(['service_type' => 'solar', 'status' => 'completed', 'site_address_line_1' => 'Calle Mantenimiento 1']);
+        $order = app(WorkOrderFactory::class)->create([
+            'installation_id' => $installation->id,
+            'assigned_user_id' => $technician->id,
+            'kind' => 'maintenance',
+            'title' => 'Annual maintenance',
+        ]);
+
+        $this->actingAs($technician)->patch(route('work-orders.details.update', $order), [
+            'title' => 'Annual inverter maintenance',
+            'kind' => 'maintenance',
+            'estimated_duration_minutes' => 120,
+            'required_skills' => 'Electrical, Inverters, electrical',
+            'service_zone' => 'Madrid centro',
+            'instructions' => 'Check protections and update firmware.',
+        ])->assertRedirect()->assertSessionHasNoErrors();
+
+        $order->refresh();
+        $this->assertSame('Annual inverter maintenance', $order->title);
+        $this->assertSame(120, $order->estimated_duration_minutes);
+        $this->assertSame(['Electrical', 'Inverters'], $order->required_skills);
+        $this->assertSame('Madrid centro', $order->service_zone);
+        $this->assertSame('Check protections and update firmware.', $order->instructions);
+        $this->assertDatabaseHas('crm_activities', [
+            'work_order_id' => $order->id,
+            'title' => 'Annual inverter maintenance',
+            'type' => 'visit',
+        ]);
+
+        $this->actingAs($other)->patch(route('work-orders.details.update', $order), [
+            'title' => 'Unauthorized change',
+            'kind' => 'maintenance',
+        ])->assertForbidden();
+        $this->assertSame('Annual inverter maintenance', $order->refresh()->title);
+    }
+
     public function test_schedule_prevents_technician_overlaps_and_updates_the_agenda(): void
     {
         $commercial = User::factory()->create(['role' => 'commercial']);
