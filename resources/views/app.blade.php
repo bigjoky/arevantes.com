@@ -1,5 +1,50 @@
+@php
+    $component = $page['component'] ?? '';
+    $isHomepage = $component === 'welcome';
+    $legalDocument = $component === 'legal/show' ? data_get($page, 'props.document') : null;
+    $isPublicWebsite = $isHomepage || filled($legalDocument);
+    $siteUrl = rtrim(config('app.url'), '/');
+    $siteDescription = 'Arevantes diseña, instala y mantiene soluciones fotovoltaicas, eléctricas y de recarga en Córdoba y Andalucía.';
+    $legalMetadata = [
+        'notice' => [
+            'path' => 'aviso-legal',
+            'title' => 'Aviso legal',
+            'description' => 'Información identificativa y condiciones de uso de este sitio web.',
+        ],
+        'privacy' => [
+            'path' => 'privacidad',
+            'title' => 'Política de privacidad',
+            'description' => 'Cómo tratamos los datos personales que nos facilitas.',
+        ],
+        'cookies' => [
+            'path' => 'cookies',
+            'title' => 'Política de cookies',
+            'description' => 'Información sobre las cookies técnicas utilizadas en este sitio.',
+        ],
+    ];
+    $currentLegalMetadata = $legalDocument ? ($legalMetadata[$legalDocument] ?? null) : null;
+    $structuredData = [
+        '@context' => 'https://schema.org',
+        '@type' => 'Electrician',
+        'name' => 'Arevantes',
+        'legalName' => config('company.legal_name'),
+        'url' => $siteUrl,
+        'logo' => $siteUrl.'/brand/arevantes-logo-light.svg',
+        'email' => config('company.email'),
+        'telephone' => config('company.phone'),
+        'address' => [
+            '@type' => 'PostalAddress',
+            'streetAddress' => config('company.address'),
+            'postalCode' => config('company.postal_code'),
+            'addressLocality' => config('company.city'),
+            'addressRegion' => config('company.province'),
+            'addressCountry' => 'ES',
+        ],
+        'areaServed' => 'Andalucía',
+    ];
+@endphp
 <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" @class(['dark' => ($appearance ?? 'system') == 'dark'])>
+<html lang="{{ $isPublicWebsite ? 'es' : str_replace('_', '-', app()->getLocale()) }}" @class(['dark' => ! $isPublicWebsite && ($appearance ?? 'system') == 'dark'])>
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -11,7 +56,7 @@
             (function() {
                 const appearance = '{{ $appearance ?? "system" }}';
 
-                if (appearance === 'system') {
+                if (! @json($isPublicWebsite) && appearance === 'system') {
                     const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
 
                     if (prefersDark) {
@@ -41,7 +86,34 @@
         @viteReactRefresh
         @vite(['resources/css/app.css', 'resources/js/app.tsx', "resources/js/pages/{$page['component']}.tsx"])
         <x-inertia::head>
-            <title>Arevantes</title>
+            @if ($isHomepage)
+                <title data-inertia="title">Arevantes · Energía bien instalada</title>
+                <meta data-inertia="description" name="description" content="{{ $siteDescription }}">
+                <meta data-inertia="robots" name="robots" content="index, follow">
+                <link data-inertia="canonical" rel="canonical" href="{{ $siteUrl }}">
+                <meta data-inertia="og-type" property="og:type" content="website">
+                <meta data-inertia="og-locale" property="og:locale" content="es_ES">
+                <meta data-inertia="og-site-name" property="og:site_name" content="Arevantes">
+                <meta data-inertia="og-title" property="og:title" content="Arevantes · Energía bien instalada">
+                <meta data-inertia="og-description" property="og:description" content="{{ $siteDescription }}">
+                <meta data-inertia="og-url" property="og:url" content="{{ $siteUrl }}">
+                <meta data-inertia="og-image" property="og:image" content="{{ $siteUrl }}/og.png">
+                <meta data-inertia="og-image-width" property="og:image:width" content="1200">
+                <meta data-inertia="og-image-height" property="og:image:height" content="630">
+                <meta data-inertia="og-image-alt" property="og:image:alt" content="Arevantes, energía bien instalada">
+                <meta data-inertia="twitter-card" name="twitter:card" content="summary_large_image">
+                <meta data-inertia="twitter-title" name="twitter:title" content="Arevantes · Energía bien instalada">
+                <meta data-inertia="twitter-description" name="twitter:description" content="{{ $siteDescription }}">
+                <meta data-inertia="twitter-image" name="twitter:image" content="{{ $siteUrl }}/og.png">
+                <script data-inertia="structured-data" type="application/ld+json">{!! json_encode($structuredData, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) !!}</script>
+            @elseif ($currentLegalMetadata)
+                <title data-inertia="title">{{ $currentLegalMetadata['title'] }} · Arevantes</title>
+                <meta data-inertia="description" name="description" content="{{ $currentLegalMetadata['description'] }}">
+                <meta data-inertia="robots" name="robots" content="index, follow">
+                <link data-inertia="canonical" rel="canonical" href="{{ $siteUrl }}/{{ $currentLegalMetadata['path'] }}">
+            @else
+                <title>Arevantes</title>
+            @endif
         </x-inertia::head>
     </head>
     <body class="font-sans antialiased">
