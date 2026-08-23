@@ -7,7 +7,7 @@ base y no mantienen implementaciones funcionales aisladas.
 
 | Area | Capacidades alineadas | Siguiente incremento |
 | --- | --- | --- |
-| CRM y ventas | ciclo comercial, captacion, cartera y agenda movil offline, aprobaciones, opciones, SLA y trazabilidad | rutas comerciales, automatizacion de renovaciones y forecast por cohortes |
+| CRM y ventas | ciclo comercial, captacion, cartera, agenda y rutas comerciales moviles offline, aprobaciones, opciones, SLA y trazabilidad | automatizacion de renovaciones y forecast por cohortes |
 | Finanzas | contabilidad, banca, cobros, riesgo de clientes y alertas | cierre asistido y conciliacion de excepciones |
 | Operaciones | planificacion, ordenes, mantenimiento, RMA y sincronizacion movil | capacidad predictiva y repuestos por criticidad |
 | Suministro | compras, aprobaciones, reposicion, calidad y control tower | simulacion de abastecimiento y riesgo de proveedor |
@@ -49,3 +49,5 @@ Un incremento solo se considera alineado cuando incluye:
   accion, con idempotencia y autorizacion de servidor.
 - Cartera y agenda comercial movil limitadas al propietario, almacenadas en el
   dispositivo y filtrables por vencimiento, prioridad y proxima accion.
+- Ruta diaria comercial generada desde visitas y reuniones asignadas, optimizada
+  por proximidad y ejecutable offline con llegada GPS, notas y cierre sincronizado.

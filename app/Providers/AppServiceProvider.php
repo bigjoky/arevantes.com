@@ -19,6 +19,8 @@ use App\Models\BankTransactionPosting;
 use App\Models\BankTransfer;
 use App\Models\CollectionAction;
 use App\Models\CollectionActionEvent;
+use App\Models\CommercialRoutePlan;
+use App\Models\CommercialRouteStop;
 use App\Models\CompanyProfile;
 use App\Models\CorporateTaxReturn;
 use App\Models\CrmActivity;
@@ -111,6 +113,8 @@ class AppServiceProvider extends ServiceProvider
         $this->configureAreviaRateLimits();
         Person::observe(AuditableObserver::class);
         Person::observe(PartyLedgerObserver::class);
+        CommercialRoutePlan::observe(AuditableObserver::class);
+        CommercialRouteStop::observe(AuditableObserver::class);
         HrCalendarHoliday::observe(AuditableObserver::class);
         HrContractChange::observe(AuditableObserver::class);
         HrDepartment::observe(AuditableObserver::class);

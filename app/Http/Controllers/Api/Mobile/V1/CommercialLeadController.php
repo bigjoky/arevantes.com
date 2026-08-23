@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Mobile\V1;
 
 use App\Http\Controllers\Controller;
+use App\Models\CommercialRoutePlan;
 use App\Models\CommercialVisit;
 use App\Models\CrmActivity;
 use App\Models\Opportunity;
@@ -11,6 +12,7 @@ use App\Services\Crm\LeadResponseSla;
 use App\Services\Crm\OpportunitySalesCycle;
 use App\Services\Customers\OpportunityCustomerResolver;
 use App\Services\Geocoding\NominatimGeocoder;
+use App\Support\Crm\CommercialRoutePayload;
 use App\Support\Crm\OpportunityCatalog;
 use App\Support\PhoneNormalizer;
 use Illuminate\Http\JsonResponse;
@@ -91,6 +93,11 @@ class CommercialLeadController extends Controller
             ->orderBy('due_at')
             ->limit($limit)
             ->get();
+        $route = CommercialRoutePlan::query()
+            ->with('stops.customer:id,first_name,last_name,company_name,phone,email,address_line_1,city,postal_code,preferred_contact_channel,do_not_contact')
+            ->where('user_id', $request->user()->id)
+            ->whereDate('route_date', today())
+            ->first();
 
         return response()->json(['data' => [
             'summary' => [
@@ -130,6 +137,7 @@ class CommercialLeadController extends Controller
                     'commercial_score' => $activity->opportunity->commercial_score,
                 ] : null,
             ])->values(),
+            'route' => CommercialRoutePayload::make($route),
             'generated_at' => now()->toISOString(),
         ]]);
     }

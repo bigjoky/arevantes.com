@@ -287,6 +287,106 @@ class MobileV1Test extends TestCase
         $this->mobileAs($technician)->getJson('/api/mobile/v1/commercial/dashboard')->assertForbidden();
     }
 
+    public function test_commercial_can_plan_and_execute_its_daily_route(): void
+    {
+        $commercial = User::factory()->create(['role' => 'commercial']);
+        $other = User::factory()->create(['role' => 'commercial']);
+        $nearCustomer = Person::create(['category' => 'customer', 'first_name' => 'Cliente cercano', 'phone' => '611111111', 'address_line_1' => 'Calle Cerca 1', 'city' => 'Sevilla', 'country' => 'Spain']);
+        $farCustomer = Person::create(['category' => 'customer', 'first_name' => 'Cliente lejano', 'phone' => '622222222', 'address_line_1' => 'Calle Lejos 2', 'city' => 'Sevilla', 'country' => 'Spain']);
+        $nearOpportunity = Opportunity::create(['person_id' => $nearCustomer->id, 'owner_user_id' => $commercial->id, 'created_by' => $commercial->id, 'code' => 'OPP-ROUTE-1', 'title' => 'Oportunidad cercana', 'stage' => 'qualified', 'probability' => 30, 'estimated_value' => 1000]);
+        $farOpportunity = Opportunity::create(['person_id' => $farCustomer->id, 'owner_user_id' => $commercial->id, 'created_by' => $commercial->id, 'code' => 'OPP-ROUTE-2', 'title' => 'Oportunidad lejana', 'stage' => 'qualified', 'probability' => 30, 'estimated_value' => 1000]);
+        $nearActivity = CrmActivity::create([
+            'opportunity_id' => $nearOpportunity->id,
+            'person_id' => $nearCustomer->id,
+            'assigned_user_id' => $commercial->id,
+            'created_by' => $commercial->id,
+            'type' => 'visit',
+            'title' => 'Visita cercana',
+            'priority' => 'normal',
+            'status' => 'pending',
+            'starts_at' => today()->setHour(12),
+        ]);
+        $farActivity = CrmActivity::create([
+            'opportunity_id' => $farOpportunity->id,
+            'person_id' => $farCustomer->id,
+            'assigned_user_id' => $commercial->id,
+            'created_by' => $commercial->id,
+            'type' => 'meeting',
+            'title' => 'Reunión lejana',
+            'priority' => 'normal',
+            'status' => 'pending',
+            'starts_at' => today()->setHour(9),
+        ]);
+        CrmActivity::create([
+            'person_id' => $nearCustomer->id,
+            'assigned_user_id' => $other->id,
+            'created_by' => $other->id,
+            'type' => 'visit',
+            'title' => 'Visita ajena',
+            'priority' => 'normal',
+            'status' => 'pending',
+            'starts_at' => today()->setHour(10),
+        ]);
+        CommercialVisit::create(['client_uuid' => (string) Str::uuid(), 'user_id' => $commercial->id, 'person_id' => $nearCustomer->id, 'opportunity_id' => $nearOpportunity->id, 'visited_at' => now()->subDay(), 'latitude' => 37.3892, 'longitude' => -5.9846]);
+        CommercialVisit::create(['client_uuid' => (string) Str::uuid(), 'user_id' => $commercial->id, 'person_id' => $farCustomer->id, 'opportunity_id' => $farOpportunity->id, 'visited_at' => now()->subDay(), 'latitude' => 37.45, 'longitude' => -6.05]);
+
+        $response = $this->mobileAs($commercial)->withHeader('Idempotency-Key', (string) Str::uuid())
+            ->postJson('/api/mobile/v1/commercial/routes', [
+                'route_date' => today()->toDateString(),
+                'origin_latitude' => 37.3891,
+                'origin_longitude' => -5.9845,
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.summary.total', 2)
+            ->assertJsonPath('data.stops.0.activity_id', $nearActivity->id)
+            ->assertJsonPath('data.stops.1.activity_id', $farActivity->id);
+        $planId = $response->json('data.id');
+        $nearStopId = $response->json('data.stops.0.id');
+        $farStopId = $response->json('data.stops.1.id');
+
+        $this->app['auth']->forgetGuards();
+        $this->mobileAs($other)->getJson('/api/mobile/v1/commercial/routes/current')->assertOk()->assertJsonPath('data', null);
+        $this->mobileAs($other)->withHeader('Idempotency-Key', (string) Str::uuid())
+            ->patchJson("/api/mobile/v1/commercial/routes/{$planId}/stops/{$nearStopId}/complete", ['completed_at' => now()->toISOString()])
+            ->assertNotFound();
+
+        $arrival = now()->subMinute();
+        $this->app['auth']->forgetGuards();
+        $this->mobileAs($commercial)->withHeader('Idempotency-Key', (string) Str::uuid())
+            ->patchJson("/api/mobile/v1/commercial/routes/{$planId}/stops/{$nearStopId}/arrive", [
+                'arrived_at' => $arrival->toISOString(),
+                'latitude' => 37.3892,
+                'longitude' => -5.9846,
+                'accuracy_meters' => 7,
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.status', 'active')
+            ->assertJsonPath('data.stops.0.status', 'arrived');
+        $this->assertDatabaseHas('crm_activities', ['id' => $nearActivity->id, 'status' => 'in_progress']);
+
+        $this->mobileAs($commercial)->withHeader('Idempotency-Key', (string) Str::uuid())
+            ->patchJson("/api/mobile/v1/commercial/routes/{$planId}/stops/{$farStopId}/arrive", [
+                'arrived_at' => $arrival->toISOString(),
+                'latitude' => 37.45,
+                'longitude' => -6.05,
+            ])->assertOk();
+        foreach ([$nearStopId, $farStopId] as $stopId) {
+            $this->mobileAs($commercial)->withHeader('Idempotency-Key', (string) Str::uuid())
+                ->patchJson("/api/mobile/v1/commercial/routes/{$planId}/stops/{$stopId}/complete", [
+                    'completed_at' => now()->toISOString(),
+                    'notes' => 'Visita realizada',
+                ])->assertOk();
+        }
+        $this->assertDatabaseHas('commercial_route_plans', ['id' => $planId, 'status' => 'completed']);
+        $this->assertDatabaseHas('crm_activities', ['id' => $nearActivity->id, 'status' => 'completed']);
+        $this->assertDatabaseHas('crm_activities', ['id' => $farActivity->id, 'status' => 'completed']);
+
+        $this->mobileAs($commercial)->getJson('/api/mobile/v1/commercial/dashboard')
+            ->assertOk()
+            ->assertJsonPath('data.route.id', $planId)
+            ->assertJsonPath('data.route.summary.remaining', 0);
+    }
+
     public function test_commercial_lead_capture_reuses_customer_and_rejects_technician(): void
     {
         $existing = Person::create([
