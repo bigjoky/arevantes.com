@@ -53,6 +53,14 @@ type MaterialRisk = {
         shortage_exposure: number | null;
         late_inbound_value: number | null;
     };
+    scenario: {
+        items_with_alternatives: number;
+        items_without_alternatives: number;
+        covered_on_time: number;
+        recommended_net: number | null;
+        recommended_cash: number | null;
+        cash_within_30_days: number | null;
+    };
     rows: {
         work_order_id: number;
         work_order_number: string;
@@ -71,7 +79,30 @@ type MaterialRisk = {
         shortage_exposure: number | null;
         late_inbound_value: number | null;
         severity: 'blocked' | 'critical' | 'warning' | 'covered';
+        alternatives: SupplyAlternative[];
+        recommended: SupplyAlternative | null;
     }[];
+};
+
+type SupplyAlternative = {
+    supplier_id: number;
+    supplier: string;
+    supplier_product_id: number;
+    is_preferred: boolean;
+    lead_time_days: number;
+    arrival_date: string;
+    arrives_on_time: boolean;
+    purchase_quantity: number;
+    unit_price: number | null;
+    price_source: 'supplier_history' | 'catalog_estimate';
+    currency: string;
+    net_cost: number | null;
+    cash_impact: number | null;
+    payment_date: string;
+    payment_terms_days: number;
+    overall_score: number | null;
+    delivery_score: number | null;
+    quality_score: number | null;
 };
 
 export default function SupplyControlTower({
@@ -430,6 +461,24 @@ function MaterialRiskPanel({ risk }: { risk: MaterialRisk }) {
                     value={money(risk.summary.late_inbound_value)}
                 />
             </div>
+            <div className="grid grid-cols-2 gap-px border-t bg-border lg:grid-cols-4">
+                <RiskMetric
+                    label="Alternatives found"
+                    value={risk.scenario.items_with_alternatives}
+                />
+                <RiskMetric
+                    label="Covered on time"
+                    value={risk.scenario.covered_on_time}
+                />
+                <RiskMetric
+                    label="Recommended cash"
+                    value={money(risk.scenario.recommended_cash)}
+                />
+                <RiskMetric
+                    label="Cash within 30 days"
+                    value={money(risk.scenario.cash_within_30_days)}
+                />
+            </div>
             {risk.rows.length > 0 ? (
                 <div className="divide-y">
                     {risk.rows.map((row) => (
@@ -515,6 +564,100 @@ function MaterialRiskPanel({ risk }: { risk: MaterialRisk }) {
                                     {money(row.shortage_exposure)}
                                 </div>
                             </div>
+                            {row.alternatives.length > 0 ? (
+                                <details className="border-t pt-3 lg:col-span-3">
+                                    <summary className="cursor-pointer text-sm font-medium">
+                                        Compare {row.alternatives.length}{' '}
+                                        supplier alternative
+                                        {row.alternatives.length === 1
+                                            ? ''
+                                            : 's'}
+                                    </summary>
+                                    <div className="mt-3 overflow-x-auto">
+                                        <table className="w-full min-w-[52rem] text-xs">
+                                            <thead>
+                                                <tr className="border-b text-left text-muted-foreground">
+                                                    <th className="py-2">
+                                                        Supplier
+                                                    </th>
+                                                    <th>Arrival</th>
+                                                    <th>Quantity</th>
+                                                    <th>Score</th>
+                                                    <th className="text-right">
+                                                        Net
+                                                    </th>
+                                                    <th className="text-right">
+                                                        Cash / payment
+                                                    </th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {row.alternatives.map(
+                                                    (alternative) => (
+                                                        <tr
+                                                            key={
+                                                                alternative.supplier_product_id
+                                                            }
+                                                            className="border-b last:border-0"
+                                                        >
+                                                            <td className="py-2 font-medium">
+                                                                {
+                                                                    alternative.supplier
+                                                                }
+                                                                {row.recommended
+                                                                    ?.supplier_product_id ===
+                                                                    alternative.supplier_product_id && (
+                                                                    <Badge
+                                                                        variant="secondary"
+                                                                        className="ml-2"
+                                                                    >
+                                                                        Recommended
+                                                                    </Badge>
+                                                                )}
+                                                            </td>
+                                                            <td>
+                                                                {date(
+                                                                    alternative.arrival_date,
+                                                                )}{' '}
+                                                                ·{' '}
+                                                                {alternative.arrives_on_time
+                                                                    ? 'on time'
+                                                                    : 'late'}
+                                                            </td>
+                                                            <td>
+                                                                {
+                                                                    alternative.purchase_quantity
+                                                                }
+                                                            </td>
+                                                            <td>
+                                                                {alternative.overall_score ===
+                                                                null
+                                                                    ? 'No history'
+                                                                    : `${alternative.overall_score}/100`}
+                                                            </td>
+                                                            <td className="text-right">
+                                                                {money(
+                                                                    alternative.net_cost,
+                                                                    alternative.currency,
+                                                                )}
+                                                            </td>
+                                                            <td className="text-right">
+                                                                {money(
+                                                                    alternative.cash_impact,
+                                                                )}{' '}
+                                                                ·{' '}
+                                                                {date(
+                                                                    alternative.payment_date,
+                                                                )}
+                                                            </td>
+                                                        </tr>
+                                                    ),
+                                                )}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </details>
+                            ) : null}
                         </article>
                     ))}
                 </div>
@@ -591,12 +734,12 @@ const dateTime = (value: string) =>
         dateStyle: 'medium',
         timeStyle: 'short',
     }).format(new Date(value));
-const money = (value: number | null) =>
+const money = (value: number | null, currency = 'EUR') =>
     value === null
         ? 'Restricted'
         : new Intl.NumberFormat(undefined, {
               style: 'currency',
-              currency: 'EUR',
+              currency,
           }).format(value);
 const daysFromNow = (days: number) => {
     const value = new Date();

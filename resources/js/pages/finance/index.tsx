@@ -152,6 +152,36 @@ type PurchaseCommitments = {
         remainingCash: number;
     }[];
 };
+type SupplyScenario = {
+    scenario: {
+        items_with_alternatives: number;
+        items_without_alternatives: number;
+        covered_on_time: number;
+        recommended_net: number;
+        recommended_cash: number;
+        cash_within_30_days: number;
+    };
+    rows: {
+        work_order_id: number;
+        work_order_number: string;
+        installation: string | null;
+        product_id: number;
+        product: string;
+        shortage_quantity: number;
+        recommended: {
+            supplier_id: number;
+            supplier: string;
+            arrival_date: string;
+            arrives_on_time: boolean;
+            purchase_quantity: number;
+            currency: string;
+            net_cost: number;
+            cash_impact: number | null;
+            payment_date: string;
+            overall_score: number | null;
+        } | null;
+    }[];
+};
 type Flow = {
     month: string;
     in: number;
@@ -389,6 +419,7 @@ export default function FinanceIndex({
     payables,
     profitability,
     purchaseCommitments,
+    supplyScenario,
     treasuryForecast,
     forecastItems,
     forecastAccuracy,
@@ -431,6 +462,7 @@ export default function FinanceIndex({
     payables: Due[];
     profitability: Profit[];
     purchaseCommitments: PurchaseCommitments;
+    supplyScenario: SupplyScenario;
     treasuryForecast: {
         scenario: string;
         baseCurrency: string;
@@ -1665,6 +1697,7 @@ export default function FinanceIndex({
                         canManage={can.manageTreasury}
                     />
                 </section>
+                <SupplyScenarioPanel scenario={supplyScenario} />
                 <section>
                     <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
                         <div>
@@ -2275,6 +2308,147 @@ function AgingTable({
         </div>
     );
 }
+function SupplyScenarioPanel({ scenario }: { scenario: SupplyScenario }) {
+    const rows = scenario.rows.filter((row) => row.shortage_quantity > 0);
+
+    return (
+        <section>
+            <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
+                <div>
+                    <div className="flex items-center gap-2">
+                        <CircleAlert className="size-4 text-muted-foreground" />
+                        <h2 className="font-semibold">
+                            Uncommitted critical procurement
+                        </h2>
+                    </div>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                        Recommended supplier scenarios before an RFQ or order
+                        exists. These amounts are not included in treasury yet.
+                    </p>
+                </div>
+                <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-right text-sm sm:grid-cols-4">
+                    <ForecastMetric
+                        label="Alternatives"
+                        value={String(
+                            scenario.scenario.items_with_alternatives,
+                        )}
+                    />
+                    <ForecastMetric
+                        label="Covered on time"
+                        value={String(scenario.scenario.covered_on_time)}
+                    />
+                    <ForecastMetric
+                        label="Recommended cash"
+                        value={money(scenario.scenario.recommended_cash)}
+                    />
+                    <ForecastMetric
+                        label="Cash in 30 days"
+                        value={money(scenario.scenario.cash_within_30_days)}
+                    />
+                </div>
+            </div>
+            <div className="overflow-x-auto border-y">
+                <table className="w-full min-w-[58rem] text-sm">
+                    <thead>
+                        <tr className="border-b text-left text-muted-foreground">
+                            <th className="py-2">Work order</th>
+                            <th>Critical item</th>
+                            <th>Recommended supplier</th>
+                            <th>Arrival</th>
+                            <th>Expected payment</th>
+                            <th className="text-right">Net</th>
+                            <th className="text-right">Cash</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {rows.map((row) => (
+                            <tr
+                                key={`${row.work_order_id}-${row.product_id}`}
+                                className="border-b last:border-0"
+                            >
+                                <td className="py-3 font-medium">
+                                    <Link
+                                        href={`/work-orders?work_order=${row.work_order_id}`}
+                                        className="underline underline-offset-2"
+                                    >
+                                        {row.work_order_number}
+                                    </Link>
+                                    <div className="text-xs font-normal text-muted-foreground">
+                                        {row.installation || 'Installation'}
+                                    </div>
+                                </td>
+                                <td>
+                                    {row.product}
+                                    <div className="text-xs text-muted-foreground">
+                                        Shortage {row.shortage_quantity}
+                                    </div>
+                                </td>
+                                {row.recommended ? (
+                                    <>
+                                        <td>
+                                            {row.recommended.supplier}
+                                            <div className="text-xs text-muted-foreground">
+                                                {row.recommended
+                                                    .overall_score === null
+                                                    ? 'No measured score'
+                                                    : `${row.recommended.overall_score}/100`}
+                                            </div>
+                                        </td>
+                                        <td>
+                                            {date(row.recommended.arrival_date)}
+                                            <div
+                                                className={`text-xs ${row.recommended.arrives_on_time ? 'text-green-700 dark:text-green-400' : 'text-destructive'}`}
+                                            >
+                                                {row.recommended.arrives_on_time
+                                                    ? 'On time'
+                                                    : 'After work date'}
+                                            </div>
+                                        </td>
+                                        <td>
+                                            {date(row.recommended.payment_date)}
+                                        </td>
+                                        <td className="text-right">
+                                            {money(
+                                                row.recommended.net_cost,
+                                                row.recommended.currency,
+                                            )}
+                                        </td>
+                                        <td className="text-right font-semibold">
+                                            {row.recommended.cash_impact ===
+                                            null
+                                                ? 'Currency conversion required'
+                                                : money(
+                                                      row.recommended
+                                                          .cash_impact,
+                                                  )}
+                                        </td>
+                                    </>
+                                ) : (
+                                    <td
+                                        colSpan={5}
+                                        className="text-destructive"
+                                    >
+                                        No active supplier alternative
+                                    </td>
+                                )}
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+                {rows.length === 0 ? (
+                    <Empty text="No uncommitted critical procurement scenarios." />
+                ) : null}
+            </div>
+            {scenario.scenario.items_without_alternatives > 0 ? (
+                <p className="mt-2 text-xs text-destructive">
+                    {scenario.scenario.items_without_alternatives} shortage(s)
+                    have no active supplier catalog source.
+                </p>
+            ) : null}
+        </section>
+    );
+}
+
 function ReceivableRiskPanel({ risk }: { risk: ReceivableRisk }) {
     return (
         <section id="receivable-risk">
