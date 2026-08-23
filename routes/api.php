@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\Mobile\V1\ActivityController as MobileActivityController;
 use App\Http\Controllers\Api\Mobile\V1\AuthController as MobileAuthController;
 use App\Http\Controllers\Api\Mobile\V1\CommercialLeadController as MobileCommercialLeadController;
+use App\Http\Controllers\Api\Mobile\V1\CommercialRouteController as MobileCommercialRouteController;
 use App\Http\Controllers\Api\Mobile\V1\DeviceController as MobileDeviceController;
 use App\Http\Controllers\Api\Mobile\V1\WorkOrderController as MobileWorkOrderController;
 use App\Http\Controllers\LocationController;
@@ -37,6 +38,18 @@ Route::prefix('mobile/v1')->name('api.mobile.v1.')->group(function () {
         Route::post('commercial/leads', [MobileCommercialLeadController::class, 'store'])
             ->middleware(['can:manage-customers', EnsureMobileIdempotency::class])
             ->name('commercial.leads.store');
+        Route::get('commercial/routes/current', [MobileCommercialRouteController::class, 'show'])
+            ->middleware('can:manage-customers')
+            ->name('commercial.routes.current');
+        Route::post('commercial/routes', [MobileCommercialRouteController::class, 'store'])
+            ->middleware(['can:manage-customers', EnsureMobileIdempotency::class])
+            ->name('commercial.routes.store');
+        Route::patch('commercial/routes/{routePlan}/stops/{routeStop}/arrive', [MobileCommercialRouteController::class, 'arrive'])
+            ->middleware(['can:manage-customers', EnsureMobileIdempotency::class])
+            ->name('commercial.routes.stops.arrive');
+        Route::patch('commercial/routes/{routePlan}/stops/{routeStop}/complete', [MobileCommercialRouteController::class, 'complete'])
+            ->middleware(['can:manage-customers', EnsureMobileIdempotency::class])
+            ->name('commercial.routes.stops.complete');
         Route::get('activities', [MobileActivityController::class, 'index'])->name('activities.index');
         Route::get('activities/{activity}', [MobileActivityController::class, 'show'])->name('activities.show');
         Route::patch('activities/{activity}/status', [MobileActivityController::class, 'changeStatus'])->middleware(EnsureMobileIdempotency::class)->name('activities.status.update');
