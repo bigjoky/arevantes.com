@@ -253,7 +253,7 @@ type Budget = {
 };
 type BudgetAlert = {
     key: string;
-    type: 'operating' | 'cash' | 'liquidity';
+    type: 'operating' | 'cash' | 'liquidity' | 'concentration';
     month: number | null;
     monthLabel: string | null;
     severity: 'warning' | 'critical';
@@ -266,6 +266,42 @@ type BudgetAlert = {
     assignee: string | null;
     notes: string | null;
     resolvedAt: string | null;
+    href?: string | null;
+};
+type ReceivableRisk = {
+    summary: {
+        totalExposure: number;
+        customers: number;
+        concentratedCustomers: number;
+        criticalCustomers: number;
+        overdueExposure: number;
+        brokenPromises: number;
+        concentrationThreshold: number;
+    };
+    rows: {
+        customerId: number | null;
+        customer: string;
+        customerHref: string | null;
+        invoiceCount: number;
+        outstanding: number;
+        overdue: number;
+        over90: number;
+        sharePercent: number;
+        overduePercent: number;
+        maxDaysOverdue: number;
+        brokenPromises: number;
+        isConcentrated: boolean;
+        riskLevel: 'normal' | 'warning' | 'critical';
+        documents: {
+            id: number;
+            number: string;
+            dueDate: string | null;
+            outstanding: number;
+            daysOverdue: number;
+            brokenPromise: boolean;
+            href: string;
+        }[];
+    }[];
 };
 type PaymentBatch = {
     id: number;
@@ -349,6 +385,7 @@ export default function FinanceIndex({
     vat,
     aging,
     receivables,
+    receivableRisk,
     payables,
     profitability,
     purchaseCommitments,
@@ -390,6 +427,7 @@ export default function FinanceIndex({
     vat: { output: number; input: number };
     aging: { receivable: Aging; payable: Aging };
     receivables: Due[];
+    receivableRisk: ReceivableRisk;
     payables: Due[];
     profitability: Profit[];
     purchaseCommitments: PurchaseCommitments;
@@ -443,6 +481,7 @@ export default function FinanceIndex({
         operatingVariancePercent: number;
         cashVariancePercent: number;
         liquidityBufferAmount: number;
+        customerConcentrationPercent: number;
     };
     comparison: {
         previousYear: number;
@@ -730,7 +769,10 @@ export default function FinanceIndex({
                                                     {money(alert.variance)}
                                                     {alert.variancePercent !==
                                                     null
-                                                        ? ` · ${alert.variancePercent}% unfavorable`
+                                                        ? alert.type ===
+                                                          'concentration'
+                                                            ? ` · ${alert.variancePercent}% of portfolio`
+                                                            : ` · ${alert.variancePercent}% unfavorable`
                                                         : ' · against liquidity buffer'}
                                                     {alert.assignee
                                                         ? ` · ${alert.assignee}`
@@ -749,6 +791,17 @@ export default function FinanceIndex({
                                                 >
                                                     Review month
                                                 </a>
+                                            </Button>
+                                        )}
+                                        {alert.href && (
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                asChild
+                                            >
+                                                <Link href={alert.href}>
+                                                    Review customer
+                                                </Link>
                                             </Button>
                                         )}
                                     </div>
@@ -1596,6 +1649,7 @@ export default function FinanceIndex({
                         payable={aging.payable}
                     />
                 </section>
+                <ReceivableRiskPanel risk={receivableRisk} />
                 <section className="grid gap-8 xl:grid-cols-2 [&>*]:min-w-0">
                     <DueTable
                         title="Accounts receivable"
@@ -2219,6 +2273,167 @@ function AgingTable({
                 </tbody>
             </table>
         </div>
+    );
+}
+function ReceivableRiskPanel({ risk }: { risk: ReceivableRisk }) {
+    return (
+        <section id="receivable-risk">
+            <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
+                <div>
+                    <div className="flex items-center gap-2">
+                        <Gauge className="size-4 text-muted-foreground" />
+                        <h2 className="font-semibold">Customer credit risk</h2>
+                    </div>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                        Consolidated exposure by customer. Concentration alerts
+                        start at {risk.summary.concentrationThreshold}% of the
+                        receivable portfolio.
+                    </p>
+                </div>
+                <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-right text-sm sm:grid-cols-4">
+                    <ForecastMetric
+                        label="Customers"
+                        value={String(risk.summary.customers)}
+                    />
+                    <ForecastMetric
+                        label="Total exposure"
+                        value={money(risk.summary.totalExposure)}
+                    />
+                    <ForecastMetric
+                        label="Overdue"
+                        value={money(risk.summary.overdueExposure)}
+                    />
+                    <ForecastMetric
+                        label="Critical"
+                        value={String(risk.summary.criticalCustomers)}
+                    />
+                </div>
+            </div>
+            <div className="overflow-x-auto border-y">
+                <table className="w-full min-w-[64rem] text-sm">
+                    <thead>
+                        <tr className="border-b text-left text-muted-foreground">
+                            <th className="py-2">Customer</th>
+                            <th>Risk</th>
+                            <th className="text-right">Invoices</th>
+                            <th className="text-right">Exposure</th>
+                            <th className="text-right">Portfolio</th>
+                            <th className="text-right">Overdue</th>
+                            <th className="text-right">Over 90 days</th>
+                            <th className="text-right">Max aging</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {risk.rows.map((row) => (
+                            <tr
+                                key={row.customerId ?? row.customer}
+                                className="border-b last:border-0"
+                            >
+                                <td className="py-3 font-medium">
+                                    {row.customerHref ? (
+                                        <Link
+                                            href={row.customerHref}
+                                            className="underline underline-offset-2"
+                                        >
+                                            {row.customer}
+                                        </Link>
+                                    ) : (
+                                        row.customer
+                                    )}
+                                    <details className="mt-1 font-normal">
+                                        <summary className="cursor-pointer text-xs text-muted-foreground">
+                                            Trace {row.invoiceCount} source
+                                            invoice
+                                            {row.invoiceCount === 1 ? '' : 's'}
+                                        </summary>
+                                        <div className="mt-2 space-y-1 border-l pl-3 text-xs">
+                                            {row.documents.map((document) => (
+                                                <div
+                                                    key={document.id}
+                                                    className="flex flex-wrap justify-between gap-2"
+                                                >
+                                                    <Link
+                                                        href={document.href}
+                                                        className="underline underline-offset-2"
+                                                    >
+                                                        {document.number}
+                                                    </Link>
+                                                    <span>
+                                                        {money(
+                                                            document.outstanding,
+                                                        )}
+                                                        {' · '}
+                                                        {document.daysOverdue >
+                                                        0
+                                                            ? `${document.daysOverdue}d overdue`
+                                                            : 'current'}
+                                                        {document.brokenPromise
+                                                            ? ' · broken promise'
+                                                            : ''}
+                                                    </span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </details>
+                                </td>
+                                <td>
+                                    <Badge
+                                        variant={
+                                            row.riskLevel === 'critical'
+                                                ? 'destructive'
+                                                : 'outline'
+                                        }
+                                    >
+                                        {row.riskLevel}
+                                    </Badge>
+                                    {row.isConcentrated && (
+                                        <div className="mt-1 text-xs text-amber-700 dark:text-amber-400">
+                                            Concentrated
+                                        </div>
+                                    )}
+                                    {row.brokenPromises > 0 && (
+                                        <div className="mt-1 text-xs text-destructive">
+                                            {row.brokenPromises} broken promise
+                                            {row.brokenPromises === 1
+                                                ? ''
+                                                : 's'}
+                                        </div>
+                                    )}
+                                </td>
+                                <td className="text-right">
+                                    {row.invoiceCount}
+                                </td>
+                                <td className="text-right font-semibold">
+                                    {money(row.outstanding)}
+                                </td>
+                                <td className="text-right">
+                                    {row.sharePercent}%
+                                </td>
+                                <td className="text-right">
+                                    {money(row.overdue)}
+                                    {row.overdue > 0 && (
+                                        <div className="text-xs text-muted-foreground">
+                                            {row.overduePercent}%
+                                        </div>
+                                    )}
+                                </td>
+                                <td className="text-right">
+                                    {money(row.over90)}
+                                </td>
+                                <td className="text-right">
+                                    {row.maxDaysOverdue > 0
+                                        ? `${row.maxDaysOverdue}d`
+                                        : '—'}
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+                {risk.rows.length === 0 && (
+                    <Empty text="No open customer exposure." />
+                )}
+            </div>
+        </section>
     );
 }
 function DueTable({
@@ -3040,6 +3255,7 @@ function BudgetForm({
         operatingVariancePercent: number;
         cashVariancePercent: number;
         liquidityBufferAmount: number;
+        customerConcentrationPercent: number;
     };
     alertCount: number;
     financialCategories: FinancialCategory[];
@@ -3181,7 +3397,7 @@ function BudgetForm({
             <Form
                 action="/finance/alert-settings"
                 method="patch"
-                className="grid gap-3 border-t pt-3 sm:grid-cols-4"
+                className="grid gap-3 border-t pt-3 sm:grid-cols-2 xl:grid-cols-5"
             >
                 <Field label="Operating variance alert (%)">
                     <Input
@@ -3212,6 +3428,19 @@ function BudgetForm({
                         min="0"
                         step="0.01"
                         defaultValue={alertSettings.liquidityBufferAmount}
+                        required
+                    />
+                </Field>
+                <Field label="Customer concentration alert (%)">
+                    <Input
+                        name="customer_concentration_alert_percent"
+                        type="number"
+                        min="1"
+                        max="100"
+                        step="0.1"
+                        defaultValue={
+                            alertSettings.customerConcentrationPercent
+                        }
                         required
                     />
                 </Field>

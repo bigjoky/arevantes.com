@@ -31,7 +31,7 @@
     $customerName = $customer['company_name'] ?? trim(($customer['first_name'] ?? '').' '.($customer['last_name'] ?? ''));
 @endphp
 <header>@if($company['logo_data'] ?? null)<img src="{{ $company['logo_data'] }}" style="max-width:48mm;max-height:17mm">@else<span class="brand">{{ strtoupper($company['trade_name'] ?: $company['legal_name']) }}</span>@endif<div class="doc-title">{{ $titles[$kind] ?? $kind }}<br><span class="muted" style="font-size:9pt">{{ $document->number }}</span></div></header>
-@if(isset($document->status) && $document->status === 'draft')<div style="position:fixed;top:44%;left:20%;transform:rotate(-28deg);font-size:52pt;color:#e1e7e3;z-index:-1;font-weight:bold">BORRADOR</div>@endif
+@if($isDraft ?? (isset($document->status) && $document->status === 'draft'))<div style="position:fixed;top:44%;left:20%;transform:rotate(-28deg);font-size:52pt;color:#e1e7e3;z-index:-1;font-weight:bold">BORRADOR</div>@endif
 <footer><span>{{ $company['legal_name'] }} @if($company['tax_id']) · {{ $company['tax_id'] }} @endif · {{ $company['email'] }}</span><span style="float:right">Página <span class="page"></span></span></footer>
 
 <table class="parties"><tr><td><div class="label">Emisor</div><div class="strong">{{ $company['legal_name'] }}</div>@if($company['tax_id'])<div>{{ $company['tax_id'] }}</div>@endif<div>{{ collect([$company['address'], $company['postal_code'], $company['city'], $company['province']])->filter()->join(', ') }}</div><div>{{ $company['email'] }} @if($company['phone']) · {{ $company['phone'] }} @endif</div></td>

@@ -42,6 +42,7 @@ type Quote = {
     valid_until: string | null;
     amount: string;
     document_version: string;
+    document_hash: string;
     accepted_at: string | null;
     can_accept: boolean;
 };
@@ -55,6 +56,7 @@ type Document = {
     amount: string;
     paid_amount: string;
     document_version: string;
+    document_hash: string;
     accepted_at: string | null;
     can_accept: boolean;
 };
@@ -354,6 +356,7 @@ export default function Portal({
                                     accepted_at: q.accepted_at,
                                     can_accept: q.can_accept,
                                     version: q.document_version,
+                                    hash: q.document_hash,
                                 }))}
                                 token={token}
                             />
@@ -369,6 +372,7 @@ export default function Portal({
                                     accepted_at: d.accepted_at,
                                     can_accept: d.can_accept,
                                     version: d.document_version,
+                                    hash: d.document_hash,
                                 }))}
                                 token={token}
                             />
@@ -568,6 +572,7 @@ type DocumentRow = {
     accepted_at: string | null;
     can_accept: boolean;
     version: string;
+    hash: string;
 };
 function DocumentTable({
     title,
@@ -626,7 +631,26 @@ function DocumentTable({
                                         <Form
                                             action={`/portal/${token}/documents/${item.kind === 'quote' ? 'quote' : 'sales'}/${item.id}/accept`}
                                             method="post"
+                                            onSubmit={(event) => {
+                                                if (
+                                                    !window.confirm(
+                                                        `¿Confirmas que aceptas ${item.number}, versión ${item.version}?`,
+                                                    )
+                                                ) {
+                                                    event.preventDefault();
+                                                }
+                                            }}
                                         >
+                                            <input
+                                                type="hidden"
+                                                name="expected_version"
+                                                value={item.version}
+                                            />
+                                            <input
+                                                type="hidden"
+                                                name="expected_hash"
+                                                value={item.hash}
+                                            />
                                             <Button size="sm">Aceptar</Button>
                                         </Form>
                                     )}

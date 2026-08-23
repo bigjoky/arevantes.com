@@ -10,6 +10,7 @@ use App\Services\AfterSales\ServiceWorkGenerator;
 use App\Services\AfterSales\SlaManager;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schedule;
 
 Artisan::command('accounting:sync', function (AccountingSynchronizer $synchronizer) {
@@ -27,16 +28,28 @@ Schedule::command('huawei:sync')->everyFiveMinutes()->withoutOverlapping();
 Schedule::command('monitoring:discover deye')->everyFiveMinutes()->withoutOverlapping();
 Schedule::command('monitoring:discover huawei')->cron('2 */6 * * *')->withoutOverlapping();
 Schedule::command('locations:sync-spain')->monthly()->withoutOverlapping();
-Schedule::command('database:backup')->dailyAt('02:30')->withoutOverlapping();
-Schedule::command('database:verify-backup')->weeklyOn(1, '03:30')->withoutOverlapping();
+Schedule::command('database:backup')->dailyAt('02:30')->when(fn () => DB::getDriverName() === 'sqlite')->withoutOverlapping();
+Schedule::command('database:verify-backup')->weeklyOn(1, '03:30')->when(fn () => DB::getDriverName() === 'sqlite')->withoutOverlapping();
+Schedule::command('database:backup-postgres')
+    ->dailyAt('02:30')
+    ->when(fn () => DB::getDriverName() === 'pgsql' && config('backup.postgres.enabled'))
+    ->onOneServer()
+    ->withoutOverlapping(120);
+Schedule::command('database:verify-postgres-backup')
+    ->weeklyOn(1, '03:30')
+    ->when(fn () => DB::getDriverName() === 'pgsql' && config('backup.postgres.restore_enabled'))
+    ->onOneServer()
+    ->withoutOverlapping(180);
 Schedule::command('system:heartbeat')->everyMinute();
 Schedule::command('system:health-check')->everyFiveMinutes()->withoutOverlapping();
 Schedule::command('data:prune-retention')->weekly()->withoutOverlapping();
 Schedule::command('accounting:sync')->everyFiveMinutes()->withoutOverlapping();
 Schedule::command('accounting:recurring')->everyFiveMinutes()->withoutOverlapping();
+Schedule::command('analytics:dispatch')->everyFiveMinutes()->withoutOverlapping();
 Schedule::command('purchase-inbox:sync')->everyFiveMinutes()->withoutOverlapping();
 Schedule::command('purchase-inbox:extract --limit=3')->everyFiveMinutes()->withoutOverlapping();
 Schedule::command('crm:send-reminders')->dailyAt('07:30')->timezone('Europe/Madrid')->withoutOverlapping();
+Schedule::command('crm:check-response-sla')->everyFiveMinutes()->withoutOverlapping();
 Schedule::command('ai:reindex --stale')->dailyAt('03:15')->withoutOverlapping();
 Schedule::call(fn () => MonitoringReading::where('recorded_at', '<', now()->subYears(2))->delete())
     ->weekly()

@@ -11,8 +11,11 @@ use App\Models\Person;
 use App\Models\User;
 use App\Notifications\HrTaskCompletedNotification;
 use App\Notifications\LeaveRequestSubmittedNotification;
+use App\Rules\SafeUpload;
 use App\Services\HumanResources\LeaveBalanceCalculator;
 use App\Services\HumanResources\LeaveRequestCreator;
+use App\Services\Security\PermissionResolver;
+use App\Services\Security\SecurityEventRecorder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Notification;
@@ -106,12 +109,12 @@ class MyHumanResourcesController extends Controller
             'start_date' => ['required', 'date'],
             'end_date' => ['required', 'date', 'after_or_equal:start_date'],
             'notes' => ['nullable', 'string', 'max:2000'],
-            'attachment' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:12288'],
+            'attachment' => ['nullable', 'file', new SafeUpload(['pdf', 'jpg', 'jpeg', 'png'], 12288)],
         ]);
 
         $leave = $creator->create($person, $validated)->load('person');
         Notification::send(
-            User::query()->where('role', 'admin')->whereKeyNot($request->user()->id)->get(),
+            $this->hrRecipients($request->user()),
             new LeaveRequestSubmittedNotification($leave),
         );
 
@@ -149,18 +152,22 @@ class MyHumanResourcesController extends Controller
         $task->load('person');
 
         Notification::send(
-            User::query()->where('role', 'admin')->whereKeyNot($request->user()->id)->get(),
+            $this->hrRecipients($request->user()),
             new HrTaskCompletedNotification($task),
         );
 
         return back()->with('success', __('HR task completed.'));
     }
 
-    public function downloadDocument(Request $request, HrEmploymentDocument $document): StreamedResponse
+    public function downloadDocument(Request $request, HrEmploymentDocument $document, SecurityEventRecorder $events): StreamedResponse
     {
         $person = $this->staffProfile($request);
         abort_unless($document->person_id === $person->id && $document->visibility === 'employee', 404);
         abort_unless(Storage::disk(config('filesystems.private'))->exists($document->path), 404);
+        $events->record('hr_document_downloaded_by_employee', $request->user(), [
+            'document_id' => $document->id,
+            'person_id' => $person->id,
+        ]);
 
         return Storage::disk(config('filesystems.private'))->download($document->path, $document->original_name, [
             'Content-Type' => $document->mime_type,
@@ -168,11 +175,15 @@ class MyHumanResourcesController extends Controller
         ]);
     }
 
-    public function downloadLeaveAttachment(Request $request, HrLeaveRequest $leave, HrLeaveAttachment $attachment): StreamedResponse
+    public function downloadLeaveAttachment(Request $request, HrLeaveRequest $leave, HrLeaveAttachment $attachment, SecurityEventRecorder $events): StreamedResponse
     {
         $person = $this->staffProfile($request);
         abort_unless($leave->person_id === $person->id && $attachment->leave_request_id === $leave->id, 404);
         abort_unless(Storage::disk(config('filesystems.private'))->exists($attachment->path), 404);
+        $events->record('hr_leave_attachment_downloaded_by_employee', $request->user(), [
+            'leave_request_id' => $leave->id,
+            'attachment_id' => $attachment->id,
+        ]);
 
         return Storage::disk(config('filesystems.private'))->download($attachment->path, $attachment->original_name, [
             'Content-Type' => $attachment->mime_type,
@@ -214,5 +225,16 @@ class MyHumanResourcesController extends Controller
         abort_unless($person?->category === 'staff', 403);
 
         return $person;
+    }
+
+    private function hrRecipients(User $actor)
+    {
+        $resolver = app(PermissionResolver::class);
+
+        return User::query()
+            ->with(['permissionProfile.permissions', 'permissionOverrides'])
+            ->whereKeyNot($actor->id)
+            ->get()
+            ->filter(fn (User $user) => $resolver->allows($user, 'manage-staff'));
     }
 }

@@ -93,6 +93,140 @@ class OpportunityTest extends TestCase
         );
     }
 
+    public function test_opportunity_creation_finds_an_existing_customer_by_normalized_mobile(): void
+    {
+        $user = User::factory()->create(['role' => 'commercial']);
+        $customer = Person::create([
+            'category' => 'customer',
+            'first_name' => 'Ana',
+            'phone' => '+34 600 123 123',
+            'email' => 'ana@example.test',
+        ]);
+
+        $this->assertSame('34600123123', $customer->phone_normalized);
+        $this->actingAs($user)
+            ->getJson(route('crm-customers.lookup', ['phone' => '600-123-123']))
+            ->assertOk()
+            ->assertJsonPath('normalized_phone', '34600123123')
+            ->assertJsonPath('customer.id', $customer->id)
+            ->assertJsonPath('customer.email', 'ana@example.test');
+
+        $this->post(route('opportunities.store'), [
+            'customer_phone' => '(600) 123 123',
+            'title' => 'Battery expansion',
+            'stage' => 'new',
+            'probability' => 10,
+            'estimated_value' => 4500,
+        ])->assertRedirect();
+
+        $this->assertSame(1, Person::where('category', 'customer')->count());
+        $this->assertDatabaseHas('opportunities', [
+            'person_id' => $customer->id,
+            'title' => 'Battery expansion',
+        ]);
+    }
+
+    public function test_opportunity_creation_builds_a_customer_when_the_mobile_has_no_match(): void
+    {
+        $user = User::factory()->create(['role' => 'commercial']);
+        $payload = [
+            'customer_phone' => '611 222 333',
+            'title' => 'Industrial self-consumption',
+            'stage' => 'new',
+            'probability' => 10,
+            'estimated_value' => 25000,
+        ];
+
+        $this->actingAs($user)->post(route('opportunities.store'), $payload)
+            ->assertSessionHasErrors('customer_first_name');
+
+        $this->post(route('opportunities.store'), [
+            ...$payload,
+            'customer_company_name' => 'Nueva Industria SL',
+            'customer_email' => 'VENTAS@NUEVA-INDUSTRIA.TEST',
+            'customer_preferred_contact_channel' => 'whatsapp',
+            'customer_consent_status' => 'granted',
+            'customer_consent_channel' => 'whatsapp',
+            'customer_consent_notes' => 'Autorización verbal durante la llamada inicial.',
+            'source' => 'referral',
+            'next_action_type' => 'meeting',
+            'next_action_title' => 'Reunión de cualificación',
+            'next_action_priority' => 'high',
+            'next_action_due_at' => now()->addDays(2)->format('Y-m-d H:i:s'),
+        ])->assertRedirect();
+
+        $customer = Person::where('phone_normalized', '34611222333')->sole();
+        $this->assertSame('Nueva Industria SL', $customer->first_name);
+        $this->assertSame('Nueva Industria SL', $customer->company_name);
+        $this->assertSame('ventas@nueva-industria.test', $customer->email);
+        $this->assertSame('lead', $customer->lifecycle_status);
+        $this->assertSame('opportunity_form', $customer->data_source);
+        $this->assertSame('referral', $customer->lead_source);
+        $this->assertSame('whatsapp', $customer->preferred_contact_channel);
+        $this->assertFalse($customer->do_not_contact);
+        $this->assertDatabaseHas('customer_consents', [
+            'person_id' => $customer->id,
+            'recorded_by' => $user->id,
+            'channel' => 'whatsapp',
+            'status' => 'granted',
+            'lawful_basis' => 'consent',
+            'source' => 'opportunity_form',
+        ]);
+        $this->assertDatabaseHas('opportunities', [
+            'person_id' => $customer->id,
+            'title' => 'Industrial self-consumption',
+        ]);
+        $opportunity = Opportunity::where('title', 'Industrial self-consumption')->firstOrFail();
+        $this->assertDatabaseHas('crm_activities', [
+            'opportunity_id' => $opportunity->id,
+            'assigned_user_id' => $user->id,
+            'type' => 'meeting',
+            'title' => 'Reunión de cualificación',
+            'priority' => 'high',
+            'status' => 'pending',
+        ]);
+
+        $this->post(route('opportunities.store'), [
+            ...$payload,
+            'customer_phone' => '+34 611 222 333',
+            'title' => 'Industrial storage',
+        ])->assertRedirect();
+
+        $this->assertSame(1, Person::where('phone_normalized', '34611222333')->count());
+        $this->assertSame(2, Opportunity::where('person_id', $customer->id)->count());
+    }
+
+    public function test_opportunity_creation_records_a_customer_commercial_refusal(): void
+    {
+        $user = User::factory()->create(['role' => 'commercial']);
+        $customer = Person::create([
+            'category' => 'customer',
+            'first_name' => 'Ana',
+            'phone' => '622 333 444',
+            'preferred_contact_channel' => 'phone',
+        ]);
+
+        $this->actingAs($user)->post(route('opportunities.store'), [
+            'customer_phone' => '+34 622 333 444',
+            'customer_consent_status' => 'denied',
+            'customer_consent_channel' => 'phone',
+            'customer_consent_notes' => 'Solicita no recibir comunicaciones comerciales.',
+            'title' => 'Technical assessment only',
+            'stage' => 'new',
+            'probability' => 10,
+            'estimated_value' => 1200,
+        ])->assertRedirect()->assertSessionHasNoErrors();
+
+        $this->assertTrue($customer->refresh()->do_not_contact);
+        $this->assertDatabaseHas('customer_consents', [
+            'person_id' => $customer->id,
+            'status' => 'denied',
+            'channel' => 'phone',
+            'source' => 'opportunity_form',
+        ]);
+        $this->assertSame(1, Opportunity::where('person_id', $customer->id)->count());
+    }
+
     public function test_opportunity_rejects_an_installation_from_another_customer(): void
     {
         $user = User::factory()->create(['role' => 'commercial']);
@@ -235,6 +369,8 @@ class OpportunityTest extends TestCase
         ]);
         $settings = [
             'stale_after_days' => 30,
+            'lead_response_sla_minutes' => 120,
+            'lead_response_escalation_minutes' => 180,
             'customer_contactable_weight' => 0,
             'source_identified_weight' => 0,
             'owner_assigned_weight' => 100,
@@ -248,12 +384,16 @@ class OpportunityTest extends TestCase
         $this->actingAs($admin)->patch(route('crm-settings.update'), $settings)->assertRedirect();
 
         $this->assertSame(30, CrmSetting::current()->stale_after_days);
+        $this->assertSame(120, CrmSetting::current()->lead_response_sla_minutes);
+        $this->assertSame(180, CrmSetting::current()->lead_response_escalation_minutes);
         $this->assertSame(100, $opportunity->refresh()->commercial_score);
         $this->get(route('opportunities.index'))
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->where('canConfigureCrm', true)
                 ->where('crmSettings.stale_after_days', 30)
+                ->where('crmSettings.lead_response_sla_minutes', 120)
+                ->where('crmSettings.lead_response_escalation_minutes', 180)
                 ->where('opportunities.0.score_breakdown.owner_assigned.met', true)
                 ->where('opportunities.0.score_breakdown.owner_assigned.points', 100)
                 ->where('opportunities.0.score_breakdown.estimated_value_set.met', false));
@@ -265,6 +405,8 @@ class OpportunityTest extends TestCase
 
         $this->actingAs($admin)->patch(route('crm-settings.update'), [
             'stale_after_days' => 14,
+            'lead_response_sla_minutes' => 240,
+            'lead_response_escalation_minutes' => 120,
             'customer_contactable_weight' => 20,
             'source_identified_weight' => 10,
             'owner_assigned_weight' => 15,
@@ -326,6 +468,72 @@ class OpportunityTest extends TestCase
             ->assertInertia(fn (Assert $page) => $page
                 ->has('opportunities', 1)
                 ->where('opportunities.0.code', 'OPP-OTHER-1'));
+    }
+
+    public function test_first_response_sla_is_started_measured_and_filterable(): void
+    {
+        $user = User::factory()->create(['role' => 'commercial']);
+        $customer = Person::create(['category' => 'customer', 'first_name' => 'Ana']);
+        CrmSetting::current()->update(['lead_response_sla_minutes' => 60]);
+
+        $this->travelTo('2026-08-17 08:00:00');
+        $this->actingAs($user)->post(route('opportunities.store'), [
+            'person_id' => $customer->id,
+            'title' => 'Lead answered on time',
+            'stage' => 'new',
+            'probability' => 10,
+            'estimated_value' => 3000,
+        ])->assertRedirect();
+
+        $answered = Opportunity::where('title', 'Lead answered on time')->firstOrFail();
+        $this->assertSame('2026-08-17 09:00:00', $answered->first_response_due_at?->format('Y-m-d H:i:s'));
+
+        $this->travelTo('2026-08-17 08:30:00');
+        $this->patch(route('activities.update', $answered->nextActivity), [
+            'status' => 'in_progress',
+        ])->assertRedirect();
+        $this->assertSame('2026-08-17 08:30:00', $answered->refresh()->first_responded_at?->format('Y-m-d H:i:s'));
+
+        $this->travelTo('2026-08-17 10:00:00');
+        $this->post(route('opportunities.store'), [
+            'person_id' => $customer->id,
+            'title' => 'Lead outside SLA',
+            'stage' => 'new',
+            'probability' => 10,
+            'estimated_value' => 4000,
+        ])->assertRedirect();
+        $overdue = Opportunity::where('title', 'Lead outside SLA')->firstOrFail();
+
+        $this->travelTo('2026-08-17 11:01:00');
+        $this->get(route('opportunities.index'))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('metrics.response_sla_breached', 1)
+                ->where('metrics.response_sla_pending', 0)
+                ->where('metrics.response_sla_met_rate', 50)
+                ->where('metrics.average_first_response_minutes', 30)
+                ->has('responsePerformance', 1)
+                ->where('responsePerformance.0.owner_id', $user->id)
+                ->where('responsePerformance.0.total', 2)
+                ->where('responsePerformance.0.met', 1)
+                ->where('responsePerformance.0.breached', 1)
+                ->where('responsePerformance.0.pending', 0)
+                ->where('responsePerformance.0.met_rate', 50)
+                ->where('responsePerformance.0.average_minutes', 30)
+                ->where('opportunities.0.id', $overdue->id)
+                ->where('opportunities.0.response_sla_status', 'breached')
+                ->where('opportunities.1.id', $answered->id)
+                ->where('opportunities.1.response_sla_status', 'met')
+                ->where('opportunities.1.first_response_minutes', 30));
+
+        $this->get(route('opportunities.index', ['attention' => 'response_sla']))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('opportunities', 1)
+                ->where('opportunities.0.id', $overdue->id)
+                ->where('filters.attention', 'response_sla'));
+
+        $this->travelBack();
     }
 
     public function test_pipeline_metrics_use_the_selected_commercial_period(): void

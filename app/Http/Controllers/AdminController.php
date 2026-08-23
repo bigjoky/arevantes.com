@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\AuditLog;
 use App\Models\BackupRestoration;
+use App\Models\DatabaseBackup;
 use App\Models\Permission;
 use App\Models\PermissionProfile;
 use App\Models\SecurityEvent;
@@ -15,7 +16,9 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
@@ -45,14 +48,28 @@ class AdminController extends Controller
 
     public function backups(): Response
     {
-        $backups = collect(File::glob(storage_path('app/private/backups/*.enc')))
-            ->map(fn (string $path) => ['name' => basename($path), 'size' => File::size($path), 'created_at' => date(DATE_ATOM, File::lastModified($path))])
-            ->sortByDesc('created_at')->values();
+        $driver = DB::getDriverName();
+        $backups = $driver === 'pgsql' && Schema::hasTable('database_backups')
+            ? DatabaseBackup::query()->latest('started_at')->limit(50)->get()->map(fn (DatabaseBackup $backup) => [
+                'id' => $backup->id,
+                'name' => basename($backup->path),
+                'engine' => $backup->engine,
+                'status' => $backup->status,
+                'size' => $backup->bytes,
+                'created_at' => $backup->started_at?->toIso8601String(),
+                'expires_at' => $backup->expires_at?->toIso8601String(),
+            ])
+            : collect(File::glob(storage_path('app/private/backups/*.enc')))
+                ->map(fn (string $path) => ['name' => basename($path), 'engine' => 'sqlite', 'status' => 'success', 'size' => File::size($path), 'created_at' => date(DATE_ATOM, File::lastModified($path))])
+                ->sortByDesc('created_at')->values();
 
         return Inertia::render('admin/index', [
             'section' => 'backups',
             'backups' => $backups,
             'restorations' => BackupRestoration::latest()->limit(20)->get(),
+            'backupSupported' => $driver === 'sqlite' || ($driver === 'pgsql' && config('backup.postgres.enabled')),
+            'backupMode' => $driver,
+            'restoreVerificationEnabled' => $driver === 'sqlite' || (bool) config('backup.postgres.restore_enabled'),
         ]);
     }
 
@@ -89,8 +106,18 @@ class AdminController extends Controller
             'overrides.*' => ['nullable', Rule::in(['allow', 'deny', 'inherit'])],
         ]);
         $administrator = PermissionProfile::where('slug', 'administrator')->firstOrFail();
+        $overrideIds = collect(array_keys($data['overrides'] ?? []))->map(fn ($id) => (int) $id)->unique();
+        if ($overrideIds->count() !== Permission::whereKey($overrideIds)->count()) {
+            throw ValidationException::withMessages(['overrides' => __('One or more permission overrides are invalid.')]);
+        }
+        $protectedPermissionIds = Permission::whereIn('key', ['manage-admin', 'manage-access', 'export-audit', 'view-system-health'])->pluck('id')->map(fn ($id) => (string) $id);
+        $deniesProtectedPermission = collect($data['overrides'] ?? [])->contains(
+            fn ($choice, $permissionId) => $choice === 'deny' && $protectedPermissionIds->contains((string) $permissionId)
+        );
+        $isLastAdministrator = $user->permission_profile_id === $administrator->id
+            && User::where('permission_profile_id', $administrator->id)->count() === 1;
 
-        if ($user->id === $request->user()->id && (int) $data['permission_profile_id'] !== $administrator->id && User::where('permission_profile_id', $administrator->id)->count() === 1) {
+        if ($isLastAdministrator && ((int) $data['permission_profile_id'] !== $administrator->id || $deniesProtectedPermission)) {
             return back()->withErrors(['role' => __('The last administrator cannot be demoted.')]);
         }
 
@@ -166,10 +193,40 @@ class AdminController extends Controller
 
     public function backup(): RedirectResponse
     {
-        Artisan::call('database:backup');
+        $driver = DB::getDriverName();
+        $command = match (true) {
+            $driver === 'sqlite' => 'database:backup',
+            $driver === 'pgsql' && config('backup.postgres.enabled') => 'database:backup-postgres',
+            default => null,
+        };
+        if ($command === null) {
+            app(SecurityEventRecorder::class)->record('backup_creation_failed', request()->user(), [
+                'database_driver' => $driver,
+                'reason' => 'not_configured',
+            ], 'critical', true);
+
+            return back()->withErrors(['backup' => __('Encrypted backups are not configured for this database.')]);
+        }
+        if ($driver === 'pgsql') {
+            Artisan::queue($command);
+            app(SecurityEventRecorder::class)->record('backup_requested', request()->user(), ['database_driver' => $driver], 'warning');
+
+            return back()->with('toast', ['type' => 'success', 'message' => __('Encrypted PostgreSQL backup queued.')]);
+        }
+        $exitCode = Artisan::call($command);
+        if ($exitCode !== 0) {
+            if ($driver === 'sqlite') {
+                app(SecurityEventRecorder::class)->record('backup_creation_failed', request()->user(), [
+                    'database_driver' => $driver,
+                    'exit_code' => $exitCode,
+                ], 'critical', true);
+            }
+
+            return back()->withErrors(['backup' => __('The encrypted backup could not be created.')]);
+        }
         app(SecurityEventRecorder::class)->record('backup_created', request()->user(), [], 'warning');
 
-        return back()->with('toast', ['type' => 'success', 'message' => __('Encrypted backup created.')]);
+        return back()->with('toast', ['type' => 'success', 'message' => __('Encrypted backup created in private storage.')]);
     }
 
     public function downloadBackup(string $backup): BinaryFileResponse

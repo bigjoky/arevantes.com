@@ -2,13 +2,17 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\PermissionProfile;
 use App\Models\Person;
 use App\Models\User;
+use App\Services\Security\SecurityEventRecorder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
+use Illuminate\Validation\ValidationException;
 
 class StaffAccessController extends Controller
 {
@@ -21,11 +25,13 @@ class StaffAccessController extends Controller
             'role' => ['required', Rule::in(['admin', 'commercial', 'technician'])],
             'password' => ['required', 'confirmed', Password::defaults()],
         ]);
+        $profile = $this->profileForRole($data['role']);
         User::create([
             'person_id' => $staff->id,
             'name' => trim($staff->first_name.' '.($staff->last_name ?? '')),
             'email' => $data['email'],
             'role' => $data['role'],
+            'permission_profile_id' => $profile->id,
             'password' => Hash::make($data['password']),
         ]);
 
@@ -41,17 +47,61 @@ class StaffAccessController extends Controller
             'role' => ['required', Rule::in(['admin', 'commercial', 'technician'])],
             'password' => ['nullable', 'confirmed', Password::defaults()],
         ]);
-        if ($user->id === $request->user()->id && $data['role'] !== 'admin' && User::where('role', 'admin')->count() === 1) {
+        $administrator = PermissionProfile::where('slug', 'administrator')->firstOrFail();
+        if ($user->permission_profile_id === $administrator->id && $data['role'] !== 'admin' && User::where('permission_profile_id', $administrator->id)->count() === 1) {
             return back()->withErrors(['role' => __('The last administrator cannot be demoted.')]);
         }
+        $profile = $this->profileForRole($data['role']);
         $user->update([
             'name' => trim($staff->first_name.' '.($staff->last_name ?? '')),
             'email' => $data['email'],
             'role' => $data['role'],
+            'permission_profile_id' => $profile->id,
+            'access_reviewed_at' => now(),
+            'access_review_due_at' => now()->addMonths((int) config('security.access_review_months', 3)),
             ...(filled($data['password'] ?? null) ? ['password' => Hash::make($data['password'])] : []),
         ]);
 
         return back()->with('toast', ['type' => 'success', 'message' => __('CRM access updated.')]);
+    }
+
+    public function link(Request $request, Person $staff, SecurityEventRecorder $events): RedirectResponse
+    {
+        $this->ensureStaff($staff);
+        $data = $request->validate([
+            'user_id' => ['required', 'integer', 'exists:users,id'],
+        ]);
+
+        $user = DB::transaction(function () use ($staff, $data): User {
+            $lockedStaff = Person::query()->whereKey($staff->id)->lockForUpdate()->firstOrFail();
+            if ($lockedStaff->user()->exists()) {
+                throw ValidationException::withMessages([
+                    'user_id' => __('This staff member already has CRM access.'),
+                ]);
+            }
+
+            $user = User::query()->whereKey($data['user_id'])->lockForUpdate()->firstOrFail();
+            if ($user->person_id !== null) {
+                throw ValidationException::withMessages([
+                    'user_id' => __('This CRM account is already linked to another staff member.'),
+                ]);
+            }
+
+            $user->update([
+                'person_id' => $lockedStaff->id,
+                'access_reviewed_at' => now(),
+                'access_review_due_at' => now()->addMonths((int) config('security.access_review_months', 3)),
+            ]);
+
+            return $user;
+        });
+
+        $events->record('staff_access_linked', $user, [
+            'linked_by' => $request->user()->id,
+            'person_id' => $staff->id,
+        ], 'warning');
+
+        return back()->with('toast', ['type' => 'success', 'message' => __('Existing CRM account linked.')]);
     }
 
     public function destroy(Request $request, Person $staff): RedirectResponse
@@ -59,7 +109,8 @@ class StaffAccessController extends Controller
         $this->ensureStaff($staff);
         $user = $staff->user()->firstOrFail();
         abort_if($user->id === $request->user()->id, 422, __('You cannot remove your own access.'));
-        abort_if($user->role === 'admin' && User::where('role', 'admin')->count() === 1, 422, __('The last administrator cannot be removed.'));
+        $administrator = PermissionProfile::where('slug', 'administrator')->firstOrFail();
+        abort_if($user->permission_profile_id === $administrator->id && User::where('permission_profile_id', $administrator->id)->count() === 1, 422, __('The last administrator cannot be removed.'));
         $user->delete();
 
         return back()->with('toast', ['type' => 'success', 'message' => __('CRM access removed. The staff profile was kept.')]);
@@ -68,5 +119,12 @@ class StaffAccessController extends Controller
     private function ensureStaff(Person $staff): void
     {
         abort_unless($staff->category === 'staff', 404);
+    }
+
+    private function profileForRole(string $role): PermissionProfile
+    {
+        $slug = $role === 'admin' ? 'administrator' : $role;
+
+        return PermissionProfile::where('slug', $slug)->firstOrFail();
     }
 }

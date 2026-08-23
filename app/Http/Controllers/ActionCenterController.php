@@ -419,10 +419,11 @@ class ActionCenterController extends Controller
             'title' => match ($alert['type']) {
                 'operating' => ($alert['monthLabel'].' · ').__('Operating result'),
                 'cash' => ($alert['monthLabel'].' · ').__('Net cash'),
+                'concentration' => __('Receivables concentration'),
                 default => __('Liquidity buffer'),
             },
             'subtitle' => $alert['message'].' '.$this->money(abs((float) $alert['variance'])),
-            'href' => '/finance?year='.$year.($alert['month'] ? '#budget-month-'.$alert['month'] : '#financial-alerts'),
+            'href' => $alert['href'] ?? '/finance?year='.$year.($alert['month'] ? '#budget-month-'.$alert['month'] : '#financial-alerts'),
             'severity' => $alert['severity'],
             'due_at' => now()->toIso8601String(),
         ]);

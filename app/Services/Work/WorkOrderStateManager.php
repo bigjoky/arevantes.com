@@ -3,6 +3,8 @@
 namespace App\Services\Work;
 
 use App\Models\WorkOrder;
+use Illuminate\Http\Exceptions\HttpResponseException;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 class WorkOrderStateManager
@@ -13,10 +15,25 @@ class WorkOrderStateManager
         private InstallationWorkOrderSynchronizer $installations,
     ) {}
 
-    public function transition(WorkOrder $order, string $status, ?string $completionNotes = null): WorkOrder
-    {
-        return DB::transaction(function () use ($order, $status, $completionNotes): WorkOrder {
+    public function transition(
+        WorkOrder $order,
+        string $status,
+        ?string $completionNotes = null,
+        ?string $blockedReason = null,
+        ?string $expectedUpdatedAt = null,
+    ): WorkOrder {
+        return DB::transaction(function () use ($order, $status, $completionNotes, $blockedReason, $expectedUpdatedAt): WorkOrder {
             $locked = WorkOrder::query()->with(['template', 'installation'])->lockForUpdate()->findOrFail($order->id);
+            if ($expectedUpdatedAt !== null && ! $locked->updated_at->equalTo(Carbon::parse($expectedUpdatedAt))) {
+                throw new HttpResponseException(response()->json([
+                    'message' => __('This work order changed on the server. Refresh it before retrying.'),
+                    'conflict' => [
+                        'work_order_id' => $locked->id,
+                        'expected_updated_at' => $expectedUpdatedAt,
+                        'current_updated_at' => $locked->updated_at->toISOString(),
+                    ],
+                ], 409));
+            }
             $this->workflow->assertTransition($locked, $status);
             if ($status === 'completed') {
                 $this->completion->assertCanComplete($locked, $completionNotes);
@@ -39,6 +56,7 @@ class WorkOrderStateManager
             };
             $locked->activities()->update([
                 'status' => $activityStatus,
+                'blocked_reason' => $status === 'blocked' ? $blockedReason : null,
                 'completed_at' => $status === 'completed' ? $locked->completed_at : null,
             ]);
             $this->installations->sync($locked);

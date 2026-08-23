@@ -28,7 +28,7 @@ type Filter = {
 };
 
 type Quality = {
-    score: number;
+    score: number | null;
     complete: number;
     total: number;
     label: string;
@@ -44,6 +44,7 @@ type Metric = {
     frequency: string;
     unit: 'currency' | 'percent' | 'number';
     areas: string[];
+    direction: 'up' | 'down';
     value: number;
     previous: number;
     previous_delta_percent: number | null;
@@ -67,9 +68,12 @@ type Alert = {
     metric_key: string;
     operator: string;
     threshold: string;
+    area: string | null;
+    channel: 'database' | 'mail';
     enabled: boolean;
     current_value: number | null;
     triggered: boolean;
+    last_evaluated_at: string | null;
 };
 
 type Subscription = {
@@ -77,15 +81,18 @@ type Subscription = {
     area: string;
     frequency: string;
     format: string;
+    next_send_at: string | null;
 };
 
 type Props = {
     filters: Filter;
+    generatedAt: string;
     areas: Array<{ key: string; name: string }>;
     metrics: Metric[];
     dictionary: Omit<Metric, 'value' | 'previous' | 'quality'>[];
     selectedMetric: Metric | null;
     records: RecordRow[];
+    recordsHasMore: boolean;
     commercials: Array<{ id: number; name: string }>;
     projects: Array<{
         id: number;
@@ -127,7 +134,7 @@ export default function AnalyticsIndex(props: Props) {
             <PageShell>
                 <PageHeader
                     title="Analítica y dirección"
-                    description="KPIs reconciliados con sus módulos de origen, trazables hasta cada registro."
+                    description={`Corte ${formatDate(props.filters.to)} · calculado ${formatDateTime(props.generatedAt)} · trazable hasta el registro de origen.`}
                     actions={
                         <div className="flex gap-2">
                             <Button variant="outline" asChild>
@@ -296,6 +303,7 @@ export default function AnalyticsIndex(props: Props) {
                         metrics={props.metrics}
                         selectedMetric={props.selectedMetric}
                         records={props.records}
+                        recordsHasMore={props.recordsHasMore}
                         onOpen={openMetric}
                     />
                 ) : null}
@@ -312,11 +320,13 @@ function Dashboard({
     metrics,
     selectedMetric,
     records,
+    recordsHasMore,
     onOpen,
 }: {
     metrics: Metric[];
     selectedMetric: Metric | null;
     records: RecordRow[];
+    recordsHasMore: boolean;
     onOpen: (key: string) => void;
 }) {
     return (
@@ -344,11 +354,13 @@ function Dashboard({
                                 <Comparison
                                     label="Periodo anterior"
                                     value={metric.previous_delta_percent}
+                                    direction={metric.direction}
                                 />
                                 <Comparison
                                     label="Objetivo / presupuesto"
                                     value={metric.target_delta_percent}
                                     missing={metric.target === null}
+                                    direction={metric.direction}
                                 />
                             </div>
                             <div className="flex items-center justify-between border-t pt-3 text-xs">
@@ -357,13 +369,16 @@ function Dashboard({
                                 </span>
                                 <Badge
                                     variant={
+                                        metric.quality.score === null ||
                                         metric.quality.score >= 98
                                             ? 'outline'
                                             : 'destructive'
                                     }
                                 >
-                                    {metric.quality.score}% ·{' '}
-                                    {metric.quality.label}
+                                    {metric.quality.score === null
+                                        ? '—'
+                                        : `${metric.quality.score}%`}{' '}
+                                    · {metric.quality.label}
                                 </Badge>
                             </div>
                         </Card>
@@ -371,7 +386,11 @@ function Dashboard({
                 ))}
             </section>
             {selectedMetric ? (
-                <Drilldown metric={selectedMetric} records={records} />
+                <Drilldown
+                    metric={selectedMetric}
+                    records={records}
+                    recordsHasMore={recordsHasMore}
+                />
             ) : (
                 <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
                     Selecciona un KPI para explicar su fórmula y abrir los
@@ -385,9 +404,11 @@ function Dashboard({
 function Drilldown({
     metric,
     records,
+    recordsHasMore,
 }: {
     metric: Metric;
     records: RecordRow[];
+    recordsHasMore: boolean;
 }) {
     return (
         <Card className="gap-0 overflow-hidden py-0">
@@ -396,7 +417,7 @@ function Drilldown({
                     <div className="flex items-center gap-2">
                         <h2 className="text-lg font-semibold">{metric.name}</h2>
                         <Badge variant="outline">
-                            {records.length} registros
+                            {records.length} registros mostrados
                         </Badge>
                     </div>
                     <p className="mt-1 text-sm text-muted-foreground">
@@ -417,6 +438,12 @@ function Drilldown({
                     </div>
                 </div>
             </div>
+            {recordsHasMore ? (
+                <div className="border-b bg-amber-50 px-5 py-3 text-xs text-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
+                    Hay más registros. Acota el periodo o el proyecto para
+                    mantener el análisis rápido y obtener un detalle completo.
+                </div>
+            ) : null}
             <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                     <thead className="bg-muted/50 text-left text-xs text-muted-foreground">
@@ -519,11 +546,17 @@ function Automation(props: Props) {
         period: props.filters.period,
         from: props.filters.from,
         to: props.filters.to,
+        channel: 'database',
     });
     const subscription = useForm({
         area: props.filters.area,
         frequency: 'weekly',
         format: 'pdf',
+        period: props.filters.period,
+        from: props.filters.from,
+        to: props.filters.to,
+        commercial_id: props.filters.commercial_id,
+        project_id: props.filters.project_id,
     });
 
     return (
@@ -534,7 +567,7 @@ function Automation(props: Props) {
                     <h2 className="font-semibold">Alertas configurables</h2>
                 </div>
                 <form
-                    className="grid gap-3 sm:grid-cols-3"
+                    className="grid gap-3 sm:grid-cols-4"
                     onSubmit={(event) => {
                         event.preventDefault();
                         alert.post('/analytics/alerts', {
@@ -580,6 +613,20 @@ function Automation(props: Props) {
                             }
                         />
                     </div>
+                    <select
+                        className={selectClass}
+                        value={alert.data.channel}
+                        onChange={(e) =>
+                            alert.setData(
+                                'channel',
+                                e.target.value as 'database' | 'mail',
+                            )
+                        }
+                        aria-label="Canal de notificación"
+                    >
+                        <option value="database">En la aplicación</option>
+                        <option value="mail">Aplicación y correo</option>
+                    </select>
                     <Button disabled={alert.processing}>Crear alerta</Button>
                 </form>
                 <div className="divide-y">
@@ -588,15 +635,28 @@ function Automation(props: Props) {
                             key={item.id}
                             className="flex items-center justify-between py-3 text-sm"
                         >
-                            <span>
-                                {
-                                    props.dictionary.find(
-                                        (metric) =>
-                                            metric.key === item.metric_key,
-                                    )?.name
-                                }{' '}
-                                {item.operator} {item.threshold}
-                            </span>
+                            <div>
+                                <span>
+                                    {
+                                        props.dictionary.find(
+                                            (metric) =>
+                                                metric.key === item.metric_key,
+                                        )?.name
+                                    }{' '}
+                                    {item.operator} {item.threshold}
+                                </span>
+                                <div className="text-xs text-muted-foreground">
+                                    {item.area
+                                        ? props.areas.find(
+                                              (area) => area.key === item.area,
+                                          )?.name
+                                        : 'Panel anterior'}
+                                    {' · '}
+                                    {item.current_value === null
+                                        ? 'Pendiente de evaluación'
+                                        : `Último valor: ${item.current_value}`}
+                                </div>
+                            </div>
                             <div className="flex items-center gap-2">
                                 <Badge
                                     variant={
@@ -713,7 +773,11 @@ function Automation(props: Props) {
                                         (area) => area.key === item.area,
                                     )?.name
                                 }{' '}
-                                · {item.frequency} · {item.format.toUpperCase()}
+                                · {frequencyLabel(item.frequency)} ·{' '}
+                                {item.format.toUpperCase()}
+                                {item.next_send_at
+                                    ? ` · Próximo ${formatDate(item.next_send_at)}`
+                                    : ''}
                             </span>
                             <Button
                                 size="icon"
@@ -776,16 +840,25 @@ function Comparison({
     label,
     value,
     missing = false,
+    direction,
 }: {
     label: string;
     value: number | null;
     missing?: boolean;
+    direction: Metric['direction'];
 }) {
+    const favorable =
+        value === null || value === 0
+            ? null
+            : direction === 'up'
+              ? value > 0
+              : value < 0;
+
     return (
         <div>
             <div className="text-muted-foreground">{label}</div>
             <div
-                className={`mt-1 font-medium ${value !== null && value < 0 ? 'text-destructive' : ''}`}
+                className={`mt-1 font-medium ${favorable === true ? 'text-emerald-600 dark:text-emerald-400' : favorable === false ? 'text-destructive' : ''}`}
             >
                 {missing
                     ? 'Sin objetivo'
@@ -810,6 +883,14 @@ const formatDate = (date: string | null) =>
     date
         ? new Intl.DateTimeFormat('es-ES').format(new Date(date))
         : 'Sin fecha';
+const formatDateTime = (date: string) =>
+    new Intl.DateTimeFormat('es-ES', {
+        dateStyle: 'short',
+        timeStyle: 'short',
+    }).format(new Date(date));
+const frequencyLabel = (frequency: string) =>
+    ({ daily: 'Diario', weekly: 'Semanal', monthly: 'Mensual' })[frequency] ??
+    frequency;
 const exportUrl = (format: string, filter: Filter) =>
     `/analytics/export/${format}?${new URLSearchParams(
         Object.entries(filter)

@@ -37,6 +37,7 @@ class WebsiteContactTest extends TestCase
         $this->assertSame('new', $opportunity->stage);
         $this->assertSame('website', $opportunity->source);
         $this->assertSame($commercial->id, $opportunity->owner_user_id);
+        $this->assertNotNull($opportunity->first_response_due_at);
         $this->assertStringStartsWith('OPP-'.now()->format('Y').'-', $opportunity->code);
         $this->assertStringContainsString('vivienda unifamiliar', $opportunity->notes);
 

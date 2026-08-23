@@ -53,11 +53,22 @@ const stages = [
     { value: 'lost', label: 'Perdida', probability: 0 },
 ] as const;
 
+const contactChannelOptions = [
+    ['phone', 'Teléfono'],
+    ['whatsapp', 'WhatsApp'],
+    ['email', 'Email'],
+    ['sms', 'SMS'],
+];
+
 type Customer = {
     id: number;
     first_name: string;
     last_name: string | null;
     company_name: string | null;
+    phone: string | null;
+    email: string | null;
+    preferred_contact_channel: string | null;
+    do_not_contact: boolean;
 };
 type Installation = {
     id: number;
@@ -123,6 +134,10 @@ type Opportunity = {
     stage_entered_at: string;
     days_in_stage: number;
     is_stale: boolean;
+    first_response_due_at: string | null;
+    first_responded_at: string | null;
+    first_response_minutes: number | null;
+    response_sla_status: 'met' | 'breached' | 'pending' | 'not_applicable';
     deleted_at: string | null;
 };
 
@@ -146,6 +161,15 @@ type ForecastRow = {
 
 type FormData = {
     person_id: string;
+    customer_phone: string;
+    customer_first_name: string;
+    customer_last_name: string;
+    customer_company_name: string;
+    customer_email: string;
+    customer_preferred_contact_channel: string;
+    customer_consent_status: string;
+    customer_consent_channel: string;
+    customer_consent_notes: string;
     installation_id: string;
     owner_user_id: string;
     title: string;
@@ -162,10 +186,16 @@ type FormData = {
     lost_reason: string;
     lost_reason_detail: string;
     notes: string;
+    next_action_type: string;
+    next_action_title: string;
+    next_action_priority: string;
+    next_action_due_at: string;
 };
 
 type CrmSettings = {
     stale_after_days: number;
+    lead_response_sla_minutes: number;
+    lead_response_escalation_minutes: number;
     customer_contactable_weight: number;
     source_identified_weight: number;
     owner_assigned_weight: number;
@@ -175,8 +205,28 @@ type CrmSettings = {
     advanced_stage_weight: number;
 };
 
+type ResponsePerformanceRow = {
+    owner_id: number;
+    owner_name: string;
+    total: number;
+    met: number;
+    breached: number;
+    pending: number;
+    met_rate: number | null;
+    average_minutes: number | null;
+};
+
 const emptyForm: FormData = {
     person_id: '',
+    customer_phone: '',
+    customer_first_name: '',
+    customer_last_name: '',
+    customer_company_name: '',
+    customer_email: '',
+    customer_preferred_contact_channel: 'phone',
+    customer_consent_status: 'not_recorded',
+    customer_consent_channel: 'phone',
+    customer_consent_notes: '',
     installation_id: '',
     owner_user_id: '',
     title: '',
@@ -193,6 +243,10 @@ const emptyForm: FormData = {
     lost_reason: '',
     lost_reason_detail: '',
     notes: '',
+    next_action_type: 'call',
+    next_action_title: 'Contactar y cualificar al cliente',
+    next_action_priority: 'normal',
+    next_action_due_at: nextBusinessAction(),
 };
 
 export default function OpportunitiesIndex({
@@ -208,6 +262,7 @@ export default function OpportunitiesIndex({
     filters = {},
     metrics,
     forecast = [],
+    responsePerformance = [],
     savedFilters = [],
     crmSettings,
     canConfigureCrm = false,
@@ -245,10 +300,15 @@ export default function OpportunitiesIndex({
         without_next_action: number;
         stale: number;
         renewals_due: number;
+        response_sla_breached: number;
+        response_sla_pending: number;
+        response_sla_met_rate: number | null;
+        average_first_response_minutes: number | null;
         funnel: Record<string, number>;
         stage_days: Record<string, number | null>;
     };
     forecast?: ForecastRow[];
+    responsePerformance?: ResponsePerformanceRow[];
     savedFilters?: Array<{
         id: number;
         name: string;
@@ -260,6 +320,12 @@ export default function OpportunitiesIndex({
 }) {
     const [open, setOpen] = useState(false);
     const [editing, setEditing] = useState<Opportunity | null>(null);
+    const [matchedCustomer, setMatchedCustomer] = useState<Customer | null>(
+        null,
+    );
+    const [customerLookup, setCustomerLookup] = useState<
+        'idle' | 'checking' | 'found' | 'new' | 'invalid'
+    >('idle');
     const form = useForm<FormData>(emptyForm);
     const availableInstallations = useMemo(
         () =>
@@ -279,6 +345,85 @@ export default function OpportunitiesIndex({
     );
 
     useEffect(() => {
+        if (!open || editing) {
+            return;
+        }
+
+        const phone = form.data.customer_phone.trim();
+        const digits = phone.replace(/\D/g, '');
+
+        if (digits.length < 9) {
+            return;
+        }
+
+        const abortController = new AbortController();
+        const timer = window.setTimeout(async () => {
+            setCustomerLookup('checking');
+
+            try {
+                const response = await fetch(
+                    `/crm/customers/lookup?phone=${encodeURIComponent(phone)}`,
+                    {
+                        headers: { Accept: 'application/json' },
+                        signal: abortController.signal,
+                    },
+                );
+
+                if (!response.ok) {
+                    setMatchedCustomer(null);
+                    setCustomerLookup('invalid');
+
+                    return;
+                }
+
+                const result = (await response.json()) as {
+                    customer: Customer | null;
+                };
+
+                if (result.customer) {
+                    setMatchedCustomer(result.customer);
+                    setCustomerLookup('found');
+                    form.setData('person_id', String(result.customer.id));
+                    form.setData('customer_first_name', '');
+                    form.setData('customer_last_name', '');
+                    form.setData('customer_company_name', '');
+                    form.setData('customer_email', '');
+                    form.setData(
+                        'customer_preferred_contact_channel',
+                        result.customer.preferred_contact_channel || 'phone',
+                    );
+                    form.setData(
+                        'customer_consent_channel',
+                        result.customer.preferred_contact_channel || 'phone',
+                    );
+                } else {
+                    setMatchedCustomer(null);
+                    setCustomerLookup('new');
+                    form.setData('person_id', '');
+                    form.setData('installation_id', '');
+                    form.setData('parent_opportunity_id', '');
+                }
+            } catch (error) {
+                if (
+                    error instanceof DOMException &&
+                    error.name === 'AbortError'
+                ) {
+                    return;
+                }
+
+                setCustomerLookup('invalid');
+            }
+        }, 350);
+
+        return () => {
+            window.clearTimeout(timer);
+            abortController.abort();
+        };
+        // The lookup must only restart when the entered mobile changes.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [editing, form.data.customer_phone, open]);
+
+    useEffect(() => {
         const params = new URLSearchParams(window.location.search);
         const selected = opportunities.find(
             (item) => String(item.id) === params.get('opportunity'),
@@ -294,17 +439,43 @@ export default function OpportunitiesIndex({
     }, []);
 
     function openCreator(customerId?: string) {
+        const customer = customers.find(
+            (item) => String(item.id) === customerId,
+        );
+
         setEditing(null);
+        setMatchedCustomer(customer || null);
+        setCustomerLookup(customer ? 'found' : 'idle');
         form.clearErrors();
-        form.setData({ ...emptyForm, person_id: customerId || '' });
+        form.setData({
+            ...emptyForm,
+            person_id: customer ? String(customer.id) : '',
+            customer_phone: customer?.phone || '',
+            customer_preferred_contact_channel:
+                customer?.preferred_contact_channel || 'phone',
+            customer_consent_channel:
+                customer?.preferred_contact_channel || 'phone',
+            next_action_due_at: nextBusinessAction(),
+        });
         setOpen(true);
     }
 
     function openEditor(item: Opportunity) {
         setEditing(item);
+        setMatchedCustomer(null);
+        setCustomerLookup('idle');
         form.clearErrors();
         form.setData({
             person_id: String(item.person_id),
+            customer_phone: '',
+            customer_first_name: '',
+            customer_last_name: '',
+            customer_company_name: '',
+            customer_email: '',
+            customer_preferred_contact_channel: 'phone',
+            customer_consent_status: 'not_recorded',
+            customer_consent_channel: 'phone',
+            customer_consent_notes: '',
             installation_id: item.installation_id
                 ? String(item.installation_id)
                 : '',
@@ -325,6 +496,10 @@ export default function OpportunitiesIndex({
             lost_reason: item.lost_reason || '',
             lost_reason_detail: item.lost_reason_detail || '',
             notes: item.notes || '',
+            next_action_type: 'call',
+            next_action_title: 'Contactar y cualificar al cliente',
+            next_action_priority: 'normal',
+            next_action_due_at: nextBusinessAction(),
         });
         setOpen(true);
     }
@@ -470,9 +645,33 @@ export default function OpportunitiesIndex({
                         value={String(metrics.renewals_due)}
                         detail="Próximos 30 días"
                     />
+                    <Metric
+                        icon={Clock3}
+                        label="Leads fuera de SLA"
+                        value={String(metrics.response_sla_breached)}
+                        detail={`${metrics.response_sla_pending} pendientes dentro de plazo`}
+                    />
+                    <Metric
+                        icon={Timer}
+                        label="Cumplimiento primera respuesta"
+                        value={
+                            metrics.response_sla_met_rate === null
+                                ? '—'
+                                : `${metrics.response_sla_met_rate}%`
+                        }
+                        detail={
+                            metrics.average_first_response_minutes === null
+                                ? 'Sin respuestas registradas'
+                                : `Media ${formatMinutes(metrics.average_first_response_minutes)}`
+                        }
+                    />
                 </section>
 
                 <FunnelSummary funnel={metrics.funnel} />
+
+                {responsePerformance.length > 0 && (
+                    <ResponsePerformanceSummary rows={responsePerformance} />
+                )}
 
                 {forecast.length > 0 && <ForecastSummary rows={forecast} />}
 
@@ -613,6 +812,7 @@ export default function OpportunitiesIndex({
                             ['overdue', 'Cierre vencido'],
                             ['no_action', 'Sin próxima acción'],
                             ['stale', 'Estancada en etapa'],
+                            ['response_sla', 'Primera respuesta fuera de SLA'],
                             ['renewal_due', 'Renovación próxima'],
                         ]}
                     />
@@ -793,6 +993,9 @@ export default function OpportunitiesIndex({
                                                                 ? ' · estancada'
                                                                 : ''}
                                                         </span>
+                                                        <ResponseSlaBadge
+                                                            opportunity={item}
+                                                        />
                                                     </button>
                                                     <div className="mt-3 flex items-end justify-between gap-2 border-t pt-2">
                                                         <div>
@@ -978,20 +1181,317 @@ export default function OpportunitiesIndex({
                                     }
                                 />
                             </Field>
-                            <SelectField
-                                label="Customer"
-                                value={form.data.person_id}
-                                error={form.errors.person_id}
-                                onChange={(value) => {
-                                    form.setData('person_id', value);
-                                    form.setData('installation_id', '');
-                                    form.setData('parent_opportunity_id', '');
-                                }}
-                                options={customers.map((item) => [
-                                    String(item.id),
-                                    customerName(item),
-                                ])}
-                            />
+                            {editing ? (
+                                <SelectField
+                                    label="Cliente"
+                                    value={form.data.person_id}
+                                    error={form.errors.person_id}
+                                    onChange={(value) => {
+                                        form.setData('person_id', value);
+                                        form.setData('installation_id', '');
+                                        form.setData(
+                                            'parent_opportunity_id',
+                                            '',
+                                        );
+                                    }}
+                                    options={customers.map((item) => [
+                                        String(item.id),
+                                        customerName(item),
+                                    ])}
+                                />
+                            ) : (
+                                <div className="grid gap-3 rounded-md border bg-muted/20 p-4 sm:col-span-2">
+                                    <div>
+                                        <div className="text-sm font-medium">
+                                            Cliente por teléfono móvil
+                                        </div>
+                                        <p className="text-xs text-muted-foreground">
+                                            Buscaremos primero un cliente
+                                            existente. Si no coincide ninguno,
+                                            se creará junto con la oportunidad.
+                                        </p>
+                                    </div>
+                                    <Field
+                                        label="Teléfono móvil"
+                                        error={form.errors.customer_phone}
+                                    >
+                                        <Input
+                                            type="tel"
+                                            autoComplete="tel"
+                                            placeholder="600 123 123"
+                                            value={form.data.customer_phone}
+                                            onChange={(event) => {
+                                                const phone =
+                                                    event.target.value;
+                                                form.setData(
+                                                    'customer_phone',
+                                                    phone,
+                                                );
+                                                form.clearErrors(
+                                                    'customer_phone',
+                                                    'customer_first_name',
+                                                );
+
+                                                if (
+                                                    phone.replace(/\D/g, '')
+                                                        .length < 9
+                                                ) {
+                                                    setMatchedCustomer(null);
+                                                    setCustomerLookup('idle');
+                                                    form.setData(
+                                                        'person_id',
+                                                        '',
+                                                    );
+                                                    form.setData(
+                                                        'installation_id',
+                                                        '',
+                                                    );
+                                                    form.setData(
+                                                        'parent_opportunity_id',
+                                                        '',
+                                                    );
+                                                }
+                                            }}
+                                        />
+                                    </Field>
+                                    {customerLookup === 'checking' && (
+                                        <p className="text-xs text-muted-foreground">
+                                            Buscando coincidencias…
+                                        </p>
+                                    )}
+                                    {customerLookup === 'invalid' && (
+                                        <p className="text-xs text-destructive">
+                                            Introduce un teléfono móvil válido.
+                                        </p>
+                                    )}
+                                    {customerLookup === 'found' &&
+                                        matchedCustomer && (
+                                            <div className="rounded-md border border-emerald-300 bg-emerald-50 p-3 text-sm text-emerald-950 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-100">
+                                                <div className="font-medium">
+                                                    Cliente encontrado:{' '}
+                                                    {customerName(
+                                                        matchedCustomer,
+                                                    )}
+                                                </div>
+                                                <div className="mt-1 text-xs opacity-80">
+                                                    {matchedCustomer.phone}
+                                                    {matchedCustomer.email
+                                                        ? ` · ${matchedCustomer.email}`
+                                                        : ''}
+                                                </div>
+                                            </div>
+                                        )}
+                                    {customerLookup === 'new' && (
+                                        <div className="grid gap-3 border-t pt-3 sm:grid-cols-2">
+                                            <div className="sm:col-span-2">
+                                                <p className="text-sm font-medium">
+                                                    Nuevo cliente
+                                                </p>
+                                                <p className="text-xs text-muted-foreground">
+                                                    No hay coincidencias. Indica
+                                                    un nombre o una empresa.
+                                                </p>
+                                            </div>
+                                            <Field
+                                                label="Nombre"
+                                                error={
+                                                    form.errors
+                                                        .customer_first_name
+                                                }
+                                            >
+                                                <Input
+                                                    autoComplete="given-name"
+                                                    value={
+                                                        form.data
+                                                            .customer_first_name
+                                                    }
+                                                    onChange={(event) =>
+                                                        form.setData(
+                                                            'customer_first_name',
+                                                            event.target.value,
+                                                        )
+                                                    }
+                                                />
+                                            </Field>
+                                            <Field label="Apellidos">
+                                                <Input
+                                                    autoComplete="family-name"
+                                                    value={
+                                                        form.data
+                                                            .customer_last_name
+                                                    }
+                                                    onChange={(event) =>
+                                                        form.setData(
+                                                            'customer_last_name',
+                                                            event.target.value,
+                                                        )
+                                                    }
+                                                />
+                                            </Field>
+                                            <Field label="Empresa">
+                                                <Input
+                                                    autoComplete="organization"
+                                                    value={
+                                                        form.data
+                                                            .customer_company_name
+                                                    }
+                                                    onChange={(event) =>
+                                                        form.setData(
+                                                            'customer_company_name',
+                                                            event.target.value,
+                                                        )
+                                                    }
+                                                />
+                                            </Field>
+                                            <Field
+                                                label="Email"
+                                                error={
+                                                    form.errors.customer_email
+                                                }
+                                            >
+                                                <Input
+                                                    type="email"
+                                                    autoComplete="email"
+                                                    value={
+                                                        form.data.customer_email
+                                                    }
+                                                    onChange={(event) =>
+                                                        form.setData(
+                                                            'customer_email',
+                                                            event.target.value,
+                                                        )
+                                                    }
+                                                />
+                                            </Field>
+                                            <SelectField
+                                                label="Canal de contacto preferido"
+                                                value={
+                                                    form.data
+                                                        .customer_preferred_contact_channel
+                                                }
+                                                error={
+                                                    form.errors
+                                                        .customer_preferred_contact_channel
+                                                }
+                                                onChange={(value) => {
+                                                    form.setData(
+                                                        'customer_preferred_contact_channel',
+                                                        value,
+                                                    );
+                                                    form.setData(
+                                                        'customer_consent_channel',
+                                                        value,
+                                                    );
+                                                }}
+                                                options={contactChannelOptions}
+                                            />
+                                        </div>
+                                    )}
+                                    {['found', 'new'].includes(
+                                        customerLookup,
+                                    ) && (
+                                        <div className="grid gap-3 border-t pt-3 sm:grid-cols-2">
+                                            <div className="sm:col-span-2">
+                                                <p className="text-sm font-medium">
+                                                    Comunicaciones comerciales
+                                                </p>
+                                                <p className="text-xs text-muted-foreground">
+                                                    Registra únicamente lo que
+                                                    el cliente haya manifestado.
+                                                    La aceptación de privacidad
+                                                    no equivale a consentimiento
+                                                    comercial.
+                                                </p>
+                                            </div>
+                                            {matchedCustomer?.do_not_contact && (
+                                                <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-950 sm:col-span-2 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-100">
+                                                    Este cliente figura como no
+                                                    contactable. Solo cambia el
+                                                    estado si ha dado una nueva
+                                                    autorización expresa.
+                                                </div>
+                                            )}
+                                            <SelectField
+                                                label="Estado"
+                                                value={
+                                                    form.data
+                                                        .customer_consent_status
+                                                }
+                                                error={
+                                                    form.errors
+                                                        .customer_consent_status
+                                                }
+                                                onChange={(value) =>
+                                                    form.setData(
+                                                        'customer_consent_status',
+                                                        value,
+                                                    )
+                                                }
+                                                options={[
+                                                    [
+                                                        'not_recorded',
+                                                        'No registrar ahora',
+                                                    ],
+                                                    [
+                                                        'granted',
+                                                        'Autoriza comunicaciones',
+                                                    ],
+                                                    ['denied', 'No autoriza'],
+                                                ]}
+                                            />
+                                            {form.data
+                                                .customer_consent_status !==
+                                                'not_recorded' && (
+                                                <>
+                                                    <SelectField
+                                                        label="Canal registrado"
+                                                        value={
+                                                            form.data
+                                                                .customer_consent_channel
+                                                        }
+                                                        error={
+                                                            form.errors
+                                                                .customer_consent_channel
+                                                        }
+                                                        onChange={(value) =>
+                                                            form.setData(
+                                                                'customer_consent_channel',
+                                                                value,
+                                                            )
+                                                        }
+                                                        options={
+                                                            contactChannelOptions
+                                                        }
+                                                    />
+                                                    <Field
+                                                        label="Evidencia o notas"
+                                                        error={
+                                                            form.errors
+                                                                .customer_consent_notes
+                                                        }
+                                                        className="sm:col-span-2"
+                                                    >
+                                                        <Textarea
+                                                            placeholder="Ej.: autorización verbal durante llamada"
+                                                            value={
+                                                                form.data
+                                                                    .customer_consent_notes
+                                                            }
+                                                            onChange={(event) =>
+                                                                form.setData(
+                                                                    'customer_consent_notes',
+                                                                    event.target
+                                                                        .value,
+                                                                )
+                                                            }
+                                                        />
+                                                    </Field>
+                                                </>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                             <SelectField
                                 label="Installation"
                                 value={form.data.installation_id || 'none'}
@@ -1224,6 +1724,97 @@ export default function OpportunitiesIndex({
                                     />
                                 </Field>
                             )}
+                            {!editing &&
+                                !['won', 'lost'].includes(form.data.stage) && (
+                                    <div className="grid gap-3 rounded-md border bg-muted/20 p-4 sm:col-span-2 sm:grid-cols-2">
+                                        <div className="sm:col-span-2">
+                                            <p className="text-sm font-medium">
+                                                Próxima acción obligatoria
+                                            </p>
+                                            <p className="text-xs text-muted-foreground">
+                                                La oportunidad se crea ya con
+                                                responsable, acción y fecha de
+                                                seguimiento.
+                                            </p>
+                                        </div>
+                                        <SelectField
+                                            label="Tipo de acción"
+                                            value={form.data.next_action_type}
+                                            error={form.errors.next_action_type}
+                                            onChange={(value) =>
+                                                form.setData(
+                                                    'next_action_type',
+                                                    value,
+                                                )
+                                            }
+                                            options={[
+                                                ['call', 'Llamada'],
+                                                ['task', 'Tarea'],
+                                                ['meeting', 'Reunión'],
+                                                ['visit', 'Visita'],
+                                                ['email', 'Email'],
+                                                ['reminder', 'Recordatorio'],
+                                            ]}
+                                        />
+                                        <SelectField
+                                            label="Prioridad"
+                                            value={
+                                                form.data.next_action_priority
+                                            }
+                                            error={
+                                                form.errors.next_action_priority
+                                            }
+                                            onChange={(value) =>
+                                                form.setData(
+                                                    'next_action_priority',
+                                                    value,
+                                                )
+                                            }
+                                            options={[
+                                                ['low', 'Baja'],
+                                                ['normal', 'Normal'],
+                                                ['high', 'Alta'],
+                                            ]}
+                                        />
+                                        <Field
+                                            label="Acción"
+                                            error={
+                                                form.errors.next_action_title
+                                            }
+                                        >
+                                            <Input
+                                                value={
+                                                    form.data.next_action_title
+                                                }
+                                                onChange={(event) =>
+                                                    form.setData(
+                                                        'next_action_title',
+                                                        event.target.value,
+                                                    )
+                                                }
+                                            />
+                                        </Field>
+                                        <Field
+                                            label="Fecha y hora"
+                                            error={
+                                                form.errors.next_action_due_at
+                                            }
+                                        >
+                                            <Input
+                                                type="datetime-local"
+                                                value={
+                                                    form.data.next_action_due_at
+                                                }
+                                                onChange={(event) =>
+                                                    form.setData(
+                                                        'next_action_due_at',
+                                                        event.target.value,
+                                                    )
+                                                }
+                                            />
+                                        </Field>
+                                    </div>
+                                )}
                             {form.data.stage === 'lost' && (
                                 <SelectField
                                     label="Motivo de pérdida"
@@ -1455,6 +2046,92 @@ function FunnelSummary({ funnel }: { funnel: Record<string, number> }) {
                         </div>
                     );
                 })}
+            </div>
+        </section>
+    );
+}
+
+function ResponsePerformanceSummary({
+    rows,
+}: {
+    rows: ResponsePerformanceRow[];
+}) {
+    return (
+        <section className="rounded-md border">
+            <div className="border-b px-4 py-3">
+                <h2 className="font-semibold">
+                    Rendimiento de primera respuesta
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                    Comparativa por responsable sobre las oportunidades
+                    visibles con SLA aplicable. Datos en tiempo real según los
+                    filtros actuales.
+                </p>
+            </div>
+            <div className="overflow-x-auto">
+                <table className="w-full min-w-[52rem] text-sm">
+                    <thead className="border-b bg-muted/40 text-left text-xs text-muted-foreground">
+                        <tr>
+                            <th className="p-3">Responsable</th>
+                            <th className="p-3 text-right">Leads</th>
+                            <th className="p-3">Cumplimiento</th>
+                            <th className="p-3 text-right">En SLA</th>
+                            <th className="p-3 text-right">Fuera de SLA</th>
+                            <th className="p-3 text-right">Pendientes</th>
+                            <th className="p-3 text-right">Tiempo medio</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                        {rows.map((row) => (
+                            <tr key={row.owner_id}>
+                                <td className="p-3 font-medium">
+                                    <Link
+                                        className="text-primary hover:underline"
+                                        href={`/opportunities?owner=${row.owner_id}`}
+                                    >
+                                        {row.owner_name}
+                                    </Link>
+                                </td>
+                                <td className="p-3 text-right tabular-nums">
+                                    {row.total}
+                                </td>
+                                <td className="p-3">
+                                    <div className="flex items-center gap-3">
+                                        <div className="h-2 min-w-24 flex-1 overflow-hidden rounded-full bg-muted">
+                                            <div
+                                                className="h-full rounded-full bg-emerald-500"
+                                                style={{
+                                                    width: `${row.met_rate ?? 0}%`,
+                                                }}
+                                            />
+                                        </div>
+                                        <span className="w-12 text-right font-medium tabular-nums">
+                                            {row.met_rate === null
+                                                ? '—'
+                                                : `${row.met_rate}%`}
+                                        </span>
+                                    </div>
+                                </td>
+                                <td className="p-3 text-right tabular-nums text-emerald-700 dark:text-emerald-300">
+                                    {row.met}
+                                </td>
+                                <td
+                                    className={`p-3 text-right tabular-nums ${row.breached > 0 ? 'font-semibold text-destructive' : ''}`}
+                                >
+                                    {row.breached}
+                                </td>
+                                <td className="p-3 text-right tabular-nums">
+                                    {row.pending}
+                                </td>
+                                <td className="p-3 text-right tabular-nums">
+                                    {row.average_minutes === null
+                                        ? '—'
+                                        : formatMinutes(row.average_minutes)}
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
             </div>
         </section>
     );
@@ -1737,6 +2414,7 @@ function OpportunityTable({
                                 >
                                     {item.days_in_stage} días
                                 </div>
+                                <ResponseSlaBadge opportunity={item} />
                             </td>
                             <td className="p-3">{item.owner?.name || '—'}</td>
                             <td className="p-3 text-right tabular-nums">
@@ -1827,6 +2505,42 @@ function CrmSettingsDialog({ settings }: { settings: CrmSettings }) {
                             onChange={(event) =>
                                 form.setData(
                                     'stale_after_days',
+                                    event.target.value,
+                                )
+                            }
+                        />
+                    </Field>
+                    <Field
+                        label="SLA de primera respuesta (minutos)"
+                        error={form.errors.lead_response_sla_minutes}
+                    >
+                        <Input
+                            type="number"
+                            min="15"
+                            max="10080"
+                            step="15"
+                            value={form.data.lead_response_sla_minutes}
+                            onChange={(event) =>
+                                form.setData(
+                                    'lead_response_sla_minutes',
+                                    event.target.value,
+                                )
+                            }
+                        />
+                    </Field>
+                    <Field
+                        label="Escalado tras el primer aviso (minutos)"
+                        error={form.errors.lead_response_escalation_minutes}
+                    >
+                        <Input
+                            type="number"
+                            min="15"
+                            max="10080"
+                            step="15"
+                            value={form.data.lead_response_escalation_minutes}
+                            onChange={(event) =>
+                                form.setData(
+                                    'lead_response_escalation_minutes',
                                     event.target.value,
                                 )
                             }
@@ -1998,6 +2712,49 @@ function customerName(customer: Customer) {
         `${customer.first_name} ${customer.last_name || ''}`.trim()
     );
 }
+function ResponseSlaBadge({ opportunity }: { opportunity: Opportunity }) {
+    if (opportunity.response_sla_status === 'not_applicable') {
+        return null;
+    }
+
+    const met = opportunity.response_sla_status === 'met';
+    const breached = opportunity.response_sla_status === 'breached';
+    const label = met
+        ? `Respuesta en ${formatMinutes(opportunity.first_response_minutes || 0)}`
+        : breached
+          ? opportunity.first_responded_at
+              ? `Respuesta tardía · ${formatMinutes(opportunity.first_response_minutes || 0)}`
+              : 'Primera respuesta fuera de SLA'
+          : opportunity.first_response_due_at
+            ? `Responder antes de ${dateTime(opportunity.first_response_due_at)}`
+            : 'SLA pendiente';
+
+    return (
+        <Badge
+            variant={breached ? 'destructive' : 'outline'}
+            className={`mt-2 max-w-full ${met ? 'border-emerald-300 text-emerald-700 dark:border-emerald-900 dark:text-emerald-300' : ''}`}
+        >
+            <span className="truncate">{label}</span>
+        </Badge>
+    );
+}
+function nextBusinessAction() {
+    const value = new Date();
+
+    value.setDate(value.getDate() + 1);
+
+    while ([0, 6].includes(value.getDay())) {
+        value.setDate(value.getDate() + 1);
+    }
+
+    value.setHours(9, 0, 0, 0);
+
+    const localValue = new Date(
+        value.getTime() - value.getTimezoneOffset() * 60_000,
+    );
+
+    return localValue.toISOString().slice(0, 16);
+}
 function installationName(item: Installation) {
     return (
         item.project_reference || item.site_name || `Installation #${item.id}`
@@ -2008,6 +2765,18 @@ function money(value: number) {
         style: 'currency',
         currency: 'EUR',
     }).format(value);
+}
+function formatMinutes(value: number) {
+    const minutes = Math.max(0, Math.round(value));
+
+    if (minutes < 60) {
+        return `${minutes} min`;
+    }
+
+    const hours = Math.floor(minutes / 60);
+    const remainder = minutes % 60;
+
+    return remainder > 0 ? `${hours} h ${remainder} min` : `${hours} h`;
 }
 function date(value: string | null) {
     return value

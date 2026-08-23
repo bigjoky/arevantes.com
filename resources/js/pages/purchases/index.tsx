@@ -373,7 +373,9 @@ export default function PurchasesIndex({
                                                     type="hidden"
                                                     name="is_active"
                                                     value={
-                                                        rule.is_active ? '0' : '1'
+                                                        rule.is_active
+                                                            ? '0'
+                                                            : '1'
                                                     }
                                                 />
                                                 <Button

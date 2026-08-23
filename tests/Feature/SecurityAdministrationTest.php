@@ -3,20 +3,26 @@
 namespace Tests\Feature;
 
 use App\Models\AuditLog;
+use App\Models\DatabaseBackup;
 use App\Models\Permission;
 use App\Models\PermissionProfile;
+use App\Models\Person;
 use App\Models\PurchaseDocument;
 use App\Models\SecurityEvent;
 use App\Models\Supplier;
 use App\Models\SystemHealthCheck;
 use App\Models\User;
 use App\Rules\SafeUpload;
+use App\Services\Backup\BackupCipher;
+use App\Services\Backup\PostgresBackupService;
+use App\Services\Backup\PostgresRestoreVerifier;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use PDO;
 use Tests\TestCase;
@@ -66,6 +72,151 @@ class SecurityAdministrationTest extends TestCase
         $this->assertNotNull($user->refresh()->access_review_due_at);
     }
 
+    public function test_manage_staff_cannot_manage_user_access_without_manage_access(): void
+    {
+        $hrProfile = PermissionProfile::where('slug', 'human-resources')->firstOrFail();
+        $hrUser = User::factory()->create(['role' => 'commercial', 'permission_profile_id' => $hrProfile->id]);
+        $staff = Person::create(['category' => 'staff', 'first_name' => 'Irene', 'last_name' => 'Ruiz']);
+
+        $this->actingAs($hrUser)->post(route('staff.access.store', $staff), [
+            'email' => 'irene@example.com',
+            'role' => 'technician',
+            'password' => 'Strong-Password-2026!',
+            'password_confirmation' => 'Strong-Password-2026!',
+        ])->assertForbidden();
+
+        $this->assertDatabaseMissing('users', ['email' => 'irene@example.com']);
+    }
+
+    public function test_existing_unlinked_crm_account_can_be_linked_to_staff_without_changing_access(): void
+    {
+        $administrator = PermissionProfile::where('slug', 'administrator')->firstOrFail();
+        $admin = User::factory()->create(['role' => 'admin', 'permission_profile_id' => $administrator->id]);
+        $staff = Person::create(['category' => 'staff', 'first_name' => 'Joaquín', 'last_name' => 'Arévalo Bueno']);
+        $existing = User::factory()->create([
+            'person_id' => null,
+            'email' => 'j.arevalo@arevantes.com',
+            'role' => 'admin',
+            'permission_profile_id' => $administrator->id,
+        ]);
+        $password = $existing->password;
+
+        $this->actingAs($admin)
+            ->post(route('staff.access.link', $staff), ['user_id' => $existing->id])
+            ->assertRedirect()
+            ->assertSessionHas('toast');
+
+        $existing->refresh();
+        $this->assertSame($staff->id, $existing->person_id);
+        $this->assertSame('admin', $existing->role);
+        $this->assertSame($administrator->id, $existing->permission_profile_id);
+        $this->assertSame($password, $existing->password);
+        $this->assertNotNull($existing->access_reviewed_at);
+        $this->assertDatabaseHas('security_events', [
+            'type' => 'staff_access_linked',
+            'user_id' => $existing->id,
+        ]);
+    }
+
+    public function test_linked_crm_account_cannot_be_reassigned_through_staff_linking(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $currentStaff = Person::create(['category' => 'staff', 'first_name' => 'Current']);
+        $targetStaff = Person::create(['category' => 'staff', 'first_name' => 'Target']);
+        $existing = User::factory()->create(['person_id' => $currentStaff->id]);
+
+        $this->actingAs($admin)
+            ->post(route('staff.access.link', $targetStaff), ['user_id' => $existing->id])
+            ->assertSessionHasErrors('user_id');
+
+        $this->assertSame($currentStaff->id, $existing->refresh()->person_id);
+    }
+
+    public function test_staff_profile_offers_only_unlinked_crm_accounts(): void
+    {
+        $adminStaff = Person::create(['category' => 'staff', 'first_name' => 'Administrator']);
+        $admin = User::factory()->create(['role' => 'admin', 'person_id' => $adminStaff->id]);
+        $staff = Person::create(['category' => 'staff', 'first_name' => 'Target']);
+        $linkedStaff = Person::create(['category' => 'staff', 'first_name' => 'Linked']);
+        $available = User::factory()->create(['person_id' => null, 'email' => 'available@example.com']);
+        $linked = User::factory()->create(['person_id' => $linkedStaff->id, 'email' => 'linked@example.com']);
+
+        $this->actingAs($admin)
+            ->get(route('staff.show', $staff))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->has('availableAccessUsers', 1)
+                ->where('availableAccessUsers.0.id', $available->id)
+                ->missing('availableAccessUsers.1'));
+
+        $this->assertNotSame($available->id, $linked->id);
+    }
+
+    public function test_staff_manager_without_access_permission_cannot_see_unlinked_accounts(): void
+    {
+        $humanResources = PermissionProfile::where('slug', 'human-resources')->firstOrFail();
+        $staffManager = User::factory()->create([
+            'role' => 'commercial',
+            'permission_profile_id' => $humanResources->id,
+        ]);
+        $staff = Person::create(['category' => 'staff', 'first_name' => 'Target']);
+        User::factory()->create(['person_id' => null, 'email' => 'private@example.com']);
+
+        $this->actingAs($staffManager)
+            ->get(route('staff.show', $staff))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page->has('availableAccessUsers', 0));
+    }
+
+    public function test_last_administrator_cannot_be_demoted_by_another_access_manager(): void
+    {
+        $administrator = PermissionProfile::where('slug', 'administrator')->firstOrFail();
+        $technician = PermissionProfile::where('slug', 'technician')->firstOrFail();
+        $lastAdmin = User::factory()->create(['role' => 'admin', 'permission_profile_id' => $administrator->id]);
+        $accessManager = User::factory()->create(['role' => 'commercial', 'permission_profile_id' => $technician->id]);
+        $accessManager->permissionOverrides()->attach(
+            Permission::where('key', 'manage-access')->firstOrFail(),
+            ['allowed' => true],
+        );
+
+        $this->actingAs($accessManager)
+            ->patch(route('admin.users.update', $lastAdmin), ['permission_profile_id' => $technician->id])
+            ->assertSessionHasErrors('role');
+
+        $this->assertSame($administrator->id, $lastAdmin->refresh()->permission_profile_id);
+    }
+
+    public function test_last_administrator_cannot_deny_essential_permissions(): void
+    {
+        $administrator = PermissionProfile::where('slug', 'administrator')->firstOrFail();
+        $lastAdmin = User::factory()->create(['role' => 'admin', 'permission_profile_id' => $administrator->id]);
+        $manageAccess = Permission::where('key', 'manage-access')->firstOrFail();
+
+        $this->actingAs($lastAdmin)->patch(route('admin.users.update', $lastAdmin), [
+            'permission_profile_id' => $administrator->id,
+            'overrides' => [$manageAccess->id => 'deny'],
+        ])->assertSessionHasErrors('role');
+
+        $this->assertDatabaseMissing('user_permission_overrides', [
+            'user_id' => $lastAdmin->id,
+            'permission_id' => $manageAccess->id,
+            'allowed' => false,
+        ]);
+    }
+
+    public function test_role_command_keeps_legacy_role_and_permission_profile_in_sync(): void
+    {
+        $commercial = PermissionProfile::where('slug', 'commercial')->firstOrFail();
+        $technician = PermissionProfile::where('slug', 'technician')->firstOrFail();
+        $user = User::factory()->create(['role' => 'commercial', 'permission_profile_id' => $commercial->id]);
+
+        $this->artisan('user:role', ['email' => $user->email, 'role' => 'technician'])->assertSuccessful();
+
+        $this->assertSame('technician', $user->refresh()->role);
+        $this->assertSame($technician->id, $user->permission_profile_id);
+        $this->assertNotNull($user->access_reviewed_at);
+    }
+
     public function test_audit_export_requires_permission_and_contains_correlation_data(): void
     {
         $technician = PermissionProfile::where('slug', 'technician')->firstOrFail();
@@ -93,6 +244,10 @@ class SecurityAdministrationTest extends TestCase
         $this->assertDatabaseHas('system_health_checks', ['component' => 'queue', 'status' => 'failed']);
         $this->assertTrue(SecurityEvent::where('type', 'system_component_failed')->exists());
         $this->assertTrue(SystemHealthCheck::where('component', 'queue')->exists());
+        $alerts = SecurityEvent::where('type', 'system_component_failed')->count();
+
+        $this->artisan('system:health-check')->assertFailed();
+        $this->assertSame($alerts, SecurityEvent::where('type', 'system_component_failed')->count());
     }
 
     public function test_deye_health_uses_the_credentials_required_by_the_client(): void
@@ -148,6 +303,72 @@ class SecurityAdministrationTest extends TestCase
         }
     }
 
+    public function test_postgres_backup_is_encrypted_streamed_and_manifested_on_private_storage(): void
+    {
+        Storage::fake('backup-test');
+        $script = tempnam(sys_get_temp_dir(), 'fake-pg-dump-');
+        File::put($script, <<<'SH'
+#!/bin/sh
+for argument in "$@"; do
+    case "$argument" in
+        --file=*) destination="${argument#--file=}" ;;
+    esac
+done
+printf 'PGDMP-test-database-content' > "$destination"
+SH);
+        chmod($script, 0700);
+        config()->set([
+            'filesystems.disks.backup-test' => ['driver' => 'local', 'root' => storage_path('framework/testing/disks/backup-test')],
+            'backup.postgres.enabled' => true,
+            'backup.postgres.disk' => 'backup-test',
+            'backup.postgres.source_connection' => 'backup_source_test',
+            'backup.postgres.encryption_key' => 'base64:'.base64_encode(random_bytes(32)),
+            'backup.postgres.pg_dump_binary' => $script,
+            'database.connections.backup_source_test' => [
+                'driver' => 'pgsql', 'host' => 'database.internal', 'port' => 5432,
+                'database' => 'arevantes', 'username' => 'backup_reader', 'password' => 'secret', 'sslmode' => 'require',
+            ],
+        ]);
+
+        try {
+            $backup = app(PostgresBackupService::class)->create();
+            $this->assertSame('success', $backup->status);
+            $this->assertNotSame('secret', $backup->error);
+            Storage::disk('backup-test')->assertExists($backup->path);
+            Storage::disk('backup-test')->assertExists($backup->path.'.json');
+
+            $restored = tempnam(sys_get_temp_dir(), 'decrypted-pg-dump-');
+            app(BackupCipher::class)->decrypt(Storage::disk('backup-test')->path($backup->path), $restored);
+            $this->assertSame('PGDMP-test-database-content', File::get($restored));
+            File::delete($restored);
+        } finally {
+            File::delete($script);
+        }
+    }
+
+    public function test_postgres_restore_refuses_the_production_database_as_target(): void
+    {
+        $backup = DatabaseBackup::create([
+            'engine' => 'pgsql', 'status' => 'success', 'disk' => 'local', 'path' => 'unused',
+            'started_at' => now(), 'completed_at' => now(),
+        ]);
+        $connection = [
+            'driver' => 'pgsql', 'host' => 'production.internal', 'port' => 5432,
+            'database' => 'arevantes', 'username' => 'postgres', 'password' => 'secret', 'sslmode' => 'require',
+        ];
+        config()->set([
+            'backup.postgres.restore_enabled' => true,
+            'backup.postgres.source_connection' => 'backup_source_test',
+            'backup.postgres.restore_connection' => 'backup_restore_test',
+            'database.connections.backup_source_test' => $connection,
+            'database.connections.backup_restore_test' => $connection,
+        ]);
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('production database');
+        app(PostgresRestoreVerifier::class)->verify($backup);
+    }
+
     public function test_all_administration_routes_have_explicit_permission_middleware(): void
     {
         $routes = collect(app('router')->getRoutes()->getRoutes())->filter(fn ($route) => str_starts_with($route->uri(), 'admin'));
@@ -165,6 +386,21 @@ class SecurityAdministrationTest extends TestCase
 
         try {
             $validator = Validator::make(['document' => $file], ['document' => [new SafeUpload(['pdf'])]]);
+
+            $this->assertTrue($validator->fails());
+        } finally {
+            File::delete($path);
+        }
+    }
+
+    public function test_upload_validation_rejects_a_zip_renamed_as_docx(): void
+    {
+        $path = tempnam(sys_get_temp_dir(), 'spoofed-docx-');
+        File::put($path, "PK\x03\x04not-a-word-package");
+        $file = new UploadedFile($path, 'contract.docx', 'application/zip', null, true);
+
+        try {
+            $validator = Validator::make(['document' => $file], ['document' => [new SafeUpload(['docx'])]]);
 
             $this->assertTrue($validator->fails());
         } finally {

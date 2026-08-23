@@ -55,13 +55,24 @@ type Audit = {
     created_at: string;
     user: { name: string } | null;
 };
-type Backup = { name: string; size: number; created_at: string };
+type Backup = {
+    id?: string;
+    name: string;
+    engine: string;
+    status: string;
+    size: number | null;
+    created_at: string;
+    expires_at?: string | null;
+};
 type Restoration = {
     id: number;
     backup_name: string;
     status: string;
     details: string;
     verified_at: string;
+    engine: string;
+    rpo_seconds: number | null;
+    rto_seconds: number | null;
 };
 type HealthCheck = {
     id: number;
@@ -96,6 +107,9 @@ export default function AdminIndex({
     healthChecks = [],
     securityEvents = [],
     accessReviewsDue = 0,
+    backupSupported = true,
+    backupMode = 'sqlite',
+    restoreVerificationEnabled = true,
 }: {
     section: 'access' | 'backups' | 'audit' | 'health';
     users?: UserRow[];
@@ -107,6 +121,9 @@ export default function AdminIndex({
     healthChecks?: HealthCheck[];
     securityEvents?: SecurityEvent[];
     accessReviewsDue?: number;
+    backupSupported?: boolean;
+    backupMode?: string;
+    restoreVerificationEnabled?: boolean;
 }) {
     return (
         <>
@@ -337,11 +354,26 @@ export default function AdminIndex({
                                 </h2>
                             </div>
                             <Form action="/admin/backups" method="post">
-                                <Button>
+                                <Button disabled={!backupSupported}>
                                     <DatabaseBackup /> Create backup
                                 </Button>
                             </Form>
                         </div>
+                        {!backupSupported ? (
+                            <p className="mb-4 text-sm text-amber-700 dark:text-amber-400">
+                                Encrypted {backupMode} backups are not
+                                configured. Production must use durable private
+                                object storage.
+                            </p>
+                        ) : null}
+                        {backupMode === 'pgsql' &&
+                        !restoreVerificationEnabled ? (
+                            <p className="mb-4 text-sm text-red-700 dark:text-red-400">
+                                Isolated restoration verification is not
+                                configured. Backups alone do not prove
+                                recoverability.
+                            </p>
+                        ) : null}
                         <div className="grid gap-2">
                             {backups.map((backup) => (
                                 <div
@@ -354,33 +386,40 @@ export default function AdminIndex({
                                         </div>
                                         <div className="text-xs text-muted-foreground">
                                             {formatDate(backup.created_at)} ·{' '}
-                                            {(
-                                                backup.size /
-                                                1024 /
-                                                1024
-                                            ).toFixed(1)}{' '}
-                                            MB
+                                            {backup.size === null
+                                                ? 'pending'
+                                                : `${(backup.size / 1024 / 1024).toFixed(1)} MB`}
+                                            {' · '}
+                                            {backup.engine}
                                         </div>
                                     </div>
-                                    <Button
-                                        size="icon"
-                                        variant="ghost"
-                                        asChild
-                                        title="Download"
-                                    >
-                                        <Link
-                                            href={`/admin/backups/${backup.name}`}
-                                        >
-                                            <Download />
-                                        </Link>
-                                    </Button>
+                                    <div className="flex items-center gap-2">
+                                        <Badge variant="outline">
+                                            {backup.status}
+                                        </Badge>
+                                        {backup.engine === 'sqlite' ? (
+                                            <Button
+                                                size="icon"
+                                                variant="ghost"
+                                                asChild
+                                                title="Download"
+                                            >
+                                                <Link
+                                                    href={`/admin/backups/${backup.name}`}
+                                                >
+                                                    <Download />
+                                                </Link>
+                                            </Button>
+                                        ) : null}
+                                    </div>
                                 </div>
                             ))}
                         </div>
                         <p className="mt-3 text-xs text-muted-foreground">
-                            Restoration is intentionally restricted to the
-                            server command database:restore and creates a safety
-                            backup first.
+                            PostgreSQL artifacts stay in private object storage.
+                            Restorations are restricted to a disposable
+                            connection whose host and database differ from
+                            production.
                         </p>
                         <div className="mt-8">
                             <h3 className="mb-3 font-semibold">
@@ -397,6 +436,18 @@ export default function AdminIndex({
                                             <span className="block text-xs text-muted-foreground">
                                                 {item.details}
                                             </span>
+                                            {item.rpo_seconds !== null ? (
+                                                <span className="block text-xs text-muted-foreground">
+                                                    RPO{' '}
+                                                    {formatDuration(
+                                                        item.rpo_seconds,
+                                                    )}{' '}
+                                                    · RTO{' '}
+                                                    {formatDuration(
+                                                        item.rto_seconds || 0,
+                                                    )}
+                                                </span>
+                                            ) : null}
                                         </span>
                                         <Badge variant="outline">
                                             {item.status}
@@ -543,6 +594,18 @@ function formatDate(value: string) {
         dateStyle: 'short',
         timeStyle: 'short',
     }).format(new Date(value));
+}
+
+function formatDuration(seconds: number) {
+    if (seconds < 60) {
+        return `${seconds}s`;
+    }
+
+    if (seconds < 3600) {
+        return `${Math.round(seconds / 60)}m`;
+    }
+
+    return `${(seconds / 3600).toFixed(1)}h`;
 }
 AdminIndex.layout = {
     breadcrumbs: [{ title: 'Administration', href: '/admin' }],

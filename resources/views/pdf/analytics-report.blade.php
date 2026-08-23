@@ -4,7 +4,8 @@ body{font-family:DejaVu Sans,sans-serif;color:#172033;font-size:9px}h1{font-size
 </style></head><body>
 <h1>Informe de analítica · {{ config('analytics.areas.'.$filter->area) }}</h1>
 <div class="meta">{{ $filter->from->format('d/m/Y') }} – {{ $filter->to->format('d/m/Y') }} · Generado {{ now()->format('d/m/Y H:i') }}</div>
-<table class="cards"><tr>@foreach($metrics as $metric)<td><strong>{{ $metric['name'] }}</strong><div class="value">{{ $metric['unit']==='currency' ? number_format($metric['value'],2,',','.').' €' : number_format($metric['value'],2,',','.').($metric['unit']==='percent'?' %':'') }}</div><div class="muted">Anterior: {{ number_format($metric['previous'],2,',','.') }} · Calidad: {{ $metric['quality']['score'] }}%</div></td>@if($loop->iteration % 4 === 0)</tr><tr>@endif @endforeach</tr></table>
+@if($truncated)<div class="meta"><strong>Detalle limitado a 10.000 registros por KPI.</strong> Ajusta los filtros para obtener el detalle completo.</div>@endif
+<table class="cards"><tr>@foreach($metrics as $metric)<td><strong>{{ $metric['name'] }}</strong><div class="value">{{ $metric['unit']==='currency' ? number_format($metric['value'],2,',','.').' €' : number_format($metric['value'],2,',','.').($metric['unit']==='percent'?' %':'') }}</div><div class="muted">Anterior: {{ number_format($metric['previous'],2,',','.') }} · Calidad: {{ $metric['quality']['score'] === null ? 'Sin datos' : $metric['quality']['score'].'%' }}</div></td>@if($loop->iteration % 4 === 0)</tr><tr>@endif @endforeach</tr></table>
 @foreach($metrics as $metric)
 <h2>{{ $metric['name'] }}</h2><div class="muted">Fórmula: {{ $metric['formula'] }} · Fuente: {{ $metric['source'] }} · Propietario: {{ $metric['owner'] }}</div>
 <table class="records"><thead><tr><th>Fecha</th><th>Referencia</th><th>Proyecto</th><th>Estado</th><th class="number">Valor</th></tr></thead><tbody>

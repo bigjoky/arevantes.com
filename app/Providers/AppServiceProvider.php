@@ -29,6 +29,17 @@ use App\Models\FinancialBudget;
 use App\Models\FinancialBudgetPeriod;
 use App\Models\FinancialForecastItem;
 use App\Models\FiscalYear;
+use App\Models\HrCalendarHoliday;
+use App\Models\HrContractChange;
+use App\Models\HrDepartment;
+use App\Models\HrEmergencyContact;
+use App\Models\HrEmployeeTask;
+use App\Models\HrEmploymentDocument;
+use App\Models\HrEmploymentProfile;
+use App\Models\HrLeaveAttachment;
+use App\Models\HrLeaveBalance;
+use App\Models\HrLeavePolicy;
+use App\Models\HrLeaveRequest;
 use App\Models\Installation;
 use App\Models\InstallationAsset;
 use App\Models\JournalEntry;
@@ -63,7 +74,11 @@ use App\Services\Mailbox\NativeImapPurchaseMailboxClient;
 use App\Services\Security\PermissionResolver;
 use App\Services\Security\SecurityEventRecorder;
 use Carbon\CarbonImmutable;
+use Illuminate\Auth\Events\Failed;
+use Illuminate\Auth\Events\Lockout;
 use Illuminate\Auth\Events\Login;
+use Illuminate\Auth\Events\Logout;
+use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Date;
@@ -95,6 +110,17 @@ class AppServiceProvider extends ServiceProvider
         $this->configureAreviaRateLimits();
         Person::observe(AuditableObserver::class);
         Person::observe(PartyLedgerObserver::class);
+        HrCalendarHoliday::observe(AuditableObserver::class);
+        HrContractChange::observe(AuditableObserver::class);
+        HrDepartment::observe(AuditableObserver::class);
+        HrEmergencyContact::observe(AuditableObserver::class);
+        HrEmployeeTask::observe(AuditableObserver::class);
+        HrEmploymentDocument::observe(AuditableObserver::class);
+        HrEmploymentProfile::observe(AuditableObserver::class);
+        HrLeaveAttachment::observe(AuditableObserver::class);
+        HrLeaveBalance::observe(AuditableObserver::class);
+        HrLeavePolicy::observe(AuditableObserver::class);
+        HrLeaveRequest::observe(AuditableObserver::class);
         Supplier::observe(AuditableObserver::class);
         Supplier::observe(PartyLedgerObserver::class);
         Installation::observe(AuditableObserver::class);
@@ -149,7 +175,27 @@ class AppServiceProvider extends ServiceProvider
             if (Schema::hasTable('security_events')) {
                 app(SecurityEventRecorder::class)->record('login_succeeded', $event->user, [
                     'user_agent' => request()->userAgent(),
-                ], 'info', true);
+                ]);
+            }
+        });
+        Event::listen(Failed::class, function (Failed $event): void {
+            if (Schema::hasTable('security_events')) {
+                app(SecurityEventRecorder::class)->record('login_failed', $event->user, [], 'warning');
+            }
+        });
+        Event::listen(Lockout::class, function (): void {
+            if (Schema::hasTable('security_events')) {
+                app(SecurityEventRecorder::class)->record('login_locked_out', null, [], 'critical', true);
+            }
+        });
+        Event::listen(Logout::class, function (Logout $event): void {
+            if (Schema::hasTable('security_events')) {
+                app(SecurityEventRecorder::class)->record('logout', $event->user);
+            }
+        });
+        Event::listen(PasswordReset::class, function (PasswordReset $event): void {
+            if (Schema::hasTable('security_events')) {
+                app(SecurityEventRecorder::class)->record('password_reset', $event->user, [], 'warning', true);
             }
         });
     }
@@ -164,7 +210,8 @@ class AppServiceProvider extends ServiceProvider
             'manage-accounting', 'approve-payments', 'approve-budgets', 'manage-tax',
             'view-purchases', 'manage-purchases', 'receive-purchases', 'approve-purchase-invoices',
             'approve-purchase-orders', 'manage-purchase-payments', 'manage-staff', 'view-sensitive-hr', 'manage-sensitive-hr',
-            'view-analytics',
+            'view-analytics', 'view-analytics-executive', 'view-analytics-sales',
+            'view-analytics-operations', 'view-analytics-supply', 'view-analytics-finance',
         ];
         foreach ($permissions as $permission) {
             Gate::define($permission, fn (User $user) => app(PermissionResolver::class)->allows($user, $permission));

@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Storage;
 
 class DocumentPdf
 {
-    public function render(object $document, string $kind): string
+    public function render(object $document, string $kind, bool $final = false): string
     {
         $kind === 'quote'
             ? $document->loadMissing('lines.components.unit')
@@ -28,7 +28,12 @@ class DocumentPdf
             $logo = file_get_contents(public_path('brand/arevantes-logo-light.svg'));
             $company['logo_data'] = 'data:image/svg+xml;base64,'.base64_encode($logo);
         }
-        $pdf->loadHtml(view('pdf.sales-document', ['document' => $document, 'kind' => $kind, 'company' => $company])->render());
+        $pdf->loadHtml(view('pdf.sales-document', [
+            'document' => $document,
+            'kind' => $kind,
+            'company' => $company,
+            'isDraft' => ! $final && isset($document->status) && $document->status === 'draft',
+        ])->render());
         $pdf->setPaper('A4');
         $pdf->render();
 

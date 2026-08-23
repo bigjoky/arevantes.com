@@ -9,14 +9,18 @@ use App\Models\Opportunity;
 use App\Models\Person;
 use App\Models\SavedCrmFilter;
 use App\Models\User;
+use App\Services\Crm\LeadResponseSla;
 use App\Services\Crm\OpportunitySalesCycle;
+use App\Services\Customers\OpportunityCustomerResolver;
 use App\Support\Crm\OpportunityCatalog;
+use App\Support\PhoneNormalizer;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -60,9 +64,47 @@ class OpportunityController extends Controller
         })->filter(fn ($days) => $days !== null)->average();
 
         $salesCycle = app(OpportunitySalesCycle::class);
+        $responseSla = app(LeadResponseSla::class);
+        $responseStatuses = $opportunities->mapWithKeys(
+            fn (Opportunity $item) => [$item->id => $responseSla->status($item)],
+        );
+        $measuredResponses = $responseStatuses->filter(fn (string $status) => in_array($status, ['met', 'breached'], true));
+        $responseMinutes = $opportunities
+            ->map(fn (Opportunity $item) => $responseSla->responseMinutes($item))
+            ->filter(fn (?int $minutes) => $minutes !== null);
+        $responsePerformance = $opportunities
+            ->whereNotNull('owner_user_id')
+            ->groupBy('owner_user_id')
+            ->map(function ($items) use ($responseSla, $responseStatuses): array {
+                $eligible = $items->filter(
+                    fn (Opportunity $item) => $responseStatuses->get($item->id) !== 'not_applicable',
+                );
+                $measured = $eligible->filter(
+                    fn (Opportunity $item) => in_array($responseStatuses->get($item->id), ['met', 'breached'], true),
+                );
+                $minutes = $eligible
+                    ->map(fn (Opportunity $item) => $responseSla->responseMinutes($item))
+                    ->filter(fn (?int $value) => $value !== null);
+
+                return [
+                    'owner_id' => $items->first()->owner_user_id,
+                    'owner_name' => $items->first()->owner?->name ?? __('Unassigned'),
+                    'total' => $eligible->count(),
+                    'met' => $eligible->filter(fn (Opportunity $item) => $responseStatuses->get($item->id) === 'met')->count(),
+                    'breached' => $eligible->filter(fn (Opportunity $item) => $responseStatuses->get($item->id) === 'breached')->count(),
+                    'pending' => $eligible->filter(fn (Opportunity $item) => $responseStatuses->get($item->id) === 'pending')->count(),
+                    'met_rate' => $measured->isNotEmpty()
+                        ? round($measured->filter(fn (Opportunity $item) => $responseStatuses->get($item->id) === 'met')->count() / $measured->count() * 100, 1)
+                        : null,
+                    'average_minutes' => $minutes->isNotEmpty() ? round((float) $minutes->average(), 1) : null,
+                ];
+            })
+            ->filter(fn (array $row) => $row['total'] > 0)
+            ->sortByDesc('breached')
+            ->values();
 
         return Inertia::render('opportunities/index', [
-            'opportunities' => $opportunities->map(function (Opportunity $item) use ($salesCycle, $settings): array {
+            'opportunities' => $opportunities->map(function (Opportunity $item) use ($salesCycle, $responseSla, $settings): array {
                 $scoreBreakdown = $salesCycle->scoreBreakdown($item);
 
                 return [
@@ -76,9 +118,13 @@ class OpportunityController extends Controller
                     'days_in_stage' => round($this->stageEnteredAt($item)->diffInHours(now()) / 24, 1),
                     'is_stale' => ! in_array($item->stage, ['won', 'lost'], true)
                         && $this->stageEnteredAt($item)->lessThan(now()->subDays($settings->stale_after_days)),
+                    'first_response_due_at' => $item->first_response_due_at?->toIso8601String(),
+                    'first_responded_at' => $item->first_responded_at?->toIso8601String(),
+                    'first_response_minutes' => $responseSla->responseMinutes($item),
+                    'response_sla_status' => $responseSla->status($item),
                 ];
             }),
-            'customers' => Person::where('category', 'customer')->orderBy('company_name')->orderBy('first_name')->get(['id', 'first_name', 'last_name', 'company_name']),
+            'customers' => Person::where('category', 'customer')->orderBy('company_name')->orderBy('first_name')->get(['id', 'first_name', 'last_name', 'company_name', 'phone', 'email', 'preferred_contact_channel', 'do_not_contact']),
             'installations' => Installation::orderBy('project_reference')->get(['id', 'person_id', 'project_reference', 'site_name']),
             'users' => User::whereIn('role', ['admin', 'commercial'])->orderBy('name')->get(['id', 'name']),
             'sourceOptions' => OpportunityCatalog::SOURCES,
@@ -107,30 +153,73 @@ class OpportunityController extends Controller
                 'stale' => $open->filter(fn (Opportunity $item) => $this->stageEnteredAt($item)->lessThan(now()->subDays($settings->stale_after_days)))->count(),
                 'renewals_due' => $open->filter(fn (Opportunity $item) => in_array($item->commercial_kind, ['renewal', 'recurring'], true)
                     && $item->renewal_due_on?->lessThanOrEqualTo(today()->addDays(30)))->count(),
+                'response_sla_breached' => $responseStatuses->filter(fn (string $status) => $status === 'breached')->count(),
+                'response_sla_pending' => $responseStatuses->filter(fn (string $status) => $status === 'pending')->count(),
+                'response_sla_met_rate' => $measuredResponses->isNotEmpty()
+                    ? round($measuredResponses->filter(fn (string $status) => $status === 'met')->count() / $measuredResponses->count() * 100, 1)
+                    : null,
+                'average_first_response_minutes' => $responseMinutes->isNotEmpty()
+                    ? round((float) $responseMinutes->average(), 1)
+                    : null,
                 'funnel' => collect(self::STAGES)->mapWithKeys(fn (string $stage) => [$stage => $opportunities->where('stage', $stage)->count()]),
                 'stage_days' => $this->averageDaysByStage($opportunities),
             ],
             'forecast' => $request->boolean('archived') ? [] : $this->forecast($open),
+            'responsePerformance' => $responsePerformance,
             'savedFilters' => SavedCrmFilter::query()->where('user_id', $request->user()->id)->where('scope', 'opportunities')->orderByDesc('is_default')->orderBy('name')->get(),
             'crmSettings' => $settings,
             'canConfigureCrm' => $request->user()->hasRole('admin'),
         ]);
     }
 
-    public function store(Request $request, OpportunitySalesCycle $salesCycle): RedirectResponse
-    {
-        $data = $salesCycle->prepareActiveData($this->validated($request), $request->user());
-        $this->ensureInstallationBelongsToCustomer($data);
-        $this->ensureCommercialOrigin($data);
+    public function store(
+        Request $request,
+        OpportunitySalesCycle $salesCycle,
+        OpportunityCustomerResolver $customerResolver,
+        LeadResponseSla $responseSla,
+    ): RedirectResponse {
+        $customerInput = $this->validatedCustomerInput($request);
+        $opportunityInput = $this->validated($request, true);
+        $nextActionInput = $this->validatedNextAction($request, $opportunityInput['stage']);
+        $createdCustomer = false;
 
-        DB::transaction(function () use ($data, $request, $salesCycle) {
+        DB::transaction(function () use ($customerInput, $opportunityInput, $nextActionInput, $request, $salesCycle, $customerResolver, $responseSla, &$createdCustomer): void {
+            $customer = filled($customerInput['phone'])
+                ? $customerResolver->resolve(
+                    $customerInput['phone'],
+                    [
+                        ...$customerInput['attributes'],
+                        'lead_source' => ($opportunityInput['source'] ?? null) === 'other'
+                            ? $opportunityInput['source_detail']
+                            : ($opportunityInput['source'] ?? null),
+                    ],
+                    $opportunityInput['person_id'] ?? null,
+                )
+                : Person::query()
+                    ->where('category', 'customer')
+                    ->findOrFail($opportunityInput['person_id']);
+            $createdCustomer = $customer->wasRecentlyCreated;
+            $this->recordCustomerConsent($customer, $customerInput['consent'], $request);
+            $data = $salesCycle->prepareActiveData([
+                ...$opportunityInput,
+                'person_id' => $customer->id,
+            ], $request->user());
+            $this->ensureInstallationBelongsToCustomer($data);
+            $this->ensureCommercialOrigin($data);
+
             $opportunity = Opportunity::create([...$data, 'created_by' => $request->user()->id]);
             $opportunity->update(['code' => 'OPP-'.now()->format('Y').'-'.str_pad((string) $opportunity->id, 5, '0', STR_PAD_LEFT)]);
-            $salesCycle->ensureNextAction($opportunity, $request->user());
+            $responseSla->start($opportunity);
+            $salesCycle->ensureNextAction($opportunity, $request->user(), $nextActionInput);
             $salesCycle->refreshScore($opportunity);
         });
 
-        return back()->with('toast', ['type' => 'success', 'message' => __('Opportunity created.')]);
+        return back()->with('toast', [
+            'type' => 'success',
+            'message' => $createdCustomer
+                ? __('Customer and opportunity created.')
+                : __('Opportunity created.'),
+        ]);
     }
 
     public function update(Request $request, Opportunity $opportunity, OpportunitySalesCycle $salesCycle): RedirectResponse
@@ -195,12 +284,12 @@ class OpportunityController extends Controller
         return to_route('opportunities.index')->with('toast', ['type' => 'success', 'message' => __('Opportunity restored.')]);
     }
 
-    private function validated(Request $request): array
+    private function validated(Request $request, bool $creating = false): array
     {
         $request->merge(['commercial_kind' => $request->input('commercial_kind', 'new_business')]);
 
         $data = $request->validate([
-            'person_id' => ['required', Rule::exists('people', 'id')->where('category', 'customer')],
+            'person_id' => [$creating ? 'nullable' : 'required', Rule::exists('people', 'id')->where('category', 'customer')],
             'installation_id' => ['nullable', 'exists:installations,id'],
             'owner_user_id' => ['nullable', Rule::exists('users', 'id')->where(fn ($query) => $query->whereIn('role', ['admin', 'commercial']))],
             'title' => ['required', 'string', 'max:255'],
@@ -250,6 +339,116 @@ class OpportunityController extends Controller
         }
 
         return $data;
+    }
+
+    /** @return array{phone: ?string, attributes: array{first_name: ?string, last_name: ?string, company_name: ?string, email: ?string, preferred_contact_channel: string}, consent: array{status: string, channel: string, notes: ?string}} */
+    private function validatedCustomerInput(Request $request): array
+    {
+        $data = $request->validate([
+            'customer_phone' => [
+                Rule::requiredIf(! $request->filled('person_id')),
+                'nullable',
+                'string',
+                'max:40',
+                function (string $attribute, mixed $value, \Closure $fail): void {
+                    if (filled($value) && ! PhoneNormalizer::isPlausibleMobile((string) $value)) {
+                        $fail(__('Enter a valid mobile number.'));
+                    }
+                },
+            ],
+            'customer_first_name' => ['nullable', 'string', 'max:255'],
+            'customer_last_name' => ['nullable', 'string', 'max:255'],
+            'customer_company_name' => ['nullable', 'string', 'max:255'],
+            'customer_email' => ['nullable', 'email:rfc', 'max:255'],
+            'customer_preferred_contact_channel' => ['nullable', Rule::in(['phone', 'whatsapp', 'email', 'sms'])],
+            'customer_consent_status' => ['nullable', Rule::in(['not_recorded', 'granted', 'denied'])],
+            'customer_consent_channel' => [
+                Rule::requiredIf(in_array($request->input('customer_consent_status'), ['granted', 'denied'], true)),
+                'nullable',
+                Rule::in(['phone', 'whatsapp', 'email', 'sms']),
+            ],
+            'customer_consent_notes' => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        $phone = filled($data['customer_phone'] ?? null) ? trim((string) $data['customer_phone']) : null;
+        if ($phone && ! $request->filled('person_id')) {
+            $existing = Person::query()
+                ->where('category', 'customer')
+                ->where('phone_normalized', PhoneNormalizer::normalize($phone))
+                ->exists();
+
+            if (! $existing && blank($data['customer_first_name'] ?? null) && blank($data['customer_company_name'] ?? null)) {
+                throw ValidationException::withMessages([
+                    'customer_first_name' => __('Enter a customer name or company name to create the customer.'),
+                ]);
+            }
+        }
+
+        return [
+            'phone' => $phone,
+            'attributes' => [
+                'first_name' => $data['customer_first_name'] ?? null,
+                'last_name' => $data['customer_last_name'] ?? null,
+                'company_name' => $data['customer_company_name'] ?? null,
+                'email' => $data['customer_email'] ?? null,
+                'preferred_contact_channel' => $data['customer_preferred_contact_channel'] ?? 'phone',
+            ],
+            'consent' => [
+                'status' => $data['customer_consent_status'] ?? 'not_recorded',
+                'channel' => $data['customer_consent_channel'] ?? $data['customer_preferred_contact_channel'] ?? 'phone',
+                'notes' => $data['customer_consent_notes'] ?? null,
+            ],
+        ];
+    }
+
+    /** @return array{type: string, title: string, priority: string, due_at: string}|null */
+    private function validatedNextAction(Request $request, string $stage): ?array
+    {
+        if (in_array($stage, ['won', 'lost'], true)) {
+            return null;
+        }
+
+        $data = $request->validate([
+            'next_action_type' => ['nullable', Rule::in(['task', 'visit', 'reminder', 'call', 'email', 'meeting'])],
+            'next_action_title' => ['nullable', 'string', 'max:255'],
+            'next_action_priority' => ['nullable', Rule::in(['low', 'normal', 'high'])],
+            'next_action_due_at' => ['nullable', 'date', 'after:now'],
+        ]);
+        $dueAt = now()->addDay();
+        while ($dueAt->isWeekend()) {
+            $dueAt = $dueAt->addDay();
+        }
+
+        return [
+            'type' => $data['next_action_type'] ?? 'call',
+            'title' => filled($data['next_action_title'] ?? null)
+                ? trim((string) $data['next_action_title'])
+                : __('Contact and qualify customer'),
+            'priority' => $data['next_action_priority'] ?? 'normal',
+            'due_at' => $data['next_action_due_at'] ?? $dueAt->setTime(9, 0)->toDateTimeString(),
+        ];
+    }
+
+    /** @param  array{status: string, channel: string, notes: ?string}  $consent */
+    private function recordCustomerConsent(Person $customer, array $consent, Request $request): void
+    {
+        if ($consent['status'] === 'not_recorded') {
+            return;
+        }
+
+        $customer->consents()->create([
+            'recorded_by' => $request->user()->id,
+            'channel' => $consent['channel'],
+            'status' => $consent['status'],
+            'lawful_basis' => 'consent',
+            'source' => 'opportunity_form',
+            'captured_at' => now(),
+            'notes' => $consent['notes'],
+        ]);
+        $customer->update([
+            'preferred_contact_channel' => $consent['channel'],
+            'do_not_contact' => $consent['status'] === 'denied',
+        ]);
     }
 
     private function ensureInstallationBelongsToCustomer(array $data): void
@@ -308,6 +507,11 @@ class OpportunityController extends Controller
                     'coalesce((select max(changed_at) from opportunity_stage_histories where opportunity_id = opportunities.id), opportunities.created_at) < ?',
                     [now()->subDays($staleAfterDays)],
                 ))
+            ->when($request->input('attention') === 'response_sla', fn ($query) => $query
+                ->whereNotIn('stage', ['won', 'lost'])
+                ->whereNull('first_responded_at')
+                ->whereNotNull('first_response_due_at')
+                ->where('first_response_due_at', '<', now()))
             ->when($request->input('attention') === 'renewal_due', fn ($query) => $query
                 ->whereNotIn('stage', ['won', 'lost'])
                 ->whereIn('commercial_kind', ['renewal', 'recurring'])

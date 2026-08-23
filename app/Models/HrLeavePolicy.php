@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class HrLeavePolicy extends Model
 {
-    protected $fillable = ['type', 'name', 'annual_allowance_days', 'accrual_method', 'carryover_limit_days', 'requires_attachment', 'is_active'];
+    protected $fillable = ['type', 'name', 'annual_allowance_days', 'accrual_method', 'day_count_method', 'carryover_limit_days', 'requires_attachment', 'is_active'];
 
     public function balances(): HasMany
     {

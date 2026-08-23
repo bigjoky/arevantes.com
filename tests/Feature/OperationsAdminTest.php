@@ -228,6 +228,28 @@ class OperationsAdminTest extends TestCase
                 ->where('activities.data.0.blocked_reason', 'Waiting for access'));
     }
 
+    public function test_planning_reports_when_the_unscheduled_queue_is_truncated(): void
+    {
+        $commercial = User::factory()->create(['role' => 'commercial']);
+        $installation = Installation::create(['service_type' => 'solar', 'status' => 'scheduled', 'site_address_line_1' => 'Calle Solar 8']);
+        foreach (range(1, 51) as $index) {
+            WorkOrder::create([
+                'installation_id' => $installation->id,
+                'number' => sprintf('WO-QUEUE-%03d', $index),
+                'title' => "Queued work {$index}",
+            ]);
+        }
+
+        $this->actingAs($commercial)
+            ->get(route('operations.index', ['view' => 'week', 'week' => '2026-08-10']))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('planningOrders', 50)
+                ->where('planningMeta.unscheduled_total', 51)
+                ->where('planningMeta.unscheduled_loaded', 50)
+                ->where('planningMeta.truncated', true));
+    }
+
     public function test_commercial_user_can_convert_an_activity_to_a_work_order(): void
     {
         $commercial = User::factory()->create(['role' => 'commercial']);

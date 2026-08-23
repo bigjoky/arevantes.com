@@ -3,8 +3,10 @@
 namespace App\Services\HumanResources;
 
 use App\Models\HrLeaveRequest;
+use App\Models\Person;
 use App\Models\WorkOrder;
 use Illuminate\Support\Collection;
+use Illuminate\Validation\ValidationException;
 
 class LeaveCoverageService
 {
@@ -26,5 +28,37 @@ class LeaveCoverageService
             })
             ->orderBy('scheduled_start')
             ->get();
+    }
+
+    public function assertSubstituteAvailable(Person $substitute, HrLeaveRequest $leave): void
+    {
+        if (! $substitute->user) {
+            throw ValidationException::withMessages([
+                'substitute_person_id' => __('The substitute needs an active system account before work can be reassigned.'),
+            ]);
+        }
+        if ($substitute->employmentProfile && $substitute->employmentProfile->status !== 'active') {
+            throw ValidationException::withMessages([
+                'substitute_person_id' => __('The selected substitute does not have an active employment profile.'),
+            ]);
+        }
+        $overlaps = $substitute->leaveRequests()
+            ->whereIn('status', ['pending', 'approved'])
+            ->whereDate('start_date', '<=', $leave->end_date)
+            ->whereDate('end_date', '>=', $leave->start_date)
+            ->exists();
+        if ($overlaps) {
+            throw ValidationException::withMessages([
+                'substitute_person_id' => __('The selected substitute is not available for the full absence period.'),
+            ]);
+        }
+    }
+
+    /** @param Collection<int, WorkOrder> $orders */
+    public function reassign(Collection $orders, Person $substitute): void
+    {
+        $orders->each(fn (WorkOrder $order) => $order->update([
+            'assigned_user_id' => $substitute->user->id,
+        ]));
     }
 }

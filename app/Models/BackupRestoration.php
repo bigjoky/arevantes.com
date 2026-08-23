@@ -3,13 +3,22 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class BackupRestoration extends Model
 {
-    protected $fillable = ['backup_name', 'status', 'environment', 'details', 'verified_at'];
+    protected $fillable = [
+        'database_backup_id', 'backup_name', 'engine', 'status', 'environment',
+        'details', 'rpo_seconds', 'rto_seconds', 'metrics', 'verified_at',
+    ];
 
     protected function casts(): array
     {
-        return ['verified_at' => 'datetime'];
+        return ['metrics' => 'array', 'verified_at' => 'datetime'];
+    }
+
+    public function databaseBackup(): BelongsTo
+    {
+        return $this->belongsTo(DatabaseBackup::class);
     }
 }

@@ -26,6 +26,7 @@ use App\Services\Finance\FinancialTaxonomyComparison;
 use App\Services\Finance\OutstandingBalanceCalculator;
 use App\Services\Finance\ProjectProfitability;
 use App\Services\Finance\PurchaseCommitmentAnalysis;
+use App\Services\Finance\ReceivableRiskAnalysis;
 use App\Services\Finance\TreasuryForecast;
 use Carbon\CarbonInterface;
 use Illuminate\Http\RedirectResponse;
@@ -47,7 +48,7 @@ class FinanceController extends Controller
         private FinancialAlertService $financialAlerts,
     ) {}
 
-    public function index(Request $request, TreasuryForecast $forecast, ProjectProfitability $profitability, FinancialTaxonomyComparison $taxonomyComparison, PurchaseCommitmentAnalysis $commitmentAnalysis): Response
+    public function index(Request $request, TreasuryForecast $forecast, ProjectProfitability $profitability, FinancialTaxonomyComparison $taxonomyComparison, PurchaseCommitmentAnalysis $commitmentAnalysis, ReceivableRiskAnalysis $receivableRiskAnalysis): Response
     {
         $year = $this->year($request);
         $scenario = $request->validate(['scenario' => ['nullable', Rule::in(['conservative', 'probable', 'optimistic'])]])['scenario'] ?? 'probable';
@@ -120,9 +121,10 @@ class FinanceController extends Controller
             ];
         });
         $company = CompanyProfile::firstOrFail();
+        $receivableRisk = $receivableRiskAnalysis->build($receivables, (float) $company->customer_concentration_alert_percent);
         $purchaseCommitments = $commitmentAnalysis->build($year);
         $treasuryForecast = $forecast->build($year, $scenario, $purchaseCommitments['rows']);
-        $budgetAlerts = $this->financialAlerts->evaluate($year, $performance, $cashFlow, $treasuryForecast, $company);
+        $budgetAlerts = $this->financialAlerts->evaluate($year, $performance, $cashFlow, $treasuryForecast, $company, $receivableRisk['rows']);
         $receivableRows = $receivables->map(function ($item) {
             $promiseBreached = $item->collectionAction?->status === 'promised'
                 && $item->collectionAction->promised_on?->isBefore(today());
@@ -214,6 +216,7 @@ class FinanceController extends Controller
                 'payable' => $this->aging($payables),
             ],
             'receivables' => $receivableRows,
+            'receivableRisk' => $receivableRisk,
             'payables' => $payables,
             'profitability' => $profitability->forYear($year, $purchaseCommitments['rows']),
             'purchaseCommitments' => $purchaseCommitments,
@@ -281,6 +284,7 @@ class FinanceController extends Controller
                 'operatingVariancePercent' => (float) $company->operating_variance_alert_percent,
                 'cashVariancePercent' => (float) $company->cash_variance_alert_percent,
                 'liquidityBufferAmount' => (float) $company->liquidity_buffer_amount,
+                'customerConcentrationPercent' => (float) $company->customer_concentration_alert_percent,
             ],
             'comparison' => $this->comparison($year, $revenue, $costs),
             'kpis' => $this->kpis($year, $revenue, $costs, $receivableTotal, $payableTotal, $overdueReceivable, $overduePayable, $receivableRows->where('promise_breached', true)->count()),
@@ -595,6 +599,7 @@ class FinanceController extends Controller
             'operating_variance_alert_percent' => ['required', 'numeric', 'between:0.1,1000'],
             'cash_variance_alert_percent' => ['required', 'numeric', 'between:0.1,1000'],
             'liquidity_buffer_amount' => ['required', 'numeric', 'min:0'],
+            'customer_concentration_alert_percent' => ['required', 'numeric', 'between:1,100'],
         ]);
         CompanyProfile::firstOrFail()->update($data);
 

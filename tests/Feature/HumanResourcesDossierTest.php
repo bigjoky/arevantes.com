@@ -2,10 +2,13 @@
 
 namespace Tests\Feature;
 
+use App\Models\AuditLog;
 use App\Models\HrContractChange;
 use App\Models\HrEmergencyContact;
 use App\Models\HrEmploymentDocument;
 use App\Models\HrEmploymentProfile;
+use App\Models\Permission;
+use App\Models\PermissionProfile;
 use App\Models\Person;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -74,6 +77,14 @@ class HumanResourcesDossierTest extends TestCase
         $this->assertStringNotContainsString('600 111 222', $raw->phone);
         $this->assertStringNotContainsString('frutos secos', $raw->prevention_notes);
 
+        $audit = AuditLog::query()
+            ->where('auditable_type', HrEmergencyContact::class)
+            ->where('auditable_id', $contact->id)
+            ->latest('id')
+            ->firstOrFail();
+        $this->assertSame('[REDACTED]', $audit->new_values['phone']);
+        $this->assertSame('[REDACTED]', $audit->new_values['prevention_notes']);
+
         $commercial = User::factory()->create(['role' => 'commercial']);
         $this->actingAs($commercial)->post(route('human-resources.employees.contacts.store', $employee), [
             'name' => 'Sin permiso',
@@ -125,6 +136,44 @@ class HumanResourcesDossierTest extends TestCase
         $this->actingAs($otherUser)
             ->get(route('my-human-resources.documents.download', $shared))
             ->assertNotFound();
+
+        $this->actingAs($admin)
+            ->delete(route('human-resources.employees.documents.destroy', [$employee, $shared]))
+            ->assertRedirect();
+        $this->assertSoftDeleted($shared);
+        Storage::disk('local')->assertExists($shared->path);
+    }
+
+    public function test_sensitive_hr_denial_hides_and_blocks_employment_documents(): void
+    {
+        Storage::fake('local');
+        $admin = User::factory()->create(['role' => 'admin']);
+        $employee = $this->staff('Nora', 'Campos');
+
+        $this->actingAs($admin)->post(route('human-resources.employees.documents.store', $employee), [
+            'category' => 'payroll',
+            'title' => 'Nómina privada',
+            'visibility' => 'hr_only',
+            'file' => UploadedFile::fake()->create('nomina.pdf', 20, 'application/pdf'),
+        ])->assertRedirect();
+        $document = HrEmploymentDocument::firstOrFail();
+
+        $hrProfile = PermissionProfile::where('slug', 'human-resources')->firstOrFail();
+        $hrUser = User::factory()->create(['role' => 'commercial', 'permission_profile_id' => $hrProfile->id]);
+        foreach (['view-sensitive-hr', 'manage-sensitive-hr'] as $permissionKey) {
+            $hrUser->permissionOverrides()->attach(
+                Permission::where('key', $permissionKey)->firstOrFail(),
+                ['allowed' => false],
+            );
+        }
+
+        $this->actingAs($hrUser)
+            ->get(route('human-resources.employees.show', $employee))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('canViewSensitive', false)
+                ->has('employee.documents', 0));
+        $this->get(route('human-resources.employees.documents.download', [$employee, $document]))->assertForbidden();
+        $this->delete(route('human-resources.employees.documents.destroy', [$employee, $document]))->assertForbidden();
     }
 
     public function test_admin_can_open_and_export_a_complete_dossier(): void
@@ -147,12 +196,73 @@ class HumanResourcesDossierTest extends TestCase
             ->assertInertia(fn (Assert $page) => $page
                 ->component('human-resources/dossier')
                 ->where('canViewSensitive', true)
+                ->where('canManageSensitive', true)
                 ->where('employee.employment.jobTitle', 'Técnica de campo')
                 ->where('employee.employment.annualReferenceSalary', '36000'));
 
         $this->get(route('human-resources.employees.export', $employee))
             ->assertOk()
             ->assertDownload("gestoria-empleado-{$employee->id}.csv");
+        $this->assertDatabaseHas('security_events', [
+            'user_id' => $admin->id,
+            'type' => 'hr_dossier_exported',
+        ]);
+    }
+
+    public function test_sensitive_view_only_permission_renders_a_read_only_dossier(): void
+    {
+        $employee = $this->staff('Inés', 'Lago');
+        HrEmploymentProfile::create([
+            'person_id' => $employee->id,
+            'employment_type' => 'permanent',
+            'status' => 'active',
+            'annual_reference_salary' => '39000',
+        ]);
+        $profile = PermissionProfile::where('slug', 'human-resources')->firstOrFail();
+        $user = User::factory()->create(['role' => 'commercial', 'permission_profile_id' => $profile->id]);
+        $user->permissionOverrides()->attach(
+            Permission::where('key', 'manage-sensitive-hr')->firstOrFail(),
+            ['allowed' => false],
+        );
+
+        $this->actingAs($user)
+            ->get(route('human-resources.employees.show', $employee))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('canViewSensitive', true)
+                ->where('canManageSensitive', false)
+                ->where('employee.employment.annualReferenceSalary', '39000'));
+
+        $this->put(route('human-resources.employees.sensitive.update', $employee), [
+            'annual_reference_salary' => '40000',
+            'change_effective_date' => '2026-08-15',
+            'change_reason' => 'No autorizado',
+        ])->assertForbidden();
+    }
+
+    public function test_gestoria_export_neutralizes_spreadsheet_formulas(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $employee = Person::create([
+            'category' => 'staff',
+            'first_name' => '=CMD()',
+            'last_name' => 'Prueba',
+            'tax_id' => '@SUM(1+1)',
+            'email' => 'formula@example.com',
+        ]);
+        HrEmploymentProfile::create([
+            'person_id' => $employee->id,
+            'job_title' => '+Técnico',
+            'employment_type' => 'permanent',
+            'status' => 'active',
+        ]);
+
+        $content = $this->actingAs($admin)
+            ->get(route('human-resources.employees.export', $employee))
+            ->streamedContent();
+
+        $this->assertStringContainsString("'=CMD() Prueba", $content);
+        $this->assertStringContainsString("'@SUM(1+1)", $content);
+        $this->assertStringContainsString("'+Técnico", $content);
     }
 
     private function staff(string $firstName, string $lastName): Person

@@ -8,11 +8,14 @@ use App\Models\HrLeavePolicy;
 use App\Models\HrLeaveRequest;
 use App\Models\Person;
 use App\Notifications\LeaveRequestDecisionNotification;
+use App\Rules\SafeUpload;
 use App\Services\HumanResources\LeaveBalanceCalculator;
 use App\Services\HumanResources\LeaveCoverageService;
 use App\Services\HumanResources\LeaveRequestCreator;
+use App\Services\Security\SecurityEventRecorder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -44,6 +47,7 @@ class HrLeaveController extends Controller
                 'name' => $policy->name,
                 'annualAllowanceDays' => $policy->annual_allowance_days,
                 'accrualMethod' => $policy->accrual_method,
+                'dayCountMethod' => $policy->day_count_method,
                 'carryoverLimitDays' => $policy->carryover_limit_days,
                 'requiresAttachment' => $policy->requires_attachment,
                 'isActive' => $policy->is_active,
@@ -90,7 +94,7 @@ class HrLeaveController extends Controller
             'start_date' => ['required', 'date'],
             'end_date' => ['required', 'date', 'after_or_equal:start_date'],
             'notes' => ['nullable', 'string', 'max:2000'],
-            'attachment' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:12288'],
+            'attachment' => ['nullable', 'file', new SafeUpload(['pdf', 'jpg', 'jpeg', 'png'], 12288)],
         ]);
 
         $person = Person::findOrFail($validated['person_id']);
@@ -99,10 +103,14 @@ class HrLeaveController extends Controller
         return back()->with('success', __('Leave request created.'));
     }
 
-    public function update(Request $request, HrLeaveRequest $leave, LeaveCoverageService $coverage): RedirectResponse
-    {
+    public function update(
+        Request $request,
+        HrLeaveRequest $leave,
+        LeaveCoverageService $coverage,
+        LeaveBalanceCalculator $balances,
+    ): RedirectResponse {
         $validated = $request->validate([
-            'status' => ['required', Rule::in(['pending', 'approved', 'rejected', 'cancelled'])],
+            'status' => ['required', Rule::in(['approved', 'rejected', 'cancelled'])],
             'decision_notes' => ['nullable', 'string', 'max:2000'],
             'substitute_person_id' => [
                 'nullable',
@@ -111,19 +119,46 @@ class HrLeaveController extends Controller
             ],
         ]);
 
-        if ($validated['status'] === 'approved' && $coverage->conflicts($leave)->isNotEmpty() && empty($validated['substitute_person_id'])) {
-            throw ValidationException::withMessages([
-                'substitute_person_id' => __('A substitute is required because this absence leaves scheduled work orders uncovered.'),
-            ]);
-        }
+        $leave = DB::transaction(function () use ($request, $leave, $validated, $coverage, $balances) {
+            $lockedLeave = HrLeaveRequest::query()
+                ->with(['person.user', 'person.employmentProfile'])
+                ->lockForUpdate()
+                ->findOrFail($leave->id);
+            if ($lockedLeave->status !== 'pending') {
+                throw ValidationException::withMessages(['status' => __('Only pending leave requests can be reviewed.')]);
+            }
 
-        $reviewed = in_array($validated['status'], ['approved', 'rejected'], true);
-        $leave->update([
-            ...$validated,
-            'reviewed_by' => $reviewed ? $request->user()->id : null,
-            'reviewed_at' => $reviewed ? now() : null,
-        ]);
-        if ($reviewed && $leave->person->user) {
+            $reviewed = in_array($validated['status'], ['approved', 'rejected'], true);
+            if ($validated['status'] === 'approved') {
+                $policy = HrLeavePolicy::query()->where('type', $lockedLeave->type)->firstOrFail();
+                $balances->assertApprovable($lockedLeave->person, $policy, $lockedLeave);
+                $conflicts = $coverage->conflicts($lockedLeave);
+                if ($conflicts->isNotEmpty() && empty($validated['substitute_person_id'])) {
+                    throw ValidationException::withMessages([
+                        'substitute_person_id' => __('A substitute is required because this absence leaves scheduled work orders uncovered.'),
+                    ]);
+                }
+                if (! empty($validated['substitute_person_id'])) {
+                    $substitute = Person::query()
+                        ->with(['user', 'employmentProfile'])
+                        ->whereKey($validated['substitute_person_id'])
+                        ->lockForUpdate()
+                        ->firstOrFail();
+                    $coverage->assertSubstituteAvailable($substitute, $lockedLeave);
+                    $coverage->reassign($conflicts, $substitute);
+                }
+            }
+
+            $lockedLeave->update([
+                ...$validated,
+                'reviewed_by' => $reviewed ? $request->user()->id : null,
+                'reviewed_at' => $reviewed ? now() : null,
+            ]);
+
+            return $lockedLeave;
+        });
+
+        if (in_array($leave->status, ['approved', 'rejected'], true) && $leave->person->user) {
             $leave->person->user->notify(new LeaveRequestDecisionNotification($leave));
         }
 
@@ -136,10 +171,12 @@ class HrLeaveController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'annual_allowance_days' => ['required', 'numeric', 'min:0', 'max:366'],
             'accrual_method' => ['required', Rule::in(['annual', 'monthly', 'none'])],
+            'day_count_method' => ['sometimes', Rule::in(['calendar_days', 'working_days'])],
             'carryover_limit_days' => ['required', 'numeric', 'min:0', 'max:366'],
             'requires_attachment' => ['boolean'],
             'is_active' => ['boolean'],
         ]);
+        $data['day_count_method'] ??= $policy->day_count_method;
         $policy->update($data);
 
         return back()->with('success', __('Leave policy updated.'));
@@ -163,9 +200,13 @@ class HrLeaveController extends Controller
         return back()->with('success', __('Leave balance updated.'));
     }
 
-    public function downloadAttachment(HrLeaveRequest $leave, HrLeaveAttachment $attachment): StreamedResponse
+    public function downloadAttachment(HrLeaveRequest $leave, HrLeaveAttachment $attachment, SecurityEventRecorder $events): StreamedResponse
     {
         abort_unless($attachment->leave_request_id === $leave->id && Storage::disk(config('filesystems.private'))->exists($attachment->path), 404);
+        $events->record('hr_leave_attachment_downloaded', request()->user(), [
+            'leave_request_id' => $leave->id,
+            'attachment_id' => $attachment->id,
+        ]);
 
         return Storage::disk(config('filesystems.private'))->download($attachment->path, $attachment->original_name, [
             'Content-Type' => $attachment->mime_type,

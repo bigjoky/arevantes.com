@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Installation;
 use App\Models\JournalEntry;
 use App\Models\Person;
 use App\Models\Product;
@@ -127,6 +128,84 @@ class CatalogTest extends TestCase
         $this->assertSame('189.00', $quote->tax_amount);
         $this->assertSame('1089.00', $quote->amount);
         $this->assertCount(1, $quote->lines);
+    }
+
+    public function test_quote_profitability_compares_net_expected_margin_with_live_project_actuals(): void
+    {
+        config(['work.default_hourly_cost' => 50]);
+        $user = User::factory()->create(['role' => 'commercial']);
+        $customer = Person::create(['category' => 'customer', 'first_name' => 'Lucía']);
+        $installation = Installation::create([
+            'person_id' => $customer->id,
+            'service_type' => 'solar',
+            'site_address_line_1' => 'Calle Solar 1',
+            'estimated_budget' => 1089,
+        ]);
+        $quote = Quote::create([
+            'installation_id' => $installation->id,
+            'person_id' => $customer->id,
+            'created_by' => $user->id,
+            'number' => 'PRE-MARGIN-1',
+            'status' => 'accepted',
+            'issue_date' => '2026-08-15',
+            'subtotal' => 1000,
+            'discount_amount' => 100,
+            'tax_amount' => 189,
+            'amount' => 1089,
+            'expected_margin_amount' => 600,
+        ]);
+        $installation->materialRequirements()->create([
+            'quote_id' => $quote->id,
+            'source' => 'quote',
+            'description' => 'Planned materials',
+            'planned_quantity' => 1,
+            'planned_unit_cost' => 200,
+        ]);
+        $workOrder = $installation->workOrders()->create([
+            'created_by' => $user->id,
+            'number' => 'WO-MARGIN-1',
+            'title' => 'Installation',
+            'status' => 'in_progress',
+            'estimated_duration_minutes' => 120,
+        ]);
+        $workOrder->timeEntries()->create([
+            'user_id' => $user->id,
+            'created_by' => $user->id,
+            'started_at' => '2026-08-15 08:00:00',
+            'ended_at' => '2026-08-15 10:00:00',
+            'duration_minutes' => 120,
+            'hourly_cost' => 50,
+        ]);
+        SalesDocument::create([
+            'type' => 'invoice',
+            'quote_id' => $quote->id,
+            'installation_id' => $installation->id,
+            'person_id' => $customer->id,
+            'created_by' => $user->id,
+            'number' => 'FAC-MARGIN-1',
+            'status' => 'issued',
+            'issue_date' => '2026-08-15',
+            'subtotal' => 800,
+            'discount_amount' => 50,
+            'tax_amount' => 157.50,
+            'amount' => 907.50,
+            'customer_snapshot' => [],
+        ]);
+
+        $this->actingAs($user)->get(route('quotes.show', $quote))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('quote.actual_margin_amount', '650.00')
+                ->where('profitability.planned_revenue', 900)
+                ->where('profitability.planned_cost', 300)
+                ->where('profitability.planned_margin', 600)
+                ->where('profitability.actual_revenue', 750)
+                ->where('profitability.actual_cost', 100)
+                ->where('profitability.actual_margin', 650)
+                ->where('profitability.margin_variance', 50)
+                ->where('profitability.has_actuals', true));
+
+        $this->assertNull($quote->fresh()->actual_margin_amount);
     }
 
     public function test_an_accepted_quote_converts_once_and_renders_a_pdf(): void

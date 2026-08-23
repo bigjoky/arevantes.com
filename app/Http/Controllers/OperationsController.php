@@ -10,6 +10,7 @@ use App\Models\ServiceTicket;
 use App\Models\User;
 use App\Models\WorkOrder;
 use App\Models\WorkOrderTemplate;
+use App\Services\Crm\LeadResponseSla;
 use App\Services\Crm\OpportunitySalesCycle;
 use App\Services\Work\TechnicianSchedule;
 use App\Services\Work\WorkOrderFactory;
@@ -67,12 +68,14 @@ class OperationsController extends Controller
             ->paginate(25)
             ->withQueryString();
 
-        $boardActivities = (clone $baseActivities)
-            ->whereIn('status', ['pending', 'in_progress', 'blocked'])
-            ->orderByRaw('case when due_at is null then 1 else 0 end')
-            ->orderBy('due_at')
-            ->limit(200)
-            ->get();
+        $boardActivities = $filters['view'] === 'board'
+            ? (clone $baseActivities)
+                ->whereIn('status', ['pending', 'in_progress', 'blocked'])
+                ->orderByRaw('case when due_at is null then 1 else 0 end')
+                ->orderBy('due_at')
+                ->limit(200)
+                ->get()
+            : collect();
 
         $selectedDate = isset($filters['week'])
             ? Carbon::createFromFormat('Y-m-d', $filters['week'])
@@ -84,19 +87,28 @@ class OperationsController extends Controller
         $rangeEnd = $filters['view'] === 'month' ? $anchor->copy()->endOfMonth()->endOfWeek() : $anchor->copy()->endOfWeek();
         $workOrdersQuery = WorkOrder::query()
             ->with(['installation:id,project_reference,site_name,status,site_postal_code,site_latitude,site_longitude', 'installation.materialRequirements:id,installation_id', 'assignedUser:id,name,role', 'assignedUser.fieldServiceProfile', 'stockReservations:id,work_order_id,status'])
-            ->whereNotIn('status', ['completed', 'cancelled']);
+            ->whereIn('status', ['planned', 'in_progress', 'blocked']);
         if ($request->user()->hasRole('technician')) {
             $workOrdersQuery->where('assigned_user_id', $request->user()->id);
         }
         $planningOrdersQuery = (clone $workOrdersQuery)
             ->when($filters['owner'] ?? null, fn (Builder $query, int $owner) => $query->where('assigned_user_id', $owner))
             ->when($filters['q'] ?? null, fn (Builder $query, string $search) => $query->where(fn (Builder $query) => $query->where('title', 'like', "%{$search}%")->orWhere('number', 'like', "%{$search}%")));
-        $planningOrders = $planningOrdersQuery
-            ->where(fn (Builder $query) => $query->whereNull('scheduled_start')->orWhereBetween('scheduled_start', [$rangeStart, $rangeEnd]))
-            ->orderByRaw('case when scheduled_start is null then 1 else 0 end')
-            ->orderBy('scheduled_start')
-            ->limit(200)
-            ->get();
+        $isPlanningView = in_array($filters['view'], ['week', 'month'], true);
+        $scheduledOrdersQuery = (clone $planningOrdersQuery)
+            ->whereNotNull('scheduled_start')
+            ->where('scheduled_start', '<=', $rangeEnd)
+            ->where(fn (Builder $query) => $query->whereNull('scheduled_end')->orWhere('scheduled_end', '>=', $rangeStart));
+        $unscheduledOrdersQuery = (clone $planningOrdersQuery)->whereNull('scheduled_start');
+        $scheduledTotal = $isPlanningView ? (clone $scheduledOrdersQuery)->count() : 0;
+        $unscheduledTotal = $isPlanningView ? (clone $unscheduledOrdersQuery)->count() : 0;
+        $scheduledOrders = $isPlanningView
+            ? $scheduledOrdersQuery->orderBy('scheduled_start')->orderBy('id')->limit(500)->get()
+            : collect();
+        $unscheduledOrders = $isPlanningView
+            ? $unscheduledOrdersQuery->orderBy('created_at')->orderBy('id')->limit(50)->get()
+            : collect();
+        $planningOrders = $scheduledOrders->concat($unscheduledOrders);
         $planningIssues = $schedule->planningIssues($planningOrders);
         $planningOrders->each(function (WorkOrder $order) use ($planningIssues): void {
             $order->setAttribute('planning_issues', $planningIssues[$order->id] ?? []);
@@ -114,7 +126,16 @@ class OperationsController extends Controller
             'activities' => $activities,
             'boardActivities' => $boardActivities,
             'planningOrders' => $planningOrders,
-            'weekActivities' => $weekActivities->orderBy('starts_at')->orderBy('due_at')->limit(200)->get(),
+            'planningMeta' => [
+                'scheduled_total' => $scheduledTotal,
+                'scheduled_loaded' => $scheduledOrders->count(),
+                'unscheduled_total' => $unscheduledTotal,
+                'unscheduled_loaded' => $unscheduledOrders->count(),
+                'truncated' => $scheduledTotal > $scheduledOrders->count() || $unscheduledTotal > $unscheduledOrders->count(),
+            ],
+            'weekActivities' => $isPlanningView
+                ? $weekActivities->orderBy('starts_at')->orderBy('due_at')->limit(500)->get()
+                : collect(),
             'metrics' => $this->metrics($request, $workOrdersQuery),
             'exceptions' => $this->operationalExceptions($request, $workOrdersQuery),
             'installations' => Installation::where('status', '!=', 'cancelled')->orderBy('project_reference')->get(['id', 'project_reference', 'site_name', 'status']),
@@ -126,7 +147,7 @@ class OperationsController extends Controller
         ]);
     }
 
-    public function store(Request $request, OpportunitySalesCycle $salesCycle): RedirectResponse
+    public function store(Request $request, OpportunitySalesCycle $salesCycle, LeadResponseSla $responseSla): RedirectResponse
     {
         $this->normaliseEmptySelects($request);
         $data = $this->validateActivity($request);
@@ -142,8 +163,8 @@ class OperationsController extends Controller
         abort_if($opportunity && $installation && $opportunity->installation_id && $opportunity->installation_id !== $installation->id, 422, __('The installation does not belong to this opportunity.'));
 
         $status = $data['status'] ?? 'pending';
-        DB::transaction(function () use ($data, $opportunity, $installation, $status, $request, $salesCycle): void {
-            CrmActivity::create([
+        DB::transaction(function () use ($data, $opportunity, $installation, $status, $request, $salesCycle, $responseSla): void {
+            $activity = CrmActivity::create([
                 ...$data,
                 'person_id' => $data['person_id'] ?? $opportunity?->person_id ?? $installation?->person_id,
                 'installation_id' => $data['installation_id'] ?? $opportunity?->installation_id,
@@ -152,6 +173,7 @@ class OperationsController extends Controller
                 'completed_at' => $status === 'completed' ? now() : null,
                 'created_by' => $request->user()->id,
             ]);
+            $responseSla->record($activity);
             if ($opportunity) {
                 $salesCycle->synchronizeStage($opportunity, $request->user());
                 $salesCycle->refreshScore($opportunity);
@@ -161,7 +183,7 @@ class OperationsController extends Controller
         return back()->with('toast', ['type' => 'success', 'message' => __('Activity created.')]);
     }
 
-    public function update(Request $request, CrmActivity $activity, OpportunitySalesCycle $salesCycle): RedirectResponse
+    public function update(Request $request, CrmActivity $activity, OpportunitySalesCycle $salesCycle, LeadResponseSla $responseSla): RedirectResponse
     {
         Gate::authorize('update', $activity);
         abort_if($activity->work_order_id !== null, 422, __('Update linked work through its work order.'));
@@ -189,8 +211,9 @@ class OperationsController extends Controller
             __('Closed opportunities cannot receive active activities.'),
         );
 
-        DB::transaction(function () use ($activity, $data, $previousOpportunity, $targetOpportunity, $request, $salesCycle): void {
+        DB::transaction(function () use ($activity, $data, $previousOpportunity, $targetOpportunity, $request, $salesCycle, $responseSla): void {
             $activity->update($data);
+            $responseSla->record($activity);
             collect([$previousOpportunity, $targetOpportunity])->filter()->unique('id')->each(function (Opportunity $opportunity) use ($request, $salesCycle): void {
                 $salesCycle->synchronizeStage($opportunity, $request->user());
                 $salesCycle->refreshScore($opportunity);
