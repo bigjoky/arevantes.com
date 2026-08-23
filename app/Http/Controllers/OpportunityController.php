@@ -72,6 +72,36 @@ class OpportunityController extends Controller
         $responseMinutes = $opportunities
             ->map(fn (Opportunity $item) => $responseSla->responseMinutes($item))
             ->filter(fn (?int $minutes) => $minutes !== null);
+        $responsePerformance = $opportunities
+            ->whereNotNull('owner_user_id')
+            ->groupBy('owner_user_id')
+            ->map(function ($items) use ($responseSla, $responseStatuses): array {
+                $eligible = $items->filter(
+                    fn (Opportunity $item) => $responseStatuses->get($item->id) !== 'not_applicable',
+                );
+                $measured = $eligible->filter(
+                    fn (Opportunity $item) => in_array($responseStatuses->get($item->id), ['met', 'breached'], true),
+                );
+                $minutes = $eligible
+                    ->map(fn (Opportunity $item) => $responseSla->responseMinutes($item))
+                    ->filter(fn (?int $value) => $value !== null);
+
+                return [
+                    'owner_id' => $items->first()->owner_user_id,
+                    'owner_name' => $items->first()->owner?->name ?? __('Unassigned'),
+                    'total' => $eligible->count(),
+                    'met' => $eligible->filter(fn (Opportunity $item) => $responseStatuses->get($item->id) === 'met')->count(),
+                    'breached' => $eligible->filter(fn (Opportunity $item) => $responseStatuses->get($item->id) === 'breached')->count(),
+                    'pending' => $eligible->filter(fn (Opportunity $item) => $responseStatuses->get($item->id) === 'pending')->count(),
+                    'met_rate' => $measured->isNotEmpty()
+                        ? round($measured->filter(fn (Opportunity $item) => $responseStatuses->get($item->id) === 'met')->count() / $measured->count() * 100, 1)
+                        : null,
+                    'average_minutes' => $minutes->isNotEmpty() ? round((float) $minutes->average(), 1) : null,
+                ];
+            })
+            ->filter(fn (array $row) => $row['total'] > 0)
+            ->sortByDesc('breached')
+            ->values();
 
         return Inertia::render('opportunities/index', [
             'opportunities' => $opportunities->map(function (Opportunity $item) use ($salesCycle, $responseSla, $settings): array {
@@ -135,6 +165,7 @@ class OpportunityController extends Controller
                 'stage_days' => $this->averageDaysByStage($opportunities),
             ],
             'forecast' => $request->boolean('archived') ? [] : $this->forecast($open),
+            'responsePerformance' => $responsePerformance,
             'savedFilters' => SavedCrmFilter::query()->where('user_id', $request->user()->id)->where('scope', 'opportunities')->orderByDesc('is_default')->orderBy('name')->get(),
             'crmSettings' => $settings,
             'canConfigureCrm' => $request->user()->hasRole('admin'),
