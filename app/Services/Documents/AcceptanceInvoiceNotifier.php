@@ -10,7 +10,10 @@ use Illuminate\Support\Str;
 
 class AcceptanceInvoiceNotifier
 {
-    public function __construct(private readonly DocumentFingerprint $fingerprints) {}
+    public function __construct(
+        private readonly DocumentFingerprint $fingerprints,
+        private readonly DocumentPdf $pdf,
+    ) {}
 
     public function send(SalesDocument $invoice): ?DocumentDelivery
     {
@@ -36,14 +39,20 @@ class AcceptanceInvoiceNotifier
         ]);
 
         try {
+            $pdfData = $this->pdf->render($invoice, 'invoice', final: true);
             Mail::to($recipient)->send(new DocumentSharedMail(
                 $invoice,
                 'invoice',
                 route('documents.shared.show', $token),
                 $expires->format('d/m/Y'),
+                $pdfData,
             ));
             $delivery->update(['status' => 'sent', 'sent_at' => now()]);
         } catch (\Throwable $exception) {
+            if (app()->runningUnitTests()) {
+                throw $exception;
+            }
+
             report($exception);
             $delivery->update(['status' => 'failed', 'failure_reason' => Str::limit($exception->getMessage(), 1000)]);
         }
