@@ -5,7 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\PurchaseDocument;
 use App\Models\User;
 use App\Services\Documents\PurchaseWorkflow;
-use App\Services\Supply\CriticalMaterialRisk;
+use App\Services\Supply\SupplyScenarioPlanner;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -14,16 +14,31 @@ use Inertia\Response;
 
 class SupplyControlTowerController extends Controller
 {
-    public function index(Request $request, CriticalMaterialRisk $criticalMaterialRisk): Response
+    public function index(Request $request, SupplyScenarioPlanner $scenarioPlanner): Response
     {
-        $materialRisk = $criticalMaterialRisk->forecast(today(), 45);
+        $materialRisk = $scenarioPlanner->forecast(today(), 45);
         if (! $request->user()->can('view-finance')) {
             $materialRisk['summary']['shortage_exposure'] = null;
             $materialRisk['summary']['late_inbound_value'] = null;
+            $materialRisk['scenario']['recommended_net'] = null;
+            $materialRisk['scenario']['recommended_cash'] = null;
+            $materialRisk['scenario']['cash_within_30_days'] = null;
             $materialRisk['rows'] = collect($materialRisk['rows'])->map(fn (array $row) => [
                 ...$row,
                 'shortage_exposure' => null,
                 'late_inbound_value' => null,
+                'alternatives' => collect($row['alternatives'])->map(fn (array $alternative) => [
+                    ...$alternative,
+                    'unit_price' => null,
+                    'net_cost' => null,
+                    'cash_impact' => null,
+                ])->all(),
+                'recommended' => $row['recommended'] ? [
+                    ...$row['recommended'],
+                    'unit_price' => null,
+                    'net_cost' => null,
+                    'cash_impact' => null,
+                ] : null,
             ])->all();
         }
 

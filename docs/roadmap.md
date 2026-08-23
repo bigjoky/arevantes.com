@@ -8,9 +8,9 @@ base y no mantienen implementaciones funcionales aisladas.
 | Area | Capacidades alineadas | Siguiente incremento |
 | --- | --- | --- |
 | CRM y ventas | ciclo comercial, captacion, cartera, agenda y rutas comerciales moviles offline, conversion atribuida por origen y comercial, aprobaciones, opciones, SLA y trazabilidad | automatizacion de renovaciones y forecast por cohortes |
-| Finanzas | contabilidad, banca, cobros, riesgo de clientes, alertas, cierre asistido y bloqueo por excepciones | conciliacion guiada de excepciones y simulacion de caja |
+| Finanzas | contabilidad, banca, cobros, riesgo de clientes, alertas, cierre asistido, bloqueo por excepciones y escenarios de compra no comprometida | conciliacion guiada de excepciones y simulacion de caja integrada |
 | Operaciones | planificacion, ordenes, mantenimiento, RMA, sincronizacion movil, capacidad semanal y riesgo de repuestos criticos | simulacion operativa de escenarios y alternativas |
-| Suministro | compras, aprobaciones, reposicion, calidad, control tower, criticidad de repuestos y riesgo por fecha de ejecucion | simulacion de abastecimiento y riesgo de proveedor |
+| Suministro | compras, aprobaciones, reposicion, calidad, control tower, criticidad, riesgo por fecha y alternativas de proveedor | conversion gobernada de escenarios en solicitudes de oferta |
 | Recursos humanos | expediente, contratos, ausencias, tareas, controles sensibles y capacidad coordinada con operaciones | turnos y coste operativo planificado |
 | Portal de cliente | documentos protegidos, aceptacion, certificados y autoservicio de incidencias | seguimiento de hitos y comunicaciones proactivas |
 | Analitica | drilldowns acotados, alertas e informes programados | objetivos versionados y explicacion de desviaciones |
@@ -59,3 +59,6 @@ Un incremento solo se considera alineado cuando incluye:
 - Criticidad y plazo objetivo configurables por repuesto, con simulacion cronologica
   de reservas, stock libre y entradas previstas; las carencias bloqueantes se
   comparten entre Suministro y Operaciones junto con su exposicion economica.
+- Alternativas de proveedor priorizadas por llegada a tiempo, preferencia,
+  scorecard y coste, ajustadas a MOQ y multiplos; Finanzas recibe el efectivo y
+  fecha de pago recomendados como escenario aun no comprometido.

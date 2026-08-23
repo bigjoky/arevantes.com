@@ -16,6 +16,7 @@ class SupplierProduct extends Model
             'minimum_order_quantity' => 'decimal:3',
             'order_multiple' => 'decimal:3',
             'last_unit_price' => 'decimal:2',
+            'lead_time_days' => 'integer',
             'is_preferred' => 'boolean',
             'is_active' => 'boolean',
         ];
