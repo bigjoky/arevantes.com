@@ -29,6 +29,88 @@ class CommercialLeadController extends Controller
         'other',
     ];
 
+    public function index(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'limit' => ['nullable', 'integer', 'min:1', 'max:200'],
+        ]);
+        $limit = $validated['limit'] ?? 100;
+        $base = Opportunity::query()
+            ->where('owner_user_id', $request->user()->id)
+            ->whereNotIn('stage', ['won', 'lost']);
+        $opportunities = (clone $base)
+            ->with([
+                'customer:id,first_name,last_name,company_name,phone,email,address_line_1,city,postal_code,preferred_contact_channel,do_not_contact',
+                'nextActivity',
+            ])
+            ->orderByDesc('commercial_score')
+            ->orderByDesc('updated_at')
+            ->limit($limit)
+            ->get();
+        $lastVisits = CommercialVisit::query()
+            ->where('user_id', $request->user()->id)
+            ->whereIn('opportunity_id', $opportunities->modelKeys())
+            ->latest('visited_at')
+            ->get()
+            ->unique('opportunity_id')
+            ->keyBy('opportunity_id');
+        $agenda = CrmActivity::query()
+            ->with([
+                'person:id,first_name,last_name,company_name,phone,email,address_line_1,city,postal_code,preferred_contact_channel,do_not_contact',
+                'opportunity:id,code,title,stage,commercial_score',
+            ])
+            ->where('assigned_user_id', $request->user()->id)
+            ->whereIn('status', ['pending', 'in_progress'])
+            ->whereHas('opportunity', fn ($query) => $query
+                ->where('owner_user_id', $request->user()->id)
+                ->whereNotIn('stage', ['won', 'lost']))
+            ->orderByRaw('case when due_at is null then 1 else 0 end')
+            ->orderBy('due_at')
+            ->limit($limit)
+            ->get();
+
+        return response()->json(['data' => [
+            'summary' => [
+                'open' => (clone $base)->count(),
+                'overdue' => (clone $base)->whereHas('nextActivity', fn ($query) => $query->where('due_at', '<', now()))->count(),
+                'due_today' => (clone $base)->whereHas('nextActivity', fn ($query) => $query->whereDate('due_at', today()))->count(),
+                'pipeline_value' => (float) (clone $base)->sum('estimated_value'),
+            ],
+            'leads' => $opportunities->map(fn (Opportunity $opportunity) => [
+                'id' => $opportunity->id,
+                'code' => $opportunity->code,
+                'title' => $opportunity->title,
+                'stage' => $opportunity->stage,
+                'probability' => $opportunity->probability,
+                'commercial_score' => $opportunity->commercial_score,
+                'estimated_value' => (float) $opportunity->estimated_value,
+                'source' => $opportunity->source,
+                'expected_close_on' => $opportunity->expected_close_on?->toDateString(),
+                'updated_at' => $opportunity->updated_at->toISOString(),
+                'customer' => $opportunity->customer ? $this->customerSummary($opportunity->customer) : null,
+                'next_action' => $opportunity->nextActivity ? $this->activitySummary($opportunity->nextActivity) : null,
+                'last_visit' => ($visit = $lastVisits->get($opportunity->id)) ? [
+                    'visited_at' => $visit->visited_at->toISOString(),
+                    'latitude' => $visit->latitude,
+                    'longitude' => $visit->longitude,
+                    'address' => $visit->address,
+                ] : null,
+            ])->values(),
+            'agenda' => $agenda->map(fn (CrmActivity $activity) => [
+                ...$this->activitySummary($activity),
+                'customer' => $activity->person ? $this->customerSummary($activity->person) : null,
+                'opportunity' => $activity->opportunity ? [
+                    'id' => $activity->opportunity->id,
+                    'code' => $activity->opportunity->code,
+                    'title' => $activity->opportunity->title,
+                    'stage' => $activity->opportunity->stage,
+                    'commercial_score' => $activity->opportunity->commercial_score,
+                ] : null,
+            ])->values(),
+            'generated_at' => now()->toISOString(),
+        ]]);
+    }
+
     public function store(
         Request $request,
         OpportunityCustomerResolver $customerResolver,
@@ -180,5 +262,34 @@ class CommercialLeadController extends Controller
                 'lead_source' => $data['source'],
                 'data_source' => 'mobile_commercial_visit',
             ]);
+    }
+
+    /** @return array<string, mixed> */
+    private function customerSummary(Person $customer): array
+    {
+        return [
+            'id' => $customer->id,
+            'name' => $customer->company_name ?: trim($customer->first_name.' '.($customer->last_name ?? '')),
+            'phone' => $customer->phone,
+            'email' => $customer->email,
+            'address' => $customer->address_line_1,
+            'city' => $customer->city,
+            'postal_code' => $customer->postal_code,
+            'preferred_contact_channel' => $customer->preferred_contact_channel,
+            'do_not_contact' => $customer->do_not_contact,
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    private function activitySummary(CrmActivity $activity): array
+    {
+        return [
+            'id' => $activity->id,
+            'type' => $activity->type,
+            'title' => $activity->title,
+            'priority' => $activity->priority,
+            'status' => $activity->status,
+            'due_at' => $activity->due_at?->toISOString(),
+        ];
     }
 }

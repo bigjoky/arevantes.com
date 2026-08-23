@@ -28,6 +28,9 @@ Route::prefix('mobile/v1')->name('api.mobile.v1.')->group(function () {
         Route::delete('auth/token', [MobileAuthController::class, 'logout'])->name('auth.logout');
         Route::put('devices/{deviceId}', [MobileDeviceController::class, 'update'])->whereUuid('deviceId')->name('devices.update');
         Route::delete('devices/{deviceId}', [MobileDeviceController::class, 'destroy'])->whereUuid('deviceId')->name('devices.destroy');
+        Route::get('commercial/dashboard', [MobileCommercialLeadController::class, 'index'])
+            ->middleware('can:manage-customers')
+            ->name('commercial.dashboard');
         Route::post('commercial/leads', [MobileCommercialLeadController::class, 'store'])
             ->middleware(['can:manage-customers', EnsureMobileIdempotency::class])
             ->name('commercial.leads.store');

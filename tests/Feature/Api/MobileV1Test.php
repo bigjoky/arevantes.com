@@ -6,6 +6,7 @@ use App\Models\CommercialVisit;
 use App\Models\CrmActivity;
 use App\Models\Installation;
 use App\Models\MobileOperation;
+use App\Models\Opportunity;
 use App\Models\PermissionProfile;
 use App\Models\Person;
 use App\Models\Product;
@@ -173,6 +174,80 @@ class MobileV1Test extends TestCase
         $this->assertDatabaseHas('crm_activities', ['opportunity_id' => $visit->opportunity_id, 'type' => 'visit', 'status' => 'completed']);
         $this->assertDatabaseHas('crm_activities', ['opportunity_id' => $visit->opportunity_id, 'type' => 'call', 'status' => 'pending']);
         $this->assertSame(['solar_photovoltaic'], $customer->service_interests);
+    }
+
+    public function test_commercial_dashboard_contains_only_its_open_portfolio_and_agenda(): void
+    {
+        $commercial = User::factory()->create(['role' => 'commercial']);
+        $other = User::factory()->create(['role' => 'commercial']);
+        $customer = Person::create(['category' => 'customer', 'first_name' => 'Lead propio', 'phone' => '612345678', 'country' => 'Spain']);
+        $own = Opportunity::create([
+            'person_id' => $customer->id,
+            'owner_user_id' => $commercial->id,
+            'created_by' => $commercial->id,
+            'code' => 'OPP-MOBILE-1',
+            'title' => 'Autoconsumo',
+            'stage' => 'qualified',
+            'probability' => 35,
+            'commercial_score' => 70,
+            'estimated_value' => 12000,
+            'source' => 'outbound',
+        ]);
+        $action = CrmActivity::create([
+            'opportunity_id' => $own->id,
+            'person_id' => $customer->id,
+            'assigned_user_id' => $commercial->id,
+            'created_by' => $commercial->id,
+            'type' => 'call',
+            'title' => 'Llamar al lead',
+            'priority' => 'high',
+            'status' => 'pending',
+            'due_at' => now()->subHour(),
+        ]);
+        CommercialVisit::create([
+            'client_uuid' => (string) Str::uuid(),
+            'user_id' => $commercial->id,
+            'person_id' => $customer->id,
+            'opportunity_id' => $own->id,
+            'visited_at' => now()->subDay(),
+            'latitude' => 37.3891,
+            'longitude' => -5.9845,
+        ]);
+        Opportunity::create([
+            'person_id' => $customer->id,
+            'owner_user_id' => $other->id,
+            'created_by' => $other->id,
+            'code' => 'OPP-OTHER',
+            'title' => 'No visible',
+            'stage' => 'new',
+            'probability' => 10,
+            'estimated_value' => 99999,
+        ]);
+        Opportunity::create([
+            'person_id' => $customer->id,
+            'owner_user_id' => $commercial->id,
+            'created_by' => $commercial->id,
+            'code' => 'OPP-CLOSED',
+            'title' => 'Cerrada',
+            'stage' => 'won',
+            'probability' => 100,
+            'estimated_value' => 5000,
+        ]);
+
+        $this->mobileAs($commercial)->getJson('/api/mobile/v1/commercial/dashboard')
+            ->assertOk()
+            ->assertJsonPath('data.summary.open', 1)
+            ->assertJsonPath('data.summary.overdue', 1)
+            ->assertJsonPath('data.summary.pipeline_value', 12000)
+            ->assertJsonCount(1, 'data.leads')
+            ->assertJsonPath('data.leads.0.id', $own->id)
+            ->assertJsonPath('data.leads.0.customer.name', 'Lead propio')
+            ->assertJsonPath('data.leads.0.last_visit.latitude', 37.3891)
+            ->assertJsonCount(1, 'data.agenda')
+            ->assertJsonPath('data.agenda.0.id', $action->id);
+
+        $technician = User::factory()->create(['role' => 'technician']);
+        $this->mobileAs($technician)->getJson('/api/mobile/v1/commercial/dashboard')->assertForbidden();
     }
 
     public function test_commercial_lead_capture_reuses_customer_and_rejects_technician(): void
