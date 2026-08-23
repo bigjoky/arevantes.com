@@ -10,6 +10,7 @@ use App\Services\Analytics\AnalyticsAutomationService;
 use App\Services\Analytics\AnalyticsExportService;
 use App\Services\Analytics\AnalyticsFilter;
 use App\Services\Analytics\AnalyticsService;
+use App\Services\Analytics\CommercialConversionAnalytics;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -19,7 +20,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
 
 class AnalyticsController extends Controller
 {
-    public function index(Request $request, AnalyticsService $analytics): Response
+    public function index(Request $request, AnalyticsService $analytics, CommercialConversionAnalytics $conversionAnalytics): Response
     {
         $filter = AnalyticsFilter::fromRequest($request);
         $metricKey = $request->string('metric')->toString();
@@ -53,6 +54,7 @@ class AnalyticsController extends Controller
                 'triggered' => $alert->enabled && $alert->is_triggered,
             ]),
             'subscriptions' => $request->user()->analyticsReportSubscriptions()->get(),
+            'commercialConversions' => $filter->area === 'sales' ? $conversionAnalytics->forAnalytics($filter) : null,
         ]);
     }
 
