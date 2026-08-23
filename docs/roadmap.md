@@ -15,7 +15,7 @@ base y no mantienen implementaciones funcionales aisladas.
 | Portal de cliente | documentos protegidos, aceptacion y certificados publicados | autoservicio de incidencias y seguimiento de hitos |
 | Analitica | drilldowns acotados, alertas e informes programados | objetivos versionados y explicacion de desviaciones |
 | Arevia | conocimiento gobernado, acciones, URLs y contexto operativo | evaluacion continua y aprobacion humana por riesgo |
-| Plataforma | permisos, auditoria, seguridad, copias y observabilidad | modularizacion progresiva de rutas y proveedores |
+| Plataforma | permisos, navegacion autorizada, auditoria, seguridad, copias y observabilidad | modularizacion progresiva de rutas y proveedores |
 
 ## Criterio comun de entrega
 
@@ -38,3 +38,9 @@ Un incremento solo se considera alineado cuando incluye:
 - Compatibilidad entre seleccion de opciones comerciales, anticipo y factura de
   saldo, sin sobrepasar el total aceptado.
 - Proteccion de documentos compartidos verificada sobre la base comun.
+- Navegacion del area autenticada construida en servidor con los mismos permisos
+  que protegen cada ruta, incluidos submenus y accesos rapidos.
+- Dashboard segmentado por capacidades para no consultar, mostrar ni enlazar
+  informacion de areas no autorizadas.
+- Acceso directo por URL cubierto por permisos y regresiones para perfiles
+  parciales de solo consulta.

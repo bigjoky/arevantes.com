@@ -13,6 +13,42 @@ export type User = {
 
 export type Auth = {
     user: User;
+    abilities: AuthAbilities;
+    navigation: WorkspaceNavItem[];
+};
+
+export type AuthAbilities = {
+    manageAdmin: boolean;
+    manageAccess: boolean;
+    exportAudit: boolean;
+    viewSystemHealth: boolean;
+    viewAnalytics: boolean;
+    manageCustomers: boolean;
+    viewInstallations: boolean;
+    manageInstallations: boolean;
+    useAi: boolean;
+    manageOperations: boolean;
+    manageCatalog: boolean;
+    viewFinance: boolean;
+    manageTreasury: boolean;
+    manageAccounting: boolean;
+    approvePayments: boolean;
+    manageTax: boolean;
+    managePurchases: boolean;
+    viewPurchases: boolean;
+    manageStaff: boolean;
+    receivePurchases: boolean;
+    approvePurchaseInvoices: boolean;
+    approvePurchaseOrders: boolean;
+    managePurchasePayments: boolean;
+    managePurchaseSettings: boolean;
+};
+
+export type WorkspaceNavItem = {
+    title: string;
+    href: string;
+    icon?: string;
+    children?: WorkspaceNavItem[];
 };
 
 /* @chisel-passkeys */
