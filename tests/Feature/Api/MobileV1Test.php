@@ -16,6 +16,7 @@ use App\Models\Unit;
 use App\Models\User;
 use App\Models\Warehouse;
 use App\Models\WorkOrder;
+use App\Services\Geocoding\NominatimGeocoder;
 use App\Services\Inventory\StockLedger;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -125,6 +126,42 @@ class MobileV1Test extends TestCase
         ])->assertNoContent()
             ->assertHeader('Access-Control-Allow-Origin', 'capacitor://localhost')
             ->assertHeader('Access-Control-Allow-Methods');
+    }
+
+    public function test_commercial_can_resolve_a_gps_position_to_an_address(): void
+    {
+        $commercial = User::factory()->create(['role' => 'commercial']);
+        $geocoder = $this->mock(NominatimGeocoder::class);
+        $geocoder->shouldReceive('reverse')
+            ->once()
+            ->with(37.3891, -5.9845)
+            ->andReturn([
+                'display_name' => 'Calle Sierpes 10, Sevilla, España',
+                'address' => [
+                    'road' => 'Calle Sierpes',
+                    'house_number' => '10',
+                    'locality' => null,
+                    'municipality' => 'Sevilla',
+                    'postal_code' => '41004',
+                ],
+            ]);
+
+        $this->mobileAs($commercial)
+            ->getJson('/api/mobile/v1/commercial/location/reverse?latitude=37.3891&longitude=-5.9845')
+            ->assertOk()
+            ->assertJsonPath('data.address', 'Calle Sierpes 10')
+            ->assertJsonPath('data.city', 'Sevilla')
+            ->assertJsonPath('data.postal_code', '41004');
+    }
+
+    public function test_reverse_geocoding_rejects_invalid_coordinates(): void
+    {
+        $commercial = User::factory()->create(['role' => 'commercial']);
+
+        $this->mobileAs($commercial)
+            ->getJson('/api/mobile/v1/commercial/location/reverse?latitude=100&longitude=-5.9845')
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('latitude');
     }
 
     public function test_commercial_can_capture_a_visit_as_a_lead_offline_idempotently(): void

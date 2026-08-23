@@ -10,12 +10,14 @@ use App\Models\Person;
 use App\Services\Crm\LeadResponseSla;
 use App\Services\Crm\OpportunitySalesCycle;
 use App\Services\Customers\OpportunityCustomerResolver;
+use App\Services\Geocoding\NominatimGeocoder;
 use App\Support\Crm\OpportunityCatalog;
 use App\Support\PhoneNormalizer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 class CommercialLeadController extends Controller
@@ -28,6 +30,27 @@ class CommercialLeadController extends Controller
         'energy_efficiency',
         'other',
     ];
+
+    public function reverseGeocode(Request $request, NominatimGeocoder $geocoder): JsonResponse
+    {
+        $data = $request->validate([
+            'latitude' => ['required', 'numeric', 'between:-90,90'],
+            'longitude' => ['required', 'numeric', 'between:-180,180'],
+        ]);
+        $place = $geocoder->reverse((float) $data['latitude'], (float) $data['longitude']);
+        $address = $place['address'] ?? [];
+        $streetAddress = trim(implode(' ', array_filter([
+            $address['road'] ?? null,
+            $address['house_number'] ?? null,
+        ])));
+
+        return response()->json(['data' => [
+            'address' => $streetAddress ?: (filled($place['display_name'] ?? null) ? Str::limit($place['display_name'], 255, '') : null),
+            'city' => $address['municipality'] ?? $address['locality'] ?? null,
+            'postal_code' => $address['postal_code'] ?? null,
+            'display_name' => $place['display_name'] ?? null,
+        ]]);
+    }
 
     public function index(Request $request): JsonResponse
     {
