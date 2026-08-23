@@ -20,6 +20,7 @@ use App\Models\FinancialForecastItem;
 use App\Models\Installation;
 use App\Models\LedgerAccount;
 use App\Models\PaymentBatch;
+use App\Models\Person;
 use App\Models\PurchaseDocument;
 use App\Models\SalesDocument;
 use App\Models\Supplier;
@@ -562,17 +563,20 @@ class FinanceTest extends TestCase
             'operating_variance_alert_percent' => 20,
             'cash_variance_alert_percent' => 25,
             'liquidity_buffer_amount' => 4000,
+            'customer_concentration_alert_percent' => 30,
         ])->assertRedirect()->assertSessionHasNoErrors();
 
         $this->assertDatabaseHas('company_profiles', [
             'operating_variance_alert_percent' => 20,
             'cash_variance_alert_percent' => 25,
             'liquidity_buffer_amount' => 4000,
+            'customer_concentration_alert_percent' => 30,
         ]);
         $this->get(route('finance.index', ['year' => 2026]))->assertOk()->assertInertia(fn (Assert $page) => $page
             ->where('alertSettings.operatingVariancePercent', 20)
             ->where('alertSettings.cashVariancePercent', 25)
             ->where('alertSettings.liquidityBufferAmount', 4000)
+            ->where('alertSettings.customerConcentrationPercent', 30)
             ->where('budgetAlerts.0.type', 'cash')
             ->where('budgetAlerts.0.month', 6)
             ->where('budgetAlerts.1.type', 'operating')
@@ -580,6 +584,83 @@ class FinanceTest extends TestCase
             ->where('budgetAlerts.2.type', 'liquidity')
             ->where('budgetAlerts.2.severity', 'warning')
             ->has('budgetAlerts', 3));
+    }
+
+    public function test_receivable_risk_consolidates_customer_exposure_and_traces_every_source_document(): void
+    {
+        $this->travelTo('2026-08-23');
+        $user = User::factory()->create(['role' => 'commercial']);
+        $largeCustomer = Person::create(['category' => 'customer', 'company_name' => 'Concentrated Solar SL', 'first_name' => 'Ana']);
+        $otherCustomer = Person::create(['category' => 'customer', 'company_name' => 'Diversified Energy SL', 'first_name' => 'Luis']);
+        CompanyProfile::firstOrFail()->update(['customer_concentration_alert_percent' => 60]);
+
+        $overdue = SalesDocument::create([
+            'type' => 'invoice',
+            'person_id' => $largeCustomer->id,
+            'number' => 'FAC-RISK-001',
+            'status' => 'overdue',
+            'issue_date' => '2026-04-01',
+            'due_date' => '2026-05-01',
+            'issued_at' => now(),
+            'locked_at' => now(),
+            'subtotal' => 800,
+            'discount_amount' => 0,
+            'tax_amount' => 0,
+            'amount' => 800,
+            'paid_amount' => 0,
+            'customer_snapshot' => [],
+        ]);
+        $current = SalesDocument::create([
+            'type' => 'invoice',
+            'person_id' => $otherCustomer->id,
+            'number' => 'FAC-RISK-002',
+            'status' => 'issued',
+            'issue_date' => '2026-08-01',
+            'due_date' => '2026-09-01',
+            'issued_at' => now(),
+            'locked_at' => now(),
+            'subtotal' => 200,
+            'discount_amount' => 0,
+            'tax_amount' => 0,
+            'amount' => 200,
+            'paid_amount' => 0,
+            'customer_snapshot' => [],
+        ]);
+
+        $this->actingAs($user)->get(route('finance.index', ['year' => 2026]))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('receivableRisk.summary.totalExposure', 1000)
+                ->where('receivableRisk.summary.customers', 2)
+                ->where('receivableRisk.summary.concentratedCustomers', 1)
+                ->where('receivableRisk.summary.criticalCustomers', 1)
+                ->where('receivableRisk.summary.overdueExposure', 800)
+                ->where('receivableRisk.summary.concentrationThreshold', 60)
+                ->where('receivableRisk.rows.0.customerId', $largeCustomer->id)
+                ->where('receivableRisk.rows.0.outstanding', 800)
+                ->where('receivableRisk.rows.0.over90', 800)
+                ->where('receivableRisk.rows.0.sharePercent', 80)
+                ->where('receivableRisk.rows.0.riskLevel', 'critical')
+                ->where('receivableRisk.rows.0.documents.0.href', '/sales/'.$overdue->id)
+                ->where('receivableRisk.rows.1.documents.0.href', '/sales/'.$current->id)
+                ->where('budgetAlerts.0.type', 'concentration')
+                ->where('budgetAlerts.0.href', '/people/'.$largeCustomer->id)
+                ->where('budgetAlerts.0.variancePercent', 80));
+
+        $this->patch(route('finance.alerts.update'), [
+            'year' => 2026,
+            'alert_key' => 'concentration:'.$largeCustomer->id,
+            'status' => 'in_review',
+            'assigned_to' => $user->id,
+            'notes' => 'Review credit exposure and agree a collection plan.',
+        ])->assertRedirect()->assertSessionHasNoErrors();
+
+        $this->assertDatabaseHas('financial_alert_actions', [
+            'alert_key' => 'concentration:'.$largeCustomer->id,
+            'type' => 'concentration',
+            'status' => 'in_review',
+            'assigned_to' => $user->id,
+        ]);
     }
 
     public function test_financial_alerts_can_be_assigned_reviewed_and_resolved(): void

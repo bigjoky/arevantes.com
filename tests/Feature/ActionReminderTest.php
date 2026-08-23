@@ -29,16 +29,18 @@ class ActionReminderTest extends TestCase
         $customer = Person::create(['category' => 'customer', 'first_name' => 'Ana']);
         SalesDocument::create(['type' => 'invoice', 'person_id' => $customer->id, 'number' => 'FAC-REM-1', 'status' => 'issued', 'issue_date' => today(), 'due_date' => today(), 'subtotal' => 100, 'discount_amount' => 0, 'tax_amount' => 21, 'amount' => 121, 'paid_amount' => 0, 'customer_snapshot' => []]);
 
-        $this->artisan('crm:send-reminders')->expectsOutput('3 action reminders sent.')->assertSuccessful();
+        $this->artisan('crm:send-reminders')->expectsOutput('5 action reminders sent.')->assertSuccessful();
 
         Notification::assertSentTo($technician, ActionSummaryNotification::class, fn ($notification) => $notification->toArray($technician)['category'] === 'operations');
         Notification::assertSentTo($admin, ActionSummaryNotification::class, fn ($notification) => $notification->toArray($admin)['category'] === 'collections');
         Notification::assertSentTo($commercial, ActionSummaryNotification::class, fn ($notification) => $notification->toArray($commercial)['category'] === 'collections');
+        Notification::assertSentTo($admin, ActionSummaryNotification::class, fn ($notification) => $notification->toArray($admin)['category'] === 'financial_alerts');
+        Notification::assertSentTo($commercial, ActionSummaryNotification::class, fn ($notification) => $notification->toArray($commercial)['category'] === 'financial_alerts');
         Notification::assertSentToTimes($technician, ActionSummaryNotification::class, 1);
-        $this->assertDatabaseCount(ActionReminder::class, 3);
+        $this->assertDatabaseCount(ActionReminder::class, 5);
 
         $this->artisan('crm:send-reminders')->expectsOutput('0 action reminders sent.')->assertSuccessful();
-        Notification::assertCount(3);
+        Notification::assertCount(5);
     }
 
     public function test_unassigned_operational_actions_only_notify_management_roles(): void
@@ -63,9 +65,10 @@ class ActionReminderTest extends TestCase
         CollectionAction::create(['sales_document_id' => $sale->id, 'status' => 'contacted', 'next_action_on' => today()->addMonth()]);
         PaymentBatch::create(['number' => 'PAY-REM-1', 'planned_on' => today(), 'status' => 'exported', 'created_by' => $admin->id, 'exported_at' => now()]);
 
-        $this->artisan('crm:send-reminders')->expectsOutput('1 action reminders sent.')->assertSuccessful();
+        $this->artisan('crm:send-reminders')->expectsOutput('2 action reminders sent.')->assertSuccessful();
 
         Notification::assertSentTo($admin, ActionSummaryNotification::class, fn ($notification) => $notification->toArray($admin)['category'] === 'payments');
+        Notification::assertSentTo($admin, ActionSummaryNotification::class, fn ($notification) => $notification->toArray($admin)['category'] === 'financial_alerts');
         Notification::assertNotSentTo($admin, ActionSummaryNotification::class, fn ($notification) => $notification->toArray($admin)['category'] === 'collections');
     }
 

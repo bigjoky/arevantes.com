@@ -38,12 +38,13 @@ class ActionCenterTest extends TestCase
 
         $response = $this->actingAs($user)->getJson(route('action-center'));
 
-        $response->assertOk()->assertJsonPath('total', 4);
+        $response->assertOk()->assertJsonPath('total', 5);
         $this->assertEqualsCanonicalizing(
-            ['Operations', 'Collections', 'Payment batches', 'Bank reconciliation'],
+            ['Operations', 'Collections', 'Payment batches', 'Bank reconciliation', 'Financial alerts'],
             collect($response->json('groups'))->pluck('label')->all(),
         );
         $response->assertJsonFragment(['title' => 'PAY-ACTION-1 · Approval pending']);
+        $response->assertJsonFragment(['title' => 'Receivables concentration']);
     }
 
     public function test_technician_only_sees_their_operational_actions(): void
