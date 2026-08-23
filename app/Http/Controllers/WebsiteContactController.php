@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Throwable;
 
 class WebsiteContactController extends Controller
 {
@@ -38,7 +39,7 @@ class WebsiteContactController extends Controller
             'company_url' => ['nullable', 'string', 'max:0'],
         ]);
 
-        $opportunity = DB::transaction(function () use ($data, $assignment, $salesCycle, $responseSla): Opportunity {
+        [$opportunity, $created] = DB::transaction(function () use ($data, $assignment, $salesCycle, $responseSla): array {
             $email = Str::lower($data['email']);
             $service = self::SERVICES[$data['service']];
             $customer = Person::query()
@@ -78,11 +79,24 @@ class WebsiteContactController extends Controller
                 filled($data['phone']) ? 'Teléfono: '.$data['phone'] : null,
                 filled($data['postal_code']) ? 'Código postal: '.$data['postal_code'] : null,
             ])->filter()->implode("\n\n");
+            $title = 'Solicitud web · '.$service;
+
+            $recentDuplicate = $customer->opportunities()
+                ->where('source', 'website')
+                ->where('title', $title)
+                ->where('notes', $notes)
+                ->where('created_at', '>=', now()->subMinutes(10))
+                ->latest('id')
+                ->first();
+
+            if ($recentDuplicate) {
+                return [$recentDuplicate, false];
+            }
 
             $opportunity = Opportunity::create([
                 'person_id' => $customer->id,
                 'owner_user_id' => $assignment->nextOwner()?->id,
-                'title' => 'Solicitud web · '.$service,
+                'title' => $title,
                 'stage' => 'new',
                 'probability' => 10,
                 'estimated_value' => 0,
@@ -96,13 +110,19 @@ class WebsiteContactController extends Controller
             $salesCycle->ensureNextAction($opportunity, $opportunity->owner);
             $salesCycle->refreshScore($opportunity);
 
-            return $opportunity;
+            return [$opportunity, true];
         });
 
-        Notification::send(
-            User::query()->whereIn('role', ['admin', 'commercial'])->get(),
-            new WebsiteLeadNotification($opportunity),
-        );
+        if ($created) {
+            try {
+                Notification::send(
+                    User::query()->whereIn('role', ['admin', 'commercial'])->get(),
+                    new WebsiteLeadNotification($opportunity),
+                );
+            } catch (Throwable $exception) {
+                report($exception);
+            }
+        }
 
         return back()->with('contact_submitted', true);
     }

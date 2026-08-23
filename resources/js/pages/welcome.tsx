@@ -1,17 +1,23 @@
 import { Form, Head, Link, usePage } from '@inertiajs/react';
 import {
+    Activity,
     ArrowRight,
+    ArrowUpRight,
     BatteryCharging,
     Check,
     ChevronRight,
     Gauge,
     Leaf,
     MapPin,
+    Menu,
     ShieldCheck,
+    Sparkles,
     Sun,
     Wrench,
+    X,
     Zap,
 } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { dashboard, login } from '@/routes';
 
 const services = [
@@ -68,50 +74,138 @@ const steps = [
     },
 ];
 
-const siteUrl = 'https://www.arevantes.com';
+const solutionModes = [
+    {
+        icon: Sun,
+        label: 'Autoconsumo',
+        title: 'Genera tu propia energía',
+        description:
+            'Diseño solar adaptado a la cubierta, los hábitos de consumo y los objetivos de cada proyecto.',
+        accent: 'Producción',
+    },
+    {
+        icon: BatteryCharging,
+        label: 'Movilidad',
+        title: 'Carga cuando más conviene',
+        description:
+            'Recarga y almacenamiento coordinados para aprovechar mejor la energía disponible.',
+        accent: 'Flexibilidad',
+    },
+    {
+        icon: Wrench,
+        label: 'Continuidad',
+        title: 'Rendimiento que permanece',
+        description:
+            'Monitorización y mantenimiento para detectar necesidades y cuidar la instalación a largo plazo.',
+        accent: 'Seguimiento',
+    },
+];
+
 const siteDescription =
     'Arevantes diseña, instala y mantiene soluciones fotovoltaicas, eléctricas y de recarga en Córdoba y Andalucía.';
 
-export default function Welcome() {
+export default function Welcome({ siteUrl }: { siteUrl: string }) {
     const { auth } = usePage().props;
     const privateArea = auth.user ? dashboard() : login();
+    const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const [activeModeIndex, setActiveModeIndex] = useState(0);
+    const activeMode = solutionModes[activeModeIndex];
+    const ActiveModeIcon = activeMode.icon;
+
+    useEffect(() => {
+        if (!isMenuOpen) {
+            return;
+        }
+
+        const closeOnEscape = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') {
+                setIsMenuOpen(false);
+            }
+        };
+
+        document.addEventListener('keydown', closeOnEscape);
+
+        return () => document.removeEventListener('keydown', closeOnEscape);
+    }, [isMenuOpen]);
+
+    const closeMenu = () => setIsMenuOpen(false);
 
     return (
         <>
-            <Head title="Energía bien instalada">
-                <meta name="description" content={siteDescription} />
-                <meta name="robots" content="index, follow" />
-                <link rel="canonical" href={siteUrl} />
-                <meta property="og:type" content="website" />
-                <meta property="og:locale" content="es_ES" />
-                <meta property="og:site_name" content="Arevantes" />
+            <Head>
+                <title head-key="title">
+                    Arevantes · Energía bien instalada
+                </title>
                 <meta
+                    head-key="description"
+                    name="description"
+                    content={siteDescription}
+                />
+                <meta head-key="robots" name="robots" content="index, follow" />
+                <link head-key="canonical" rel="canonical" href={siteUrl} />
+                <meta head-key="og-type" property="og:type" content="website" />
+                <meta
+                    head-key="og-locale"
+                    property="og:locale"
+                    content="es_ES"
+                />
+                <meta
+                    head-key="og-site-name"
+                    property="og:site_name"
+                    content="Arevantes"
+                />
+                <meta
+                    head-key="og-title"
                     property="og:title"
                     content="Arevantes · Energía bien instalada"
                 />
-                <meta property="og:description" content={siteDescription} />
-                <meta property="og:url" content={siteUrl} />
                 <meta
-                    property="og:image"
-                    content={`${siteUrl}/brand/arevantes-social.png`}
+                    head-key="og-description"
+                    property="og:description"
+                    content={siteDescription}
                 />
-                <meta property="og:image:width" content="1200" />
-                <meta property="og:image:height" content="630" />
+                <meta head-key="og-url" property="og:url" content={siteUrl} />
                 <meta
+                    head-key="og-image"
+                    property="og:image"
+                    content={`${siteUrl}/og.png`}
+                />
+                <meta
+                    head-key="og-image-width"
+                    property="og:image:width"
+                    content="1200"
+                />
+                <meta
+                    head-key="og-image-height"
+                    property="og:image:height"
+                    content="630"
+                />
+                <meta
+                    head-key="og-image-alt"
                     property="og:image:alt"
                     content="Arevantes, energía bien instalada"
                 />
-                <meta name="twitter:card" content="summary_large_image" />
                 <meta
+                    head-key="twitter-card"
+                    name="twitter:card"
+                    content="summary_large_image"
+                />
+                <meta
+                    head-key="twitter-title"
                     name="twitter:title"
                     content="Arevantes · Energía bien instalada"
                 />
-                <meta name="twitter:description" content={siteDescription} />
                 <meta
-                    name="twitter:image"
-                    content={`${siteUrl}/brand/arevantes-social.png`}
+                    head-key="twitter-description"
+                    name="twitter:description"
+                    content={siteDescription}
                 />
-                <script type="application/ld+json">
+                <meta
+                    head-key="twitter-image"
+                    name="twitter:image"
+                    content={`${siteUrl}/og.png`}
+                />
+                <script head-key="structured-data" type="application/ld+json">
                     {JSON.stringify({
                         '@context': 'https://schema.org',
                         '@type': 'Electrician',
@@ -134,9 +228,19 @@ export default function Welcome() {
             </Head>
 
             <div className="min-h-screen bg-[#f7f8f4] text-zinc-950 antialiased">
-                <header className="sticky top-0 z-50 border-b border-zinc-200/80 bg-[#f7f8f4]/90 backdrop-blur-xl">
+                <a
+                    href="#main-content"
+                    className="fixed top-3 left-3 z-[100] -translate-y-20 rounded-full bg-zinc-950 px-5 py-3 font-semibold text-white shadow-xl transition-transform focus:translate-y-0"
+                >
+                    Saltar al contenido
+                </a>
+                <header className="sticky top-0 z-50 border-b border-zinc-200/70 bg-[#f7f8f4]/85 backdrop-blur-2xl">
                     <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-5 sm:px-8 lg:px-10">
-                        <a href="#inicio" aria-label="Arevantes, inicio">
+                        <a
+                            href="#inicio"
+                            aria-label="Arevantes, inicio"
+                            onClick={closeMenu}
+                        >
                             <img
                                 src="/brand/arevantes-logo-light.svg"
                                 alt="Arevantes"
@@ -144,47 +248,105 @@ export default function Welcome() {
                             />
                         </a>
 
-                        <nav className="hidden items-center gap-8 text-sm font-medium text-zinc-600 md:flex">
+                        <nav
+                            aria-label="Navegación principal"
+                            className="hidden items-center gap-8 text-sm font-medium text-zinc-600 md:flex"
+                        >
                             <a
                                 href="#servicios"
-                                className="transition hover:text-[#289548]"
+                                className="transition hover:text-[#217a3b]"
                             >
                                 Servicios
                             </a>
                             <a
                                 href="#metodo"
-                                className="transition hover:text-[#289548]"
+                                className="transition hover:text-[#217a3b]"
                             >
                                 Cómo trabajamos
                             </a>
                             <a
                                 href="#contacto"
-                                className="transition hover:text-[#289548]"
+                                className="transition hover:text-[#217a3b]"
                             >
                                 Contacto
                             </a>
                         </nav>
 
-                        <Link
-                            href={privateArea}
-                            className="inline-flex items-center gap-2 rounded-full border border-zinc-300 bg-white px-4 py-2 text-sm font-semibold shadow-sm transition hover:border-[#289548] hover:text-[#217a3b]"
-                        >
-                            {auth.user ? 'Ir al panel' : 'Área privada'}
-                            <ChevronRight className="size-4" />
-                        </Link>
+                        <div className="flex items-center gap-2">
+                            <Link
+                                href={privateArea}
+                                className="hidden items-center gap-2 rounded-full border border-zinc-300 bg-white px-4 py-2 text-sm font-semibold shadow-sm transition hover:border-[#289548] hover:text-[#217a3b] sm:inline-flex"
+                            >
+                                {auth.user ? 'Ir al panel' : 'Área privada'}
+                                <ChevronRight className="size-4" />
+                            </Link>
+                            <button
+                                type="button"
+                                className="grid size-11 place-items-center rounded-full border border-zinc-300 bg-white text-zinc-900 shadow-sm transition hover:border-[#289548] hover:text-[#217a3b] md:hidden"
+                                aria-label={
+                                    isMenuOpen
+                                        ? 'Cerrar navegación'
+                                        : 'Abrir navegación'
+                                }
+                                aria-expanded={isMenuOpen}
+                                aria-controls="mobile-navigation"
+                                onClick={() => setIsMenuOpen((open) => !open)}
+                            >
+                                {isMenuOpen ? (
+                                    <X className="size-5" />
+                                ) : (
+                                    <Menu className="size-5" />
+                                )}
+                            </button>
+                        </div>
                     </div>
+
+                    {isMenuOpen && (
+                        <div
+                            id="mobile-navigation"
+                            className="website-menu-enter border-t border-zinc-200/80 bg-[#f7f8f4] px-5 py-5 md:hidden"
+                        >
+                            <nav
+                                aria-label="Navegación móvil"
+                                className="mx-auto grid max-w-7xl gap-1 text-lg font-semibold"
+                            >
+                                {[
+                                    ['Servicios', '#servicios'],
+                                    ['Cómo trabajamos', '#metodo'],
+                                    ['Contacto', '#contacto'],
+                                ].map(([label, href]) => (
+                                    <a
+                                        key={href}
+                                        href={href}
+                                        onClick={closeMenu}
+                                        className="flex items-center justify-between rounded-2xl px-4 py-3 transition hover:bg-white hover:text-[#217a3b]"
+                                    >
+                                        {label}
+                                        <ArrowUpRight className="size-4" />
+                                    </a>
+                                ))}
+                                <Link
+                                    href={privateArea}
+                                    className="mt-3 inline-flex items-center justify-center gap-2 rounded-full bg-zinc-950 px-5 py-3 text-sm text-white sm:hidden"
+                                >
+                                    {auth.user ? 'Ir al panel' : 'Área privada'}
+                                    <ChevronRight className="size-4" />
+                                </Link>
+                            </nav>
+                        </div>
+                    )}
                 </header>
 
-                <main>
+                <main id="main-content" tabIndex={-1}>
                     <section
                         id="inicio"
-                        className="relative isolate overflow-hidden bg-zinc-950 text-white"
+                        className="relative isolate scroll-mt-20 overflow-hidden bg-zinc-950 text-white"
                     >
-                        <div className="absolute inset-0 -z-20 bg-[radial-gradient(circle_at_78%_28%,rgba(40,149,72,0.28),transparent_34%),radial-gradient(circle_at_15%_85%,rgba(135,181,80,0.14),transparent_30%)]" />
+                        <div className="website-aurora absolute inset-0 -z-20 bg-[radial-gradient(circle_at_78%_28%,rgba(40,149,72,0.30),transparent_34%),radial-gradient(circle_at_15%_85%,rgba(135,181,80,0.16),transparent_30%)]" />
                         <div className="absolute inset-0 -z-10 [background-image:linear-gradient(rgba(255,255,255,.6)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.6)_1px,transparent_1px)] [background-size:56px_56px] opacity-[0.08]" />
 
-                        <div className="mx-auto grid min-h-[calc(100svh-5rem)] max-w-7xl items-center gap-16 px-5 py-20 sm:px-8 lg:grid-cols-[1.08fr_.92fr] lg:px-10 lg:py-24">
-                            <div className="max-w-3xl">
+                        <div className="mx-auto grid min-h-[calc(100svh-5rem)] max-w-7xl items-center gap-14 px-5 py-16 sm:px-8 sm:py-20 lg:grid-cols-[1.04fr_.96fr] lg:px-10 lg:py-24">
+                            <div className="website-rise max-w-3xl">
                                 <div className="mb-7 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-4 py-2 text-sm text-zinc-300">
                                     <span className="size-2 rounded-full bg-[#87b550] shadow-[0_0_16px_#87b550]" />
                                     Energía, electricidad y mantenimiento
@@ -204,10 +366,10 @@ export default function Welcome() {
                                 <div className="mt-10 flex flex-col gap-4 sm:flex-row">
                                     <a
                                         href="#contacto"
-                                        className="inline-flex items-center justify-center gap-2 rounded-full bg-[#289548] px-6 py-3.5 font-semibold text-white shadow-[0_14px_40px_rgba(40,149,72,.28)] transition hover:bg-[#237f3e]"
+                                        className="group inline-flex items-center justify-center gap-2 rounded-full bg-[#217a3b] px-6 py-3.5 font-semibold text-white shadow-[0_14px_40px_rgba(40,149,72,.28)] transition hover:-translate-y-0.5 hover:bg-[#185f2d]"
                                     >
                                         Cuéntanos tu proyecto
-                                        <ArrowRight className="size-5" />
+                                        <ArrowRight className="size-5 transition-transform group-hover:translate-x-1" />
                                     </a>
                                     <a
                                         href="#servicios"
@@ -233,56 +395,125 @@ export default function Welcome() {
                                 </div>
                             </div>
 
-                            <div className="relative mx-auto hidden w-full max-w-xl lg:block">
-                                <div className="absolute -inset-16 rounded-full bg-[#289548]/15 blur-3xl" />
-                                <div className="relative rotate-[-4deg] rounded-[2.25rem] border border-white/15 bg-white/[0.06] p-5 shadow-2xl backdrop-blur-sm">
-                                    <div className="grid aspect-[5/4] grid-cols-4 gap-2 rounded-[1.5rem] bg-gradient-to-br from-[#17231b] to-[#08100b] p-4">
-                                        {Array.from({ length: 16 }).map(
-                                            (_, index) => (
-                                                <div
-                                                    key={index}
-                                                    className="relative overflow-hidden rounded-md border border-[#87b550]/20 bg-gradient-to-br from-[#193824] via-[#102819] to-[#091a10] shadow-inner"
-                                                >
-                                                    <div className="absolute inset-x-0 top-1/2 h-px bg-[#87b550]/20" />
-                                                    <div className="absolute inset-y-0 left-1/2 w-px bg-[#87b550]/15" />
-                                                    <div className="absolute -top-5 -left-5 size-12 rounded-full bg-white/10 blur-xl" />
-                                                </div>
-                                            ),
-                                        )}
+                            <div className="website-rise relative mx-auto w-full max-w-xl [animation-delay:160ms]">
+                                <div className="absolute -inset-12 rounded-full bg-[#289548]/20 blur-3xl" />
+                                <div className="relative overflow-hidden rounded-[2rem] border border-white/15 bg-white/[0.07] p-4 shadow-2xl backdrop-blur-xl sm:p-5">
+                                    <div className="flex items-center justify-between px-1 pb-4">
+                                        <div className="flex items-center gap-2 text-xs font-medium tracking-[0.12em] text-zinc-300 uppercase">
+                                            <Activity className="size-4 text-[#87b550]" />
+                                            Solución conectada
+                                        </div>
+                                        <span className="flex items-center gap-2 rounded-full bg-[#87b550]/10 px-3 py-1 text-xs text-[#b8df8c]">
+                                            <span
+                                                aria-hidden="true"
+                                                className="website-status-dot size-1.5 rounded-full bg-[#87b550]"
+                                            />
+                                            En evolución
+                                        </span>
                                     </div>
-                                    <div className="mt-5 grid grid-cols-2 gap-3">
-                                        <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
-                                            <Gauge className="mb-5 size-5 text-[#87b550]" />
-                                            <p className="text-xs tracking-wide text-zinc-400 uppercase">
-                                                Control
+
+                                    <div className="relative overflow-hidden rounded-[1.5rem] border border-white/10 bg-[#08110c]/80 p-5 sm:p-7">
+                                        <div className="website-energy-orbit absolute -top-16 -right-16 size-52 rounded-full border border-[#87b550]/25" />
+                                        <div className="website-energy-orbit absolute -top-3 -right-3 size-28 rounded-full border border-[#289548]/20 [animation-direction:reverse]" />
+                                        <div
+                                            key={activeMode.label}
+                                            className="website-mode-enter relative min-h-64"
+                                        >
+                                            <div className="flex items-start justify-between gap-6">
+                                                <span className="grid size-14 shrink-0 place-items-center rounded-2xl border border-[#87b550]/25 bg-[#87b550]/10 text-[#a8d878] shadow-[0_0_36px_rgba(135,181,80,.12)]">
+                                                    <ActiveModeIcon className="size-7" />
+                                                </span>
+                                                <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-zinc-300">
+                                                    {activeMode.accent}
+                                                </span>
+                                            </div>
+                                            <p className="mt-10 text-xs font-semibold tracking-[0.16em] text-[#87b550] uppercase">
+                                                {activeMode.label}
                                             </p>
-                                            <p className="mt-1 font-medium">
-                                                Monitorización conectada
+                                            <h2 className="mt-3 max-w-sm text-2xl leading-tight font-semibold tracking-[-0.03em] sm:text-3xl">
+                                                {activeMode.title}
+                                            </h2>
+                                            <p className="mt-3 max-w-md text-sm leading-6 text-zinc-400 sm:text-base">
+                                                {activeMode.description}
+                                            </p>
+                                        </div>
+
+                                        <div className="relative mt-5 grid grid-cols-3 gap-2 border-t border-white/10 pt-5">
+                                            {solutionModes.map(
+                                                (mode, index) => (
+                                                    <button
+                                                        key={mode.label}
+                                                        type="button"
+                                                        onClick={() =>
+                                                            setActiveModeIndex(
+                                                                index,
+                                                            )
+                                                        }
+                                                        aria-label={`Mostrar solución: ${mode.label}`}
+                                                        aria-pressed={
+                                                            activeModeIndex ===
+                                                            index
+                                                        }
+                                                        className={`rounded-xl px-2 py-2.5 text-xs font-medium transition sm:text-sm ${
+                                                            activeModeIndex ===
+                                                            index
+                                                                ? 'bg-[#217a3b] text-white shadow-lg'
+                                                                : 'bg-white/5 text-zinc-400 hover:bg-white/10 hover:text-white'
+                                                        }`}
+                                                    >
+                                                        {mode.label}
+                                                    </button>
+                                                ),
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <div className="mt-3 grid grid-cols-2 gap-3">
+                                        <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                                            <Gauge className="mb-4 size-5 text-[#87b550]" />
+                                            <p className="text-sm font-medium">
+                                                Control sencillo
                                             </p>
                                         </div>
                                         <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
-                                            <ShieldCheck className="mb-5 size-5 text-[#87b550]" />
-                                            <p className="text-xs tracking-wide text-zinc-400 uppercase">
-                                                Confianza
-                                            </p>
-                                            <p className="mt-1 font-medium">
-                                                Soporte después de instalar
+                                            <ShieldCheck className="mb-4 size-5 text-[#87b550]" />
+                                            <p className="text-sm font-medium">
+                                                Soporte cercano
                                             </p>
                                         </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
+
+                        <div className="border-t border-white/10 bg-black/15">
+                            <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-x-8 gap-y-3 px-5 py-4 text-xs font-medium tracking-[0.13em] text-zinc-400 uppercase sm:px-8 lg:justify-between lg:px-10">
+                                {[
+                                    'Fotovoltaica',
+                                    'Recarga',
+                                    'Electricidad',
+                                    'Mantenimiento',
+                                ].map((item) => (
+                                    <span
+                                        key={item}
+                                        className="flex items-center gap-2"
+                                    >
+                                        <Sparkles className="size-3 text-[#87b550]" />
+                                        {item}
+                                    </span>
+                                ))}
+                            </div>
+                        </div>
                     </section>
 
                     <section
                         id="servicios"
-                        className="px-5 py-24 sm:px-8 lg:py-32"
+                        className="scroll-mt-20 px-5 py-24 sm:px-8 lg:py-32"
                     >
                         <div className="mx-auto max-w-7xl">
                             <div className="grid gap-8 lg:grid-cols-[.8fr_1.2fr] lg:items-end">
                                 <div>
-                                    <p className="text-sm font-bold tracking-[0.18em] text-[#289548] uppercase">
+                                    <p className="text-sm font-bold tracking-[0.18em] text-[#217a3b] uppercase">
                                         Lo que hacemos
                                     </p>
                                     <h2 className="mt-4 text-4xl leading-tight font-semibold tracking-[-0.04em] sm:text-5xl">
@@ -301,10 +532,11 @@ export default function Welcome() {
                                 {services.map((service, index) => (
                                     <article
                                         key={service.title}
-                                        className="group flex min-h-72 flex-col rounded-[1.75rem] border border-zinc-200 bg-white p-7 shadow-[0_12px_40px_rgba(24,24,27,.04)] transition duration-300 hover:-translate-y-1 hover:border-[#289548]/40 hover:shadow-[0_20px_50px_rgba(40,149,72,.10)]"
+                                        className="group relative flex min-h-72 flex-col overflow-hidden rounded-[1.75rem] border border-zinc-200 bg-white p-7 shadow-[0_12px_40px_rgba(24,24,27,.04)] transition duration-500 hover:-translate-y-2 hover:border-[#289548]/40 hover:shadow-[0_24px_60px_rgba(40,149,72,.12)]"
                                     >
+                                        <div className="absolute -right-16 -bottom-20 size-44 rounded-full bg-[#87b550]/0 blur-2xl transition duration-500 group-hover:bg-[#87b550]/15" />
                                         <div className="flex items-start justify-between">
-                                            <span className="grid size-12 place-items-center rounded-2xl bg-[#eaf5ec] text-[#217a3b]">
+                                            <span className="grid size-12 place-items-center rounded-2xl bg-[#eaf5ec] text-[#217a3b] transition duration-500 group-hover:scale-110 group-hover:rotate-3">
                                                 <service.icon className="size-6" />
                                             </span>
                                             <span className="text-sm text-zinc-400">
@@ -318,6 +550,13 @@ export default function Welcome() {
                                             <p className="mt-3 leading-7 text-zinc-600">
                                                 {service.description}
                                             </p>
+                                            <a
+                                                href="#contacto"
+                                                className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-[#217a3b] opacity-80 transition group-hover:opacity-100"
+                                            >
+                                                Consultar proyecto
+                                                <ArrowUpRight className="size-4 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+                                            </a>
                                         </div>
                                     </article>
                                 ))}
@@ -391,11 +630,11 @@ export default function Welcome() {
 
                     <section
                         id="metodo"
-                        className="bg-white px-5 py-24 sm:px-8 lg:py-32"
+                        className="scroll-mt-20 bg-white px-5 py-24 sm:px-8 lg:py-32"
                     >
                         <div className="mx-auto max-w-7xl">
                             <div className="max-w-2xl">
-                                <p className="text-sm font-bold tracking-[0.18em] text-[#289548] uppercase">
+                                <p className="text-sm font-bold tracking-[0.18em] text-[#217a3b] uppercase">
                                     Cómo trabajamos
                                 </p>
                                 <h2 className="mt-4 text-4xl leading-tight font-semibold tracking-[-0.04em] sm:text-5xl">
@@ -407,9 +646,9 @@ export default function Welcome() {
                                 {steps.map((step) => (
                                     <article
                                         key={step.number}
-                                        className="bg-white p-7 sm:p-8"
+                                        className="group relative bg-white p-7 transition duration-300 hover:bg-[#f5f9f2] sm:p-8"
                                     >
-                                        <span className="text-sm font-bold text-[#289548]">
+                                        <span className="inline-flex size-9 items-center justify-center rounded-full bg-[#eaf5ec] text-sm font-bold text-[#217a3b] transition group-hover:bg-[#217a3b] group-hover:text-white">
                                             {step.number}
                                         </span>
                                         <h3 className="mt-12 text-2xl font-semibold tracking-tight">
@@ -426,9 +665,9 @@ export default function Welcome() {
 
                     <section
                         id="contacto"
-                        className="px-5 py-8 sm:px-8 lg:pb-10"
+                        className="scroll-mt-20 px-5 py-8 sm:px-8 lg:pb-10"
                     >
-                        <div className="relative mx-auto max-w-7xl overflow-hidden rounded-[2.25rem] bg-[#289548] px-6 py-12 text-white sm:px-12 sm:py-16 lg:px-20">
+                        <div className="relative mx-auto max-w-7xl overflow-hidden rounded-[2.25rem] bg-[#217a3b] px-6 py-12 text-white sm:px-12 sm:py-16 lg:px-20">
                             <div className="absolute -top-40 -right-32 size-96 rounded-full border-[70px] border-white/10" />
                             <div className="relative grid gap-12 lg:grid-cols-[.85fr_1.15fr] lg:items-center">
                                 <div className="max-w-3xl">
@@ -461,6 +700,7 @@ export default function Welcome() {
                                             <div
                                                 className="flex min-h-96 flex-col items-center justify-center text-center"
                                                 role="status"
+                                                aria-live="polite"
                                             >
                                                 <span className="grid size-14 place-items-center rounded-full bg-[#eaf5ec] text-[#217a3b]">
                                                     <Check className="size-7" />
@@ -481,36 +721,54 @@ export default function Welcome() {
                                                     <ContactField
                                                         label="Nombre"
                                                         name="name"
+                                                        autoComplete="name"
                                                         error={errors.name}
                                                     />
                                                     <ContactField
                                                         label="Correo electrónico"
                                                         name="email"
                                                         type="email"
+                                                        autoComplete="email"
                                                         error={errors.email}
                                                     />
                                                     <ContactField
                                                         label="Teléfono"
                                                         name="phone"
                                                         type="tel"
+                                                        autoComplete="tel"
                                                         error={errors.phone}
                                                     />
                                                     <ContactField
                                                         label="Código postal"
                                                         name="postal_code"
                                                         inputMode="numeric"
+                                                        autoComplete="postal-code"
                                                         error={
                                                             errors.postal_code
                                                         }
                                                     />
                                                 </div>
 
-                                                <label className="mt-5 grid gap-2 text-sm font-medium">
+                                                <label
+                                                    htmlFor="service"
+                                                    className="mt-5 grid gap-2 text-sm font-medium"
+                                                >
                                                     ¿En qué podemos ayudarte?
                                                     <select
+                                                        id="service"
                                                         name="service"
                                                         defaultValue=""
-                                                        className="h-12 rounded-xl border border-zinc-300 bg-white px-3 font-normal transition outline-none focus:border-[#289548] focus:ring-3 focus:ring-[#289548]/15"
+                                                        aria-invalid={
+                                                            errors.service
+                                                                ? true
+                                                                : undefined
+                                                        }
+                                                        aria-describedby={
+                                                            errors.service
+                                                                ? 'service-error'
+                                                                : undefined
+                                                        }
+                                                        className="h-12 rounded-xl border border-zinc-300 bg-white px-3 font-normal transition outline-none focus:border-[#217a3b] focus:ring-3 focus:ring-[#217a3b]/25"
                                                         required
                                                     >
                                                         <option
@@ -537,25 +795,47 @@ export default function Welcome() {
                                                         </option>
                                                     </select>
                                                     {errors.service && (
-                                                        <span className="text-xs text-red-600">
+                                                        <span
+                                                            id="service-error"
+                                                            role="alert"
+                                                            className="text-xs text-red-700"
+                                                        >
                                                             {errors.service}
                                                         </span>
                                                     )}
                                                 </label>
 
-                                                <label className="mt-5 grid gap-2 text-sm font-medium">
+                                                <label
+                                                    htmlFor="message"
+                                                    className="mt-5 grid gap-2 text-sm font-medium"
+                                                >
                                                     Cuéntanos brevemente tu
                                                     proyecto
                                                     <textarea
+                                                        id="message"
                                                         name="message"
                                                         rows={4}
                                                         minLength={20}
                                                         maxLength={2000}
-                                                        className="resize-none rounded-xl border border-zinc-300 bg-white p-3 font-normal transition outline-none focus:border-[#289548] focus:ring-3 focus:ring-[#289548]/15"
+                                                        aria-invalid={
+                                                            errors.message
+                                                                ? true
+                                                                : undefined
+                                                        }
+                                                        aria-describedby={
+                                                            errors.message
+                                                                ? 'message-error'
+                                                                : undefined
+                                                        }
+                                                        className="resize-none rounded-xl border border-zinc-300 bg-white p-3 font-normal transition outline-none focus:border-[#217a3b] focus:ring-3 focus:ring-[#217a3b]/25"
                                                         required
                                                     />
                                                     {errors.message && (
-                                                        <span className="text-xs text-red-600">
+                                                        <span
+                                                            id="message-error"
+                                                            role="alert"
+                                                            className="text-xs text-red-700"
+                                                        >
                                                             {errors.message}
                                                         </span>
                                                     )}
@@ -575,12 +855,26 @@ export default function Welcome() {
                                                     </label>
                                                 </div>
 
-                                                <label className="mt-5 flex items-start gap-3 text-sm leading-6 text-zinc-600">
+                                                <label
+                                                    htmlFor="privacy"
+                                                    className="mt-5 flex items-start gap-3 text-sm leading-6 text-zinc-600"
+                                                >
                                                     <input
+                                                        id="privacy"
                                                         type="checkbox"
                                                         name="privacy"
                                                         value="1"
-                                                        className="mt-1 size-4 rounded border-zinc-300 accent-[#289548]"
+                                                        aria-invalid={
+                                                            errors.privacy
+                                                                ? true
+                                                                : undefined
+                                                        }
+                                                        aria-describedby={
+                                                            errors.privacy
+                                                                ? 'privacy-error'
+                                                                : undefined
+                                                        }
+                                                        className="mt-1 size-4 rounded border-zinc-300 accent-[#217a3b]"
                                                         required
                                                     />
                                                     <span>
@@ -597,7 +891,11 @@ export default function Welcome() {
                                                         </Link>
                                                         .
                                                         {errors.privacy && (
-                                                            <span className="mt-1 block text-xs text-red-600">
+                                                            <span
+                                                                id="privacy-error"
+                                                                role="alert"
+                                                                className="mt-1 block text-xs text-red-700"
+                                                            >
                                                                 {errors.privacy}
                                                             </span>
                                                         )}
@@ -607,6 +905,7 @@ export default function Welcome() {
                                                 <button
                                                     type="submit"
                                                     disabled={processing}
+                                                    aria-busy={processing}
                                                     className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-full bg-zinc-950 px-6 py-3.5 font-semibold text-white transition hover:bg-zinc-800 disabled:cursor-wait disabled:opacity-60"
                                                 >
                                                     {processing
@@ -686,25 +985,41 @@ function ContactField({
     name,
     type = 'text',
     inputMode,
+    autoComplete,
     error,
 }: {
     label: string;
     name: string;
     type?: string;
     inputMode?: 'numeric';
+    autoComplete?: string;
     error?: string;
 }) {
+    const errorId = `${name}-error`;
+
     return (
-        <label className="grid gap-2 text-sm font-medium">
+        <label htmlFor={name} className="grid gap-2 text-sm font-medium">
             {label}
             <input
+                id={name}
                 name={name}
                 type={type}
                 inputMode={inputMode}
-                className="h-12 rounded-xl border border-zinc-300 bg-white px-3 font-normal transition outline-none focus:border-[#289548] focus:ring-3 focus:ring-[#289548]/15"
+                autoComplete={autoComplete}
+                aria-invalid={error ? true : undefined}
+                aria-describedby={error ? errorId : undefined}
+                className="h-12 rounded-xl border border-zinc-300 bg-white px-3 font-normal transition outline-none focus:border-[#217a3b] focus:ring-3 focus:ring-[#217a3b]/25"
                 required={name === 'name' || name === 'email'}
             />
-            {error && <span className="text-xs text-red-600">{error}</span>}
+            {error && (
+                <span
+                    id={errorId}
+                    role="alert"
+                    className="text-xs text-red-700"
+                >
+                    {error}
+                </span>
+            )}
         </label>
     );
 }

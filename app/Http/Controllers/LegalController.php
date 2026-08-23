@@ -29,6 +29,7 @@ class LegalController extends Controller
 
         return Inertia::render('legal/show', [
             'document' => $document,
+            'siteUrl' => rtrim(config('app.url'), '/'),
             'company' => [
                 'legal_name' => $company?->legal_name ?? config('company.legal_name'),
                 'trade_name' => $company?->trade_name ?? 'Arevantes',

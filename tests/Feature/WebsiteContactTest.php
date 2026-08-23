@@ -6,6 +6,7 @@ use App\Models\Opportunity;
 use App\Models\Person;
 use App\Models\User;
 use App\Notifications\WebsiteLeadNotification;
+use Illuminate\Contracts\Queue\ShouldQueueAfterCommit;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification;
 use Tests\TestCase;
@@ -99,6 +100,24 @@ class WebsiteContactTest extends TestCase
 
         $this->assertDatabaseCount('people', 0);
         $this->assertDatabaseCount('opportunities', 0);
+    }
+
+    public function test_an_immediate_retry_does_not_create_a_duplicate_opportunity(): void
+    {
+        Notification::fake();
+
+        $this->post(route('website.contact'), $this->payload())->assertRedirect();
+        $this->post(route('website.contact'), $this->payload())->assertRedirect();
+
+        $this->assertDatabaseCount('people', 1);
+        $this->assertDatabaseCount('opportunities', 1);
+    }
+
+    public function test_website_lead_notifications_are_dispatched_after_commit(): void
+    {
+        $this->assertTrue(
+            is_subclass_of(WebsiteLeadNotification::class, ShouldQueueAfterCommit::class),
+        );
     }
 
     private function payload(): array
