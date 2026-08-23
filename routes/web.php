@@ -81,7 +81,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 Route::inertia('/', 'welcome', [
-    'siteUrl' => fn (): string => rtrim(config('app.url'), '/'),
+    'siteUrl' => rtrim(config('app.url'), '/'),
 ])->name('home');
 Route::get('sitemap.xml', SitemapController::class)->name('sitemap');
 Route::post('contact', WebsiteContactController::class)->middleware('throttle:5,1')->name('website.contact');
