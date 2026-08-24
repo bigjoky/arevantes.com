@@ -6,13 +6,11 @@ import {
     Plus,
     PlugZap,
     Snowflake,
+    ShieldCheck,
     Sun,
 } from 'lucide-react';
 import { useState } from 'react';
-import {
-    serviceLabels,
-    statusLabels,
-} from '@/components/installations/installation-form';
+import { statusLabels } from '@/components/installations/installation-form';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -23,6 +21,7 @@ import {
     MapPopup,
     MarkerContent,
 } from '@/components/ui/map';
+import { serviceLabels } from '@/lib/business-lines';
 import type { DashboardInstallation } from '@/pages/dashboard';
 
 export default function InstallationMap({
@@ -224,6 +223,7 @@ function ServiceIcon({
         ev_charger: BatteryCharging,
         hvac: Snowflake,
         electrical: PlugZap,
+        security: ShieldCheck,
     };
     const Icon = icons[service];
 
@@ -251,6 +251,7 @@ function markerClassName(
         ev_charger: 'bg-emerald-600 text-white',
         hvac: 'bg-sky-600 text-white',
         electrical: 'bg-violet-600 text-white',
+        security: 'bg-rose-700 text-white',
     }[service];
 }
 

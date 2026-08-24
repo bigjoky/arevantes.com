@@ -28,6 +28,8 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import { serviceLabels } from '@/lib/business-lines';
+import type { ServiceType } from '@/lib/business-lines';
 
 type Unit = { id: number; name: string; symbol: string };
 type TaxRate = { id: number; name: string; rate: string; is_default: boolean };
@@ -42,6 +44,7 @@ type Product = {
     sku: string | null;
     name: string;
     description: string | null;
+    business_lines: ServiceType[] | null;
     sale_price: string;
     cost_price: string;
     track_stock: boolean;
@@ -193,6 +196,29 @@ export default function CatalogIndex({
                                                 <div className="font-medium">
                                                     {product.name}
                                                 </div>
+                                                {product.business_lines &&
+                                                    product.business_lines
+                                                        .length > 0 && (
+                                                        <div className="mt-1 flex flex-wrap gap-1">
+                                                            {product.business_lines.map(
+                                                                (line) => (
+                                                                    <Badge
+                                                                        key={
+                                                                            line
+                                                                        }
+                                                                        variant="outline"
+                                                                        className="text-[10px]"
+                                                                    >
+                                                                        {
+                                                                            serviceLabels[
+                                                                                line
+                                                                            ]
+                                                                        }
+                                                                    </Badge>
+                                                                ),
+                                                            )}
+                                                        </div>
+                                                    )}
                                                 {!product.is_active && (
                                                     <span className="text-xs text-muted-foreground">
                                                         Inactive
@@ -581,6 +607,42 @@ function ProductDialog({
                                     error={errors.preferred_lead_time_days}
                                 />
                             </div>
+                            <fieldset className="grid gap-2 rounded-md border p-3">
+                                <input
+                                    type="hidden"
+                                    name="business_lines_submitted"
+                                    value="1"
+                                />
+                                <legend className="px-1 text-sm font-medium">
+                                    Business lines
+                                </legend>
+                                <p className="text-xs text-muted-foreground">
+                                    Classify this material or service so quotes
+                                    and supply planning can reuse it by
+                                    activity.
+                                </p>
+                                <div className="grid gap-2 sm:grid-cols-2">
+                                    {Object.entries(serviceLabels).map(
+                                        ([line, label]) => (
+                                            <label
+                                                key={line}
+                                                className="flex items-center gap-2 text-sm"
+                                            >
+                                                <input
+                                                    type="checkbox"
+                                                    name="business_lines[]"
+                                                    value={line}
+                                                    defaultChecked={product?.business_lines?.includes(
+                                                        line as ServiceType,
+                                                    )}
+                                                    className="size-4"
+                                                />
+                                                {label}
+                                            </label>
+                                        ),
+                                    )}
+                                </div>
+                            </fieldset>
                             <div className="grid min-w-0 gap-3 border-t pt-4">
                                 <div className="flex flex-wrap items-start justify-between gap-3">
                                     <div className="min-w-0 flex-1">

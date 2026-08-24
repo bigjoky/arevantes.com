@@ -8,6 +8,7 @@ use App\Models\Product;
 use App\Models\Supplier;
 use App\Models\TaxRate;
 use App\Models\Unit;
+use App\Support\BusinessLineCatalog;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -75,11 +76,14 @@ class CatalogController extends Controller
 
     private function validateProduct(Request $request, ?Product $product = null): array
     {
-        return $request->validate([
+        $data = $request->validate([
             'type' => ['required', Rule::in(['product', 'service'])],
             'sku' => ['nullable', 'string', 'max:60', Rule::unique('products')->ignore($product)],
             'name' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
+            'business_lines' => ['sometimes', 'array'],
+            'business_lines.*' => ['required', 'distinct', Rule::in(BusinessLineCatalog::INSTALLATION_TYPES)],
+            'business_lines_submitted' => ['sometimes', 'boolean'],
             'unit_id' => ['required', 'exists:units,id'],
             'tax_rate_id' => ['required', 'exists:tax_rates,id'],
             'sale_account_code' => ['required', 'exists:ledger_accounts,code'],
@@ -98,6 +102,14 @@ class CatalogController extends Controller
             'components.*.visibility' => ['required', Rule::in(['detailed', 'summary', 'hidden'])],
             'components.*.interval_months' => ['nullable', 'integer', 'between:1,120'],
         ]);
+
+        if (($data['business_lines_submitted'] ?? false) && ! array_key_exists('business_lines', $data)) {
+            $data['business_lines'] = [];
+        }
+
+        unset($data['business_lines_submitted']);
+
+        return $data;
     }
 
     private function persistProduct(Product $product, array $data): Product

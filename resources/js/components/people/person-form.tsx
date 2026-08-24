@@ -403,7 +403,7 @@ export default function PersonForm({
                             <TextareaField
                                 id="service_interests"
                                 label={t.serviceInterests}
-                                placeholder="Solar panels&#10;EV charger&#10;Aircon / clima"
+                                placeholder="Solar panels&#10;Electrical installation&#10;Alarm & security system"
                                 defaultValue={person?.service_interests?.join(
                                     '\n',
                                 )}

@@ -1,10 +1,7 @@
 import { Head, Link, router } from '@inertiajs/react';
 import { Search } from 'lucide-react';
 import { useState } from 'react';
-import {
-    serviceLabels,
-    statusLabels,
-} from '@/components/installations/installation-form';
+import { statusLabels } from '@/components/installations/installation-form';
 import { PageHeader, PageShell } from '@/components/page-shell';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -17,6 +14,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import { serviceLabels } from '@/lib/business-lines';
 
 type InstallationSummary = {
     id: number;

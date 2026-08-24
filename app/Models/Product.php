@@ -8,11 +8,11 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Product extends Model
 {
-    protected $fillable = ['type', 'sku', 'name', 'description', 'unit_id', 'tax_rate_id', 'sale_account_code', 'purchase_account_code', 'sale_price', 'cost_price', 'track_stock', 'track_serials', 'supply_criticality', 'preferred_lead_time_days', 'is_active'];
+    protected $fillable = ['type', 'sku', 'name', 'description', 'business_lines', 'unit_id', 'tax_rate_id', 'sale_account_code', 'purchase_account_code', 'sale_price', 'cost_price', 'track_stock', 'track_serials', 'supply_criticality', 'preferred_lead_time_days', 'is_active'];
 
     protected function casts(): array
     {
-        return ['sale_price' => 'decimal:2', 'cost_price' => 'decimal:2', 'track_stock' => 'boolean', 'track_serials' => 'boolean', 'preferred_lead_time_days' => 'integer', 'is_active' => 'boolean'];
+        return ['business_lines' => 'array', 'sale_price' => 'decimal:2', 'cost_price' => 'decimal:2', 'track_stock' => 'boolean', 'track_serials' => 'boolean', 'preferred_lead_time_days' => 'integer', 'is_active' => 'boolean'];
     }
 
     public function unit(): BelongsTo

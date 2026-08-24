@@ -9,6 +9,7 @@ use App\Notifications\WebsiteLeadNotification;
 use App\Services\Crm\LeadAssignment;
 use App\Services\Crm\LeadResponseSla;
 use App\Services\Crm\OpportunitySalesCycle;
+use App\Support\BusinessLineCatalog;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -19,13 +20,6 @@ use Throwable;
 
 class WebsiteContactController extends Controller
 {
-    private const SERVICES = [
-        'solar' => 'Instalación fotovoltaica',
-        'storage_charging' => 'Recarga y almacenamiento',
-        'electrical' => 'Soluciones eléctricas',
-        'maintenance' => 'Mantenimiento',
-    ];
-
     public function __invoke(Request $request, LeadAssignment $assignment, OpportunitySalesCycle $salesCycle, LeadResponseSla $responseSla): RedirectResponse
     {
         $data = $request->validate([
@@ -33,7 +27,7 @@ class WebsiteContactController extends Controller
             'email' => ['required', 'email:rfc', 'max:255'],
             'phone' => ['nullable', 'string', 'max:40'],
             'postal_code' => ['nullable', 'string', 'max:12'],
-            'service' => ['required', Rule::in(array_keys(self::SERVICES))],
+            'service' => ['required', Rule::in(array_keys(BusinessLineCatalog::WEBSITE_SERVICES))],
             'message' => ['required', 'string', 'min:20', 'max:2000'],
             'privacy' => ['accepted'],
             'company_url' => ['nullable', 'string', 'max:0'],
@@ -41,7 +35,7 @@ class WebsiteContactController extends Controller
 
         [$opportunity, $created] = DB::transaction(function () use ($data, $assignment, $salesCycle, $responseSla): array {
             $email = Str::lower($data['email']);
-            $service = self::SERVICES[$data['service']];
+            $service = BusinessLineCatalog::WEBSITE_SERVICES[$data['service']];
             $customer = Person::query()
                 ->where('category', 'customer')
                 ->whereRaw('lower(email) = ?', [$email])

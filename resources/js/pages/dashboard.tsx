@@ -9,13 +9,11 @@ import {
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { lazy, Suspense, useEffect } from 'react';
-import type {
-    serviceLabels,
-    statusLabels,
-} from '@/components/installations/installation-form';
+import type { statusLabels } from '@/components/installations/installation-form';
 import { PageHeader, PageShell } from '@/components/page-shell';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
+import type { serviceLabels } from '@/lib/business-lines';
 import { dashboard } from '@/routes';
 
 const InstallationMap = lazy(

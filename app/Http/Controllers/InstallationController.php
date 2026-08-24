@@ -8,6 +8,7 @@ use App\Models\RemoteStation;
 use App\Models\SerialNumber;
 use App\Models\User;
 use App\Services\Operations\ProjectProfitability;
+use App\Support\BusinessLineCatalog;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -25,7 +26,7 @@ class InstallationController extends Controller
     {
         $filters = $request->validate([
             'search' => ['nullable', 'string', 'max:255'],
-            'service_type' => ['nullable', Rule::in(['solar', 'ev_charger', 'hvac', 'electrical'])],
+            'service_type' => ['nullable', Rule::in(BusinessLineCatalog::INSTALLATION_TYPES)],
             'status' => ['nullable', Rule::in(['lead', 'survey_booked', 'quoted', 'approved', 'scheduled', 'in_progress', 'completed', 'cancelled'])],
         ]);
 
@@ -254,7 +255,7 @@ class InstallationController extends Controller
             ],
             'commercial_user_id' => ['nullable', Rule::exists('users', 'id')->where('role', 'commercial')],
             'technician_user_id' => ['nullable', Rule::exists('users', 'id')->where('role', 'technician')],
-            'service_type' => ['required', Rule::in(['solar', 'ev_charger', 'hvac', 'electrical'])],
+            'service_type' => ['required', Rule::in(BusinessLineCatalog::INSTALLATION_TYPES)],
             'monitoring_provider' => ['nullable', Rule::in(['deye', 'huawei'])],
             'remote_station_id' => ['nullable', 'integer', 'exists:remote_stations,id', 'required_with:monitoring_provider'],
             'status' => ['required', Rule::in(['lead', 'survey_booked', 'quoted', 'approved', 'scheduled', 'in_progress', 'completed', 'cancelled'])],
@@ -288,6 +289,14 @@ class InstallationController extends Controller
             'charger_connector_type' => ['nullable', 'string', 'max:255'],
             'hvac_system_type' => ['nullable', 'string', 'max:255'],
             'electrical_scope' => ['nullable', 'string', 'max:255'],
+            'electrical_voltage_v' => ['nullable', 'integer', 'min:1', 'max:1000000'],
+            'electrical_phase' => ['nullable', Rule::in(['single_phase', 'three_phase', 'other'])],
+            'contracted_power_kw' => ['nullable', 'numeric', 'min:0', 'max:999999.99'],
+            'electrical_certificate_required' => ['nullable', 'boolean'],
+            'security_system_type' => ['nullable', 'string', 'max:255'],
+            'security_zones' => ['nullable', 'integer', 'min:0', 'max:65535'],
+            'security_monitoring_mode' => ['nullable', Rule::in(['local', 'self_monitored', 'alarm_receiving_centre', 'hybrid'])],
+            'security_grade' => ['nullable', Rule::in(['unclassified', 'grade_1', 'grade_2', 'grade_3', 'grade_4'])],
             'site_notes' => ['nullable', 'string'],
             'technical_notes' => ['nullable', 'string'],
             'extra_details' => ['nullable', 'string'],
@@ -308,6 +317,7 @@ class InstallationController extends Controller
         unset($validated['monitoring_provider'], $validated['remote_station_id']);
 
         $validated['extra_details'] = $this->parseExtraDetails($validated['extra_details'] ?? null);
+        $validated = $this->clearUnrelatedTechnicalFields($validated);
 
         if (! empty($validated['site_geocoding_data'])) {
             $validated['site_geocoding_data'] = json_decode($validated['site_geocoding_data'], true, flags: JSON_THROW_ON_ERROR);
@@ -315,6 +325,26 @@ class InstallationController extends Controller
         }
 
         return [$validated, $remoteStation];
+    }
+
+    /** @param array<string, mixed> $data */
+    private function clearUnrelatedTechnicalFields(array $data): array
+    {
+        $fieldsByType = [
+            'solar' => ['system_power_kw', 'panel_count', 'inverter_brand', 'battery_capacity_kwh'],
+            'ev_charger' => ['charger_power_kw', 'charger_connector_type'],
+            'hvac' => ['hvac_system_type'],
+            'electrical' => ['electrical_scope', 'electrical_voltage_v', 'electrical_phase', 'contracted_power_kw', 'electrical_certificate_required'],
+            'security' => ['security_system_type', 'security_zones', 'security_monitoring_mode', 'security_grade'],
+        ];
+        $allFields = collect($fieldsByType)->flatten()->unique();
+        $applicableFields = $fieldsByType[$data['service_type']] ?? [];
+
+        foreach ($allFields->diff($applicableFields) as $field) {
+            $data[$field] = $field === 'electrical_certificate_required' ? false : null;
+        }
+
+        return $data;
     }
 
     private function bindRemoteStation(Installation $installation, ?RemoteStation $remoteStation): void
@@ -465,6 +495,14 @@ class InstallationController extends Controller
             'charger_connector_type' => $installation->charger_connector_type,
             'hvac_system_type' => $installation->hvac_system_type,
             'electrical_scope' => $installation->electrical_scope,
+            'electrical_voltage_v' => $installation->electrical_voltage_v,
+            'electrical_phase' => $installation->electrical_phase,
+            'contracted_power_kw' => $installation->contracted_power_kw,
+            'electrical_certificate_required' => $installation->electrical_certificate_required,
+            'security_system_type' => $installation->security_system_type,
+            'security_zones' => $installation->security_zones,
+            'security_monitoring_mode' => $installation->security_monitoring_mode,
+            'security_grade' => $installation->security_grade,
             'site_notes' => $installation->site_notes,
             'technical_notes' => $installation->technical_notes,
             'extra_details' => $installation->extra_details,

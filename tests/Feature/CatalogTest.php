@@ -41,17 +41,21 @@ class CatalogTest extends TestCase
             'type' => 'product', 'sku' => 'INV-5K', 'name' => 'Solar inverter 5 kW',
             'unit_id' => $unit->id, 'tax_rate_id' => $tax->id, 'sale_price' => 1250,
             'cost_price' => 900, 'sale_account_code' => '700', 'purchase_account_code' => '600', 'track_stock' => true, 'track_serials' => true, 'is_active' => true,
+            'business_lines' => ['solar', 'electrical', 'security'],
         ])->assertRedirect();
 
         $product = Product::where('sku', 'INV-5K')->firstOrFail();
+        $this->assertSame(['solar', 'electrical', 'security'], $product->business_lines);
         $this->actingAs($user)->patch(route('catalog.products.update', $product), [
             'type' => 'product', 'sku' => 'INV-5K', 'name' => 'Solar inverter 5 kW updated',
             'unit_id' => $unit->id, 'tax_rate_id' => $tax->id, 'sale_price' => 1300,
             'cost_price' => 900, 'sale_account_code' => '701', 'purchase_account_code' => '601', 'track_stock' => true, 'track_serials' => true, 'is_active' => true,
+            'business_lines_submitted' => true,
         ])->assertRedirect();
 
         $this->assertSame('Solar inverter 5 kW updated', $product->fresh()->name);
         $this->assertSame('701', $product->fresh()->sale_account_code);
+        $this->assertSame([], $product->fresh()->business_lines);
     }
 
     public function test_a_composite_product_reuses_catalog_items_and_exposes_a_resolved_quote_template(): void

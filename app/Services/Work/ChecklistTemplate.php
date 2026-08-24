@@ -18,7 +18,9 @@ class ChecklistTemplate
             'solar' => ['Verify mounting and roof sealing', 'Check DC polarity and insulation', 'Record inverter and module serial numbers', 'Verify protections and earthing', 'Commission monitoring and production'],
             'ev_charger' => ['Verify dedicated circuit and protections', 'Check earthing and insulation', 'Record charger serial number', 'Configure power balancing', 'Complete charging test'],
             'hvac' => ['Verify condensate drainage', 'Perform pressure and leak test', 'Record indoor and outdoor unit serials', 'Check operating temperatures', 'Explain filters and maintenance'],
-            default => ['Verify cable sizing and routing', 'Test protections and earthing', 'Measure insulation and continuity', 'Label circuits and update panel schedule', 'Complete functional test'],
+            'electrical' => ['Verify cable sizing and routing', 'Test protections and earthing', 'Measure insulation and continuity', 'Label circuits and update panel schedule', 'Record certificate and functional test'],
+            'security' => ['Confirm detection and camera coverage', 'Record control panel, detector and camera serials', 'Test tamper, power-loss and communication alerts', 'Verify user permissions and privacy zones', 'Complete alarm, recording and handover tests'],
+            default => ['Confirm technical scope', 'Record installed equipment', 'Verify protections and safety measures', 'Complete functional tests'],
         };
 
         return array_map(fn ($label) => ['label' => $label, 'is_required' => true], [...$byKind, ...$byService, ...$common]);

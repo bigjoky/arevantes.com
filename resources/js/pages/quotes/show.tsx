@@ -856,6 +856,7 @@ export default function QuoteShow({
                                     ['ev_charger', 'EV charging'],
                                     ['hvac', 'Air conditioning / HVAC'],
                                     ['electrical', 'Electrical installation'],
+                                    ['security', 'Alarm & security system'],
                                 ]}
                             />
                             <ProjectSelect

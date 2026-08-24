@@ -45,6 +45,14 @@ class InstallationBriefingPrompt
                     'charger_connector_type' => $installation->charger_connector_type,
                     'hvac_system_type' => $installation->hvac_system_type,
                     'electrical_scope' => $installation->electrical_scope,
+                    'electrical_voltage_v' => $installation->electrical_voltage_v,
+                    'electrical_phase' => $installation->electrical_phase,
+                    'contracted_power_kw' => $installation->contracted_power_kw,
+                    'electrical_certificate_required' => $installation->electrical_certificate_required,
+                    'security_system_type' => $installation->security_system_type,
+                    'security_zones' => $installation->security_zones,
+                    'security_monitoring_mode' => $installation->security_monitoring_mode,
+                    'security_grade' => $installation->security_grade,
                 ],
                 'monitoring' => [
                     'deye' => [
@@ -101,6 +109,7 @@ class InstallationBriefingPrompt
         $sources = $this->retriever->search(implode(' ', array_filter([
             $installation->service_type, $installation->inverter_brand,
             $installation->hvac_system_type, $installation->electrical_scope,
+            $installation->security_system_type, $installation->security_monitoring_mode,
         ])), 4, $user, 'installations');
         $context = collect($sources)->map(fn (array $source, int $index) => sprintf(
             '[S%d: %s v%d]\n%s', $index + 1, $source['title'], $source['version'], $source['content']

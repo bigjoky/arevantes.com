@@ -15,7 +15,7 @@ export default function PeopleCreate({
     category,
     basePath = '/people',
     createTitle = 'Add customer',
-    createDescription = 'Create a customer profile for solar, EV charging, clima, or electrical work.',
+    createDescription = 'Create a customer profile for solar, EV charging, climate, electrical or security work.',
 }: PeopleCreateProps) {
     return (
         <>

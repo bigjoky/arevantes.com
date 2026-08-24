@@ -7,12 +7,12 @@ base y no mantienen implementaciones funcionales aisladas.
 
 | Area | Capacidades alineadas | Siguiente incremento |
 | --- | --- | --- |
-| CRM y ventas | ciclo comercial, captacion, cartera, agenda y rutas comerciales moviles offline, conversion atribuida por origen y comercial, aprobaciones, opciones, SLA y trazabilidad | automatizacion de renovaciones y forecast por cohortes |
+| CRM y ventas | ciclo comercial, captacion multirramo, cartera, agenda y rutas comerciales moviles offline, conversion atribuida por origen y comercial, aprobaciones, opciones, SLA y trazabilidad | automatizacion de renovaciones y forecast por linea de negocio y cohortes |
 | Finanzas | contabilidad, banca, cobros, riesgo de clientes, alertas, cierre asistido, bloqueo por excepciones y escenarios de compra no comprometida | conciliacion guiada de excepciones y simulacion de caja integrada |
-| Operaciones | planificacion, ordenes, mantenimiento, RMA, sincronizacion movil, capacidad semanal y riesgo de repuestos criticos | simulacion operativa de escenarios y alternativas |
+| Operaciones | planificacion y fichas tecnicas para solar, recarga, clima, electricidad y seguridad; ordenes, mantenimiento, RMA, sincronizacion movil, capacidad semanal y riesgo de repuestos criticos | plantillas certificables, puesta en marcha y mantenimiento preventivo por linea |
 | Suministro | compras, aprobaciones, reposicion, calidad, control tower, criticidad, riesgo por fecha y alternativas de proveedor | conversion gobernada de escenarios en solicitudes de oferta |
 | Recursos humanos | expediente, contratos, ausencias, tareas, controles sensibles y capacidad coordinada con operaciones | turnos y coste operativo planificado |
-| Portal de cliente | documentos protegidos, aceptacion, certificados y autoservicio de incidencias | seguimiento de hitos y comunicaciones proactivas |
+| Portal de cliente | instalaciones multirramo, documentos protegidos, aceptacion, certificados y autoservicio de incidencias | seguimiento de hitos y comunicaciones proactivas por tipo de instalacion |
 | Analitica | drilldowns acotados, alertas e informes programados | objetivos versionados y explicacion de desviaciones |
 | Arevia | conocimiento gobernado, acciones, URLs y contexto operativo | evaluacion continua y aprobacion humana por riesgo |
 | Plataforma | permisos, navegacion autorizada, auditoria, seguridad, copias y observabilidad | modularizacion progresiva de rutas y proveedores |
@@ -62,3 +62,13 @@ Un incremento solo se considera alineado cuando incluye:
 - Alternativas de proveedor priorizadas por llegada a tiempo, preferencia,
   scorecard y coste, ajustadas a MOQ y multiplos; Finanzas recibe el efectivo y
   fecha de pago recomendados como escenario aun no comprometido.
+- Catalogo comun de lineas de negocio compartido por CRM, presupuestos,
+  instalaciones, portal, analitica y APIs, con electricidad ampliada y la nueva
+  rama de alarmas y sistemas de seguridad.
+- Fichas tecnicas especificas para potencia, fases y certificacion electrica, y
+  para tipologia, zonas, supervision y grado de los sistemas de seguridad.
+- Checklists operativos diferenciados para instalaciones electricas y de
+  seguridad, incluida la comprobacion funcional, trazabilidad de equipos y
+  entrega al cliente.
+- Captacion publica y comercial movil alineada con ambas ramas, manteniendo
+  compatibilidad con los intereses y proyectos historicos.

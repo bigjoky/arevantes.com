@@ -13,6 +13,7 @@ use App\Services\Crm\LeadResponseSla;
 use App\Services\Crm\OpportunitySalesCycle;
 use App\Services\Customers\OpportunityCustomerResolver;
 use App\Services\Geocoding\NominatimGeocoder;
+use App\Support\BusinessLineCatalog;
 use App\Support\Crm\CommercialRoutePayload;
 use App\Support\Crm\OpportunityCatalog;
 use App\Support\PhoneNormalizer;
@@ -25,15 +26,6 @@ use Illuminate\Validation\Rule;
 
 class CommercialLeadController extends Controller
 {
-    private const SERVICE_INTERESTS = [
-        'solar_photovoltaic',
-        'battery_storage',
-        'ev_charging',
-        'maintenance',
-        'energy_efficiency',
-        'other',
-    ];
-
     public function reverseGeocode(Request $request, NominatimGeocoder $geocoder): JsonResponse
     {
         $data = $request->validate([
@@ -171,7 +163,7 @@ class CommercialLeadController extends Controller
             'preferred_contact_channel' => ['required', Rule::in(['phone', 'whatsapp', 'email', 'sms'])],
             'consent_status' => ['required', Rule::in(['not_recorded', 'granted', 'denied'])],
             'consent_notes' => ['nullable', 'string', 'max:1000'],
-            'service_interest' => ['required', Rule::in(self::SERVICE_INTERESTS)],
+            'service_interest' => ['required', Rule::in(BusinessLineCatalog::SERVICE_INTERESTS)],
             'source' => ['required', Rule::in(array_keys(OpportunityCatalog::SOURCES))],
             'source_detail' => ['nullable', 'string', 'max:255', 'required_if:source,other'],
             'estimated_value' => ['nullable', 'numeric', 'min:0', 'max:9999999999999.99'],
