@@ -26,12 +26,27 @@ class WorkOrderStateManager
         return DB::transaction(function () use ($order, $status, $completionNotes, $blockedReason, $expectedUpdatedAt): WorkOrder {
             $locked = WorkOrder::query()->with(['template', 'installation'])->lockForUpdate()->findOrFail($order->id);
             if ($expectedUpdatedAt !== null && ! $locked->updated_at->equalTo(Carbon::parse($expectedUpdatedAt))) {
+                $locked->loadMissing(['assignedUser:id,name', 'activities:id,work_order_id,priority']);
+                $planning = $this->readiness->for($locked);
                 throw new HttpResponseException(response()->json([
                     'message' => __('This work order changed on the server. Refresh it before retrying.'),
                     'conflict' => [
                         'work_order_id' => $locked->id,
                         'expected_updated_at' => $expectedUpdatedAt,
                         'current_updated_at' => $locked->updated_at->toISOString(),
+                        'current' => [
+                            'number' => $locked->number,
+                            'title' => $locked->title,
+                            'status' => $locked->status,
+                            'scheduled_start' => $locked->scheduled_start?->toISOString(),
+                            'scheduled_end' => $locked->scheduled_end?->toISOString(),
+                            'assigned_user' => $locked->assignedUser?->only(['id', 'name']),
+                            'priority' => $locked->activities->first()?->priority ?? ($locked->kind === 'repair' ? 'high' : 'normal'),
+                            'material_ready' => $planning['material_ready'],
+                            'material_ready_now' => $planning['material_ready_now'],
+                            'material_ready_on' => $planning['material_ready_on'],
+                            'updated_at' => $locked->updated_at->toISOString(),
+                        ],
                     ],
                 ], 409));
             }

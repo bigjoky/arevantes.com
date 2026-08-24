@@ -38,7 +38,7 @@ class WorkOrderController extends Controller
             ? CarbonImmutable::parse($validated['updated_after'])->setTimezone(config('app.timezone'))
             : null;
         $query = $this->accessible($request)
-            ->with(['installation:id,project_reference,service_type,site_name,site_address_line_1,site_city,site_postal_code,site_latitude,site_longitude', 'assignedUser:id,name', 'checklistItems', 'attachments:id,work_order_id,evidence_key', 'activities:id,work_order_id,blocked_reason'])
+            ->with(['installation:id,project_reference,service_type,site_name,site_address_line_1,site_city,site_postal_code,site_latitude,site_longitude', 'assignedUser:id,name', 'checklistItems', 'attachments:id,work_order_id,evidence_key', 'activities:id,work_order_id,blocked_reason,priority'])
             ->when($updatedAfter, fn (Builder $query, CarbonImmutable $date) => $query->where('updated_at', '>', $date))
             ->when($validated['status'] ?? null, fn (Builder $query, string $status) => $query->where('status', $status));
         $perPage = $validated['per_page'] ?? 30;
@@ -88,7 +88,7 @@ class WorkOrderController extends Controller
     public function show(Request $request, WorkOrder $workOrder, WorkOrderPlanningReadiness $readiness): JsonResponse
     {
         $this->ensureAccess($request, $workOrder);
-        $workOrder->load(['installation', 'assignedUser:id,name', 'timeEntries.user:id,name', 'checklistItems', 'attachments', 'stockReservations.product:id,sku,name,track_serials', 'stockReservations.warehouse:id,code,name', 'activities:id,work_order_id,blocked_reason']);
+        $workOrder->load(['installation', 'assignedUser:id,name', 'timeEntries.user:id,name', 'checklistItems', 'attachments', 'stockReservations.product:id,sku,name,track_serials', 'stockReservations.warehouse:id,code,name', 'activities:id,work_order_id,blocked_reason,priority']);
 
         return response()->json(['data' => [...$this->summary($workOrder),
             'instructions' => $workOrder->instructions,
@@ -122,7 +122,7 @@ class WorkOrderController extends Controller
             'expected_updated_at' => ['nullable', 'date'],
         ]);
         $startedAt = isset($data['started_at']) ? CarbonImmutable::parse($data['started_at'])->setTimezone(config('app.timezone')) : now();
-        $entry = DB::transaction(function () use ($request, $workOrder, $states, $data, $startedAt): TimeEntry {
+        [$entry, $updatedAt] = DB::transaction(function () use ($request, $workOrder, $states, $data, $startedAt): array {
             User::query()->whereKey($request->user()->id)->lockForUpdate()->firstOrFail();
             $locked = WorkOrder::query()->lockForUpdate()->findOrFail($workOrder->id);
             $this->ensureAccess($request, $locked);
@@ -130,10 +130,10 @@ class WorkOrderController extends Controller
             $states->transition($locked, 'in_progress', expectedUpdatedAt: $data['expected_updated_at'] ?? null);
             $entry = TimeEntry::create(['client_uuid' => $data['client_uuid'] ?? null, 'work_order_id' => $locked->id, 'user_id' => $request->user()->id, 'created_by' => $request->user()->id, 'started_at' => $startedAt, 'hourly_cost' => config('work.default_hourly_cost'), 'mileage_rate' => config('work.mileage_rate')]);
 
-            return $entry;
+            return [$entry, $locked->refresh()->updated_at->toISOString()];
         });
 
-        return response()->json(['data' => ['id' => $entry->id, 'client_uuid' => $entry->client_uuid, 'started_at' => $entry->started_at->toISOString()]], 201);
+        return response()->json(['data' => ['id' => $entry->id, 'client_uuid' => $entry->client_uuid, 'started_at' => $entry->started_at->toISOString(), 'work_order_updated_at' => $updatedAt]], 201);
     }
 
     public function complete(Request $request, WorkOrder $workOrder, WorkOrderStateManager $states): JsonResponse
@@ -170,7 +170,7 @@ class WorkOrderController extends Controller
             blockedReason: $data['blocked_reason'] ?? null,
             expectedUpdatedAt: $data['expected_updated_at'] ?? null,
         );
-        $updated->load(['installation', 'assignedUser:id,name', 'checklistItems', 'activities:id,work_order_id,blocked_reason']);
+        $updated->load(['installation', 'assignedUser:id,name', 'checklistItems', 'activities:id,work_order_id,blocked_reason,priority']);
 
         return response()->json(['data' => $this->summary($updated)]);
     }
@@ -340,6 +340,7 @@ class WorkOrderController extends Controller
             'allowed_transitions' => ($order->allowed_transitions_snapshot ?: WorkOrderWorkflow::DEFAULT_TRANSITIONS)[$order->status] ?? [],
             'scheduled_start' => $order->scheduled_start?->toISOString(), 'scheduled_end' => $order->scheduled_end?->toISOString(),
             'updated_at' => $order->updated_at->toISOString(), 'assigned_user' => $order->assignedUser?->only(['id', 'name']),
+            'priority' => $order->relationLoaded('activities') ? ($order->activities->first()?->priority ?? ($order->kind === 'repair' ? 'high' : 'normal')) : ($order->kind === 'repair' ? 'high' : 'normal'),
             'signed_by_name' => $order->signed_by_name, 'signed_at' => $order->signed_at?->toISOString(),
             'required_evidence' => $order->required_evidence ?? [], 'evidence_progress' => $evidence->progress($order),
             'handover_documents' => $order->handover_documents ?? [],

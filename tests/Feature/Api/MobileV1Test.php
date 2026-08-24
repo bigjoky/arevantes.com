@@ -616,16 +616,36 @@ class MobileV1Test extends TestCase
 
     public function test_mobile_status_changes_detect_a_stale_work_order_version(): void
     {
-        $technician = User::factory()->create(['role' => 'technician']);
+        $technician = User::factory()->create(['role' => 'technician', 'name' => 'Initial Technician']);
+        $admin = User::factory()->create(['role' => 'admin']);
         $installation = Installation::create(['service_type' => 'solar', 'status' => 'scheduled', 'site_address_line_1' => 'Calle Sol 1']);
-        $order = WorkOrder::create(['installation_id' => $installation->id, 'assigned_user_id' => $technician->id, 'number' => 'WO-CONFLICT', 'title' => 'Original']);
-        $expected = $order->updated_at->toISOString();
+        $order = WorkOrder::create([
+            'installation_id' => $installation->id,
+            'assigned_user_id' => $technician->id,
+            'number' => 'WO-CONFLICT',
+            'title' => 'Original',
+            'scheduled_start' => now()->addDay(),
+            'scheduled_end' => now()->addDay()->addHour(),
+        ]);
+        $order->activities()->create([
+            'installation_id' => $installation->id,
+            'assigned_user_id' => $technician->id,
+            'created_by' => $admin->id,
+            'type' => 'task',
+            'title' => $order->title,
+            'priority' => 'normal',
+            'status' => 'pending',
+        ]);
+        $expected = $order->fresh()->updated_at->toISOString();
+        $order->activities()->update(['priority' => 'high']);
         WorkOrder::query()->whereKey($order)->update([
             'title' => 'Changed on server',
+            'scheduled_start' => now()->addDays(2),
+            'scheduled_end' => now()->addDays(2)->addHour(),
             'updated_at' => now()->addMinute(),
         ]);
 
-        $this->mobileAs($technician)
+        $this->mobileAs($admin)
             ->withHeader('Idempotency-Key', (string) Str::uuid())
             ->patchJson("/api/mobile/v1/work-orders/{$order->id}/status", [
                 'status' => 'in_progress',
@@ -633,7 +653,11 @@ class MobileV1Test extends TestCase
             ])
             ->assertConflict()
             ->assertJsonPath('conflict.work_order_id', $order->id)
-            ->assertJsonPath('conflict.expected_updated_at', $expected);
+            ->assertJsonPath('conflict.expected_updated_at', $expected)
+            ->assertJsonPath('conflict.current.title', 'Changed on server')
+            ->assertJsonPath('conflict.current.priority', 'high')
+            ->assertJsonPath('conflict.current.material_ready', true)
+            ->assertJsonPath('conflict.current.assigned_user.name', 'Initial Technician');
 
         $this->assertSame('planned', $order->fresh()->status);
     }
@@ -649,11 +673,24 @@ class MobileV1Test extends TestCase
         $order->checklistItems()->create(['position' => 1, 'label' => 'Evidence', 'is_required' => true]);
 
         $this->assertTrue($order->fresh()->updated_at->isAfter($previousVersion));
+        WorkOrder::query()->whereKey($order)->update(['updated_at' => now()->subDay()]);
+        $activityVersion = $order->fresh()->updated_at;
+        $order->activities()->create([
+            'installation_id' => $installation->id,
+            'assigned_user_id' => $technician->id,
+            'created_by' => $technician->id,
+            'type' => 'task',
+            'title' => 'Priority changed',
+            'priority' => 'high',
+            'status' => 'pending',
+        ]);
+        $this->assertTrue($order->fresh()->updated_at->isAfter($activityVersion));
         $this->mobileAs($technician)
             ->getJson('/api/mobile/v1/work-orders?'.http_build_query(['sync' => 1, 'updated_after' => $previousVersion->toISOString()]))
             ->assertOk()
             ->assertJsonPath('data.0.id', $order->id)
-            ->assertJsonPath('data.0.checklist.0.label', 'Evidence');
+            ->assertJsonPath('data.0.checklist.0.label', 'Evidence')
+            ->assertJsonPath('data.0.priority', 'high');
     }
 
     public function test_technician_can_execute_assigned_work_order(): void
