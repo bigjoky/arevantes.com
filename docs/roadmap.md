@@ -300,14 +300,33 @@ El cuarto vertical completa la entrega documental al cliente:
 - la migración conserva los documentos históricos y traduce la visibilidad
   anterior al nuevo flujo sin convertir archivos internos en públicos.
 
+El quinto vertical cierra el Horizonte 1 con una lectura económica común:
+
+- un único cálculo por cartera reconcilia oferta aceptada, coste planificado,
+  compras aún comprometidas, consumos, horas, desplazamientos, servicios de
+  proveedor, gastos, facturación y cobro;
+- el expediente distingue margen previsto, comprometido y real, desglosa sus
+  fuentes y avisa cuando faltan costes o documentos por validar;
+- dirección y finanzas comparan las cinco líneas con idénticas definiciones,
+  incluyendo los proyectos solares históricos clasificados como `solar_pv`;
+- cada proyecto enlaza su expediente y los documentos origen, y el umbral de
+  riesgo requiere una erosión mínima del 10 % o margen comprometido negativo;
+- las cifras solo se calculan y entregan a usuarios con permiso financiero;
+  técnicos y perfiles no autorizados no las reciben ni en la interfaz ni en el
+  contexto de Arevia;
+- Arevia puede explicar desviaciones y calidad del dato, pero mantiene sus
+  acciones como borradores sujetos a confirmación humana.
+
 ## Próximo corte recomendado
 
-Completar el quinto vertical del Horizonte 1: **margen, indicadores y evaluación
-de Arevia por línea de negocio**. El expediente del proyecto debe reconciliar
-oferta, compras comprometidas, material consumido, horas, desplazamiento,
-facturación y cobro para distinguir margen previsto, comprometido y real.
+Iniciar el Horizonte 2 con el primer vertical de **servicio recurrente y
+posventa**. El siguiente incremento debe convertir una instalación entregada en
+un plan versionado de mantenimiento, con cobertura, frecuencia, SLA, garantía,
+activos incluidos y próximas intervenciones, sin generar órdenes duplicadas.
 
-Los cuadros compararán las cinco líneas con las mismas definiciones y permitirán
-llegar al dato origen. Arevia utilizará esa información únicamente para explicar
-desviaciones y preparar acciones revisables; no publicará mensajes, modificará
-previsiones ni asumirá requisitos técnicos sin una aprobación explícita.
+CRM debe conservar el origen de renovaciones y ampliaciones; Operaciones y móvil
+deben compartir agenda, versión de plantilla y cierre offline; Suministro debe
+separar repuesto preventivo de reserva de proyecto; Finanzas debe preparar la
+facturación periódica sin emitirla antes de aprobación; el portal debe mostrar
+solo cobertura y fechas confirmadas; Analítica y Arevia deben explicar
+renovación, riesgo y siguiente acción desde datos autorizados.

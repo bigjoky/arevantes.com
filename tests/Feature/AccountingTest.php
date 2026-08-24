@@ -25,6 +25,7 @@ use App\Services\Accounting\CorporateTaxCalculator;
 use App\Services\Accounting\JournalPoster;
 use App\Services\Accounting\RecurringEntryProcessor;
 use App\Services\Ai\BusinessContextBuilder;
+use App\Services\Ai\InstallationBriefingPrompt;
 use App\Services\Ai\RelevantBusinessContext;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -61,9 +62,15 @@ class AccountingTest extends TestCase
 
         $pageContext = $retriever->search($technician, '¿Cómo va esta instalación?', '/installations/'.$installation->id);
         $this->assertStringContainsString('SOL-CORD-77', $pageContext);
+        $this->assertStringNotContainsString('Authorized project margin context', $pageContext);
         $this->assertStringNotContainsString('FAC-AREVIA-77', $pageContext);
         $this->assertStringNotContainsString('ana@solar.test', $retriever->search($technician, 'ana@solar.test'));
         $this->assertStringContainsString('FAC-AREVIA-77', $retriever->search($commercial, 'Revisa FAC-AREVIA-77'));
+        $this->assertStringContainsString('Authorized project margin context', $retriever->search($commercial, 'SOL-CORD-77', '/installations/'.$installation->id));
+
+        $briefing = app(InstallationBriefingPrompt::class);
+        $this->assertStringContainsString('"financial_context": null', $briefing->build($installation, 'operational', $technician)['prompt']);
+        $this->assertStringContainsString('"planned_margin"', $briefing->build($installation, 'operational', $commercial)['prompt']);
     }
 
     public function test_arevia_installation_routes_require_direct_installation_access(): void

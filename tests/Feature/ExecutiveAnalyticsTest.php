@@ -10,6 +10,7 @@ use App\Models\Installation;
 use App\Models\Opportunity;
 use App\Models\OpportunityStageHistory;
 use App\Models\PurchaseDocument;
+use App\Models\Quote;
 use App\Models\SalesDocument;
 use App\Models\Supplier;
 use App\Models\User;
@@ -107,6 +108,85 @@ class ExecutiveAnalyticsTest extends TestCase
                 ->has('records', 2)
                 ->where('records.0.url', route('sales-documents.show', 2))
                 ->where('records.1.url', route('sales-documents.show', 1)));
+    }
+
+    public function test_project_margins_reconcile_every_business_line_and_hide_finance_without_permission(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $technician = User::factory()->create(['role' => 'technician']);
+        $supplier = Supplier::create(['legal_name' => 'Margin Supply SL', 'country' => 'ES', 'is_active' => true]);
+        $project = Installation::create([
+            'commercial_user_id' => $admin->id,
+            'technician_user_id' => $technician->id,
+            'service_type' => 'solar_pv',
+            'status' => 'scheduled',
+            'project_reference' => 'PRJ-MARGIN-1',
+            'site_address_line_1' => 'Margin street',
+            'estimated_budget' => 1210,
+        ]);
+        Quote::create([
+            'installation_id' => $project->id,
+            'created_by' => $admin->id,
+            'number' => 'PRE-MARGIN-AN-1',
+            'status' => 'accepted',
+            'issue_date' => today(),
+            'subtotal' => 1000,
+            'discount_amount' => 0,
+            'tax_amount' => 210,
+            'amount' => 1210,
+            'expected_margin_amount' => 400,
+        ]);
+        PurchaseDocument::create([
+            'type' => 'purchase_order',
+            'installation_id' => $project->id,
+            'supplier_id' => $supplier->id,
+            'created_by' => $admin->id,
+            'number' => 'PO-MARGIN-1',
+            'status' => 'ordered',
+            'issue_date' => today(),
+            'subtotal' => 700,
+            'tax_amount' => 147,
+            'amount' => 847,
+        ]);
+        SalesDocument::create([
+            'type' => 'invoice',
+            'installation_id' => $project->id,
+            'created_by' => $admin->id,
+            'number' => 'INV-MARGIN-1',
+            'status' => 'issued',
+            'issue_date' => today(),
+            'subtotal' => 500,
+            'discount_amount' => 0,
+            'tax_amount' => 105,
+            'amount' => 605,
+            'paid_amount' => 205,
+            'customer_snapshot' => [],
+        ]);
+
+        $this->actingAs($admin)->get(route('analytics.index', ['area' => 'executive', 'period' => 'month']))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('projectMargins.summary.projects', 1)
+                ->where('projectMargins.summary.planned_margin', 400)
+                ->where('projectMargins.summary.committed_margin', 300)
+                ->where('projectMargins.summary.actual_margin', 500)
+                ->where('projectMargins.summary.outstanding_cash', 400)
+                ->where('projectMargins.summary.at_risk', 1)
+                ->has('projectMargins.by_line', 5)
+                ->where('projectMargins.by_line.0.service_type', 'solar')
+                ->where('projectMargins.by_line.0.projects', 1)
+                ->where('projectMargins.projects.0.reference', 'PRJ-MARGIN-1')
+                ->where('projectMargins.projects.0.sources.purchase_documents', 1));
+
+        $this->get(route('installations.show', $project))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('profitability.planned_margin', 400)
+                ->where('profitability.committed_margin', 300));
+
+        $this->actingAs($technician)->get(route('analytics.index', ['period' => 'month']))
+            ->assertInertia(fn (Assert $page) => $page->where('projectMargins', null));
+        $this->get(route('installations.show', $project))
+            ->assertInertia(fn (Assert $page) => $page->where('profitability', null));
     }
 
     public function test_technician_only_sees_operations_and_assigned_scope(): void

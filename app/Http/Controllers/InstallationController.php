@@ -118,7 +118,7 @@ class InstallationController extends Controller
                 'tickets' => $installation->serviceTickets()->latest()->get(['id', 'number', 'title']),
                 'purchases' => $installation->purchaseDocuments()->latest()->get(['id', 'number']),
             ],
-            'profitability' => $profitability->for($installation),
+            'profitability' => $request->user()->can('view-finance') ? $profitability->for($installation) : null,
             'canManageAssets' => $request->user()->can('manage-installations'),
             'latestAiGeneration' => InstallationAiController::payload($installation->aiGenerations()->latest()->first()),
             'customers' => $this->customerOptions(),
