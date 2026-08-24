@@ -5,8 +5,10 @@ namespace App\Http\Controllers;
 use App\Models\Product;
 use App\Models\StockMovementLine;
 use App\Models\StockReservation;
+use App\Models\Warehouse;
 use App\Models\WorkOrder;
 use App\Services\Inventory\ProjectProcurement;
+use App\Services\Inventory\WorkOrderKitAllocator;
 use App\Services\Inventory\WorkOrderMaterialConsumer;
 use App\Services\Operations\FinancialClearanceGuard;
 use Illuminate\Http\RedirectResponse;
@@ -17,6 +19,16 @@ use Illuminate\Validation\ValidationException;
 
 class WorkOrderMaterialsController extends Controller
 {
+    public function reserveKit(Request $request, WorkOrder $workOrder, WorkOrderKitAllocator $allocator, FinancialClearanceGuard $financialClearance): RedirectResponse
+    {
+        $financialClearance->assertAllows($workOrder->loadMissing('installation')->installation, 'reserve');
+        $created = $allocator->reserveAvailable($workOrder);
+
+        return back()->with('toast', ['type' => 'success', 'message' => $created > 0
+            ? __('Available kit materials reserved.')
+            : __('No additional kit materials are currently available.')]);
+    }
+
     public function procure(Request $request, WorkOrder $workOrder, ProjectProcurement $procurement): RedirectResponse
     {
         $data = $request->validate([
@@ -41,6 +53,7 @@ class WorkOrderMaterialsController extends Controller
         ]);
 
         DB::transaction(function () use ($data, $workOrder): void {
+            Warehouse::query()->whereKey($data['warehouse_id'])->lockForUpdate()->firstOrFail();
             $product = Product::findOrFail($data['product_id']);
             if ($product->track_serials && floor((float) $data['quantity']) !== (float) $data['quantity']) {
                 throw ValidationException::withMessages(['quantity' => __('Serialized products must be reserved in whole units.')]);

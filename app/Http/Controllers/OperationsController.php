@@ -111,12 +111,26 @@ class OperationsController extends Controller
             ? $unscheduledOrdersQuery->orderBy('created_at')->orderBy('id')->limit(50)->get()
             : collect();
         $planningOrders = $scheduledOrders->concat($unscheduledOrders);
+        $materialRisk = $criticalMaterialRisk->forecast(today(), 45, $request->user());
+        $materialRiskByOrder = collect($materialRisk['rows'])->groupBy('work_order_id');
         $planningIssues = $schedule->planningIssues($planningOrders);
-        $planningOrders->each(function (WorkOrder $order) use ($planningIssues): void {
+        $planningOrders->each(function (WorkOrder $order) use (&$planningIssues, $materialRiskByOrder): void {
+            $risks = $materialRiskByOrder->get($order->id, collect());
+            if ($risks->isNotEmpty()) {
+                $shortage = round((float) $risks->sum('shortage_quantity'), 3);
+                $severity = $risks->contains('severity', 'blocked') || $risks->contains('severity', 'critical') ? 'critical' : 'warning';
+                $planningIssues[$order->id] = collect($planningIssues[$order->id] ?? [])->reject(fn (array $issue) => $issue['type'] === 'materials')->push([
+                    'type' => 'materials', 'severity' => $severity,
+                    'message' => $shortage > 0 ? __('Material shortage: :quantity units', ['quantity' => $shortage]) : __('Inbound material arrives after the planned work'),
+                ])->values()->all();
+            }
             $order->setAttribute('planning_issues', $planningIssues[$order->id] ?? []);
             $order->setAttribute('has_schedule_conflict', collect($planningIssues[$order->id] ?? [])->contains('type', 'overlap'));
+            $hasPendingMaterials = collect($planningIssues[$order->id] ?? [])->contains('type', 'materials');
+            $order->setAttribute('material_status', $risks->contains(fn (array $risk) => in_array($risk['severity'], ['blocked', 'critical'], true))
+                ? 'blocked'
+                : ($risks->isNotEmpty() || $hasPendingMaterials ? 'warning' : 'ready'));
         });
-        $materialRisk = $criticalMaterialRisk->forecast(today(), 45, $request->user());
 
         $weekActivities = CrmActivity::query()
             ->with(['installation:id,project_reference,site_name', 'assignedUser:id,name,role', 'workOrder:id,number,status'])

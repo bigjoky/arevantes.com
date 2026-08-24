@@ -19,6 +19,7 @@ use App\Services\Work\InstallationWorkOrderSynchronizer;
 use App\Services\Work\TechnicianSchedule;
 use App\Services\Work\WorkOrderEvidenceRequirements;
 use App\Services\Work\WorkOrderFactory;
+use App\Services\Work\WorkOrderPlanningReadiness;
 use App\Services\Work\WorkOrderRescheduler;
 use App\Services\Work\WorkOrderStateManager;
 use Illuminate\Http\RedirectResponse;
@@ -34,7 +35,7 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class WorkOrderController extends Controller
 {
-    public function index(Request $request, TechnicianSchedule $schedule, ProjectMaterialPlanner $materials): Response
+    public function index(Request $request, TechnicianSchedule $schedule, ProjectMaterialPlanner $materials, WorkOrderPlanningReadiness $readiness): Response
     {
         $query = WorkOrder::with(['installation:id,project_reference,site_name,status,site_postal_code,site_latitude,site_longitude', 'installation.materialRequirements:id,installation_id', 'assignedUser:id,name', 'assignedUser.fieldServiceProfile', 'stockReservations:id,work_order_id,status', 'template:id,name,allowed_transitions'])->withSum('timeEntries as duration_minutes', 'duration_minutes')->withSum('timeEntries as travel_km', 'travel_km');
         if ($request->user()->hasRole('technician')) {
@@ -55,6 +56,7 @@ class WorkOrderController extends Controller
             $selected->setAttribute('planning_issues', $planningIssues[$selected->id] ?? []);
             $selected->setAttribute('has_schedule_conflict', collect($planningIssues[$selected->id] ?? [])->contains('type', 'overlap'));
             $selected->setAttribute('material_plan', $materials->summary($selected->installation));
+            $selected->setAttribute('planning_readiness', $readiness->for($selected));
             $selected->setAttribute('completion_readiness', $this->completionReadiness($selected));
         }
 

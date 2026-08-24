@@ -218,7 +218,7 @@ Un incremento solo puede cerrarse cuando incluye, en proporción a su riesgo:
 8. documentación operativa y actualización de este roadmap;
 9. integración en `develop`, revisión remota y despliegue monitorizado.
 
-## Corte operativo completado — 24 de agosto de 2026
+## Cortes operativos completados — 24 de agosto de 2026
 
 El primer vertical del Horizonte 1 queda conectado de extremo a extremo:
 
@@ -231,12 +231,25 @@ El primer vertical del Horizonte 1 queda conectado de extremo a extremo:
 - web y móvil clasifican la evidencia y aplican las mismas condiciones de cierre;
 - el progreso permanece disponible en el contrato móvil y en modo offline.
 
+El segundo vertical une planificación de materiales y personas:
+
+- la viabilidad de material se anticipa desde el presupuesto;
+- al crear una orden de instalación se reserva automáticamente el kit disponible;
+- las reservas generales del proyecto se vinculan a la primera orden que las
+  necesita, evitando duplicidades;
+- una compra solo cubre la fecha planificada cuando su entrega esperada o
+  confirmada llega a tiempo;
+- el plan diferencia material prometido de stock físicamente disponible y no
+  permite iniciar el trabajo hasta que este último exista;
+- competencias, capacidad y zona producen una lista común de técnicos aptos;
+- operaciones y la app móvil comparten el estado listo, en riesgo o bloqueado.
+
 ## Próximo corte recomendado
 
-Completar el segundo vertical del Horizonte 1: **planificación conjunta de
-materiales y personal por plantilla**, incluyendo disponibilidad real por
-competencia, reservas de kits, carencias bloqueantes, fechas prometidas y
-visibilidad del riesgo desde presupuesto, operaciones y app móvil.
+Completar el tercer vertical del Horizonte 1: **replanificación operativa y
+resolución de conflictos offline**, propagando cambios de fecha, técnico,
+material o prioridad hasta el dispositivo sin perder acciones locales y con una
+resolución guiada cuando el servidor y el móvil hayan cambiado la misma orden.
 
 Este corte reutilizará las definiciones operativas ya versionadas; no creará un
 segundo catálogo ni reglas distintas para web y móvil.

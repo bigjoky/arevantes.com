@@ -32,7 +32,7 @@ class WorkOrderCompletionGuard
         if (blank($completionNotes)) {
             $errors['completion_notes'][] = __('Completion observations are required.');
         }
-        if (in_array($order->kind, ['installation', 'commissioning', 'repair'], true) && $order->installation->materialRequirements()->exists()) {
+        if (in_array($order->kind, ['installation', 'repair'], true) && $order->installation->materialRequirements()->exists()) {
             $remaining = collect($this->materials->summary($order->installation)['rows'])->sum('remaining_quantity');
             if ($remaining > 0) {
                 $errors['status'][] = __('Record consumption of all planned materials before closing.');

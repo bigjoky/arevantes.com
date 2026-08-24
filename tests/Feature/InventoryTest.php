@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\FieldServiceProfile;
 use App\Models\Installation;
 use App\Models\Product;
 use App\Models\PurchaseDocument;
@@ -17,6 +18,9 @@ use App\Models\Unit;
 use App\Models\User;
 use App\Models\Warehouse;
 use App\Models\WorkOrder;
+use App\Models\WorkOrderTemplate;
+use App\Services\Work\WorkOrderFactory;
+use App\Services\Work\WorkOrderPlanningReadiness;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
@@ -296,5 +300,36 @@ class InventoryTest extends TestCase
             'unit_id' => Unit::firstOrFail()->id, 'tax_rate_id' => TaxRate::firstOrFail()->id,
             'sale_price' => 1000, 'cost_price' => 500, 'track_stock' => true, 'track_serials' => $serialized, 'is_active' => true,
         ]);
+    }
+
+    public function test_installation_order_reserves_available_kit_and_uses_confirmed_eta_for_readiness(): void
+    {
+        $commercial = User::factory()->create(['role' => 'commercial']);
+        $technician = User::factory()->create(['role' => 'technician']);
+        FieldServiceProfile::create(['user_id' => $technician->id, 'daily_capacity_minutes' => 480, 'max_travel_km' => 100, 'skills' => ['electrical'], 'is_available' => true]);
+        $warehouse = Warehouse::create(['code' => 'MAIN', 'name' => 'Main warehouse', 'is_default' => true, 'is_active' => true]);
+        $product = $this->product(false);
+        $installation = Installation::create(['service_type' => 'electrical', 'status' => 'approved', 'site_address_line_1' => 'Calle Kit 1']);
+        $installation->materialRequirements()->create(['product_id' => $product->id, 'source' => 'quote', 'sku' => $product->sku, 'description' => $product->name, 'planned_quantity' => 10, 'planned_unit_cost' => 500]);
+        $template = WorkOrderTemplate::create(['name' => 'Kit planning', 'kind' => 'installation', 'title' => 'Install kit', 'estimated_duration_minutes' => 480, 'required_skills' => ['electrical'], 'checklist' => [['label' => 'Install', 'is_required' => true]], 'is_active' => true]);
+        $movement = StockMovement::create(['created_by' => $commercial->id, 'number' => 'MOV-KIT', 'type' => 'receipt', 'posted_at' => now()]);
+        $movement->lines()->create(['warehouse_id' => $warehouse->id, 'product_id' => $product->id, 'quantity' => 4, 'unit_cost' => 500]);
+
+        $order = app(WorkOrderFactory::class)->create(['installation_id' => $installation->id, 'work_order_template_id' => $template->id, 'assigned_user_id' => $technician->id, 'scheduled_start' => now()->addDays(10)->setTime(8, 0), 'scheduled_end' => now()->addDays(10)->setTime(16, 0)], $commercial->id);
+
+        $this->assertSame(4.0, (float) StockReservation::where('work_order_id', $order->id)->sum('quantity'));
+        $readiness = app(WorkOrderPlanningReadiness::class)->for($order);
+        $this->assertFalse($readiness['material_ready']);
+        $this->assertSame(6.0, $readiness['shortage_quantity']);
+        $supplier = Supplier::create(['legal_name' => 'Kit Supply', 'country' => 'ES', 'payment_terms_days' => 30, 'is_active' => true]);
+        $purchase = PurchaseDocument::create(['type' => 'purchase_order', 'installation_id' => $installation->id, 'work_order_id' => $order->id, 'supplier_id' => $supplier->id, 'created_by' => $commercial->id, 'number' => 'PO-KIT', 'status' => 'ordered', 'issue_date' => today(), 'expected_delivery_date' => today()->addDays(5), 'subtotal' => 3000, 'tax_amount' => 630, 'amount' => 3630]);
+        $purchase->lines()->create(['product_id' => $product->id, 'position' => 1, 'description' => $product->name, 'quantity' => 6, 'received_quantity' => 0, 'unit_price' => 500, 'discount_percent' => 0, 'tax_percent' => 21, 'subtotal' => 3000, 'tax_amount' => 630, 'total' => 3630]);
+
+        $readiness = app(WorkOrderPlanningReadiness::class)->for($order->refresh());
+        $this->assertTrue($readiness['material_ready']);
+        $this->assertFalse($readiness['material_ready_now']);
+        $this->assertTrue($readiness['personnel_ready']);
+        $this->assertSame(today()->addDays(5)->toDateString(), $readiness['material_ready_on']);
+        $this->assertSame('ready', $readiness['status']);
     }
 }
