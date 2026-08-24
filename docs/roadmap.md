@@ -218,13 +218,25 @@ Un incremento solo puede cerrarse cuando incluye, en proporción a su riesgo:
 8. documentación operativa y actualización de este roadmap;
 9. integración en `develop`, revisión remota y despliegue monitorizado.
 
+## Corte operativo completado — 24 de agosto de 2026
+
+El primer vertical del Horizonte 1 queda conectado de extremo a extremo:
+
+- el presupuesto fija la línea de negocio y filtra el catálogo compatible;
+- la aceptación resuelve automáticamente la plantilla de visita técnica;
+- las órdenes conservan una instantánea de competencias, checklist, evidencias
+  mínimas y documentos de entrega;
+- electricidad y seguridad disponen de definiciones de sondeo, instalación y
+  puesta en marcha;
+- web y móvil clasifican la evidencia y aplican las mismas condiciones de cierre;
+- el progreso permanece disponible en el contrato móvil y en modo offline.
+
 ## Próximo corte recomendado
 
-El siguiente corte debe implementar el primer vertical completo del Horizonte 1:
+Completar el segundo vertical del Horizonte 1: **planificación conjunta de
+materiales y personal por plantilla**, incluyendo disponibilidad real por
+competencia, reservas de kits, carencias bloqueantes, fechas prometidas y
+visibilidad del riesgo desde presupuesto, operaciones y app móvil.
 
-**plantillas de visita técnica y oferta para instalaciones eléctricas y sistemas
-de seguridad, conectadas con competencias, kits de catálogo, checklist de
-ejecución, evidencias móviles y documentación de entrega.**
-
-Este corte aporta valor operativo inmediato y crea la base de datos fiable que
-necesitan posteriormente margen, mantenimiento recurrente, analítica y Arevia.
+Este corte reutilizará las definiciones operativas ya versionadas; no creará un
+segundo catálogo ni reglas distintas para web y móvil.

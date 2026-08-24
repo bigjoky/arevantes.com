@@ -7,7 +7,7 @@ use App\Services\Inventory\ProjectMaterialPlanner;
 
 class WorkOrderCompletionGuard
 {
-    public function __construct(private ProjectMaterialPlanner $materials) {}
+    public function __construct(private ProjectMaterialPlanner $materials, private WorkOrderEvidenceRequirements $evidence) {}
 
     public function assertCanComplete(WorkOrder $order, ?string $completionNotes): void
     {
@@ -23,6 +23,11 @@ class WorkOrderCompletionGuard
         }
         if (! $order->attachments()->where('kind', 'photo')->exists()) {
             $errors['status'][] = __('Upload at least one completion photo.');
+        }
+        foreach ($this->evidence->progress($order) as $requirement) {
+            if (! $requirement['is_complete']) {
+                $errors['status'][] = __('Missing required evidence: :label.', ['label' => $requirement['label'] ?? $requirement['key']]);
+            }
         }
         if (blank($completionNotes)) {
             $errors['completion_notes'][] = __('Completion observations are required.');

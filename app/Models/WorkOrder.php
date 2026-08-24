@@ -8,11 +8,11 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class WorkOrder extends Model
 {
-    protected $fillable = ['installation_id', 'work_order_template_id', 'assigned_user_id', 'created_by', 'number', 'title', 'kind', 'status', 'estimated_duration_minutes', 'required_skills', 'service_zone', 'allowed_transitions_snapshot', 'scheduled_start', 'scheduled_end', 'instructions', 'completion_notes', 'signed_by_name', 'signature_path', 'signed_at', 'completed_at'];
+    protected $fillable = ['installation_id', 'work_order_template_id', 'assigned_user_id', 'created_by', 'number', 'title', 'kind', 'status', 'estimated_duration_minutes', 'required_skills', 'required_evidence', 'handover_documents', 'service_zone', 'allowed_transitions_snapshot', 'scheduled_start', 'scheduled_end', 'instructions', 'completion_notes', 'signed_by_name', 'signature_path', 'signed_at', 'completed_at'];
 
     protected function casts(): array
     {
-        return ['required_skills' => 'array', 'allowed_transitions_snapshot' => 'array', 'scheduled_start' => 'datetime', 'scheduled_end' => 'datetime', 'signed_at' => 'datetime', 'completed_at' => 'datetime'];
+        return ['required_skills' => 'array', 'required_evidence' => 'array', 'handover_documents' => 'array', 'allowed_transitions_snapshot' => 'array', 'scheduled_start' => 'datetime', 'scheduled_end' => 'datetime', 'signed_at' => 'datetime', 'completed_at' => 'datetime'];
     }
 
     public function installation(): BelongsTo

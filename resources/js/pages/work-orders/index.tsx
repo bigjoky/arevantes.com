@@ -138,6 +138,13 @@ type Attachment = {
     caption: string | null;
     customer_visible: boolean;
     published_at: string | null;
+    evidence_key: string | null;
+};
+type EvidenceRequirement = {
+    key: string;
+    label: string;
+    kind: 'photo' | 'document';
+    min_count: number;
 };
 type Selected = Order & {
     instructions: string | null;
@@ -147,6 +154,8 @@ type Selected = Order & {
     time_entries: Entry[];
     checklist_items: Checklist[];
     attachments: Attachment[];
+    required_evidence: EvidenceRequirement[] | null;
+    handover_documents: { key: string; label: string }[] | null;
     stock_reservations: MaterialReservation[];
     material_plan: MaterialPlan;
     purchase_documents: PurchaseDocument[];
@@ -662,6 +671,10 @@ function WeeklyPlanning({ orders }: { orders: Order[] }) {
     );
 }
 function ExecutionEvidence({ order }: { order: Selected }) {
+    const requirements = order.required_evidence ?? [];
+    const handover = order.handover_documents ?? [];
+    const evidenceOptions = [...requirements, ...handover];
+
     return (
         <section className="grid gap-6 border-t pt-5">
             <div>
@@ -714,6 +727,25 @@ function ExecutionEvidence({ order }: { order: Selected }) {
             </div>
             <div>
                 <h3 className="font-medium">Execution evidence</h3>
+                {requirements.length > 0 && (
+                    <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                        {requirements.map((requirement) => {
+                            const count = order.attachments.filter(
+                                (file) => file.evidence_key === requirement.key,
+                            ).length;
+                            const complete = count >= requirement.min_count;
+
+                            return (
+                                <div key={requirement.key} className="border-l-2 py-1 pl-3 text-sm">
+                                    <div className="font-medium">{requirement.label}</div>
+                                    <div className={complete ? 'text-green-700' : 'text-muted-foreground'}>
+                                        {count}/{requirement.min_count} · {complete ? 'Complete' : 'Pending'}
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
                 <div className="mt-3 border-y">
                     {order.attachments.map((file) => (
                         <div
@@ -727,6 +759,7 @@ function ExecutionEvidence({ order }: { order: Selected }) {
                                 <div className="text-xs text-muted-foreground">
                                     {file.kind} · {Math.ceil(file.size / 1024)}{' '}
                                     KB ·{' '}
+                                    {file.evidence_key && `${evidenceOptions.find((item) => item.key === file.evidence_key)?.label || file.evidence_key} · `}
                                     {file.customer_visible
                                         ? 'Visible para el cliente'
                                         : 'Uso interno'}
@@ -770,6 +803,14 @@ function ExecutionEvidence({ order }: { order: Selected }) {
                             accept="image/jpeg,image/png,image/webp,application/pdf"
                             required
                         />
+                        {evidenceOptions.length > 0 && (
+                            <select name="evidence_key" className="h-9 rounded-md border bg-background px-3 text-sm">
+                                <option value="">General evidence</option>
+                                {evidenceOptions.map((item) => (
+                                    <option key={item.key} value={item.key}>{item.label}</option>
+                                ))}
+                            </select>
+                        )}
                         <label className="flex items-center gap-2 text-xs text-muted-foreground">
                             <input
                                 type="checkbox"

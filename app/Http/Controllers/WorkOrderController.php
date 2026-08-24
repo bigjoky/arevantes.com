@@ -17,6 +17,7 @@ use App\Services\Inventory\ProjectMaterialPlanner;
 use App\Services\Operations\FinancialClearanceGuard;
 use App\Services\Work\InstallationWorkOrderSynchronizer;
 use App\Services\Work\TechnicianSchedule;
+use App\Services\Work\WorkOrderEvidenceRequirements;
 use App\Services\Work\WorkOrderFactory;
 use App\Services\Work\WorkOrderRescheduler;
 use App\Services\Work\WorkOrderStateManager;
@@ -81,6 +82,7 @@ class WorkOrderController extends Controller
     {
         $data = $this->validatedSchedule($request, true);
         $data['kind'] ??= 'installation';
+        $data = $factory->prepare($data);
         $ownerId = isset($data['assigned_user_id']) ? (int) $data['assigned_user_id'] : null;
         $order = DB::transaction(function () use ($schedule, $factory, $data, $request, $ownerId): WorkOrder {
             $schedule->lockTechnicians([$ownerId]);
@@ -221,14 +223,14 @@ class WorkOrderController extends Controller
         return back();
     }
 
-    public function storeAttachments(Request $request, WorkOrder $workOrder): RedirectResponse
+    public function storeAttachments(Request $request, WorkOrder $workOrder, WorkOrderEvidenceRequirements $evidence): RedirectResponse
     {
         $this->ensureAccess($request, $workOrder);
-        $data = $request->validate(['files' => ['required', 'array', 'min:1', 'max:12'], 'files.*' => ['file', new SafeUpload(['jpg', 'jpeg', 'png', 'webp', 'pdf'], 12288)], 'caption' => ['nullable', 'string', 'max:500'], 'customer_visible' => ['nullable', 'boolean']]);
+        $data = $request->validate(['files' => ['required', 'array', 'min:1', 'max:12'], 'files.*' => ['file', new SafeUpload(['jpg', 'jpeg', 'png', 'webp', 'pdf'], 12288)], 'caption' => ['nullable', 'string', 'max:500'], 'evidence_key' => ['nullable', 'string', Rule::in($evidence->allowedKeys($workOrder))], 'customer_visible' => ['nullable', 'boolean']]);
         foreach ($data['files'] as $file) {
             $path = $file->store("work-orders/{$workOrder->id}", config('filesystems.private'));
             $kind = str_starts_with($file->getMimeType() ?: '', 'image/') ? 'photo' : 'document';
-            $attachment = $workOrder->attachments()->create(['uploaded_by' => $request->user()->id, 'kind' => $kind, 'original_name' => $file->getClientOriginalName(), 'path' => $path, 'mime_type' => $file->getMimeType() ?: 'application/octet-stream', 'size' => $file->getSize(), 'caption' => $data['caption'] ?? null]);
+            $attachment = $workOrder->attachments()->create(['uploaded_by' => $request->user()->id, 'kind' => $kind, 'original_name' => $file->getClientOriginalName(), 'path' => $path, 'mime_type' => $file->getMimeType() ?: 'application/octet-stream', 'size' => $file->getSize(), 'caption' => $data['caption'] ?? null, 'evidence_key' => $data['evidence_key'] ?? null]);
             if ($kind === 'document' && ($data['customer_visible'] ?? false)) {
                 $attachment->forceFill(['customer_visible' => true, 'published_at' => now()])->save();
             }

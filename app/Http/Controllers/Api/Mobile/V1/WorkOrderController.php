@@ -10,6 +10,7 @@ use App\Models\WorkOrder;
 use App\Models\WorkOrderChecklistItem;
 use App\Rules\SafeUpload;
 use App\Services\Inventory\WorkOrderMaterialConsumer;
+use App\Services\Work\WorkOrderEvidenceRequirements;
 use App\Services\Work\WorkOrderStateManager;
 use App\Services\Work\WorkOrderWorkflow;
 use Carbon\CarbonImmutable;
@@ -36,7 +37,7 @@ class WorkOrderController extends Controller
             ? CarbonImmutable::parse($validated['updated_after'])->setTimezone(config('app.timezone'))
             : null;
         $query = $this->accessible($request)
-            ->with(['installation:id,project_reference,site_name,site_address_line_1,site_city,site_postal_code,site_latitude,site_longitude', 'assignedUser:id,name', 'checklistItems', 'activities:id,work_order_id,blocked_reason'])
+            ->with(['installation:id,project_reference,service_type,site_name,site_address_line_1,site_city,site_postal_code,site_latitude,site_longitude', 'assignedUser:id,name', 'checklistItems', 'attachments:id,work_order_id,evidence_key', 'activities:id,work_order_id,blocked_reason'])
             ->when($updatedAfter, fn (Builder $query, CarbonImmutable $date) => $query->where('updated_at', '>', $date))
             ->when($validated['status'] ?? null, fn (Builder $query, string $status) => $query->where('status', $status));
         $perPage = $validated['per_page'] ?? 30;
@@ -104,6 +105,7 @@ class WorkOrderController extends Controller
             'attachments' => $workOrder->attachments->map(fn ($attachment) => [
                 'id' => $attachment->id, 'kind' => $attachment->kind, 'original_name' => $attachment->original_name,
                 'mime_type' => $attachment->mime_type, 'size' => $attachment->size, 'caption' => $attachment->caption,
+                'evidence_key' => $attachment->evidence_key,
             ]),
             'materials' => $workOrder->stockReservations->map(fn (StockReservation $reservation) => $this->material($reservation)),
         ]]);
@@ -220,12 +222,13 @@ class WorkOrderController extends Controller
         return response()->json(['data' => ['id' => $item->id, 'completed_at' => $item->completed_at?->toISOString(), 'notes' => $item->notes]]);
     }
 
-    public function uploadAttachment(Request $request, WorkOrder $workOrder): JsonResponse
+    public function uploadAttachment(Request $request, WorkOrder $workOrder, WorkOrderEvidenceRequirements $evidence): JsonResponse
     {
         $this->ensureAccess($request, $workOrder);
         $data = $request->validate([
             'file' => ['required', 'file', new SafeUpload(['jpg', 'jpeg', 'png', 'webp', 'pdf'], 12288)],
             'caption' => ['nullable', 'string', 'max:500'],
+            'evidence_key' => ['nullable', 'string', Rule::in($evidence->allowedKeys($workOrder))],
         ]);
         $file = $data['file'];
         $path = $file->store("work-orders/{$workOrder->id}", config('filesystems.private'));
@@ -237,6 +240,7 @@ class WorkOrderController extends Controller
             'mime_type' => $file->getMimeType() ?: 'application/octet-stream',
             'size' => $file->getSize(),
             'caption' => $data['caption'] ?? null,
+            'evidence_key' => $data['evidence_key'] ?? null,
         ]);
 
         return response()->json(['data' => [
@@ -246,6 +250,7 @@ class WorkOrderController extends Controller
             'mime_type' => $attachment->mime_type,
             'size' => $attachment->size,
             'caption' => $attachment->caption,
+            'evidence_key' => $attachment->evidence_key,
         ]], 201);
     }
 
@@ -327,14 +332,19 @@ class WorkOrderController extends Controller
     /** @return array<string, mixed> */
     private function summary(WorkOrder $order): array
     {
+        $evidence = app(WorkOrderEvidenceRequirements::class);
+
         return ['id' => $order->id, 'number' => $order->number, 'title' => $order->title, 'status' => $order->status,
             'allowed_transitions' => ($order->allowed_transitions_snapshot ?: WorkOrderWorkflow::DEFAULT_TRANSITIONS)[$order->status] ?? [],
             'scheduled_start' => $order->scheduled_start?->toISOString(), 'scheduled_end' => $order->scheduled_end?->toISOString(),
             'updated_at' => $order->updated_at->toISOString(), 'assigned_user' => $order->assignedUser?->only(['id', 'name']),
             'signed_by_name' => $order->signed_by_name, 'signed_at' => $order->signed_at?->toISOString(),
+            'required_evidence' => $order->required_evidence ?? [], 'evidence_progress' => $evidence->progress($order),
+            'handover_documents' => $order->handover_documents ?? [],
             'blocked_reason' => $order->relationLoaded('activities') ? $order->activities->first()?->blocked_reason : null,
             'installation' => $order->installation ? ['id' => $order->installation->id, 'project_reference' => $order->installation->project_reference,
                 'site_name' => $order->installation->site_name, 'address' => $order->installation->site_address_line_1,
+                'service_type' => $order->installation->service_type,
                 'city' => $order->installation->site_city, 'postal_code' => $order->installation->site_postal_code,
                 'latitude' => $order->installation->site_latitude !== null ? (float) $order->installation->site_latitude : null,
                 'longitude' => $order->installation->site_longitude !== null ? (float) $order->installation->site_longitude : null] : null,

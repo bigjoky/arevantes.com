@@ -19,6 +19,8 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import { serviceLabels } from '@/lib/business-lines';
+import type { ServiceType } from '@/lib/business-lines';
 
 type Customer = {
     id: number;
@@ -44,6 +46,7 @@ type Product = {
     tax_rate_id: number;
     unit: { id?: number; symbol: string };
     tax_rate: { rate: string };
+    business_lines: ServiceType[] | null;
     resolved_components: Array<{
         product_id: number;
         unit_id: number;
@@ -87,6 +90,7 @@ type Quote = {
     opportunity_id: number | null;
     person_id: number;
     installation_id: number | null;
+    service_type: ServiceType | null;
     issue_date: string;
     valid_until: string | null;
     acceptance_payment_percentage: string;
@@ -130,6 +134,7 @@ export default function QuoteForm({
         installation_id: String(
             quote?.installation_id ?? opportunityDraft?.installation_id ?? '',
         ),
+        service_type: quote?.service_type ?? ('' as ServiceType | ''),
         issue_date:
             quote?.issue_date?.slice(0, 10) ??
             new Date().toISOString().slice(0, 10),
@@ -185,6 +190,12 @@ export default function QuoteForm({
         (item) =>
             !form.data.person_id ||
             item.person_id === Number(form.data.person_id),
+    );
+    const availableProducts = products.filter(
+        (product) =>
+            !form.data.service_type ||
+            !product.business_lines?.length ||
+            product.business_lines.includes(form.data.service_type),
     );
     const totals = calculate(form.data.lines);
     const updateLine = (index: number, changes: Partial<Line>) =>
@@ -295,7 +306,7 @@ export default function QuoteForm({
                     }}
                     className="grid gap-8"
                 >
-                    <section className="grid gap-4 border-t pt-5 md:grid-cols-2 xl:grid-cols-4">
+                    <section className="grid gap-4 border-t pt-5 md:grid-cols-2 xl:grid-cols-5">
                         <SelectField
                             label="Customer"
                             value={form.data.person_id}
@@ -311,6 +322,14 @@ export default function QuoteForm({
                                 customer.company_name ||
                                     `${customer.first_name} ${customer.last_name || ''}`.trim(),
                             ])}
+                        />
+                        <SelectField
+                            label="Business line"
+                            value={form.data.service_type}
+                            onChange={(value) =>
+                                form.setData('service_type', value as ServiceType)
+                            }
+                            options={Object.entries(serviceLabels)}
                         />
                         <SelectField
                             label="Installation (optional)"
@@ -440,7 +459,7 @@ export default function QuoteForm({
                                                             <SelectValue placeholder="Custom line" />
                                                         </SelectTrigger>
                                                         <SelectContent>
-                                                            {products.map(
+                                                            {availableProducts.map(
                                                                 (product) => (
                                                                     <SelectItem
                                                                         key={
@@ -782,7 +801,7 @@ export default function QuoteForm({
                                                                                     <SelectValue placeholder="Producto o servicio" />
                                                                                 </SelectTrigger>
                                                                                 <SelectContent>
-                                                                                    {products.map(
+                                                                                    {availableProducts.map(
                                                                                         (
                                                                                             product,
                                                                                         ) => (
