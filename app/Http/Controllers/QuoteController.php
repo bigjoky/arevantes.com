@@ -63,7 +63,7 @@ class QuoteController extends Controller
 
     public function show(Quote $quote, QuoteBillingPlan $billing, ProjectProfitability $profitability, QuoteMaterialReadiness $materials): Response
     {
-        $quote->load(['customer', 'installation', 'opportunity:id,code,title', 'lines.components.unit:id,symbol', 'versions', 'statusHistory.changedBy:id,name', 'deliveries:id,quote_id,recipient_email,status,sent_at,first_viewed_at,responded_at,revoked_at']);
+        $quote->load(['customer', 'installation', 'opportunity:id,code,title', 'lines.components.unit:id,symbol', 'versions.createdBy:id,name', 'statusHistory.changedBy:id,name', 'deliveries:id,quote_id,recipient_email,status,sent_at,first_viewed_at,responded_at,revoked_at']);
         [$street, $streetNumber] = $this->splitStreetAddress($quote->customer?->address_line_1);
         $projectProfitability = $quote->installation ? $profitability->for($quote->installation, $quote) : null;
         $quote->setAttribute(
@@ -262,6 +262,7 @@ class QuoteController extends Controller
             'issue_date' => ['required', 'date'], 'valid_until' => ['nullable', 'date', 'after_or_equal:issue_date'], 'notes' => ['nullable', 'string'],
             'acceptance_payment_percentage' => ['sometimes', 'numeric', 'between:0,100'],
             'acceptance_payment_due_days' => ['sometimes', 'integer', 'between:0,365'],
+            'change_note' => [$quote ? 'required' : 'nullable', 'string', 'min:5', 'max:2000'],
             'lines' => ['required', 'array', 'min:1'], 'lines.*.product_id' => ['nullable', 'exists:products,id'], 'lines.*.unit_id' => ['nullable', 'exists:units,id'],
             'lines.*.tax_rate_id' => ['nullable', 'exists:tax_rates,id'], 'lines.*.description' => ['required', 'string'], 'lines.*.quantity' => ['required', 'numeric', 'gt:0'],
             'lines.*.unit_price' => ['required', 'numeric', 'min:0'], 'lines.*.discount_percent' => ['required', 'numeric', 'between:0,100'], 'lines.*.tax_percent' => ['required', 'numeric', 'between:0,100'],
@@ -283,6 +284,8 @@ class QuoteController extends Controller
 
     private function persist(Quote $quote, array $data, QuoteCalculator $calculator, array $extra = [], ?int $actorId = null): Quote
     {
+        $changeNote = $data['change_note'] ?? ($quote->exists ? null : __('Initial quote created.'));
+        unset($data['change_note']);
         $data['acceptance_payment_percentage'] ??= config('crm.acceptance_payment.percentage');
         $data['acceptance_payment_due_days'] ??= config('crm.acceptance_payment.due_days');
         $data['lines'] = collect($data['lines'])->map(function (array $line): array {
@@ -356,6 +359,7 @@ class QuoteController extends Controller
         }
         $quote->versions()->updateOrCreate(['version' => $quote->version], [
             'created_by' => $actorId,
+            'change_note' => $changeNote,
             'service_type' => $quote->service_type,
             'subtotal' => $quote->subtotal,
             'discount_amount' => $quote->discount_amount,
@@ -378,7 +382,9 @@ class QuoteController extends Controller
 
         if (! in_array($opportunity->stage, ['won', 'lost'], true)) {
             $salesCycle->assertCanTransition($opportunity, 'proposal');
-            $opportunity->update(['stage' => 'proposal', 'probability' => max(60, $opportunity->probability)]);
+            $opportunity->stageChangeActorId = $request->user()->id;
+            $opportunity->stageChangeReason = __('Initial quote :number created.', ['number' => $quote->number]);
+            $opportunity->update(['stage' => 'proposal', 'probability' => max(60, $opportunity->probability), 'updated_by' => $request->user()->id]);
             $salesCycle->synchronizeStage($opportunity, $request->user());
         }
 

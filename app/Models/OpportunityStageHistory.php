@@ -12,6 +12,7 @@ class OpportunityStageHistory extends Model
         'changed_by',
         'from_stage',
         'to_stage',
+        'reason',
         'changed_at',
     ];
 

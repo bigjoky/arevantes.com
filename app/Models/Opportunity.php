@@ -17,6 +17,7 @@ class Opportunity extends Model
         'installation_id',
         'owner_user_id',
         'created_by',
+        'updated_by',
         'parent_opportunity_id',
         'code',
         'title',
@@ -39,6 +40,10 @@ class Opportunity extends Model
         'notes',
     ];
 
+    public ?string $stageChangeReason = null;
+
+    public ?int $stageChangeActorId = null;
+
     public function customer(): BelongsTo
     {
         return $this->belongsTo(Person::class, 'person_id')->withTrashed();
@@ -52,6 +57,16 @@ class Opportunity extends Model
     public function owner(): BelongsTo
     {
         return $this->belongsTo(User::class, 'owner_user_id');
+    }
+
+    public function creator(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function updater(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'updated_by');
     }
 
     public function parentOpportunity(): BelongsTo
@@ -88,6 +103,11 @@ class Opportunity extends Model
     public function stageHistory(): HasMany
     {
         return $this->hasMany(OpportunityStageHistory::class)->latest('changed_at');
+    }
+
+    public function events(): HasMany
+    {
+        return $this->hasMany(OpportunityEvent::class)->latest('occurred_at');
     }
 
     protected function casts(): array

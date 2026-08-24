@@ -10,6 +10,7 @@ use App\Models\Person;
 use App\Models\SavedCrmFilter;
 use App\Models\User;
 use App\Services\Crm\LeadResponseSla;
+use App\Services\Crm\OpportunityDossier;
 use App\Services\Crm\OpportunitySalesCycle;
 use App\Services\Customers\OpportunityCustomerResolver;
 use App\Support\Crm\OpportunityCatalog;
@@ -172,6 +173,42 @@ class OpportunityController extends Controller
         ]);
     }
 
+    public function show(Opportunity $opportunity, OpportunityDossier $dossier, OpportunitySalesCycle $salesCycle): Response
+    {
+        $opportunity->load([
+            'customer',
+            'installation:id,person_id,project_reference,site_name,service_type,status',
+            'owner:id,name',
+            'creator:id,name',
+            'updater:id,name',
+            'parentOpportunity:id,code,title,stage',
+            'followUpOpportunities:id,parent_opportunity_id,code,title,stage,estimated_value',
+            'events.actor:id,name',
+            'stageHistory.changedBy:id,name',
+            'activities' => fn ($query) => $query->with(['creator:id,name', 'assignedUser:id,name'])->latest(),
+            'quote' => fn ($query) => $query->with([
+                'versions.createdBy:id,name',
+                'statusHistory.changedBy:id,name',
+            ]),
+        ]);
+
+        $timeline = $dossier->timeline($opportunity);
+        $opportunity->unsetRelation('events')->unsetRelation('stageHistory');
+        $opportunity->quote?->unsetRelation('statusHistory');
+
+        return Inertia::render('opportunities/show', [
+            'opportunity' => [
+                ...$opportunity->toArray(),
+                'expected_close_on' => $opportunity->expected_close_on?->toDateString(),
+                'renewal_due_on' => $opportunity->renewal_due_on?->toDateString(),
+                'available_stages' => $salesCycle->availableTransitions($opportunity),
+            ],
+            'timeline' => $timeline,
+            'sourceOptions' => OpportunityCatalog::SOURCES,
+            'commercialKindOptions' => OpportunityCatalog::COMMERCIAL_KINDS,
+        ]);
+    }
+
     public function store(
         Request $request,
         OpportunitySalesCycle $salesCycle,
@@ -182,8 +219,9 @@ class OpportunityController extends Controller
         $opportunityInput = $this->validated($request, true);
         $nextActionInput = $this->validatedNextAction($request, $opportunityInput['stage']);
         $createdCustomer = false;
+        $opportunity = null;
 
-        DB::transaction(function () use ($customerInput, $opportunityInput, $nextActionInput, $request, $salesCycle, $customerResolver, $responseSla, &$createdCustomer): void {
+        DB::transaction(function () use ($customerInput, $opportunityInput, $nextActionInput, $request, $salesCycle, $customerResolver, $responseSla, &$createdCustomer, &$opportunity): void {
             $customer = filled($customerInput['phone'])
                 ? $customerResolver->resolve(
                     $customerInput['phone'],
@@ -207,14 +245,14 @@ class OpportunityController extends Controller
             $this->ensureInstallationBelongsToCustomer($data);
             $this->ensureCommercialOrigin($data);
 
-            $opportunity = Opportunity::create([...$data, 'created_by' => $request->user()->id]);
+            $opportunity = Opportunity::create([...$data, 'created_by' => $request->user()->id, 'updated_by' => $request->user()->id]);
             $opportunity->update(['code' => 'OPP-'.now()->format('Y').'-'.str_pad((string) $opportunity->id, 5, '0', STR_PAD_LEFT)]);
             $responseSla->start($opportunity);
             $salesCycle->ensureNextAction($opportunity, $request->user(), $nextActionInput);
             $salesCycle->refreshScore($opportunity);
         });
 
-        return back()->with('toast', [
+        return to_route('opportunities.show', $opportunity)->with('toast', [
             'type' => 'success',
             'message' => $createdCustomer
                 ? __('Customer and opportunity created.')
@@ -224,6 +262,9 @@ class OpportunityController extends Controller
 
     public function update(Request $request, Opportunity $opportunity, OpportunitySalesCycle $salesCycle): RedirectResponse
     {
+        $changeNote = $request->validate([
+            'change_note' => ['required', 'string', 'min:5', 'max:2000'],
+        ])['change_note'] ?? null;
         $data = $salesCycle->prepareActiveData($this->validated($request), $request->user());
         $this->ensureInstallationBelongsToCustomer($data);
         $this->ensureCommercialOrigin($data, $opportunity);
@@ -234,14 +275,30 @@ class OpportunityController extends Controller
             422,
             __('The customer or installation cannot be changed after preparing a quote.'),
         );
-        DB::transaction(function () use ($opportunity, $data, $salesCycle, $request): void {
+        DB::transaction(function () use ($opportunity, $data, $salesCycle, $request, $changeNote): void {
             $salesCycle->assertCanTransition($opportunity, $data['stage']);
-            $opportunity->update($data);
+            $opportunity->stageChangeReason = $changeNote;
+            $opportunity->stageChangeActorId = $request->user()->id;
+            $opportunity->update([...$data, 'updated_by' => $request->user()->id]);
             $salesCycle->synchronizeStage($opportunity, $request->user());
             $salesCycle->refreshScore($opportunity);
         });
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Opportunity updated.')]);
+    }
+
+    public function storeNote(Request $request, Opportunity $opportunity): RedirectResponse
+    {
+        $data = $request->validate(['note' => ['required', 'string', 'min:2', 'max:5000']]);
+        $opportunity->events()->create([
+            'actor_id' => $request->user()->id,
+            'event_type' => 'note_added',
+            'summary' => __('Commercial note added'),
+            'note' => $data['note'],
+            'occurred_at' => now(),
+        ]);
+
+        return back()->with('toast', ['type' => 'success', 'message' => __('Note added to the opportunity history.')]);
     }
 
     public function destroy(Opportunity $opportunity): RedirectResponse

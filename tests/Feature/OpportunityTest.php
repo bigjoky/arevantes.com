@@ -68,6 +68,7 @@ class OpportunityTest extends TestCase
             'stage' => 'won',
             'probability' => 100,
             'estimated_value' => 15000,
+            'change_note' => 'El cliente ha confirmado la adjudicación.',
         ])->assertRedirect();
 
         $this->assertDatabaseHas('opportunities', ['id' => $opportunity->id, 'stage' => 'won', 'probability' => 100]);
@@ -91,6 +92,101 @@ class OpportunityTest extends TestCase
                 ->get(['from_stage', 'to_stage'])
                 ->toArray(),
         );
+    }
+
+    public function test_opportunity_dossier_preserves_authorship_changes_notes_and_quote_versions(): void
+    {
+        $creator = User::factory()->create(['role' => 'commercial', 'name' => 'Creadora']);
+        $editor = User::factory()->create(['role' => 'commercial', 'name' => 'Editor']);
+        $customer = Person::create(['category' => 'customer', 'first_name' => 'Ana']);
+        $opportunity = Opportunity::create([
+            'person_id' => $customer->id,
+            'owner_user_id' => $creator->id,
+            'created_by' => $creator->id,
+            'updated_by' => $creator->id,
+            'code' => 'OPP-DOSSIER-1',
+            'title' => 'Original scope',
+            'stage' => 'qualified',
+            'probability' => 25,
+            'estimated_value' => 5000,
+        ]);
+        $quote = Quote::create([
+            'opportunity_id' => $opportunity->id,
+            'person_id' => $customer->id,
+            'created_by' => $creator->id,
+            'number' => 'PRE-DOSSIER-1',
+            'version' => 1,
+            'status' => 'draft',
+            'issue_date' => today(),
+            'subtotal' => 5000,
+            'discount_amount' => 0,
+            'tax_amount' => 1050,
+            'amount' => 6050,
+        ]);
+        $quote->versions()->create([
+            'version' => 1,
+            'created_by' => $creator->id,
+            'change_note' => 'Primera propuesta económica.',
+            'subtotal' => 5000,
+            'discount_amount' => 0,
+            'tax_amount' => 1050,
+            'amount' => 6050,
+            'lines' => [],
+        ]);
+
+        $payload = [
+            'person_id' => $customer->id,
+            'owner_user_id' => $editor->id,
+            'title' => 'Expanded scope',
+            'stage' => 'proposal',
+            'probability' => 60,
+            'estimated_value' => 6500,
+        ];
+        $this->actingAs($editor)->patch(route('opportunities.update', $opportunity), $payload)
+            ->assertSessionHasErrors('change_note');
+        $this->patch(route('opportunities.update', $opportunity), [
+            ...$payload,
+            'change_note' => 'Se amplía el alcance tras la visita técnica.',
+        ])->assertRedirect();
+        $this->post(route('opportunities.notes.store', $opportunity), [
+            'note' => 'El cliente solicita comparar dos alternativas.',
+        ])->assertRedirect();
+
+        $this->assertSame($editor->id, $opportunity->refresh()->updated_by);
+        $this->assertDatabaseHas('opportunity_stage_histories', [
+            'opportunity_id' => $opportunity->id,
+            'changed_by' => $editor->id,
+            'from_stage' => 'qualified',
+            'to_stage' => 'proposal',
+            'reason' => 'Se amplía el alcance tras la visita técnica.',
+        ]);
+        $this->assertDatabaseHas('opportunity_events', [
+            'opportunity_id' => $opportunity->id,
+            'actor_id' => $editor->id,
+            'event_type' => 'details_updated',
+            'note' => 'Se amplía el alcance tras la visita técnica.',
+        ]);
+        $this->assertDatabaseHas('opportunity_events', [
+            'opportunity_id' => $opportunity->id,
+            'actor_id' => $editor->id,
+            'event_type' => 'note_added',
+            'note' => 'El cliente solicita comparar dos alternativas.',
+        ]);
+
+        $this->get(route('opportunities.show', $opportunity))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('opportunities/show')
+                ->where('opportunity.creator.name', 'Creadora')
+                ->where('opportunity.updater.name', 'Editor')
+                ->where('opportunity.quote.versions.0.change_note', 'Primera propuesta económica.')
+                ->where('timeline', fn ($timeline) => collect($timeline)->contains(
+                    fn (array $item) => $item['type'] === 'note_added' && $item['actor']['name'] === 'Editor',
+                ))
+                ->has('timeline', 7));
+
+        $this->put(route('quotes.document.update', $quote), [])
+            ->assertSessionHasErrors('change_note');
     }
 
     public function test_opportunity_creation_finds_an_existing_customer_by_normalized_mobile(): void
@@ -293,6 +389,7 @@ class OpportunityTest extends TestCase
             'stage' => 'won',
             'probability' => 50,
             'estimated_value' => 5000,
+            'change_note' => 'La propuesta ha sido aceptada por el cliente.',
         ];
 
         $this->actingAs($user)->patch(route('opportunities.update', $opportunity), $payload)->assertRedirect();
@@ -301,6 +398,11 @@ class OpportunityTest extends TestCase
         $this->assertSame(100, $opportunity->probability);
         $this->assertSame('cancelled', $activity->refresh()->status);
         $this->assertNotNull($activity->blocked_reason);
+        $this->assertDatabaseHas('opportunity_events', [
+            'opportunity_id' => $opportunity->id,
+            'actor_id' => $user->id,
+            'event_type' => 'activity_updated',
+        ]);
 
         $this->patch(route('opportunities.update', $opportunity), [...$payload, 'stage' => 'new', 'probability' => 10])
             ->assertSessionHasErrors('stage');

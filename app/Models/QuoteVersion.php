@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class QuoteVersion extends Model
 {
-    protected $fillable = ['quote_id', 'version', 'created_by', 'service_type', 'subtotal', 'discount_amount', 'tax_amount', 'amount', 'expected_margin_amount', 'lines', 'notes'];
+    protected $fillable = ['quote_id', 'version', 'created_by', 'change_note', 'service_type', 'subtotal', 'discount_amount', 'tax_amount', 'amount', 'expected_margin_amount', 'lines', 'notes'];
 
     protected function casts(): array
     {
@@ -17,5 +17,10 @@ class QuoteVersion extends Model
     public function quote(): BelongsTo
     {
         return $this->belongsTo(Quote::class);
+    }
+
+    public function createdBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by');
     }
 }

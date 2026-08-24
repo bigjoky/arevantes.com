@@ -186,6 +186,7 @@ type FormData = {
     lost_reason: string;
     lost_reason_detail: string;
     notes: string;
+    change_note: string;
     next_action_type: string;
     next_action_title: string;
     next_action_priority: string;
@@ -243,6 +244,7 @@ const emptyForm: FormData = {
     lost_reason: '',
     lost_reason_detail: '',
     notes: '',
+    change_note: '',
     next_action_type: 'call',
     next_action_title: 'Contactar y cualificar al cliente',
     next_action_priority: 'normal',
@@ -496,6 +498,7 @@ export default function OpportunitiesIndex({
             lost_reason: item.lost_reason || '',
             lost_reason_detail: item.lost_reason_detail || '',
             notes: item.notes || '',
+            change_note: '',
             next_action_type: 'call',
             next_action_title: 'Contactar y cualificar al cliente',
             next_action_priority: 'normal',
@@ -549,6 +552,7 @@ export default function OpportunitiesIndex({
                 lost_reason: null,
                 lost_reason_detail: null,
                 notes: item.notes,
+                change_note: `Cambio de etapa desde el pipeline: ${stageLabel(item.stage)} → ${stageLabel(stage)}.`,
             },
             { preserveScroll: true },
         );
@@ -923,12 +927,9 @@ export default function OpportunitiesIndex({
                                                     key={item.id}
                                                     className="rounded-md border bg-card p-3 shadow-xs"
                                                 >
-                                                    <button
-                                                        type="button"
-                                                        onClick={() =>
-                                                            openEditor(item)
-                                                        }
-                                                        className="w-full text-left"
+                                                    <Link
+                                                        href={`/opportunities/${item.id}`}
+                                                        className="block w-full text-left"
                                                     >
                                                         <span className="text-xs text-muted-foreground">
                                                             {item.code}
@@ -996,7 +997,7 @@ export default function OpportunitiesIndex({
                                                         <ResponseSlaBadge
                                                             opportunity={item}
                                                         />
-                                                    </button>
+                                                    </Link>
                                                     <div className="mt-3 flex items-end justify-between gap-2 border-t pt-2">
                                                         <div>
                                                             <div className="text-sm font-semibold">
@@ -1858,6 +1859,24 @@ export default function OpportunitiesIndex({
                                     }
                                 />
                             </Field>
+                            {editing ? (
+                                <Field
+                                    label="Nota de modificación"
+                                    error={form.errors.change_note}
+                                    className="sm:col-span-2"
+                                >
+                                    <Textarea
+                                        value={form.data.change_note}
+                                        onChange={(event) =>
+                                            form.setData(
+                                                'change_note',
+                                                event.target.value,
+                                            )
+                                        }
+                                        placeholder="Explica el motivo del cambio, especialmente si avanza o retrocede de etapa."
+                                    />
+                                </Field>
+                            ) : null}
                             {editing && (
                                 <div className="sm:col-span-2">
                                     <div className="mb-2 flex items-center justify-between gap-3 text-sm font-medium">
@@ -2178,7 +2197,7 @@ function ForecastSummary({ rows }: { rows: ForecastRow[] }) {
                                             {row.opportunities.map((item) => (
                                                 <Link
                                                     key={item.id}
-                                                    href={`/opportunities?opportunity=${item.id}`}
+                                                    href={`/opportunities/${item.id}`}
                                                     className="block rounded px-2 py-1.5 hover:bg-muted"
                                                 >
                                                     <span className="block font-medium">
@@ -2368,19 +2387,19 @@ function OpportunityTable({
                         <th className="p-3 text-right">Forecast</th>
                         <th className="p-3">Próxima acción</th>
                         <th className="p-3 text-right">Score</th>
+                        <th className="p-3 text-right">Acciones</th>
                     </tr>
                 </thead>
                 <tbody className="divide-y">
                     {opportunities.map((item) => (
                         <tr key={item.id} className="hover:bg-muted/30">
                             <td className="p-3">
-                                <button
-                                    type="button"
-                                    onClick={() => onEdit(item)}
+                                <Link
+                                    href={`/opportunities/${item.id}`}
                                     className="text-left font-medium hover:underline"
                                 >
                                     {item.code} · {item.title}
-                                </button>
+                                </Link>
                                 {item.source && (
                                     <div className="text-xs text-muted-foreground">
                                         {sourceOptions[item.source] ||
@@ -2434,6 +2453,17 @@ function OpportunityTable({
                             </td>
                             <td className="p-3 text-right font-medium tabular-nums">
                                 {item.commercial_score}/100
+                            </td>
+                            <td className="p-3 text-right">
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => onEdit(item)}
+                                    aria-label={`Editar ${item.title}`}
+                                >
+                                    <Pencil className="size-4" />
+                                </Button>
                             </td>
                         </tr>
                     ))}

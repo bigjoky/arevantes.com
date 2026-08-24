@@ -151,10 +151,13 @@ Route::middleware(['auth'])->group(function () {
     Route::post('opportunities/{opportunity}/activities', [OpportunityController::class, 'storeActivity'])
         ->middleware('can:manage-customers')
         ->name('opportunities.activities.store');
+    Route::post('opportunities/{opportunity}/notes', [OpportunityController::class, 'storeNote'])
+        ->middleware('can:manage-customers')
+        ->name('opportunities.notes.store');
     Route::post('opportunities/{opportunity}/restore', [OpportunityController::class, 'restore'])
         ->middleware('can:manage-customers')
         ->name('opportunities.restore');
-    Route::resource('opportunities', OpportunityController::class)->only(['index', 'store', 'update', 'destroy'])->middleware('can:manage-customers');
+    Route::resource('opportunities', OpportunityController::class)->only(['index', 'show', 'store', 'update', 'destroy'])->middleware('can:manage-customers');
     Route::post('people/{person}/portal', [CustomerPortalController::class, 'invite'])->middleware('can:manage-customers')->name('people.portal.invite');
     Route::delete('people/{person}/portal/{access}', [CustomerPortalController::class, 'revoke'])->middleware('can:manage-customers')->name('people.portal.revoke');
     Route::delete('document-deliveries/{delivery}', [DocumentDeliveryController::class, 'revoke'])->middleware('can:manage-installations')->name('document-deliveries.revoke');

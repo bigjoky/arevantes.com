@@ -50,6 +50,7 @@ class QuoteSelection
             ]);
             $quote->versions()->create([
                 'version' => $version,
+                'change_note' => __('Customer selection updated.'),
                 'subtotal' => $quote->subtotal,
                 'discount_amount' => $quote->discount_amount,
                 'tax_amount' => $quote->tax_amount,

@@ -43,4 +43,9 @@ class CrmActivity extends Model
     {
         return $this->belongsTo(User::class, 'assigned_user_id');
     }
+
+    public function creator(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
 }

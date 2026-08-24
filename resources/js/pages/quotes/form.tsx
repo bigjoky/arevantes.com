@@ -9,6 +9,7 @@ import {
     Trash2,
 } from 'lucide-react';
 import { Fragment, useState } from 'react';
+import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -19,6 +20,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 import { serviceLabels } from '@/lib/business-lines';
 import type { ServiceType } from '@/lib/business-lines';
 
@@ -153,6 +155,7 @@ export default function QuoteForm({
             (opportunityDraft
                 ? `Prepared from opportunity ${opportunityDraft.code}.`
                 : ''),
+        change_note: '',
         lines:
             quote?.lines.map((line) => ({
                 ...line,
@@ -1050,8 +1053,33 @@ export default function QuoteForm({
                             <Total label="Total" value={totals.total} strong />
                         </div>
                     </section>
+                    {quote ? (
+                        <section className="grid gap-2 border-t pt-5">
+                            <Label htmlFor="change_note">
+                                Motivo de esta revisión
+                            </Label>
+                            <Textarea
+                                id="change_note"
+                                required
+                                minLength={5}
+                                value={form.data.change_note}
+                                onChange={(event) =>
+                                    form.setData(
+                                        'change_note',
+                                        event.target.value,
+                                    )
+                                }
+                                placeholder="Qué se ha modificado y por qué: alcance, precio, condiciones, petición del cliente…"
+                            />
+                            <InputError message={form.errors.change_note} />
+                        </section>
+                    ) : null}
                     {Object.entries(form.errors)
-                        .filter(([key]) => !key.startsWith('lines'))
+                        .filter(
+                            ([key]) =>
+                                !key.startsWith('lines') &&
+                                key !== 'change_note',
+                        )
                         .map(([key, error]) => (
                             <p key={key} className="text-sm text-destructive">
                                 {error}
