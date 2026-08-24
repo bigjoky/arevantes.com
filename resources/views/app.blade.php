@@ -1,8 +1,10 @@
 @php
     $component = $page['component'] ?? '';
     $isHomepage = $component === 'welcome';
+    $isServicePage = $component === 'services/show';
+    $serviceMetadata = $isServicePage ? data_get($page, 'props.service') : null;
     $legalDocument = $component === 'legal/show' ? data_get($page, 'props.document') : null;
-    $isPublicWebsite = $isHomepage || filled($legalDocument);
+    $isPublicWebsite = $isHomepage || $isServicePage || filled($legalDocument);
     $siteUrl = rtrim(config('app.url'), '/');
     $siteTitle = 'Arevantes · Energía, electricidad y seguridad';
     $siteDescription = 'Arevantes diseña, instala y mantiene soluciones de energía, instalaciones eléctricas y sistemas de seguridad en Córdoba y Andalucía.';
@@ -127,6 +129,36 @@
                 <meta data-inertia="twitter-description" name="twitter:description" content="{{ $siteDescription }}">
                 <meta data-inertia="twitter-image" name="twitter:image" content="{{ $siteUrl }}/og-multirramo.png">
                 <script data-inertia="structured-data" type="application/ld+json">{!! json_encode($structuredData, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) !!}</script>
+            @elseif ($serviceMetadata)
+                @php
+                    $serviceUrl = $siteUrl.'/servicios/'.$serviceMetadata['slug'];
+                    $serviceStructuredData = [
+                        '@context' => 'https://schema.org',
+                        '@type' => 'Service',
+                        'name' => $serviceMetadata['name'],
+                        'description' => $serviceMetadata['seo_description'],
+                        'url' => $serviceUrl,
+                        'areaServed' => 'Andalucía',
+                        'provider' => [
+                            '@type' => 'LocalBusiness',
+                            'name' => 'Arevantes',
+                            'url' => $siteUrl,
+                        ],
+                    ];
+                @endphp
+                <title data-inertia="title">{{ $serviceMetadata['seo_title'] }}</title>
+                <meta data-inertia="description" name="description" content="{{ $serviceMetadata['seo_description'] }}">
+                <meta data-inertia="robots" name="robots" content="index, follow">
+                <link data-inertia="canonical" rel="canonical" href="{{ $serviceUrl }}">
+                <meta data-inertia="og-type" property="og:type" content="website">
+                <meta data-inertia="og-locale" property="og:locale" content="es_ES">
+                <meta data-inertia="og-title" property="og:title" content="{{ $serviceMetadata['seo_title'] }}">
+                <meta data-inertia="og-description" property="og:description" content="{{ $serviceMetadata['seo_description'] }}">
+                <meta data-inertia="og-url" property="og:url" content="{{ $serviceUrl }}">
+                <meta data-inertia="twitter-card" name="twitter:card" content="summary">
+                <meta data-inertia="twitter-title" name="twitter:title" content="{{ $serviceMetadata['seo_title'] }}">
+                <meta data-inertia="twitter-description" name="twitter:description" content="{{ $serviceMetadata['seo_description'] }}">
+                <script data-inertia="structured-data" type="application/ld+json">{!! json_encode($serviceStructuredData, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) !!}</script>
             @elseif ($currentLegalMetadata)
                 <title data-inertia="title">{{ $currentLegalMetadata['title'] }} · Arevantes</title>
                 <meta data-inertia="description" name="description" content="{{ $currentLegalMetadata['description'] }}">

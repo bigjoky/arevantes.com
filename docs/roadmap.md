@@ -65,8 +65,8 @@ capacidades transversales, no una cuarta línea aislada.
 
 ### Fase 1 — Posicionamiento y captación común
 
-- Reorganizar la portada alrededor de las tres líneas, con propuesta de valor,
-  alcance y llamadas a la acción diferenciadas.
+- Reorganizar la portada como entrada corporativa a las tres líneas y publicar
+  una página indexable y compartible para cada servicio.
 - Mantener un único formulario conectado al CRM, conservando la línea de
   interés desde cada acceso para reducir fricción y mejorar la atribución.
 - Actualizar SEO, datos estructurados y tarjeta social para reflejar el negocio
@@ -76,8 +76,8 @@ capacidades transversales, no una cuarta línea aislada.
 
 ### Fase 2 — Páginas de servicio y confianza
 
-- Crear páginas independientes para energía, electricidad y seguridad con
-  contenido, preguntas frecuentes y metadatos propios.
+- Ampliar las páginas de energía, electricidad y seguridad con preguntas
+  frecuentes, objeciones y contenidos especializados por tipo de proyecto.
 - Incorporar procesos, tipologías de proyecto y entregables documentales
   reales de cada línea.
 - Publicar casos de uso solo cuando dispongan de alcance, ubicación, permiso e

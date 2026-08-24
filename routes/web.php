@@ -48,6 +48,7 @@ use App\Http\Controllers\MyHumanResourcesController;
 use App\Http\Controllers\OperationsController;
 use App\Http\Controllers\OpportunityController;
 use App\Http\Controllers\PersonController;
+use App\Http\Controllers\PublicServiceController;
 use App\Http\Controllers\PurchaseApprovalRuleController;
 use App\Http\Controllers\PurchaseComparisonController;
 use App\Http\Controllers\PurchaseController;
@@ -83,6 +84,9 @@ use Illuminate\Support\Facades\Route;
 Route::inertia('/', 'welcome', [
     'siteUrl' => rtrim((string) config('app.url'), '/'),
 ])->name('home');
+Route::get('servicios/{service}', PublicServiceController::class)
+    ->whereIn('service', ['energia', 'electricidad', 'seguridad'])
+    ->name('services.show');
 Route::get('sitemap.xml', SitemapController::class)->name('sitemap');
 Route::post('contact', WebsiteContactController::class)->middleware('throttle:5,1')->name('website.contact');
 Route::get('aviso-legal', [LegalController::class, 'notice'])->name('legal.notice');

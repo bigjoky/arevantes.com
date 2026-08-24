@@ -57,6 +57,7 @@ const businessLines = [
         detail: 'Solar · Baterías · Recarga',
         services: ['Fotovoltaica', 'Almacenamiento', 'Puntos de recarga'],
         formValue: 'solar',
+        path: '/servicios/energia',
     },
     {
         number: '02',
@@ -70,6 +71,7 @@ const businessLines = [
         detail: 'Instalación · Reforma · Certificación',
         services: ['Instalaciones', 'Adecuaciones', 'Certificación'],
         formValue: 'electrical',
+        path: '/servicios/electricidad',
     },
     {
         number: '03',
@@ -83,6 +85,7 @@ const businessLines = [
         detail: 'Alarmas · CCTV · Accesos',
         services: ['Alarmas', 'Videovigilancia', 'Control de accesos'],
         formValue: 'security',
+        path: '/servicios/seguridad',
     },
 ];
 
@@ -90,13 +93,26 @@ const siteDescription =
     'Arevantes diseña, instala y mantiene soluciones de energía, instalaciones eléctricas y sistemas de seguridad en Córdoba y Andalucía.';
 
 const siteTitle = 'Arevantes · Energía, electricidad y seguridad';
+const contactServiceValues = new Set(['solar', 'electrical', 'security']);
 
 export default function Welcome({ siteUrl }: { siteUrl: string }) {
     const { auth } = usePage().props;
     const privateArea = auth.user ? dashboard() : login();
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [activeModeIndex, setActiveModeIndex] = useState(0);
-    const [selectedService, setSelectedService] = useState('');
+    const [selectedService, setSelectedService] = useState(() => {
+        if (typeof window === 'undefined') {
+            return '';
+        }
+
+        const requestedService = new URLSearchParams(
+            window.location.search,
+        ).get('servicio');
+
+        return requestedService && contactServiceValues.has(requestedService)
+            ? requestedService
+            : '';
+    });
     const activeMode = businessLines[activeModeIndex];
     const ActiveModeIcon = activeMode.icon;
 
@@ -439,18 +455,13 @@ export default function Welcome({ siteUrl }: { siteUrl: string }) {
                                             <p className="mt-3 max-w-md text-sm leading-6 text-zinc-400 sm:text-base">
                                                 {activeMode.description}
                                             </p>
-                                            <a
-                                                href="#contacto"
-                                                onClick={() =>
-                                                    setSelectedService(
-                                                        activeMode.formValue,
-                                                    )
-                                                }
+                                            <Link
+                                                href={activeMode.path}
                                                 className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-[#b8df8c] transition hover:text-white"
                                             >
-                                                Consultar esta línea
+                                                Conocer este servicio
                                                 <ArrowRight className="size-4" />
-                                            </a>
+                                            </Link>
                                         </div>
 
                                         <div className="relative mt-5 grid grid-cols-3 gap-2 border-t border-white/10 pt-5">
@@ -583,7 +594,14 @@ export default function Welcome({ siteUrl }: { siteUrl: string }) {
                                                 )}
                                             </ul>
                                         </div>
-                                        <div className="mt-auto pt-8">
+                                        <div className="mt-auto flex flex-wrap items-center gap-x-5 gap-y-3 pt-8">
+                                            <Link
+                                                href={line.path}
+                                                className="inline-flex items-center gap-2 text-sm font-semibold text-[#217a3b] transition group-hover:text-[#185f2d]"
+                                            >
+                                                Ver servicio
+                                                <ArrowUpRight className="size-4 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+                                            </Link>
                                             <a
                                                 href="#contacto"
                                                 onClick={() =>
@@ -591,10 +609,9 @@ export default function Welcome({ siteUrl }: { siteUrl: string }) {
                                                         line.formValue,
                                                     )
                                                 }
-                                                className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-[#217a3b] opacity-80 transition group-hover:opacity-100"
+                                                className="text-sm font-medium text-zinc-500 transition hover:text-zinc-950"
                                             >
-                                                Cuéntanos tu proyecto
-                                                <ArrowUpRight className="size-4 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+                                                Solicitar estudio
                                             </a>
                                         </div>
                                     </article>

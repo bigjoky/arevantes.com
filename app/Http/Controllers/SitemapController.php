@@ -11,6 +11,9 @@ class SitemapController extends Controller
         $baseUrl = rtrim(config('app.url'), '/');
         $pages = [
             ['path' => '/', 'priority' => '1.0', 'frequency' => 'weekly'],
+            ['path' => '/servicios/energia', 'priority' => '0.8', 'frequency' => 'monthly'],
+            ['path' => '/servicios/electricidad', 'priority' => '0.8', 'frequency' => 'monthly'],
+            ['path' => '/servicios/seguridad', 'priority' => '0.8', 'frequency' => 'monthly'],
             ['path' => '/aviso-legal', 'priority' => '0.2', 'frequency' => 'yearly'],
             ['path' => '/privacidad', 'priority' => '0.2', 'frequency' => 'yearly'],
             ['path' => '/cookies', 'priority' => '0.2', 'frequency' => 'yearly'],
