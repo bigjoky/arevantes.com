@@ -151,6 +151,9 @@ Route::middleware(['auth'])->group(function () {
     Route::post('opportunities/{opportunity}/activities', [OpportunityController::class, 'storeActivity'])
         ->middleware('can:manage-customers')
         ->name('opportunities.activities.store');
+    Route::patch('opportunities/{opportunity}/activities/{activity}/complete', [OpportunityController::class, 'completeActivity'])
+        ->middleware('can:manage-customers')
+        ->name('opportunities.activities.complete');
     Route::post('opportunities/{opportunity}/notes', [OpportunityController::class, 'storeNote'])
         ->middleware('can:manage-customers')
         ->name('opportunities.notes.store');
