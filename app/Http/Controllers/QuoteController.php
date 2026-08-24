@@ -38,6 +38,51 @@ use Inertia\Response;
 
 class QuoteController extends Controller
 {
+    public function index(Request $request): Response
+    {
+        $filters = $request->validate([
+            'search' => ['nullable', 'string', 'max:100'],
+            'status' => ['nullable', Rule::in(['draft', 'sent', 'accepted', 'rejected', 'expired'])],
+            'approval' => ['nullable', Rule::in(['not_required', 'pending', 'approved', 'rejected'])],
+            'owner' => ['nullable', 'integer', 'exists:users,id'],
+        ]);
+
+        $query = Quote::query()
+            ->with([
+                'customer:id,first_name,last_name,company_name',
+                'creator:id,name',
+                'opportunity:id,code,title,stage',
+            ])
+            ->when($filters['search'] ?? null, fn ($query, string $search) => $query
+                ->where(fn ($query) => $query
+                    ->where('number', 'like', "%{$search}%")
+                    ->orWhereHas('customer', fn ($query) => $query
+                        ->where('company_name', 'like', "%{$search}%")
+                        ->orWhere('first_name', 'like', "%{$search}%")
+                        ->orWhere('last_name', 'like', "%{$search}%"))
+                    ->orWhereHas('opportunity', fn ($query) => $query
+                        ->where('code', 'like', "%{$search}%")
+                        ->orWhere('title', 'like', "%{$search}%"))))
+            ->when($filters['status'] ?? null, fn ($query, string $status) => $query->where('status', $status))
+            ->when($filters['approval'] ?? null, fn ($query, string $approval) => $query->where('approval_status', $approval))
+            ->when($filters['owner'] ?? null, fn ($query, int $owner) => $query->where('created_by', $owner));
+
+        $summary = [
+            'total' => (clone $query)->count(),
+            'open_value' => round((float) (clone $query)->whereIn('status', ['draft', 'sent'])->sum('amount'), 2),
+            'pending_approval' => (clone $query)->where('approval_status', 'pending')->count(),
+            'accepted_value' => round((float) (clone $query)->where('status', 'accepted')->sum('amount'), 2),
+        ];
+
+        return Inertia::render('quotes/index', [
+            'quotes' => $query->latest('updated_at')->paginate(25)->withQueryString(),
+            'filters' => $filters,
+            'summary' => $summary,
+            'owners' => User::query()->whereIn('role', ['admin', 'commercial'])->orderBy('name')->get(['id', 'name']),
+            'canApproveQuotes' => Gate::allows('approve-quotes'),
+        ]);
+    }
+
     public function create(Request $request): Response
     {
         $opportunity = Opportunity::with('quote:id,opportunity_id')->whereKey($request->integer('opportunity'))->first();
@@ -63,7 +108,7 @@ class QuoteController extends Controller
 
     public function show(Quote $quote, QuoteBillingPlan $billing, ProjectProfitability $profitability, QuoteMaterialReadiness $materials): Response
     {
-        $quote->load(['customer', 'installation', 'opportunity:id,code,title', 'lines.components.unit:id,symbol', 'versions.createdBy:id,name', 'statusHistory.changedBy:id,name', 'deliveries:id,quote_id,recipient_email,status,sent_at,first_viewed_at,responded_at,revoked_at']);
+        $quote->load(['customer', 'installation', 'opportunity:id,code,title', 'creator:id,name', 'approver:id,name', 'lines.components.unit:id,symbol', 'versions.createdBy:id,name', 'statusHistory.changedBy:id,name', 'deliveries:id,quote_id,recipient_email,status,sent_at,first_viewed_at,responded_at,revoked_at']);
         [$street, $streetNumber] = $this->splitStreetAddress($quote->customer?->address_line_1);
         $projectProfitability = $quote->installation ? $profitability->for($quote->installation, $quote) : null;
         $quote->setAttribute(
@@ -73,13 +118,37 @@ class QuoteController extends Controller
                 : null,
         );
 
+        $availableStatuses = app(QuoteStatusWorkflow::class)->availableTransitions($quote);
+        $canApprove = Gate::allows('approve-quotes')
+            && $quote->approval_status === 'pending'
+            && (int) $quote->created_by !== (int) request()->user()->id;
+        $hasTraceability = $quote->installation_id
+            || $quote->salesDocuments()->exists()
+            || $quote->deliveries()->exists()
+            || CustomerDocumentAcceptance::where('document_type', 'quote')->where('document_id', $quote->id)->exists();
+
         return Inertia::render('quotes/show', [
             'quote' => $quote,
             'billing' => $billing->summary($quote),
             'materialPreview' => $materials->preview($quote),
             'profitability' => $projectProfitability,
-            'canApprove' => Gate::allows('approve-quotes') && (int) $quote->created_by !== (int) request()->user()->id,
-            'availableStatuses' => app(QuoteStatusWorkflow::class)->availableTransitions($quote),
+            'capabilities' => [
+                'edit' => $quote->status === 'draft',
+                'changeStatus' => $availableStatuses !== [],
+                'send' => in_array($quote->status, ['draft', 'sent'], true)
+                    && in_array($quote->approval_status, ['not_required', 'approved'], true)
+                    && ! $quote->customer?->do_not_contact,
+                'delete' => $quote->status === 'draft' && ! $hasTraceability,
+                'approve' => $canApprove,
+                'startProject' => Gate::allows('manage-installations') && $quote->status === 'accepted' && ! $quote->installation_id,
+                'convert' => Gate::allows('manage-installations') && $quote->status === 'accepted',
+                'approvalBlockReason' => $quote->approval_status !== 'pending' || $canApprove
+                    ? null
+                    : (Gate::denies('approve-quotes')
+                        ? __('Your profile cannot approve commercial proposals.')
+                        : __('Separation of duties: another authorized administrator must approve a proposal you created.')),
+            ],
+            'availableStatuses' => $availableStatuses,
             'technicians' => User::whereIn('role', ['technician', 'admin'])->orderBy('name')->get(['id', 'name']),
             'projectDefaults' => [
                 'service_type' => $quote->service_type,
@@ -141,7 +210,7 @@ class QuoteController extends Controller
         abort_if(CustomerDocumentAcceptance::where('document_type', 'quote')->where('document_id', $quote->id)->exists(), 422, __('An accepted quote cannot be deleted.'));
         $quote->delete();
 
-        return to_route('operations.index')->with('toast', ['type' => 'success', 'message' => __('Quote deleted.')]);
+        return to_route('quotes.index')->with('toast', ['type' => 'success', 'message' => __('Quote deleted.')]);
     }
 
     public function approve(Request $request, Quote $quote): RedirectResponse

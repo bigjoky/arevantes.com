@@ -49,6 +49,8 @@ class HandleInertiaRequests extends Middleware
                     'viewSystemHealth' => Gate::allows('view-system-health'),
                     'viewAnalytics' => Gate::allows('view-analytics'),
                     'manageCustomers' => Gate::allows('manage-customers'),
+                    'manageQuotes' => Gate::allows('manage-quotes'),
+                    'approveQuotes' => Gate::allows('approve-quotes'),
                     'viewInstallations' => Gate::allows('view-installations'),
                     'manageInstallations' => Gate::allows('manage-installations'),
                     'useAi' => Gate::allows('use-ai'),

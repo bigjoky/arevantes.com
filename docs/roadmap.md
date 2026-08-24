@@ -272,6 +272,17 @@ La continuidad comercial dispone además de un expediente de oportunidad:
 - la auditoría técnica continúa separada del histórico de negocio visible para
   que el expediente sea útil sin exponer metadatos administrativos sensibles.
 
+La superficie de trabajo comercial queda simplificada y gobernada:
+
+- propuestas dispone de permiso propio, listado paginado, filtros operativos y
+  aprobación cruzada; administración puede gestionar cualquier propuesta pero
+  nunca aprobar una creada por el mismo usuario;
+- pedidos, albaranes y facturas permanecen separados como documentos de venta;
+- el pipeline concentra el trabajo diario y las alertas accionables, mientras
+  forecast, conversión y SLA se cargan únicamente en análisis comercial;
+- scoring e histórico se consultan solo en el expediente, evitando repetirlos
+  dentro del formulario de edición y reduciendo el payload del tablero.
+
 ## Próximo corte recomendado
 
 Completar el cuarto vertical del Horizonte 1: **entrega documental y portal de

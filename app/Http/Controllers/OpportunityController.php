@@ -31,6 +31,8 @@ class OpportunityController extends Controller
 
     public function index(Request $request): Response
     {
+        $section = $request->input('section') === 'analysis' ? 'analysis' : 'pipeline';
+        $view = $request->input('view') === 'table' ? 'table' : 'kanban';
         $settings = CrmSetting::current();
         $query = Opportunity::query()
             ->when($request->boolean('archived'), fn ($query) => $query->onlyTrashed())
@@ -73,7 +75,7 @@ class OpportunityController extends Controller
         $responseMinutes = $opportunities
             ->map(fn (Opportunity $item) => $responseSla->responseMinutes($item))
             ->filter(fn (?int $minutes) => $minutes !== null);
-        $responsePerformance = $opportunities
+        $responsePerformance = $section === 'analysis' ? $opportunities
             ->whereNotNull('owner_user_id')
             ->groupBy('owner_user_id')
             ->map(function ($items) use ($responseSla, $responseStatuses): array {
@@ -102,16 +104,17 @@ class OpportunityController extends Controller
             })
             ->filter(fn (array $row) => $row['total'] > 0)
             ->sortByDesc('breached')
-            ->values();
+            ->values() : collect();
 
         return Inertia::render('opportunities/index', [
             'opportunities' => $opportunities->map(function (Opportunity $item) use ($salesCycle, $responseSla, $settings): array {
                 $scoreBreakdown = $salesCycle->scoreBreakdown($item);
+                $data = $item->toArray();
+                unset($data['stage_history']);
 
                 return [
-                    ...$item->toArray(),
+                    ...$data,
                     'commercial_score' => min(100, (int) collect($scoreBreakdown)->sum('points')),
-                    'score_breakdown' => $scoreBreakdown,
                     'expected_close_on' => $item->expected_close_on?->toDateString(),
                     'renewal_due_on' => $item->renewal_due_on?->toDateString(),
                     'available_stages' => $salesCycle->availableTransitions($item),
@@ -139,7 +142,9 @@ class OpportunityController extends Controller
             'filters' => [
                 ...$request->only(['search', 'stage', 'owner', 'source', 'commercial_kind', 'attention', 'archived']),
                 'period' => $period,
+                'view' => $view,
             ],
+            'section' => $section,
             'metrics' => [
                 'pipeline_value' => round((float) $open->sum('estimated_value'), 2),
                 'weighted_forecast' => round((float) $open->sum(fn (Opportunity $item) => (float) $item->estimated_value * $item->probability / 100), 2),
@@ -165,7 +170,7 @@ class OpportunityController extends Controller
                 'funnel' => collect(self::STAGES)->mapWithKeys(fn (string $stage) => [$stage => $opportunities->where('stage', $stage)->count()]),
                 'stage_days' => $this->averageDaysByStage($opportunities),
             ],
-            'forecast' => $request->boolean('archived') ? [] : $this->forecast($open),
+            'forecast' => $section === 'analysis' && ! $request->boolean('archived') ? $this->forecast($open) : [],
             'responsePerformance' => $responsePerformance,
             'savedFilters' => SavedCrmFilter::query()->where('user_id', $request->user()->id)->where('scope', 'opportunities')->orderByDesc('is_default')->orderBy('name')->get(),
             'crmSettings' => $settings,
@@ -202,6 +207,7 @@ class OpportunityController extends Controller
                 'expected_close_on' => $opportunity->expected_close_on?->toDateString(),
                 'renewal_due_on' => $opportunity->renewal_due_on?->toDateString(),
                 'available_stages' => $salesCycle->availableTransitions($opportunity),
+                'score_breakdown' => $salesCycle->scoreBreakdown($opportunity),
             ],
             'timeline' => $timeline,
             'sourceOptions' => OpportunityCatalog::SOURCES,

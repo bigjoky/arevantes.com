@@ -5,7 +5,6 @@ import {
     CalendarClock,
     CircleDollarSign,
     Clock3,
-    History,
     LayoutGrid,
     List,
     Pencil,
@@ -91,13 +90,6 @@ type Activity = {
     due_at: string;
     assigned_user: UserOption | null;
 };
-type StageHistory = {
-    id: number;
-    from_stage: string | null;
-    to_stage: string;
-    changed_at: string;
-    changed_by: UserOption | null;
-};
 type Opportunity = {
     id: number;
     code: string;
@@ -109,10 +101,6 @@ type Opportunity = {
     stage: string;
     probability: number;
     commercial_score: number;
-    score_breakdown: Record<
-        string,
-        { met: boolean; points: number; weight: number }
-    >;
     estimated_value: string;
     expected_close_on: string | null;
     source: string | null;
@@ -129,7 +117,6 @@ type Opportunity = {
     parent_opportunity: WonOpportunity | null;
     quote: { id: number; number: string; status: string } | null;
     next_activity: Activity | null;
-    stage_history: StageHistory[];
     available_stages: string[];
     stage_entered_at: string;
     days_in_stage: number;
@@ -262,6 +249,7 @@ export default function OpportunitiesIndex({
     lostReasonOptions,
     wonOpportunities,
     filters = {},
+    section = 'pipeline',
     metrics,
     forecast = [],
     responsePerformance = [],
@@ -289,6 +277,7 @@ export default function OpportunitiesIndex({
         period?: string;
         view?: string;
     };
+    section?: 'pipeline' | 'analysis';
     metrics: {
         pipeline_value: number;
         weighted_forecast: number;
@@ -329,6 +318,10 @@ export default function OpportunitiesIndex({
         'idle' | 'checking' | 'found' | 'new' | 'invalid'
     >('idle');
     const form = useForm<FormData>(emptyForm);
+    const hasActiveFilters = Object.entries(filters).some(
+        ([key, value]) =>
+            !['period', 'view'].includes(key) && Boolean(value),
+    );
     const availableInstallations = useMemo(
         () =>
             installations.filter(
@@ -595,90 +588,50 @@ export default function OpportunitiesIndex({
                     </div>
                 </header>
 
-                <section className="grid gap-px overflow-hidden border bg-border sm:grid-cols-2 xl:grid-cols-4">
-                    <Metric
-                        icon={CircleDollarSign}
-                        label="Pipeline abierto"
-                        value={money(metrics.pipeline_value)}
-                    />
-                    <Metric
-                        icon={TrendingUp}
-                        label="Previsión ponderada"
-                        value={money(metrics.weighted_forecast)}
-                    />
-                    <Metric
-                        icon={Target}
-                        label={`Ganado · ${periodLabel(filters.period)}`}
-                        value={money(metrics.won_value)}
-                        detail={`${metrics.won_count} oportunidades`}
-                    />
-                    <Metric
-                        icon={UserPlus}
-                        label={`Nuevos leads · ${periodLabel(filters.period)}`}
-                        value={String(metrics.new_leads)}
-                    />
-                    <Metric
-                        icon={Target}
-                        label="Conversión"
-                        value={`${metrics.conversion_rate}%`}
-                        detail={`${metrics.won_count} ganadas · ${metrics.lost_count} perdidas`}
-                    />
-                    <Metric
-                        icon={Timer}
-                        label="Ciclo medio"
-                        value={
-                            metrics.average_cycle_days === null
-                                ? '—'
-                                : `${metrics.average_cycle_days} días`
-                        }
-                    />
-                    <Metric
-                        icon={CalendarClock}
-                        label="Cierres vencidos"
-                        value={String(metrics.overdue)}
-                    />
-                    <Metric
-                        icon={Clock3}
-                        label="Sin próxima acción"
-                        value={String(metrics.without_next_action)}
-                        detail={`${metrics.stale} estancadas`}
-                    />
-                    <Metric
-                        icon={CalendarClock}
-                        label="Renovaciones próximas"
-                        value={String(metrics.renewals_due)}
-                        detail="Próximos 30 días"
-                    />
-                    <Metric
-                        icon={Clock3}
-                        label="Leads fuera de SLA"
-                        value={String(metrics.response_sla_breached)}
-                        detail={`${metrics.response_sla_pending} pendientes dentro de plazo`}
-                    />
-                    <Metric
-                        icon={Timer}
-                        label="Cumplimiento primera respuesta"
-                        value={
-                            metrics.response_sla_met_rate === null
-                                ? '—'
-                                : `${metrics.response_sla_met_rate}%`
-                        }
-                        detail={
-                            metrics.average_first_response_minutes === null
-                                ? 'Sin respuestas registradas'
-                                : `Media ${formatMinutes(metrics.average_first_response_minutes)}`
-                        }
-                    />
-                </section>
+                <nav className="flex gap-1 border-b" aria-label="Secciones de oportunidades">
+                    <Button variant={section === 'pipeline' ? 'secondary' : 'ghost'} size="sm" asChild>
+                        <Link href={opportunityFilterUrl({ ...filters, section: 'pipeline' })}>Trabajo diario</Link>
+                    </Button>
+                    <Button variant={section === 'analysis' ? 'secondary' : 'ghost'} size="sm" asChild>
+                        <Link href={opportunityFilterUrl({ ...filters, section: 'analysis' })}>Análisis comercial</Link>
+                    </Button>
+                    <Button variant="ghost" size="sm" asChild>
+                        <Link href="/quotes">Propuestas</Link>
+                    </Button>
+                </nav>
 
-                <FunnelSummary funnel={metrics.funnel} />
-
-                {responsePerformance.length > 0 && (
-                    <ResponsePerformanceSummary rows={responsePerformance} />
+                {section === 'pipeline' ? (
+                    <>
+                        <section className="grid gap-px overflow-hidden border bg-border sm:grid-cols-2 xl:grid-cols-4">
+                            <Metric icon={CircleDollarSign} label="Pipeline abierto" value={money(metrics.pipeline_value)} />
+                            <Metric icon={TrendingUp} label="Previsión ponderada" value={money(metrics.weighted_forecast)} />
+                            <Metric icon={Target} label={`Ganado · ${periodLabel(filters.period)}`} value={money(metrics.won_value)} detail={`${metrics.won_count} oportunidades`} />
+                            <Metric icon={UserPlus} label={`Nuevos leads · ${periodLabel(filters.period)}`} value={String(metrics.new_leads)} />
+                        </section>
+                        <section className="flex flex-wrap items-center gap-2 rounded-md border p-3">
+                            <span className="mr-1 text-sm font-medium">Requieren atención</span>
+                            <AttentionLink filters={filters} attention="overdue" label="Cierres vencidos" count={metrics.overdue} />
+                            <AttentionLink filters={filters} attention="no_action" label="Sin próxima acción" count={metrics.without_next_action} />
+                            <AttentionLink filters={filters} attention="stale" label="Estancadas" count={metrics.stale} />
+                            <AttentionLink filters={filters} attention="response_sla" label="Fuera de SLA" count={metrics.response_sla_breached} />
+                            <AttentionLink filters={filters} attention="renewal_due" label="Renovaciones" count={metrics.renewals_due} />
+                        </section>
+                    </>
+                ) : (
+                    <div className="space-y-6">
+                        <section className="grid gap-px overflow-hidden border bg-border sm:grid-cols-2 xl:grid-cols-4">
+                            <Metric icon={Target} label="Conversión" value={`${metrics.conversion_rate}%`} detail={`${metrics.won_count} ganadas · ${metrics.lost_count} perdidas`} />
+                            <Metric icon={Timer} label="Ciclo medio" value={metrics.average_cycle_days === null ? '—' : `${metrics.average_cycle_days} días`} />
+                            <Metric icon={Clock3} label="Cumplimiento primera respuesta" value={metrics.response_sla_met_rate === null ? '—' : `${metrics.response_sla_met_rate}%`} detail={metrics.average_first_response_minutes === null ? 'Sin respuestas registradas' : `Media ${formatMinutes(metrics.average_first_response_minutes)}`} />
+                            <Metric icon={CalendarClock} label="Renovaciones próximas" value={String(metrics.renewals_due)} detail="Próximos 30 días" />
+                        </section>
+                        <FunnelSummary funnel={metrics.funnel} />
+                        {responsePerformance.length > 0 && <ResponsePerformanceSummary rows={responsePerformance} />}
+                        {forecast.length > 0 && <ForecastSummary rows={forecast} />}
+                    </div>
                 )}
 
-                {forecast.length > 0 && <ForecastSummary rows={forecast} />}
-
+                {section === 'pipeline' && <>
                 <div className="flex flex-wrap items-center justify-between gap-3">
                     <div className="flex flex-wrap items-center gap-2">
                         {savedFilters.length > 0 && (
@@ -834,7 +787,7 @@ export default function OpportunitiesIndex({
                         <Button variant="outline">
                             <Search /> Filtrar
                         </Button>
-                        {Object.values(filters).some(Boolean) && (
+                        {hasActiveFilters && (
                             <Button type="button" variant="ghost" asChild>
                                 <Link href="/opportunities">
                                     <X /> Limpiar
@@ -844,7 +797,7 @@ export default function OpportunitiesIndex({
                     </div>
                 </Form>
 
-                {Object.values(filters).some(Boolean) && (
+                {hasActiveFilters && (
                     <Form
                         action="/crm/filters"
                         method="post"
@@ -1150,6 +1103,7 @@ export default function OpportunitiesIndex({
                         </div>
                     </section>
                 )}
+                </>}
             </div>
 
             <Dialog open={open} onOpenChange={setOpen}>
@@ -1877,76 +1831,12 @@ export default function OpportunitiesIndex({
                                     />
                                 </Field>
                             ) : null}
-                            {editing && (
-                                <div className="sm:col-span-2">
-                                    <div className="mb-2 flex items-center justify-between gap-3 text-sm font-medium">
-                                        <span>Explicación del scoring</span>
-                                        <Badge variant="outline">
-                                            {editing.commercial_score}/100
-                                        </Badge>
-                                    </div>
-                                    <div className="grid gap-2 rounded-md border p-3 sm:grid-cols-2">
-                                        {Object.entries(
-                                            editing.score_breakdown,
-                                        ).map(([criterion, result]) => (
-                                            <div
-                                                key={criterion}
-                                                className="flex items-center justify-between gap-3 text-xs"
-                                            >
-                                                <span
-                                                    className={
-                                                        result.met
-                                                            ? 'text-foreground'
-                                                            : 'text-muted-foreground'
-                                                    }
-                                                >
-                                                    {result.met ? '✓' : '○'}{' '}
-                                                    {scoreLabel(criterion)}
-                                                </span>
-                                                <span className="font-medium tabular-nums">
-                                                    {result.points}/
-                                                    {result.weight}
-                                                </span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-                            {editing && editing.stage_history.length > 0 && (
-                                <div className="sm:col-span-2">
-                                    <div className="mb-2 flex items-center gap-2 text-sm font-medium">
-                                        <History className="size-4" />
-                                        Historial de etapas
-                                    </div>
-                                    <div className="max-h-36 divide-y overflow-y-auto rounded-md border px-3">
-                                        {editing.stage_history.map((change) => (
-                                            <div
-                                                key={change.id}
-                                                className="flex items-center justify-between gap-3 py-2 text-xs"
-                                            >
-                                                <span>
-                                                    {change.from_stage
-                                                        ? `${stageLabel(change.from_stage)} → `
-                                                        : ''}
-                                                    <strong>
-                                                        {stageLabel(
-                                                            change.to_stage,
-                                                        )}
-                                                    </strong>
-                                                </span>
-                                                <span className="text-right text-muted-foreground">
-                                                    {change.changed_by?.name ||
-                                                        'Sistema'}{' '}
-                                                    ·{' '}
-                                                    {dateTime(
-                                                        change.changed_at,
-                                                    )}
-                                                </span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
+                            {editing ? (
+                                <p className="sm:col-span-2 text-xs text-muted-foreground">
+                                    El scoring y el histórico completo se consultan en el{' '}
+                                    <Link href={`/opportunities/${editing.id}`} className="font-medium text-foreground hover:underline">expediente de la oportunidad</Link>.
+                                </p>
+                            ) : null}
                         </div>
                         <DialogFooter className="gap-2 sm:justify-between">
                             <div className="flex gap-2">
@@ -2736,6 +2626,26 @@ function Metric({
     );
 }
 
+function AttentionLink({
+    filters,
+    attention,
+    label,
+    count,
+}: {
+    filters: Record<string, string | undefined>;
+    attention: string;
+    label: string;
+    count: number;
+}) {
+    return (
+        <Button size="sm" variant={count > 0 ? 'outline' : 'ghost'} asChild>
+            <Link href={opportunityFilterUrl({ ...filters, attention })}>
+                {label} <Badge variant={count > 0 ? 'secondary' : 'outline'}>{count}</Badge>
+            </Link>
+        </Button>
+    );
+}
+
 function customerName(customer: Customer) {
     return (
         customer.company_name ||
@@ -2837,19 +2747,6 @@ function isOverdue(value: string) {
 function stageLabel(value: string) {
     return stages.find((stage) => stage.value === value)?.label || value;
 }
-function scoreLabel(value: string) {
-    const labels: Record<string, string> = {
-        customer_contactable: 'Cliente contactable',
-        source_identified: 'Origen identificado',
-        owner_assigned: 'Responsable asignado',
-        expected_close_set: 'Fecha prevista',
-        next_action_scheduled: 'Próxima acción',
-        estimated_value_set: 'Importe estimado',
-        advanced_stage: 'Etapa avanzada',
-    };
-
-    return labels[value] || value;
-}
 function periodLabel(value?: string) {
     if (value === '30') {
         return '30 días';
@@ -2870,7 +2767,7 @@ function opportunityFilterUrl(filters: Record<string, string | undefined>) {
     const params = new URLSearchParams();
 
     Object.entries(filters).forEach(([key, value]) => {
-        if (value && key !== 'archived') {
+        if (value) {
             params.set(key, value);
         }
     });

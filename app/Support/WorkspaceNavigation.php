@@ -17,7 +17,8 @@ class WorkspaceNavigation
             $this->section('CRM', 'briefcase-business', [
                 $this->when($user, 'manage-customers', fn () => $this->item('Customers', route('people.index', absolute: false))),
                 $this->when($user, 'manage-customers', fn () => $this->item('Opportunities', route('opportunities.index', absolute: false))),
-                $this->when($user, 'manage-installations', fn () => $this->item('Sales', route('sales.index', absolute: false))),
+                $this->when($user, 'manage-quotes', fn () => $this->item('Propuestas', route('quotes.index', absolute: false))),
+                $this->when($user, 'manage-installations', fn () => $this->item('Documentos de venta', route('sales.index', absolute: false))),
                 $this->when($user, 'view-installations', fn () => $this->item('Installations', route('installations.index', absolute: false))),
             ]),
             $this->section('Operations', 'building-2', [
