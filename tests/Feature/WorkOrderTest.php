@@ -235,4 +235,30 @@ class WorkOrderTest extends TestCase
         $this->assertSame('approved', $installation->refresh()->status);
         $this->assertDatabaseHas('crm_activities', ['work_order_id' => $order->id, 'status' => 'completed']);
     }
+
+    public function test_business_line_template_snapshots_and_enforces_typed_evidence(): void
+    {
+        $commercial = User::factory()->create(['role' => 'commercial']);
+        $installation = Installation::create(['service_type' => 'electrical', 'status' => 'survey_booked', 'site_address_line_1' => 'Calle Luz 12']);
+
+        $order = app(WorkOrderFactory::class)->create([
+            'installation_id' => $installation->id,
+            'kind' => 'survey',
+        ], $commercial->id);
+
+        $this->assertSame('Electrical · Technical survey', $order->template->name);
+        $this->assertContains('electrical_survey', $order->required_skills);
+        $this->assertCount(3, $order->required_evidence);
+        $order->checklistItems()->update(['completed_at' => now(), 'completed_by' => $commercial->id]);
+        $order->update(['signed_by_name' => 'Ana Customer', 'signed_at' => now()]);
+        $order->attachments()->create(['uploaded_by' => $commercial->id, 'kind' => 'photo', 'original_name' => 'generic.jpg', 'path' => 'generic.jpg', 'mime_type' => 'image/jpeg', 'size' => 100]);
+
+        $this->actingAs($commercial)->patch(route('work-orders.update', $order), ['status' => 'completed', 'completion_notes' => 'Survey documented.'])->assertUnprocessable();
+
+        foreach ($order->required_evidence as $requirement) {
+            $order->attachments()->create(['uploaded_by' => $commercial->id, 'kind' => 'photo', 'evidence_key' => $requirement['key'], 'original_name' => $requirement['key'].'.jpg', 'path' => $requirement['key'].'.jpg', 'mime_type' => 'image/jpeg', 'size' => 100]);
+        }
+
+        $this->patch(route('work-orders.update', $order), ['status' => 'completed', 'completion_notes' => 'Survey documented.'])->assertRedirect();
+    }
 }

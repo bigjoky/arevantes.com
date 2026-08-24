@@ -13,7 +13,6 @@ use App\Models\Quote;
 use App\Models\SalesDocument;
 use App\Models\TaxRate;
 use App\Models\User;
-use App\Models\WorkOrder;
 use App\Services\Catalog\ProductCompositionResolver;
 use App\Services\Crm\OpportunitySalesCycle;
 use App\Services\Documents\DocumentNumber;
@@ -23,8 +22,9 @@ use App\Services\Operations\ProjectProfitability;
 use App\Services\Quotes\QuoteCalculator;
 use App\Services\Quotes\QuoteOperationalPlanner;
 use App\Services\Quotes\QuoteStatusWorkflow;
-use App\Services\Work\ChecklistTemplate;
 use App\Services\Work\TechnicianSchedule;
+use App\Services\Work\WorkOrderFactory;
+use App\Services\Work\WorkOrderTemplateResolver;
 use App\Support\BusinessLineCatalog;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -80,6 +80,7 @@ class QuoteController extends Controller
             'availableStatuses' => app(QuoteStatusWorkflow::class)->availableTransitions($quote),
             'technicians' => User::whereIn('role', ['technician', 'admin'])->orderBy('name')->get(['id', 'name']),
             'projectDefaults' => [
+                'service_type' => $quote->service_type,
                 'site_name' => $quote->customer?->company_name ?: trim(($quote->customer?->first_name ?? '').' '.($quote->customer?->last_name ?? '')),
                 'site_address_line_1' => $street,
                 'site_street_number' => $streetNumber,
@@ -157,7 +158,7 @@ class QuoteController extends Controller
         return back()->with('toast', ['type' => 'success', 'message' => __('Approval decision recorded.')]);
     }
 
-    public function startProject(Request $request, Quote $quote, ChecklistTemplate $template, TechnicianSchedule $schedule, ProjectMaterialPlanner $materials, QuoteOperationalPlanner $operations): RedirectResponse
+    public function startProject(Request $request, Quote $quote, TechnicianSchedule $schedule, ProjectMaterialPlanner $materials, QuoteOperationalPlanner $operations, WorkOrderFactory $orders, WorkOrderTemplateResolver $templates): RedirectResponse
     {
         abort_unless($quote->status === 'accepted', 422, __('Only accepted quotes can start a project.'));
         abort_if($quote->installation_id, 422, __('This quote already has an installation.'));
@@ -176,10 +177,14 @@ class QuoteController extends Controller
             'site_postal_code' => ['nullable', 'string', 'max:20'],
             'site_country' => ['required', 'string', 'max:255'],
         ]);
+        abort_if($quote->service_type && $quote->service_type !== $data['service_type'], 422, __('The project business line must match the accepted quote.'));
         $scheduledAt = Carbon::parse($data['scheduled_at']);
-        $schedule->assertAvailable(isset($data['technician_user_id']) ? (int) $data['technician_user_id'] : null, $scheduledAt, $scheduledAt->copy()->addHours(2));
+        $surveyTemplate = $templates->resolveForServiceType($data['service_type'], 'survey');
+        $duration = $surveyTemplate?->estimated_duration_minutes ?? 120;
+        $scheduledEnd = $scheduledAt->copy()->addMinutes($duration);
+        $schedule->assertAvailable(isset($data['technician_user_id']) ? (int) $data['technician_user_id'] : null, $scheduledAt, $scheduledEnd, null, $surveyTemplate?->required_skills ?? []);
 
-        $installation = DB::transaction(function () use ($request, $quote, $data, $template, $scheduledAt, $materials, $operations): Installation {
+        $installation = DB::transaction(function () use ($request, $quote, $data, $scheduledAt, $scheduledEnd, $materials, $operations, $orders, $surveyTemplate): Installation {
             $lockedQuote = Quote::lockForUpdate()->findOrFail($quote->id);
             abort_if($lockedQuote->installation_id, 422, __('This quote already has an installation.'));
             $opportunity = $lockedQuote->opportunity;
@@ -207,36 +212,17 @@ class QuoteController extends Controller
             ]);
             $installation->update(['project_reference' => 'PRJ-'.now()->format('Y').'-'.str_pad((string) $installation->id, 5, '0', STR_PAD_LEFT)]);
 
-            $order = WorkOrder::create([
+            $order = $orders->create([
                 'installation_id' => $installation->id,
+                'work_order_template_id' => $surveyTemplate?->id,
                 'assigned_user_id' => $data['technician_user_id'] ?? null,
-                'created_by' => $request->user()->id,
-                'number' => 'TMP-'.str()->uuid(),
                 'title' => __('Initial technical survey'),
                 'kind' => 'survey',
-                'status' => 'planned',
                 'scheduled_start' => $scheduledAt,
-                'scheduled_end' => $scheduledAt->copy()->addHours(2),
+                'scheduled_end' => $scheduledEnd,
                 'instructions' => __('Survey generated from accepted quote :number. Validate the site before installation planning.', ['number' => $lockedQuote->number]),
-            ]);
-            $order->update(['number' => 'WO-'.now()->format('Y').'-'.str_pad((string) $order->id, 5, '0', STR_PAD_LEFT)]);
-            $order->checklistItems()->createMany(collect($template->for($installation->service_type))->map(fn ($item, $position) => [...$item, 'position' => $position + 1])->all());
-
-            CrmActivity::create([
-                'installation_id' => $installation->id,
-                'work_order_id' => $order->id,
-                'person_id' => $lockedQuote->person_id,
-                'opportunity_id' => $opportunity?->id,
-                'assigned_user_id' => $data['technician_user_id'] ?? null,
-                'created_by' => $request->user()->id,
-                'type' => 'visit',
-                'title' => __('Initial technical survey'),
-                'notes' => __('Linked to work order :number.', ['number' => $order->number]),
-                'priority' => 'high',
-                'status' => 'pending',
-                'starts_at' => $scheduledAt,
-                'due_at' => $scheduledAt->copy()->addHours(2),
-            ]);
+            ], $request->user()->id);
+            $order->activities()->update(['opportunity_id' => $opportunity?->id, 'priority' => 'high']);
 
             $lockedQuote->update(['installation_id' => $installation->id]);
             $opportunity?->update(['installation_id' => $installation->id]);
@@ -269,6 +255,7 @@ class QuoteController extends Controller
     {
         return $request->validate([
             'opportunity_id' => ['nullable', 'exists:opportunities,id', Rule::unique('quotes', 'opportunity_id')->ignore($quote?->id)],
+            'service_type' => ['nullable', Rule::in(BusinessLineCatalog::INSTALLATION_TYPES)],
             'person_id' => ['required', 'exists:people,id'], 'installation_id' => ['nullable', 'exists:installations,id'],
             'issue_date' => ['required', 'date'], 'valid_until' => ['nullable', 'date', 'after_or_equal:issue_date'], 'notes' => ['nullable', 'string'],
             'acceptance_payment_percentage' => ['sometimes', 'numeric', 'between:0,100'],
@@ -311,12 +298,18 @@ class QuoteController extends Controller
         abort_if($alternativeLines->filter(fn (array $line) => filter_var($line['is_selected'] ?? false, FILTER_VALIDATE_BOOL))->groupBy('option_group')->contains(fn ($lines) => $lines->count() > 1), 422, __('Only one line can be selected in each alternative group.'));
         $installation = isset($data['installation_id']) ? Installation::find($data['installation_id']) : null;
         abort_if($installation?->person_id && $installation->person_id !== (int) $data['person_id'], 422, __('The installation does not belong to the selected customer.'));
+        abort_if($installation && filled($data['service_type'] ?? null) && $installation->service_type !== $data['service_type'], 422, __('The quote business line does not match the selected installation.'));
         $customer = Person::findOrFail($data['person_id']);
         $opportunity = isset($data['opportunity_id']) ? Opportunity::find($data['opportunity_id']) : null;
         abort_if($opportunity && ((int) $opportunity->person_id !== (int) $data['person_id'] || ($opportunity->installation_id && (int) $opportunity->installation_id !== (int) ($data['installation_id'] ?? 0))), 422, __('The quote does not match the selected opportunity.'));
         $productIds = collect($data['lines'])->pluck('product_id')
             ->merge(collect($data['lines'])->flatMap(fn (array $line) => collect($line['components'] ?? [])->pluck('product_id')))
             ->filter()->unique();
+        if (filled($data['service_type'] ?? null)) {
+            $hasMismatchedProduct = Product::whereIn('id', $productIds)->get(['id', 'business_lines'])
+                ->contains(fn (Product $product) => filled($product->business_lines) && ! in_array($data['service_type'], $product->business_lines, true));
+            abort_if($hasMismatchedProduct, 422, __('One or more catalog items do not belong to the selected business line.'));
+        }
         $productCosts = Product::whereIn('id', $productIds)->pluck('cost_price', 'id');
         $data['lines'] = collect($data['lines'])->map(function (array $line) use ($productCosts): array {
             $line['components'] = collect($line['components'] ?? [])->map(function (array $component, int $position) use ($productCosts): array {
@@ -361,6 +354,7 @@ class QuoteController extends Controller
         }
         $quote->versions()->updateOrCreate(['version' => $quote->version], [
             'created_by' => $actorId,
+            'service_type' => $quote->service_type,
             'subtotal' => $quote->subtotal,
             'discount_amount' => $quote->discount_amount,
             'tax_amount' => $quote->tax_amount,

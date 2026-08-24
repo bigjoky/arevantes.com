@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Quote extends Model
 {
-    protected $fillable = ['opportunity_id', 'installation_id', 'person_id', 'document_series_id', 'created_by', 'number', 'version', 'status', 'approval_status', 'approved_by', 'approved_at', 'approval_notes', 'acceptance_payment_percentage', 'acceptance_payment_due_days', 'financial_status', 'financially_cleared_at', 'issue_date', 'amount', 'subtotal', 'discount_amount', 'tax_amount', 'expected_margin_amount', 'actual_margin_amount', 'valid_until', 'notes', 'customer_snapshot', 'sent_at', 'accepted_at'];
+    protected $fillable = ['opportunity_id', 'installation_id', 'person_id', 'service_type', 'document_series_id', 'created_by', 'number', 'version', 'status', 'approval_status', 'approved_by', 'approved_at', 'approval_notes', 'acceptance_payment_percentage', 'acceptance_payment_due_days', 'financial_status', 'financially_cleared_at', 'issue_date', 'amount', 'subtotal', 'discount_amount', 'tax_amount', 'expected_margin_amount', 'actual_margin_amount', 'valid_until', 'notes', 'customer_snapshot', 'sent_at', 'accepted_at'];
 
     protected function casts(): array
     {

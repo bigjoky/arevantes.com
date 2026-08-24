@@ -30,10 +30,12 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import type { ServiceType } from '@/lib/business-lines';
 
 type Quote = {
     id: number;
     number: string;
+    service_type: ServiceType | null;
     version: number;
     status: string;
     approval_status: string;
@@ -135,6 +137,7 @@ const quoteStatuses = [
     ['expired', 'Caducada'],
 ] as const;
 type ProjectDefaults = {
+    service_type: ServiceType | null;
     site_name: string | null;
     site_address_line_1: string | null;
     site_street_number: string | null;
@@ -204,7 +207,7 @@ export default function QuoteShow({
     );
     const [billingLabel, setBillingLabel] = useState('Factura final');
     const projectForm = useForm({
-        service_type: 'solar',
+        service_type: quote.service_type || projectDefaults.service_type || 'solar',
         technician_user_id: '',
         scheduled_at: tomorrowMorning(),
         site_name: projectDefaults.site_name || '',
@@ -849,7 +852,10 @@ export default function QuoteShow({
                                 value={projectForm.data.service_type}
                                 error={projectForm.errors.service_type}
                                 onChange={(value) =>
-                                    projectForm.setData('service_type', value)
+                                    projectForm.setData(
+                                        'service_type',
+                                        value as ServiceType,
+                                    )
                                 }
                                 options={[
                                     ['solar', 'Solar photovoltaic'],

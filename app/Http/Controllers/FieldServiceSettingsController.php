@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\FieldServiceProfile;
 use App\Models\User;
 use App\Models\WorkOrderTemplate;
+use App\Support\BusinessLineCatalog;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -59,6 +60,7 @@ class FieldServiceSettingsController extends Controller
     {
         return $request->validate([
             'name' => [$updating ? 'sometimes' : 'required', 'string', 'max:255', Rule::unique('work_order_templates')->ignore($request->route('template'))],
+            'service_type' => ['nullable', Rule::in(BusinessLineCatalog::INSTALLATION_TYPES)],
             'kind' => [$updating ? 'sometimes' : 'required', Rule::in(['survey', 'installation', 'commissioning', 'maintenance', 'repair'])],
             'title' => [$updating ? 'sometimes' : 'required', 'string', 'max:255'],
             'estimated_duration_minutes' => [$updating ? 'sometimes' : 'required', 'integer', 'between:1,1440'],
@@ -67,6 +69,14 @@ class FieldServiceSettingsController extends Controller
             'checklist' => [$updating ? 'sometimes' : 'required', 'array', 'min:1', 'max:100'],
             'checklist.*.label' => ['required', 'string', 'max:255'],
             'checklist.*.is_required' => ['required', 'boolean'],
+            'required_evidence' => ['nullable', 'array', 'max:30'],
+            'required_evidence.*.key' => ['required', 'alpha_dash', 'max:100'],
+            'required_evidence.*.label' => ['required', 'string', 'max:255'],
+            'required_evidence.*.kind' => ['required', Rule::in(['photo', 'document'])],
+            'required_evidence.*.min_count' => ['required', 'integer', 'between:1,20'],
+            'handover_documents' => ['nullable', 'array', 'max:30'],
+            'handover_documents.*.key' => ['required', 'alpha_dash', 'max:100'],
+            'handover_documents.*.label' => ['required', 'string', 'max:255'],
             'allowed_transitions' => ['nullable', 'array'],
             'is_active' => ['sometimes', 'boolean'],
         ]);

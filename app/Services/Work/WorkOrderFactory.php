@@ -15,12 +15,20 @@ class WorkOrderFactory
         private ChecklistTemplate $checklists,
         private WorkOrderWorkflow $workflow,
         private FinancialClearanceGuard $financialClearance,
+        private WorkOrderTemplateResolver $templates,
     ) {}
+
+    /** @param array<string, mixed> $data */
+    public function prepare(array $data): array
+    {
+        return $this->templates->applyDefaults($data);
+    }
 
     /** @param array<string, mixed> $data */
     public function create(array $data, ?int $createdBy = null): WorkOrder
     {
         return DB::transaction(function () use ($data, $createdBy): WorkOrder {
+            $data = $this->prepare($data);
             $installation = Installation::findOrFail($data['installation_id']);
             $template = filled($data['work_order_template_id'] ?? null)
                 ? WorkOrderTemplate::where('is_active', true)->findOrFail($data['work_order_template_id'])
@@ -36,8 +44,10 @@ class WorkOrderFactory
                 'status' => 'planned',
                 'estimated_duration_minutes' => $data['estimated_duration_minutes'] ?? $template?->estimated_duration_minutes,
                 'required_skills' => $data['required_skills'] ?? $template?->required_skills,
+                'required_evidence' => $data['required_evidence'] ?? $template?->required_evidence,
+                'handover_documents' => $data['handover_documents'] ?? $template?->handover_documents,
                 'service_zone' => $data['service_zone'] ?? $installation->site_postal_code,
-                'allowed_transitions_snapshot' => $template?->allowed_transitions ?: $this->workflow->defaultTransitions(),
+                'allowed_transitions_snapshot' => ($data['allowed_transitions_snapshot'] ?? null) ?: $template?->allowed_transitions ?: $this->workflow->defaultTransitions(),
             ]);
             $order->update(['number' => 'WO-'.now()->format('Y').'-'.str_pad((string) $order->id, 5, '0', STR_PAD_LEFT)]);
             $items = $template?->checklist ?: $this->checklists->for($installation->service_type, $kind);
