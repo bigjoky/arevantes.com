@@ -31,6 +31,16 @@ class Quote extends Model
         return $this->belongsTo(Person::class, 'person_id')->withTrashed();
     }
 
+    public function creator(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function approver(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'approved_by');
+    }
+
     public function lines(): HasMany
     {
         return $this->hasMany(QuoteLine::class)->orderBy('position');

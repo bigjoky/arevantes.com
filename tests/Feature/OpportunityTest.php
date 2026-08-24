@@ -56,7 +56,10 @@ class OpportunityTest extends TestCase
             ->has('opportunities', 1)
             ->where('opportunities.0.stage', 'qualified')
             ->where('opportunities.0.commercial_score', 70)
-            ->where('opportunities.0.score_breakdown.next_action_scheduled.points', 20)
+            ->missing('opportunities.0.score_breakdown')
+            ->missing('opportunities.0.stage_history')
+            ->where('section', 'pipeline')
+            ->where('filters.view', 'kanban')
             ->where('metrics.pipeline_value', 15000)
             ->where('metrics.weighted_forecast', 3750));
 
@@ -179,6 +182,7 @@ class OpportunityTest extends TestCase
                 ->component('opportunities/show')
                 ->where('opportunity.creator.name', 'Creadora')
                 ->where('opportunity.updater.name', 'Editor')
+                ->where('opportunity.score_breakdown.owner_assigned.met', true)
                 ->where('opportunity.quote.versions.0.change_note', 'Primera propuesta económica.')
                 ->where('timeline', fn ($timeline) => collect($timeline)->contains(
                     fn (array $item) => $item['type'] === 'note_added' && $item['actor']['name'] === 'Editor',
@@ -496,9 +500,13 @@ class OpportunityTest extends TestCase
                 ->where('crmSettings.stale_after_days', 30)
                 ->where('crmSettings.lead_response_sla_minutes', 120)
                 ->where('crmSettings.lead_response_escalation_minutes', 180)
-                ->where('opportunities.0.score_breakdown.owner_assigned.met', true)
-                ->where('opportunities.0.score_breakdown.owner_assigned.points', 100)
-                ->where('opportunities.0.score_breakdown.estimated_value_set.met', false));
+                ->missing('opportunities.0.score_breakdown'));
+        $this->get(route('opportunities.show', $opportunity))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('opportunity.score_breakdown.owner_assigned.met', true)
+                ->where('opportunity.score_breakdown.owner_assigned.points', 100)
+                ->where('opportunity.score_breakdown.estimated_value_set.met', false));
     }
 
     public function test_crm_scoring_weights_must_total_one_hundred(): void
@@ -607,13 +615,14 @@ class OpportunityTest extends TestCase
         $overdue = Opportunity::where('title', 'Lead outside SLA')->firstOrFail();
 
         $this->travelTo('2026-08-17 11:01:00');
-        $this->get(route('opportunities.index'))
+        $this->get(route('opportunities.index', ['section' => 'analysis']))
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->where('metrics.response_sla_breached', 1)
                 ->where('metrics.response_sla_pending', 0)
                 ->where('metrics.response_sla_met_rate', 50)
                 ->where('metrics.average_first_response_minutes', 30)
+                ->where('section', 'analysis')
                 ->has('responsePerformance', 1)
                 ->where('responsePerformance.0.owner_id', $user->id)
                 ->where('responsePerformance.0.total', 2)
@@ -711,7 +720,7 @@ class OpportunityTest extends TestCase
             'due_at' => now()->addDay(),
         ]);
 
-        $this->actingAs($user)->get(route('opportunities.index'))
+        $this->actingAs($user)->get(route('opportunities.index', ['section' => 'analysis']))
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->where('metrics.stale', 1)

@@ -4,17 +4,60 @@ namespace Tests\Feature;
 
 use App\Mail\DocumentSharedMail;
 use App\Models\Opportunity;
+use App\Models\Permission;
 use App\Models\Person;
 use App\Models\Quote;
 use App\Models\SalesDocument;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
+use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
 class QuoteWorkflowSecurityTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_quote_management_is_explicit_and_administrators_receive_clear_capabilities(): void
+    {
+        $commercial = User::factory()->create(['role' => 'commercial']);
+        $administrator = User::factory()->create(['role' => 'admin']);
+        $technician = User::factory()->create(['role' => 'technician']);
+        $quote = $this->quote($commercial, ['approval_status' => 'pending']);
+
+        $commercial->permissionOverrides()->attach(
+            Permission::where('key', 'manage-installations')->firstOrFail(),
+            ['allowed' => false],
+        );
+
+        $this->actingAs($commercial)->get(route('quotes.index'))->assertOk();
+        $this->actingAs($technician)->get(route('quotes.index'))->assertForbidden();
+        $this->actingAs($administrator)->get(route('quotes.index'))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('quotes/index')
+                ->where('canApproveQuotes', true)
+                ->where('summary.pending_approval', 1)
+                ->has('quotes.data', 1));
+
+        $this->get(route('quotes.show', $quote))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('quotes/show')
+                ->where('capabilities.edit', true)
+                ->where('capabilities.approve', true)
+                ->where('capabilities.startProject', false)
+                ->where('capabilities.approvalBlockReason', null));
+
+        $ownQuote = $this->quote($administrator, [
+            'number' => 'PRE-2026-ADMIN',
+            'approval_status' => 'pending',
+        ]);
+        $this->get(route('quotes.show', $ownQuote))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('capabilities.approve', false)
+                ->where('capabilities.approvalBlockReason', fn (string $reason) => str_contains($reason, 'Separation of duties')));
+    }
 
     public function test_a_quote_pending_approval_cannot_be_sent_by_email(): void
     {

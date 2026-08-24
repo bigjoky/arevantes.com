@@ -1262,7 +1262,7 @@ function Total({
 }
 QuoteForm.layout = {
     breadcrumbs: [
-        { title: 'Operations', href: '/operations' },
-        { title: 'Quote', href: '#' },
+        { title: 'Propuestas', href: '/quotes' },
+        { title: 'Propuesta', href: '#' },
     ],
 };

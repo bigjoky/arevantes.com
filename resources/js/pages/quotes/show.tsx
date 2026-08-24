@@ -40,6 +40,7 @@ type Quote = {
     status: string;
     approval_status: string;
     approval_notes: string | null;
+    approved_at: string | null;
     acceptance_payment_percentage: string;
     acceptance_payment_due_days: number;
     financial_status: 'not_required' | 'pending' | 'partial' | 'cleared';
@@ -77,6 +78,8 @@ type Quote = {
         code: string;
         title: string;
     } | null;
+    creator: { id: number; name: string } | null;
+    approver: { id: number; name: string } | null;
     lines: {
         id: number;
         description: string;
@@ -187,6 +190,16 @@ type MaterialPreview = {
     shortage_quantity: number;
     rows: { product_id: number; sku: string | null; name: string; required_quantity: number; available_quantity: number; shortage_quantity: number }[];
 };
+type QuoteCapabilities = {
+    edit: boolean;
+    changeStatus: boolean;
+    send: boolean;
+    delete: boolean;
+    approve: boolean;
+    startProject: boolean;
+    convert: boolean;
+    approvalBlockReason: string | null;
+};
 
 export default function QuoteShow({
     quote,
@@ -195,7 +208,7 @@ export default function QuoteShow({
     materialPreview,
     technicians,
     projectDefaults,
-    canApprove,
+    capabilities,
     availableStatuses,
 }: {
     quote: Quote;
@@ -204,7 +217,7 @@ export default function QuoteShow({
     materialPreview: MaterialPreview;
     technicians: Array<{ id: number; name: string }>;
     projectDefaults: ProjectDefaults;
-    canApprove: boolean;
+    capabilities: QuoteCapabilities;
     availableStatuses: string[];
 }) {
     const [projectOpen, setProjectOpen] = useState(false);
@@ -264,8 +277,8 @@ export default function QuoteShow({
                     </div>
                     <div className="flex gap-2">
                         <Button variant="outline" asChild>
-                            <Link href="/operations">
-                                <ArrowLeft /> Operations
+                            <Link href="/quotes">
+                                <ArrowLeft /> Propuestas
                             </Link>
                         </Button>
                         <Button variant="outline" asChild>
@@ -277,10 +290,10 @@ export default function QuoteShow({
                                 <FileDown /> PDF
                             </a>
                         </Button>
-                        {quote.status === 'draft' && (
+                        {capabilities.edit && (
                             <Button asChild>
                                 <Link href={`/quotes/${quote.id}/edit`}>
-                                    <Pencil /> Edit
+                                    <Pencil /> Editar
                                 </Link>
                             </Button>
                         )}
@@ -296,7 +309,7 @@ export default function QuoteShow({
                     </section>
                 )}
                 <section className="rounded-lg border bg-card p-4 shadow-xs">
-                    {availableStatuses.length > 0 ? (
+                    {capabilities.changeStatus ? (
                         <Form
                             action={`/quotes/${quote.id}/status`}
                             method="patch"
@@ -417,6 +430,8 @@ export default function QuoteShow({
                             </Badge>
                         </div>
                         <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+                            <Info label="Creada por" value={quote.creator?.name || 'Sistema'} />
+                            <Info label="Aprobada por" value={quote.approver ? `${quote.approver.name}${quote.approved_at ? ` · ${dateTime(quote.approved_at)}` : ''}` : 'Sin decisión registrada'} />
                             <Info
                                 label="Expected margin"
                                 value={
@@ -468,7 +483,7 @@ export default function QuoteShow({
                                 />
                             </div>
                         )}
-                        {quote.approval_status === 'pending' && canApprove && (
+                        {quote.approval_status === 'pending' && capabilities.approve && (
                             <Form
                                 action={`/quotes/${quote.id}/approval`}
                                 method="post"
@@ -492,10 +507,9 @@ export default function QuoteShow({
                                 </div>
                             </Form>
                         )}
-                        {quote.approval_status === 'pending' && !canApprove && (
+                        {quote.approval_status === 'pending' && !capabilities.approve && (
                             <p className="mt-3 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-100">
-                                La oferta requiere la aprobación de otro usuario
-                                autorizado.
+                                {capabilities.approvalBlockReason}
                             </p>
                         )}
                         {quote.approval_notes && (
@@ -770,53 +784,40 @@ export default function QuoteShow({
                     </section>
                 )}
                 <section className="grid gap-6 border-t pt-5 lg:grid-cols-[minmax(20rem,.7fr)_minmax(0,1.3fr)]">
-                    <Form
-                        action={`/quotes/${quote.id}/send`}
-                        method="post"
-                        className="grid content-start gap-3"
-                    >
-                        <div>
-                            <h2 className="font-semibold">Send to customer</h2>
-                            <p className="text-sm text-muted-foreground">
-                                Email the PDF and a secure acceptance link.
-                            </p>
+                    {capabilities.send ? (
+                        <Form action={`/quotes/${quote.id}/send`} method="post" className="grid content-start gap-3">
+                            <div>
+                                <h2 className="font-semibold">Enviar al cliente</h2>
+                                <p className="text-sm text-muted-foreground">Envía el PDF y un enlace seguro de aceptación.</p>
+                            </div>
+                            <div className="grid gap-2">
+                                <label className="text-sm font-medium">Correo destinatario</label>
+                                <input name="recipient_email" type="email" required defaultValue={quote.customer?.billing_email || quote.customer?.email || ''} className="h-9 rounded-md border bg-transparent px-3 text-sm" />
+                            </div>
+                            <Button className="w-fit"><Send /> Enviar propuesta</Button>
+                        </Form>
+                    ) : (
+                        <div className="text-sm text-muted-foreground">
+                            <h2 className="font-medium text-foreground">Envío al cliente</h2>
+                            <p className="mt-1">Disponible únicamente mientras la propuesta siga abierta y tenga la aprobación necesaria.</p>
                         </div>
-                        <div className="grid gap-2">
-                            <label className="text-sm font-medium">
-                                Recipient email
-                            </label>
-                            <input
-                                name="recipient_email"
-                                type="email"
-                                required
-                                defaultValue={
-                                    quote.customer?.billing_email ||
-                                    quote.customer?.email ||
-                                    ''
-                                }
-                                className="h-9 rounded-md border bg-transparent px-3 text-sm"
-                            />
-                        </div>
-                        <Button className="w-fit">
-                            <Send /> Send quote
-                        </Button>
-                    </Form>
+                    )}
                     <DeliveryHistory deliveries={quote.deliveries} />
                 </section>
                 <footer className="flex flex-wrap items-end justify-between gap-4 border-t pt-5">
-                    {quote.status === 'accepted' && (
+                    {(capabilities.startProject || capabilities.convert) && (
                         <div className="flex flex-wrap gap-2">
-                            {!quote.installation && (
+                            {capabilities.startProject && (
                                 <Button
                                     type="button"
                                     onClick={() => setProjectOpen(true)}
                                 >
-                                    <Wrench /> Start project
+                                    <Wrench /> Iniciar proyecto
                                 </Button>
                             )}
-                            {[
-                                ['order', 'Create order'],
-                                ['delivery_note', 'Create delivery note'],
+                            {capabilities.convert && [
+                                ['order', 'Crear pedido'],
+                                ['delivery_note', 'Crear albarán'],
                             ].map(([type, label]) => (
                                 <Form
                                     key={type}
@@ -833,19 +834,16 @@ export default function QuoteShow({
                             ))}
                         </div>
                     )}
-                    {quote.status === 'draft' &&
-                        !quote.installation &&
-                        quote.deliveries.length === 0 &&
-                        billing.documents.length === 0 && (
+                    {capabilities.delete && (
                             <Form
                                 action={`/quotes/${quote.id}`}
                                 method="delete"
                                 onBefore={() =>
-                                    confirm(`Delete ${quote.number}?`)
+                                    confirm(`¿Eliminar ${quote.number}?`)
                                 }
                             >
                                 <Button variant="destructive">
-                                    <Trash2 /> Delete
+                                    <Trash2 /> Eliminar borrador
                                 </Button>
                             </Form>
                         )}
@@ -1456,7 +1454,7 @@ function dateTime(value: string) {
 }
 QuoteShow.layout = {
     breadcrumbs: [
-        { title: 'Operations', href: '/operations' },
-        { title: 'Quote', href: '#' },
+        { title: 'Propuestas', href: '/quotes' },
+        { title: 'Propuesta', href: '#' },
     ],
 };

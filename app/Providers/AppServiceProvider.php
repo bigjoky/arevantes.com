@@ -213,7 +213,7 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(CrmActivity::class, CrmActivityPolicy::class);
         $permissions = [
             'manage-admin', 'manage-access', 'export-audit', 'view-system-health',
-            'manage-customers', 'approve-quotes', 'view-installations', 'manage-installations', 'sync-installations',
+            'manage-customers', 'manage-quotes', 'approve-quotes', 'view-installations', 'manage-installations', 'sync-installations',
             'use-ai', 'manage-operations', 'manage-catalog', 'view-finance', 'manage-treasury',
             'manage-accounting', 'approve-payments', 'approve-budgets', 'manage-tax',
             'view-purchases', 'manage-purchases', 'receive-purchases', 'approve-purchase-invoices',

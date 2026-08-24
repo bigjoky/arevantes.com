@@ -24,6 +24,8 @@ export type AuthAbilities = {
     viewSystemHealth: boolean;
     viewAnalytics: boolean;
     manageCustomers: boolean;
+    manageQuotes: boolean;
+    approveQuotes: boolean;
     viewInstallations: boolean;
     manageInstallations: boolean;
     useAi: boolean;

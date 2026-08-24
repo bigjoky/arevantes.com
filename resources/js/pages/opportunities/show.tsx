@@ -42,6 +42,10 @@ type Opportunity = {
     stage: string;
     probability: number;
     commercial_score: number;
+    score_breakdown: Record<
+        string,
+        { met: boolean; points: number; weight: number }
+    >;
     estimated_value: string;
     expected_close_on: string | null;
     commercial_kind: string;
@@ -224,6 +228,17 @@ export default function OpportunityShow({
                                 <Detail label="Creada por" value={opportunity.creator?.name || 'Sistema'} />
                                 <Detail label="Última edición" value={`${opportunity.updater?.name || 'Autor no registrado'} · ${dateTime(opportunity.updated_at)}`} />
                                 {opportunity.notes ? <div><span className="text-muted-foreground">Notas iniciales</span><p className="mt-1 whitespace-pre-wrap">{opportunity.notes}</p></div> : null}
+                                <details className="rounded-md border p-3">
+                                    <summary className="cursor-pointer font-medium">Calidad comercial · {opportunity.commercial_score}/100</summary>
+                                    <div className="mt-3 grid gap-2">
+                                        {Object.entries(opportunity.score_breakdown).map(([criterion, result]) => (
+                                            <div key={criterion} className="flex items-center justify-between gap-3 text-xs">
+                                                <span className={result.met ? 'text-foreground' : 'text-muted-foreground'}>{result.met ? '✓' : '○'} {scoreLabel(criterion)}</span>
+                                                <span className="font-medium tabular-nums">{result.points}/{result.weight}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </details>
                             </CardContent>
                         </Card>
 
@@ -294,6 +309,20 @@ function displayValue(value: unknown) {
     }
 
     return String(value);
+}
+
+function scoreLabel(value: string) {
+    const labels: Record<string, string> = {
+        customer_contactable: 'Cliente contactable',
+        source_identified: 'Origen identificado',
+        owner_assigned: 'Responsable asignado',
+        expected_close_set: 'Fecha prevista',
+        next_action_scheduled: 'Próxima acción programada',
+        estimated_value_set: 'Importe estimado',
+        advanced_stage: 'Etapa avanzada',
+    };
+
+    return labels[value] || value;
 }
 
 function money(value: string | number) {
