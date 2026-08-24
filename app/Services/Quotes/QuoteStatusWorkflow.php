@@ -103,15 +103,20 @@ class QuoteStatusWorkflow
 
             if ($status === 'accepted') {
                 $this->salesCycle->assertCanTransition($quote->opportunity, 'won');
-                $quote->opportunity->update(['stage' => 'won', 'probability' => 100, 'lost_reason' => null, 'lost_reason_detail' => null]);
+                $quote->opportunity->stageChangeActorId = $actor?->id;
+                $quote->opportunity->stageChangeReason = $reason ?: __('Quote :number accepted via :channel.', ['number' => $quote->number, 'channel' => $channel]);
+                $quote->opportunity->update(['stage' => 'won', 'probability' => 100, 'lost_reason' => null, 'lost_reason_detail' => null, 'updated_by' => $actor?->id]);
                 $this->salesCycle->synchronizeStage($quote->opportunity, $actor);
             } elseif ($status === 'rejected') {
                 $this->salesCycle->assertCanTransition($quote->opportunity, 'lost');
+                $quote->opportunity->stageChangeActorId = $actor?->id;
+                $quote->opportunity->stageChangeReason = $reason ?: __('Quote :number rejected via :channel.', ['number' => $quote->number, 'channel' => $channel]);
                 $quote->opportunity->update([
                     'stage' => 'lost',
                     'probability' => 0,
                     'lost_reason' => 'other',
                     'lost_reason_detail' => __('Quote :number rejected.', ['number' => $quote->number]),
+                    'updated_by' => $actor?->id,
                 ]);
                 $this->salesCycle->synchronizeStage($quote->opportunity, $actor);
             }

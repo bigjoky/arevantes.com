@@ -169,7 +169,7 @@ class CustomerProfile
             'title' => $opportunity->code.' · '.$opportunity->title,
             'subtitle' => $opportunity->stage.' · '.number_format((float) $opportunity->estimated_value, 2, ',', '.').' EUR · '.$opportunity->probability.'%',
             'date' => $opportunity->updated_at?->toIso8601String(),
-            'href' => route('opportunities.index', ['opportunity' => $opportunity->id], false),
+            'href' => route('opportunities.show', $opportunity, false),
         ]));
         $portalEvents->each(fn (CustomerPortalEvent $event) => $items->push([
             'id' => 'portal-event-'.$event->id,

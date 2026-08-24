@@ -74,10 +74,10 @@ class OpportunitySalesCycle
         if (in_array($opportunity->stage, self::CLOSED_STAGES, true)) {
             $opportunity->activities()
                 ->whereIn('status', ['pending', 'in_progress'])
-                ->update([
+                ->get()
+                ->each->update([
                     'status' => 'cancelled',
                     'blocked_reason' => __('Opportunity closed as :stage.', ['stage' => $opportunity->stage]),
-                    'updated_at' => now(),
                 ]);
             $opportunity->unsetRelation('nextActivity');
 

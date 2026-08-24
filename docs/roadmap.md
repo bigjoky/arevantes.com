@@ -258,6 +258,20 @@ El tercer vertical protege la replanificación y el trabajo offline:
 - una acción reaplicada mantiene su clave idempotente y rebasa las siguientes
   acciones de la misma orden para evitar duplicados y conflictos artificiales.
 
+La continuidad comercial dispone además de un expediente de oportunidad:
+
+- cada oportunidad tiene una ficha permanente que sustituye la edición como
+  destino principal desde pipeline, búsqueda, cliente y oferta;
+- creación, responsable inicial, última edición y cambios de etapa conservan
+  autor, fecha y motivo;
+- notas, actividades y cambios de datos forman una cronología comercial común;
+- cada revisión de oferta exige una nota de modificación y conserva importe,
+  líneas, margen, autor y versión;
+- aceptación o rechazo de una oferta actualiza la oportunidad sin perder el
+  origen, canal ni responsable del cambio;
+- la auditoría técnica continúa separada del histórico de negocio visible para
+  que el expediente sea útil sin exponer metadatos administrativos sensibles.
+
 ## Próximo corte recomendado
 
 Completar el cuarto vertical del Horizonte 1: **entrega documental y portal de

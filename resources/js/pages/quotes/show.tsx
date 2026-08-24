@@ -116,7 +116,9 @@ type Quote = {
         tax_amount: string;
         amount: string;
         expected_margin_amount: string | null;
+        change_note: string | null;
         created_at: string;
+        created_by: { id: number; name: string } | null;
     }>;
     status_history: Array<{
         id: number;
@@ -252,7 +254,7 @@ export default function QuoteShow({
                         </p>
                         {quote.opportunity && (
                             <Link
-                                href={`/opportunities?opportunity=${quote.opportunity.id}`}
+                                href={`/opportunities/${quote.opportunity.id}`}
                                 className="text-xs text-muted-foreground underline-offset-4 hover:underline"
                             >
                                 {quote.opportunity.code} ·{' '}
@@ -546,10 +548,16 @@ export default function QuoteShow({
                                     <Badge variant="outline">
                                         v{version.version}
                                     </Badge>
-                                    <span>{dateTime(version.created_at)}</span>
-                                    <span className="font-medium tabular-nums">
-                                        {money(version.amount)}
-                                    </span>
+                                    <div>
+                                        <div>{dateTime(version.created_at)}</div>
+                                        <div className="text-xs text-muted-foreground">
+                                            {version.created_by?.name || 'Sistema'}
+                                            {version.change_note
+                                                ? ` · ${version.change_note}`
+                                                : ''}
+                                        </div>
+                                    </div>
+                                    <span className="font-medium tabular-nums">{money(version.amount)}</span>
                                 </div>
                             ))}
                         </div>
