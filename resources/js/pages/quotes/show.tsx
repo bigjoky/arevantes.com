@@ -179,11 +179,18 @@ type Profitability = {
     margin_variance: number;
     has_actuals: boolean;
 };
+type MaterialPreview = {
+    items: number;
+    shortage_items: number;
+    shortage_quantity: number;
+    rows: { product_id: number; sku: string | null; name: string; required_quantity: number; available_quantity: number; shortage_quantity: number }[];
+};
 
 export default function QuoteShow({
     quote,
     billing,
     profitability,
+    materialPreview,
     technicians,
     projectDefaults,
     canApprove,
@@ -192,6 +199,7 @@ export default function QuoteShow({
     quote: Quote;
     billing: BillingPlan;
     profitability: Profitability | null;
+    materialPreview: MaterialPreview;
     technicians: Array<{ id: number; name: string }>;
     projectDefaults: ProjectDefaults;
     canApprove: boolean;
@@ -276,6 +284,15 @@ export default function QuoteShow({
                         )}
                     </div>
                 </header>
+                {materialPreview.items > 0 && (
+                    <section className={`rounded-lg border-l-4 p-4 ${materialPreview.shortage_items > 0 ? 'border-l-amber-500 bg-amber-50 dark:bg-amber-950/20' : 'border-l-green-600 bg-green-50 dark:bg-green-950/20'}`}>
+                        <div className="font-medium">Material feasibility before planning</div>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                            {materialPreview.shortage_items > 0 ? `${materialPreview.shortage_items} catalog item(s) · ${materialPreview.shortage_quantity} units currently unavailable` : 'The complete quoted kit is currently available.'}
+                        </p>
+                        {materialPreview.shortage_items > 0 && <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs">{materialPreview.rows.filter((row) => row.shortage_quantity > 0).map((row) => <span key={row.product_id}>{row.sku || row.name}: {row.shortage_quantity} short</span>)}</div>}
+                    </section>
+                )}
                 <section className="rounded-lg border bg-card p-4 shadow-xs">
                     {availableStatuses.length > 0 ? (
                         <Form

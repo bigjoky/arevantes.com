@@ -6,6 +6,7 @@ use App\Models\CrmActivity;
 use App\Models\Installation;
 use App\Models\WorkOrder;
 use App\Models\WorkOrderTemplate;
+use App\Services\Inventory\WorkOrderKitAllocator;
 use App\Services\Operations\FinancialClearanceGuard;
 use Illuminate\Support\Facades\DB;
 
@@ -16,6 +17,7 @@ class WorkOrderFactory
         private WorkOrderWorkflow $workflow,
         private FinancialClearanceGuard $financialClearance,
         private WorkOrderTemplateResolver $templates,
+        private WorkOrderKitAllocator $kits,
     ) {}
 
     /** @param array<string, mixed> $data */
@@ -71,6 +73,7 @@ class WorkOrderFactory
                 'starts_at' => $order->scheduled_start,
                 'due_at' => $order->scheduled_end,
             ])->save();
+            $this->kits->reserveAvailable($order->loadMissing('installation'));
 
             return $order->load('installation');
         });

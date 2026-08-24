@@ -13,6 +13,7 @@ class WorkOrderStateManager
         private WorkOrderWorkflow $workflow,
         private WorkOrderCompletionGuard $completion,
         private InstallationWorkOrderSynchronizer $installations,
+        private WorkOrderPlanningReadiness $readiness,
     ) {}
 
     public function transition(
@@ -35,6 +36,11 @@ class WorkOrderStateManager
                 ], 409));
             }
             $this->workflow->assertTransition($locked, $status);
+            if ($status === 'in_progress') {
+                $readiness = $this->readiness->for($locked);
+                abort_if(! $readiness['material_ready_now'], 422, __('Required materials are not physically available for this work yet.'));
+                abort_if($locked->assigned_user_id && ! $readiness['personnel_ready'], 422, __('The assigned technician is not qualified or available for this work.'));
+            }
             if ($status === 'completed') {
                 $this->completion->assertCanComplete($locked, $completionNotes);
             }

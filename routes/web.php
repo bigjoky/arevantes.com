@@ -208,6 +208,7 @@ Route::middleware(['auth'])->group(function () {
     Route::patch('work-orders/{workOrder}/schedule', [WorkOrderController::class, 'updateSchedule'])->middleware('can:manage-installations')->name('work-orders.schedule.update');
     Route::post('work-orders/{workOrder}/materials/procure', [WorkOrderMaterialsController::class, 'procure'])->middleware('can:manage-catalog')->name('work-orders.materials.procure');
     Route::post('work-orders/{workOrder}/materials', [WorkOrderMaterialsController::class, 'reserve'])->middleware('can:manage-catalog')->name('work-orders.materials.reserve');
+    Route::post('work-orders/{workOrder}/materials/reserve-kit', [WorkOrderMaterialsController::class, 'reserveKit'])->middleware('can:manage-catalog')->name('work-orders.materials.reserve-kit');
     Route::post('work-orders/{workOrder}/materials/{reservation}/consume', [WorkOrderMaterialsController::class, 'consume'])->middleware('can:manage-operations')->name('work-orders.materials.consume');
     Route::delete('work-orders/{workOrder}/materials/{reservation}', [WorkOrderMaterialsController::class, 'release'])->middleware('can:manage-catalog')->name('work-orders.materials.release');
     Route::post('work-orders/{workOrder}/timer', [WorkOrderController::class, 'start'])->middleware('can:manage-operations')->name('work-orders.timer.start');

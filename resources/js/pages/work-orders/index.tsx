@@ -81,6 +81,19 @@ type MaterialPlan = {
     shortage_quantity: number;
     rows: MaterialPlanRow[];
 };
+type PlanningReadiness = {
+    status: 'ready' | 'warning' | 'blocked';
+    material_required: boolean;
+    material_ready: boolean;
+    material_ready_now: boolean;
+    material_ready_on: string | null;
+    shortage_items: number;
+    shortage_quantity: number;
+    personnel_ready: boolean;
+    required_skills: string[];
+    qualified_technicians: { id: number; name: string }[];
+    rows: (MaterialPlanRow & { ready_on: string | null; shortage_by_schedule: number; late_inbound_quantity: number })[];
+};
 type Supplier = {
     id: number;
     legal_name: string;
@@ -158,6 +171,7 @@ type Selected = Order & {
     handover_documents: { key: string; label: string }[] | null;
     stock_reservations: MaterialReservation[];
     material_plan: MaterialPlan;
+    planning_readiness: PlanningReadiness;
     purchase_documents: PurchaseDocument[];
 };
 type Running = {
@@ -881,6 +895,17 @@ function WorkOrderMaterials({
 
     return (
         <section className="border-t pt-5">
+            <div className={`mb-4 border-l-4 p-4 text-sm ${order.planning_readiness.status === 'ready' ? 'border-green-600 bg-green-50 dark:bg-green-950/20' : order.planning_readiness.status === 'blocked' ? 'border-destructive bg-destructive/5' : 'border-amber-500 bg-amber-50 dark:bg-amber-950/20'}`}>
+                <div className="font-medium">
+                    {order.planning_readiness.status === 'ready' ? 'Plan ready for the scheduled date' : order.planning_readiness.status === 'blocked' ? 'Planning blocked' : 'Planning requires attention'}
+                </div>
+                <div className="mt-1 text-muted-foreground">
+                    Materials: {order.planning_readiness.material_ready ? 'ready' : `${number(order.planning_readiness.shortage_quantity)} units unavailable by the scheduled date`} · Personnel: {order.planning_readiness.personnel_ready ? 'qualified technician assigned' : `${order.planning_readiness.qualified_technicians.length} qualified technician(s) available`}
+                </div>
+                {!order.planning_readiness.material_ready && order.planning_readiness.material_ready_on && (
+                    <div className="mt-1">Estimated material readiness: {dateTime(order.planning_readiness.material_ready_on)}</div>
+                )}
+            </div>
             <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
                 <div>
                     <div className="flex items-center gap-2">
@@ -892,9 +917,14 @@ function WorkOrderMaterials({
                         consumption.
                     </p>
                 </div>
-                {canManage && order.material_plan.shortage_items > 0 && (
-                    <ProcurementDialog order={order} suppliers={suppliers} />
-                )}
+                <div className="flex flex-wrap gap-2">
+                    {canManage && order.planning_readiness.material_required && (
+                        <Form action={`/work-orders/${order.id}/materials/reserve-kit`} method="post">
+                            <Button variant="outline"><PackageCheck /> Auto-reserve kit</Button>
+                        </Form>
+                    )}
+                    {canManage && order.material_plan.shortage_items > 0 && <ProcurementDialog order={order} suppliers={suppliers} />}
+                </div>
             </div>
             <div className="mb-4 grid grid-cols-2 border-y text-sm sm:grid-cols-4">
                 <MaterialMetric

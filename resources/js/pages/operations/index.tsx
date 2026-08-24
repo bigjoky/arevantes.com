@@ -84,6 +84,7 @@ type WorkOrder = {
     scheduled_end: string | null;
     has_schedule_conflict: boolean;
     planning_issues: { type: string; message: string }[];
+    material_status: 'ready' | 'warning' | 'blocked';
     installation: InstallationOption;
     assigned_user: UserOption | null;
 };
@@ -1019,6 +1020,9 @@ function Week({
                                             <div className="mt-1 text-muted-foreground">
                                                 {order.assigned_user?.name ||
                                                     'Unassigned'}
+                                            </div>
+                                            <div className={order.material_status === 'ready' ? 'mt-1 text-green-700' : 'mt-1 text-destructive'}>
+                                                Materials: {order.material_status === 'ready' ? 'ready' : order.material_status === 'blocked' ? 'blocked' : 'at risk'}
                                             </div>
                                         </Link>
                                         <Button

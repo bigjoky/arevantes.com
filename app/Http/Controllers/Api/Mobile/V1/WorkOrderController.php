@@ -11,6 +11,7 @@ use App\Models\WorkOrderChecklistItem;
 use App\Rules\SafeUpload;
 use App\Services\Inventory\WorkOrderMaterialConsumer;
 use App\Services\Work\WorkOrderEvidenceRequirements;
+use App\Services\Work\WorkOrderPlanningReadiness;
 use App\Services\Work\WorkOrderStateManager;
 use App\Services\Work\WorkOrderWorkflow;
 use Carbon\CarbonImmutable;
@@ -84,7 +85,7 @@ class WorkOrderController extends Controller
         ]);
     }
 
-    public function show(Request $request, WorkOrder $workOrder): JsonResponse
+    public function show(Request $request, WorkOrder $workOrder, WorkOrderPlanningReadiness $readiness): JsonResponse
     {
         $this->ensureAccess($request, $workOrder);
         $workOrder->load(['installation', 'assignedUser:id,name', 'timeEntries.user:id,name', 'checklistItems', 'attachments', 'stockReservations.product:id,sku,name,track_serials', 'stockReservations.warehouse:id,code,name', 'activities:id,work_order_id,blocked_reason']);
@@ -108,6 +109,7 @@ class WorkOrderController extends Controller
                 'evidence_key' => $attachment->evidence_key,
             ]),
             'materials' => $workOrder->stockReservations->map(fn (StockReservation $reservation) => $this->material($reservation)),
+            'planning_readiness' => $readiness->for($workOrder),
         ]]);
     }
 
