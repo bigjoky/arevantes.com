@@ -92,7 +92,11 @@ type PlanningReadiness = {
     personnel_ready: boolean;
     required_skills: string[];
     qualified_technicians: { id: number; name: string }[];
-    rows: (MaterialPlanRow & { ready_on: string | null; shortage_by_schedule: number; late_inbound_quantity: number })[];
+    rows: (MaterialPlanRow & {
+        ready_on: string | null;
+        shortage_by_schedule: number;
+        late_inbound_quantity: number;
+    })[];
 };
 type Supplier = {
     id: number;
@@ -152,6 +156,15 @@ type Attachment = {
     customer_visible: boolean;
     published_at: string | null;
     evidence_key: string | null;
+    document_version: number;
+    publication_status:
+        | 'internal'
+        | 'pending_review'
+        | 'published'
+        | 'replaced';
+    reviewed_at: string | null;
+    reviewer: Pick<User, 'id' | 'name'> | null;
+    publisher: Pick<User, 'id' | 'name'> | null;
 };
 type EvidenceRequirement = {
     key: string;
@@ -186,6 +199,7 @@ export default function WorkOrdersIndex({
     users,
     runningEntry,
     canManage,
+    canPublishCustomerDocuments,
     currentUserId,
     defaults,
     planningMetrics,
@@ -199,6 +213,7 @@ export default function WorkOrdersIndex({
     users: User[];
     runningEntry: Running | null;
     canManage: boolean;
+    canPublishCustomerDocuments: boolean;
     currentUserId: number;
     defaults: { hourlyCost: number; mileageRate: number };
     planningMetrics: {
@@ -391,6 +406,9 @@ export default function WorkOrdersIndex({
                                 users={users}
                                 running={runningEntry}
                                 canManage={canManage}
+                                canPublishCustomerDocuments={
+                                    canPublishCustomerDocuments
+                                }
                                 currentUserId={currentUserId}
                                 defaults={defaults}
                                 warehouses={warehouses}
@@ -414,6 +432,7 @@ function WorkOrderDetail({
     users,
     running,
     canManage,
+    canPublishCustomerDocuments,
     currentUserId,
     defaults,
     warehouses,
@@ -424,6 +443,7 @@ function WorkOrderDetail({
     users: User[];
     running: Running | null;
     canManage: boolean;
+    canPublishCustomerDocuments: boolean;
     currentUserId: number;
     defaults: { hourlyCost: number; mileageRate: number };
     warehouses: Warehouse[];
@@ -581,7 +601,10 @@ function WorkOrderDetail({
                     defaults={defaults}
                 />
             )}
-            <ExecutionEvidence order={order} />
+            <ExecutionEvidence
+                order={order}
+                canPublishCustomerDocuments={canPublishCustomerDocuments}
+            />
             <Form
                 action={`/work-orders/${order.id}`}
                 method="patch"
@@ -684,7 +707,13 @@ function WeeklyPlanning({ orders }: { orders: Order[] }) {
         </section>
     );
 }
-function ExecutionEvidence({ order }: { order: Selected }) {
+function ExecutionEvidence({
+    order,
+    canPublishCustomerDocuments,
+}: {
+    order: Selected;
+    canPublishCustomerDocuments: boolean;
+}) {
     const requirements = order.required_evidence ?? [];
     const handover = order.handover_documents ?? [];
     const evidenceOptions = [...requirements, ...handover];
@@ -750,14 +779,73 @@ function ExecutionEvidence({ order }: { order: Selected }) {
                             const complete = count >= requirement.min_count;
 
                             return (
-                                <div key={requirement.key} className="border-l-2 py-1 pl-3 text-sm">
-                                    <div className="font-medium">{requirement.label}</div>
-                                    <div className={complete ? 'text-green-700' : 'text-muted-foreground'}>
-                                        {count}/{requirement.min_count} · {complete ? 'Complete' : 'Pending'}
+                                <div
+                                    key={requirement.key}
+                                    className="border-l-2 py-1 pl-3 text-sm"
+                                >
+                                    <div className="font-medium">
+                                        {requirement.label}
+                                    </div>
+                                    <div
+                                        className={
+                                            complete
+                                                ? 'text-green-700'
+                                                : 'text-muted-foreground'
+                                        }
+                                    >
+                                        {count}/{requirement.min_count} ·{' '}
+                                        {complete ? 'Complete' : 'Pending'}
                                     </div>
                                 </div>
                             );
                         })}
+                    </div>
+                )}
+                {handover.length > 0 && (
+                    <div className="mt-5">
+                        <div className="font-medium">Paquete de entrega</div>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                            Cada documento se valida antes de aparecer en el
+                            portal. Publicar una versión nueva sustituye la
+                            anterior sin borrar el histórico.
+                        </p>
+                        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                            {handover.map((expected) => {
+                                const versions = order.attachments.filter(
+                                    (file) =>
+                                        file.kind === 'document' &&
+                                        file.evidence_key === expected.key,
+                                );
+                                const current =
+                                    versions.find(
+                                        (file) =>
+                                            file.publication_status ===
+                                            'published',
+                                    ) || versions[0];
+
+                                return (
+                                    <div
+                                        key={expected.key}
+                                        className="flex items-start justify-between gap-3 border-l-2 py-1 pl-3 text-sm"
+                                    >
+                                        <div>
+                                            <div className="font-medium">
+                                                {expected.label}
+                                            </div>
+                                            <div className="text-xs text-muted-foreground">
+                                                {current
+                                                    ? `v${current.document_version} · ${publicationLabel(current.publication_status)}`
+                                                    : 'Documento pendiente'}
+                                            </div>
+                                        </div>
+                                        {current?.publication_status ===
+                                            'published' && (
+                                            <PackageCheck className="size-4 text-green-700" />
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
                     </div>
                 )}
                 <div className="mt-3 border-y">
@@ -771,15 +859,57 @@ function ExecutionEvidence({ order }: { order: Selected }) {
                                     {file.original_name}
                                 </div>
                                 <div className="text-xs text-muted-foreground">
-                                    {file.kind} · {Math.ceil(file.size / 1024)}{' '}
-                                    KB ·{' '}
-                                    {file.evidence_key && `${evidenceOptions.find((item) => item.key === file.evidence_key)?.label || file.evidence_key} · `}
-                                    {file.customer_visible
-                                        ? 'Visible para el cliente'
+                                    {file.kind}
+                                    {file.kind === 'document' &&
+                                        ` v${file.document_version}`}{' '}
+                                    · {Math.ceil(file.size / 1024)} KB ·{' '}
+                                    {file.evidence_key &&
+                                        `${evidenceOptions.find((item) => item.key === file.evidence_key)?.label || file.evidence_key} · `}
+                                    {file.kind === 'document'
+                                        ? publicationLabel(
+                                              file.publication_status,
+                                          )
                                         : 'Uso interno'}
+                                    {file.reviewer &&
+                                        ` · Validado por ${file.reviewer.name}`}
                                 </div>
                             </div>
-                            <div className="flex">
+                            <div className="flex items-center gap-1">
+                                {canPublishCustomerDocuments &&
+                                    file.kind === 'document' &&
+                                    ['internal', 'pending_review'].includes(
+                                        file.publication_status,
+                                    ) && (
+                                        <Form
+                                            action={`/work-orders/${order.id}/attachments/${file.id}/publication`}
+                                            method="patch"
+                                        >
+                                            <input
+                                                type="hidden"
+                                                name="action"
+                                                value="publish"
+                                            />
+                                            <Button size="sm" variant="outline">
+                                                Publicar
+                                            </Button>
+                                        </Form>
+                                    )}
+                                {canPublishCustomerDocuments &&
+                                    file.publication_status === 'published' && (
+                                        <Form
+                                            action={`/work-orders/${order.id}/attachments/${file.id}/publication`}
+                                            method="patch"
+                                        >
+                                            <input
+                                                type="hidden"
+                                                name="action"
+                                                value="retract"
+                                            />
+                                            <Button size="sm" variant="outline">
+                                                Retirar
+                                            </Button>
+                                        </Form>
+                                    )}
                                 <Button size="icon" variant="ghost" asChild>
                                     <a
                                         href={`/work-orders/${order.id}/attachments/${file.id}`}
@@ -787,14 +917,18 @@ function ExecutionEvidence({ order }: { order: Selected }) {
                                         <Download />
                                     </a>
                                 </Button>
-                                <Form
-                                    action={`/work-orders/${order.id}/attachments/${file.id}`}
-                                    method="delete"
-                                >
-                                    <Button size="icon" variant="ghost">
-                                        <Trash2 />
-                                    </Button>
-                                </Form>
+                                {!['published', 'replaced'].includes(
+                                    file.publication_status,
+                                ) && (
+                                    <Form
+                                        action={`/work-orders/${order.id}/attachments/${file.id}`}
+                                        method="delete"
+                                    >
+                                        <Button size="icon" variant="ghost">
+                                            <Trash2 />
+                                        </Button>
+                                    </Form>
+                                )}
                             </div>
                         </div>
                     ))}
@@ -818,20 +952,25 @@ function ExecutionEvidence({ order }: { order: Selected }) {
                             required
                         />
                         {evidenceOptions.length > 0 && (
-                            <select name="evidence_key" className="h-9 rounded-md border bg-background px-3 text-sm">
+                            <select
+                                name="evidence_key"
+                                className="h-9 rounded-md border bg-background px-3 text-sm"
+                            >
                                 <option value="">General evidence</option>
                                 {evidenceOptions.map((item) => (
-                                    <option key={item.key} value={item.key}>{item.label}</option>
+                                    <option key={item.key} value={item.key}>
+                                        {item.label}
+                                    </option>
                                 ))}
                             </select>
                         )}
                         <label className="flex items-center gap-2 text-xs text-muted-foreground">
                             <input
                                 type="checkbox"
-                                name="customer_visible"
+                                name="submit_for_review"
                                 value="1"
                             />
-                            Publicar los PDF para el cliente
+                            Enviar los PDF a validación
                         </label>
                     </div>
                     <Button variant="outline">
@@ -867,6 +1006,15 @@ function ExecutionEvidence({ order }: { order: Selected }) {
     );
 }
 
+function publicationLabel(status: Attachment['publication_status']): string {
+    return {
+        internal: 'Uso interno',
+        pending_review: 'Pendiente de validación',
+        published: 'Publicado para el cliente',
+        replaced: 'Versión sustituida',
+    }[status];
+}
+
 function WorkOrderMaterials({
     order,
     warehouses,
@@ -895,16 +1043,35 @@ function WorkOrderMaterials({
 
     return (
         <section className="border-t pt-5">
-            <div className={`mb-4 border-l-4 p-4 text-sm ${order.planning_readiness.status === 'ready' ? 'border-green-600 bg-green-50 dark:bg-green-950/20' : order.planning_readiness.status === 'blocked' ? 'border-destructive bg-destructive/5' : 'border-amber-500 bg-amber-50 dark:bg-amber-950/20'}`}>
+            <div
+                className={`mb-4 border-l-4 p-4 text-sm ${order.planning_readiness.status === 'ready' ? 'border-green-600 bg-green-50 dark:bg-green-950/20' : order.planning_readiness.status === 'blocked' ? 'border-destructive bg-destructive/5' : 'border-amber-500 bg-amber-50 dark:bg-amber-950/20'}`}
+            >
                 <div className="font-medium">
-                    {order.planning_readiness.status === 'ready' ? 'Plan ready for the scheduled date' : order.planning_readiness.status === 'blocked' ? 'Planning blocked' : 'Planning requires attention'}
+                    {order.planning_readiness.status === 'ready'
+                        ? 'Plan ready for the scheduled date'
+                        : order.planning_readiness.status === 'blocked'
+                          ? 'Planning blocked'
+                          : 'Planning requires attention'}
                 </div>
                 <div className="mt-1 text-muted-foreground">
-                    Materials: {order.planning_readiness.material_ready ? 'ready' : `${number(order.planning_readiness.shortage_quantity)} units unavailable by the scheduled date`} · Personnel: {order.planning_readiness.personnel_ready ? 'qualified technician assigned' : `${order.planning_readiness.qualified_technicians.length} qualified technician(s) available`}
+                    Materials:{' '}
+                    {order.planning_readiness.material_ready
+                        ? 'ready'
+                        : `${number(order.planning_readiness.shortage_quantity)} units unavailable by the scheduled date`}{' '}
+                    · Personnel:{' '}
+                    {order.planning_readiness.personnel_ready
+                        ? 'qualified technician assigned'
+                        : `${order.planning_readiness.qualified_technicians.length} qualified technician(s) available`}
                 </div>
-                {!order.planning_readiness.material_ready && order.planning_readiness.material_ready_on && (
-                    <div className="mt-1">Estimated material readiness: {dateTime(order.planning_readiness.material_ready_on)}</div>
-                )}
+                {!order.planning_readiness.material_ready &&
+                    order.planning_readiness.material_ready_on && (
+                        <div className="mt-1">
+                            Estimated material readiness:{' '}
+                            {dateTime(
+                                order.planning_readiness.material_ready_on,
+                            )}
+                        </div>
+                    )}
             </div>
             <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
                 <div>
@@ -918,12 +1085,23 @@ function WorkOrderMaterials({
                     </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                    {canManage && order.planning_readiness.material_required && (
-                        <Form action={`/work-orders/${order.id}/materials/reserve-kit`} method="post">
-                            <Button variant="outline"><PackageCheck /> Auto-reserve kit</Button>
-                        </Form>
+                    {canManage &&
+                        order.planning_readiness.material_required && (
+                            <Form
+                                action={`/work-orders/${order.id}/materials/reserve-kit`}
+                                method="post"
+                            >
+                                <Button variant="outline">
+                                    <PackageCheck /> Auto-reserve kit
+                                </Button>
+                            </Form>
+                        )}
+                    {canManage && order.material_plan.shortage_items > 0 && (
+                        <ProcurementDialog
+                            order={order}
+                            suppliers={suppliers}
+                        />
                     )}
-                    {canManage && order.material_plan.shortage_items > 0 && <ProcurementDialog order={order} suppliers={suppliers} />}
                 </div>
             </div>
             <div className="mb-4 grid grid-cols-2 border-y text-sm sm:grid-cols-4">

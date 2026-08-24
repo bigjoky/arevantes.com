@@ -85,10 +85,21 @@ type Maintenance = {
 type Certificate = {
     id: number;
     name: string;
+    label: string;
     caption: string | null;
     size: number;
+    version: number;
     work_order: string;
     created_at: string;
+    installation: Pick<
+        Installation,
+        | 'id'
+        | 'service_type'
+        | 'status'
+        | 'project_reference'
+        | 'site_name'
+        | 'completed_date'
+    >;
 };
 type TimelineEvent = {
     id: number;
@@ -678,35 +689,85 @@ function CertificateList({
     certificates: Certificate[];
     token: string;
 }) {
+    const packages = Object.values(
+        certificates.reduce<Record<number, Certificate[]>>((grouped, item) => {
+            (grouped[item.installation.id] ??= []).push(item);
+
+            return grouped;
+        }, {}),
+    );
+
     return (
         <div>
             <h2 className="mb-3 font-semibold">
-                Documentación técnica y certificados
+                Paquetes técnicos de tus instalaciones
             </h2>
-            <div className="divide-y border-y">
-                {certificates.map((item) => (
-                    <div
-                        key={item.id}
-                        className="flex items-center justify-between gap-4 py-3 text-sm"
-                    >
-                        <div>
-                            <div className="font-medium">{item.name}</div>
-                            <div className="text-xs text-muted-foreground">
-                                {item.work_order} · {fileSize(item.size)} ·{' '}
-                                {dateTime(item.created_at)}
+            <div className="grid gap-5">
+                {packages.map((items) => {
+                    const installation = items[0].installation;
+
+                    return (
+                        <section
+                            key={installation.id}
+                            className="border-t pt-3"
+                        >
+                            <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
+                                <div>
+                                    <div className="font-medium">
+                                        {installation.project_reference ||
+                                            installation.site_name ||
+                                            `Instalación ${installation.id}`}
+                                    </div>
+                                    <div className="text-xs text-muted-foreground">
+                                        {serviceLabel(
+                                            installation.service_type,
+                                        )}
+                                        {installation.completed_date &&
+                                            ` · Finalizada ${date(installation.completed_date)}`}
+                                    </div>
+                                </div>
+                                <Badge variant="outline">
+                                    {installation.status}
+                                </Badge>
                             </div>
-                        </div>
-                        <Button size="sm" variant="outline" asChild>
-                            <a
-                                href={`/portal/${token}/certificates/${item.id}`}
-                            >
-                                <Download /> Descargar
-                            </a>
-                        </Button>
+                            <div className="divide-y border-y">
+                                {items.map((item) => (
+                                    <div
+                                        key={item.id}
+                                        className="flex items-center justify-between gap-4 py-3 text-sm"
+                                    >
+                                        <div>
+                                            <div className="font-medium">
+                                                {item.label}
+                                            </div>
+                                            <div className="text-xs text-muted-foreground">
+                                                {item.name} · v{item.version} ·{' '}
+                                                {item.work_order} ·{' '}
+                                                {fileSize(item.size)} ·{' '}
+                                                {dateTime(item.created_at)}
+                                            </div>
+                                        </div>
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            asChild
+                                        >
+                                            <a
+                                                href={`/portal/${token}/certificates/${item.id}`}
+                                            >
+                                                <Download /> Descargar
+                                            </a>
+                                        </Button>
+                                    </div>
+                                ))}
+                            </div>
+                        </section>
+                    );
+                })}
+                {packages.length === 0 && (
+                    <div className="border-y">
+                        <Empty text="Aún no hay documentación técnica autorizada." />
                     </div>
-                ))}
-                {certificates.length === 0 && (
-                    <Empty text="No hay certificados disponibles." />
                 )}
             </div>
         </div>

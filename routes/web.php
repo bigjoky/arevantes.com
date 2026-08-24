@@ -220,6 +220,7 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('time-entries/{timeEntry}', [WorkOrderController::class, 'destroyTime'])->middleware('can:manage-installations')->name('time-entries.destroy');
     Route::patch('work-orders/{workOrder}/checklist/{item}', [WorkOrderController::class, 'toggleChecklist'])->middleware('can:manage-operations')->name('work-orders.checklist.update');
     Route::post('work-orders/{workOrder}/attachments', [WorkOrderController::class, 'storeAttachments'])->middleware('can:manage-operations')->name('work-orders.attachments.store');
+    Route::patch('work-orders/{workOrder}/attachments/{attachment}/publication', [WorkOrderController::class, 'updateAttachmentPublication'])->middleware('can:manage-operations')->name('work-orders.attachments.publication');
     Route::get('work-orders/{workOrder}/attachments/{attachment}', [WorkOrderController::class, 'downloadAttachment'])->middleware('can:manage-operations')->name('work-orders.attachments.download');
     Route::delete('work-orders/{workOrder}/attachments/{attachment}', [WorkOrderController::class, 'destroyAttachment'])->middleware('can:manage-operations')->name('work-orders.attachments.destroy');
     Route::post('work-orders/{workOrder}/signature', [WorkOrderController::class, 'sign'])->middleware('can:manage-operations')->name('work-orders.signature.store');

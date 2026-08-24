@@ -98,7 +98,21 @@ class CustomerPortalController extends Controller
             }),
             'tickets' => ServiceTicket::whereIn('installation_id', $installationIds)->latest()->get(['id', 'installation_id', 'number', 'kind', 'priority', 'status', 'title', 'description', 'resolution', 'created_at', 'updated_at', 'resolved_at']),
             'maintenance' => MaintenancePlan::whereIn('installation_id', $installationIds)->where('is_active', true)->orderBy('next_due_on')->get(['id', 'installation_id', 'name', 'next_due_on', 'last_completed_on']),
-            'certificates' => WorkOrderAttachment::query()->where('kind', 'document')->where('customer_visible', true)->whereNotNull('published_at')->where('published_at', '<=', now())->whereHas('workOrder.installation', fn ($query) => $query->where('person_id', $customer->id))->with('workOrder:id,installation_id,number')->latest('published_at')->get()->map(fn ($item) => ['id' => $item->id, 'name' => $item->original_name, 'caption' => $item->caption, 'size' => $item->size, 'work_order' => $item->workOrder->number, 'created_at' => $item->published_at]),
+            'certificates' => WorkOrderAttachment::query()->where('kind', 'document')->where('publication_status', 'published')->where('customer_visible', true)->whereNotNull('published_at')->where('published_at', '<=', now())->whereHas('workOrder.installation', fn ($query) => $query->where('person_id', $customer->id))->with(['workOrder:id,installation_id,number,handover_documents', 'workOrder.installation:id,service_type,status,project_reference,site_name,completed_date'])->latest('published_at')->get()->map(function ($item) {
+                $definition = collect($item->workOrder->handover_documents ?? [])->firstWhere('key', $item->evidence_key);
+
+                return [
+                    'id' => $item->id,
+                    'name' => $item->original_name,
+                    'label' => $definition['label'] ?? $item->caption ?? __('Technical document'),
+                    'caption' => $item->caption,
+                    'size' => $item->size,
+                    'version' => $item->document_version,
+                    'work_order' => $item->workOrder->number,
+                    'created_at' => $item->published_at,
+                    'installation' => $item->workOrder->installation?->only(['id', 'service_type', 'status', 'project_reference', 'site_name', 'completed_date']),
+                ];
+            }),
             'timeline' => $customer->portalEvents()->latest('occurred_at')->limit(30)->get()->map(fn ($event) => ['id' => $event->id, 'type' => $event->event_type, 'title' => $this->eventTitle($event->event_type, $event->metadata ?? []), 'occurred_at' => $event->occurred_at->toIso8601String()]),
             'preferences' => ['email_documents' => $preference->exists ? $preference->email_documents : true, 'email_tickets' => $preference->exists ? $preference->email_tickets : true, 'email_maintenance' => $preference->exists ? $preference->email_maintenance : true],
             'surveyed_ticket_ids' => $surveyedTickets,
@@ -213,7 +227,7 @@ class CustomerPortalController extends Controller
     public function certificate(Request $request, string $token, WorkOrderAttachment $attachment): StreamedResponse
     {
         $access = $this->access($token);
-        abort_unless($attachment->kind === 'document' && $attachment->customer_visible && $attachment->published_at && now()->gte($attachment->published_at) && $attachment->workOrder()->whereHas('installation', fn ($query) => $query->where('person_id', $access->person_id))->exists(), 404);
+        abort_unless($attachment->kind === 'document' && $attachment->publication_status === 'published' && $attachment->customer_visible && $attachment->published_at && now()->gte($attachment->published_at) && $attachment->workOrder()->whereHas('installation', fn ($query) => $query->where('person_id', $access->person_id))->exists(), 404);
         abort_unless(Storage::disk(config('filesystems.private'))->exists($attachment->path), 404);
         CustomerPortalEvent::record($access->customer, 'certificate_downloaded', $access, $request, $attachment, ['name' => $attachment->original_name]);
 

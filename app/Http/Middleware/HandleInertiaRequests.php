@@ -55,6 +55,7 @@ class HandleInertiaRequests extends Middleware
                     'manageInstallations' => Gate::allows('manage-installations'),
                     'useAi' => Gate::allows('use-ai'),
                     'manageOperations' => Gate::allows('manage-operations'),
+                    'publishCustomerDocuments' => Gate::allows('publish-customer-documents'),
                     'manageCatalog' => Gate::allows('manage-catalog'),
                     'viewFinance' => Gate::allows('view-finance'),
                     'manageTreasury' => Gate::allows('manage-treasury'),

@@ -62,6 +62,7 @@ use App\Models\TaxReturn;
 use App\Models\TaxReturnPayment;
 use App\Models\User;
 use App\Models\WorkOrder;
+use App\Models\WorkOrderAttachment;
 use App\Models\WorkOrderTemplate;
 use App\Observers\AcceptancePaymentObserver;
 use App\Observers\AuditableObserver;
@@ -137,6 +138,7 @@ class AppServiceProvider extends ServiceProvider
         ServiceTicket::observe(AuditableObserver::class);
         WorkOrderTemplate::observe(AuditableObserver::class);
         WorkOrder::observe(AuditableObserver::class);
+        WorkOrderAttachment::observe(AuditableObserver::class);
         WorkOrder::observe(WorkOrderObserver::class);
         Opportunity::observe(AuditableObserver::class);
         Opportunity::observe(OpportunityHistoryObserver::class);
@@ -213,7 +215,7 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(CrmActivity::class, CrmActivityPolicy::class);
         $permissions = [
             'manage-admin', 'manage-access', 'export-audit', 'view-system-health',
-            'manage-customers', 'manage-quotes', 'approve-quotes', 'view-installations', 'manage-installations', 'sync-installations',
+            'manage-customers', 'manage-quotes', 'approve-quotes', 'view-installations', 'manage-installations', 'sync-installations', 'publish-customer-documents',
             'use-ai', 'manage-operations', 'manage-catalog', 'view-finance', 'manage-treasury',
             'manage-accounting', 'approve-payments', 'approve-budgets', 'manage-tax',
             'view-purchases', 'manage-purchases', 'receive-purchases', 'approve-purchase-invoices',
