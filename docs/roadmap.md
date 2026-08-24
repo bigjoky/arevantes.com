@@ -244,12 +244,29 @@ El segundo vertical une planificación de materiales y personas:
 - competencias, capacidad y zona producen una lista común de técnicos aptos;
 - operaciones y la app móvil comparten el estado listo, en riesgo o bloqueado.
 
+El tercer vertical protege la replanificación y el trabajo offline:
+
+- los cambios de fecha, horario, técnico, prioridad y disponibilidad de material
+  avanzan la versión de sincronización de la orden;
+- checklist, evidencias y consumos independientes continúan enviándose aunque
+  otra acción de la misma orden necesite revisión;
+- inicio, cambio de estado y cierre conservan la versión sobre la que decidió el
+  técnico y detectan una replanificación concurrente;
+- la bandeja móvil explica qué cambió y muestra la planificación vigente;
+- el usuario puede revisar la orden, reaplicar su acción sobre la última versión
+  o aceptar el servidor y descartar únicamente esa acción local;
+- una acción reaplicada mantiene su clave idempotente y rebasa las siguientes
+  acciones de la misma orden para evitar duplicados y conflictos artificiales.
+
 ## Próximo corte recomendado
 
-Completar el tercer vertical del Horizonte 1: **replanificación operativa y
-resolución de conflictos offline**, propagando cambios de fecha, técnico,
-material o prioridad hasta el dispositivo sin perder acciones locales y con una
-resolución guiada cuando el servidor y el móvil hayan cambiado la misma orden.
+Completar el cuarto vertical del Horizonte 1: **entrega documental y portal de
+cliente por línea de negocio**. La finalización técnica debe ensamblar los
+certificados, actas, manuales y evidencias definidos por la plantilla; el portal
+mostrará únicamente los entregables autorizados, su versión vigente y los hitos
+confirmados, con la misma cobertura para solar, climatización, eficiencia,
+seguridad y electricidad.
 
-Este corte reutilizará las definiciones operativas ya versionadas; no creará un
-segundo catálogo ni reglas distintas para web y móvil.
+Este corte reutilizará las evidencias y documentos de entrega ya versionados y
+mantendrá separadas la documentación interna, la pendiente de validar y la
+publicable para el cliente.

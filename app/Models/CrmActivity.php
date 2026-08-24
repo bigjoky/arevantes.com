@@ -10,6 +10,8 @@ class CrmActivity extends Model
 {
     use SoftDeletes;
 
+    protected $touches = ['workOrder'];
+
     protected $fillable = ['installation_id', 'work_order_id', 'person_id', 'opportunity_id', 'assigned_user_id', 'created_by', 'type', 'title', 'notes', 'priority', 'status', 'blocked_reason', 'starts_at', 'due_at', 'completed_at'];
 
     protected function casts(): array
