@@ -50,10 +50,56 @@ próximos horizontes.
 | Finanzas          | Contabilidad, facturación, banca, conciliación, anticipos, riesgo de cobro, tesorería, alertas y bloqueo operativo por excepciones.                                     |
 | Recursos humanos  | Expediente, contratos, ausencias, controles sensibles y capacidad técnica compartida con Operaciones.                                                                   |
 | Portal de cliente | Acceso protegido a instalaciones, documentos, aceptaciones, certificados e incidencias.                                                                                 |
+| Web pública       | Captación multirramo, formulario conectado al CRM, SEO técnico, metadatos sociales, accesibilidad y experiencia responsive.                                            |
 | Analítica         | Indicadores autorizados, drilldowns acotados, alertas e informes programados.                                                                                           |
 | Arevia            | Contexto autorizado, conocimiento gobernado, citas, propuestas de acciones y soporte a instalaciones de las cinco líneas.                                               |
 | Plataforma        | Perfiles y permisos, navegación autorizada, auditoría, copias, observabilidad, geocodificación y despliegue continuo.                                                   |
 | App móvil         | Trabajo técnico y área comercial offline, geolocalización, rutas, captación, sincronización e intereses de las cinco líneas.                                            |
+
+## Roadmap de la web pública multirramo
+
+La web presenta a Arevantes como un único equipo técnico con tres líneas
+comerciales de primer nivel: energía y movilidad, instalaciones eléctricas, y
+alarmas y sistemas de seguridad. El mantenimiento y la atención posventa son
+capacidades transversales, no una cuarta línea aislada.
+
+### Fase 1 — Posicionamiento y captación común
+
+- Reorganizar la portada alrededor de las tres líneas, con propuesta de valor,
+  alcance y llamadas a la acción diferenciadas.
+- Mantener un único formulario conectado al CRM, conservando la línea de
+  interés desde cada acceso para reducir fricción y mejorar la atribución.
+- Actualizar SEO, datos estructurados y tarjeta social para reflejar el negocio
+  multirramo sin promesas, cifras ni acreditaciones no verificadas.
+- Garantizar navegación por teclado, contraste, movimiento reducido y jerarquía
+  semántica en móvil y escritorio.
+
+### Fase 2 — Páginas de servicio y confianza
+
+- Crear páginas independientes para energía, electricidad y seguridad con
+  contenido, preguntas frecuentes y metadatos propios.
+- Incorporar procesos, tipologías de proyecto y entregables documentales
+  reales de cada línea.
+- Publicar casos de uso solo cuando dispongan de alcance, ubicación, permiso e
+  información verificable; nunca inventar resultados comerciales.
+
+### Fase 3 — Crecimiento medible
+
+- Medir visitas a cada línea, clics de contacto, inicio y finalización del
+  formulario, y oportunidades cualificadas por origen.
+- Priorizar rendimiento y Core Web Vitals antes de añadir contenido pesado o
+  animaciones adicionales.
+- Evolucionar contenidos locales por área de servicio y necesidad real, sin
+  generar páginas duplicadas ni orientadas exclusivamente a buscadores.
+
+### Indicadores de seguimiento
+
+- Tasa de finalización del formulario y errores por campo.
+- Oportunidades creadas por línea de negocio y fuente.
+- Clics en llamadas a la acción por sección.
+- Entradas orgánicas a páginas de servicio.
+- LCP, INP y CLS en móvil y escritorio.
+- Consultas que llegan correctamente clasificadas al CRM.
 
 ## Horizonte 1 — Operar las nuevas líneas de extremo a extremo
 

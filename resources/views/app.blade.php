@@ -4,7 +4,13 @@
     $legalDocument = $component === 'legal/show' ? data_get($page, 'props.document') : null;
     $isPublicWebsite = $isHomepage || filled($legalDocument);
     $siteUrl = rtrim(config('app.url'), '/');
-    $siteDescription = 'Arevantes diseña, instala y mantiene soluciones fotovoltaicas, eléctricas y de recarga en Córdoba y Andalucía.';
+    $siteTitle = 'Arevantes · Energía, electricidad y seguridad';
+    $siteDescription = 'Arevantes diseña, instala y mantiene soluciones de energía, instalaciones eléctricas y sistemas de seguridad en Córdoba y Andalucía.';
+    $serviceCatalog = [
+        'Energía y movilidad' => ['Fotovoltaica', 'Almacenamiento', 'Puntos de recarga'],
+        'Instalaciones eléctricas' => ['Instalaciones', 'Adecuaciones', 'Certificación'],
+        'Alarmas y seguridad' => ['Alarmas', 'Videovigilancia', 'Control de accesos'],
+    ];
     $legalMetadata = [
         'notice' => [
             'path' => 'aviso-legal',
@@ -25,7 +31,7 @@
     $currentLegalMetadata = $legalDocument ? ($legalMetadata[$legalDocument] ?? null) : null;
     $structuredData = [
         '@context' => 'https://schema.org',
-        '@type' => 'Electrician',
+        '@type' => 'LocalBusiness',
         'name' => 'Arevantes',
         'legalName' => config('company.legal_name'),
         'url' => $siteUrl,
@@ -41,6 +47,21 @@
             'addressCountry' => 'ES',
         ],
         'areaServed' => 'Andalucía',
+        'hasOfferCatalog' => [
+            '@type' => 'OfferCatalog',
+            'name' => 'Servicios Arevantes',
+            'itemListElement' => collect($serviceCatalog)->map(fn (array $services, string $line): array => [
+                '@type' => 'OfferCatalog',
+                'name' => $line,
+                'itemListElement' => collect($services)->map(fn (string $service): array => [
+                    '@type' => 'Offer',
+                    'itemOffered' => [
+                        '@type' => 'Service',
+                        'name' => $service,
+                    ],
+                ])->values()->all(),
+            ])->values()->all(),
+        ],
     ];
 @endphp
 <!DOCTYPE html>
@@ -87,24 +108,24 @@
         @vite(['resources/css/app.css', 'resources/js/app.tsx', "resources/js/pages/{$page['component']}.tsx"])
         <x-inertia::head>
             @if ($isHomepage)
-                <title data-inertia="title">Arevantes · Energía bien instalada</title>
+                <title data-inertia="title">{{ $siteTitle }}</title>
                 <meta data-inertia="description" name="description" content="{{ $siteDescription }}">
                 <meta data-inertia="robots" name="robots" content="index, follow">
                 <link data-inertia="canonical" rel="canonical" href="{{ $siteUrl }}">
                 <meta data-inertia="og-type" property="og:type" content="website">
                 <meta data-inertia="og-locale" property="og:locale" content="es_ES">
                 <meta data-inertia="og-site-name" property="og:site_name" content="Arevantes">
-                <meta data-inertia="og-title" property="og:title" content="Arevantes · Energía bien instalada">
+                <meta data-inertia="og-title" property="og:title" content="{{ $siteTitle }}">
                 <meta data-inertia="og-description" property="og:description" content="{{ $siteDescription }}">
                 <meta data-inertia="og-url" property="og:url" content="{{ $siteUrl }}">
-                <meta data-inertia="og-image" property="og:image" content="{{ $siteUrl }}/og.png">
+                <meta data-inertia="og-image" property="og:image" content="{{ $siteUrl }}/og-multirramo.png">
                 <meta data-inertia="og-image-width" property="og:image:width" content="1200">
                 <meta data-inertia="og-image-height" property="og:image:height" content="630">
-                <meta data-inertia="og-image-alt" property="og:image:alt" content="Arevantes, energía bien instalada">
+                <meta data-inertia="og-image-alt" property="og:image:alt" content="Arevantes: energía, electricidad y seguridad">
                 <meta data-inertia="twitter-card" name="twitter:card" content="summary_large_image">
-                <meta data-inertia="twitter-title" name="twitter:title" content="Arevantes · Energía bien instalada">
+                <meta data-inertia="twitter-title" name="twitter:title" content="{{ $siteTitle }}">
                 <meta data-inertia="twitter-description" name="twitter:description" content="{{ $siteDescription }}">
-                <meta data-inertia="twitter-image" name="twitter:image" content="{{ $siteUrl }}/og.png">
+                <meta data-inertia="twitter-image" name="twitter:image" content="{{ $siteUrl }}/og-multirramo.png">
                 <script data-inertia="structured-data" type="application/ld+json">{!! json_encode($structuredData, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) !!}</script>
             @elseif ($currentLegalMetadata)
                 <title data-inertia="title">{{ $currentLegalMetadata['title'] }} · Arevantes</title>

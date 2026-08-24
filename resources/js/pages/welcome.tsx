@@ -3,55 +3,19 @@ import {
     Activity,
     ArrowRight,
     ArrowUpRight,
-    BatteryCharging,
     Check,
     ChevronRight,
     Gauge,
-    Leaf,
     MapPin,
     Menu,
     ShieldCheck,
     Sparkles,
     Sun,
-    Wrench,
     X,
     Zap,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { dashboard, login } from '@/routes';
-
-const services = [
-    {
-        icon: Sun,
-        title: 'Instalaciones fotovoltaicas',
-        description:
-            'Sistemas de autoconsumo diseñados para aprovechar mejor cada cubierta y cada kilovatio.',
-    },
-    {
-        icon: BatteryCharging,
-        title: 'Recarga y almacenamiento',
-        description:
-            'Puntos de recarga y soluciones de batería preparados para acompañar tu consumo real.',
-    },
-    {
-        icon: Zap,
-        title: 'Instalaciones eléctricas',
-        description:
-            'Instalaciones, adecuaciones y mejoras eléctricas ejecutadas con criterio técnico y seguridad.',
-    },
-    {
-        icon: ShieldCheck,
-        title: 'Alarmas y seguridad',
-        description:
-            'Alarmas, videovigilancia y control de accesos diseñados para cada vivienda o negocio.',
-    },
-    {
-        icon: Wrench,
-        title: 'Mantenimiento',
-        description:
-            'Seguimiento, monitorización y asistencia para que la instalación siga rindiendo con el tiempo.',
-    },
-];
 
 const steps = [
     {
@@ -80,58 +44,60 @@ const steps = [
     },
 ];
 
-const solutionModes = [
+const businessLines = [
     {
+        number: '01',
         icon: Sun,
-        label: 'Autoconsumo',
-        title: 'Genera tu propia energía',
+        label: 'Energía',
+        cardTitle: 'Energía y movilidad',
+        title: 'Produce, almacena y aprovecha tu energía',
         description:
-            'Diseño solar adaptado a la cubierta, los hábitos de consumo y los objetivos de cada proyecto.',
-        accent: 'Producción',
+            'Fotovoltaica, baterías y recarga coordinadas para reducir consumo y ganar autonomía.',
+        accent: 'Autoconsumo',
+        detail: 'Solar · Baterías · Recarga',
+        services: ['Fotovoltaica', 'Almacenamiento', 'Puntos de recarga'],
+        formValue: 'solar',
     },
     {
-        icon: BatteryCharging,
-        label: 'Movilidad',
-        title: 'Carga cuando más conviene',
-        description:
-            'Recarga y almacenamiento coordinados para aprovechar mejor la energía disponible.',
-        accent: 'Flexibilidad',
-    },
-    {
+        number: '02',
         icon: Zap,
         label: 'Electricidad',
-        title: 'Instalaciones preparadas para crecer',
+        cardTitle: 'Instalaciones eléctricas',
+        title: 'Una instalación eléctrica preparada para crecer',
         description:
-            'Cuadros, circuitos, adecuaciones y certificación con una ficha técnica y ejecución trazables.',
-        accent: 'Seguridad eléctrica',
+            'Cuadros, circuitos, adecuaciones y certificación con ejecución técnica y trazable.',
+        accent: 'Nueva línea',
+        detail: 'Instalación · Reforma · Certificación',
+        services: ['Instalaciones', 'Adecuaciones', 'Certificación'],
+        formValue: 'electrical',
     },
     {
+        number: '03',
         icon: ShieldCheck,
-        label: 'Protección',
-        title: 'Seguridad conectada a cada espacio',
+        label: 'Seguridad',
+        cardTitle: 'Alarmas y seguridad',
+        title: 'Protección conectada a cada espacio',
         description:
-            'Alarmas, cámaras y control de accesos dimensionados según el uso real de la vivienda o negocio.',
-        accent: 'Tranquilidad',
-    },
-    {
-        icon: Wrench,
-        label: 'Continuidad',
-        title: 'Rendimiento que permanece',
-        description:
-            'Monitorización y mantenimiento para detectar necesidades y cuidar la instalación a largo plazo.',
-        accent: 'Seguimiento',
+            'Alarmas, videovigilancia y control de accesos dimensionados para viviendas y negocios.',
+        accent: 'Nueva línea',
+        detail: 'Alarmas · CCTV · Accesos',
+        services: ['Alarmas', 'Videovigilancia', 'Control de accesos'],
+        formValue: 'security',
     },
 ];
 
 const siteDescription =
-    'Arevantes diseña, instala y mantiene soluciones fotovoltaicas, eléctricas, de seguridad y de recarga en Córdoba y Andalucía.';
+    'Arevantes diseña, instala y mantiene soluciones de energía, instalaciones eléctricas y sistemas de seguridad en Córdoba y Andalucía.';
+
+const siteTitle = 'Arevantes · Energía, electricidad y seguridad';
 
 export default function Welcome({ siteUrl }: { siteUrl: string }) {
     const { auth } = usePage().props;
     const privateArea = auth.user ? dashboard() : login();
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [activeModeIndex, setActiveModeIndex] = useState(0);
-    const activeMode = solutionModes[activeModeIndex];
+    const [selectedService, setSelectedService] = useState('');
+    const activeMode = businessLines[activeModeIndex];
     const ActiveModeIcon = activeMode.icon;
 
     useEffect(() => {
@@ -155,9 +121,7 @@ export default function Welcome({ siteUrl }: { siteUrl: string }) {
     return (
         <>
             <Head>
-                <title head-key="title">
-                    Arevantes · Energía bien instalada
-                </title>
+                <title head-key="title">{siteTitle}</title>
                 <meta
                     head-key="description"
                     name="description"
@@ -179,7 +143,7 @@ export default function Welcome({ siteUrl }: { siteUrl: string }) {
                 <meta
                     head-key="og-title"
                     property="og:title"
-                    content="Arevantes · Energía bien instalada"
+                    content={siteTitle}
                 />
                 <meta
                     head-key="og-description"
@@ -190,7 +154,7 @@ export default function Welcome({ siteUrl }: { siteUrl: string }) {
                 <meta
                     head-key="og-image"
                     property="og:image"
-                    content={`${siteUrl}/og.png`}
+                    content={`${siteUrl}/og-multirramo.png`}
                 />
                 <meta
                     head-key="og-image-width"
@@ -205,7 +169,7 @@ export default function Welcome({ siteUrl }: { siteUrl: string }) {
                 <meta
                     head-key="og-image-alt"
                     property="og:image:alt"
-                    content="Arevantes, energía bien instalada"
+                    content="Arevantes: energía, electricidad y seguridad"
                 />
                 <meta
                     head-key="twitter-card"
@@ -215,7 +179,7 @@ export default function Welcome({ siteUrl }: { siteUrl: string }) {
                 <meta
                     head-key="twitter-title"
                     name="twitter:title"
-                    content="Arevantes · Energía bien instalada"
+                    content={siteTitle}
                 />
                 <meta
                     head-key="twitter-description"
@@ -225,12 +189,12 @@ export default function Welcome({ siteUrl }: { siteUrl: string }) {
                 <meta
                     head-key="twitter-image"
                     name="twitter:image"
-                    content={`${siteUrl}/og.png`}
+                    content={`${siteUrl}/og-multirramo.png`}
                 />
                 <script head-key="structured-data" type="application/ld+json">
                     {JSON.stringify({
                         '@context': 'https://schema.org',
-                        '@type': 'Electrician',
+                        '@type': 'LocalBusiness',
                         name: 'Arevantes',
                         legalName: 'AREVANTES, S.L.',
                         url: siteUrl,
@@ -245,6 +209,23 @@ export default function Welcome({ siteUrl }: { siteUrl: string }) {
                             addressCountry: 'ES',
                         },
                         areaServed: 'Andalucía',
+                        hasOfferCatalog: {
+                            '@type': 'OfferCatalog',
+                            name: 'Servicios Arevantes',
+                            itemListElement: businessLines.map((line) => ({
+                                '@type': 'OfferCatalog',
+                                name: line.cardTitle,
+                                itemListElement: line.services.map(
+                                    (service) => ({
+                                        '@type': 'Offer',
+                                        itemOffered: {
+                                            '@type': 'Service',
+                                            name: service,
+                                        },
+                                    }),
+                                ),
+                            })),
+                        },
                     })}
                 </script>
             </Head>
@@ -278,7 +259,7 @@ export default function Welcome({ siteUrl }: { siteUrl: string }) {
                                 href="#servicios"
                                 className="transition hover:text-[#217a3b]"
                             >
-                                Servicios
+                                Líneas de negocio
                             </a>
                             <a
                                 href="#metodo"
@@ -333,7 +314,7 @@ export default function Welcome({ siteUrl }: { siteUrl: string }) {
                                 className="mx-auto grid max-w-7xl gap-1 text-lg font-semibold"
                             >
                                 {[
-                                    ['Servicios', '#servicios'],
+                                    ['Líneas de negocio', '#servicios'],
                                     ['Cómo trabajamos', '#metodo'],
                                     ['Contacto', '#contacto'],
                                 ].map(([label, href]) => (
@@ -371,19 +352,19 @@ export default function Welcome({ siteUrl }: { siteUrl: string }) {
                             <div className="website-rise max-w-3xl">
                                 <div className="mb-7 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-4 py-2 text-sm text-zinc-300">
                                     <span className="size-2 rounded-full bg-[#87b550] shadow-[0_0_16px_#87b550]" />
-                                    Energía, electricidad y mantenimiento
+                                    Energía · Electricidad · Seguridad
                                 </div>
                                 <h1 className="text-5xl leading-[0.98] font-semibold tracking-[-0.055em] text-balance sm:text-6xl lg:text-7xl xl:text-[5.4rem]">
-                                    Energía bien pensada.
+                                    Tres especialidades.
                                     <span className="mt-2 block text-[#87b550]">
-                                        Energía bien instalada.
+                                        Una ejecución impecable.
                                     </span>
                                 </h1>
                                 <p className="mt-8 max-w-2xl text-lg leading-8 text-zinc-300 sm:text-xl">
-                                    Diseñamos y ejecutamos instalaciones que
-                                    convierten el consumo energético en una
-                                    decisión más eficiente, controlable y
-                                    duradera.
+                                    Diseñamos, instalamos y mantenemos
+                                    soluciones de energía, electricidad y
+                                    seguridad con un único equipo responsable de
+                                    principio a fin.
                                 </p>
                                 <div className="mt-10 flex flex-col gap-4 sm:flex-row">
                                     <a
@@ -423,7 +404,7 @@ export default function Welcome({ siteUrl }: { siteUrl: string }) {
                                     <div className="flex items-center justify-between px-1 pb-4">
                                         <div className="flex items-center gap-2 text-xs font-medium tracking-[0.12em] text-zinc-300 uppercase">
                                             <Activity className="size-4 text-[#87b550]" />
-                                            Solución conectada
+                                            Elige tu línea de proyecto
                                         </div>
                                         <span className="flex items-center gap-2 rounded-full bg-[#87b550]/10 px-3 py-1 text-xs text-[#b8df8c]">
                                             <span
@@ -450,7 +431,7 @@ export default function Welcome({ siteUrl }: { siteUrl: string }) {
                                                 </span>
                                             </div>
                                             <p className="mt-10 text-xs font-semibold tracking-[0.16em] text-[#87b550] uppercase">
-                                                {activeMode.label}
+                                                {activeMode.detail}
                                             </p>
                                             <h2 className="mt-3 max-w-sm text-2xl leading-tight font-semibold tracking-[-0.03em] sm:text-3xl">
                                                 {activeMode.title}
@@ -458,10 +439,22 @@ export default function Welcome({ siteUrl }: { siteUrl: string }) {
                                             <p className="mt-3 max-w-md text-sm leading-6 text-zinc-400 sm:text-base">
                                                 {activeMode.description}
                                             </p>
+                                            <a
+                                                href="#contacto"
+                                                onClick={() =>
+                                                    setSelectedService(
+                                                        activeMode.formValue,
+                                                    )
+                                                }
+                                                className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-[#b8df8c] transition hover:text-white"
+                                            >
+                                                Consultar esta línea
+                                                <ArrowRight className="size-4" />
+                                            </a>
                                         </div>
 
                                         <div className="relative mt-5 grid grid-cols-3 gap-2 border-t border-white/10 pt-5">
-                                            {solutionModes.map(
+                                            {businessLines.map(
                                                 (mode, index) => (
                                                     <button
                                                         key={mode.label}
@@ -511,10 +504,10 @@ export default function Welcome({ siteUrl }: { siteUrl: string }) {
                         <div className="border-t border-white/10 bg-black/15">
                             <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-x-8 gap-y-3 px-5 py-4 text-xs font-medium tracking-[0.13em] text-zinc-400 uppercase sm:px-8 lg:justify-between lg:px-10">
                                 {[
-                                    'Fotovoltaica',
-                                    'Recarga',
-                                    'Electricidad',
-                                    'Mantenimiento',
+                                    'Energía solar',
+                                    'Instalaciones eléctricas',
+                                    'Alarmas y seguridad',
+                                    'Mantenimiento integral',
                                 ].map((item) => (
                                     <span
                                         key={item}
@@ -536,52 +529,112 @@ export default function Welcome({ siteUrl }: { siteUrl: string }) {
                             <div className="grid gap-8 lg:grid-cols-[.8fr_1.2fr] lg:items-end">
                                 <div>
                                     <p className="text-sm font-bold tracking-[0.18em] text-[#217a3b] uppercase">
-                                        Lo que hacemos
+                                        Tres líneas, un solo equipo
                                     </p>
                                     <h2 className="mt-4 text-4xl leading-tight font-semibold tracking-[-0.04em] sm:text-5xl">
-                                        Una solución completa, no piezas
-                                        sueltas.
+                                        La especialidad que necesitas. La
+                                        coordinación que esperas.
                                     </h2>
                                 </div>
                                 <p className="max-w-2xl text-lg leading-8 text-zinc-600 lg:justify-self-end">
-                                    Unimos estudio, instalación y seguimiento
-                                    para que cada decisión técnica tenga sentido
-                                    dentro del conjunto.
+                                    Cada línea tiene su propio alcance técnico,
+                                    pero todas comparten el mismo método:
+                                    estudio real, ejecución documentada y
+                                    continuidad después de la puesta en marcha.
                                 </p>
                             </div>
 
-                            <div className="mt-14 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                                {services.map((service, index) => (
+                            <div className="mt-14 grid gap-5 lg:grid-cols-3">
+                                {businessLines.map((line) => (
                                     <article
-                                        key={service.title}
-                                        className="group relative flex min-h-72 flex-col overflow-hidden rounded-[1.75rem] border border-zinc-200 bg-white p-7 shadow-[0_12px_40px_rgba(24,24,27,.04)] transition duration-500 hover:-translate-y-2 hover:border-[#289548]/40 hover:shadow-[0_24px_60px_rgba(40,149,72,.12)]"
+                                        key={line.label}
+                                        className="group relative flex min-h-[31rem] flex-col overflow-hidden rounded-[2rem] border border-zinc-200 bg-white p-7 shadow-[0_12px_40px_rgba(24,24,27,.04)] transition duration-500 hover:-translate-y-2 hover:border-[#289548]/40 hover:shadow-[0_24px_60px_rgba(40,149,72,.12)] sm:p-8"
                                     >
-                                        <div className="absolute -right-16 -bottom-20 size-44 rounded-full bg-[#87b550]/0 blur-2xl transition duration-500 group-hover:bg-[#87b550]/15" />
+                                        <div className="absolute -top-16 -right-20 size-52 rounded-full border-[38px] border-[#87b550]/0 transition duration-500 group-hover:border-[#87b550]/10" />
                                         <div className="flex items-start justify-between">
-                                            <span className="grid size-12 place-items-center rounded-2xl bg-[#eaf5ec] text-[#217a3b] transition duration-500 group-hover:scale-110 group-hover:rotate-3">
-                                                <service.icon className="size-6" />
+                                            <span className="grid size-14 place-items-center rounded-2xl bg-[#eaf5ec] text-[#217a3b] transition duration-500 group-hover:scale-110 group-hover:rotate-3">
+                                                <line.icon className="size-7" />
                                             </span>
-                                            <span className="text-sm text-zinc-400">
-                                                0{index + 1}
+                                            <span className="text-sm font-medium text-zinc-400">
+                                                {line.number}
                                             </span>
                                         </div>
-                                        <div className="mt-auto pt-10">
-                                            <h3 className="text-xl font-semibold tracking-tight">
-                                                {service.title}
-                                            </h3>
-                                            <p className="mt-3 leading-7 text-zinc-600">
-                                                {service.description}
+                                        <div className="pt-12">
+                                            <p className="text-xs font-bold tracking-[0.16em] text-[#217a3b] uppercase">
+                                                {line.detail}
                                             </p>
+                                            <h3 className="mt-4 text-3xl font-semibold tracking-[-0.035em]">
+                                                {line.cardTitle}
+                                            </h3>
+                                            <p className="mt-4 leading-7 text-zinc-600">
+                                                {line.description}
+                                            </p>
+                                            <ul className="mt-7 grid gap-3 border-t border-zinc-100 pt-6 text-sm font-medium text-zinc-700">
+                                                {line.services.map(
+                                                    (service) => (
+                                                        <li
+                                                            key={service}
+                                                            className="flex items-center gap-3"
+                                                        >
+                                                            <Check className="size-4 text-[#217a3b]" />
+                                                            {service}
+                                                        </li>
+                                                    ),
+                                                )}
+                                            </ul>
+                                        </div>
+                                        <div className="mt-auto pt-8">
                                             <a
                                                 href="#contacto"
+                                                onClick={() =>
+                                                    setSelectedService(
+                                                        line.formValue,
+                                                    )
+                                                }
                                                 className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-[#217a3b] opacity-80 transition group-hover:opacity-100"
                                             >
-                                                Consultar proyecto
+                                                Cuéntanos tu proyecto
                                                 <ArrowUpRight className="size-4 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
                                             </a>
                                         </div>
                                     </article>
                                 ))}
+                            </div>
+
+                            <div className="mt-5 grid gap-8 overflow-hidden rounded-[2rem] bg-zinc-950 p-7 text-white sm:p-9 lg:grid-cols-[.8fr_1.2fr] lg:items-center">
+                                <div>
+                                    <span className="grid size-12 place-items-center rounded-2xl bg-[#87b550]/15 text-[#b8df8c]">
+                                        <Activity className="size-6" />
+                                    </span>
+                                    <p className="mt-8 text-xs font-bold tracking-[0.16em] text-[#87b550] uppercase">
+                                        Capacidad transversal
+                                    </p>
+                                    <h3 className="mt-3 text-3xl font-semibold tracking-[-0.035em]">
+                                        Mantenimiento y continuidad
+                                    </h3>
+                                </div>
+                                <div>
+                                    <p className="max-w-2xl text-lg leading-8 text-zinc-300">
+                                        El proyecto no termina al ponerlo en
+                                        marcha. Mantenemos cerca el seguimiento,
+                                        la documentación y la atención técnica
+                                        para cualquiera de las tres líneas.
+                                    </p>
+                                    <div className="mt-6 flex flex-wrap gap-3 text-sm text-zinc-300">
+                                        {[
+                                            'Monitorización',
+                                            'Mantenimiento preventivo',
+                                            'Atención posventa',
+                                        ].map((item) => (
+                                            <span
+                                                key={item}
+                                                className="rounded-full border border-white/15 px-4 py-2"
+                                            >
+                                                {item}
+                                            </span>
+                                        ))}
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </section>
@@ -591,28 +644,29 @@ export default function Welcome({ siteUrl }: { siteUrl: string }) {
                             <div className="relative min-h-[28rem] overflow-hidden rounded-[2rem] bg-[#16301e] p-8 text-white sm:p-10">
                                 <div className="absolute -right-24 -bottom-24 size-80 rounded-full border-[52px] border-[#87b550]/20" />
                                 <div className="absolute top-10 right-10 size-28 rounded-full bg-[#289548]/30 blur-2xl" />
-                                <Leaf className="size-10 text-[#87b550]" />
+                                <Activity className="size-10 text-[#87b550]" />
                                 <div className="absolute right-8 bottom-8 left-8 sm:right-10 sm:bottom-10 sm:left-10">
                                     <p className="max-w-lg text-3xl leading-tight font-medium tracking-[-0.03em] sm:text-4xl">
-                                        La mejor instalación es la que encaja en
-                                        tu consumo y sigue funcionando bien
-                                        mañana.
+                                        Una instalación bien resuelta se
+                                        entiende, se documenta y sigue
+                                        respondiendo mañana.
                                     </p>
                                 </div>
                             </div>
 
                             <div className="lg:pl-10">
                                 <p className="text-sm font-bold tracking-[0.18em] text-[#217a3b] uppercase">
-                                    Nuestro criterio
+                                    Una forma de trabajar
                                 </p>
                                 <h2 className="mt-4 text-4xl leading-tight font-semibold tracking-[-0.04em] sm:text-5xl">
-                                    Técnica clara. Trabajo cercano.
+                                    Especialistas en cada línea. Responsables
+                                    del conjunto.
                                 </h2>
                                 <p className="mt-6 text-lg leading-8 text-zinc-700">
-                                    No se trata solo de colocar equipos. Se
-                                    trata de entender el lugar, dimensionar con
-                                    coherencia y dejar una instalación segura,
-                                    documentada y fácil de controlar.
+                                    Energía, electricidad y seguridad exigen
+                                    conocimientos distintos. Las abordamos con
+                                    un mismo estándar de análisis, coordinación,
+                                    documentación y atención posventa.
                                 </p>
                                 <div className="mt-9 grid gap-5 sm:grid-cols-2">
                                     {[
@@ -700,8 +754,8 @@ export default function Welcome({ siteUrl }: { siteUrl: string }) {
                                         ¿Tienes un proyecto en mente?
                                     </h2>
                                     <p className="mt-5 max-w-xl text-lg leading-8 text-white/80">
-                                        Cuéntanos qué necesitas y empezaremos
-                                        por entender bien tu caso.
+                                        Elige tu línea, cuéntanos qué necesitas
+                                        y empezaremos por entender bien tu caso.
                                     </p>
                                     <a
                                         href="mailto:contact@arevantes.com"
@@ -779,7 +833,13 @@ export default function Welcome({ siteUrl }: { siteUrl: string }) {
                                                     <select
                                                         id="service"
                                                         name="service"
-                                                        defaultValue=""
+                                                        value={selectedService}
+                                                        onChange={(event) =>
+                                                            setSelectedService(
+                                                                event.target
+                                                                    .value,
+                                                            )
+                                                        }
                                                         aria-invalid={
                                                             errors.service
                                                                 ? true
