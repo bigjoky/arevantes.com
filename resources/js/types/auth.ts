@@ -30,6 +30,7 @@ export type AuthAbilities = {
     manageInstallations: boolean;
     useAi: boolean;
     manageOperations: boolean;
+    publishCustomerDocuments: boolean;
     manageCatalog: boolean;
     viewFinance: boolean;
     manageTreasury: boolean;

@@ -283,15 +283,31 @@ La superficie de trabajo comercial queda simplificada y gobernada:
 - scoring e histórico se consultan solo en el expediente, evitando repetirlos
   dentro del formulario de edición y reduciendo el payload del tablero.
 
+El cuarto vertical completa la entrega documental al cliente:
+
+- solar, climatización, recarga eléctrica, electricidad y seguridad disponen de
+  plantillas de instalación y puesta en marcha con un paquete de entrega
+  explícito;
+- los PDF nacen como internos o pendientes de validación y solo administración
+  puede publicarlos o retirarlos del portal;
+- cada entregable conserva versión, revisor, publicador, fechas y documento al
+  que sustituye, sin permitir borrar una versión que ya formó parte del
+  histórico;
+- publicar una revisión sustituye automáticamente la versión anterior y evita
+  que el cliente descargue documentación obsoleta;
+- el portal agrupa la versión vigente por instalación y línea de negocio, junto
+  con el estado y el hito de finalización confirmados;
+- la migración conserva los documentos históricos y traduce la visibilidad
+  anterior al nuevo flujo sin convertir archivos internos en públicos.
+
 ## Próximo corte recomendado
 
-Completar el cuarto vertical del Horizonte 1: **entrega documental y portal de
-cliente por línea de negocio**. La finalización técnica debe ensamblar los
-certificados, actas, manuales y evidencias definidos por la plantilla; el portal
-mostrará únicamente los entregables autorizados, su versión vigente y los hitos
-confirmados, con la misma cobertura para solar, climatización, eficiencia,
-seguridad y electricidad.
+Completar el quinto vertical del Horizonte 1: **margen, indicadores y evaluación
+de Arevia por línea de negocio**. El expediente del proyecto debe reconciliar
+oferta, compras comprometidas, material consumido, horas, desplazamiento,
+facturación y cobro para distinguir margen previsto, comprometido y real.
 
-Este corte reutilizará las evidencias y documentos de entrega ya versionados y
-mantendrá separadas la documentación interna, la pendiente de validar y la
-publicable para el cliente.
+Los cuadros compararán las cinco líneas con las mismas definiciones y permitirán
+llegar al dato origen. Arevia utilizará esa información únicamente para explicar
+desviaciones y preparar acciones revisables; no publicará mensajes, modificará
+previsiones ni asumirá requisitos técnicos sin una aprobación explícita.

@@ -50,7 +50,7 @@ class WorkOrderController extends Controller
             $order->setAttribute('time_variance_minutes', $order->duration_minutes !== null && $order->estimated_duration_minutes !== null ? (int) $order->duration_minutes - $order->estimated_duration_minutes : null);
         });
         $selectedId = (int) $request->integer('work_order');
-        $selected = $selectedId ? WorkOrder::with(['installation', 'assignedUser:id,name', 'timeEntries.user:id,name', 'checklistItems', 'attachments', 'stockReservations.product:id,sku,name,track_serials', 'stockReservations.warehouse:id,code,name', 'purchaseDocuments.supplier:id,legal_name,trade_name'])->find($selectedId) : null;
+        $selected = $selectedId ? WorkOrder::with(['installation', 'assignedUser:id,name', 'timeEntries.user:id,name', 'checklistItems', 'attachments.reviewer:id,name', 'attachments.publisher:id,name', 'stockReservations.product:id,sku,name,track_serials', 'stockReservations.warehouse:id,code,name', 'purchaseDocuments.supplier:id,legal_name,trade_name'])->find($selectedId) : null;
         if ($selected) {
             $this->ensureAccess($request, $selected);
             $selected->setAttribute('planning_issues', $planningIssues[$selected->id] ?? []);
@@ -67,6 +67,7 @@ class WorkOrderController extends Controller
             'templates' => WorkOrderTemplate::where('is_active', true)->orderBy('name')->get(),
             'runningEntry' => TimeEntry::with('workOrder:id,number,title')->where('user_id', $request->user()->id)->whereNull('ended_at')->first(),
             'canManage' => $request->user()->can('manage-installations'), 'currentUserId' => $request->user()->id,
+            'canPublishCustomerDocuments' => $request->user()->can('publish-customer-documents'),
             'defaults' => ['hourlyCost' => config('work.default_hourly_cost'), 'mileageRate' => config('work.mileage_rate')],
             'warehouses' => Warehouse::where('is_active', true)->orderByDesc('is_default')->orderBy('name')->get(['id', 'code', 'name']),
             'products' => Product::where('track_stock', true)->where('is_active', true)->orderBy('name')->get(['id', 'sku', 'name', 'track_serials']),
@@ -228,17 +229,81 @@ class WorkOrderController extends Controller
     public function storeAttachments(Request $request, WorkOrder $workOrder, WorkOrderEvidenceRequirements $evidence): RedirectResponse
     {
         $this->ensureAccess($request, $workOrder);
-        $data = $request->validate(['files' => ['required', 'array', 'min:1', 'max:12'], 'files.*' => ['file', new SafeUpload(['jpg', 'jpeg', 'png', 'webp', 'pdf'], 12288)], 'caption' => ['nullable', 'string', 'max:500'], 'evidence_key' => ['nullable', 'string', Rule::in($evidence->allowedKeys($workOrder))], 'customer_visible' => ['nullable', 'boolean']]);
+        $data = $request->validate(['files' => ['required', 'array', 'min:1', 'max:12'], 'files.*' => ['file', new SafeUpload(['jpg', 'jpeg', 'png', 'webp', 'pdf'], 12288)], 'caption' => ['nullable', 'string', 'max:500'], 'evidence_key' => ['nullable', 'string', Rule::in($evidence->allowedKeys($workOrder))], 'submit_for_review' => ['nullable', 'boolean']]);
         foreach ($data['files'] as $file) {
             $path = $file->store("work-orders/{$workOrder->id}", config('filesystems.private'));
             $kind = str_starts_with($file->getMimeType() ?: '', 'image/') ? 'photo' : 'document';
-            $attachment = $workOrder->attachments()->create(['uploaded_by' => $request->user()->id, 'kind' => $kind, 'original_name' => $file->getClientOriginalName(), 'path' => $path, 'mime_type' => $file->getMimeType() ?: 'application/octet-stream', 'size' => $file->getSize(), 'caption' => $data['caption'] ?? null, 'evidence_key' => $data['evidence_key'] ?? null]);
-            if ($kind === 'document' && ($data['customer_visible'] ?? false)) {
-                $attachment->forceFill(['customer_visible' => true, 'published_at' => now()])->save();
-            }
+            DB::transaction(function () use ($workOrder, $request, $data, $file, $path, $kind): void {
+                $key = $data['evidence_key'] ?? null;
+                $version = $kind === 'document' && $key
+                    ? ((int) WorkOrderAttachment::query()->where('kind', 'document')->where('evidence_key', $key)->whereHas('workOrder', fn ($query) => $query->where('installation_id', $workOrder->installation_id))->lockForUpdate()->max('document_version')) + 1
+                    : 1;
+                $workOrder->attachments()->create([
+                    'uploaded_by' => $request->user()->id,
+                    'kind' => $kind,
+                    'original_name' => $file->getClientOriginalName(),
+                    'path' => $path,
+                    'mime_type' => $file->getMimeType() ?: 'application/octet-stream',
+                    'size' => $file->getSize(),
+                    'caption' => $data['caption'] ?? null,
+                    'evidence_key' => $key,
+                    'document_version' => $version,
+                    'publication_status' => $kind === 'document' && ($data['submit_for_review'] ?? false) ? 'pending_review' : 'internal',
+                    'customer_visible' => false,
+                ]);
+            });
         }
 
-        return back()->with('toast', ['type' => 'success', 'message' => __('Evidence uploaded.')]);
+        return back()->with('toast', ['type' => 'success', 'message' => ($data['submit_for_review'] ?? false) ? __('Document uploaded and sent for validation.') : __('Evidence uploaded.')]);
+    }
+
+    public function updateAttachmentPublication(Request $request, WorkOrder $workOrder, WorkOrderAttachment $attachment): RedirectResponse
+    {
+        $this->ensureAccess($request, $workOrder);
+        abort_unless($attachment->work_order_id === $workOrder->id && $attachment->kind === 'document', 404);
+        abort_if($request->user()->cannot('publish-customer-documents'), 403);
+        $action = $request->validate(['action' => ['required', Rule::in(['publish', 'retract'])]])['action'];
+
+        DB::transaction(function () use ($attachment, $request, $action): void {
+            $attachment = WorkOrderAttachment::query()->lockForUpdate()->findOrFail($attachment->id);
+            if ($action === 'publish') {
+                abort_unless(in_array($attachment->publication_status, ['internal', 'pending_review'], true), 422, __('This document cannot be published from its current status.'));
+                $published = $attachment->evidence_key
+                    ? WorkOrderAttachment::query()
+                        ->where('kind', 'document')
+                        ->where('evidence_key', $attachment->evidence_key)
+                        ->whereHas('workOrder', fn ($query) => $query->where('installation_id', $attachment->workOrder->installation_id))
+                        ->where('publication_status', 'published')
+                        ->where('id', '!=', $attachment->id)
+                        ->lockForUpdate()
+                        ->get()
+                    : collect();
+                foreach ($published as $previous) {
+                    $previous->update(['publication_status' => 'replaced', 'customer_visible' => false]);
+                }
+                $attachment->update([
+                    'publication_status' => 'published',
+                    'customer_visible' => true,
+                    'reviewed_by' => $request->user()->id,
+                    'reviewed_at' => now(),
+                    'published_by' => $request->user()->id,
+                    'published_at' => now(),
+                    'supersedes_attachment_id' => $published->sortByDesc('document_version')->first()?->id,
+                ]);
+
+                return;
+            }
+
+            abort_unless($attachment->publication_status === 'published', 422, __('Only a published document can be withdrawn.'));
+            $attachment->update([
+                'publication_status' => 'pending_review',
+                'customer_visible' => false,
+                'published_by' => null,
+                'published_at' => null,
+            ]);
+        });
+
+        return back()->with('toast', ['type' => 'success', 'message' => $action === 'publish' ? __('Document published in the customer portal.') : __('Document withdrawn from the customer portal.')]);
     }
 
     public function downloadAttachment(Request $request, WorkOrder $workOrder, WorkOrderAttachment $attachment): StreamedResponse
@@ -253,6 +318,7 @@ class WorkOrderController extends Controller
     {
         $this->ensureAccess($request, $workOrder);
         abort_unless($attachment->work_order_id === $workOrder->id, 404);
+        abort_if(in_array($attachment->publication_status, ['published', 'replaced'], true), 422, __('Published document versions cannot be deleted.'));
         Storage::disk(config('filesystems.private'))->delete($attachment->path);
         $attachment->delete();
 

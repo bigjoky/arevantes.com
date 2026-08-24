@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\FieldServiceProfile;
 use App\Models\Installation;
 use App\Models\TimeEntry;
 use App\Models\User;
@@ -19,16 +20,31 @@ class WorkOrderTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_every_business_line_has_an_operational_handover_template(): void
+    {
+        foreach (['solar', 'hvac', 'ev_charger', 'electrical', 'security'] as $serviceType) {
+            $templates = WorkOrderTemplate::query()
+                ->where('service_type', $serviceType)
+                ->where('is_system', true)
+                ->whereIn('kind', ['installation', 'commissioning'])
+                ->get();
+
+            $this->assertCount(2, $templates, "{$serviceType} must have installation and commissioning templates.");
+            $this->assertTrue($templates->every(fn (WorkOrderTemplate $template) => count($template->handover_documents ?? []) >= 4), "{$serviceType} templates must define a complete handover package.");
+        }
+    }
+
     public function test_a_technician_can_track_only_their_assigned_work_order(): void
     {
         $commercial = User::factory()->create(['role' => 'commercial']);
         $technician = User::factory()->create(['role' => 'technician']);
+        FieldServiceProfile::create(['user_id' => $technician->id, 'skills' => ['solar', 'electrical']]);
         $other = User::factory()->create(['role' => 'technician']);
         $installation = Installation::create(['service_type' => 'solar', 'status' => 'scheduled', 'site_address_line_1' => 'Calle Sol 1']);
         $this->actingAs($commercial)->post(route('work-orders.store'), ['installation_id' => $installation->id, 'assigned_user_id' => $technician->id, 'title' => 'Install inverter'])->assertRedirect();
         $order = WorkOrder::firstOrFail();
         $this->assertSame('WO-2026-00001', $order->number);
-        $this->assertGreaterThanOrEqual(8, $order->checklistItems()->count());
+        $this->assertGreaterThanOrEqual(5, $order->checklistItems()->count());
 
         $this->actingAs($other)->post(route('work-orders.timer.start', $order))->assertForbidden();
         $this->actingAs($technician)->post(route('work-orders.timer.start', $order))->assertRedirect();
@@ -49,6 +65,7 @@ class WorkOrderTest extends TestCase
         Storage::fake('local');
         $commercial = User::factory()->create(['role' => 'commercial']);
         $technician = User::factory()->create(['role' => 'technician']);
+        FieldServiceProfile::create(['user_id' => $technician->id, 'skills' => ['solar', 'electrical']]);
         $installation = Installation::create(['service_type' => 'solar', 'status' => 'scheduled', 'site_address_line_1' => 'Calle Solar 3']);
         $this->actingAs($commercial)->post(route('work-orders.store'), ['installation_id' => $installation->id, 'assigned_user_id' => $technician->id, 'title' => 'Solar commissioning'])->assertRedirect();
         $order = WorkOrder::firstOrFail();
@@ -58,6 +75,8 @@ class WorkOrderTest extends TestCase
         $attachment = $order->attachments()->firstOrFail();
         Storage::disk('local')->assertExists($attachment->path);
         $this->get(route('work-orders.attachments.download', [$order, $attachment]))->assertOk();
+        $this->post(route('work-orders.attachments.store', $order), ['files' => [UploadedFile::fake()->image('before.jpg')], 'evidence_key' => 'before_work'])->assertRedirect();
+        $this->post(route('work-orders.attachments.store', $order), ['files' => [UploadedFile::fake()->image('final.jpg')], 'evidence_key' => 'final_installation'])->assertRedirect();
 
         foreach ($order->checklistItems as $item) {
             $this->patch(route('work-orders.checklist.update', [$order, $item]), ['completed' => true])->assertRedirect();
@@ -118,6 +137,7 @@ class WorkOrderTest extends TestCase
     {
         $commercial = User::factory()->create(['role' => 'commercial']);
         $technician = User::factory()->create(['role' => 'technician']);
+        FieldServiceProfile::create(['user_id' => $technician->id, 'skills' => ['solar', 'electrical']]);
         $installation = Installation::create(['service_type' => 'ev_charger', 'status' => 'in_progress', 'site_address_line_1' => 'Calle Carga 2']);
         $order = WorkOrder::create(['installation_id' => $installation->id, 'assigned_user_id' => $technician->id, 'created_by' => $commercial->id, 'number' => 'WO-2026-00002', 'title' => 'Commission charger']);
 
@@ -171,6 +191,7 @@ class WorkOrderTest extends TestCase
     {
         $commercial = User::factory()->create(['role' => 'commercial']);
         $technician = User::factory()->create(['role' => 'technician']);
+        FieldServiceProfile::create(['user_id' => $technician->id, 'skills' => ['solar', 'electrical']]);
         $installation = Installation::create(['service_type' => 'solar', 'status' => 'approved', 'site_address_line_1' => 'Calle Solar 4']);
         $otherInstallation = Installation::create(['service_type' => 'solar', 'status' => 'approved', 'site_address_line_1' => 'Calle Solar 5']);
         $start = now()->addDays(2)->setTime(9, 0);
@@ -228,7 +249,9 @@ class WorkOrderTest extends TestCase
         $order = WorkOrder::firstOrFail();
         $order->checklistItems()->update(['completed_at' => now(), 'completed_by' => $commercial->id]);
         $order->update(['signed_by_name' => 'Ana Customer', 'signed_at' => now()]);
-        $order->attachments()->create(['uploaded_by' => $commercial->id, 'kind' => 'photo', 'original_name' => 'survey.jpg', 'path' => 'work-orders/survey.jpg', 'mime_type' => 'image/jpeg', 'size' => 100]);
+        foreach (['site_overview', 'existing_services'] as $evidenceKey) {
+            $order->attachments()->create(['uploaded_by' => $commercial->id, 'kind' => 'photo', 'evidence_key' => $evidenceKey, 'original_name' => $evidenceKey.'.jpg', 'path' => 'work-orders/'.$evidenceKey.'.jpg', 'mime_type' => 'image/jpeg', 'size' => 100]);
+        }
 
         $this->patch(route('work-orders.update', $order), ['status' => 'completed', 'completion_notes' => 'Survey completed and documented.'])->assertRedirect();
 

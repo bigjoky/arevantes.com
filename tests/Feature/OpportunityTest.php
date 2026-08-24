@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Jobs\GeocodeInstallation;
 use App\Models\CrmActivity;
 use App\Models\CrmSetting;
+use App\Models\FieldServiceProfile;
 use App\Models\Installation;
 use App\Models\Opportunity;
 use App\Models\OpportunityStageHistory;
@@ -817,6 +818,7 @@ class OpportunityTest extends TestCase
         Queue::fake();
         $user = User::factory()->create(['role' => 'commercial']);
         $technician = User::factory()->create(['role' => 'technician']);
+        FieldServiceProfile::create(['user_id' => $technician->id, 'skills' => ['solar', 'electrical']]);
         $product = $this->stockProduct('INV-5K', '5 kW inverter', 950);
         $customer = Person::create([
             'category' => 'customer',

@@ -9,6 +9,7 @@ use App\Models\CustomerPortalEvent;
 use App\Models\CustomerPortalPreference;
 use App\Models\CustomerSatisfactionSurvey;
 use App\Models\Installation;
+use App\Models\PermissionProfile;
 use App\Models\Person;
 use App\Models\Quote;
 use App\Models\ServiceTicket;
@@ -16,6 +17,7 @@ use App\Models\User;
 use App\Models\WorkOrder;
 use App\Services\Documents\DocumentFingerprint;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
@@ -112,7 +114,7 @@ class CustomerPortalTest extends TestCase
         $order = WorkOrder::create(['installation_id' => $installation->id, 'number' => 'OT-2026-00001', 'kind' => 'maintenance', 'status' => 'completed', 'title' => 'Maintenance']);
         $internal = $order->attachments()->create(['kind' => 'document', 'original_name' => 'internal.pdf', 'path' => 'work-orders/internal.pdf', 'mime_type' => 'application/pdf', 'size' => 10]);
         $published = $order->attachments()->create(['kind' => 'document', 'original_name' => 'certificate.pdf', 'path' => 'work-orders/certificate.pdf', 'mime_type' => 'application/pdf', 'size' => 10]);
-        $published->forceFill(['customer_visible' => true, 'published_at' => now()])->save();
+        $published->forceFill(['publication_status' => 'published', 'customer_visible' => true, 'published_at' => now()])->save();
         Storage::disk(config('filesystems.private'))->put($internal->path, 'internal');
         Storage::disk(config('filesystems.private'))->put($published->path, 'certificate');
         $token = 'certificate-token';
@@ -120,5 +122,65 @@ class CustomerPortalTest extends TestCase
         $this->get(route('customer-portal.show', $token))->assertOk()->assertInertia(fn ($page) => $page->has('certificates', 1)->where('certificates.0.name', 'certificate.pdf'));
         $this->get(route('customer-portal.certificates.download', [$token, $internal]))->assertNotFound();
         $this->get(route('customer-portal.certificates.download', [$token, $published]))->assertOk();
+    }
+
+    public function test_handover_documents_are_reviewed_versioned_and_only_the_current_version_reaches_the_portal(): void
+    {
+        Storage::fake(config('filesystems.private'));
+        $commercial = User::factory()->create(['role' => 'commercial', 'permission_profile_id' => PermissionProfile::where('slug', 'commercial')->firstOrFail()->id]);
+        $admin = User::factory()->create(['role' => 'admin', 'permission_profile_id' => PermissionProfile::where('slug', 'administrator')->firstOrFail()->id]);
+        $customer = Person::create(['category' => 'customer', 'first_name' => 'Elena', 'email' => 'elena@example.com']);
+        $installation = Installation::create(['person_id' => $customer->id, 'service_type' => 'security', 'status' => 'completed', 'project_reference' => 'SEG-ELENA', 'site_address_line_1' => 'Calle Segura 4']);
+        $order = WorkOrder::create([
+            'installation_id' => $installation->id,
+            'number' => 'OT-2026-00002',
+            'kind' => 'commissioning',
+            'status' => 'completed',
+            'title' => 'Security commissioning',
+            'handover_documents' => [['key' => 'monitoring_certificate', 'label' => 'Certificado de conexión y monitorización']],
+        ]);
+        $token = 'handover-token';
+        CustomerPortalAccess::create(['person_id' => $customer->id, 'recipient_email' => 'elena@example.com', 'token_hash' => hash('sha256', $token), 'expires_at' => now()->addWeek()]);
+
+        $this->actingAs($commercial)->post(route('work-orders.attachments.store', $order), [
+            'files' => [UploadedFile::fake()->create('certificate-v1.pdf', 20, 'application/pdf')],
+            'evidence_key' => 'monitoring_certificate',
+            'submit_for_review' => true,
+        ])->assertRedirect();
+        $first = $order->attachments()->firstOrFail();
+        $this->assertSame('pending_review', $first->publication_status);
+        $this->assertSame(1, $first->document_version);
+        $this->actingAs($commercial)->patch(route('work-orders.attachments.publication', [$order, $first]), ['action' => 'publish'])->assertForbidden();
+        $this->actingAs($admin)->patch(route('work-orders.attachments.publication', [$order, $first]), ['action' => 'publish'])->assertRedirect();
+
+        $revisionOrder = WorkOrder::create([
+            'installation_id' => $installation->id,
+            'number' => 'OT-2026-00003',
+            'kind' => 'maintenance',
+            'status' => 'completed',
+            'title' => 'Security documentation revision',
+            'handover_documents' => $order->handover_documents,
+        ]);
+        $this->actingAs($commercial)->post(route('work-orders.attachments.store', $revisionOrder), [
+            'files' => [UploadedFile::fake()->create('certificate-v2.pdf', 20, 'application/pdf')],
+            'evidence_key' => 'monitoring_certificate',
+            'submit_for_review' => true,
+        ])->assertRedirect();
+        $second = $revisionOrder->attachments()->firstOrFail();
+        $this->assertSame(2, $second->document_version);
+        $this->actingAs($admin)->patch(route('work-orders.attachments.publication', [$revisionOrder, $second]), ['action' => 'publish'])->assertRedirect();
+
+        $this->assertSame('replaced', $first->refresh()->publication_status);
+        $this->assertFalse($first->customer_visible);
+        $this->assertSame('published', $second->refresh()->publication_status);
+        $this->assertSame($first->id, $second->supersedes_attachment_id);
+        $this->get(route('customer-portal.show', $token))->assertOk()->assertInertia(fn ($page) => $page
+            ->has('certificates', 1)
+            ->where('certificates.0.name', 'certificate-v2.pdf')
+            ->where('certificates.0.version', 2)
+            ->where('certificates.0.installation.service_type', 'security'));
+        $this->get(route('customer-portal.certificates.download', [$token, $first]))->assertNotFound();
+        $this->get(route('customer-portal.certificates.download', [$token, $second]))->assertOk();
+        $this->actingAs($admin)->delete(route('work-orders.attachments.destroy', [$order, $first]))->assertUnprocessable();
     }
 }
