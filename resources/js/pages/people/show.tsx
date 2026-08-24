@@ -9,14 +9,12 @@ import {
     PhoneCall,
     PlugZap,
     Snowflake,
+    ShieldCheck,
     Sun,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useState } from 'react';
-import {
-    serviceLabels,
-    statusLabels,
-} from '@/components/installations/installation-form';
+import { statusLabels } from '@/components/installations/installation-form';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -43,6 +41,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import { serviceLabels } from '@/lib/business-lines';
 
 type Installation = {
     id: number;
@@ -1261,6 +1260,7 @@ function ServiceIcon({ service }: { service: keyof typeof serviceLabels }) {
         ev_charger: BatteryCharging,
         hvac: Snowflake,
         electrical: PlugZap,
+        security: ShieldCheck,
     };
     const Icon = icons[service];
 

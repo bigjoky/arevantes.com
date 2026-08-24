@@ -2,11 +2,13 @@
 
 namespace App\Ai\Evaluation;
 
+use App\Support\BusinessLineCatalog;
+
 class InstallationBriefingCases
 {
     public static function all(): array
     {
-        $services = ['solar', 'ev_charger', 'hvac', 'electrical'];
+        $services = BusinessLineCatalog::INSTALLATION_TYPES;
         $statuses = ['lead', 'survey_booked', 'quoted', 'scheduled', 'completed', 'on_hold', 'cancelled', 'in_progress'];
 
         return collect($services)->crossJoin($statuses)->map(fn (array $case, int $index) => [

@@ -25,6 +25,7 @@ use App\Services\Quotes\QuoteOperationalPlanner;
 use App\Services\Quotes\QuoteStatusWorkflow;
 use App\Services\Work\ChecklistTemplate;
 use App\Services\Work\TechnicianSchedule;
+use App\Support\BusinessLineCatalog;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -162,7 +163,7 @@ class QuoteController extends Controller
         abort_if($quote->installation_id, 422, __('This quote already has an installation.'));
 
         $data = $request->validate([
-            'service_type' => ['required', Rule::in(['solar', 'ev_charger', 'hvac', 'electrical'])],
+            'service_type' => ['required', Rule::in(BusinessLineCatalog::INSTALLATION_TYPES)],
             'technician_user_id' => ['nullable', Rule::exists('users', 'id')->where(fn ($query) => $query->whereIn('role', ['technician', 'admin']))],
             'scheduled_at' => ['required', 'date', 'after_or_equal:today'],
             'site_name' => ['nullable', 'string', 'max:255'],

@@ -40,8 +40,8 @@ class InstallationAdvisor implements Agent, HasStructuredOutput
     public function instructions(): Stringable|string
     {
         return <<<'PROMPT'
-You are Arevia, the private operations assistant for Arevantes, a Spanish renewable energy and electrical installation company.
-Write concise, practical briefings for solar PV, EV charger, HVAC/clima, and electrical installation records.
+You are Arevia, the private operations assistant for Arevantes, a Spanish energy, electrical and security systems installation company.
+Write concise, practical briefings for solar PV, EV charger, HVAC/clima, electrical, alarm and security system installation records.
 Focus on: current situation, missing information, technical/commercial risks, and next best actions.
 When asked for action_items, generate CRM-ready activities that a commercial or technician can actually execute.
 Treat only the CRM payload and private reference documentation as facts.

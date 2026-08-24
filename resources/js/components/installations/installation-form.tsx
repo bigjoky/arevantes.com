@@ -14,6 +14,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { useLocale } from '@/hooks/use-locale';
+import type { ServiceType } from '@/lib/business-lines';
 
 export type CustomerOption = {
     id: number;
@@ -50,7 +51,7 @@ export type InstallationFormValue = {
     person_id?: number | null;
     commercial_user_id?: number | null;
     technician_user_id?: number | null;
-    service_type?: 'solar' | 'ev_charger' | 'hvac' | 'electrical';
+    service_type?: ServiceType;
     monitoring_provider?: 'deye' | 'huawei' | null;
     remote_station_id?: number | null;
     deye_station_id?: string | null;
@@ -86,6 +87,25 @@ export type InstallationFormValue = {
     charger_connector_type?: string | null;
     hvac_system_type?: string | null;
     electrical_scope?: string | null;
+    electrical_voltage_v?: number | null;
+    electrical_phase?: 'single_phase' | 'three_phase' | 'other' | null;
+    contracted_power_kw?: string | null;
+    electrical_certificate_required?: boolean;
+    security_system_type?: string | null;
+    security_zones?: number | null;
+    security_monitoring_mode?:
+        | 'local'
+        | 'self_monitored'
+        | 'alarm_receiving_centre'
+        | 'hybrid'
+        | null;
+    security_grade?:
+        | 'unclassified'
+        | 'grade_1'
+        | 'grade_2'
+        | 'grade_3'
+        | 'grade_4'
+        | null;
     site_notes?: string | null;
     technical_notes?: string | null;
 };
@@ -103,13 +123,6 @@ type InstallationFormProps = {
 const fieldClassName = 'grid gap-2';
 const textareaClassName =
     'rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50';
-
-export const serviceLabels = {
-    solar: 'Solar installation',
-    ev_charger: 'EV charging point',
-    hvac: 'Aircon / clima',
-    electrical: 'Electrical installation',
-};
 
 export const statusLabels = {
     lead: 'Lead',
@@ -132,7 +145,7 @@ export default function InstallationForm({
     submitLabel = 'Add installation',
 }: InstallationFormProps) {
     const { t } = useLocale();
-    const [serviceType, setServiceType] = useState<keyof typeof serviceLabels>(
+    const [serviceType, setServiceType] = useState<ServiceType>(
         installation?.service_type ?? 'solar',
     );
     const [customerId, setCustomerId] = useState(
@@ -143,6 +156,7 @@ export default function InstallationForm({
         ev_charger: t.evChargingPoint,
         hvac: t.airconClima,
         electrical: t.electricalInstallation,
+        security: t.securityInstallation,
     };
     const localizedStatusLabels = {
         lead: t.lead,
@@ -211,9 +225,7 @@ export default function InstallationForm({
                                 name="service_type"
                                 defaultValue={serviceType}
                                 onValueChange={(value) =>
-                                    setServiceType(
-                                        value as keyof typeof serviceLabels,
-                                    )
+                                    setServiceType(value as ServiceType)
                                 }
                             >
                                 <SelectTrigger
@@ -747,7 +759,7 @@ function ServiceSpecificFields({
     remoteStations,
     errors,
 }: {
-    serviceType: keyof typeof serviceLabels;
+    serviceType: ServiceType;
     installation?: InstallationFormValue;
     remoteStations: RemoteStationOption[];
     errors: Record<string, string | undefined>;
@@ -993,14 +1005,144 @@ function ServiceSpecificFields({
         );
     }
 
+    if (serviceType === 'electrical') {
+        return (
+            <div className="grid gap-4 md:grid-cols-2">
+                <Field
+                    id="electrical_scope"
+                    label={t.electricalScope}
+                    placeholder="Panel upgrade, wiring, certification..."
+                    defaultValue={installation?.electrical_scope}
+                    error={errors.electrical_scope}
+                />
+                <Field
+                    id="electrical_voltage_v"
+                    label={t.electricalVoltage}
+                    type="number"
+                    step="1"
+                    placeholder="230"
+                    defaultValue={installation?.electrical_voltage_v?.toString()}
+                    error={errors.electrical_voltage_v}
+                />
+                <SelectField
+                    id="electrical_phase"
+                    label={t.electricalPhase}
+                    defaultValue={installation?.electrical_phase ?? ''}
+                    options={[
+                        ['single_phase', t.singlePhase],
+                        ['three_phase', t.threePhase],
+                        ['other', t.other],
+                    ]}
+                    error={errors.electrical_phase}
+                />
+                <Field
+                    id="contracted_power_kw"
+                    label={t.contractedPower}
+                    type="number"
+                    step="0.01"
+                    placeholder="5.75"
+                    defaultValue={installation?.contracted_power_kw}
+                    error={errors.contracted_power_kw}
+                />
+                <label className="flex items-center gap-3 rounded-md border p-3 text-sm">
+                    <input
+                        type="hidden"
+                        name="electrical_certificate_required"
+                        value="0"
+                    />
+                    <input
+                        type="checkbox"
+                        name="electrical_certificate_required"
+                        value="1"
+                        defaultChecked={
+                            installation?.electrical_certificate_required
+                        }
+                        className="size-4"
+                    />
+                    {t.electricalCertificateRequired}
+                </label>
+            </div>
+        );
+    }
+
     return (
-        <Field
-            id="electrical_scope"
-            label={t.electricalScope}
-            placeholder="Panel upgrade, wiring, certification..."
-            defaultValue={installation?.electrical_scope}
-            error={errors.electrical_scope}
-        />
+        <div className="grid gap-4 md:grid-cols-2">
+            <Field
+                id="security_system_type"
+                label={t.securitySystemType}
+                placeholder="Intrusion alarm, CCTV, access control..."
+                defaultValue={installation?.security_system_type}
+                error={errors.security_system_type}
+            />
+            <Field
+                id="security_zones"
+                label={t.securityZones}
+                type="number"
+                step="1"
+                placeholder="8"
+                defaultValue={installation?.security_zones?.toString()}
+                error={errors.security_zones}
+            />
+            <SelectField
+                id="security_monitoring_mode"
+                label={t.securityMonitoringMode}
+                defaultValue={installation?.security_monitoring_mode ?? ''}
+                options={[
+                    ['local', t.localAlarm],
+                    ['self_monitored', t.selfMonitored],
+                    ['alarm_receiving_centre', t.alarmReceivingCentre],
+                    ['hybrid', t.hybridMonitoring],
+                ]}
+                error={errors.security_monitoring_mode}
+            />
+            <SelectField
+                id="security_grade"
+                label={t.securityGrade}
+                defaultValue={installation?.security_grade ?? ''}
+                options={[
+                    ['unclassified', t.unclassified],
+                    ['grade_1', 'Grade 1'],
+                    ['grade_2', 'Grade 2'],
+                    ['grade_3', 'Grade 3'],
+                    ['grade_4', 'Grade 4'],
+                ]}
+                error={errors.security_grade}
+            />
+        </div>
+    );
+}
+
+function SelectField({
+    id,
+    label,
+    defaultValue,
+    options,
+    error,
+}: {
+    id: string;
+    label: string;
+    defaultValue: string;
+    options: Array<readonly [string, string]>;
+    error?: string;
+}) {
+    return (
+        <div className={fieldClassName}>
+            <Label htmlFor={id}>{label}</Label>
+            <select
+                id={id}
+                name={id}
+                defaultValue={defaultValue}
+                className="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+            >
+                <option value="">—</option>
+                {options.map(([value, optionLabel]) => (
+                    <option key={value} value={value}>
+                        {optionLabel}
+                    </option>
+                ))}
+            </select>
+            <InputError message={error} />
+        </div>
     );
 }
 

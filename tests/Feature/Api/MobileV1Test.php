@@ -292,6 +292,34 @@ class MobileV1Test extends TestCase
         $this->mobileAs($technician)->getJson('/api/mobile/v1/commercial/dashboard')->assertForbidden();
     }
 
+    public function test_mobile_commercial_capture_accepts_electrical_and_security_interests(): void
+    {
+        $commercial = User::factory()->create(['role' => 'commercial']);
+
+        foreach (['electrical_installation', 'security_systems'] as $index => $interest) {
+            $phone = '61234567'.$index;
+            $this->mobileAs($commercial)
+                ->withHeader('Idempotency-Key', (string) Str::uuid())
+                ->postJson('/api/mobile/v1/commercial/leads', [
+                    'client_uuid' => (string) Str::uuid(),
+                    'first_name' => 'Nueva línea '.$index,
+                    'phone' => $phone,
+                    'preferred_contact_channel' => 'phone',
+                    'consent_status' => 'not_recorded',
+                    'service_interest' => $interest,
+                    'source' => 'outbound',
+                    'visited_at' => now()->subMinute()->toISOString(),
+                    'next_action_at' => now()->addDay()->toISOString(),
+                ])
+                ->assertCreated();
+
+            $this->assertSame(
+                [$interest],
+                Person::where('phone', $phone)->firstOrFail()->service_interests,
+            );
+        }
+    }
+
     public function test_commercial_can_plan_and_execute_its_daily_route(): void
     {
         $commercial = User::factory()->create(['role' => 'commercial']);

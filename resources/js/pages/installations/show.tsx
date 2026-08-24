@@ -4,6 +4,7 @@ import {
     LoaderCircle,
     PlugZap,
     Snowflake,
+    ShieldCheck,
     Sparkles,
     Sun,
     ThumbsUp,
@@ -14,10 +15,7 @@ import type { LucideIcon } from 'lucide-react';
 import { lazy, Suspense, useState } from 'react';
 import { AssetRmaPanel } from '@/components/installations/asset-rma-panel';
 import type { AssetRma } from '@/components/installations/asset-rma-panel';
-import {
-    serviceLabels,
-    statusLabels,
-} from '@/components/installations/installation-form';
+import { statusLabels } from '@/components/installations/installation-form';
 import type { MonitoringPoint } from '@/components/installations/monitoring-chart';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -38,6 +36,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useLocale } from '@/hooks/use-locale';
+import { serviceLabels } from '@/lib/business-lines';
 
 type Installation = {
     id: number;
@@ -96,6 +95,14 @@ type Installation = {
     charger_connector_type: string | null;
     hvac_system_type: string | null;
     electrical_scope: string | null;
+    electrical_voltage_v: number | null;
+    electrical_phase: string | null;
+    contracted_power_kw: string | null;
+    electrical_certificate_required: boolean;
+    security_system_type: string | null;
+    security_zones: number | null;
+    security_monitoring_mode: string | null;
+    security_grade: string | null;
     site_notes: string | null;
     technical_notes: string | null;
 };
@@ -1801,7 +1808,34 @@ function technicalItems(installation: Installation): [string, string | null][] {
         return [['Clima system', installation.hvac_system_type]];
     }
 
-    return [['Electrical scope', installation.electrical_scope]];
+    if (installation.service_type === 'electrical') {
+        return [
+            ['Electrical scope', installation.electrical_scope],
+            ['Voltage', installation.electrical_voltage_v?.toString() ?? null],
+            [
+                'Phase',
+                installation.electrical_phase?.replaceAll('_', ' ') ?? null,
+            ],
+            ['Contracted power kW', installation.contracted_power_kw],
+            [
+                'Certificate required',
+                installation.electrical_certificate_required ? 'Yes' : 'No',
+            ],
+        ];
+    }
+
+    return [
+        ['System type', installation.security_system_type],
+        ['Zones / cameras', installation.security_zones?.toString() ?? null],
+        [
+            'Monitoring',
+            installation.security_monitoring_mode?.replaceAll('_', ' ') ?? null,
+        ],
+        [
+            'Security grade',
+            installation.security_grade?.replaceAll('_', ' ') ?? null,
+        ],
+    ];
 }
 
 function InfoBlock({
@@ -1964,6 +1998,7 @@ function ServiceIcon({ service }: { service: keyof typeof serviceLabels }) {
         ev_charger: BatteryCharging,
         hvac: Snowflake,
         electrical: PlugZap,
+        security: ShieldCheck,
     };
     const Icon = icons[service];
 

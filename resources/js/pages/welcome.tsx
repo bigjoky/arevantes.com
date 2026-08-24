@@ -35,9 +35,15 @@ const services = [
     },
     {
         icon: Zap,
-        title: 'Soluciones eléctricas',
+        title: 'Instalaciones eléctricas',
         description:
             'Instalaciones, adecuaciones y mejoras eléctricas ejecutadas con criterio técnico y seguridad.',
+    },
+    {
+        icon: ShieldCheck,
+        title: 'Alarmas y seguridad',
+        description:
+            'Alarmas, videovigilancia y control de accesos diseñados para cada vivienda o negocio.',
     },
     {
         icon: Wrench,
@@ -92,6 +98,22 @@ const solutionModes = [
         accent: 'Flexibilidad',
     },
     {
+        icon: Zap,
+        label: 'Electricidad',
+        title: 'Instalaciones preparadas para crecer',
+        description:
+            'Cuadros, circuitos, adecuaciones y certificación con una ficha técnica y ejecución trazables.',
+        accent: 'Seguridad eléctrica',
+    },
+    {
+        icon: ShieldCheck,
+        label: 'Protección',
+        title: 'Seguridad conectada a cada espacio',
+        description:
+            'Alarmas, cámaras y control de accesos dimensionados según el uso real de la vivienda o negocio.',
+        accent: 'Tranquilidad',
+    },
+    {
         icon: Wrench,
         label: 'Continuidad',
         title: 'Rendimiento que permanece',
@@ -102,7 +124,7 @@ const solutionModes = [
 ];
 
 const siteDescription =
-    'Arevantes diseña, instala y mantiene soluciones fotovoltaicas, eléctricas y de recarga en Córdoba y Andalucía.';
+    'Arevantes diseña, instala y mantiene soluciones fotovoltaicas, eléctricas, de seguridad y de recarga en Córdoba y Andalucía.';
 
 export default function Welcome({ siteUrl }: { siteUrl: string }) {
     const { auth } = usePage().props;
@@ -786,9 +808,16 @@ export default function Welcome({ siteUrl }: { siteUrl: string }) {
                                                             Recarga y
                                                             almacenamiento
                                                         </option>
+                                                        <option value="hvac">
+                                                            Climatización
+                                                        </option>
                                                         <option value="electrical">
-                                                            Soluciones
+                                                            Instalaciones
                                                             eléctricas
+                                                        </option>
+                                                        <option value="security">
+                                                            Alarmas y sistemas
+                                                            de seguridad
                                                         </option>
                                                         <option value="maintenance">
                                                             Mantenimiento
