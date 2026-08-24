@@ -58,6 +58,8 @@ const businessLines = [
         services: ['Fotovoltaica', 'Almacenamiento', 'Puntos de recarga'],
         formValue: 'solar',
         path: '/servicios/energia',
+        image: '/images/services/energia.webp',
+        imageAlt: 'Paneles solares sobre la cubierta de una vivienda',
     },
     {
         number: '02',
@@ -72,6 +74,8 @@ const businessLines = [
         services: ['Instalaciones', 'Adecuaciones', 'Certificación'],
         formValue: 'electrical',
         path: '/servicios/electricidad',
+        image: '/images/services/electricidad.webp',
+        imageAlt: 'Comprobación técnica de un cuadro eléctrico',
     },
     {
         number: '03',
@@ -86,6 +90,8 @@ const businessLines = [
         services: ['Alarmas', 'Videovigilancia', 'Control de accesos'],
         formValue: 'security',
         path: '/servicios/seguridad',
+        image: '/images/services/seguridad.webp',
+        imageAlt: 'Cámaras de videovigilancia en la fachada de un edificio',
     },
 ];
 
@@ -170,7 +176,7 @@ export default function Welcome({ siteUrl }: { siteUrl: string }) {
                 <meta
                     head-key="og-image"
                     property="og:image"
-                    content={`${siteUrl}/og-multirramo.png`}
+                    content={`${siteUrl}/og-multirramo-v2.png`}
                 />
                 <meta
                     head-key="og-image-width"
@@ -205,7 +211,7 @@ export default function Welcome({ siteUrl }: { siteUrl: string }) {
                 <meta
                     head-key="twitter-image"
                     name="twitter:image"
-                    content={`${siteUrl}/og-multirramo.png`}
+                    content={`${siteUrl}/og-multirramo-v2.png`}
                 />
                 <script head-key="structured-data" type="application/ld+json">
                     {JSON.stringify({
@@ -444,9 +450,16 @@ export default function Welcome({ siteUrl }: { siteUrl: string }) {
                                         <div className="website-energy-orbit absolute -top-3 -right-3 size-28 rounded-full border border-[#289548]/20 [animation-direction:reverse]" />
                                         <div
                                             key={activeMode.label}
-                                            className="website-mode-enter relative min-h-64"
+                                            className="website-mode-enter relative min-h-72 overflow-hidden rounded-2xl p-5"
                                         >
-                                            <div className="flex items-start justify-between gap-6">
+                                            <img
+                                                src={activeMode.image}
+                                                alt=""
+                                                aria-hidden="true"
+                                                className="absolute inset-0 h-full w-full object-cover opacity-30"
+                                            />
+                                            <div className="absolute inset-0 bg-gradient-to-t from-[#08110c] via-[#08110c]/85 to-[#08110c]/35" />
+                                            <div className="relative flex items-start justify-between gap-6">
                                                 <span className="grid size-14 shrink-0 place-items-center rounded-2xl border border-[#87b550]/25 bg-[#87b550]/10 text-[#a8d878] shadow-[0_0_36px_rgba(135,181,80,.12)]">
                                                     <ActiveModeIcon className="size-7" />
                                                 </span>
@@ -454,18 +467,18 @@ export default function Welcome({ siteUrl }: { siteUrl: string }) {
                                                     {activeMode.accent}
                                                 </span>
                                             </div>
-                                            <p className="mt-10 text-xs font-semibold tracking-[0.16em] text-[#87b550] uppercase">
+                                            <p className="relative mt-10 text-xs font-semibold tracking-[0.16em] text-[#87b550] uppercase">
                                                 {activeMode.detail}
                                             </p>
-                                            <h2 className="mt-3 max-w-sm text-2xl leading-tight font-semibold tracking-[-0.03em] sm:text-3xl">
+                                            <h2 className="relative mt-3 max-w-sm text-2xl leading-tight font-semibold tracking-[-0.03em] sm:text-3xl">
                                                 {activeMode.title}
                                             </h2>
-                                            <p className="mt-3 max-w-md text-sm leading-6 text-zinc-400 sm:text-base">
+                                            <p className="relative mt-3 max-w-md text-sm leading-6 text-zinc-300 sm:text-base">
                                                 {activeMode.description}
                                             </p>
                                             <Link
                                                 href={activeMode.path}
-                                                className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-[#b8df8c] transition hover:text-white"
+                                                className="relative mt-6 inline-flex items-center gap-2 text-sm font-semibold text-[#b8df8c] transition hover:text-white"
                                             >
                                                 Conocer este servicio
                                                 <ArrowRight className="size-4" />
@@ -569,6 +582,16 @@ export default function Welcome({ siteUrl }: { siteUrl: string }) {
                                         key={line.label}
                                         className="group relative flex min-h-[31rem] flex-col overflow-hidden rounded-[2rem] border border-zinc-200 bg-white p-7 shadow-[0_12px_40px_rgba(24,24,27,.04)] transition duration-500 hover:-translate-y-2 hover:border-[#289548]/40 hover:shadow-[0_24px_60px_rgba(40,149,72,.12)] sm:p-8"
                                     >
+                                        <div className="-mx-7 -mt-7 mb-7 aspect-[16/10] overflow-hidden bg-zinc-100 sm:-mx-8 sm:-mt-8">
+                                            <img
+                                                src={line.image}
+                                                alt={line.imageAlt}
+                                                loading="lazy"
+                                                width="1800"
+                                                height="1200"
+                                                className="h-full w-full object-cover transition duration-700 group-hover:scale-105"
+                                            />
+                                        </div>
                                         <div className="absolute -top-16 -right-20 size-52 rounded-full border-[38px] border-[#87b550]/0 transition duration-500 group-hover:border-[#87b550]/10" />
                                         <div className="flex items-start justify-between">
                                             <span className="grid size-14 place-items-center rounded-2xl bg-[#eaf5ec] text-[#217a3b] transition duration-500 group-hover:scale-110 group-hover:rotate-3">

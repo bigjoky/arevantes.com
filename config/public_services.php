@@ -10,6 +10,8 @@ return [
         'description' => 'Diseñamos soluciones de autoconsumo, almacenamiento y recarga coordinadas con el uso real de cada vivienda o negocio.',
         'seo_title' => 'Energía solar, baterías y recarga · Arevantes',
         'seo_description' => 'Diseño, instalación y mantenimiento de autoconsumo fotovoltaico, baterías y puntos de recarga en Córdoba y Andalucía.',
+        'image' => '/images/services/energia.webp',
+        'image_alt' => 'Paneles solares instalados sobre la cubierta de una vivienda',
         'form_value' => 'solar',
         'intro' => 'No se trata de instalar equipos aislados, sino de entender cuándo consumes, qué capacidad necesitas y cómo debe evolucionar la instalación. Arevantes coordina diseño, ejecución, puesta en marcha y seguimiento desde un único equipo.',
         'solutions' => [
@@ -29,6 +31,8 @@ return [
         'description' => 'Ejecutamos instalaciones, reformas y adecuaciones eléctricas con criterio técnico, orden documental y visión de continuidad.',
         'seo_title' => 'Instalaciones eléctricas en Córdoba · Arevantes',
         'seo_description' => 'Instalaciones, cuadros, circuitos, adecuaciones y certificación eléctrica para viviendas y negocios en Córdoba y Andalucía.',
+        'image' => '/images/services/electricidad.webp',
+        'image_alt' => 'Comprobación técnica de componentes en un cuadro eléctrico',
         'form_value' => 'electrical',
         'intro' => 'Una instalación fiable empieza por conocer las cargas, el estado existente y las necesidades futuras. Trabajamos cada intervención con alcance definido, ejecución trazable y las comprobaciones necesarias antes de la entrega.',
         'solutions' => [
@@ -48,6 +52,8 @@ return [
         'description' => 'Integramos alarmas, videovigilancia y control de accesos según el uso, los puntos sensibles y la operativa de cada inmueble.',
         'seo_title' => 'Alarmas y sistemas de seguridad · Arevantes',
         'seo_description' => 'Alarmas, videovigilancia y control de accesos para viviendas y negocios en Córdoba y Andalucía.',
+        'image' => '/images/services/seguridad.webp',
+        'image_alt' => 'Cámaras de videovigilancia instaladas en la fachada de un edificio',
         'form_value' => 'security',
         'intro' => 'La seguridad no debería partir de un paquete genérico. Analizamos accesos, zonas, horarios y necesidades de supervisión para plantear un sistema comprensible, mantenible y adaptado a la actividad real del espacio.',
         'solutions' => [

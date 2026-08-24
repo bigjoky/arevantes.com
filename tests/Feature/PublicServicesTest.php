@@ -21,8 +21,9 @@ class PublicServicesTest extends TestCase
                 ->assertSee('<title data-inertia="title">'.$service['seo_title'].'</title>', false)
                 ->assertSee('rel="canonical" href="https://arevantes.com/servicios/'.$slug.'"', false)
                 ->assertSee('content="'.$service['seo_description'].'"', false)
+                ->assertSee('content="https://arevantes.com'.$service['image'].'"', false)
                 ->assertSee('"@type":"Service"', false)
-                ->assertDontSee('og-multirramo.png', false);
+                ->assertDontSee('og-multirramo-v2.png', false);
         }
     }
 

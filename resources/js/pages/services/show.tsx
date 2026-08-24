@@ -25,6 +25,8 @@ type PublicService = ServiceSummary & {
     description: string;
     seo_title: string;
     seo_description: string;
+    image: string;
+    image_alt: string;
     form_value: string;
     intro: string;
     solutions: Array<{ title: string; description: string }>;
@@ -99,9 +101,19 @@ export default function ServicePage({
                 />
                 <meta head-key="og-url" property="og:url" content={canonical} />
                 <meta
+                    head-key="og-image"
+                    property="og:image"
+                    content={`${siteUrl}${service.image}`}
+                />
+                <meta
+                    head-key="og-image-alt"
+                    property="og:image:alt"
+                    content={service.image_alt}
+                />
+                <meta
                     head-key="twitter-card"
                     name="twitter:card"
-                    content="summary"
+                    content="summary_large_image"
                 />
                 <meta
                     head-key="twitter-title"
@@ -112,6 +124,11 @@ export default function ServicePage({
                     head-key="twitter-description"
                     name="twitter:description"
                     content={service.seo_description}
+                />
+                <meta
+                    head-key="twitter-image"
+                    name="twitter:image"
+                    content={`${siteUrl}${service.image}`}
                 />
             </Head>
 
@@ -285,21 +302,34 @@ export default function ServicePage({
                                     </a>
                                 </div>
                             </div>
-                            <div className="rounded-[2rem] border border-white/15 bg-white/[.07] p-7 backdrop-blur-xl sm:p-8">
-                                <p className="text-xs font-bold tracking-[.16em] text-[#87b550] uppercase">
-                                    Para cada proyecto
-                                </p>
-                                <ul className="mt-6 grid gap-4">
-                                    {service.deliverables.map((item) => (
-                                        <li
-                                            key={item}
-                                            className="flex items-start gap-3 border-b border-white/10 pb-4 text-sm leading-6 text-zinc-200 last:border-0 last:pb-0"
-                                        >
-                                            <Check className="mt-1 size-4 shrink-0 text-[#87b550]" />
-                                            {item}
-                                        </li>
-                                    ))}
-                                </ul>
+                            <div>
+                                <figure className="overflow-hidden rounded-[2rem] border border-white/15 bg-white/[.07] shadow-2xl">
+                                    <img
+                                        src={service.image}
+                                        alt={service.image_alt}
+                                        width="1800"
+                                        height="1200"
+                                        loading="eager"
+                                        fetchPriority="high"
+                                        className="aspect-[4/3] h-full w-full object-cover"
+                                    />
+                                </figure>
+                                <div className="mt-4 rounded-[2rem] border border-white/15 bg-white/[.07] p-7 backdrop-blur-xl sm:p-8">
+                                    <p className="text-xs font-bold tracking-[.16em] text-[#87b550] uppercase">
+                                        Para cada proyecto
+                                    </p>
+                                    <ul className="mt-6 grid gap-4">
+                                        {service.deliverables.map((item) => (
+                                            <li
+                                                key={item}
+                                                className="flex items-start gap-3 border-b border-white/10 pb-4 text-sm leading-6 text-zinc-200 last:border-0 last:pb-0"
+                                            >
+                                                <Check className="mt-1 size-4 shrink-0 text-[#87b550]" />
+                                                {item}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
                             </div>
                         </div>
                     </section>

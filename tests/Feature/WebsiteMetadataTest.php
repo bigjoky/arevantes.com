@@ -19,7 +19,7 @@ class WebsiteMetadataTest extends TestCase
             ->assertSee('<title data-inertia="title">Arevantes · Energía, electricidad y seguridad</title>', false)
             ->assertSee('data-inertia="description"', false)
             ->assertSee('data-inertia="og-image"', false)
-            ->assertSee('content="https://arevantes.com/og-multirramo.png"', false)
+            ->assertSee('content="https://arevantes.com/og-multirramo-v2.png"', false)
             ->assertSee('data-inertia="structured-data"', false)
             ->assertSee('"@type":"LocalBusiness"', false)
             ->assertSee('Alarmas y seguridad', false)

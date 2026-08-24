@@ -120,14 +120,14 @@
                 <meta data-inertia="og-title" property="og:title" content="{{ $siteTitle }}">
                 <meta data-inertia="og-description" property="og:description" content="{{ $siteDescription }}">
                 <meta data-inertia="og-url" property="og:url" content="{{ $siteUrl }}">
-                <meta data-inertia="og-image" property="og:image" content="{{ $siteUrl }}/og-multirramo.png">
+                <meta data-inertia="og-image" property="og:image" content="{{ $siteUrl }}/og-multirramo-v2.png">
                 <meta data-inertia="og-image-width" property="og:image:width" content="1200">
                 <meta data-inertia="og-image-height" property="og:image:height" content="630">
                 <meta data-inertia="og-image-alt" property="og:image:alt" content="Arevantes: energía, electricidad y seguridad">
                 <meta data-inertia="twitter-card" name="twitter:card" content="summary_large_image">
                 <meta data-inertia="twitter-title" name="twitter:title" content="{{ $siteTitle }}">
                 <meta data-inertia="twitter-description" name="twitter:description" content="{{ $siteDescription }}">
-                <meta data-inertia="twitter-image" name="twitter:image" content="{{ $siteUrl }}/og-multirramo.png">
+                <meta data-inertia="twitter-image" name="twitter:image" content="{{ $siteUrl }}/og-multirramo-v2.png">
                 <script data-inertia="structured-data" type="application/ld+json">{!! json_encode($structuredData, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) !!}</script>
             @elseif ($serviceMetadata)
                 @php
@@ -138,6 +138,7 @@
                         'name' => $serviceMetadata['name'],
                         'description' => $serviceMetadata['seo_description'],
                         'url' => $serviceUrl,
+                        'image' => $siteUrl.$serviceMetadata['image'],
                         'areaServed' => 'Andalucía',
                         'provider' => [
                             '@type' => 'LocalBusiness',
@@ -155,9 +156,12 @@
                 <meta data-inertia="og-title" property="og:title" content="{{ $serviceMetadata['seo_title'] }}">
                 <meta data-inertia="og-description" property="og:description" content="{{ $serviceMetadata['seo_description'] }}">
                 <meta data-inertia="og-url" property="og:url" content="{{ $serviceUrl }}">
-                <meta data-inertia="twitter-card" name="twitter:card" content="summary">
+                <meta data-inertia="og-image" property="og:image" content="{{ $siteUrl }}{{ $serviceMetadata['image'] }}">
+                <meta data-inertia="og-image-alt" property="og:image:alt" content="{{ $serviceMetadata['image_alt'] }}">
+                <meta data-inertia="twitter-card" name="twitter:card" content="summary_large_image">
                 <meta data-inertia="twitter-title" name="twitter:title" content="{{ $serviceMetadata['seo_title'] }}">
                 <meta data-inertia="twitter-description" name="twitter:description" content="{{ $serviceMetadata['seo_description'] }}">
+                <meta data-inertia="twitter-image" name="twitter:image" content="{{ $siteUrl }}{{ $serviceMetadata['image'] }}">
                 <script data-inertia="structured-data" type="application/ld+json">{!! json_encode($serviceStructuredData, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) !!}</script>
             @elseif ($currentLegalMetadata)
                 <title data-inertia="title">{{ $currentLegalMetadata['title'] }} · Arevantes</title>
