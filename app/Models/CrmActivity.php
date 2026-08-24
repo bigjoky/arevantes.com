@@ -12,7 +12,7 @@ class CrmActivity extends Model
 
     protected $touches = ['workOrder'];
 
-    protected $fillable = ['installation_id', 'work_order_id', 'person_id', 'opportunity_id', 'assigned_user_id', 'created_by', 'type', 'title', 'notes', 'priority', 'status', 'blocked_reason', 'starts_at', 'due_at', 'completed_at'];
+    protected $fillable = ['installation_id', 'work_order_id', 'person_id', 'opportunity_id', 'assigned_user_id', 'created_by', 'type', 'title', 'notes', 'priority', 'status', 'blocked_reason', 'starts_at', 'due_at', 'completed_at', 'completed_by', 'completion_notes'];
 
     protected function casts(): array
     {
@@ -47,5 +47,10 @@ class CrmActivity extends Model
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function completedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'completed_by');
     }
 }

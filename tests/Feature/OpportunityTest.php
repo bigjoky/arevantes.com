@@ -581,6 +581,90 @@ class OpportunityTest extends TestCase
                 ->where('opportunities.0.code', 'OPP-OTHER-1'));
     }
 
+    public function test_an_action_can_be_completed_from_the_dossier_and_advances_to_the_next_planned_action(): void
+    {
+        $commercial = User::factory()->create(['role' => 'commercial']);
+        $technician = User::factory()->create(['role' => 'technician']);
+        $customer = Person::create(['category' => 'customer', 'first_name' => 'Ana']);
+        $opportunity = Opportunity::create([
+            'person_id' => $customer->id,
+            'owner_user_id' => $commercial->id,
+            'created_by' => $commercial->id,
+            'code' => 'OPP-COMPLETE-1',
+            'title' => 'Seguimiento trazable',
+            'stage' => 'qualified',
+            'probability' => 25,
+            'estimated_value' => 5000,
+        ]);
+        $current = CrmActivity::create([
+            'opportunity_id' => $opportunity->id,
+            'person_id' => $customer->id,
+            'assigned_user_id' => $commercial->id,
+            'created_by' => $commercial->id,
+            'type' => 'call',
+            'title' => 'Primera llamada',
+            'priority' => 'high',
+            'status' => 'in_progress',
+            'due_at' => now()->addHour(),
+        ]);
+        $plannedNext = CrmActivity::create([
+            'opportunity_id' => $opportunity->id,
+            'person_id' => $customer->id,
+            'assigned_user_id' => $commercial->id,
+            'created_by' => $commercial->id,
+            'type' => 'email',
+            'title' => 'Enviar documentación',
+            'priority' => 'normal',
+            'status' => 'pending',
+            'due_at' => now()->addDays(2),
+        ]);
+
+        $this->actingAs($technician)->patch(route('opportunities.activities.complete', [$opportunity, $current]), [
+            'completion_notes' => 'Cliente contactado.',
+            'schedule_next' => false,
+        ])->assertForbidden();
+
+        $this->actingAs($commercial)->patch(route('opportunities.activities.complete', [$opportunity, $current]), [
+            'completion_notes' => 'El cliente confirma interés y solicita la ficha técnica.',
+            'schedule_next' => false,
+        ])->assertRedirect();
+
+        $current->refresh();
+        $this->assertSame('completed', $current->status);
+        $this->assertSame($commercial->id, $current->completed_by);
+        $this->assertSame('El cliente confirma interés y solicita la ficha técnica.', $current->completion_notes);
+        $this->assertNotNull($current->completed_at);
+        $this->assertSame($plannedNext->id, $opportunity->fresh()->nextActivity->id);
+        $this->assertDatabaseHas('opportunity_events', [
+            'opportunity_id' => $opportunity->id,
+            'actor_id' => $commercial->id,
+            'event_type' => 'activity_completed',
+            'note' => 'El cliente confirma interés y solicita la ficha técnica.',
+        ]);
+
+        $this->patch(route('opportunities.activities.complete', [$opportunity, $plannedNext]), [
+            'completion_notes' => 'Documentación enviada y reunión acordada.',
+            'schedule_next' => true,
+            'next_action_type' => 'meeting',
+            'next_action_title' => 'Revisar propuesta con el cliente',
+            'next_action_priority' => 'high',
+            'next_action_due_at' => now()->addDays(3)->format('Y-m-d H:i:s'),
+            'next_action_assigned_user_id' => $commercial->id,
+            'next_action_notes' => 'Llevar comparativa económica.',
+        ])->assertRedirect();
+
+        $next = $opportunity->fresh()->nextActivity;
+        $this->assertSame('Revisar propuesta con el cliente', $next->title);
+        $this->assertSame('meeting', $next->type);
+        $this->assertSame('Llevar comparativa económica.', $next->notes);
+        $this->assertSame($commercial->id, $next->assigned_user_id);
+
+        $this->patch(route('opportunities.activities.complete', [$opportunity, $current]), [
+            'completion_notes' => 'Segundo intento indebido.',
+            'schedule_next' => false,
+        ])->assertUnprocessable();
+    }
+
     public function test_first_response_sla_is_started_measured_and_filterable(): void
     {
         $user = User::factory()->create(['role' => 'commercial']);

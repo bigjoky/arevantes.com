@@ -269,6 +269,10 @@ La continuidad comercial dispone además de un expediente de oportunidad:
   líneas, margen, autor y versión;
 - aceptación o rechazo de una oferta actualiza la oportunidad sin perder el
   origen, canal ni responsable del cambio;
+- las acciones se cierran desde el propio expediente con autor, fecha y
+  resultado; la siguiente acción planificada toma el relevo automáticamente y
+  el mismo flujo permite añadir un seguimiento nuevo sin duplicar los ya
+  pendientes;
 - la auditoría técnica continúa separada del histórico de negocio visible para
   que el expediente sea útil sin exponer metadatos administrativos sensibles.
 

@@ -190,7 +190,7 @@ class OpportunityController extends Controller
             'followUpOpportunities:id,parent_opportunity_id,code,title,stage,estimated_value',
             'events.actor:id,name',
             'stageHistory.changedBy:id,name',
-            'activities' => fn ($query) => $query->with(['creator:id,name', 'assignedUser:id,name'])->latest(),
+            'activities' => fn ($query) => $query->with(['creator:id,name', 'assignedUser:id,name', 'completedBy:id,name'])->latest(),
             'quote' => fn ($query) => $query->with([
                 'versions.createdBy:id,name',
                 'statusHistory.changedBy:id,name',
@@ -212,6 +212,7 @@ class OpportunityController extends Controller
             'timeline' => $timeline,
             'sourceOptions' => OpportunityCatalog::SOURCES,
             'commercialKindOptions' => OpportunityCatalog::COMMERCIAL_KINDS,
+            'users' => User::whereIn('role', ['admin', 'commercial'])->orderBy('name')->get(['id', 'name']),
         ]);
     }
 
@@ -338,6 +339,73 @@ class OpportunityController extends Controller
         $salesCycle->refreshScore($opportunity);
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Next action scheduled.')]);
+    }
+
+    public function completeActivity(
+        Request $request,
+        Opportunity $opportunity,
+        CrmActivity $activity,
+        OpportunitySalesCycle $salesCycle,
+        LeadResponseSla $responseSla,
+    ): RedirectResponse {
+        abort_unless((int) $activity->opportunity_id === (int) $opportunity->id, 404);
+        abort_if($activity->work_order_id !== null, 422, __('Linked work must be completed from its work order.'));
+        abort_if(in_array($activity->status, ['completed', 'cancelled'], true), 422, __('This activity is already closed.'));
+        $data = $request->validate([
+            'completion_notes' => ['required', 'string', 'min:2', 'max:5000'],
+            'schedule_next' => ['required', 'boolean'],
+            'next_action_type' => ['nullable', Rule::requiredIf($request->boolean('schedule_next')), Rule::in(['task', 'visit', 'reminder', 'call', 'email', 'meeting'])],
+            'next_action_title' => ['nullable', Rule::requiredIf($request->boolean('schedule_next')), 'string', 'max:255'],
+            'next_action_priority' => ['nullable', Rule::requiredIf($request->boolean('schedule_next')), Rule::in(['low', 'normal', 'high'])],
+            'next_action_due_at' => ['nullable', Rule::requiredIf($request->boolean('schedule_next')), 'date', 'after:now'],
+            'next_action_assigned_user_id' => ['nullable', Rule::exists('users', 'id')->where(fn ($query) => $query->whereIn('role', ['admin', 'commercial']))],
+            'next_action_notes' => ['nullable', 'string', 'max:5000'],
+        ]);
+
+        $next = DB::transaction(function () use ($request, $opportunity, $activity, $data, $salesCycle, $responseSla): ?CrmActivity {
+            $lockedOpportunity = Opportunity::query()->lockForUpdate()->findOrFail($opportunity->id);
+            $lockedActivity = CrmActivity::query()->lockForUpdate()->findOrFail($activity->id);
+            abort_unless((int) $lockedActivity->opportunity_id === (int) $lockedOpportunity->id, 404);
+            abort_if(in_array($lockedActivity->status, ['completed', 'cancelled'], true), 422, __('This activity is already closed.'));
+
+            $lockedActivity->update([
+                'status' => 'completed',
+                'completed_at' => now(),
+                'completed_by' => $request->user()->id,
+                'completion_notes' => trim($data['completion_notes']),
+                'blocked_reason' => null,
+            ]);
+            $responseSla->record($lockedActivity);
+
+            if ($data['schedule_next']) {
+                CrmActivity::create([
+                    'opportunity_id' => $lockedOpportunity->id,
+                    'person_id' => $lockedOpportunity->person_id,
+                    'installation_id' => $lockedOpportunity->installation_id,
+                    'assigned_user_id' => $data['next_action_assigned_user_id'] ?? $lockedOpportunity->owner_user_id,
+                    'created_by' => $request->user()->id,
+                    'type' => $data['next_action_type'],
+                    'title' => trim($data['next_action_title']),
+                    'notes' => filled($data['next_action_notes'] ?? null) ? trim($data['next_action_notes']) : null,
+                    'priority' => $data['next_action_priority'],
+                    'status' => 'pending',
+                    'due_at' => $data['next_action_due_at'],
+                ]);
+            }
+
+            $lockedOpportunity->unsetRelation('nextActivity');
+            $salesCycle->ensureNextAction($lockedOpportunity, $request->user());
+            $salesCycle->refreshScore($lockedOpportunity);
+
+            return $lockedOpportunity->nextActivity()->first();
+        });
+
+        return back()->with('toast', [
+            'type' => 'success',
+            'message' => $next
+                ? __('Activity completed. Next action: :title.', ['title' => $next->title])
+                : __('Activity completed. There are no further actions.'),
+        ]);
     }
 
     public function restore(int $opportunity): RedirectResponse

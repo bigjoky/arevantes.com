@@ -24,12 +24,16 @@ class OpportunityActivityObserver
         if ($changes === []) {
             return;
         }
+        $completed = $activity->wasChanged('status') && $activity->status === 'completed';
 
         OpportunityEvent::create([
             'opportunity_id' => $activity->opportunity_id,
             'actor_id' => auth()->id(),
-            'event_type' => 'activity_updated',
-            'summary' => __('Activity updated: :title', ['title' => $activity->title]),
+            'event_type' => $completed ? 'activity_completed' : 'activity_updated',
+            'summary' => $completed
+                ? __('Activity completed: :title', ['title' => $activity->title])
+                : __('Activity updated: :title', ['title' => $activity->title]),
+            'note' => $completed ? $activity->completion_notes : null,
             'changes' => $changes,
             'occurred_at' => now(),
         ]);
