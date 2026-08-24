@@ -5,10 +5,13 @@ import {
     ChevronRight,
     Gauge,
     MapPin,
+    Menu,
     ShieldCheck,
     Sun,
+    X,
     Zap,
 } from 'lucide-react';
+import { useEffect, useState } from 'react';
 
 type ServiceSummary = {
     slug: string;
@@ -47,6 +50,25 @@ export default function ServicePage({
     const Icon = icons[service.slug as keyof typeof icons] ?? Gauge;
     const canonical = `${siteUrl}/servicios/${service.slug}`;
     const contactUrl = `/?servicio=${service.form_value}#contacto`;
+    const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+    useEffect(() => {
+        if (!isMenuOpen) {
+            return;
+        }
+
+        const closeOnEscape = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') {
+                setIsMenuOpen(false);
+            }
+        };
+
+        document.addEventListener('keydown', closeOnEscape);
+
+        return () => document.removeEventListener('keydown', closeOnEscape);
+    }, [isMenuOpen]);
+
+    const closeMenu = () => setIsMenuOpen(false);
 
     return (
         <>
@@ -111,9 +133,15 @@ export default function ServicePage({
                             />
                         </Link>
                         <nav
-                            aria-label="Servicios"
-                            className="hidden items-center gap-7 text-sm font-medium text-zinc-600 lg:flex"
+                            aria-label="Navegación principal"
+                            className="hidden items-center gap-6 text-sm font-medium text-zinc-600 lg:flex"
                         >
+                            <Link
+                                href="/"
+                                className="transition hover:text-[#217a3b]"
+                            >
+                                Inicio
+                            </Link>
                             {services.map((item) => (
                                 <Link
                                     key={item.slug}
@@ -132,15 +160,97 @@ export default function ServicePage({
                                     {item.short_name}
                                 </Link>
                             ))}
+                            <Link
+                                href="/#contacto"
+                                className="transition hover:text-[#217a3b]"
+                            >
+                                Contacto
+                            </Link>
                         </nav>
-                        <Link
-                            href={contactUrl}
-                            className="inline-flex items-center gap-2 rounded-full bg-zinc-950 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#217a3b]"
-                        >
-                            Solicitar estudio
-                            <ArrowRight className="size-4" />
-                        </Link>
+                        <div className="flex items-center gap-2">
+                            <Link
+                                href={contactUrl}
+                                className="hidden items-center gap-2 rounded-full bg-zinc-950 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#217a3b] sm:inline-flex"
+                            >
+                                Solicitar estudio
+                                <ArrowRight className="size-4" />
+                            </Link>
+                            <button
+                                type="button"
+                                className="grid size-11 place-items-center rounded-full border border-zinc-300 bg-white text-zinc-900 shadow-sm transition hover:border-[#289548] hover:text-[#217a3b] lg:hidden"
+                                aria-label={
+                                    isMenuOpen
+                                        ? 'Cerrar navegación'
+                                        : 'Abrir navegación'
+                                }
+                                aria-expanded={isMenuOpen}
+                                aria-controls="service-mobile-navigation"
+                                onClick={() => setIsMenuOpen((open) => !open)}
+                            >
+                                {isMenuOpen ? (
+                                    <X className="size-5" />
+                                ) : (
+                                    <Menu className="size-5" />
+                                )}
+                            </button>
+                        </div>
                     </div>
+                    {isMenuOpen && (
+                        <div
+                            id="service-mobile-navigation"
+                            className="website-menu-enter border-t border-zinc-200/80 bg-[#f7f8f4] px-5 py-5 lg:hidden"
+                        >
+                            <nav
+                                aria-label="Navegación móvil"
+                                className="mx-auto grid max-w-7xl gap-1 text-lg font-semibold"
+                            >
+                                <Link
+                                    href="/"
+                                    onClick={closeMenu}
+                                    className="flex items-center justify-between rounded-2xl px-4 py-3 transition hover:bg-white hover:text-[#217a3b]"
+                                >
+                                    Inicio
+                                    <ChevronRight className="size-4" />
+                                </Link>
+                                {services.map((item) => (
+                                    <Link
+                                        key={item.slug}
+                                        href={`/servicios/${item.slug}`}
+                                        onClick={closeMenu}
+                                        aria-current={
+                                            item.slug === service.slug
+                                                ? 'page'
+                                                : undefined
+                                        }
+                                        className={`flex items-center justify-between rounded-2xl px-4 py-3 transition hover:bg-white hover:text-[#217a3b] ${
+                                            item.slug === service.slug
+                                                ? 'bg-white text-[#217a3b]'
+                                                : ''
+                                        }`}
+                                    >
+                                        {item.name}
+                                        <ChevronRight className="size-4" />
+                                    </Link>
+                                ))}
+                                <Link
+                                    href="/#contacto"
+                                    onClick={closeMenu}
+                                    className="flex items-center justify-between rounded-2xl px-4 py-3 transition hover:bg-white hover:text-[#217a3b]"
+                                >
+                                    Contacto
+                                    <ChevronRight className="size-4" />
+                                </Link>
+                                <Link
+                                    href={contactUrl}
+                                    onClick={closeMenu}
+                                    className="mt-3 inline-flex items-center justify-center gap-2 rounded-full bg-zinc-950 px-5 py-3 text-sm text-white sm:hidden"
+                                >
+                                    Solicitar estudio
+                                    <ArrowRight className="size-4" />
+                                </Link>
+                            </nav>
+                        </div>
+                    )}
                 </header>
 
                 <main id="contenido">

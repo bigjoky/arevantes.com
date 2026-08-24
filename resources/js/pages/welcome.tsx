@@ -272,10 +272,17 @@ export default function Welcome({ siteUrl }: { siteUrl: string }) {
                             className="hidden items-center gap-8 text-sm font-medium text-zinc-600 md:flex"
                         >
                             <a
+                                href="#inicio"
+                                aria-current="page"
+                                className="text-[#217a3b]"
+                            >
+                                Inicio
+                            </a>
+                            <a
                                 href="#servicios"
                                 className="transition hover:text-[#217a3b]"
                             >
-                                Líneas de negocio
+                                Servicios
                             </a>
                             <a
                                 href="#metodo"
@@ -330,7 +337,8 @@ export default function Welcome({ siteUrl }: { siteUrl: string }) {
                                 className="mx-auto grid max-w-7xl gap-1 text-lg font-semibold"
                             >
                                 {[
-                                    ['Líneas de negocio', '#servicios'],
+                                    ['Inicio', '#inicio'],
+                                    ['Servicios', '#servicios'],
                                     ['Cómo trabajamos', '#metodo'],
                                     ['Contacto', '#contacto'],
                                 ].map(([label, href]) => (
