@@ -44,4 +44,9 @@ final class BusinessLineCatalog
             default => str($type)->replace('_', ' ')->headline()->toString(),
         };
     }
+
+    public static function normalizeInstallationType(string $type): string
+    {
+        return $type === 'solar_pv' ? 'solar' : $type;
+    }
 }

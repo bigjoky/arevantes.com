@@ -162,11 +162,34 @@ type Asset = {
 };
 type Profitability = {
     planned_revenue: number;
-    actual_revenue: number;
     planned_cost: number;
-    actual_cost: number;
     planned_margin: number;
+    planned_margin_percent: number | null;
+    committed_purchase_cost: number;
+    committed_cost: number;
+    committed_margin: number;
+    committed_margin_percent: number | null;
+    actual_revenue: number;
+    billed_gross: number;
+    collected_cash: number;
+    outstanding_cash: number;
+    actual_material_cost: number;
+    actual_labour_cost: number;
+    supplier_service_cost: number;
+    direct_expenses: number;
+    actual_cost: number;
     actual_margin: number;
+    actual_margin_percent: number | null;
+    quality: { score: number; issues: string[] };
+    sources: {
+        quote: { id: number; number: string; url: string } | null;
+        work_orders: number;
+        sales_documents: number;
+        time_entries: number;
+        stock_movements: number;
+        purchase_documents: number;
+        expenses: number;
+    };
 };
 type AssetOptions = {
     serials: {
@@ -245,7 +268,7 @@ export default function InstallationShow({
     quotes: Quote[];
     assets: Asset[];
     assetOptions: AssetOptions;
-    profitability: Profitability;
+    profitability: Profitability | null;
     canManageAssets: boolean;
     latestAiGeneration: AiGeneration | null;
     customers: CustomerOption[];
@@ -1146,40 +1169,145 @@ export default function InstallationShow({
                             )}
                         </CardContent>
                     </Card>
-                    <Card className="rounded-lg">
-                        <CardHeader>
-                            <CardTitle>Project profitability</CardTitle>
-                            <CardDescription>
-                                Plan compared with actual execution.
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent className="grid grid-cols-2 gap-4 text-sm">
-                            <Value
-                                label="Planned revenue"
-                                value={money(profitability.planned_revenue)}
-                            />
-                            <Value
-                                label="Actual revenue"
-                                value={money(profitability.actual_revenue)}
-                            />
-                            <Value
-                                label="Planned cost"
-                                value={money(profitability.planned_cost)}
-                            />
-                            <Value
-                                label="Actual cost"
-                                value={money(profitability.actual_cost)}
-                            />
-                            <Value
-                                label="Planned margin"
-                                value={money(profitability.planned_margin)}
-                            />
-                            <Value
-                                label="Actual margin"
-                                value={money(profitability.actual_margin)}
-                            />
-                        </CardContent>
-                    </Card>
+                    {profitability ? (
+                        <Card className="rounded-lg">
+                            <CardHeader>
+                                <div className="flex items-start justify-between gap-3">
+                                    <div>
+                                        <CardTitle>
+                                            Expediente económico del proyecto
+                                        </CardTitle>
+                                        <CardDescription>
+                                            Previsión, compromisos y ejecución
+                                            reconciliados con sus datos de
+                                            origen.
+                                        </CardDescription>
+                                    </div>
+                                    <Badge
+                                        variant={
+                                            profitability.quality.score >= 80
+                                                ? 'outline'
+                                                : 'destructive'
+                                        }
+                                    >
+                                        Calidad {profitability.quality.score}%
+                                    </Badge>
+                                </div>
+                            </CardHeader>
+                            <CardContent className="grid gap-5 text-sm">
+                                <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
+                                    <MarginValue
+                                        label="Margen previsto"
+                                        value={profitability.planned_margin}
+                                        percent={
+                                            profitability.planned_margin_percent
+                                        }
+                                        detail={`${money(profitability.planned_revenue)} ingreso · ${money(profitability.planned_cost)} coste`}
+                                    />
+                                    <MarginValue
+                                        label="Margen comprometido"
+                                        value={profitability.committed_margin}
+                                        percent={
+                                            profitability.committed_margin_percent
+                                        }
+                                        detail={`${money(profitability.actual_cost)} incurrido · ${money(profitability.committed_purchase_cost)} compras abiertas`}
+                                    />
+                                    <MarginValue
+                                        label="Margen real"
+                                        value={profitability.actual_margin}
+                                        percent={
+                                            profitability.actual_margin_percent
+                                        }
+                                        detail={`${money(profitability.actual_revenue)} facturado neto · ${money(profitability.actual_cost)} coste`}
+                                    />
+                                </div>
+                                <div className="grid grid-cols-2 gap-4 border-y py-4 lg:grid-cols-4">
+                                    <Value
+                                        label="Material consumido"
+                                        value={money(
+                                            profitability.actual_material_cost,
+                                        )}
+                                    />
+                                    <Value
+                                        label="Mano de obra"
+                                        value={money(
+                                            profitability.actual_labour_cost,
+                                        )}
+                                    />
+                                    <Value
+                                        label="Servicios externos"
+                                        value={money(
+                                            profitability.supplier_service_cost,
+                                        )}
+                                    />
+                                    <Value
+                                        label="Gastos directos"
+                                        value={money(
+                                            profitability.direct_expenses,
+                                        )}
+                                    />
+                                    <Value
+                                        label="Facturado con impuestos"
+                                        value={money(
+                                            profitability.billed_gross,
+                                        )}
+                                    />
+                                    <Value
+                                        label="Cobrado"
+                                        value={money(
+                                            profitability.collected_cash,
+                                        )}
+                                    />
+                                    <Value
+                                        label="Pendiente de cobro"
+                                        value={money(
+                                            profitability.outstanding_cash,
+                                        )}
+                                    />
+                                    <Value
+                                        label="Registros trazados"
+                                        value={String(
+                                            profitability.sources
+                                                .sales_documents +
+                                                profitability.sources
+                                                    .purchase_documents +
+                                                profitability.sources
+                                                    .time_entries +
+                                                profitability.sources
+                                                    .stock_movements +
+                                                profitability.sources.expenses,
+                                        )}
+                                    />
+                                </div>
+                                {profitability.quality.issues.length ? (
+                                    <div className="rounded-md border border-amber-300/60 bg-amber-50 p-3 text-amber-950 dark:bg-amber-950/30 dark:text-amber-100">
+                                        <div className="font-medium">
+                                            Datos que requieren revisión
+                                        </div>
+                                        <ul className="mt-1 list-disc pl-5 text-xs">
+                                            {profitability.quality.issues.map(
+                                                (issue) => (
+                                                    <li key={issue}>{issue}</li>
+                                                ),
+                                            )}
+                                        </ul>
+                                    </div>
+                                ) : null}
+                                {profitability.sources.quote ? (
+                                    <Button variant="outline" size="sm" asChild>
+                                        <Link
+                                            href={
+                                                profitability.sources.quote.url
+                                            }
+                                        >
+                                            Ver propuesta origen{' '}
+                                            {profitability.sources.quote.number}
+                                        </Link>
+                                    </Button>
+                                ) : null}
+                            </CardContent>
+                        </Card>
+                    ) : null}
                 </section>
 
                 <Card className="rounded-lg">
@@ -1865,6 +1993,35 @@ function Value({ label, value }: { label: string; value: string }) {
         <div>
             <div className="text-muted-foreground">{label}</div>
             <div className="font-semibold">{value}</div>
+        </div>
+    );
+}
+
+function MarginValue({
+    label,
+    value,
+    percent,
+    detail,
+}: {
+    label: string;
+    value: number;
+    percent: number | null;
+    detail: string;
+}) {
+    return (
+        <div className="border-l-2 pl-3">
+            <div className="text-muted-foreground">{label}</div>
+            <div
+                className={`text-xl font-semibold ${value < 0 ? 'text-destructive' : ''}`}
+            >
+                {money(value)}
+                {percent !== null ? (
+                    <span className="ml-2 text-sm font-normal text-muted-foreground">
+                        {percent}%
+                    </span>
+                ) : null}
+            </div>
+            <div className="mt-1 text-xs text-muted-foreground">{detail}</div>
         </div>
     );
 }

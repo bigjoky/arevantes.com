@@ -10,6 +10,7 @@ use App\Services\Analytics\AnalyticsAutomationService;
 use App\Services\Analytics\AnalyticsExportService;
 use App\Services\Analytics\AnalyticsFilter;
 use App\Services\Analytics\AnalyticsService;
+use App\Services\Analytics\BusinessLineMarginAnalysis;
 use App\Services\Analytics\CommercialConversionAnalytics;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -20,7 +21,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
 
 class AnalyticsController extends Controller
 {
-    public function index(Request $request, AnalyticsService $analytics, CommercialConversionAnalytics $conversionAnalytics): Response
+    public function index(Request $request, AnalyticsService $analytics, CommercialConversionAnalytics $conversionAnalytics, BusinessLineMarginAnalysis $marginAnalysis): Response
     {
         $filter = AnalyticsFilter::fromRequest($request);
         $metricKey = $request->string('metric')->toString();
@@ -55,6 +56,9 @@ class AnalyticsController extends Controller
             ]),
             'subscriptions' => $request->user()->analyticsReportSubscriptions()->get(),
             'commercialConversions' => $filter->area === 'sales' ? $conversionAnalytics->forAnalytics($filter) : null,
+            'projectMargins' => $request->user()->can('view-finance') && in_array($filter->area, ['executive', 'finance'], true)
+                ? $marginAnalysis->build($filter)
+                : null,
         ]);
     }
 

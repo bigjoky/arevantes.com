@@ -9,12 +9,15 @@ use App\Models\Person;
 use App\Models\PurchaseDocument;
 use App\Models\SalesDocument;
 use App\Models\User;
+use App\Services\Operations\ProjectMarginPortfolio;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 
 class RelevantBusinessContext
 {
+    public function __construct(private ProjectMarginPortfolio $margins) {}
+
     public function search(User $user, string $query, ?string $pageUrl = null): string
     {
         $tokens = collect(preg_split('/[^\pL\pN@._-]+/u', Str::lower($query)))->filter(fn ($token) => mb_strlen($token) >= 3)->unique()->take(8)->values();
@@ -25,6 +28,23 @@ class RelevantBusinessContext
             $installations = Installation::with('customer:id,first_name,last_name,company_name')->when($installationId, fn ($builder) => $builder->whereKey($installationId), fn ($builder) => $this->whereTokens($builder, $tokens, ['project_reference', 'site_name', 'site_address_line_1', 'site_city', 'site_postal_code']))->limit(5)->get();
             if ($installations->isNotEmpty()) {
                 $sections->push("Relevant installations:\n".$installations->map(fn ($item) => sprintf('- #%d %s · %s · %s · %.2f kW · customer %s · monitoring %s · today %.3f kWh', $item->id, $item->project_reference ?: $item->site_name ?: 'unnamed', $item->service_type, $item->status, (float) $item->system_power_kw, $item->customer?->company_name ?: trim(($item->customer?->first_name ?? '').' '.($item->customer?->last_name ?? '')) ?: 'unassigned', $item->huawei_status ?: $item->deye_status ?: 'not linked', (float) ($item->huawei_today_energy_kwh ?: $item->deye_today_energy_kwh)))->implode("\n"));
+                if (Gate::forUser($user)->allows('view-finance')) {
+                    $financials = $this->margins->analyze($installations)->keyBy('installation_id');
+                    $sections->push("Authorized project margin context:\n".$installations->map(function ($item) use ($financials): string {
+                        $margin = $financials->get($item->id);
+
+                        return sprintf(
+                            '- #%d %s · planned %.2f EUR · committed %.2f EUR · actual %.2f EUR · outstanding cash %.2f EUR · data quality %d%%',
+                            $item->id,
+                            $item->project_reference ?: $item->site_name ?: 'unnamed',
+                            $margin['planned_margin'],
+                            $margin['committed_margin'],
+                            $margin['actual_margin'],
+                            $margin['outstanding_cash'],
+                            $margin['quality']['score'],
+                        );
+                    })->implode("\n"));
+                }
             }
         }
 

@@ -114,6 +114,52 @@ type CommercialConversions = {
     }>;
 };
 
+type MarginSummary = {
+    projects: number;
+    planned_revenue: number;
+    planned_margin: number;
+    planned_margin_percent: number | null;
+    committed_margin: number;
+    committed_margin_percent: number | null;
+    actual_revenue: number;
+    actual_margin: number;
+    actual_margin_percent: number | null;
+    outstanding_cash: number;
+    at_risk: number;
+    quality_score: number | null;
+};
+
+type ProjectMargin = {
+    installation_id: number;
+    reference: string;
+    service_type: string;
+    status: string;
+    planned_revenue: number;
+    planned_margin: number;
+    committed_margin: number;
+    actual_revenue: number;
+    actual_margin: number;
+    outstanding_cash: number;
+    quality: { score: number; issues: string[] };
+    sources: { url: string };
+};
+
+type ProjectMargins = {
+    summary: MarginSummary;
+    by_line: Array<
+        MarginSummary & {
+            service_type: string;
+            label: string;
+        }
+    >;
+    projects: ProjectMargin[];
+    definitions: {
+        planned: string;
+        committed: string;
+        actual: string;
+    };
+};
+
 type Props = {
     filters: Filter;
     generatedAt: string;
@@ -132,6 +178,7 @@ type Props = {
     alerts: Alert[];
     subscriptions: Subscription[];
     commercialConversions: CommercialConversions | null;
+    projectMargins: ProjectMargins | null;
 };
 
 export default function AnalyticsIndex(props: Props) {
@@ -336,6 +383,7 @@ export default function AnalyticsIndex(props: Props) {
                         records={props.records}
                         recordsHasMore={props.recordsHasMore}
                         conversions={props.commercialConversions}
+                        projectMargins={props.projectMargins}
                         onOpen={openMetric}
                     />
                 ) : null}
@@ -354,6 +402,7 @@ function Dashboard({
     records,
     recordsHasMore,
     conversions,
+    projectMargins,
     onOpen,
 }: {
     metrics: Metric[];
@@ -361,6 +410,7 @@ function Dashboard({
     records: RecordRow[];
     recordsHasMore: boolean;
     conversions: CommercialConversions | null;
+    projectMargins: ProjectMargins | null;
     onOpen: (key: string) => void;
 }) {
     return (
@@ -419,6 +469,9 @@ function Dashboard({
                     </button>
                 ))}
             </section>
+            {projectMargins ? (
+                <ProjectMarginPanel analysis={projectMargins} />
+            ) : null}
             {conversions ? (
                 <CommercialConversionPanel conversions={conversions} />
             ) : null}
@@ -436,6 +489,213 @@ function Dashboard({
             )}
         </>
     );
+}
+
+function ProjectMarginPanel({ analysis }: { analysis: ProjectMargins }) {
+    return (
+        <section className="grid gap-4" aria-labelledby="margin-title">
+            <div>
+                <h2 id="margin-title" className="text-lg font-semibold">
+                    Rentabilidad por línea de negocio
+                </h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                    Una definición común para margen previsto, comprometido y
+                    real. Cada proyecto enlaza su expediente y muestra la
+                    calidad de los datos utilizados.
+                </p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+                <ConversionKpi
+                    label="Margen previsto"
+                    value={marginValue(
+                        analysis.summary.planned_margin,
+                        analysis.summary.planned_margin_percent,
+                    )}
+                />
+                <ConversionKpi
+                    label="Margen comprometido"
+                    value={marginValue(
+                        analysis.summary.committed_margin,
+                        analysis.summary.committed_margin_percent,
+                    )}
+                />
+                <ConversionKpi
+                    label="Margen real"
+                    value={marginValue(
+                        analysis.summary.actual_margin,
+                        analysis.summary.actual_margin_percent,
+                    )}
+                />
+                <ConversionKpi
+                    label="Pendiente de cobro"
+                    value={formatValue(
+                        analysis.summary.outstanding_cash,
+                        'currency',
+                    )}
+                />
+                <ConversionKpi
+                    label="Proyectos en riesgo"
+                    value={`${analysis.summary.at_risk}/${analysis.summary.projects}`}
+                />
+            </div>
+            <Card className="gap-0 overflow-hidden py-0">
+                <div className="overflow-x-auto">
+                    <table className="w-full min-w-[54rem] text-sm">
+                        <thead className="bg-muted/50 text-left text-xs text-muted-foreground">
+                            <tr>
+                                <th className="px-4 py-3">Línea</th>
+                                <th className="px-3 py-3 text-right">
+                                    Proyectos
+                                </th>
+                                <th className="px-3 py-3 text-right">
+                                    Previsto
+                                </th>
+                                <th className="px-3 py-3 text-right">
+                                    Comprometido
+                                </th>
+                                <th className="px-3 py-3 text-right">Real</th>
+                                <th className="px-4 py-3 text-right">
+                                    Calidad
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y">
+                            {analysis.by_line.map((line) => (
+                                <tr key={line.service_type}>
+                                    <td className="px-4 py-3 font-medium">
+                                        {line.label}
+                                    </td>
+                                    <td className="px-3 py-3 text-right tabular-nums">
+                                        {line.projects}
+                                    </td>
+                                    <td className="px-3 py-3 text-right tabular-nums">
+                                        {marginValue(
+                                            line.planned_margin,
+                                            line.planned_margin_percent,
+                                        )}
+                                    </td>
+                                    <td className="px-3 py-3 text-right tabular-nums">
+                                        {marginValue(
+                                            line.committed_margin,
+                                            line.committed_margin_percent,
+                                        )}
+                                    </td>
+                                    <td className="px-3 py-3 text-right tabular-nums">
+                                        {marginValue(
+                                            line.actual_margin,
+                                            line.actual_margin_percent,
+                                        )}
+                                    </td>
+                                    <td className="px-4 py-3 text-right">
+                                        {line.quality_score === null
+                                            ? '—'
+                                            : `${line.quality_score}%`}
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            </Card>
+            <details className="rounded-lg border bg-card">
+                <summary className="cursor-pointer px-4 py-3 font-medium">
+                    Proyectos y datos de origen
+                </summary>
+                <div className="overflow-x-auto border-t">
+                    <table className="w-full min-w-[58rem] text-sm">
+                        <thead className="text-left text-xs text-muted-foreground">
+                            <tr>
+                                <th className="px-4 py-3">Proyecto</th>
+                                <th className="px-3 py-3 text-right">
+                                    Previsto
+                                </th>
+                                <th className="px-3 py-3 text-right">
+                                    Comprometido
+                                </th>
+                                <th className="px-3 py-3 text-right">Real</th>
+                                <th className="px-4 py-3">Calidad</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y">
+                            {analysis.projects.map((project) => (
+                                <tr key={project.installation_id}>
+                                    <td className="px-4 py-3">
+                                        <Link
+                                            href={project.sources.url}
+                                            className="font-medium underline underline-offset-2"
+                                        >
+                                            {project.reference}
+                                        </Link>
+                                        <div className="text-xs text-muted-foreground">
+                                            {project.service_type} ·{' '}
+                                            {project.status}
+                                        </div>
+                                    </td>
+                                    <td className="px-3 py-3 text-right tabular-nums">
+                                        {formatValue(
+                                            project.planned_margin,
+                                            'currency',
+                                        )}
+                                    </td>
+                                    <td className="px-3 py-3 text-right tabular-nums">
+                                        {formatValue(
+                                            project.committed_margin,
+                                            'currency',
+                                        )}
+                                    </td>
+                                    <td className="px-3 py-3 text-right tabular-nums">
+                                        {formatValue(
+                                            project.actual_margin,
+                                            'currency',
+                                        )}
+                                    </td>
+                                    <td className="px-4 py-3">
+                                        <Badge
+                                            variant={
+                                                project.quality.score >= 80
+                                                    ? 'outline'
+                                                    : 'destructive'
+                                            }
+                                        >
+                                            {project.quality.score}%
+                                        </Badge>
+                                        {project.quality.issues.length ? (
+                                            <div className="mt-1 max-w-sm text-xs text-muted-foreground">
+                                                {project.quality.issues.join(
+                                                    ' · ',
+                                                )}
+                                            </div>
+                                        ) : null}
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                    {!analysis.projects.length ? (
+                        <p className="p-5 text-sm text-muted-foreground">
+                            No hay proyectos activos en el periodo seleccionado.
+                        </p>
+                    ) : null}
+                </div>
+            </details>
+            <div className="grid gap-2 text-xs text-muted-foreground md:grid-cols-3">
+                <p>
+                    <strong>Previsto:</strong> {analysis.definitions.planned}
+                </p>
+                <p>
+                    <strong>Comprometido:</strong>{' '}
+                    {analysis.definitions.committed}
+                </p>
+                <p>
+                    <strong>Real:</strong> {analysis.definitions.actual}
+                </p>
+            </div>
+        </section>
+    );
+}
+
+function marginValue(value: number, percent: number | null): string {
+    return `${formatValue(value, 'currency')}${percent === null ? '' : ` · ${percent}%`}`;
 }
 
 function CommercialConversionPanel({

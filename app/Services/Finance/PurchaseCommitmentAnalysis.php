@@ -8,6 +8,36 @@ use Illuminate\Support\Collection;
 
 class PurchaseCommitmentAnalysis
 {
+    /** @return Collection<int, array{remaining_net: float, orders: int}> */
+    public function remainingNetForInstallations(Collection $installationIds): Collection
+    {
+        if ($installationIds->isEmpty()) {
+            return collect();
+        }
+
+        return PurchaseDocument::query()
+            ->where('type', 'purchase_order')
+            ->whereIn('status', ['ordered', 'partially_received', 'received'])
+            ->whereIn('installation_id', $installationIds)
+            ->with(['derivedDocuments' => fn ($query) => $query
+                ->where('type', 'supplier_invoice')
+                ->whereNotIn('status', ['draft', 'review_required', 'cancelled'])
+                ->with(['creditNotes' => fn ($credit) => $credit->whereNotIn('status', ['draft', 'cancelled'])])])
+            ->get(['id', 'installation_id', 'subtotal', 'shipping_cost'])
+            ->groupBy('installation_id')
+            ->map(function (Collection $orders): array {
+                $remaining = $orders->sum(function (PurchaseDocument $order): float {
+                    $ordered = (float) $order->subtotal + (float) $order->shipping_cost;
+                    $invoiced = $order->derivedDocuments->sum(fn (PurchaseDocument $invoice) => (float) $invoice->subtotal + (float) $invoice->shipping_cost)
+                        + $order->derivedDocuments->flatMap->creditNotes->sum(fn (PurchaseDocument $credit) => (float) $credit->subtotal + (float) $credit->shipping_cost);
+
+                    return max(0, $ordered - $invoiced);
+                });
+
+                return ['remaining_net' => round((float) $remaining, 2), 'orders' => $orders->count()];
+            });
+    }
+
     /** @return array{summary: array<string, float|int>, rows: Collection<int, array<string, mixed>>, bySupplier: Collection<int, array<string, mixed>>} */
     public function build(int $year): array
     {
