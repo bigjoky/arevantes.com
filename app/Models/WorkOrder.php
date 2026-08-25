@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class WorkOrder extends Model
 {
@@ -73,5 +74,10 @@ class WorkOrder extends Model
     public function assetEvents(): HasMany
     {
         return $this->hasMany(AssetEvent::class);
+    }
+
+    public function serviceTicket(): HasOne
+    {
+        return $this->hasOne(ServiceTicket::class);
     }
 }

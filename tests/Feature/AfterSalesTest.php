@@ -2,8 +2,11 @@
 
 namespace Tests\Feature;
 
+use App\Models\FinancialForecastItem;
 use App\Models\Installation;
+use App\Models\InstallationAsset;
 use App\Models\MaintenancePlan;
+use App\Models\Opportunity;
 use App\Models\Person;
 use App\Models\Product;
 use App\Models\SerialNumber;
@@ -103,6 +106,7 @@ class AfterSalesTest extends TestCase
             'next_due_on' => '2026-08-01',
             'generate_work_order' => true,
             'scope' => 'Inspect protections, firmware and ventilation.',
+            'change_note' => 'Expanded preventive scope and increased visit frequency.',
         ])->assertRedirect()->assertSessionHasNoErrors();
 
         $plan->refresh();
@@ -114,9 +118,84 @@ class AfterSalesTest extends TestCase
         $this->assertTrue($plan->generate_work_order);
         $this->assertSame('Inspect protections, firmware and ventilation.', $plan->scope);
 
-        $this->patch(route('after-sales.plans.update', $plan), ['is_active' => false])
+        $this->patch(route('after-sales.plans.update', $plan), ['is_active' => false, 'change_note' => 'Plan paused at customer request.'])
             ->assertRedirect()->assertSessionHasNoErrors();
         $this->assertFalse($plan->refresh()->is_active);
+    }
+
+    public function test_service_plan_is_versioned_forecast_and_prepares_one_human_reviewed_renewal(): void
+    {
+        $commercial = User::factory()->create(['role' => 'commercial']);
+        $customer = Person::create(['category' => 'customer', 'first_name' => 'Industria', 'company_name' => 'Industria Norte SL']);
+        $installation = Installation::create([
+            'person_id' => $customer->id,
+            'commercial_user_id' => $commercial->id,
+            'service_type' => 'security',
+            'status' => 'completed',
+            'project_reference' => 'SEG-REC-1',
+            'site_address_line_1' => 'Calle Seguridad 1',
+        ]);
+        $panel = InstallationAsset::create(['installation_id' => $installation->id, 'asset_tag' => 'SEG-001', 'name' => 'Alarm panel', 'category' => 'alarm_panel', 'status' => 'active']);
+        $camera = InstallationAsset::create(['installation_id' => $installation->id, 'asset_tag' => 'SEG-002', 'name' => 'Perimeter camera', 'category' => 'camera', 'status' => 'active']);
+
+        $this->actingAs($commercial)->post(route('after-sales.plans.store'), [
+            'installation_id' => $installation->id,
+            'name' => 'Security response and preventive care',
+            'service_level' => 'priority',
+            'coverage_type' => 'parts_and_labour',
+            'covered_asset_ids' => [$panel->id, $camera->id],
+            'included_visits' => 4,
+            'response_minutes' => 60,
+            'resolution_minutes' => 480,
+            'interval_months' => 3,
+            'lead_days' => 14,
+            'starts_on' => '2026-09-01',
+            'contract_ends_on' => '2027-08-31',
+            'renewal_notice_days' => 60,
+            'billing_frequency_months' => 3,
+            'billing_amount' => 300,
+            'next_billing_on' => '2026-09-01',
+            'next_due_on' => '2026-12-01',
+            'generate_work_order' => true,
+            'scope' => 'Panel, detectors, cameras and communications.',
+        ])->assertRedirect()->assertSessionHasNoErrors();
+
+        $plan = MaintenancePlan::firstOrFail();
+        $this->assertSame(1, $plan->version);
+        $this->assertEqualsCanonicalizing([$panel->id, $camera->id], $plan->coveredAssets()->pluck('installation_assets.id')->all());
+        $this->assertSame('Initial service plan created.', $plan->versions()->firstOrFail()->change_note);
+        $forecast = FinancialForecastItem::where('maintenance_plan_id', $plan->id)->firstOrFail();
+        $this->assertSame('quarterly', $forecast->recurrence);
+        $this->assertSame('300.00', $forecast->amount);
+        $this->assertSame('planned', $forecast->status);
+
+        $this->patch(route('after-sales.plans.update', $plan), [
+            'coverage_type' => 'full',
+            'covered_asset_ids' => [$panel->id],
+            'billing_amount' => 350,
+            'billing_frequency_months' => 3,
+            'next_billing_on' => '2026-12-01',
+            'change_note' => 'Camera excluded and full panel coverage approved.',
+        ])->assertRedirect()->assertSessionHasNoErrors();
+
+        $plan->refresh();
+        $this->assertSame(2, $plan->version);
+        $this->assertSame('full', $plan->coverage_type);
+        $this->assertSame([$panel->id], $plan->coveredAssets()->pluck('installation_assets.id')->all());
+        $this->assertSame('parts_and_labour', $plan->versions()->where('version', 1)->firstOrFail()->snapshot['coverage_type']);
+        $this->assertSame('350.00', $forecast->refresh()->amount);
+
+        $this->post(route('after-sales.plans.renewal', $plan))->assertRedirect();
+        $renewal = Opportunity::where('commercial_kind', 'renewal')->firstOrFail();
+        $this->assertSame($customer->id, $renewal->person_id);
+        $this->assertSame($installation->id, $renewal->installation_id);
+        $this->assertSame('new', $renewal->stage);
+        $this->assertSame('1400.00', $renewal->estimated_value);
+        $this->assertNotNull($renewal->nextActivity);
+        $this->assertSame($renewal->id, $plan->refresh()->renewal_opportunity_id);
+
+        $this->post(route('after-sales.plans.renewal', $plan))->assertRedirect();
+        $this->assertDatabaseCount('opportunities', 1);
     }
 
     public function test_sla_uses_the_customer_specific_policy_and_respects_the_escalation_interval(): void

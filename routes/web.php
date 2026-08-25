@@ -218,6 +218,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('after-sales/tickets/{ticket}/work-order', [AfterSalesController::class, 'createWorkOrder'])->middleware('can:manage-operations')->name('after-sales.tickets.work-order');
     Route::post('after-sales/plans', [AfterSalesController::class, 'storePlan'])->middleware('can:manage-installations')->name('after-sales.plans.store');
     Route::patch('after-sales/plans/{plan}', [AfterSalesController::class, 'updatePlan'])->middleware('can:manage-installations')->name('after-sales.plans.update');
+    Route::post('after-sales/plans/{plan}/renewal', [AfterSalesController::class, 'prepareRenewal'])->middleware('can:manage-customers')->name('after-sales.plans.renewal');
     Route::patch('after-sales/warranties/{serial}', [AfterSalesController::class, 'updateWarranty'])->middleware('can:manage-installations')->name('after-sales.warranties.update');
     Route::post('after-sales/sla-policies', [AfterSalesController::class, 'storeSlaPolicy'])->middleware('can:manage-installations')->name('after-sales.sla-policies.store');
     Route::patch('work-orders/bulk-reschedule', [WorkOrderController::class, 'bulkReschedule'])->middleware('can:manage-installations')->name('work-orders.bulk-reschedule');

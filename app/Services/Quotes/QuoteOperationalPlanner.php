@@ -6,9 +6,13 @@ use App\Models\CrmActivity;
 use App\Models\Installation;
 use App\Models\MaintenancePlan;
 use App\Models\Quote;
+use App\Models\User;
+use App\Services\AfterSales\MaintenancePlanLifecycle;
 
 class QuoteOperationalPlanner
 {
+    public function __construct(private MaintenancePlanLifecycle $plans) {}
+
     public function sync(Quote $quote, Installation $installation, ?int $actorId = null): void
     {
         $quote->loadMissing('lines.components');
@@ -38,9 +42,10 @@ class QuoteOperationalPlanner
 
             if (in_array($component->fulfillment_kind, ['recurring', 'maintenance'], true)) {
                 $months = $component->interval_months ?: 12;
-                MaintenancePlan::firstOrCreate(
-                    ['installation_id' => $installation->id, 'name' => $component->description],
-                    [
+                if (! MaintenancePlan::where('installation_id', $installation->id)->where('name', $component->description)->exists()) {
+                    $this->plans->create([
+                        'installation_id' => $installation->id,
+                        'name' => $component->description,
                         'assigned_user_id' => $installation->technician_user_id,
                         'interval_months' => $months,
                         'lead_days' => 14,
@@ -49,8 +54,9 @@ class QuoteOperationalPlanner
                         'is_active' => true,
                         'generate_work_order' => true,
                         'scope' => $marker,
-                    ],
-                );
+                        'origin_opportunity_id' => $quote->opportunity_id,
+                    ], [], $actorId ? User::find($actorId) : null);
+                }
             }
         }
     }

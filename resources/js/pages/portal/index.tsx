@@ -79,8 +79,22 @@ type Maintenance = {
     id: number;
     installation_id: number;
     name: string;
+    version: number;
+    service_level: string;
+    coverage_type: string;
+    included_visits: number | null;
+    response_minutes: number | null;
+    resolution_minutes: number | null;
+    contract_ends_on: string | null;
     next_due_on: string;
     last_completed_on: string | null;
+    scope: string | null;
+    covered_assets: {
+        id: number;
+        asset_tag: string;
+        name: string;
+        category: string;
+    }[];
 };
 type Certificate = {
     id: number;
@@ -313,14 +327,64 @@ export default function Portal({
                                     {maintenance.map((plan) => (
                                         <div
                                             key={plan.id}
-                                            className="flex justify-between gap-3 border-b py-3 text-sm last:border-0"
+                                            className="grid gap-2 border-b py-4 text-sm last:border-0 sm:grid-cols-[1fr_auto]"
                                         >
-                                            <span className="font-medium">
-                                                {plan.name}
-                                            </span>
-                                            <span>
-                                                {date(plan.next_due_on)}
-                                            </span>
+                                            <div>
+                                                <div className="flex flex-wrap items-center gap-2">
+                                                    <span className="font-medium">
+                                                        {plan.name}
+                                                    </span>
+                                                    <Badge variant="outline">
+                                                        v{plan.version}
+                                                    </Badge>
+                                                    <Badge variant="secondary">
+                                                        {servicePlanLabel(
+                                                            plan.coverage_type,
+                                                        )}
+                                                    </Badge>
+                                                </div>
+                                                <p className="mt-1 text-muted-foreground">
+                                                    Nivel{' '}
+                                                    {servicePlanLabel(
+                                                        plan.service_level,
+                                                    )}
+                                                    {plan.included_visits !==
+                                                    null
+                                                        ? ` · ${plan.included_visits} visitas incluidas/año`
+                                                        : ''}
+                                                    {plan.response_minutes
+                                                        ? ` · respuesta ${duration(plan.response_minutes)}`
+                                                        : ''}
+                                                </p>
+                                                {plan.covered_assets.length >
+                                                0 ? (
+                                                    <p className="mt-1 text-xs text-muted-foreground">
+                                                        Equipos cubiertos:{' '}
+                                                        {plan.covered_assets
+                                                            .map(
+                                                                (asset) =>
+                                                                    `${asset.asset_tag} · ${asset.name}`,
+                                                            )
+                                                            .join(', ')}
+                                                    </p>
+                                                ) : null}
+                                                {plan.scope ? (
+                                                    <p className="mt-2 text-xs">
+                                                        {plan.scope}
+                                                    </p>
+                                                ) : null}
+                                            </div>
+                                            <div className="text-left sm:text-right">
+                                                <div className="font-medium">
+                                                    Próxima visita{' '}
+                                                    {date(plan.next_due_on)}
+                                                </div>
+                                                <div className="text-xs text-muted-foreground">
+                                                    {plan.contract_ends_on
+                                                        ? `Contrato hasta ${date(plan.contract_ends_on)}`
+                                                        : 'Servicio sin fecha de finalización'}
+                                                </div>
+                                            </div>
                                         </div>
                                     ))}
                                     {maintenance.length === 0 && (
@@ -920,6 +984,13 @@ const dateTime = (v: string) =>
         dateStyle: 'short',
         timeStyle: 'short',
     }).format(new Date(v));
+const servicePlanLabel = (value: string) => value.replaceAll('_', ' ');
+const duration = (minutes: number) =>
+    minutes >= 1440
+        ? `${Math.round(minutes / 1440)} d`
+        : minutes >= 60
+          ? `${Math.round(minutes / 60)} h`
+          : `${minutes} min`;
 const fileSize = (bytes: number) =>
     bytes < 1024 * 1024
         ? `${Math.max(1, Math.round(bytes / 1024))} KB`

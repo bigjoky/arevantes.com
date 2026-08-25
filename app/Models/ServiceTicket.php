@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ServiceTicket extends Model
 {
-    protected $fillable = ['installation_id', 'maintenance_plan_id', 'assigned_user_id', 'created_by', 'work_order_id', 'sla_policy_id', 'number', 'kind', 'priority', 'status', 'title', 'description', 'resolution', 'first_response_due_at', 'resolution_due_at', 'first_responded_at', 'escalated_at', 'escalation_level', 'reopened_count', 'satisfaction_rating', 'resolved_at'];
+    protected $fillable = ['installation_id', 'maintenance_plan_id', 'maintenance_plan_version', 'assigned_user_id', 'created_by', 'work_order_id', 'sla_policy_id', 'number', 'kind', 'priority', 'status', 'title', 'description', 'resolution', 'first_response_due_at', 'resolution_due_at', 'first_responded_at', 'escalated_at', 'escalation_level', 'reopened_count', 'satisfaction_rating', 'resolved_at'];
 
     protected function casts(): array
     {

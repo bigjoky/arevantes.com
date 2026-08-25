@@ -38,7 +38,7 @@ class WorkOrderController extends Controller
             ? CarbonImmutable::parse($validated['updated_after'])->setTimezone(config('app.timezone'))
             : null;
         $query = $this->accessible($request)
-            ->with(['installation:id,project_reference,service_type,site_name,site_address_line_1,site_city,site_postal_code,site_latitude,site_longitude', 'assignedUser:id,name', 'checklistItems', 'attachments:id,work_order_id,evidence_key', 'activities:id,work_order_id,blocked_reason,priority'])
+            ->with(['installation:id,project_reference,service_type,site_name,site_address_line_1,site_city,site_postal_code,site_latitude,site_longitude', 'assignedUser:id,name', 'checklistItems', 'attachments:id,work_order_id,evidence_key', 'activities:id,work_order_id,blocked_reason,priority', 'serviceTicket.maintenancePlan.coveredAssets:id,installation_id,asset_tag,name,category'])
             ->when($updatedAfter, fn (Builder $query, CarbonImmutable $date) => $query->where('updated_at', '>', $date))
             ->when($validated['status'] ?? null, fn (Builder $query, string $status) => $query->where('status', $status));
         $perPage = $validated['per_page'] ?? 30;
@@ -88,7 +88,7 @@ class WorkOrderController extends Controller
     public function show(Request $request, WorkOrder $workOrder, WorkOrderPlanningReadiness $readiness): JsonResponse
     {
         $this->ensureAccess($request, $workOrder);
-        $workOrder->load(['installation', 'assignedUser:id,name', 'timeEntries.user:id,name', 'checklistItems', 'attachments', 'stockReservations.product:id,sku,name,track_serials', 'stockReservations.warehouse:id,code,name', 'activities:id,work_order_id,blocked_reason,priority']);
+        $workOrder->load(['installation', 'assignedUser:id,name', 'timeEntries.user:id,name', 'checklistItems', 'attachments', 'stockReservations.product:id,sku,name,track_serials', 'stockReservations.warehouse:id,code,name', 'activities:id,work_order_id,blocked_reason,priority', 'serviceTicket.maintenancePlan.coveredAssets:id,installation_id,asset_tag,name,category']);
 
         return response()->json(['data' => [...$this->summary($workOrder),
             'instructions' => $workOrder->instructions,
@@ -345,6 +345,7 @@ class WorkOrderController extends Controller
             'required_evidence' => $order->required_evidence ?? [], 'evidence_progress' => $evidence->progress($order),
             'handover_documents' => $order->handover_documents ?? [],
             'blocked_reason' => $order->relationLoaded('activities') ? $order->activities->first()?->blocked_reason : null,
+            'service_plan' => $this->servicePlan($order),
             'installation' => $order->installation ? ['id' => $order->installation->id, 'project_reference' => $order->installation->project_reference,
                 'site_name' => $order->installation->site_name, 'address' => $order->installation->site_address_line_1,
                 'service_type' => $order->installation->service_type,
@@ -355,6 +356,29 @@ class WorkOrderController extends Controller
                 'id' => $item->id, 'position' => $item->position, 'label' => $item->label, 'is_required' => $item->is_required,
                 'completed_at' => $item->completed_at?->toISOString(), 'notes' => $item->notes,
             ])->values() : [],
+        ];
+    }
+
+    /** @return array<string, mixed>|null */
+    private function servicePlan(WorkOrder $order): ?array
+    {
+        if (! $order->relationLoaded('serviceTicket') || ! $order->serviceTicket?->maintenancePlan) {
+            return null;
+        }
+
+        $plan = $order->serviceTicket->maintenancePlan;
+
+        return [
+            'id' => $plan->id,
+            'name' => $plan->name,
+            'version' => $order->serviceTicket->maintenance_plan_version ?: $plan->version,
+            'service_level' => $plan->service_level,
+            'coverage_type' => $plan->coverage_type,
+            'included_visits' => $plan->included_visits,
+            'response_minutes' => $plan->response_minutes,
+            'resolution_minutes' => $plan->resolution_minutes,
+            'scope' => $plan->scope,
+            'covered_assets' => $plan->coveredAssets->map->only(['id', 'asset_tag', 'name', 'category'])->values(),
         ];
     }
 
