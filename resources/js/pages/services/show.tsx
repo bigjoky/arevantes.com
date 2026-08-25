@@ -178,6 +178,12 @@ export default function ServicePage({
                                 </Link>
                             ))}
                             <Link
+                                href={`/proyectos?servicio=${service.slug}`}
+                                className="transition hover:text-[#217a3b]"
+                            >
+                                Proyectos
+                            </Link>
+                            <Link
                                 href="/#contacto"
                                 className="transition hover:text-[#217a3b]"
                             >
@@ -249,6 +255,14 @@ export default function ServicePage({
                                         <ChevronRight className="size-4" />
                                     </Link>
                                 ))}
+                                <Link
+                                    href={`/proyectos?servicio=${service.slug}`}
+                                    onClick={closeMenu}
+                                    className="flex items-center justify-between rounded-2xl px-4 py-3 transition hover:bg-white hover:text-[#217a3b]"
+                                >
+                                    Proyectos realizados
+                                    <ChevronRight className="size-4" />
+                                </Link>
                                 <Link
                                     href="/#contacto"
                                     onClick={closeMenu}

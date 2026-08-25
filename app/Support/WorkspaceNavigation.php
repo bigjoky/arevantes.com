@@ -58,6 +58,7 @@ class WorkspaceNavigation
                 $this->when($user, 'manage-staff', fn () => $this->item('Equipo y accesos', route('staff.index', absolute: false))),
             ]),
             $this->section('Company', 'settings-2', [
+                $this->when($user, 'manage-admin', fn () => $this->item('Web y proyectos', route('website.projects.index', absolute: false))),
                 $this->when($user, 'manage-staff', fn () => $this->item('Arevia knowledge', route('knowledge.index', absolute: false))),
                 $this->when($user, 'manage-tax', fn () => $this->item('Company & fiscal settings', route('fiscal-settings.index', absolute: false))),
                 $this->when($user, 'manage-access', fn () => $this->item('Access & permissions', route('admin.access.index', absolute: false))),

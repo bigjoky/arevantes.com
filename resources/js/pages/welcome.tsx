@@ -15,7 +15,9 @@ import {
     Zap,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { ProjectCard } from '@/components/public/project-card';
 import { dashboard, login } from '@/routes';
+import type { PublicProjectSummary } from '@/types/public-project';
 
 const steps = [
     {
@@ -101,7 +103,13 @@ const siteDescription =
 const siteTitle = 'Arevantes · Energía, electricidad y seguridad';
 const contactServiceValues = new Set(['solar', 'electrical', 'security']);
 
-export default function Welcome({ siteUrl }: { siteUrl: string }) {
+export default function Welcome({
+    siteUrl,
+    projects,
+}: {
+    siteUrl: string;
+    projects: PublicProjectSummary[];
+}) {
     const { auth } = usePage().props;
     const privateArea = auth.user ? dashboard() : login();
     const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -296,6 +304,12 @@ export default function Welcome({ siteUrl }: { siteUrl: string }) {
                             >
                                 Cómo trabajamos
                             </a>
+                            <Link
+                                href="/proyectos"
+                                className="transition hover:text-[#217a3b]"
+                            >
+                                Proyectos
+                            </Link>
                             <a
                                 href="#contacto"
                                 className="transition hover:text-[#217a3b]"
@@ -345,6 +359,7 @@ export default function Welcome({ siteUrl }: { siteUrl: string }) {
                                 {[
                                     ['Inicio', '#inicio'],
                                     ['Servicios', '#servicios'],
+                                    ['Proyectos', '/proyectos'],
                                     ['Cómo trabajamos', '#metodo'],
                                     ['Contacto', '#contacto'],
                                 ].map(([label, href]) => (
@@ -686,6 +701,46 @@ export default function Welcome({ siteUrl }: { siteUrl: string }) {
                             </div>
                         </div>
                     </section>
+
+                    {projects.length > 0 && (
+                        <section className="bg-white px-5 py-24 sm:px-8 lg:py-32">
+                            <div className="mx-auto max-w-7xl">
+                                <div className="flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
+                                    <div className="max-w-3xl">
+                                        <p className="text-sm font-bold tracking-[0.18em] text-[#217a3b] uppercase">
+                                            Proyectos realizados
+                                        </p>
+                                        <h2 className="mt-4 text-4xl leading-tight font-semibold tracking-[-0.04em] sm:text-5xl">
+                                            Soluciones reales, adaptadas a cada
+                                            espacio.
+                                        </h2>
+                                    </div>
+                                    <div className="max-w-xl">
+                                        <p className="text-lg leading-8 text-zinc-600">
+                                            Una selección de trabajos ejecutados
+                                            por nuestro equipo, desde el estudio
+                                            inicial hasta la puesta en marcha.
+                                        </p>
+                                        <Link
+                                            href="/proyectos"
+                                            className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-[#217a3b]"
+                                        >
+                                            Ver todos los proyectos
+                                            <ArrowRight className="size-4" />
+                                        </Link>
+                                    </div>
+                                </div>
+                                <div className="mt-14 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                                    {projects.map((project) => (
+                                        <ProjectCard
+                                            key={project.slug}
+                                            project={project}
+                                        />
+                                    ))}
+                                </div>
+                            </div>
+                        </section>
+                    )}
 
                     <section className="overflow-hidden bg-[#eaf1e4] px-5 py-24 sm:px-8 lg:py-32">
                         <div className="mx-auto grid max-w-7xl gap-14 lg:grid-cols-2 lg:items-center">
@@ -1091,6 +1146,12 @@ export default function Welcome({ siteUrl }: { siteUrl: string }) {
                             © {new Date().getFullYear()} Arevantes, S.L.
                         </span>
                         <nav className="flex flex-wrap gap-x-5 gap-y-2">
+                            <Link
+                                href="/proyectos"
+                                className="transition hover:text-[#217a3b]"
+                            >
+                                Proyectos
+                            </Link>
                             <Link
                                 href="/aviso-legal"
                                 className="transition hover:text-[#217a3b]"

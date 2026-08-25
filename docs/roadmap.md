@@ -50,7 +50,7 @@ próximos horizontes.
 | Finanzas          | Contabilidad, facturación, banca, conciliación, anticipos, riesgo de cobro, tesorería, alertas y bloqueo operativo por excepciones.                                     |
 | Recursos humanos  | Expediente, contratos, ausencias, controles sensibles y capacidad técnica compartida con Operaciones.                                                                   |
 | Portal de cliente | Acceso protegido a instalaciones, documentos, aceptaciones, certificados e incidencias.                                                                                 |
-| Web pública       | Captación multirramo, formulario conectado al CRM, SEO técnico, metadatos sociales, accesibilidad y experiencia responsive.                                            |
+| Web pública       | Captación multirramo, formulario conectado al CRM, SEO técnico, metadatos sociales, accesibilidad y experiencia responsive.                                             |
 | Analítica         | Indicadores autorizados, drilldowns acotados, alertas e informes programados.                                                                                           |
 | Arevia            | Contexto autorizado, conocimiento gobernado, citas, propuestas de acciones y soporte a instalaciones de las cinco líneas.                                               |
 | Plataforma        | Perfiles y permisos, navegación autorizada, auditoría, copias, observabilidad, geocodificación y despliegue continuo.                                                   |
@@ -80,8 +80,12 @@ capacidades transversales, no una cuarta línea aislada.
   frecuentes, objeciones y contenidos especializados por tipo de proyecto.
 - Incorporar procesos, tipologías de proyecto y entregables documentales
   reales de cada línea.
-- Publicar casos de uso solo cuando dispongan de alcance, ubicación, permiso e
-  información verificable; nunca inventar resultados comerciales.
+- Consolidar el portfolio público con listado, fichas indexables y una selección
+  destacada en portada. El área privada permite crear borradores, vincularlos a
+  una instalación, ordenar imágenes y controlar su publicación.
+- Publicar casos de uso solo cuando dispongan de alcance, ubicación pública,
+  permiso e información verificable; nunca inventar resultados comerciales ni
+  exponer direcciones, personas o metadatos de localización de las fotografías.
 
 ### Fase 3 — Crecimiento medible
 
@@ -98,6 +102,7 @@ capacidades transversales, no una cuarta línea aislada.
 - Oportunidades creadas por línea de negocio y fuente.
 - Clics en llamadas a la acción por sección.
 - Entradas orgánicas a páginas de servicio.
+- Visitas a fichas de proyecto y clics hacia contacto desde el portfolio.
 - LCP, INP y CLS en móvil y escritorio.
 - Consultas que llegan correctamente clasificadas al CRM.
 

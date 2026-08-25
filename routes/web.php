@@ -28,6 +28,7 @@ use App\Http\Controllers\FinanceController;
 use App\Http\Controllers\FiscalSettingsController;
 use App\Http\Controllers\GeocodingController;
 use App\Http\Controllers\GlobalSearchController;
+use App\Http\Controllers\HomeController;
 use App\Http\Controllers\HrDepartmentController;
 use App\Http\Controllers\HrEmployeeDossierController;
 use App\Http\Controllers\HrEmploymentController;
@@ -48,6 +49,9 @@ use App\Http\Controllers\MyHumanResourcesController;
 use App\Http\Controllers\OperationsController;
 use App\Http\Controllers\OpportunityController;
 use App\Http\Controllers\PersonController;
+use App\Http\Controllers\PortfolioProjectAdminController;
+use App\Http\Controllers\PortfolioProjectImageController;
+use App\Http\Controllers\PublicProjectController;
 use App\Http\Controllers\PublicServiceController;
 use App\Http\Controllers\PurchaseApprovalRuleController;
 use App\Http\Controllers\PurchaseComparisonController;
@@ -81,9 +85,10 @@ use App\Http\Middleware\ProtectCustomerPortalLinks;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
-Route::inertia('/', 'welcome', [
-    'siteUrl' => rtrim((string) config('app.url'), '/'),
-])->name('home');
+Route::get('/', HomeController::class)->name('home');
+Route::get('proyectos', [PublicProjectController::class, 'index'])->name('projects.index');
+Route::get('proyectos/{project}', [PublicProjectController::class, 'show'])->name('projects.show');
+Route::get('proyectos/imagenes/{portfolioProjectImage}', PortfolioProjectImageController::class)->name('project-images.show');
 Route::get('servicios/{service}', PublicServiceController::class)
     ->whereIn('service', ['energia', 'electricidad', 'seguridad'])
     ->name('services.show');
@@ -107,6 +112,14 @@ Route::middleware(ProtectCustomerPortalLinks::class)->group(function (): void {
 
 Route::middleware(['auth'])->group(function () {
     Route::get('dashboard', DashboardController::class)->name('dashboard');
+    Route::resource('website/projects', PortfolioProjectAdminController::class)
+        ->only(['index', 'store', 'update', 'destroy'])
+        ->parameters(['projects' => 'portfolioProject'])
+        ->names('website.projects')
+        ->middleware('can:manage-admin');
+    Route::delete('website/project-images/{portfolioProjectImage}', [PortfolioProjectAdminController::class, 'destroyImage'])
+        ->middleware('can:manage-admin')
+        ->name('website.project-images.destroy');
     Route::get('analytics', [AnalyticsController::class, 'index'])->middleware('can:view-analytics')->name('analytics.index');
     Route::get('analytics/export/{format}', [AnalyticsController::class, 'export'])->middleware('can:view-analytics')->name('analytics.export');
     Route::post('analytics/alerts', [AnalyticsController::class, 'storeAlert'])->middleware('can:view-analytics')->name('analytics.alerts.store');

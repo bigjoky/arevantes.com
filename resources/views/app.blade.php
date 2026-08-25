@@ -2,12 +2,16 @@
     $component = $page['component'] ?? '';
     $isHomepage = $component === 'welcome';
     $isServicePage = $component === 'services/show';
+    $isProjectsIndex = $component === 'projects/index';
+    $projectMetadata = $component === 'projects/show' ? data_get($page, 'props.project') : null;
     $serviceMetadata = $isServicePage ? data_get($page, 'props.service') : null;
     $legalDocument = $component === 'legal/show' ? data_get($page, 'props.document') : null;
-    $isPublicWebsite = $isHomepage || $isServicePage || filled($legalDocument);
+    $isPublicWebsite = $isHomepage || $isServicePage || $isProjectsIndex || filled($projectMetadata) || filled($legalDocument);
     $siteUrl = rtrim(config('app.url'), '/');
     $siteTitle = 'Arevantes · Energía, electricidad y seguridad';
     $siteDescription = 'Arevantes diseña, instala y mantiene soluciones de energía, instalaciones eléctricas y sistemas de seguridad en Córdoba y Andalucía.';
+    $projectsTitle = 'Proyectos realizados · Arevantes';
+    $projectsDescription = 'Una selección de proyectos de energía, electricidad y seguridad realizados por Arevantes en Andalucía.';
     $serviceCatalog = [
         'Energía y movilidad' => ['Fotovoltaica', 'Almacenamiento', 'Puntos de recarga'],
         'Instalaciones eléctricas' => ['Instalaciones', 'Adecuaciones', 'Certificación'],
@@ -163,6 +167,58 @@
                 <meta data-inertia="twitter-description" name="twitter:description" content="{{ $serviceMetadata['seo_description'] }}">
                 <meta data-inertia="twitter-image" name="twitter:image" content="{{ $siteUrl }}{{ $serviceMetadata['image'] }}">
                 <script data-inertia="structured-data" type="application/ld+json">{!! json_encode($serviceStructuredData, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) !!}</script>
+            @elseif ($isProjectsIndex)
+                <title data-inertia="title">{{ $projectsTitle }}</title>
+                <meta data-inertia="description" name="description" content="{{ $projectsDescription }}">
+                <meta data-inertia="robots" name="robots" content="index, follow">
+                <link data-inertia="canonical" rel="canonical" href="{{ $siteUrl }}/proyectos">
+                <meta data-inertia="og-type" property="og:type" content="website">
+                <meta data-inertia="og-locale" property="og:locale" content="es_ES">
+                <meta data-inertia="og-title" property="og:title" content="{{ $projectsTitle }}">
+                <meta data-inertia="og-description" property="og:description" content="{{ $projectsDescription }}">
+                <meta data-inertia="og-url" property="og:url" content="{{ $siteUrl }}/proyectos">
+                <meta data-inertia="og-image" property="og:image" content="{{ $siteUrl }}/og-multirramo-v2.png">
+                <meta data-inertia="twitter-card" name="twitter:card" content="summary_large_image">
+                <meta data-inertia="twitter-title" name="twitter:title" content="{{ $projectsTitle }}">
+                <meta data-inertia="twitter-description" name="twitter:description" content="{{ $projectsDescription }}">
+                <meta data-inertia="twitter-image" name="twitter:image" content="{{ $siteUrl }}/og-multirramo-v2.png">
+            @elseif ($projectMetadata)
+                @php
+                    $projectUrl = $siteUrl.$projectMetadata['href'];
+                    $projectTitle = $projectMetadata['title'].' · Proyectos Arevantes';
+                    $projectImage = data_get($projectMetadata, 'images.0');
+                    $projectStructuredData = [
+                        '@context' => 'https://schema.org',
+                        '@type' => 'CreativeWork',
+                        'name' => $projectMetadata['title'],
+                        'description' => $projectMetadata['summary'],
+                        'url' => $projectUrl,
+                        'image' => $projectImage ? $siteUrl.$projectImage['url'] : null,
+                        'locationCreated' => $projectMetadata['location'],
+                        'dateCreated' => $projectMetadata['completed_on'],
+                        'creator' => ['@type' => 'Organization', 'name' => 'Arevantes', 'url' => $siteUrl],
+                    ];
+                @endphp
+                <title data-inertia="title">{{ $projectTitle }}</title>
+                <meta data-inertia="description" name="description" content="{{ $projectMetadata['summary'] }}">
+                <meta data-inertia="robots" name="robots" content="index, follow">
+                <link data-inertia="canonical" rel="canonical" href="{{ $projectUrl }}">
+                <meta data-inertia="og-type" property="og:type" content="article">
+                <meta data-inertia="og-locale" property="og:locale" content="es_ES">
+                <meta data-inertia="og-title" property="og:title" content="{{ $projectTitle }}">
+                <meta data-inertia="og-description" property="og:description" content="{{ $projectMetadata['summary'] }}">
+                <meta data-inertia="og-url" property="og:url" content="{{ $projectUrl }}">
+                @if ($projectImage)
+                    <meta data-inertia="og-image" property="og:image" content="{{ $siteUrl }}{{ $projectImage['url'] }}">
+                    <meta data-inertia="og-image-alt" property="og:image:alt" content="{{ $projectImage['alt'] }}">
+                @endif
+                <meta data-inertia="twitter-card" name="twitter:card" content="summary_large_image">
+                <meta data-inertia="twitter-title" name="twitter:title" content="{{ $projectTitle }}">
+                <meta data-inertia="twitter-description" name="twitter:description" content="{{ $projectMetadata['summary'] }}">
+                @if ($projectImage)
+                    <meta data-inertia="twitter-image" name="twitter:image" content="{{ $siteUrl }}{{ $projectImage['url'] }}">
+                @endif
+                <script data-inertia="project-structured-data" type="application/ld+json">{!! json_encode($projectStructuredData, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) !!}</script>
             @elseif ($currentLegalMetadata)
                 <title data-inertia="title">{{ $currentLegalMetadata['title'] }} · Arevantes</title>
                 <meta data-inertia="description" name="description" content="{{ $currentLegalMetadata['description'] }}">
