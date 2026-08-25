@@ -91,7 +91,15 @@ class PortfolioProjectTest extends TestCase
 
     public function test_only_administrators_can_manage_public_projects(): void
     {
+        $admin = User::factory()->create(['role' => 'admin']);
         $technician = User::factory()->create(['role' => 'technician']);
+
+        $this->actingAs($admin)
+            ->get(route('website.projects.index'))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('website/projects/index')
+                ->has('projects'));
 
         $this->actingAs($technician)
             ->get(route('website.projects.index'))

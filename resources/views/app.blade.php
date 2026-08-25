@@ -150,6 +150,18 @@
                             'url' => $siteUrl,
                         ],
                     ];
+                    $faqStructuredData = [
+                        '@context' => 'https://schema.org',
+                        '@type' => 'FAQPage',
+                        'mainEntity' => collect($serviceMetadata['faqs'] ?? [])->map(fn (array $faq): array => [
+                            '@type' => 'Question',
+                            'name' => $faq['question'],
+                            'acceptedAnswer' => [
+                                '@type' => 'Answer',
+                                'text' => $faq['answer'],
+                            ],
+                        ])->values()->all(),
+                    ];
                 @endphp
                 <title data-inertia="title">{{ $serviceMetadata['seo_title'] }}</title>
                 <meta data-inertia="description" name="description" content="{{ $serviceMetadata['seo_description'] }}">
@@ -167,6 +179,7 @@
                 <meta data-inertia="twitter-description" name="twitter:description" content="{{ $serviceMetadata['seo_description'] }}">
                 <meta data-inertia="twitter-image" name="twitter:image" content="{{ $siteUrl }}{{ $serviceMetadata['image'] }}">
                 <script data-inertia="structured-data" type="application/ld+json">{!! json_encode($serviceStructuredData, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) !!}</script>
+                <script data-inertia="faq-structured-data" type="application/ld+json">{!! json_encode($faqStructuredData, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) !!}</script>
             @elseif ($isProjectsIndex)
                 <title data-inertia="title">{{ $projectsTitle }}</title>
                 <meta data-inertia="description" name="description" content="{{ $projectsDescription }}">

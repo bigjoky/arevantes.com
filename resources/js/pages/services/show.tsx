@@ -12,6 +12,8 @@ import {
     Zap,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { ProjectCard } from '@/components/public/project-card';
+import type { PublicProjectSummary } from '@/types/public-project';
 
 type ServiceSummary = {
     slug: string;
@@ -32,6 +34,7 @@ type PublicService = ServiceSummary & {
     solutions: Array<{ title: string; description: string }>;
     deliverables: string[];
     audiences: string[];
+    faqs: Array<{ question: string; answer: string }>;
 };
 
 const icons = {
@@ -43,10 +46,12 @@ const icons = {
 export default function ServicePage({
     service,
     services,
+    projects,
     siteUrl,
 }: {
     service: PublicService;
     services: ServiceSummary[];
+    projects: PublicProjectSummary[];
     siteUrl: string;
 }) {
     const Icon = icons[service.slug as keyof typeof icons] ?? Gauge;
@@ -130,6 +135,23 @@ export default function ServicePage({
                     name="twitter:image"
                     content={`${siteUrl}${service.image}`}
                 />
+                <script
+                    head-key="faq-structured-data"
+                    type="application/ld+json"
+                >
+                    {JSON.stringify({
+                        '@context': 'https://schema.org',
+                        '@type': 'FAQPage',
+                        mainEntity: service.faqs.map((faq) => ({
+                            '@type': 'Question',
+                            name: faq.question,
+                            acceptedAnswer: {
+                                '@type': 'Answer',
+                                text: faq.answer,
+                            },
+                        })),
+                    })}
+                </script>
             </Head>
 
             <div className="min-h-screen bg-[#f7f8f4] text-zinc-950 antialiased">
@@ -433,6 +455,77 @@ export default function ServicePage({
                                         <ChevronRight className="size-5" />
                                     </Link>
                                 </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    {projects.length > 0 && (
+                        <section className="bg-white px-5 py-20 sm:px-8 lg:py-28">
+                            <div className="mx-auto max-w-7xl">
+                                <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+                                    <div className="max-w-3xl">
+                                        <p className="text-sm font-bold tracking-[.18em] text-[#217a3b] uppercase">
+                                            Trabajo realizado
+                                        </p>
+                                        <h2 className="mt-4 text-4xl font-semibold tracking-[-.04em] sm:text-5xl">
+                                            Proyectos de{' '}
+                                            {service.short_name.toLowerCase()}
+                                        </h2>
+                                    </div>
+                                    <Link
+                                        href={`/proyectos?servicio=${service.slug}`}
+                                        className="inline-flex items-center gap-2 font-semibold text-[#217a3b]"
+                                    >
+                                        Ver todos los proyectos
+                                        <ArrowRight className="size-4" />
+                                    </Link>
+                                </div>
+                                <div className="mt-12 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+                                    {projects.map((project) => (
+                                        <ProjectCard
+                                            key={project.slug}
+                                            project={project}
+                                        />
+                                    ))}
+                                </div>
+                            </div>
+                        </section>
+                    )}
+
+                    <section className="px-5 py-20 sm:px-8 lg:py-28">
+                        <div className="mx-auto grid max-w-7xl gap-12 lg:grid-cols-[.72fr_1.28fr]">
+                            <div>
+                                <p className="text-sm font-bold tracking-[.18em] text-[#217a3b] uppercase">
+                                    Preguntas frecuentes
+                                </p>
+                                <h2 className="mt-4 text-4xl font-semibold tracking-[-.04em] sm:text-5xl">
+                                    Antes de empezar
+                                </h2>
+                                <p className="mt-5 max-w-md leading-7 text-zinc-600">
+                                    Resolvemos las dudas habituales y estudiamos
+                                    cada caso antes de concretar el alcance.
+                                </p>
+                            </div>
+                            <div className="divide-y divide-zinc-200 border-y border-zinc-200">
+                                {service.faqs.map((faq) => (
+                                    <details
+                                        key={faq.question}
+                                        className="group py-1"
+                                    >
+                                        <summary className="flex cursor-pointer list-none items-center justify-between gap-6 py-6 text-lg font-semibold marker:content-none">
+                                            {faq.question}
+                                            <span
+                                                aria-hidden="true"
+                                                className="grid size-8 shrink-0 place-items-center rounded-full border border-zinc-300 text-xl font-normal transition group-open:rotate-45 group-open:border-[#217a3b] group-open:text-[#217a3b]"
+                                            >
+                                                +
+                                            </span>
+                                        </summary>
+                                        <p className="max-w-3xl pr-12 pb-7 leading-7 text-zinc-600">
+                                            {faq.answer}
+                                        </p>
+                                    </details>
+                                ))}
                             </div>
                         </div>
                     </section>

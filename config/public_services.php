@@ -21,6 +21,12 @@ return [
         ],
         'deliverables' => ['Estudio de necesidades y emplazamiento', 'Diseño y dimensionado de la solución', 'Instalación, configuración y puesta en marcha', 'Documentación y acompañamiento posventa'],
         'audiences' => ['Viviendas', 'Comunidades', 'Negocios', 'Instalaciones industriales'],
+        'faqs' => [
+            ['question' => '¿Qué información necesitáis para estudiar una instalación?', 'answer' => 'Partimos del consumo, el espacio disponible y los objetivos del proyecto. Cuando hace falta, completamos esa información con una visita técnica antes de definir la solución.'],
+            ['question' => '¿Cómo se dimensiona una solución de autoconsumo?', 'answer' => 'Analizamos el perfil de consumo, la superficie, la orientación y las necesidades previstas para evitar tanto una instalación insuficiente como equipos sin utilidad real.'],
+            ['question' => '¿Se pueden incorporar baterías o recarga más adelante?', 'answer' => 'Sí, siempre que la instalación existente y su diseño lo permitan. Podemos estudiar desde el inicio las previsiones necesarias para facilitar futuras ampliaciones.'],
+            ['question' => '¿Qué ocurre después de la puesta en marcha?', 'answer' => 'Entregamos la documentación correspondiente al alcance contratado, explicamos el funcionamiento y mantenemos un canal de atención para el seguimiento posventa.'],
+        ],
     ],
     'electricidad' => [
         'slug' => 'electricidad',
@@ -42,6 +48,12 @@ return [
         ],
         'deliverables' => ['Revisión del estado y necesidades', 'Definición del alcance eléctrico', 'Ejecución y comprobaciones funcionales', 'Documentación de entrega y continuidad'],
         'audiences' => ['Viviendas', 'Locales comerciales', 'Oficinas', 'Instalaciones industriales'],
+        'faqs' => [
+            ['question' => '¿Trabajáis sobre instalaciones eléctricas existentes?', 'answer' => 'Sí. Revisamos su estado y compatibilidad para definir si conviene ampliar, reorganizar, adecuar o ejecutar una solución nueva.'],
+            ['question' => '¿Cuándo necesita documentación o certificación una intervención?', 'answer' => 'Depende del alcance y de la situación de la instalación. Lo determinamos durante el estudio y lo incorporamos de forma clara a la propuesta.'],
+            ['question' => '¿Podéis preparar la instalación para futuras cargas?', 'answer' => 'Podemos coordinar cuadros, protecciones, circuitos y previsiones pensando en ampliaciones, climatización, autoconsumo o recarga cuando formen parte de las necesidades previstas.'],
+            ['question' => '¿Cómo documentáis el trabajo realizado?', 'answer' => 'La entrega reúne las comprobaciones y la documentación aplicable al alcance, para que la instalación pueda mantenerse y evolucionar con mayor trazabilidad.'],
+        ],
     ],
     'seguridad' => [
         'slug' => 'seguridad',
@@ -63,5 +75,11 @@ return [
         ],
         'deliverables' => ['Análisis de accesos y zonas sensibles', 'Diseño y ubicación de dispositivos', 'Instalación, configuración y pruebas', 'Entrega, explicación de uso y posventa'],
         'audiences' => ['Viviendas', 'Comunidades', 'Comercios', 'Naves y oficinas'],
+        'faqs' => [
+            ['question' => '¿Cómo decidís qué sistema de seguridad necesita cada espacio?', 'answer' => 'Analizamos accesos, zonas sensibles, horarios, forma de uso y necesidades de supervisión antes de proponer alarmas, cámaras o control de accesos.'],
+            ['question' => '¿Se puede aprovechar parte de un sistema existente?', 'answer' => 'Primero comprobamos compatibilidad, estado y posibilidades de integración. Con esa revisión definimos qué elementos pueden mantenerse y cuáles conviene renovar.'],
+            ['question' => '¿Cómo abordáis la privacidad en videovigilancia?', 'answer' => 'La ubicación, los accesos y la configuración se plantean según la finalidad del sistema y las obligaciones aplicables a cada proyecto.'],
+            ['question' => '¿Incluís explicación de uso y atención posterior?', 'answer' => 'Sí. La puesta en marcha incluye las pruebas y la explicación previstas, y el alcance puede incorporar revisiones y soporte posventa según las necesidades del cliente.'],
+        ],
     ],
 ];

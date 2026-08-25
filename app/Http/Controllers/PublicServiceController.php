@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\PortfolioProject;
+use App\Support\PublicProjectPresenter;
 use Illuminate\Support\Arr;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -20,6 +22,17 @@ class PublicServiceController extends Controller
                 'name',
                 'short_name',
             ]))->values()->all(),
+            'projects' => PortfolioProject::published()
+                ->where('service_slug', $service)
+                ->with('images')
+                ->orderByDesc('is_featured')
+                ->orderBy('sort_order')
+                ->orderByDesc('completed_on')
+                ->limit(3)
+                ->get()
+                ->map(PublicProjectPresenter::summary(...))
+                ->values()
+                ->all(),
             'siteUrl' => rtrim((string) config('app.url'), '/'),
         ]);
     }

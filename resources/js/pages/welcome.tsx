@@ -111,7 +111,7 @@ export default function Welcome({
     projects: PublicProjectSummary[];
 }) {
     const { auth } = usePage().props;
-    const privateArea = auth.user ? dashboard() : login();
+    const privateArea = auth.user ? dashboard().url : login().url;
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [activeModeIndex, setActiveModeIndex] = useState(0);
     const [selectedService, setSelectedService] = useState(() => {
@@ -319,13 +319,13 @@ export default function Welcome({
                         </nav>
 
                         <div className="flex items-center gap-2">
-                            <Link
+                            <a
                                 href={privateArea}
                                 className="hidden items-center gap-2 rounded-full border border-zinc-300 bg-white px-4 py-2 text-sm font-semibold shadow-sm transition hover:border-[#289548] hover:text-[#217a3b] sm:inline-flex"
                             >
                                 {auth.user ? 'Ir al panel' : 'Área privada'}
                                 <ChevronRight className="size-4" />
-                            </Link>
+                            </a>
                             <button
                                 type="button"
                                 className="grid size-11 place-items-center rounded-full border border-zinc-300 bg-white text-zinc-900 shadow-sm transition hover:border-[#289548] hover:text-[#217a3b] md:hidden"
@@ -373,13 +373,13 @@ export default function Welcome({
                                         <ArrowUpRight className="size-4" />
                                     </a>
                                 ))}
-                                <Link
+                                <a
                                     href={privateArea}
                                     className="mt-3 inline-flex items-center justify-center gap-2 rounded-full bg-zinc-950 px-5 py-3 text-sm text-white sm:hidden"
                                 >
                                     {auth.user ? 'Ir al panel' : 'Área privada'}
                                     <ChevronRight className="size-4" />
-                                </Link>
+                                </a>
                             </nav>
                         </div>
                     )}

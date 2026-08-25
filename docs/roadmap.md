@@ -87,6 +87,19 @@ capacidades transversales, no una cuarta línea aislada.
   permiso e información verificable; nunca inventar resultados comerciales ni
   exponer direcciones, personas o metadatos de localización de las fotografías.
 
+Incremento completado el 25 de agosto de 2026:
+
+- cada página de servicio responde dudas específicas con contenido visible y
+  datos estructurados `FAQPage` equivalentes;
+- los proyectos publicados se relacionan automáticamente con su servicio sin
+  mostrar borradores ni casos pertenecientes a otra línea;
+- el acceso desde la web pública fuerza una navegación completa hacia login o
+  panel, y el área «Web y proyectos» verifica autorización administrativa en
+  servidor;
+- el siguiente corte de esta fase debe ampliar procesos y tipologías con casos
+  verificados de electricidad y seguridad a medida que exista material apto
+  para publicación.
+
 ### Fase 3 — Crecimiento medible
 
 - Medir visitas a cada línea, clics de contacto, inicio y finalización del
