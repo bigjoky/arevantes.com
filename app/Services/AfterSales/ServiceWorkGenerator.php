@@ -51,6 +51,7 @@ class ServiceWorkGenerator
                     $ticket = $this->tickets->create([
                         'installation_id' => $plan->installation_id,
                         'maintenance_plan_id' => $plan->id,
+                        'maintenance_plan_version' => $plan->version,
                         'assigned_user_id' => $plan->assigned_user_id,
                         'kind' => 'maintenance', 'priority' => 'normal', 'status' => 'open', 'title' => $plan->name, 'description' => $plan->scope,
                     ]);

@@ -1,13 +1,15 @@
 import { Form, Head, Link } from '@inertiajs/react';
 import {
     CalendarClock,
+    CircleDollarSign,
     HeartPulse,
+    History,
     PenLine,
     Plus,
     ShieldCheck,
     Wrench,
 } from 'lucide-react';
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -37,7 +39,9 @@ type Installation = {
         last_name: string | null;
         company_name: string | null;
     } | null;
+    assets?: Asset[];
 };
+type Asset = { id: number; asset_tag: string; name: string; category: string };
 type User = { id: number; name: string };
 type WorkTemplate = { id: number; name: string; kind: string };
 type SlaPolicy = {
@@ -67,9 +71,20 @@ type Ticket = {
 type Plan = {
     id: number;
     name: string;
+    version: number;
+    service_level: string;
+    coverage_type: string;
+    included_visits: number | null;
+    response_minutes: number | null;
+    resolution_minutes: number | null;
     interval_months: number;
     lead_days: number;
     starts_on: string;
+    contract_ends_on: string | null;
+    renewal_notice_days: number;
+    billing_frequency_months: number | null;
+    billing_amount: string | null;
+    next_billing_on: string | null;
     next_due_on: string;
     last_completed_on: string | null;
     is_active: boolean;
@@ -78,6 +93,20 @@ type Plan = {
     installation: Installation;
     assigned_user: User | null;
     template: WorkTemplate | null;
+    covered_assets: Asset[];
+    versions: {
+        id: number;
+        version: number;
+        change_note: string;
+        created_at: string;
+        creator: User | null;
+    }[];
+    renewal_opportunity: {
+        id: number;
+        code: string;
+        title: string;
+        stage: string;
+    } | null;
 };
 type Warranty = {
     id: number;
@@ -99,6 +128,7 @@ export default function AfterSalesIndex({
     slaPolicies,
     templates,
     canManage,
+    canManageCustomers,
 }: {
     tickets: Ticket[];
     plans: Plan[];
@@ -113,10 +143,13 @@ export default function AfterSalesIndex({
         average_resolution_minutes: number;
         recurrences: number;
         satisfaction: number;
+        annual_recurring_value: number;
+        renewals_due: number;
     };
     slaPolicies: SlaPolicy[];
     templates: WorkTemplate[];
     canManage: boolean;
+    canManageCustomers: boolean;
 }) {
     const [tab, setTab] = useState<Tab>('tickets');
 
@@ -193,6 +226,14 @@ export default function AfterSalesIndex({
                                     daysUntil(w.warranty_ends_on) >= 0,
                             ).length
                         }
+                    />
+                    <Metric
+                        label="Annual recurring value"
+                        value={currency(metrics.annual_recurring_value)}
+                    />
+                    <Metric
+                        label="Renewals to prepare"
+                        value={metrics.renewals_due}
                     />
                 </section>
                 <div className="flex gap-1 border-b">
@@ -365,84 +406,216 @@ export default function AfterSalesIndex({
                                 <tr className="border-b text-left text-muted-foreground">
                                     <th className="py-2">Plan</th>
                                     <th>Installation</th>
-                                    <th>Frequency</th>
-                                    <th>Last completed</th>
-                                    <th>Next due</th>
+                                    <th>Coverage</th>
+                                    <th>Contract</th>
+                                    <th>Recurring fee</th>
                                     <th>Status</th>
-                                    <th className="w-56" />
+                                    <th className="w-72" />
                                 </tr>
                             </thead>
                             <tbody>
                                 {plans.map((plan) => (
-                                    <tr key={plan.id} className="border-b">
-                                        <td className="py-3 font-medium">
-                                            {plan.name}
-                                        </td>
-                                        <td>
-                                            {plan.installation
-                                                .project_reference ||
-                                                plan.installation.site_name}
-                                        </td>
-                                        <td>{plan.interval_months} months</td>
-                                        <td>
-                                            {plan.last_completed_on
-                                                ? date(plan.last_completed_on)
-                                                : '—'}
-                                        </td>
-                                        <td
-                                            className={
-                                                new Date(plan.next_due_on) <=
-                                                new Date()
-                                                    ? 'font-medium text-destructive'
-                                                    : ''
-                                            }
-                                        >
-                                            {date(plan.next_due_on)}
-                                        </td>
-                                        <td>
-                                            <Badge variant="outline">
-                                                {plan.is_active
-                                                    ? 'active'
-                                                    : 'paused'}
-                                            </Badge>
-                                        </td>
-                                        <td>
-                                            {canManage && (
-                                                <div className="flex gap-1">
-                                                    <PlanDialog
-                                                        installations={
-                                                            installations
-                                                        }
-                                                        users={users}
-                                                        templates={templates}
-                                                        plan={plan}
-                                                    />
-                                                    <Form
-                                                        action={`/after-sales/plans/${plan.id}`}
-                                                        method="patch"
-                                                    >
-                                                        <input
-                                                            type="hidden"
-                                                            name="is_active"
-                                                            value={
-                                                                plan.is_active
-                                                                    ? '0'
-                                                                    : '1'
-                                                            }
-                                                        />
-                                                        <Button
-                                                            size="sm"
-                                                            variant="outline"
-                                                        >
-                                                            {plan.is_active
-                                                                ? 'Pause'
-                                                                : 'Resume'}
-                                                        </Button>
-                                                    </Form>
+                                    <Fragment key={plan.id}>
+                                        <tr className="border-b">
+                                            <td className="py-3 font-medium">
+                                                {plan.name}{' '}
+                                                <Badge variant="secondary">
+                                                    v{plan.version}
+                                                </Badge>
+                                            </td>
+                                            <td>
+                                                {plan.installation
+                                                    .project_reference ||
+                                                    plan.installation.site_name}
+                                            </td>
+                                            <td>
+                                                <div>
+                                                    {label(plan.coverage_type)}{' '}
+                                                    ·{' '}
+                                                    {label(plan.service_level)}
                                                 </div>
-                                            )}
-                                        </td>
-                                    </tr>
+                                                <div className="text-xs text-muted-foreground">
+                                                    {plan.covered_assets.length}{' '}
+                                                    covered assets · every{' '}
+                                                    {plan.interval_months}{' '}
+                                                    months
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <div>
+                                                    {plan.contract_ends_on
+                                                        ? `Ends ${date(plan.contract_ends_on)}`
+                                                        : 'Open-ended'}
+                                                </div>
+                                                <div
+                                                    className={
+                                                        new Date(
+                                                            plan.next_due_on,
+                                                        ) <= new Date()
+                                                            ? 'text-xs font-medium text-destructive'
+                                                            : 'text-xs text-muted-foreground'
+                                                    }
+                                                >
+                                                    Next visit{' '}
+                                                    {date(plan.next_due_on)}
+                                                </div>
+                                            </td>
+                                            <td>
+                                                {plan.billing_amount &&
+                                                plan.billing_frequency_months ? (
+                                                    <>
+                                                        <div>
+                                                            {currency(
+                                                                Number(
+                                                                    plan.billing_amount,
+                                                                ),
+                                                            )}
+                                                        </div>
+                                                        <div className="text-xs text-muted-foreground">
+                                                            every{' '}
+                                                            {
+                                                                plan.billing_frequency_months
+                                                            }{' '}
+                                                            months
+                                                        </div>
+                                                    </>
+                                                ) : (
+                                                    '—'
+                                                )}
+                                            </td>
+                                            <td>
+                                                <Badge variant="outline">
+                                                    {plan.is_active
+                                                        ? 'active'
+                                                        : 'paused'}
+                                                </Badge>
+                                            </td>
+                                            <td>
+                                                {canManage && (
+                                                    <div className="flex gap-1">
+                                                        <PlanDialog
+                                                            installations={
+                                                                installations
+                                                            }
+                                                            users={users}
+                                                            templates={
+                                                                templates
+                                                            }
+                                                            plan={plan}
+                                                        />
+                                                        <Form
+                                                            action={`/after-sales/plans/${plan.id}`}
+                                                            method="patch"
+                                                        >
+                                                            <input
+                                                                type="hidden"
+                                                                name="change_note"
+                                                                value={
+                                                                    plan.is_active
+                                                                        ? 'Plan paused from after-sales.'
+                                                                        : 'Plan resumed from after-sales.'
+                                                                }
+                                                            />
+                                                            <input
+                                                                type="hidden"
+                                                                name="is_active"
+                                                                value={
+                                                                    plan.is_active
+                                                                        ? '0'
+                                                                        : '1'
+                                                                }
+                                                            />
+                                                            <Button
+                                                                size="sm"
+                                                                variant="outline"
+                                                            >
+                                                                {plan.is_active
+                                                                    ? 'Pause'
+                                                                    : 'Resume'}
+                                                            </Button>
+                                                        </Form>
+                                                        {canManageCustomers &&
+                                                            plan.contract_ends_on &&
+                                                            (plan.renewal_opportunity ? (
+                                                                <Button
+                                                                    size="sm"
+                                                                    variant="outline"
+                                                                    asChild
+                                                                >
+                                                                    <Link
+                                                                        href={`/opportunities/${plan.renewal_opportunity.id}`}
+                                                                    >
+                                                                        {
+                                                                            plan
+                                                                                .renewal_opportunity
+                                                                                .code
+                                                                        }
+                                                                    </Link>
+                                                                </Button>
+                                                            ) : (
+                                                                <Form
+                                                                    action={`/after-sales/plans/${plan.id}/renewal`}
+                                                                    method="post"
+                                                                >
+                                                                    <Button
+                                                                        size="sm"
+                                                                        variant="outline"
+                                                                    >
+                                                                        <CircleDollarSign />{' '}
+                                                                        Renewal
+                                                                    </Button>
+                                                                </Form>
+                                                            ))}
+                                                    </div>
+                                                )}
+                                            </td>
+                                        </tr>
+                                        <tr className="border-b bg-muted/20">
+                                            <td
+                                                colSpan={7}
+                                                className="px-3 py-2"
+                                            >
+                                                <details className="text-xs">
+                                                    <summary className="flex cursor-pointer items-center gap-2 text-muted-foreground">
+                                                        <History className="size-3.5" />{' '}
+                                                        Version history (
+                                                        {plan.versions.length})
+                                                    </summary>
+                                                    <div className="mt-2 grid gap-1 pl-5">
+                                                        {plan.versions.map(
+                                                            (version) => (
+                                                                <div
+                                                                    key={
+                                                                        version.id
+                                                                    }
+                                                                >
+                                                                    <span className="font-medium">
+                                                                        v
+                                                                        {
+                                                                            version.version
+                                                                        }
+                                                                    </span>{' '}
+                                                                    ·{' '}
+                                                                    {
+                                                                        version.change_note
+                                                                    }{' '}
+                                                                    ·{' '}
+                                                                    {version
+                                                                        .creator
+                                                                        ?.name ||
+                                                                        'System'}{' '}
+                                                                    ·{' '}
+                                                                    {dateTime(
+                                                                        version.created_at,
+                                                                    )}
+                                                                </div>
+                                                            ),
+                                                        )}
+                                                    </div>
+                                                </details>
+                                            </td>
+                                        </tr>
+                                    </Fragment>
                                 ))}
                             </tbody>
                         </table>
@@ -640,6 +813,12 @@ function PlanDialog({
     plan?: Plan;
 }) {
     const [open, setOpen] = useState(false);
+    const [installationId, setInstallationId] = useState(
+        String(plan?.installation.id ?? installations[0]?.id ?? ''),
+    );
+    const installation = installations.find(
+        (item) => String(item.id) === installationId,
+    );
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
@@ -651,7 +830,7 @@ function PlanDialog({
                     {plan ? <PenLine /> : <Plus />} {plan ? 'Edit' : 'New plan'}
                 </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
                 <DialogHeader>
                     <DialogTitle>
                         {plan ? `Edit ${plan.name}` : 'New maintenance plan'}
@@ -675,8 +854,62 @@ function PlanDialog({
                             i.project_reference || i.site_name || `#${i.id}`,
                         ])}
                         value={plan ? String(plan.installation.id) : undefined}
+                        onValueChange={setInstallationId}
                     />
                     <Field label="Plan name" name="name" value={plan?.name} />
+                    <div className="grid gap-4 sm:grid-cols-2">
+                        <SelectField
+                            label="Service level"
+                            name="service_level"
+                            value={plan?.service_level ?? 'standard'}
+                            options={[
+                                ['standard', 'Standard'],
+                                ['priority', 'Priority'],
+                                ['critical', 'Critical'],
+                            ]}
+                        />
+                        <SelectField
+                            label="Coverage"
+                            name="coverage_type"
+                            value={plan?.coverage_type ?? 'preventive'}
+                            options={[
+                                ['preventive', 'Preventive'],
+                                ['labour', 'Labour'],
+                                ['parts_and_labour', 'Parts and labour'],
+                                ['full', 'Full coverage'],
+                            ]}
+                        />
+                    </div>
+                    {installation?.assets?.length ? (
+                        <fieldset className="grid gap-2 rounded-md border p-3">
+                            <legend className="px-1 text-sm font-medium">
+                                Covered assets
+                            </legend>
+                            <div className="grid gap-2 sm:grid-cols-2">
+                                {installation.assets.map((asset) => (
+                                    <label
+                                        key={asset.id}
+                                        className="flex items-start gap-2 text-sm"
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            name="covered_asset_ids[]"
+                                            value={asset.id}
+                                            defaultChecked={plan?.covered_assets.some(
+                                                (item) => item.id === asset.id,
+                                            )}
+                                        />
+                                        <span>
+                                            {asset.asset_tag} · {asset.name}
+                                            <span className="block text-xs text-muted-foreground">
+                                                {label(asset.category)}
+                                            </span>
+                                        </span>
+                                    </label>
+                                ))}
+                            </div>
+                        </fieldset>
+                    ) : null}
                     <div className="grid gap-4 sm:grid-cols-2">
                         <SelectField
                             label="Technician"
@@ -711,18 +944,46 @@ function PlanDialog({
                             }
                         />
                     </div>
-                    <Field
-                        label="Frequency (months)"
-                        name="interval_months"
-                        type="number"
-                        value={String(plan?.interval_months ?? 12)}
-                    />
-                    <Field
-                        label="Generation lead time (days)"
-                        name="lead_days"
-                        type="number"
-                        value={String(plan?.lead_days ?? 14)}
-                    />
+                    <div className="grid gap-4 sm:grid-cols-4">
+                        <Field
+                            label="Frequency (months)"
+                            name="interval_months"
+                            type="number"
+                            value={String(plan?.interval_months ?? 12)}
+                        />
+                        <Field
+                            label="Generation lead (days)"
+                            name="lead_days"
+                            type="number"
+                            value={String(plan?.lead_days ?? 14)}
+                        />
+                        <Field
+                            label="Included visits/year"
+                            name="included_visits"
+                            type="number"
+                            value={plan?.included_visits?.toString()}
+                        />
+                        <Field
+                            label="Renewal notice (days)"
+                            name="renewal_notice_days"
+                            type="number"
+                            value={String(plan?.renewal_notice_days ?? 30)}
+                        />
+                    </div>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                        <Field
+                            label="Response commitment (minutes)"
+                            name="response_minutes"
+                            type="number"
+                            value={plan?.response_minutes?.toString()}
+                        />
+                        <Field
+                            label="Resolution target (minutes)"
+                            name="resolution_minutes"
+                            type="number"
+                            value={plan?.resolution_minutes?.toString()}
+                        />
+                    </div>
                     <div className="grid gap-4 sm:grid-cols-2">
                         <Field
                             label="Starts"
@@ -735,6 +996,41 @@ function PlanDialog({
                             name="next_due_on"
                             type="date"
                             value={plan?.next_due_on?.slice(0, 10) ?? today()}
+                        />
+                        <Field
+                            label="Contract ends"
+                            name="contract_ends_on"
+                            type="date"
+                            value={plan?.contract_ends_on?.slice(0, 10)}
+                        />
+                    </div>
+                    <div className="grid gap-4 rounded-md border p-3 sm:grid-cols-3">
+                        <SelectField
+                            label="Billing frequency"
+                            name="billing_frequency_months"
+                            value={
+                                plan?.billing_frequency_months
+                                    ? String(plan.billing_frequency_months)
+                                    : 'none'
+                            }
+                            options={[
+                                ['none', 'No recurring forecast'],
+                                ['1', 'Monthly'],
+                                ['3', 'Quarterly'],
+                                ['12', 'Annual'],
+                            ]}
+                        />
+                        <Field
+                            label="Amount (€)"
+                            name="billing_amount"
+                            type="number"
+                            value={plan?.billing_amount ?? undefined}
+                        />
+                        <Field
+                            label="Next billing forecast"
+                            name="next_billing_on"
+                            type="date"
+                            value={plan?.next_billing_on?.slice(0, 10)}
                         />
                     </div>
                     <div className="grid gap-2">
@@ -755,6 +1051,18 @@ function PlanDialog({
                         />
                         Generate work order automatically
                     </label>
+                    {plan ? (
+                        <div className="grid gap-2">
+                            <Label>Change note</Label>
+                            <textarea
+                                name="change_note"
+                                required
+                                minLength={5}
+                                className="min-h-20 rounded-md border bg-transparent p-3 text-sm"
+                                placeholder="Explain what changed and why…"
+                            />
+                        </div>
+                    ) : null}
                     <Button>{plan ? 'Save changes' : 'Create plan'}</Button>
                 </Form>
             </DialogContent>
@@ -868,16 +1176,22 @@ function SelectField({
     name,
     options,
     value,
+    onValueChange,
 }: {
     label: string;
     name: string;
     options: string[][];
     value?: string;
+    onValueChange?: (value: string) => void;
 }) {
     return (
         <div className="grid gap-2">
             <Label>{label}</Label>
-            <Select name={name} defaultValue={value || options[0]?.[0]}>
+            <Select
+                name={name}
+                defaultValue={value || options[0]?.[0]}
+                onValueChange={onValueChange}
+            >
                 <SelectTrigger>
                     <SelectValue />
                 </SelectTrigger>
@@ -932,6 +1246,12 @@ const daysUntil = (v: string) =>
             86400000,
     );
 const today = () => new Date().toISOString().slice(0, 10);
+const label = (value: string) => value.replaceAll('_', ' ');
+const currency = (value: number) =>
+    new Intl.NumberFormat(undefined, {
+        style: 'currency',
+        currency: 'EUR',
+    }).format(value);
 AfterSalesIndex.layout = {
     breadcrumbs: [{ title: 'After-sales', href: '/after-sales' }],
 };

@@ -5,11 +5,14 @@ namespace Tests\Feature\Api;
 use App\Models\CommercialVisit;
 use App\Models\CrmActivity;
 use App\Models\Installation;
+use App\Models\InstallationAsset;
+use App\Models\MaintenancePlan;
 use App\Models\MobileOperation;
 use App\Models\Opportunity;
 use App\Models\PermissionProfile;
 use App\Models\Person;
 use App\Models\Product;
+use App\Models\ServiceTicket;
 use App\Models\StockReservation;
 use App\Models\TaxRate;
 use App\Models\Unit;
@@ -713,6 +716,24 @@ class MobileV1Test extends TestCase
             ->assertOk()->assertJsonPath('data.id', $entryId);
         $this->getJson("/api/mobile/v1/work-orders/{$order->id}")
             ->assertOk()->assertJsonPath('data.status', 'in_progress')->assertJsonPath('data.checklist.0.id', $item->id);
+    }
+
+    public function test_mobile_work_order_exposes_the_contract_version_and_covered_assets_offline(): void
+    {
+        $technician = User::factory()->create(['role' => 'technician']);
+        $installation = Installation::create(['service_type' => 'security', 'status' => 'completed', 'site_address_line_1' => 'Calle Alarma 1']);
+        $asset = InstallationAsset::create(['installation_id' => $installation->id, 'asset_tag' => 'SEC-001', 'name' => 'Alarm panel', 'category' => 'alarm_panel', 'status' => 'active']);
+        $plan = MaintenancePlan::create(['installation_id' => $installation->id, 'name' => 'Critical security care', 'version' => 4, 'service_level' => 'critical', 'coverage_type' => 'full', 'response_minutes' => 30, 'resolution_minutes' => 240, 'interval_months' => 3, 'starts_on' => today(), 'next_due_on' => today(), 'is_active' => true, 'scope' => 'Validate panel, signals and communications.']);
+        $plan->coveredAssets()->attach($asset);
+        $order = WorkOrder::create(['installation_id' => $installation->id, 'assigned_user_id' => $technician->id, 'number' => 'WO-SERVICE-1', 'title' => 'Security service']);
+        ServiceTicket::create(['installation_id' => $installation->id, 'maintenance_plan_id' => $plan->id, 'maintenance_plan_version' => 3, 'work_order_id' => $order->id, 'number' => 'SAT-SERVICE-1', 'kind' => 'maintenance', 'priority' => 'high', 'status' => 'assigned', 'title' => 'Security service']);
+
+        $this->mobileAs($technician)->getJson("/api/mobile/v1/work-orders/{$order->id}")
+            ->assertOk()
+            ->assertJsonPath('data.service_plan.name', 'Critical security care')
+            ->assertJsonPath('data.service_plan.version', 3)
+            ->assertJsonPath('data.service_plan.service_level', 'critical')
+            ->assertJsonPath('data.service_plan.covered_assets.0.asset_tag', 'SEC-001');
     }
 
     public function test_technician_can_start_and_stop_a_timer_created_offline(): void

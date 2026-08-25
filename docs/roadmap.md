@@ -339,16 +339,30 @@ El quinto vertical cierra el Horizonte 1 con una lectura económica común:
 - Arevia puede explicar desviaciones y calidad del dato, pero mantiene sus
   acciones como borradores sujetos a confirmación humana.
 
+## Corte ejecutado — Servicio recurrente y posventa
+
+El primer vertical del Horizonte 2 ya convierte una instalación entregada en un
+plan contractual versionado con cobertura, activos incluidos, frecuencia, SLA,
+vigencia, aviso de renovación y próximas intervenciones. Cada revisión exige una
+nota y conserva una instantánea inmutable; el ticket registra la versión que
+originó la visita y la orden la entrega también a la app móvil para trabajar sin
+conexión.
+
+CRM prepara, solo por acción humana, una oportunidad de renovación enlazada con
+el cliente, la instalación y la oportunidad ganada de origen. Finanzas mantiene
+una previsión recurrente diferenciada de una factura; el portal publica solo los
+planes activos y confirmados, con su alcance y equipos cubiertos. La generación
+operativa sigue siendo idempotente y no duplica tickets abiertos ni órdenes.
+
 ## Próximo corte recomendado
 
-Iniciar el Horizonte 2 con el primer vertical de **servicio recurrente y
-posventa**. El siguiente incremento debe convertir una instalación entregada en
-un plan versionado de mantenimiento, con cobertura, frecuencia, SLA, garantía,
-activos incluidos y próximas intervenciones, sin generar órdenes duplicadas.
+Completar el segundo vertical del Horizonte 2 con **demanda preventiva y salud
+de la cartera recurrente**. Suministro debe derivar necesidades de repuesto de
+los planes activos sin convertirlas en reserva ni compra; Analítica debe definir
+attach rate, renovación, coste de servicio y fiabilidad por línea; Arevia debe
+explicar riesgos y proponer la siguiente acción usando esas métricas y las
+versiones contractuales, siempre como borrador sujeto a aprobación.
 
-CRM debe conservar el origen de renovaciones y ampliaciones; Operaciones y móvil
-deben compartir agenda, versión de plantilla y cierre offline; Suministro debe
-separar repuesto preventivo de reserva de proyecto; Finanzas debe preparar la
-facturación periódica sin emitirla antes de aprobación; el portal debe mostrar
-solo cobertura y fechas confirmadas; Analítica y Arevia deben explicar
-renovación, riesgo y siguiente acción desde datos autorizados.
+El mismo corte debe reservar capacidad y guardias frente a los SLA antes de
+aceptar nuevos compromisos, y reconciliar previsión, coste real y margen de cada
+ciclo sin emitir documentos económicos ni mensajes al cliente automáticamente.

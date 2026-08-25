@@ -352,6 +352,7 @@ class FieldServiceOperationsTest extends TestCase
 
         $this->assertSame(1, app(ServiceWorkGenerator::class)->generateDueMaintenance());
         $ticket = ServiceTicket::where('maintenance_plan_id', $plan->id)->firstOrFail();
+        $this->assertSame(1, $ticket->maintenance_plan_version);
         $order = WorkOrder::findOrFail($ticket->work_order_id);
         $this->assertSame('maintenance', $order->kind);
         $this->assertSame($technician->id, $order->assigned_user_id);

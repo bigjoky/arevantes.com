@@ -9,6 +9,8 @@ use App\Models\CustomerPortalEvent;
 use App\Models\CustomerPortalPreference;
 use App\Models\CustomerSatisfactionSurvey;
 use App\Models\Installation;
+use App\Models\InstallationAsset;
+use App\Models\MaintenancePlan;
 use App\Models\PermissionProfile;
 use App\Models\Person;
 use App\Models\Quote;
@@ -33,6 +35,9 @@ class CustomerPortalTest extends TestCase
         $customer = Person::create(['category' => 'customer', 'first_name' => 'Ana', 'email' => 'ana@example.com']);
         $otherCustomer = Person::create(['category' => 'customer', 'first_name' => 'Luis', 'email' => 'luis@example.com']);
         $installation = Installation::create(['person_id' => $customer->id, 'service_type' => 'solar', 'status' => 'completed', 'project_reference' => 'FV-ANA', 'site_address_line_1' => 'Calle Sol 1']);
+        $asset = InstallationAsset::create(['installation_id' => $installation->id, 'asset_tag' => 'FV-INV-1', 'name' => 'Main inverter', 'category' => 'inverter', 'status' => 'active']);
+        $plan = MaintenancePlan::create(['installation_id' => $installation->id, 'name' => 'Priority solar care', 'version' => 3, 'service_level' => 'priority', 'coverage_type' => 'full', 'interval_months' => 12, 'starts_on' => today(), 'contract_ends_on' => today()->addYear(), 'next_due_on' => today()->addMonth(), 'is_active' => true]);
+        $plan->coveredAssets()->attach($asset);
         $foreignInstallation = Installation::create(['person_id' => $otherCustomer->id, 'service_type' => 'ev_charger', 'status' => 'completed', 'project_reference' => 'VE-LUIS', 'site_address_line_1' => 'Calle Carga 2']);
         $foreignQuote = Quote::create(['person_id' => $otherCustomer->id, 'number' => 'PRE-2026-99999', 'status' => 'sent', 'issue_date' => '2026-07-13', 'subtotal' => 100, 'discount_amount' => 0, 'tax_amount' => 21, 'amount' => 121]);
 
@@ -46,7 +51,7 @@ class CustomerPortalTest extends TestCase
         });
         $this->assertSame(hash('sha256', $token), $access->token_hash);
 
-        $this->get(route('customer-portal.show', $token))->assertOk()->assertHeader('Referrer-Policy', 'no-referrer')->assertInertia(fn ($page) => $page->component('portal/index')->where('installations.0.project_reference', 'FV-ANA')->has('installations', 1));
+        $this->get(route('customer-portal.show', $token))->assertOk()->assertHeader('Referrer-Policy', 'no-referrer')->assertInertia(fn ($page) => $page->component('portal/index')->where('installations.0.project_reference', 'FV-ANA')->has('installations', 1)->where('maintenance.0.version', 3)->where('maintenance.0.coverage_type', 'full')->where('maintenance.0.covered_assets.0.asset_tag', 'FV-INV-1'));
         $this->post(route('customer-portal.tickets.store', $token), ['installation_id' => $installation->id, 'title' => 'Low production', 'description' => 'Production appears lower than expected.', 'priority' => 'normal'])->assertRedirect();
         $this->assertDatabaseHas('service_tickets', ['installation_id' => $installation->id, 'title' => 'Low production']);
         $this->post(route('customer-portal.tickets.store', $token), ['installation_id' => $foreignInstallation->id, 'title' => 'Foreign', 'description' => 'Must not be accepted.', 'priority' => 'normal'])->assertForbidden();
