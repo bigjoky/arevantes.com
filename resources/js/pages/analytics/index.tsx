@@ -184,6 +184,30 @@ type RecurringHealth = {
     }[];
     definitions: Record<string, string>;
 };
+type RecurringEconomics = {
+    summary: {
+        cycles: number;
+        planned_revenue: number;
+        planned_margin: number;
+        settled_revenue: number;
+        actual_cost: number;
+        actual_margin: number;
+        unsettled_cycles: number;
+    };
+    cycles: {
+        id: number;
+        plan: string;
+        plan_version: number;
+        installation: string | null;
+        business_line: string | null;
+        period_starts_on: string;
+        period_ends_on: string;
+        planned_margin: number;
+        actual_margin: number;
+        tickets: number;
+    }[];
+    definition: string;
+};
 
 type Props = {
     filters: Filter;
@@ -205,6 +229,7 @@ type Props = {
     commercialConversions: CommercialConversions | null;
     projectMargins: ProjectMargins | null;
     recurringHealth: RecurringHealth | null;
+    recurringEconomics: RecurringEconomics | null;
 };
 
 export default function AnalyticsIndex(props: Props) {
@@ -411,6 +436,7 @@ export default function AnalyticsIndex(props: Props) {
                         conversions={props.commercialConversions}
                         projectMargins={props.projectMargins}
                         recurringHealth={props.recurringHealth}
+                        recurringEconomics={props.recurringEconomics}
                         onOpen={openMetric}
                     />
                 ) : null}
@@ -431,6 +457,7 @@ function Dashboard({
     conversions,
     projectMargins,
     recurringHealth,
+    recurringEconomics,
     onOpen,
 }: {
     metrics: Metric[];
@@ -440,6 +467,7 @@ function Dashboard({
     conversions: CommercialConversions | null;
     projectMargins: ProjectMargins | null;
     recurringHealth: RecurringHealth | null;
+    recurringEconomics: RecurringEconomics | null;
     onOpen: (key: string) => void;
 }) {
     return (
@@ -500,6 +528,9 @@ function Dashboard({
             </section>
             {recurringHealth ? (
                 <RecurringHealthPanel health={recurringHealth} />
+            ) : null}
+            {recurringEconomics ? (
+                <RecurringEconomicsPanel economics={recurringEconomics} />
             ) : null}
             {projectMargins ? (
                 <ProjectMarginPanel analysis={projectMargins} />
@@ -653,6 +684,119 @@ function RecurringHealthPanel({ health }: { health: RecurringHealth }) {
                     ))}
                 </div>
             </details>
+        </section>
+    );
+}
+
+function RecurringEconomicsPanel({
+    economics,
+}: {
+    economics: RecurringEconomics;
+}) {
+    return (
+        <section className="grid gap-4" aria-labelledby="service-margin-title">
+            <div>
+                <h2 id="service-margin-title" className="text-lg font-semibold">
+                    Margen por ciclo de servicio
+                </h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                    {economics.definition}
+                </p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+                <ConversionKpi
+                    label="Ciclos aprobados"
+                    value={`${economics.summary.cycles}`}
+                />
+                <ConversionKpi
+                    label="Ingresos previstos"
+                    value={formatValue(
+                        economics.summary.planned_revenue,
+                        'currency',
+                    )}
+                />
+                <ConversionKpi
+                    label="Margen previsto"
+                    value={formatValue(
+                        economics.summary.planned_margin,
+                        'currency',
+                    )}
+                />
+                <ConversionKpi
+                    label="Margen real"
+                    value={formatValue(
+                        economics.summary.actual_margin,
+                        'currency',
+                    )}
+                />
+                <ConversionKpi
+                    label="Pendientes de liquidar"
+                    value={`${economics.summary.unsettled_cycles}`}
+                />
+            </div>
+            {economics.cycles.length > 0 ? (
+                <Card className="gap-0 overflow-hidden py-0">
+                    <div className="overflow-x-auto">
+                        <table className="w-full min-w-[44rem] text-sm">
+                            <thead className="bg-muted/50 text-left text-xs text-muted-foreground">
+                                <tr>
+                                    <th className="px-4 py-3">
+                                        Ciclo contractual
+                                    </th>
+                                    <th className="px-3 py-3 text-right">
+                                        Margen previsto
+                                    </th>
+                                    <th className="px-3 py-3 text-right">
+                                        Margen real
+                                    </th>
+                                    <th className="px-4 py-3 text-right">
+                                        Tickets
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y">
+                                {economics.cycles.map((cycle) => (
+                                    <tr key={cycle.id}>
+                                        <td className="px-4 py-3">
+                                            <div className="font-medium">
+                                                {cycle.plan} · v
+                                                {cycle.plan_version}
+                                            </div>
+                                            <div className="text-xs text-muted-foreground">
+                                                {cycle.installation ||
+                                                    'Instalación'}{' '}
+                                                · {cycle.period_starts_on}–
+                                                {cycle.period_ends_on}
+                                            </div>
+                                        </td>
+                                        <td className="px-3 py-3 text-right tabular-nums">
+                                            {formatValue(
+                                                cycle.planned_margin,
+                                                'currency',
+                                            )}
+                                        </td>
+                                        <td
+                                            className={`px-3 py-3 text-right font-medium tabular-nums ${cycle.actual_margin < 0 ? 'text-destructive' : ''}`}
+                                        >
+                                            {formatValue(
+                                                cycle.actual_margin,
+                                                'currency',
+                                            )}
+                                        </td>
+                                        <td className="px-4 py-3 text-right tabular-nums">
+                                            {cycle.tickets}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </Card>
+            ) : (
+                <div className="rounded-lg border border-dashed p-6 text-sm text-muted-foreground">
+                    Todavía no hay ciclos de servicio con capacidad aprobada.
+                </div>
+            )}
         </section>
     );
 }

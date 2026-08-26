@@ -89,9 +89,9 @@ type Plan = {
     starts_on: string;
     contract_ends_on: string | null;
     renewal_notice_days: number;
-    billing_frequency_months: number | null;
-    billing_amount: string | null;
-    next_billing_on: string | null;
+    billing_frequency_months?: number | null;
+    billing_amount?: string | null;
+    next_billing_on?: string | null;
     next_due_on: string;
     last_completed_on: string | null;
     is_active: boolean;
@@ -122,6 +122,21 @@ type Plan = {
         title: string;
         stage: string;
     } | null;
+    cycle_commitments: ServiceCycleCommitment[];
+};
+type ServiceCycleCommitment = {
+    id: number;
+    maintenance_plan_version: number;
+    period_starts_on: string;
+    period_ends_on: string;
+    status: string;
+    planned_minutes: number;
+    planned_revenue?: string;
+    planned_labor_cost?: string;
+    planned_material_cost?: string;
+    planned_travel_cost?: string;
+    approved_at: string;
+    approver: User | null;
 };
 type Warranty = {
     id: number;
@@ -153,6 +168,36 @@ type ServiceCapacity = {
     }[];
     disclaimer: string;
 };
+type ServiceEconomics = {
+    summary: {
+        cycles: number;
+        planned_revenue: number;
+        planned_margin: number;
+        settled_revenue: number;
+        actual_cost: number;
+        actual_margin: number;
+        unsettled_cycles: number;
+    } | null;
+    cycles: {
+        id: number;
+        plan: string;
+        plan_version: number;
+        installation: string | null;
+        business_line: string | null;
+        period_starts_on: string;
+        period_ends_on: string;
+        status: string;
+        planned_revenue: number;
+        planned_cost: number;
+        planned_margin: number;
+        settled_revenue: number;
+        actual_cost: number;
+        actual_margin: number;
+        tickets: number;
+        approved_by: string | null;
+    }[];
+    definition: string;
+};
 type Tab = 'tickets' | 'maintenance' | 'warranties';
 export default function AfterSalesIndex({
     tickets,
@@ -167,6 +212,8 @@ export default function AfterSalesIndex({
     canManage,
     canManageCustomers,
     serviceCapacity,
+    serviceEconomics,
+    canViewFinancials,
 }: {
     tickets: Ticket[];
     plans: Plan[];
@@ -181,7 +228,7 @@ export default function AfterSalesIndex({
         average_resolution_minutes: number;
         recurrences: number;
         satisfaction: number;
-        annual_recurring_value: number;
+        annual_recurring_value: number | null;
         renewals_due: number;
     };
     slaPolicies: SlaPolicy[];
@@ -190,6 +237,8 @@ export default function AfterSalesIndex({
     canManage: boolean;
     canManageCustomers: boolean;
     serviceCapacity: ServiceCapacity;
+    serviceEconomics: ServiceEconomics;
+    canViewFinancials: boolean;
 }) {
     const [tab, setTab] = useState<Tab>('tickets');
 
@@ -267,16 +316,23 @@ export default function AfterSalesIndex({
                             ).length
                         }
                     />
-                    <Metric
-                        label="Annual recurring value"
-                        value={currency(metrics.annual_recurring_value)}
-                    />
+                    {canViewFinancials ? (
+                        <Metric
+                            label="Annual recurring value"
+                            value={currency(
+                                metrics.annual_recurring_value || 0,
+                            )}
+                        />
+                    ) : null}
                     <Metric
                         label="Renewals to prepare"
                         value={metrics.renewals_due}
                     />
                 </section>
                 <ServiceCapacityPanel capacity={serviceCapacity} />
+                {canViewFinancials ? (
+                    <ServiceEconomicsPanel economics={serviceEconomics} />
+                ) : null}
                 <div className="flex gap-1 border-b">
                     <TabButton
                         active={tab === 'tickets'}
@@ -502,7 +558,8 @@ export default function AfterSalesIndex({
                                                 </div>
                                             </td>
                                             <td>
-                                                {plan.billing_amount &&
+                                                {canViewFinancials &&
+                                                plan.billing_amount &&
                                                 plan.billing_frequency_months ? (
                                                     <>
                                                         <div>
@@ -520,8 +577,10 @@ export default function AfterSalesIndex({
                                                             months
                                                         </div>
                                                     </>
-                                                ) : (
+                                                ) : canViewFinancials ? (
                                                     '—'
+                                                ) : (
+                                                    'Restricted'
                                                 )}
                                             </td>
                                             <td>
@@ -549,6 +608,9 @@ export default function AfterSalesIndex({
                                                             products={
                                                                 stockProducts
                                                             }
+                                                        />
+                                                        <ServiceCommitmentDialog
+                                                            plan={plan}
                                                         />
                                                         <Form
                                                             action={`/after-sales/plans/${plan.id}`}
@@ -1390,6 +1452,193 @@ function ServiceCapacityPanel({ capacity }: { capacity: ServiceCapacity }) {
                     </tbody>
                 </table>
             </div>
+        </details>
+    );
+}
+
+function ServiceCommitmentDialog({ plan }: { plan: Plan }) {
+    const currentCommitment = plan.cycle_commitments.find(
+        (commitment) =>
+            commitment.status === 'approved' &&
+            commitment.maintenance_plan_version === plan.version &&
+            commitment.period_starts_on.slice(0, 10) ===
+                plan.next_due_on.slice(0, 10),
+    );
+
+    if (currentCommitment) {
+        return (
+            <Badge variant="secondary">
+                Capacity approved · v
+                {currentCommitment.maintenance_plan_version}
+            </Badge>
+        );
+    }
+
+    return (
+        <Dialog>
+            <DialogTrigger asChild>
+                <Button size="sm" variant="outline">
+                    <ShieldCheck /> Approve cycle
+                </Button>
+            </DialogTrigger>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Approve service cycle</DialogTitle>
+                </DialogHeader>
+                <p className="text-sm text-muted-foreground">
+                    This freezes capacity and planned economics for {plan.name}{' '}
+                    v{plan.version}. Approval does not create a work order,
+                    reserve stock or communicate a date to the customer.
+                </p>
+                <Form
+                    action={`/after-sales/plans/${plan.id}/commitments`}
+                    method="post"
+                    className="grid gap-4"
+                >
+                    <input
+                        type="hidden"
+                        name="plan_version"
+                        value={plan.version}
+                    />
+                    <Field
+                        label="Planned travel (km)"
+                        name="planned_travel_km"
+                        type="number"
+                        step="0.01"
+                        value="0"
+                    />
+                    <div className="grid gap-2">
+                        <Label>Approval note</Label>
+                        <textarea
+                            name="approval_note"
+                            required
+                            minLength={5}
+                            className="min-h-24 rounded-md border bg-transparent p-3 text-sm"
+                            placeholder="Capacity, responsible technician and assumptions reviewed."
+                        />
+                    </div>
+                    <Button>Approve capacity and economics</Button>
+                </Form>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+function ServiceEconomicsPanel({ economics }: { economics: ServiceEconomics }) {
+    if (!economics.summary) {
+        return null;
+    }
+
+    return (
+        <details className="rounded-lg border">
+            <summary className="flex cursor-pointer flex-wrap items-center justify-between gap-3 p-4">
+                <span>
+                    <span className="font-medium">
+                        Recurring service cycle economics
+                    </span>
+                    <span className="mt-1 block text-xs text-muted-foreground">
+                        {economics.definition}
+                    </span>
+                </span>
+                <span className="flex gap-2">
+                    <Badge variant="secondary">
+                        {economics.summary.cycles} approved cycles
+                    </Badge>
+                    <Badge
+                        variant={
+                            economics.summary.actual_margin < 0
+                                ? 'destructive'
+                                : 'outline'
+                        }
+                    >
+                        Actual margin{' '}
+                        {currency(economics.summary.actual_margin)}
+                    </Badge>
+                </span>
+            </summary>
+            <div className="grid grid-cols-2 gap-px border-t bg-border lg:grid-cols-5">
+                <Metric
+                    label="Planned revenue"
+                    value={currency(economics.summary.planned_revenue)}
+                />
+                <Metric
+                    label="Planned margin"
+                    value={currency(economics.summary.planned_margin)}
+                />
+                <Metric
+                    label="Settled revenue"
+                    value={currency(economics.summary.settled_revenue)}
+                />
+                <Metric
+                    label="Actual cost"
+                    value={currency(economics.summary.actual_cost)}
+                />
+                <Metric
+                    label="Unsettled cycles"
+                    value={economics.summary.unsettled_cycles}
+                />
+            </div>
+            {economics.cycles.length > 0 ? (
+                <div className="overflow-x-auto border-t">
+                    <table className="w-full min-w-[56rem] text-sm">
+                        <thead className="text-left text-xs text-muted-foreground">
+                            <tr>
+                                <th className="px-4 py-3">Contract cycle</th>
+                                <th className="px-3 py-3 text-right">
+                                    Planned
+                                </th>
+                                <th className="px-3 py-3 text-right">Actual</th>
+                                <th className="px-3 py-3 text-right">Margin</th>
+                                <th className="px-4 py-3">Approval</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y">
+                            {economics.cycles.map((cycle) => (
+                                <tr key={cycle.id}>
+                                    <td className="px-4 py-3">
+                                        <div className="font-medium">
+                                            {cycle.plan} · v{cycle.plan_version}
+                                        </div>
+                                        <div className="text-xs text-muted-foreground">
+                                            {cycle.installation ||
+                                                'Installation'}{' '}
+                                            · {date(cycle.period_starts_on)}–
+                                            {date(cycle.period_ends_on)}
+                                        </div>
+                                    </td>
+                                    <td className="px-3 py-3 text-right">
+                                        {currency(cycle.planned_revenue)}{' '}
+                                        revenue
+                                        <div className="text-xs text-muted-foreground">
+                                            {currency(cycle.planned_cost)} cost
+                                        </div>
+                                    </td>
+                                    <td className="px-3 py-3 text-right">
+                                        {currency(cycle.settled_revenue)}{' '}
+                                        settled
+                                        <div className="text-xs text-muted-foreground">
+                                            {currency(cycle.actual_cost)} cost ·{' '}
+                                            {cycle.tickets} tickets
+                                        </div>
+                                    </td>
+                                    <td
+                                        className={`px-3 py-3 text-right font-medium ${cycle.actual_margin < 0 ? 'text-destructive' : ''}`}
+                                    >
+                                        {currency(cycle.actual_margin)}
+                                        <div className="text-xs font-normal text-muted-foreground">
+                                            planned{' '}
+                                            {currency(cycle.planned_margin)}
+                                        </div>
+                                    </td>
+                                    <td className="px-4 py-3 text-xs">
+                                        {cycle.approved_by || 'System'}
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            ) : null}
         </details>
     );
 }

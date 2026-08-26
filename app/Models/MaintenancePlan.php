@@ -52,6 +52,11 @@ class MaintenancePlan extends Model
         return $this->hasMany(MaintenancePlanMaterial::class);
     }
 
+    public function cycleCommitments(): HasMany
+    {
+        return $this->hasMany(ServiceCycleCommitment::class);
+    }
+
     public function originOpportunity(): BelongsTo
     {
         return $this->belongsTo(Opportunity::class, 'origin_opportunity_id');

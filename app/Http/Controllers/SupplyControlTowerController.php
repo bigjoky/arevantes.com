@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\PurchaseDocument;
+use App\Models\ReplenishmentTarget;
 use App\Models\User;
 use App\Services\Documents\PurchaseWorkflow;
 use App\Services\Supply\PreventiveDemandForecast;
@@ -120,6 +121,10 @@ class SupplyControlTowerController extends Controller
             'users' => User::query()->orderBy('name')->get(['id', 'name']),
             'materialRisk' => $materialRisk,
             'preventiveDemand' => $preventive,
+            'replenishmentTargets' => ReplenishmentTarget::query()
+                ->with(['product:id,sku,name', 'approver:id,name'])
+                ->where('status', 'approved')->whereDate('period_ends_on', '>=', today())->latest('approved_at')->limit(100)->get(),
+            'canApprovePreventiveDemand' => $request->user()->can('manage-catalog'),
         ]);
     }
 

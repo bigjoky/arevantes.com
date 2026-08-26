@@ -65,10 +65,12 @@ use App\Http\Controllers\PurchaseWorkflowController;
 use App\Http\Controllers\QuoteController;
 use App\Http\Controllers\RemoteStationController;
 use App\Http\Controllers\ReplenishmentController;
+use App\Http\Controllers\ReplenishmentTargetController;
 use App\Http\Controllers\SalesDocumentController;
 use App\Http\Controllers\SalesOperationsController;
 use App\Http\Controllers\SavedCrmFilterController;
 use App\Http\Controllers\SerialTraceabilityController;
+use App\Http\Controllers\ServiceCycleCommitmentController;
 use App\Http\Controllers\SitemapController;
 use App\Http\Controllers\StaffAccessController;
 use App\Http\Controllers\StaffController;
@@ -222,6 +224,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('after-sales/plans/{plan}/renewal', [AfterSalesController::class, 'prepareRenewal'])->middleware('can:manage-customers')->name('after-sales.plans.renewal');
     Route::post('after-sales/plans/{plan}/materials', [MaintenancePlanMaterialController::class, 'store'])->middleware('can:manage-installations')->name('after-sales.plans.materials.store');
     Route::delete('after-sales/plans/{plan}/materials/{material}', [MaintenancePlanMaterialController::class, 'destroy'])->middleware('can:manage-installations')->name('after-sales.plans.materials.destroy');
+    Route::post('after-sales/plans/{plan}/commitments', [ServiceCycleCommitmentController::class, 'store'])->middleware('can:manage-installations')->name('after-sales.plans.commitments.store');
     Route::patch('after-sales/warranties/{serial}', [AfterSalesController::class, 'updateWarranty'])->middleware('can:manage-installations')->name('after-sales.warranties.update');
     Route::post('after-sales/sla-policies', [AfterSalesController::class, 'storeSlaPolicy'])->middleware('can:manage-installations')->name('after-sales.sla-policies.store');
     Route::patch('work-orders/bulk-reschedule', [WorkOrderController::class, 'bulkReschedule'])->middleware('can:manage-installations')->name('work-orders.bulk-reschedule');
@@ -406,6 +409,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('inventory/reservations', [InventoryController::class, 'storeReservation'])->middleware('can:manage-catalog')->name('inventory.reservations.store');
     Route::delete('inventory/reservations/{reservation}', [InventoryController::class, 'releaseReservation'])->middleware('can:manage-catalog')->name('inventory.reservations.release');
     Route::post('catalog/products', [CatalogController::class, 'storeProduct'])->middleware('can:manage-catalog')->name('catalog.products.store');
+    Route::post('catalog/products/{product}/replenishment-targets', [ReplenishmentTargetController::class, 'store'])->middleware('can:manage-catalog')->name('replenishment-targets.store');
     Route::patch('catalog/products/{product}', [CatalogController::class, 'updateProduct'])->middleware('can:manage-catalog')->name('catalog.products.update');
     Route::delete('catalog/products/{product}', [CatalogController::class, 'destroyProduct'])->middleware('can:manage-catalog')->name('catalog.products.destroy');
     Route::post('catalog/suppliers', [CatalogController::class, 'storeSupplier'])->middleware('can:manage-catalog')->name('catalog.suppliers.store');

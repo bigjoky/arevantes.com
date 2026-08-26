@@ -186,7 +186,10 @@ class AfterSalesTest extends TestCase
         $this->assertSame('full', $plan->coverage_type);
         $this->assertSame([$panel->id], $plan->coveredAssets()->pluck('installation_assets.id')->all());
         $this->assertSame('parts_and_labour', $plan->versions()->where('version', 1)->firstOrFail()->snapshot['coverage_type']);
-        $this->assertSame('350.00', $forecast->refresh()->amount);
+        $this->assertSame('300.00', $forecast->refresh()->amount);
+        $this->assertSame('cancelled', $forecast->status);
+        $this->assertSame(2, FinancialForecastItem::where('maintenance_plan_id', $plan->id)->count());
+        $this->assertSame('350.00', FinancialForecastItem::where('maintenance_plan_id', $plan->id)->where('maintenance_plan_version', 2)->sole()->amount);
 
         $this->post(route('after-sales.plans.renewal', $plan))->assertRedirect();
         $renewal = Opportunity::where('commercial_kind', 'renewal')->firstOrFail();

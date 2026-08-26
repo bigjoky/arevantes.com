@@ -15,6 +15,7 @@ use App\Services\AfterSales\MaintenancePlanLifecycle;
 use App\Services\AfterSales\ServiceTicketFactory;
 use App\Services\AfterSales\ServiceWorkGenerator;
 use App\Services\AfterSales\SlaManager;
+use App\Services\Analytics\RecurringServiceEconomics;
 use App\Services\Planning\RecurringServiceCapacityForecast;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -27,10 +28,23 @@ use Inertia\Response;
 
 class AfterSalesController extends Controller
 {
-    public function index(Request $request, RecurringServiceCapacityForecast $capacity): Response
+    public function index(Request $request, RecurringServiceCapacityForecast $capacity, RecurringServiceEconomics $economics): Response
     {
         $tickets = ServiceTicket::with(['installation:id,project_reference,site_name,service_type', 'assignedUser:id,name', 'workOrder:id,number,status'])->when($request->user()->hasRole('technician'), fn ($query) => $query->where(fn ($query) => $query->where('assigned_user_id', $request->user()->id)->orWhereNull('assigned_user_id')))->orderByRaw("case priority when 'urgent' then 0 when 'high' then 1 when 'normal' then 2 else 3 end")->orderByRaw("case when status in ('resolved','closed') then 1 else 0 end")->latest()->get();
-        $plans = MaintenancePlan::with(['installation:id,project_reference,site_name', 'assignedUser:id,name', 'template:id,name,kind', 'coveredAssets:id,installation_id,asset_tag,name,category', 'preventiveMaterials.product:id,sku,name,supply_criticality', 'versions.creator:id,name', 'renewalOpportunity:id,code,title,stage'])->orderBy('next_due_on')->get();
+        $plans = MaintenancePlan::with([
+            'installation:id,project_reference,site_name', 'assignedUser:id,name', 'template:id,name,kind',
+            'coveredAssets:id,installation_id,asset_tag,name,category', 'preventiveMaterials.product:id,sku,name,supply_criticality',
+            'versions' => fn ($query) => $query->select(['id', 'maintenance_plan_id', 'version', 'change_note', 'created_by', 'created_at']),
+            'versions.creator:id,name', 'cycleCommitments.approver:id,name', 'renewalOpportunity:id,code,title,stage',
+        ])
+            ->when($request->user()->hasRole('technician'), fn ($query) => $query->where(fn ($scope) => $scope->where('assigned_user_id', $request->user()->id)->orWhereNull('assigned_user_id')))
+            ->orderBy('next_due_on')->get();
+        if (! $request->user()->can('view-finance')) {
+            $plans->each(function (MaintenancePlan $plan): void {
+                $plan->makeHidden(['billing_frequency_months', 'billing_amount', 'next_billing_on']);
+                $plan->cycleCommitments->each->makeHidden(['planned_revenue', 'planned_labor_cost', 'planned_material_cost', 'planned_travel_cost']);
+            });
+        }
 
         return Inertia::render('after-sales/index', [
             'tickets' => $tickets,
@@ -51,12 +65,16 @@ class AfterSalesController extends Controller
                 'average_resolution_minutes' => round($tickets->filter(fn (ServiceTicket $ticket) => $ticket->resolved_at)->avg(fn (ServiceTicket $ticket) => $ticket->created_at->diffInMinutes($ticket->resolved_at)) ?? 0),
                 'recurrences' => $tickets->sum('reopened_count'),
                 'satisfaction' => round($tickets->whereNotNull('satisfaction_rating')->avg('satisfaction_rating') ?? 0, 1),
-                'annual_recurring_value' => round((float) $plans->where('is_active', true)->sum(fn (MaintenancePlan $plan) => (float) ($plan->billing_amount ?: 0) * (12 / max(1, (int) ($plan->billing_frequency_months ?: 12)))), 2),
+                'annual_recurring_value' => $request->user()->can('view-finance')
+                    ? round((float) $plans->where('is_active', true)->sum(fn (MaintenancePlan $plan) => (float) ($plan->billing_amount ?: 0) * (12 / max(1, (int) ($plan->billing_frequency_months ?: 12)))), 2)
+                    : null,
                 'renewals_due' => $plans->where('is_active', true)->whereNull('renewal_opportunity_id')->filter(fn (MaintenancePlan $plan) => $plan->contract_ends_on?->lessThanOrEqualTo(today()->addDays($plan->renewal_notice_days)))->count(),
             ],
             'canManage' => $request->user()->can('manage-installations'),
             'canManageCustomers' => $request->user()->can('manage-customers'),
             'serviceCapacity' => $capacity->forecast(today(), 6, $request->user()),
+            'serviceEconomics' => $economics->build($request->user()->can('view-finance')),
+            'canViewFinancials' => $request->user()->can('view-finance'),
         ]);
     }
 
