@@ -142,6 +142,19 @@ type PreventiveDemand = {
         }[];
     }[];
 };
+type ReplenishmentTarget = {
+    id: number;
+    product_id: number;
+    period_starts_on: string;
+    period_ends_on: string;
+    status: string;
+    target_quantity: string;
+    forecast_shortage: string;
+    approval_note: string;
+    approved_at: string;
+    product: { id: number; sku: string | null; name: string };
+    approver: { id: number; name: string } | null;
+};
 
 export default function SupplyControlTower({
     orders,
@@ -149,6 +162,8 @@ export default function SupplyControlTower({
     users,
     materialRisk,
     preventiveDemand,
+    replenishmentTargets,
+    canApprovePreventiveDemand,
 }: {
     orders: Order[];
     counts: {
@@ -162,6 +177,8 @@ export default function SupplyControlTower({
     users: { id: number; name: string }[];
     materialRisk: MaterialRisk;
     preventiveDemand: PreventiveDemand;
+    replenishmentTargets: ReplenishmentTarget[];
+    canApprovePreventiveDemand: boolean;
 }) {
     const canManage = usePage<{
         auth: { abilities: { managePurchases: boolean } };
@@ -192,7 +209,11 @@ export default function SupplyControlTower({
                     <Metric label="Unassigned" value={counts.unassigned} />
                 </section>
                 <MaterialRiskPanel risk={materialRisk} />
-                <PreventiveDemandPanel demand={preventiveDemand} />
+                <PreventiveDemandPanel
+                    demand={preventiveDemand}
+                    targets={replenishmentTargets}
+                    canApprove={canApprovePreventiveDemand}
+                />
                 <section className="grid gap-4">
                     {orders.map((order) => (
                         <article key={order.id} className="border p-4">
@@ -711,7 +732,19 @@ function MaterialRiskPanel({ risk }: { risk: MaterialRisk }) {
     );
 }
 
-function PreventiveDemandPanel({ demand }: { demand: PreventiveDemand }) {
+function PreventiveDemandPanel({
+    demand,
+    targets,
+    canApprove,
+}: {
+    demand: PreventiveDemand;
+    targets: ReplenishmentTarget[];
+    canApprove: boolean;
+}) {
+    const targetsByProduct = new Map(
+        targets.map((target) => [target.product_id, target]),
+    );
+
     return (
         <section className="overflow-hidden rounded-lg border">
             <div className="flex flex-wrap items-start justify-between gap-3 border-b p-4">
@@ -811,6 +844,13 @@ function PreventiveDemandPanel({ demand }: { demand: PreventiveDemand }) {
                                 <div className="text-xs text-muted-foreground">
                                     {money(row.forecast_exposure)}
                                 </div>
+                                <ReplenishmentTargetAction
+                                    row={row}
+                                    target={targetsByProduct.get(
+                                        row.product_id,
+                                    )}
+                                    canApprove={canApprove}
+                                />
                             </div>
                             <details className="border-t pt-3 lg:col-span-3">
                                 <summary className="cursor-pointer text-sm font-medium">
@@ -847,6 +887,74 @@ function PreventiveDemandPanel({ demand }: { demand: PreventiveDemand }) {
                 </div>
             )}
         </section>
+    );
+}
+
+function ReplenishmentTargetAction({
+    row,
+    target,
+    canApprove,
+}: {
+    row: PreventiveDemand['rows'][number];
+    target?: ReplenishmentTarget;
+    canApprove: boolean;
+}) {
+    if (target) {
+        return (
+            <div className="mt-2 rounded-md border p-2 text-left text-xs">
+                <Badge variant="secondary">Objective approved</Badge>
+                <div className="mt-1 font-medium">
+                    {target.target_quantity} units through{' '}
+                    {date(target.period_ends_on)}
+                </div>
+                <div className="text-muted-foreground">
+                    {target.approver?.name || 'System'} · forecast snapshot{' '}
+                    {target.forecast_shortage}
+                </div>
+            </div>
+        );
+    }
+
+    if (!canApprove || row.forecast_shortage <= 0) {
+        return null;
+    }
+
+    return (
+        <details className="mt-2 text-left">
+            <summary className="cursor-pointer text-xs font-medium underline underline-offset-2">
+                Approve replenishment objective
+            </summary>
+            <Form
+                action={`/catalog/products/${row.product_id}/replenishment-targets`}
+                method="post"
+                className="mt-2 grid gap-2 rounded-md border p-2"
+            >
+                <label className="grid gap-1 text-xs">
+                    Target quantity
+                    <Input
+                        name="target_quantity"
+                        type="number"
+                        step="0.001"
+                        min={row.forecast_shortage}
+                        defaultValue={row.forecast_shortage}
+                        required
+                    />
+                </label>
+                <label className="grid gap-1 text-xs">
+                    Approval note
+                    <Input
+                        name="approval_note"
+                        minLength={5}
+                        placeholder="Demand and supply reviewed"
+                        required
+                    />
+                </label>
+                <Button size="sm">Approve objective</Button>
+                <p className="text-[11px] text-muted-foreground">
+                    This does not reserve stock or create a purchase order.
+                </p>
+            </Form>
+        </details>
     );
 }
 

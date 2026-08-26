@@ -132,7 +132,15 @@ class MaintenancePlanLifecycle
 
     private function syncForecast(MaintenancePlan $plan, ?User $actor): void
     {
-        $existing = FinancialForecastItem::where('maintenance_plan_id', $plan->id)->first();
+        FinancialForecastItem::query()
+            ->where('maintenance_plan_id', $plan->id)
+            ->where('maintenance_plan_version', '!=', $plan->version)
+            ->where('status', 'planned')
+            ->update(['status' => 'cancelled']);
+        $existing = FinancialForecastItem::where('maintenance_plan_id', $plan->id)
+            ->where('maintenance_plan_version', $plan->version)
+            ->whereDate('due_on', $plan->next_billing_on)
+            ->first();
         if (! $plan->is_active || ! $plan->billing_amount || ! $plan->next_billing_on) {
             if ($existing && $existing->status === 'planned') {
                 $existing->update(['status' => 'cancelled']);
@@ -162,6 +170,7 @@ class MaintenancePlanLifecycle
             'status' => 'planned',
             'installation_id' => $plan->installation_id,
             'maintenance_plan_id' => $plan->id,
+            'maintenance_plan_version' => $plan->version,
             'created_by' => $existing?->created_by ?: $actor?->id,
         ];
         $existing ? $existing->update($attributes) : FinancialForecastItem::create($attributes);

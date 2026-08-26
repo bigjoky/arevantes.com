@@ -8,7 +8,9 @@ use App\Models\MaintenancePlan;
 use App\Models\Opportunity;
 use App\Models\Person;
 use App\Models\PurchaseDocument;
+use App\Models\ReplenishmentTarget;
 use App\Models\SalesDocument;
+use App\Models\ServiceCycleCommitment;
 use App\Models\User;
 use App\Services\Operations\ProjectMarginPortfolio;
 use App\Services\Supply\PreventiveDemandForecast;
@@ -74,6 +76,22 @@ class RelevantBusinessContext
                         $plan->assigned_user_id ? 'assigned' : 'unassigned',
                     ))->implode("\n"));
                 }
+                $commitments = ServiceCycleCommitment::query()
+                    ->with('maintenancePlan:id,name,assigned_user_id')
+                    ->where('status', 'approved')
+                    ->when($user->hasRole('technician'), fn ($builder) => $builder->whereHas('maintenancePlan', fn ($planQuery) => $planQuery->where('assigned_user_id', $user->id)))
+                    ->orderBy('period_starts_on')->limit(8)->get();
+                if ($commitments->isNotEmpty()) {
+                    $sections->push("[OPS-SVC-2] Human-approved recurring service capacity snapshots:\n".$commitments->map(fn (ServiceCycleCommitment $commitment) => sprintf(
+                        '- plan #%d v%d %s · cycle %s to %s · %d minutes · approval recorded; no work order or customer date created by this approval',
+                        $commitment->maintenance_plan_id,
+                        $commitment->maintenance_plan_version,
+                        $commitment->maintenancePlan?->name ?: 'service plan',
+                        $commitment->period_starts_on->format('Y-m-d'),
+                        $commitment->period_ends_on->format('Y-m-d'),
+                        $commitment->planned_minutes,
+                    ))->implode("\n"));
+                }
             }
         }
 
@@ -108,6 +126,17 @@ class RelevantBusinessContext
                     $row['forecast_shortage'],
                     count($row['plans']),
                 ))->implode("\n") : ''));
+                $targets = ReplenishmentTarget::query()->with('product:id,name')->where('status', 'approved')->whereDate('period_ends_on', '>=', today())->orderBy('period_ends_on')->limit(8)->get();
+                if ($targets->isNotEmpty()) {
+                    $sections->push("[SUP-SVC-2] Human-approved replenishment objectives (still non-committing):\n".$targets->map(fn (ReplenishmentTarget $target) => sprintf(
+                        '- product #%d %s · target %.3f through %s · forecast shortage snapshot %.3f · no reservation or purchase document exists from this objective',
+                        $target->product_id,
+                        $target->product?->name ?: 'product',
+                        $target->target_quantity,
+                        $target->period_ends_on->format('Y-m-d'),
+                        $target->forecast_shortage,
+                    ))->implode("\n"));
+                }
                 $sections->push('[GOV-SVC-1] Governance: any renewal contact, stock reservation, purchasing document, schedule commitment or customer communication must remain a draft until an authorized person reviews and confirms it.');
             }
             $sales = SalesDocument::with('customer:id,first_name,last_name,company_name')->tap(fn ($builder) => $this->whereTokens($builder, $tokens, ['number', 'status', 'notes']))->latest('issue_date')->limit(5)->get();

@@ -375,16 +375,36 @@ identificables, junto con una regla explícita: cualquier contacto de renovació
 reserva, compra, compromiso de agenda o comunicación al cliente debe permanecer
 como borrador hasta que una persona autorizada lo revise y confirme.
 
+## Corte ejecutado — Compromiso operativo y margen del ciclo
+
+El tercer vertical del Horizonte 2 incorpora una aprobación humana e idempotente
+antes de convertir la previsión recurrente en compromiso interno. Cada ciclo
+congela versión contractual, responsable, semana, capacidad disponible,
+duración, desplazamiento y costes previstos. El sistema rechaza planes sin
+responsable, fuera del horizonte de seis semanas, con una versión obsoleta o en
+una semana sobrecargada. Aprobar el ciclo no crea una orden de trabajo ni
+publica una fecha al cliente.
+
+Suministro puede convertir una carencia preventiva vigente en un objetivo de
+reposición aprobado, conservando periodo, producto, cantidad y fuentes por plan
+y versión. Este objetivo permanece expresamente separado de reservas,
+movimientos, solicitudes de oferta y pedidos. Las previsiones financieras ya no
+se sobrescriben al revisar el contrato: cada combinación de plan, versión y
+vencimiento conserva su propio registro.
+
+Posventa y Analítica comparan ingreso y margen previstos con ingreso liquidado,
+horas, desplazamientos y materiales emitidos para los tickets de la misma
+versión y periodo. Los importes solo se entregan a perfiles financieros; el
+resto recibe estado operativo sin campos económicos. Arevia distingue fuentes
+previstas y objetivos aprobados, pero mantiene compras, agenda y comunicaciones
+externas bajo confirmación humana.
+
 ## Próximo corte recomendado
 
-Completar el tercer vertical del Horizonte 2 con **compromiso operativo y margen
-del ciclo de servicio**. Debe permitir aprobar capacidad y guardias antes de
-aceptar SLA, convertir demanda preventiva aprobada en un objetivo de reposición
-separado de las reservas de proyecto, y reconciliar ingreso previsto, factura,
-cobro, materiales, horas y desplazamientos contra cada versión contractual.
-
-El portal debe incorporar comunicaciones proactivas gobernadas por preferencia
-y estado confirmado; Analítica debe comparar margen previsto y real por ciclo;
-Arevia puede preparar el borrador de decisión y explicar restricciones, pero la
-aprobación humana debe seguir siendo obligatoria para cualquier efecto externo
-o económico.
+Completar la **facturación recurrente y comunicación proactiva gobernada**. Debe
+enlazar factura, abono y cobro con el ciclo contractual exacto, generar el
+borrador de facturación sin duplicados y exigir confirmación antes de emitirlo.
+El portal debe mostrar únicamente revisiones y fechas confirmadas, respetar la
+preferencia de canal y conservar el histórico de cada comunicación. La app
+móvil recibirá el compromiso aprobado cuando se materialice en una orden, no la
+simulación ni los datos económicos internos.

@@ -18,12 +18,17 @@ class RecurringServiceCapacityForecast
         $base = $this->capacity->forecast($start, $weeks, $viewer);
         $end = CarbonImmutable::parse($base['period']['to'])->endOfDay();
         $plans = MaintenancePlan::query()
-            ->with(['installation:id,project_reference,site_name,service_type', 'template:id,estimated_duration_minutes', 'tickets' => fn ($query) => $query->whereNotIn('status', ['resolved', 'closed'])->select(['id', 'maintenance_plan_id'])])
+            ->with([
+                'installation:id,project_reference,site_name,service_type',
+                'template:id,estimated_duration_minutes',
+                'tickets' => fn ($query) => $query->whereNotIn('status', ['resolved', 'closed'])->select(['id', 'maintenance_plan_id']),
+                'cycleCommitments' => fn ($query) => $query->where('status', 'approved')->select(['id', 'maintenance_plan_id', 'maintenance_plan_version', 'period_starts_on']),
+            ])
             ->where('is_active', true)
             ->whereBetween('next_due_on', [$start, $end])
             ->when($viewer?->hasRole('technician'), fn ($query) => $query->where('assigned_user_id', $viewer->id))
             ->get()
-            ->filter(fn (MaintenancePlan $plan) => $plan->tickets->isEmpty());
+            ->filter(fn (MaintenancePlan $plan) => $plan->tickets->isEmpty() && ! $plan->cycleCommitments->contains(fn ($commitment) => $commitment->maintenance_plan_version === $plan->version && $commitment->period_starts_on->isSameDay($plan->next_due_on)));
 
         $weeksRows = collect($base['weeks'])->map(function (array $week) use ($plans): array {
             $weekStart = CarbonImmutable::parse($week['week_start']);
