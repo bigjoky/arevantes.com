@@ -45,6 +45,7 @@ use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\KnowledgeDocumentController;
 use App\Http\Controllers\KnowledgeSourceController;
 use App\Http\Controllers\LegalController;
+use App\Http\Controllers\MaintenancePlanMaterialController;
 use App\Http\Controllers\MyHumanResourcesController;
 use App\Http\Controllers\OperationsController;
 use App\Http\Controllers\OpportunityController;
@@ -219,6 +220,8 @@ Route::middleware(['auth'])->group(function () {
     Route::post('after-sales/plans', [AfterSalesController::class, 'storePlan'])->middleware('can:manage-installations')->name('after-sales.plans.store');
     Route::patch('after-sales/plans/{plan}', [AfterSalesController::class, 'updatePlan'])->middleware('can:manage-installations')->name('after-sales.plans.update');
     Route::post('after-sales/plans/{plan}/renewal', [AfterSalesController::class, 'prepareRenewal'])->middleware('can:manage-customers')->name('after-sales.plans.renewal');
+    Route::post('after-sales/plans/{plan}/materials', [MaintenancePlanMaterialController::class, 'store'])->middleware('can:manage-installations')->name('after-sales.plans.materials.store');
+    Route::delete('after-sales/plans/{plan}/materials/{material}', [MaintenancePlanMaterialController::class, 'destroy'])->middleware('can:manage-installations')->name('after-sales.plans.materials.destroy');
     Route::patch('after-sales/warranties/{serial}', [AfterSalesController::class, 'updateWarranty'])->middleware('can:manage-installations')->name('after-sales.warranties.update');
     Route::post('after-sales/sla-policies', [AfterSalesController::class, 'storeSlaPolicy'])->middleware('can:manage-installations')->name('after-sales.sla-policies.store');
     Route::patch('work-orders/bulk-reschedule', [WorkOrderController::class, 'bulkReschedule'])->middleware('can:manage-installations')->name('work-orders.bulk-reschedule');

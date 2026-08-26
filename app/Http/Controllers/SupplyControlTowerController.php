@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\PurchaseDocument;
 use App\Models\User;
 use App\Services\Documents\PurchaseWorkflow;
+use App\Services\Supply\PreventiveDemandForecast;
 use App\Services\Supply\SupplyScenarioPlanner;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -14,9 +15,10 @@ use Inertia\Response;
 
 class SupplyControlTowerController extends Controller
 {
-    public function index(Request $request, SupplyScenarioPlanner $scenarioPlanner): Response
+    public function index(Request $request, SupplyScenarioPlanner $scenarioPlanner, PreventiveDemandForecast $preventiveDemand): Response
     {
         $materialRisk = $scenarioPlanner->forecast(today(), 45);
+        $preventive = $preventiveDemand->forecast(today(), 180);
         if (! $request->user()->can('view-finance')) {
             $materialRisk['summary']['shortage_exposure'] = null;
             $materialRisk['summary']['late_inbound_value'] = null;
@@ -40,6 +42,8 @@ class SupplyControlTowerController extends Controller
                     'cash_impact' => null,
                 ] : null,
             ])->all();
+            $preventive['summary']['forecast_exposure'] = null;
+            $preventive['rows'] = collect($preventive['rows'])->map(fn (array $row) => [...$row, 'forecast_exposure' => null])->all();
         }
 
         $orders = PurchaseDocument::query()
@@ -115,6 +119,7 @@ class SupplyControlTowerController extends Controller
             ],
             'users' => User::query()->orderBy('name')->get(['id', 'name']),
             'materialRisk' => $materialRisk,
+            'preventiveDemand' => $preventive,
         ]);
     }
 

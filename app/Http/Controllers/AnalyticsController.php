@@ -12,6 +12,7 @@ use App\Services\Analytics\AnalyticsFilter;
 use App\Services\Analytics\AnalyticsService;
 use App\Services\Analytics\BusinessLineMarginAnalysis;
 use App\Services\Analytics\CommercialConversionAnalytics;
+use App\Services\Analytics\RecurringServiceHealth;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -21,7 +22,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
 
 class AnalyticsController extends Controller
 {
-    public function index(Request $request, AnalyticsService $analytics, CommercialConversionAnalytics $conversionAnalytics, BusinessLineMarginAnalysis $marginAnalysis): Response
+    public function index(Request $request, AnalyticsService $analytics, CommercialConversionAnalytics $conversionAnalytics, BusinessLineMarginAnalysis $marginAnalysis, RecurringServiceHealth $recurringHealth): Response
     {
         $filter = AnalyticsFilter::fromRequest($request);
         $metricKey = $request->string('metric')->toString();
@@ -58,6 +59,9 @@ class AnalyticsController extends Controller
             'commercialConversions' => $filter->area === 'sales' ? $conversionAnalytics->forAnalytics($filter) : null,
             'projectMargins' => $request->user()->can('view-finance') && in_array($filter->area, ['executive', 'finance'], true)
                 ? $marginAnalysis->build($filter)
+                : null,
+            'recurringHealth' => in_array($filter->area, ['executive', 'sales', 'operations'], true)
+                ? $recurringHealth->build($filter, $request->user()->can('view-finance'))
                 : null,
         ]);
     }

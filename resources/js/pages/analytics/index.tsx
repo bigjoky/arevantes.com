@@ -160,6 +160,31 @@ type ProjectMargins = {
     };
 };
 
+type RecurringHealth = {
+    summary: {
+        installed_base: number;
+        active_contracts: number;
+        attached_installations: number;
+        attach_rate: number;
+        annual_recurring_value: number;
+        renewals_due: number;
+        renewals_prepared: number;
+        renewal_conversion: number;
+        response_sla_attainment: number;
+        resolution_sla_attainment: number;
+        first_time_fix_rate: number;
+        actual_service_cost: number | null;
+    };
+    by_line: {
+        service_type: string;
+        installed_base: number;
+        active_contracts: number;
+        attach_rate: number;
+        annual_recurring_value: number;
+    }[];
+    definitions: Record<string, string>;
+};
+
 type Props = {
     filters: Filter;
     generatedAt: string;
@@ -179,6 +204,7 @@ type Props = {
     subscriptions: Subscription[];
     commercialConversions: CommercialConversions | null;
     projectMargins: ProjectMargins | null;
+    recurringHealth: RecurringHealth | null;
 };
 
 export default function AnalyticsIndex(props: Props) {
@@ -384,6 +410,7 @@ export default function AnalyticsIndex(props: Props) {
                         recordsHasMore={props.recordsHasMore}
                         conversions={props.commercialConversions}
                         projectMargins={props.projectMargins}
+                        recurringHealth={props.recurringHealth}
                         onOpen={openMetric}
                     />
                 ) : null}
@@ -403,6 +430,7 @@ function Dashboard({
     recordsHasMore,
     conversions,
     projectMargins,
+    recurringHealth,
     onOpen,
 }: {
     metrics: Metric[];
@@ -411,6 +439,7 @@ function Dashboard({
     recordsHasMore: boolean;
     conversions: CommercialConversions | null;
     projectMargins: ProjectMargins | null;
+    recurringHealth: RecurringHealth | null;
     onOpen: (key: string) => void;
 }) {
     return (
@@ -469,6 +498,9 @@ function Dashboard({
                     </button>
                 ))}
             </section>
+            {recurringHealth ? (
+                <RecurringHealthPanel health={recurringHealth} />
+            ) : null}
             {projectMargins ? (
                 <ProjectMarginPanel analysis={projectMargins} />
             ) : null}
@@ -488,6 +520,140 @@ function Dashboard({
                 </div>
             )}
         </>
+    );
+}
+
+function RecurringHealthPanel({ health }: { health: RecurringHealth }) {
+    return (
+        <section className="grid gap-4" aria-labelledby="recurring-title">
+            <div>
+                <h2 id="recurring-title" className="text-lg font-semibold">
+                    Salud de la cartera recurrente
+                </h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                    Contratos activos, renovaciones y cumplimiento operativo
+                    calculados desde instalaciones, planes y tickets enlazados.
+                </p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
+                <ConversionKpi
+                    label="Attach rate"
+                    value={`${health.summary.attach_rate}%`}
+                />
+                <ConversionKpi
+                    label="Contratos activos"
+                    value={`${health.summary.active_contracts}`}
+                />
+                <ConversionKpi
+                    label="ARR recurrente"
+                    value={formatValue(
+                        health.summary.annual_recurring_value,
+                        'currency',
+                    )}
+                />
+                <ConversionKpi
+                    label="Renovación ganada"
+                    value={`${health.summary.renewal_conversion}%`}
+                />
+                <ConversionKpi
+                    label="SLA resolución"
+                    value={`${health.summary.resolution_sla_attainment}%`}
+                />
+                <ConversionKpi
+                    label="First-time fix"
+                    value={`${health.summary.first_time_fix_rate}%`}
+                />
+            </div>
+            <Card className="gap-0 overflow-hidden py-0">
+                <div className="overflow-x-auto">
+                    <table className="w-full min-w-[48rem] text-sm">
+                        <thead className="bg-muted/50 text-left text-xs text-muted-foreground">
+                            <tr>
+                                <th className="px-4 py-3">Línea</th>
+                                <th className="px-3 py-3 text-right">
+                                    Base instalada
+                                </th>
+                                <th className="px-3 py-3 text-right">
+                                    Contratos
+                                </th>
+                                <th className="px-3 py-3 text-right">
+                                    Attach rate
+                                </th>
+                                <th className="px-4 py-3 text-right">ARR</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y">
+                            {health.by_line.map((line) => (
+                                <tr key={line.service_type}>
+                                    <td className="px-4 py-3 font-medium">
+                                        {line.service_type.replaceAll('_', ' ')}
+                                    </td>
+                                    <td className="px-3 py-3 text-right tabular-nums">
+                                        {line.installed_base}
+                                    </td>
+                                    <td className="px-3 py-3 text-right tabular-nums">
+                                        {line.active_contracts}
+                                    </td>
+                                    <td className="px-3 py-3 text-right tabular-nums">
+                                        {line.attach_rate}%
+                                    </td>
+                                    <td className="px-4 py-3 text-right tabular-nums">
+                                        {formatValue(
+                                            line.annual_recurring_value,
+                                            'currency',
+                                        )}
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            </Card>
+            <div className="grid gap-3 rounded-lg border p-4 text-sm sm:grid-cols-3">
+                <div>
+                    <span className="text-muted-foreground">
+                        Renovaciones preparadas
+                    </span>
+                    <div className="font-semibold">
+                        {health.summary.renewals_prepared}/
+                        {health.summary.renewals_due}
+                    </div>
+                </div>
+                <div>
+                    <span className="text-muted-foreground">
+                        SLA de respuesta
+                    </span>
+                    <div className="font-semibold">
+                        {health.summary.response_sla_attainment}%
+                    </div>
+                </div>
+                <div>
+                    <span className="text-muted-foreground">
+                        Coste real de servicio
+                    </span>
+                    <div className="font-semibold">
+                        {health.summary.actual_service_cost === null
+                            ? 'Restringido'
+                            : formatValue(
+                                  health.summary.actual_service_cost,
+                                  'currency',
+                              )}
+                    </div>
+                </div>
+            </div>
+            <details className="rounded-lg border px-4 py-3 text-sm">
+                <summary className="cursor-pointer font-medium">
+                    Definiciones y población
+                </summary>
+                <div className="mt-3 grid gap-2 text-xs text-muted-foreground">
+                    {Object.entries(health.definitions).map(([key, value]) => (
+                        <p key={key}>
+                            <strong>{key.replaceAll('_', ' ')}:</strong> {value}
+                        </p>
+                    ))}
+                </div>
+            </details>
+        </section>
     );
 }
 
