@@ -105,11 +105,50 @@ type SupplyAlternative = {
     quality_score: number | null;
 };
 
+type PreventiveDemand = {
+    period: { from: string; to: string; days: number };
+    summary: {
+        products: number;
+        plans: number;
+        visits: number;
+        products_at_risk: number;
+        expected_units: number;
+        forecast_exposure: number | null;
+    };
+    disclaimer: string;
+    rows: {
+        product_id: number;
+        sku: string | null;
+        product: string;
+        criticality: string;
+        preferred_lead_time_days: number;
+        expected_quantity: number;
+        minimum_stock: number;
+        on_hand: number;
+        project_reserved: number;
+        free_stock: number;
+        inbound_before_horizon: number;
+        forecast_shortage: number;
+        forecast_exposure: number | null;
+        plans: {
+            plan_id: number;
+            plan: string;
+            plan_version: number;
+            installation: string | null;
+            business_line: string | null;
+            visits: number;
+            first_due_on: string;
+            expected_quantity: number;
+        }[];
+    }[];
+};
+
 export default function SupplyControlTower({
     orders,
     counts,
     users,
     materialRisk,
+    preventiveDemand,
 }: {
     orders: Order[];
     counts: {
@@ -122,6 +161,7 @@ export default function SupplyControlTower({
     };
     users: { id: number; name: string }[];
     materialRisk: MaterialRisk;
+    preventiveDemand: PreventiveDemand;
 }) {
     const canManage = usePage<{
         auth: { abilities: { managePurchases: boolean } };
@@ -152,6 +192,7 @@ export default function SupplyControlTower({
                     <Metric label="Unassigned" value={counts.unassigned} />
                 </section>
                 <MaterialRiskPanel risk={materialRisk} />
+                <PreventiveDemandPanel demand={preventiveDemand} />
                 <section className="grid gap-4">
                     {orders.map((order) => (
                         <article key={order.id} className="border p-4">
@@ -667,6 +708,154 @@ function MaterialRiskPanel({ risk }: { risk: MaterialRisk }) {
                 </div>
             )}
         </section>
+    );
+}
+
+function PreventiveDemandPanel({ demand }: { demand: PreventiveDemand }) {
+    return (
+        <section className="overflow-hidden rounded-lg border">
+            <div className="flex flex-wrap items-start justify-between gap-3 border-b p-4">
+                <div>
+                    <h2 className="font-semibold">Preventive service demand</h2>
+                    <p className="text-xs text-muted-foreground">
+                        Expected spares from active service plans through{' '}
+                        {date(demand.period.to)}. {demand.disclaimer}
+                    </p>
+                </div>
+                <Badge
+                    variant={
+                        demand.summary.products_at_risk > 0
+                            ? 'destructive'
+                            : 'secondary'
+                    }
+                >
+                    {demand.summary.products_at_risk} products at risk
+                </Badge>
+            </div>
+            <div className="grid grid-cols-2 gap-px bg-border lg:grid-cols-5">
+                <RiskMetric label="Active plans" value={demand.summary.plans} />
+                <RiskMetric
+                    label="Expected visits"
+                    value={demand.summary.visits}
+                />
+                <RiskMetric label="Products" value={demand.summary.products} />
+                <RiskMetric
+                    label="Expected units"
+                    value={demand.summary.expected_units}
+                />
+                <RiskMetric
+                    label="Forecast exposure"
+                    value={money(demand.summary.forecast_exposure)}
+                />
+            </div>
+            {demand.rows.length > 0 ? (
+                <div className="divide-y">
+                    {demand.rows.map((row) => (
+                        <article
+                            key={row.product_id}
+                            className="grid gap-4 p-4 lg:grid-cols-[1.2fr_1fr_auto] lg:items-center"
+                        >
+                            <div>
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <span className="font-medium">
+                                        {row.product}
+                                        {row.sku ? ` · ${row.sku}` : ''}
+                                    </span>
+                                    <Badge
+                                        variant={
+                                            row.criticality === 'critical'
+                                                ? 'destructive'
+                                                : 'outline'
+                                        }
+                                    >
+                                        {row.criticality}
+                                    </Badge>
+                                </div>
+                                <div className="mt-1 text-xs text-muted-foreground">
+                                    {row.plans.length} plan
+                                    {row.plans.length === 1 ? '' : 's'} · lead
+                                    time {row.preferred_lead_time_days} days
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-3 text-xs">
+                                <DemandValue
+                                    label="Expected"
+                                    value={row.expected_quantity}
+                                />
+                                <DemandValue
+                                    label="Minimum stock"
+                                    value={row.minimum_stock}
+                                />
+                                <DemandValue
+                                    label="Free now"
+                                    value={row.free_stock}
+                                />
+                                <DemandValue
+                                    label="Inbound"
+                                    value={row.inbound_before_horizon}
+                                />
+                            </div>
+                            <div className="text-right">
+                                <div className="text-xs text-muted-foreground">
+                                    Forecast shortage
+                                </div>
+                                <div
+                                    className={
+                                        row.forecast_shortage > 0
+                                            ? 'font-semibold text-destructive'
+                                            : 'font-semibold'
+                                    }
+                                >
+                                    {row.forecast_shortage}
+                                </div>
+                                <div className="text-xs text-muted-foreground">
+                                    {money(row.forecast_exposure)}
+                                </div>
+                            </div>
+                            <details className="border-t pt-3 lg:col-span-3">
+                                <summary className="cursor-pointer text-sm font-medium">
+                                    Demand sources ({row.plans.length})
+                                </summary>
+                                <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                                    {row.plans.map((plan) => (
+                                        <div
+                                            key={plan.plan_id}
+                                            className="rounded-md border p-3 text-xs"
+                                        >
+                                            <div className="font-medium">
+                                                {plan.plan} · v
+                                                {plan.plan_version}
+                                            </div>
+                                            <div className="text-muted-foreground">
+                                                {plan.installation ||
+                                                    'Installation'}{' '}
+                                                · {plan.visits} visits ·{' '}
+                                                {plan.expected_quantity}{' '}
+                                                expected · first{' '}
+                                                {date(plan.first_due_on)}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </details>
+                        </article>
+                    ))}
+                </div>
+            ) : (
+                <div className="p-8 text-center text-sm text-muted-foreground">
+                    No preventive material demand configured for active plans.
+                </div>
+            )}
+        </section>
+    );
+}
+
+function DemandValue({ label, value }: { label: string; value: number }) {
+    return (
+        <div>
+            <span className="text-muted-foreground">{label}</span>
+            <div className="font-medium">{value}</div>
+        </div>
     );
 }
 

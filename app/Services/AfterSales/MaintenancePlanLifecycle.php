@@ -112,7 +112,7 @@ class MaintenancePlanLifecycle
 
     private function recordVersion(MaintenancePlan $plan, string $changeNote, ?User $actor): void
     {
-        $plan->load('coveredAssets:id');
+        $plan->load(['coveredAssets:id', 'preventiveMaterials:id,maintenance_plan_id,product_id,quantity_per_visit,expected_usage_percent,minimum_stock,notes']);
         $plan->versions()->create([
             'version' => $plan->version,
             'snapshot' => [
@@ -123,6 +123,7 @@ class MaintenancePlanLifecycle
                     'generate_work_order', 'scope',
                 ]),
                 'covered_asset_ids' => $plan->coveredAssets->pluck('id')->all(),
+                'preventive_materials' => $plan->preventiveMaterials->map->only(['product_id', 'quantity_per_visit', 'expected_usage_percent', 'minimum_stock', 'notes'])->values()->all(),
             ],
             'change_note' => trim($changeNote),
             'created_by' => $actor?->id,

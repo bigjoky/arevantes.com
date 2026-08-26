@@ -4,6 +4,7 @@ import {
     CircleDollarSign,
     HeartPulse,
     History,
+    PackageSearch,
     PenLine,
     Plus,
     ShieldCheck,
@@ -42,6 +43,12 @@ type Installation = {
     assets?: Asset[];
 };
 type Asset = { id: number; asset_tag: string; name: string; category: string };
+type StockProduct = {
+    id: number;
+    sku: string | null;
+    name: string;
+    supply_criticality: string;
+};
 type User = { id: number; name: string };
 type WorkTemplate = { id: number; name: string; kind: string };
 type SlaPolicy = {
@@ -94,6 +101,14 @@ type Plan = {
     assigned_user: User | null;
     template: WorkTemplate | null;
     covered_assets: Asset[];
+    preventive_materials: {
+        id: number;
+        quantity_per_visit: string;
+        expected_usage_percent: string;
+        minimum_stock: string;
+        notes: string | null;
+        product: StockProduct;
+    }[];
     versions: {
         id: number;
         version: number;
@@ -117,6 +132,27 @@ type Warranty = {
     warranty_ends_on: string | null;
     product: { name: string; sku: string | null };
 };
+type ServiceCapacity = {
+    summary: {
+        due_plans: number;
+        unassigned_plans: number;
+        critical_unassigned: number;
+        uncommitted_service_minutes: number;
+        projected_overloaded_weeks: number;
+    };
+    weeks: {
+        week_start: string;
+        week_end: string;
+        remaining_minutes: number;
+        uncommitted_service_minutes: number;
+        projected_remaining_minutes: number;
+        projected_overload_minutes: number;
+        due_plans: number;
+        unassigned_plans: number;
+        critical_unassigned: number;
+    }[];
+    disclaimer: string;
+};
 type Tab = 'tickets' | 'maintenance' | 'warranties';
 export default function AfterSalesIndex({
     tickets,
@@ -127,8 +163,10 @@ export default function AfterSalesIndex({
     metrics,
     slaPolicies,
     templates,
+    stockProducts,
     canManage,
     canManageCustomers,
+    serviceCapacity,
 }: {
     tickets: Ticket[];
     plans: Plan[];
@@ -148,8 +186,10 @@ export default function AfterSalesIndex({
     };
     slaPolicies: SlaPolicy[];
     templates: WorkTemplate[];
+    stockProducts: StockProduct[];
     canManage: boolean;
     canManageCustomers: boolean;
+    serviceCapacity: ServiceCapacity;
 }) {
     const [tab, setTab] = useState<Tab>('tickets');
 
@@ -236,6 +276,7 @@ export default function AfterSalesIndex({
                         value={metrics.renewals_due}
                     />
                 </section>
+                <ServiceCapacityPanel capacity={serviceCapacity} />
                 <div className="flex gap-1 border-b">
                     <TabButton
                         active={tab === 'tickets'}
@@ -502,6 +543,12 @@ export default function AfterSalesIndex({
                                                                 templates
                                                             }
                                                             plan={plan}
+                                                        />
+                                                        <PreventiveMaterialsDialog
+                                                            plan={plan}
+                                                            products={
+                                                                stockProducts
+                                                            }
                                                         />
                                                         <Form
                                                             action={`/after-sales/plans/${plan.id}`}
@@ -1070,6 +1117,124 @@ function PlanDialog({
     );
 }
 
+function PreventiveMaterialsDialog({
+    plan,
+    products,
+}: {
+    plan: Plan;
+    products: StockProduct[];
+}) {
+    const [open, setOpen] = useState(false);
+
+    return (
+        <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+                <Button size="sm" variant="outline">
+                    <PackageSearch /> Spares
+                </Button>
+            </DialogTrigger>
+            <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+                <DialogHeader>
+                    <DialogTitle>Preventive demand · {plan.name}</DialogTitle>
+                </DialogHeader>
+                <p className="text-sm text-muted-foreground">
+                    Forecast only. These quantities do not reserve stock or
+                    create purchase documents.
+                </p>
+                <div className="grid gap-2">
+                    {plan.preventive_materials.map((material) => (
+                        <div
+                            key={material.id}
+                            className="flex flex-wrap items-center justify-between gap-3 rounded-md border p-3 text-sm"
+                        >
+                            <div>
+                                <div className="font-medium">
+                                    {material.product.name}
+                                    {material.product.sku
+                                        ? ` · ${material.product.sku}`
+                                        : ''}
+                                </div>
+                                <div className="text-xs text-muted-foreground">
+                                    {material.quantity_per_visit} per visit ·{' '}
+                                    {material.expected_usage_percent}% expected
+                                    · minimum stock {material.minimum_stock}
+                                </div>
+                            </div>
+                            <Form
+                                action={`/after-sales/plans/${plan.id}/materials/${material.id}`}
+                                method="delete"
+                            >
+                                <input
+                                    type="hidden"
+                                    name="change_note"
+                                    value={`Removed preventive material ${material.product.name} from plan forecast.`}
+                                />
+                                <Button size="sm" variant="ghost">
+                                    Remove
+                                </Button>
+                            </Form>
+                        </div>
+                    ))}
+                    {plan.preventive_materials.length === 0 ? (
+                        <Empty text="No preventive materials configured." />
+                    ) : null}
+                </div>
+                <Form
+                    action={`/after-sales/plans/${plan.id}/materials`}
+                    method="post"
+                    className="grid gap-4 border-t pt-4"
+                >
+                    <SelectField
+                        label="Stock product"
+                        name="product_id"
+                        options={products.map((product) => [
+                            String(product.id),
+                            `${product.name}${product.sku ? ` · ${product.sku}` : ''} · ${label(product.supply_criticality)}`,
+                        ])}
+                    />
+                    <div className="grid gap-4 sm:grid-cols-3">
+                        <Field
+                            label="Quantity per visit"
+                            name="quantity_per_visit"
+                            type="number"
+                            step="0.001"
+                            value="1"
+                        />
+                        <Field
+                            label="Expected usage (%)"
+                            name="expected_usage_percent"
+                            type="number"
+                            step="0.01"
+                            value="100"
+                        />
+                        <Field
+                            label="Minimum free stock"
+                            name="minimum_stock"
+                            type="number"
+                            step="0.001"
+                            value="0"
+                        />
+                    </div>
+                    <Field label="Operational notes" name="notes" />
+                    <div className="grid gap-2">
+                        <Label>Change note</Label>
+                        <textarea
+                            name="change_note"
+                            required
+                            minLength={5}
+                            className="min-h-20 rounded-md border bg-transparent p-3 text-sm"
+                            placeholder="Why is this spare expected for the plan?"
+                        />
+                    </div>
+                    <Button disabled={products.length === 0}>
+                        Save preventive forecast
+                    </Button>
+                </Form>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
 function SlaDialog({ policies }: { policies: SlaPolicy[] }) {
     const [open, setOpen] = useState(false);
 
@@ -1141,6 +1306,94 @@ function SlaDialog({ policies }: { policies: SlaPolicy[] }) {
         </Dialog>
     );
 }
+
+function ServiceCapacityPanel({ capacity }: { capacity: ServiceCapacity }) {
+    return (
+        <details className="rounded-lg border">
+            <summary className="flex cursor-pointer flex-wrap items-center justify-between gap-3 p-4">
+                <span>
+                    <span className="font-medium">
+                        Recurring service capacity · next 6 weeks
+                    </span>
+                    <span className="mt-1 block text-xs text-muted-foreground">
+                        {capacity.disclaimer}
+                    </span>
+                </span>
+                <span className="flex gap-2">
+                    <Badge
+                        variant={
+                            capacity.summary.projected_overloaded_weeks > 0
+                                ? 'destructive'
+                                : 'secondary'
+                        }
+                    >
+                        {capacity.summary.projected_overloaded_weeks} overloaded
+                        weeks
+                    </Badge>
+                    <Badge variant="outline">
+                        {capacity.summary.unassigned_plans} unassigned plans
+                    </Badge>
+                </span>
+            </summary>
+            <div className="overflow-x-auto border-t">
+                <table className="w-full min-w-[46rem] text-sm">
+                    <thead className="text-left text-xs text-muted-foreground">
+                        <tr>
+                            <th className="px-4 py-3">Week</th>
+                            <th className="px-3 py-3 text-right">Due plans</th>
+                            <th className="px-3 py-3 text-right">
+                                Forecast demand
+                            </th>
+                            <th className="px-3 py-3 text-right">
+                                Remaining capacity
+                            </th>
+                            <th className="px-4 py-3 text-right">Risk</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                        {capacity.weeks.map((week) => (
+                            <tr key={week.week_start}>
+                                <td className="px-4 py-3 font-medium">
+                                    {date(week.week_start)}
+                                </td>
+                                <td className="px-3 py-3 text-right">
+                                    {week.due_plans} · {week.unassigned_plans}{' '}
+                                    unassigned
+                                </td>
+                                <td className="px-3 py-3 text-right">
+                                    {minutes(week.uncommitted_service_minutes)}
+                                </td>
+                                <td className="px-3 py-3 text-right">
+                                    {minutes(week.projected_remaining_minutes)}
+                                </td>
+                                <td className="px-4 py-3 text-right">
+                                    {week.projected_overload_minutes > 0 ? (
+                                        <Badge variant="destructive">
+                                            {minutes(
+                                                week.projected_overload_minutes,
+                                            )}{' '}
+                                            overload
+                                        </Badge>
+                                    ) : week.critical_unassigned > 0 ? (
+                                        <Badge variant="outline">
+                                            {week.critical_unassigned} critical
+                                            unassigned
+                                        </Badge>
+                                    ) : (
+                                        <Badge variant="secondary">
+                                            Capacity available
+                                        </Badge>
+                                    )}
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+        </details>
+    );
+}
+
 function Metric({ label, value }: { label: string; value: number | string }) {
     return (
         <div className="border-r p-4 last:border-0">
@@ -1210,17 +1463,19 @@ function Field({
     label,
     name,
     type = 'text',
+    step,
     value,
 }: {
     label: string;
     name: string;
     type?: string;
+    step?: string;
     value?: string;
 }) {
     return (
         <div className="grid gap-2">
             <Label className="text-xs">{label}</Label>
-            <Input name={name} type={type} defaultValue={value} />
+            <Input name={name} type={type} step={step} defaultValue={value} />
         </div>
     );
 }
@@ -1252,6 +1507,7 @@ const currency = (value: number) =>
         style: 'currency',
         currency: 'EUR',
     }).format(value);
+const minutes = (value: number) => `${Math.round((value / 60) * 10) / 10} h`;
 AfterSalesIndex.layout = {
     breadcrumbs: [{ title: 'After-sales', href: '/after-sales' }],
 };

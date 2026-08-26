@@ -4,24 +4,27 @@ namespace App\Services\Ai;
 
 use App\Models\BankTransaction;
 use App\Models\Installation;
+use App\Models\MaintenancePlan;
 use App\Models\Opportunity;
 use App\Models\Person;
 use App\Models\PurchaseDocument;
 use App\Models\SalesDocument;
 use App\Models\User;
 use App\Services\Operations\ProjectMarginPortfolio;
+use App\Services\Supply\PreventiveDemandForecast;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 
 class RelevantBusinessContext
 {
-    public function __construct(private ProjectMarginPortfolio $margins) {}
+    public function __construct(private ProjectMarginPortfolio $margins, private PreventiveDemandForecast $preventiveDemand) {}
 
     public function search(User $user, string $query, ?string $pageUrl = null): string
     {
         $tokens = collect(preg_split('/[^\pL\pN@._-]+/u', Str::lower($query)))->filter(fn ($token) => mb_strlen($token) >= 3)->unique()->take(8)->values();
         $sections = collect();
+        $recurringRequested = preg_match('/after-sales|maintenance|service plan|renewal|sla|supply|stock|spare|posventa|mantenimiento|renovaci|repuesto|inventario/u', mb_strtolower($query.' '.($pageUrl ?? ''))) === 1;
 
         if (Gate::forUser($user)->allows('view-installations')) {
             $installationId = preg_match('#/installations/(\d+)#', (string) $pageUrl, $match) ? (int) $match[1] : null;
@@ -46,6 +49,32 @@ class RelevantBusinessContext
                     })->implode("\n"));
                 }
             }
+            if ($recurringRequested) {
+                $plans = MaintenancePlan::query()
+                    ->with('installation:id,project_reference,site_name,service_type')
+                    ->where('is_active', true)
+                    ->when($user->hasRole('technician'), fn ($builder) => $builder->where('assigned_user_id', $user->id))
+                    ->orderBy('next_due_on')
+                    ->limit(8)
+                    ->get();
+                if ($plans->isNotEmpty()) {
+                    $sections->push("[CRM-SVC-1] Authorized recurring service plans:\n".$plans->map(fn (MaintenancePlan $plan) => sprintf(
+                        '- plan #%d v%d %s · installation #%d %s · line %s · level %s · coverage %s · next %s · contract end %s · renewal %s · assigned %s',
+                        $plan->id,
+                        $plan->version,
+                        $plan->name,
+                        $plan->installation_id,
+                        $plan->installation?->project_reference ?: $plan->installation?->site_name ?: 'unnamed',
+                        $plan->installation?->service_type ?: 'unknown',
+                        $plan->service_level,
+                        $plan->coverage_type,
+                        $plan->next_due_on?->format('Y-m-d') ?: 'not set',
+                        $plan->contract_ends_on?->format('Y-m-d') ?: 'open-ended',
+                        $plan->renewal_opportunity_id ? 'prepared' : 'not prepared',
+                        $plan->assigned_user_id ? 'assigned' : 'unassigned',
+                    ))->implode("\n"));
+                }
+            }
         }
 
         if (Gate::forUser($user)->allows('manage-customers')) {
@@ -61,6 +90,26 @@ class RelevantBusinessContext
         }
 
         if (Gate::forUser($user)->allows('manage-catalog')) {
+            if ($recurringRequested) {
+                $forecast = $this->preventiveDemand->forecast(today(), 180);
+                $riskRows = collect($forecast['rows'])->where('forecast_shortage', '>', 0)->take(8);
+                $sections->push('[SUP-SVC-1] Preventive demand forecast (non-committing): '.sprintf(
+                    '%d active plans, %d expected visits, %d products at risk. Forecast only; it has not reserved stock or created purchase documents.',
+                    $forecast['summary']['plans'],
+                    $forecast['summary']['visits'],
+                    $forecast['summary']['products_at_risk'],
+                ).($riskRows->isNotEmpty() ? "\n".$riskRows->map(fn (array $row) => sprintf(
+                    '- product #%d %s · expected %.3f · free %.3f · inbound %.3f · forecast shortage %.3f · sources %d plans',
+                    $row['product_id'],
+                    $row['product'],
+                    $row['expected_quantity'],
+                    $row['free_stock'],
+                    $row['inbound_before_horizon'],
+                    $row['forecast_shortage'],
+                    count($row['plans']),
+                ))->implode("\n") : ''));
+                $sections->push('[GOV-SVC-1] Governance: any renewal contact, stock reservation, purchasing document, schedule commitment or customer communication must remain a draft until an authorized person reviews and confirms it.');
+            }
             $sales = SalesDocument::with('customer:id,first_name,last_name,company_name')->tap(fn ($builder) => $this->whereTokens($builder, $tokens, ['number', 'status', 'notes']))->latest('issue_date')->limit(5)->get();
             if ($sales->isNotEmpty()) {
                 $sections->push("Relevant sales documents:\n".$sales->map(fn ($doc) => sprintf('- %s %s · %s · %.2f EUR · paid %.2f EUR · due %s · customer %s', $doc->type, $doc->number, $doc->status, (float) $doc->amount, (float) $doc->paid_amount, $doc->due_date?->format('Y-m-d') ?: 'not set', $doc->customer?->company_name ?: trim(($doc->customer?->first_name ?? '').' '.($doc->customer?->last_name ?? '')) ?: 'unassigned'))->implode("\n"));

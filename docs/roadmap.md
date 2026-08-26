@@ -354,15 +354,37 @@ una previsión recurrente diferenciada de una factura; el portal publica solo lo
 planes activos y confirmados, con su alcance y equipos cubiertos. La generación
 operativa sigue siendo idempotente y no duplica tickets abiertos ni órdenes.
 
+## Corte ejecutado — Demanda preventiva y salud recurrente
+
+El segundo vertical del Horizonte 2 enlaza cada plan versionado con repuestos
+esperados por visita, probabilidad de uso y stock mínimo deseado. Suministro
+compara esta demanda con existencias, reservas de proyecto y entradas
+confirmadas, descuenta las visitas que ya tienen ticket abierto y conserva las
+fuentes por plan y versión. El resultado es estrictamente una previsión: no crea
+reservas, solicitudes de oferta, pedidos ni movimientos de almacén.
+
+Analítica define attach rate, ARR, renovación, cumplimiento SLA, first-time fix
+y coste real del servicio sobre una población y periodo visibles, con desglose
+por línea. Los costes quedan restringidos a perfiles financieros. Posventa añade
+la carga recurrente aún no comprometida a la capacidad semanal y alerta sobre
+semanas sobrecargadas o planes críticos sin responsable, sin generar ni
+planificar órdenes automáticamente.
+
+Arevia recibe los planes autorizados y la demanda preventiva mediante fuentes
+identificables, junto con una regla explícita: cualquier contacto de renovación,
+reserva, compra, compromiso de agenda o comunicación al cliente debe permanecer
+como borrador hasta que una persona autorizada lo revise y confirme.
+
 ## Próximo corte recomendado
 
-Completar el segundo vertical del Horizonte 2 con **demanda preventiva y salud
-de la cartera recurrente**. Suministro debe derivar necesidades de repuesto de
-los planes activos sin convertirlas en reserva ni compra; Analítica debe definir
-attach rate, renovación, coste de servicio y fiabilidad por línea; Arevia debe
-explicar riesgos y proponer la siguiente acción usando esas métricas y las
-versiones contractuales, siempre como borrador sujeto a aprobación.
+Completar el tercer vertical del Horizonte 2 con **compromiso operativo y margen
+del ciclo de servicio**. Debe permitir aprobar capacidad y guardias antes de
+aceptar SLA, convertir demanda preventiva aprobada en un objetivo de reposición
+separado de las reservas de proyecto, y reconciliar ingreso previsto, factura,
+cobro, materiales, horas y desplazamientos contra cada versión contractual.
 
-El mismo corte debe reservar capacidad y guardias frente a los SLA antes de
-aceptar nuevos compromisos, y reconciliar previsión, coste real y margen de cada
-ciclo sin emitir documentos económicos ni mensajes al cliente automáticamente.
+El portal debe incorporar comunicaciones proactivas gobernadas por preferencia
+y estado confirmado; Analítica debe comparar margen previsto y real por ciclo;
+Arevia puede preparar el borrador de decisión y explicar restricciones, pero la
+aprobación humana debe seguir siendo obligatoria para cualquier efecto externo
+o económico.

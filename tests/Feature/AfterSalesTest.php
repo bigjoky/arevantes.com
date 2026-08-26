@@ -12,11 +12,14 @@ use App\Models\Product;
 use App\Models\SerialNumber;
 use App\Models\ServiceSlaPolicy;
 use App\Models\ServiceTicket;
+use App\Models\StockReservation;
 use App\Models\TaxRate;
 use App\Models\Unit;
 use App\Models\User;
 use App\Models\WorkOrder;
+use App\Services\AfterSales\MaintenancePlanLifecycle;
 use App\Services\AfterSales\SlaManager;
+use App\Services\Supply\PreventiveDemandForecast;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -196,6 +199,66 @@ class AfterSalesTest extends TestCase
 
         $this->post(route('after-sales.plans.renewal', $plan))->assertRedirect();
         $this->assertDatabaseCount('opportunities', 1);
+    }
+
+    public function test_preventive_materials_are_versioned_forecasts_without_stock_commitments(): void
+    {
+        $this->travelTo('2026-08-26 09:00:00');
+        $commercial = User::factory()->create(['role' => 'commercial']);
+        $installation = Installation::create(['service_type' => 'electrical', 'status' => 'completed', 'project_reference' => 'ELEC-SVC-1', 'site_address_line_1' => 'Calle Cuadro 1']);
+        $plan = app(MaintenancePlanLifecycle::class)->create([
+            'installation_id' => $installation->id,
+            'name' => 'Quarterly electrical care',
+            'interval_months' => 3,
+            'starts_on' => today(),
+            'next_due_on' => today()->addMonth(),
+        ], [], $commercial);
+        $product = Product::create([
+            'type' => 'product',
+            'sku' => 'FUSE-SVC',
+            'name' => 'Service fuse',
+            'unit_id' => Unit::firstOrFail()->id,
+            'tax_rate_id' => TaxRate::firstOrFail()->id,
+            'sale_price' => 10,
+            'cost_price' => 4,
+            'track_stock' => true,
+            'track_serials' => false,
+            'supply_criticality' => 'critical',
+            'preferred_lead_time_days' => 14,
+            'is_active' => true,
+        ]);
+
+        $payload = [
+            'product_id' => $product->id,
+            'quantity_per_visit' => 2,
+            'expected_usage_percent' => 50,
+            'minimum_stock' => 3,
+            'notes' => 'Carry only when inspection confirms wear.',
+            'change_note' => 'Added expected fuse demand for preventive visits.',
+        ];
+        $this->actingAs($commercial)->post(route('after-sales.plans.materials.store', $plan), $payload)
+            ->assertRedirect()->assertSessionHasNoErrors();
+
+        $plan->refresh();
+        $this->assertSame(2, $plan->version);
+        $this->assertDatabaseHas('maintenance_plan_materials', ['maintenance_plan_id' => $plan->id, 'product_id' => $product->id, 'quantity_per_visit' => 2]);
+        $this->assertSame(2, $plan->versions()->count());
+        $this->assertSame($product->id, $plan->versions()->where('version', 2)->firstOrFail()->snapshot['preventive_materials'][0]['product_id']);
+
+        $forecast = app(PreventiveDemandForecast::class)->forecast(today(), 180);
+        $this->assertSame(1, $forecast['summary']['products']);
+        $this->assertSame(2, $forecast['summary']['visits']);
+        $this->assertSame(2.0, $forecast['rows'][0]['expected_quantity']);
+        $this->assertSame(5.0, $forecast['rows'][0]['forecast_shortage']);
+        $this->assertSame(20.0, $forecast['rows'][0]['forecast_exposure']);
+        $this->assertSame(0, StockReservation::count());
+
+        $material = $plan->preventiveMaterials()->firstOrFail();
+        $this->delete(route('after-sales.plans.materials.destroy', [$plan, $material]), ['change_note' => 'Fuse removed after service procedure review.'])
+            ->assertRedirect()->assertSessionHasNoErrors();
+        $this->assertSame(3, $plan->refresh()->version);
+        $this->assertDatabaseCount('maintenance_plan_materials', 0);
+        $this->assertSame(0, StockReservation::count());
     }
 
     public function test_sla_uses_the_customer_specific_policy_and_respects_the_escalation_interval(): void

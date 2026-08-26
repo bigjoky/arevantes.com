@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Installation;
 use App\Models\InstallationAsset;
 use App\Models\MaintenancePlan;
+use App\Models\Product;
 use App\Models\SerialNumber;
 use App\Models\ServiceSlaPolicy;
 use App\Models\ServiceTicket;
@@ -14,6 +15,7 @@ use App\Services\AfterSales\MaintenancePlanLifecycle;
 use App\Services\AfterSales\ServiceTicketFactory;
 use App\Services\AfterSales\ServiceWorkGenerator;
 use App\Services\AfterSales\SlaManager;
+use App\Services\Planning\RecurringServiceCapacityForecast;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -25,10 +27,10 @@ use Inertia\Response;
 
 class AfterSalesController extends Controller
 {
-    public function index(Request $request): Response
+    public function index(Request $request, RecurringServiceCapacityForecast $capacity): Response
     {
         $tickets = ServiceTicket::with(['installation:id,project_reference,site_name,service_type', 'assignedUser:id,name', 'workOrder:id,number,status'])->when($request->user()->hasRole('technician'), fn ($query) => $query->where(fn ($query) => $query->where('assigned_user_id', $request->user()->id)->orWhereNull('assigned_user_id')))->orderByRaw("case priority when 'urgent' then 0 when 'high' then 1 when 'normal' then 2 else 3 end")->orderByRaw("case when status in ('resolved','closed') then 1 else 0 end")->latest()->get();
-        $plans = MaintenancePlan::with(['installation:id,project_reference,site_name', 'assignedUser:id,name', 'template:id,name,kind', 'coveredAssets:id,installation_id,asset_tag,name,category', 'versions.creator:id,name', 'renewalOpportunity:id,code,title,stage'])->orderBy('next_due_on')->get();
+        $plans = MaintenancePlan::with(['installation:id,project_reference,site_name', 'assignedUser:id,name', 'template:id,name,kind', 'coveredAssets:id,installation_id,asset_tag,name,category', 'preventiveMaterials.product:id,sku,name,supply_criticality', 'versions.creator:id,name', 'renewalOpportunity:id,code,title,stage'])->orderBy('next_due_on')->get();
 
         return Inertia::render('after-sales/index', [
             'tickets' => $tickets,
@@ -38,6 +40,9 @@ class AfterSalesController extends Controller
             'warranties' => SerialNumber::with(['product:id,name,sku'])->whereNotNull('installation_id')->orderBy('warranty_ends_on')->get(),
             'slaPolicies' => ServiceSlaPolicy::where('is_active', true)->orderBy('priority')->get(),
             'templates' => WorkOrderTemplate::where('is_active', true)->whereIn('kind', ['maintenance', 'repair'])->orderBy('name')->get(),
+            'stockProducts' => $request->user()->can('manage-installations')
+                ? Product::where('is_active', true)->where('track_stock', true)->orderBy('name')->get(['id', 'sku', 'name', 'supply_criticality'])
+                : [],
             'metrics' => [
                 'open' => $tickets->whereNotIn('status', ['resolved', 'closed'])->count(),
                 'response_breaches' => $tickets->whereNull('first_responded_at')->filter(fn (ServiceTicket $ticket) => $ticket->first_response_due_at?->isPast())->count(),
@@ -51,6 +56,7 @@ class AfterSalesController extends Controller
             ],
             'canManage' => $request->user()->can('manage-installations'),
             'canManageCustomers' => $request->user()->can('manage-customers'),
+            'serviceCapacity' => $capacity->forecast(today(), 6, $request->user()),
         ]);
     }
 

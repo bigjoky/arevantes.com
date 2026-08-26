@@ -47,6 +47,11 @@ class MaintenancePlan extends Model
         return $this->belongsToMany(InstallationAsset::class, 'maintenance_plan_assets')->withTimestamps();
     }
 
+    public function preventiveMaterials(): HasMany
+    {
+        return $this->hasMany(MaintenancePlanMaterial::class);
+    }
+
     public function originOpportunity(): BelongsTo
     {
         return $this->belongsTo(Opportunity::class, 'origin_opportunity_id');
