@@ -20,8 +20,8 @@ class RecurringServiceBillingWorkflow
                 ->with(['maintenancePlan.installation.customer'])
                 ->lockForUpdate()
                 ->findOrFail($commitment->id);
-            if ($locked->status !== 'approved') {
-                throw ValidationException::withMessages(['billing' => __('Only approved service cycles can be invoiced.')]);
+            if (! in_array($locked->status, ['approved', 'completed'], true)) {
+                throw ValidationException::withMessages(['billing' => __('Only approved or completed service cycles can be invoiced.')]);
             }
 
             $plan = $locked->maintenancePlan;

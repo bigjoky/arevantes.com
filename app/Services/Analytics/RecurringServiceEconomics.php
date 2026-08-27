@@ -35,7 +35,10 @@ class RecurringServiceEconomics
                 ->where('maintenance_plan_version', $commitment->maintenance_plan_version)
                 ->filter(fn (ServiceTicket $ticket) => $ticket->created_at->betweenIncluded($commitment->period_starts_on->startOfDay(), $commitment->period_ends_on->endOfDay()));
             $orderIds = $cycleTickets->pluck('work_order_id')->filter();
-            $actualCost = (float) $orderIds->sum(fn ($id) => (float) ($timeCosts[$id] ?? 0) + (float) ($materialCosts[$id] ?? 0));
+            $completion = $commitment->completion_snapshot;
+            $actualCost = $completion
+                ? (float) ($completion['time']['labor_cost'] ?? 0) + (float) ($completion['time']['travel_cost'] ?? 0) + (float) ($completion['materials']['actual_cost'] ?? 0)
+                : (float) $orderIds->sum(fn ($id) => (float) ($timeCosts[$id] ?? 0) + (float) ($materialCosts[$id] ?? 0));
             $cycleForecasts = $forecasts->where('maintenance_plan_id', $commitment->maintenance_plan_id)
                 ->where('maintenance_plan_version', $commitment->maintenance_plan_version)
                 ->filter(fn (FinancialForecastItem $item) => $item->due_on->betweenIncluded($commitment->period_starts_on, $commitment->period_ends_on));
@@ -69,6 +72,7 @@ class RecurringServiceEconomics
                 'invoice_number' => $commitment->billing?->invoice?->number,
                 'actual_cost' => round($actualCost, 2),
                 'actual_margin' => round($settledRevenue - $actualCost, 2),
+                'completed_at' => $commitment->completed_at?->toIso8601String(),
                 'tickets' => $cycleTickets->count(),
                 'approved_by' => $commitment->approver?->name,
                 'approved_at' => $commitment->approved_at?->toIso8601String(),

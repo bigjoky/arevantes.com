@@ -3,6 +3,7 @@
 namespace App\Services\Work;
 
 use App\Models\WorkOrder;
+use App\Services\AfterSales\ServiceCycleCompletionWorkflow;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -14,6 +15,7 @@ class WorkOrderStateManager
         private WorkOrderCompletionGuard $completion,
         private InstallationWorkOrderSynchronizer $installations,
         private WorkOrderPlanningReadiness $readiness,
+        private ServiceCycleCompletionWorkflow $serviceCycles,
     ) {}
 
     public function transition(
@@ -22,8 +24,10 @@ class WorkOrderStateManager
         ?string $completionNotes = null,
         ?string $blockedReason = null,
         ?string $expectedUpdatedAt = null,
+        ?int $actorId = null,
     ): WorkOrder {
-        return DB::transaction(function () use ($order, $status, $completionNotes, $blockedReason, $expectedUpdatedAt): WorkOrder {
+        return DB::transaction(function () use ($order, $status, $completionNotes, $blockedReason, $expectedUpdatedAt, $actorId): WorkOrder {
+            $serviceCycle = $status === 'completed' ? $this->serviceCycles->lockContext($order->id) : null;
             $locked = WorkOrder::query()->with(['template', 'installation'])->lockForUpdate()->findOrFail($order->id);
             if ($expectedUpdatedAt !== null && ! $locked->updated_at->equalTo(Carbon::parse($expectedUpdatedAt))) {
                 $locked->loadMissing(['assignedUser:id,name', 'activities:id,work_order_id,priority']);
@@ -58,6 +62,7 @@ class WorkOrderStateManager
             }
             if ($status === 'completed') {
                 $this->completion->assertCanComplete($locked, $completionNotes);
+                $this->serviceCycles->assertCanClose($serviceCycle, $locked);
             }
 
             $updates = [
@@ -81,6 +86,9 @@ class WorkOrderStateManager
                 'completed_at' => $status === 'completed' ? $locked->completed_at : null,
             ]);
             $this->installations->sync($locked);
+            if ($status === 'completed') {
+                $this->serviceCycles->closeLocked($serviceCycle, $locked, $actorId);
+            }
 
             return $locked->fresh(['installation', 'template']);
         });

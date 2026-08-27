@@ -447,16 +447,39 @@ prepara una nueva revisión del aviso confirmado. El portal distingue fechas y
 comunicaciones vigentes de las históricas; nada se sobrescribe ni se publica de
 nuevo hasta confirmar la última planificación.
 
+## Corte ejecutado — Cierre y continuidad del servicio recurrente
+
+El sexto vertical del Horizonte 2 convierte la finalización de la orden en el
+único cierre válido del ciclo recurrente. La transacción bloquea plan,
+compromiso, ticket y orden en un orden estable, exige una agenda confirmada y
+captura una sola conciliación de checklist, evidencias, firma, materiales
+consumidos, reservas liberadas, horas, desplazamiento y activos atendidos. Los
+reintentos móviles devuelven el mismo resultado y no vuelven a avanzar fechas,
+costes ni contadores.
+
+El ticket se resuelve desde la orden y ya no puede cerrarse manualmente mientras
+el ciclo gobernado siga abierto. La próxima visita avanza hasta el periodo
+siguiente sin saltos, cada activo conserva su último servicio, contador y evento
+trazable, y el consumo real reduce existencias para alimentar la previsión de
+reposición sin crear compras automáticas. Analítica usa el coste congelado del
+cierre en lugar de recalcular un pasado mutable.
+
+El portal recibe un resumen operativo sin costes internos y mantiene separada
+la publicación documental: completar el trabajo no publica certificados ni
+adjuntos. Posventa y la API móvil exponen únicamente métricas operativas; las
+instantáneas técnicas, económicas y de capacidad permanecen fuera de esos
+contratos.
+
 ## Próximo corte recomendado
 
-Cerrar el **ciclo recurrente ejecutado con continuidad contractual
-idempotente**. La finalización móvil deberá reconciliar checklist, evidencias,
-material realmente consumido, horas y desplazamiento con el compromiso; cerrar
-ticket y visita una sola vez; publicar únicamente los documentos técnicos
-aprobados; y avanzar la próxima fecha del plan sin saltos ni duplicados. El
-mismo cierre debe alimentar margen real, demanda de reposición, salud del activo
-y portal del cliente desde una única versión operativa, manteniendo facturación
-y contacto extraordinario bajo sus confirmaciones humanas actuales.
+Construir el **control de desviaciones y calidad del servicio recurrente**.
+Debe comparar alcance previsto y ejecución real por línea de negocio, detectar
+duración, desplazamiento, consumo, reincidencia, evidencias o documentos fuera
+de tolerancia y abrir tareas internas de revisión con responsable y fecha. Las
+desviaciones confirmadas alimentarán salud del activo, objetivos de reposición,
+rentabilidad contractual y preparación de renovación, pero cualquier cambio de
+plan, compra, comunicación extraordinaria o propuesta seguirá requiriendo una
+decisión humana explícita.
 
 ## Corrección transversal — idioma temporal de la plataforma
 
