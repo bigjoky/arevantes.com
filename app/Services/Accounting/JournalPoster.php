@@ -5,13 +5,14 @@ namespace App\Services\Accounting;
 use App\Models\FiscalYear;
 use App\Models\JournalEntry;
 use App\Models\LedgerAccount;
+use App\Services\Documents\DocumentNumber;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class JournalPoster
 {
-    public function __construct(private AccountingPeriodManager $periods) {}
+    public function __construct(private AccountingPeriodManager $periods, private DocumentNumber $numbers) {}
 
     public function post(string $date, string $description, array $lines, ?int $userId, string $kind = 'manual', ?Model $source = null, string $event = 'manual', ?JournalEntry $reverses = null): JournalEntry
     {
@@ -49,7 +50,7 @@ class JournalPoster
 
             $entry = JournalEntry::create([
                 'fiscal_year_id' => $year->id, 'created_by' => $userId, 'entry_date' => $date,
-                'number' => $this->number($year), 'description' => $description,
+                'number' => $this->numbers->next('journal_entry', $date, 6)['number'], 'description' => $description,
                 'source_type' => $source?->getMorphClass(), 'source_id' => $source?->getKey(),
                 'event' => $event, 'entry_kind' => $kind, 'reverses_entry_id' => $reverses?->id,
                 'status' => 'posted', 'posted_at' => now(),
@@ -66,16 +67,5 @@ class JournalPoster
 
             return $entry;
         });
-    }
-
-    private function number(FiscalYear $year): string
-    {
-        $last = JournalEntry::where('fiscal_year_id', $year->id)
-            ->lockForUpdate()
-            ->pluck('number')
-            ->map(fn (string $number) => (int) str($number)->afterLast('-')->toString())
-            ->max() ?? 0;
-
-        return 'AST-'.$year->year.'-'.str_pad((string) ($last + 1), 6, '0', STR_PAD_LEFT);
     }
 }

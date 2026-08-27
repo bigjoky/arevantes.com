@@ -1,6 +1,7 @@
 import { Form, Head, Link, usePage } from '@inertiajs/react';
 import { FilePlus2, Plus, ReceiptText, WalletCards } from 'lucide-react';
 import { useState } from 'react';
+import InputError from '@/components/input-error';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -277,94 +278,139 @@ function ExpenseDialog({
                 <Form
                     action="/expenses"
                     method="post"
+                    encType="multipart/form-data"
                     onSuccess={() => setOpen(false)}
                     className="grid gap-4"
                 >
-                    <div className="grid gap-4 sm:grid-cols-2">
-                        <SelectField
-                            label="Type"
-                            name="type"
-                            options={[
-                                ['receipt', 'Receipt / ticket'],
-                                ['invoice', 'Expense invoice'],
-                                ['other', 'Other'],
-                            ]}
-                        />
-                        <SelectField
-                            label="Category"
-                            name="expense_category_id"
-                            options={categories.map((c) => [
-                                String(c.id),
-                                c.name,
-                            ])}
-                        />
-                        <SelectField
-                            label="Supplier (optional)"
-                            name="supplier_id"
-                            options={[
-                                ['none', 'No linked supplier'],
-                                ...suppliers.map((s) => [
-                                    String(s.id),
-                                    s.trade_name || s.legal_name,
-                                ]),
-                            ]}
-                        />
-                        <SelectField
-                            label="Installation (optional)"
-                            name="installation_id"
-                            options={[
-                                ['none', 'No linked installation'],
-                                ...installations.map((installation) => [
-                                    String(installation.id),
-                                    installation.project_reference ||
-                                        installation.site_name ||
-                                        `#${installation.id}`,
-                                ]),
-                            ]}
-                        />
-                        <Field label="Merchant" name="merchant_name" />
-                        <Field label="Document number" name="document_number" />
-                        <Field
-                            label="Expense date"
-                            name="expense_date"
-                            type="date"
-                            value={today()}
-                        />
-                        <Field label="Due date" name="due_date" type="date" />
-                        <Field
-                            label="Subtotal"
-                            name="subtotal"
-                            type="number"
-                            value="0"
-                            step="0.01"
-                        />
-                        <Field
-                            label="Tax amount"
-                            name="tax_amount"
-                            type="number"
-                            value="0"
-                            step="0.01"
-                        />
-                        <div className="grid gap-2 sm:col-span-2">
-                            <Label>Receipts or invoices</Label>
-                            <Input
-                                name="attachments[]"
-                                type="file"
-                                multiple
-                                accept=".pdf,.jpg,.jpeg,.png,.webp"
-                            />
-                        </div>
-                    </div>
-                    <div className="grid gap-2">
-                        <Label>Notes</Label>
-                        <textarea
-                            name="notes"
-                            className="min-h-20 rounded-md border bg-transparent p-3 text-sm"
-                        />
-                    </div>
-                    <Button>
-                        <FilePlus2 /> Register expense
-                    </Button>
+                    {({ errors, processing }) => (
+                        <>
+                            {Object.keys(errors).length > 0 && (
+                                <div
+                                    role="alert"
+                                    className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive"
+                                >
+                                    Revisa los campos indicados. El gasto no se
+                                    ha registrado todavía.
+                                </div>
+                            )}
+                            <div className="grid gap-4 sm:grid-cols-2">
+                                <SelectField
+                                    label="Type"
+                                    name="type"
+                                    error={errors.type}
+                                    options={[
+                                        ['receipt', 'Receipt / ticket'],
+                                        ['invoice', 'Expense invoice'],
+                                        ['other', 'Other'],
+                                    ]}
+                                />
+                                <SelectField
+                                    label="Category"
+                                    name="expense_category_id"
+                                    error={errors.expense_category_id}
+                                    options={categories.map((c) => [
+                                        String(c.id),
+                                        c.name,
+                                    ])}
+                                />
+                                <SelectField
+                                    label="Supplier (optional)"
+                                    name="supplier_id"
+                                    error={errors.supplier_id}
+                                    options={[
+                                        ['none', 'No linked supplier'],
+                                        ...suppliers.map((s) => [
+                                            String(s.id),
+                                            s.trade_name || s.legal_name,
+                                        ]),
+                                    ]}
+                                />
+                                <SelectField
+                                    label="Installation (optional)"
+                                    name="installation_id"
+                                    error={errors.installation_id}
+                                    options={[
+                                        ['none', 'No linked installation'],
+                                        ...installations.map((installation) => [
+                                            String(installation.id),
+                                            installation.project_reference ||
+                                                installation.site_name ||
+                                                `#${installation.id}`,
+                                        ]),
+                                    ]}
+                                />
+                                <Field
+                                    label="Merchant"
+                                    name="merchant_name"
+                                    error={errors.merchant_name}
+                                />
+                                <Field
+                                    label="Document number"
+                                    name="document_number"
+                                    error={errors.document_number}
+                                />
+                                <Field
+                                    label="Expense date"
+                                    name="expense_date"
+                                    type="date"
+                                    value={today()}
+                                    error={errors.expense_date}
+                                />
+                                <Field
+                                    label="Due date"
+                                    name="due_date"
+                                    type="date"
+                                    error={errors.due_date}
+                                />
+                                <Field
+                                    label="Subtotal"
+                                    name="subtotal"
+                                    type="number"
+                                    value="0"
+                                    step="0.01"
+                                    error={errors.subtotal}
+                                />
+                                <Field
+                                    label="Tax amount"
+                                    name="tax_amount"
+                                    type="number"
+                                    value="0"
+                                    step="0.01"
+                                    error={errors.tax_amount}
+                                />
+                                <div className="grid gap-2 sm:col-span-2">
+                                    <Label>Receipts or invoices</Label>
+                                    <Input
+                                        name="attachments[]"
+                                        type="file"
+                                        multiple
+                                        accept=".pdf,.jpg,.jpeg,.png,.webp"
+                                    />
+                                    <InputError
+                                        message={
+                                            errors.attachments ||
+                                            errors['attachments.0']
+                                        }
+                                    />
+                                </div>
+                            </div>
+                            <div className="grid gap-2">
+                                <Label>Notes</Label>
+                                <textarea
+                                    name="notes"
+                                    className="min-h-20 rounded-md border bg-transparent p-3 text-sm"
+                                />
+                                <InputError message={errors.notes} />
+                                <InputError message={errors.accounting} />
+                            </div>
+                            <Button disabled={processing}>
+                                <FilePlus2 />
+                                {processing
+                                    ? 'Registering expense…'
+                                    : 'Register expense'}
+                            </Button>
+                        </>
+                    )}
                 </Form>
             </DialogContent>
         </Dialog>
@@ -406,10 +452,12 @@ function SelectField({
     label,
     name,
     options,
+    error,
 }: {
     label: string;
     name: string;
     options: string[][];
+    error?: string;
 }) {
     return (
         <div className="grid gap-2">
@@ -426,6 +474,7 @@ function SelectField({
                     ))}
                 </SelectContent>
             </Select>
+            <InputError message={error} />
         </div>
     );
 }
@@ -435,17 +484,20 @@ function Field({
     type = 'text',
     value,
     step,
+    error,
 }: {
     label: string;
     name: string;
     type?: string;
     value?: string;
     step?: string;
+    error?: string;
 }) {
     return (
         <div className="grid gap-2">
             <Label>{label}</Label>
             <Input name={name} type={type} defaultValue={value} step={step} />
+            <InputError message={error} />
         </div>
     );
 }

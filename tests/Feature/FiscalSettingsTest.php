@@ -38,7 +38,7 @@ class FiscalSettingsTest extends TestCase
         $admin = User::factory()->create(['role' => 'admin']);
         $this->actingAs($admin)->post(route('fiscal-settings.years.store'), ['year' => 2027])->assertRedirect();
         $year = FiscalYear::where('year', 2027)->firstOrFail();
-        $this->assertCount(11, $year->series);
+        $this->assertCount(14, $year->series);
         $this->post(route('fiscal-settings.years.close', $year))->assertSessionHasErrors('confirmation');
         $this->travelTo('2028-01-10');
         $this->post(route('fiscal-settings.years.close', $year), ['confirmation' => '2027'])->assertSessionHasErrors('year');

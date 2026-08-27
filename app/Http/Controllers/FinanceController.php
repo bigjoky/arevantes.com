@@ -20,6 +20,7 @@ use App\Models\SalesDocumentPayment;
 use App\Models\SupplierPayment;
 use App\Models\User;
 use App\Services\Accounting\AccountingSynchronizer;
+use App\Services\Documents\DocumentNumber;
 use App\Services\Finance\BudgetCsvImporter;
 use App\Services\Finance\FinancialAlertService;
 use App\Services\Finance\FinancialTaxonomyComparison;
@@ -674,7 +675,7 @@ class FinanceController extends Controller
         return back()->with('toast', ['type' => 'success', 'message' => __('Collection action saved.')]);
     }
 
-    public function storePaymentBatch(Request $request): RedirectResponse
+    public function storePaymentBatch(Request $request, DocumentNumber $numbers): RedirectResponse
     {
         $data = $request->validate([
             'bank_account_id' => ['nullable', Rule::exists('bank_accounts', 'id')->where('is_active', true)],
@@ -682,11 +683,10 @@ class FinanceController extends Controller
             'payables' => ['required', 'array', 'min:1', 'max:100'],
             'payables.*' => ['required', 'string', 'regex:/^(invoice|expense):[0-9]+$/'],
         ]);
-        $batch = DB::transaction(function () use ($request, $data) {
-            PaymentBatch::query()->lockForUpdate()->get(['id']);
-            $sequence = PaymentBatch::lockForUpdate()->whereYear('planned_on', date('Y', strtotime($data['planned_on'])))->count() + 1;
+        $batch = DB::transaction(function () use ($request, $data, $numbers) {
+            $number = $numbers->next('payment_batch', $data['planned_on'])['number'];
             $batch = PaymentBatch::create([
-                'number' => 'PAY-'.date('Y', strtotime($data['planned_on'])).'-'.str_pad((string) $sequence, 5, '0', STR_PAD_LEFT),
+                'number' => $number,
                 'bank_account_id' => $data['bank_account_id'] ?? null,
                 'planned_on' => $data['planned_on'],
                 'status' => 'draft',
