@@ -3,6 +3,7 @@ import { ActionCenter } from '@/components/action-center';
 import { AreviaChat } from '@/components/arevia-chat';
 import { Breadcrumbs } from '@/components/breadcrumbs';
 import { GlobalSearch } from '@/components/global-search';
+import { LanguageSelector } from '@/components/language-selector';
 import { QuickCreate } from '@/components/quick-create';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import type { BreadcrumbItem as BreadcrumbItemType } from '@/types';
@@ -36,6 +37,7 @@ export function AppSidebarHeader({
                 </div>
             </div>
             <div className="ml-auto flex min-w-0 items-center gap-1">
+                <LanguageSelector />
                 {canSearch && <GlobalSearch />}
                 <QuickCreate />
                 {hasActionCenter && <ActionCenter />}

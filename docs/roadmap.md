@@ -408,3 +408,13 @@ El portal debe mostrar únicamente revisiones y fechas confirmadas, respetar la
 preferencia de canal y conservar el histórico de cada comunicación. La app
 móvil recibirá el compromiso aprobado cuando se materialice en una orden, no la
 simulación ni los datos económicos internos.
+
+## Corrección transversal — idioma temporal de la plataforma
+
+La cabecera privada permite seleccionar Español o English sin modificar el
+perfil permanente del usuario. La elección se valida en servidor, permanece
+solo en la sesión activa y actualiza el idioma de Laravel, los mensajes
+traducibles, los metadatos de accesibilidad y las propiedades compartidas con
+la interfaz. Cuando falte una cadena se conserva el texto de respaldo, de modo
+que el selector puede convivir con la traducción progresiva de cada sección sin
+mostrar claves técnicas ni bloquear la navegación.
