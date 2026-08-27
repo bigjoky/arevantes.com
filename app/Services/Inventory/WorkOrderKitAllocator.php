@@ -10,6 +10,44 @@ use Illuminate\Support\Facades\DB;
 
 class WorkOrderKitAllocator
 {
+    /** @param array<int, array<string, mixed>> $materials */
+    public function reserveProducts(WorkOrder $order, array $materials): int
+    {
+        return DB::transaction(function () use ($order, $materials): int {
+            $warehouses = Warehouse::query()->where('is_active', true)->orderByDesc('is_default')->orderBy('id')->lockForUpdate()->get(['id']);
+            $created = 0;
+            foreach ($materials as $material) {
+                $productId = (int) ($material['product_id'] ?? 0);
+                $needed = max(0, (float) ($material['quantity_per_visit'] ?? 0));
+                if (! $productId || $needed <= 0) {
+                    continue;
+                }
+                foreach ($warehouses as $warehouse) {
+                    if ($needed <= 0) {
+                        break;
+                    }
+                    $onHand = (float) StockMovementLine::where('warehouse_id', $warehouse->id)->where('product_id', $productId)->sum('quantity');
+                    $reserved = (float) StockReservation::where('warehouse_id', $warehouse->id)->where('product_id', $productId)
+                        ->where('status', 'active')->sum(DB::raw('quantity - consumed_quantity'));
+                    $quantity = min($needed, max(0, $onHand - $reserved));
+                    if ($quantity <= 0) {
+                        continue;
+                    }
+                    StockReservation::create([
+                        'installation_id' => $order->installation_id, 'work_order_id' => $order->id,
+                        'warehouse_id' => $warehouse->id, 'product_id' => $productId,
+                        'quantity' => $quantity, 'consumed_quantity' => 0, 'status' => 'active',
+                        'reserved_until' => $order->scheduled_start?->copy()->addDay(),
+                    ]);
+                    $needed -= $quantity;
+                    $created++;
+                }
+            }
+
+            return $created;
+        });
+    }
+
     public function reserveAvailable(WorkOrder $order): int
     {
         if (! in_array($order->kind, ['installation', 'repair'], true)) {

@@ -3,13 +3,15 @@
 namespace App\Services\Work;
 
 use App\Models\WorkOrder;
+use App\Services\AfterSales\ServiceCycleScheduleWorkflow;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class WorkOrderRescheduler
 {
-    public function __construct(private TechnicianSchedule $schedule) {}
+    public function __construct(private TechnicianSchedule $schedule, private ServiceCycleScheduleWorkflow $serviceCycles) {}
 
     /** @param array<string, mixed> $changes */
     public function reschedule(WorkOrder $order, array $changes, string $reason, ?int $userId, ?string $batchUuid = null): void
@@ -21,6 +23,7 @@ class WorkOrderRescheduler
             $this->rescheduleLocked($lockedOrder, $changes, $reason, $userId, $batchUuid);
         });
         $order->refresh();
+        $this->serviceCycles->recordRevision($order, $reason, $userId);
     }
 
     /** @param array<int, array{work_order_id:int, scheduled_start:string, scheduled_end:string, assigned_user_id?:int|null}> $items */
@@ -44,6 +47,9 @@ class WorkOrderRescheduler
             }
         });
 
+        WorkOrder::query()->whereKey(collect($items)->pluck('work_order_id'))->get()
+            ->each(fn (WorkOrder $order) => $this->serviceCycles->recordRevision($order, $reason, $userId));
+
         return $batch;
     }
 
@@ -52,7 +58,13 @@ class WorkOrderRescheduler
     {
         $newStart = $changes['scheduled_start'] ?? $order->scheduled_start;
         $newEnd = $changes['scheduled_end'] ?? $order->scheduled_end;
+        $newStart = $newStart ? Carbon::parse($newStart) : null;
+        $newEnd = $newEnd ? Carbon::parse($newEnd) : null;
         $newOwner = array_key_exists('assigned_user_id', $changes) ? $changes['assigned_user_id'] : $order->assigned_user_id;
+        $commitment = $order->loadMissing('serviceTicket.serviceCycleCommitment')->serviceTicket?->serviceCycleCommitment;
+        if ($commitment && $newStart && ($newStart->toDateString() < $commitment->period_starts_on->toDateString() || $newStart->toDateString() > $commitment->period_ends_on->toDateString())) {
+            throw ValidationException::withMessages(['scheduled_start' => __('The visit must remain within its approved service cycle.')]);
+        }
         $this->schedule->assertAvailable(
             $newOwner ? (int) $newOwner : null,
             $newStart,

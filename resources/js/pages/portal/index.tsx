@@ -135,6 +135,18 @@ type ServiceCommunication = {
     scheduled_for: string;
     confirmed_at: string | null;
     sent_at: string | null;
+    revision: number;
+    superseded_at: string | null;
+    plan: string | null;
+};
+type ServiceSchedule = {
+    id: number;
+    version: number;
+    status: 'confirmed' | 'superseded';
+    scheduled_start: string;
+    scheduled_end: string;
+    confirmed_at: string | null;
+    superseded_at: string | null;
     plan: string | null;
 };
 type Tab = 'overview' | 'documents' | 'support' | 'activity' | 'preferences';
@@ -148,6 +160,7 @@ export default function Portal({
     tickets,
     maintenance,
     serviceCommunications,
+    serviceSchedules,
     certificates,
     timeline,
     preferences,
@@ -173,6 +186,7 @@ export default function Portal({
     tickets: Ticket[];
     maintenance: Maintenance[];
     serviceCommunications: ServiceCommunication[];
+    serviceSchedules: ServiceSchedule[];
     certificates: Certificate[];
     timeline: TimelineEvent[];
     preferences: Preferences;
@@ -405,6 +419,56 @@ export default function Portal({
                                     )}
                                 </div>
                             </section>
+                            {serviceSchedules.length > 0 ? (
+                                <section className="border-t pt-5">
+                                    <h2 className="font-semibold">
+                                        Planificación de visitas
+                                    </h2>
+                                    <p className="mt-1 text-sm text-muted-foreground">
+                                        Las revisiones anteriores permanecen
+                                        visibles para conservar el historial.
+                                    </p>
+                                    <div className="mt-3 divide-y border-y">
+                                        {serviceSchedules.map((schedule) => (
+                                            <article
+                                                key={schedule.id}
+                                                className="flex flex-wrap items-center justify-between gap-3 py-4 text-sm"
+                                            >
+                                                <div>
+                                                    <div className="font-medium">
+                                                        {schedule.plan ??
+                                                            'Visita de servicio'}
+                                                    </div>
+                                                    <div className="text-xs text-muted-foreground">
+                                                        Revisión{' '}
+                                                        {schedule.version}
+                                                    </div>
+                                                </div>
+                                                <div className="text-right">
+                                                    <div className="font-medium">
+                                                        {dateTime(
+                                                            schedule.scheduled_start,
+                                                        )}
+                                                    </div>
+                                                    <Badge
+                                                        variant={
+                                                            schedule.status ===
+                                                            'confirmed'
+                                                                ? 'outline'
+                                                                : 'secondary'
+                                                        }
+                                                    >
+                                                        {schedule.status ===
+                                                        'confirmed'
+                                                            ? 'Confirmada'
+                                                            : 'Histórica'}
+                                                    </Badge>
+                                                </div>
+                                            </article>
+                                        ))}
+                                    </div>
+                                </section>
+                            ) : null}
                             {serviceCommunications.length > 0 ? (
                                 <section className="border-t pt-5">
                                     <h2 className="font-semibold">
@@ -433,6 +497,11 @@ export default function Portal({
                                                                     communication.channel
                                                                 }
                                                             </Badge>
+                                                            {communication.superseded_at ? (
+                                                                <Badge variant="secondary">
+                                                                    Histórica
+                                                                </Badge>
+                                                            ) : null}
                                                         </div>
                                                         <p className="mt-1 text-muted-foreground">
                                                             {

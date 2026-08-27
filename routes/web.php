@@ -227,6 +227,8 @@ Route::middleware(['auth'])->group(function () {
     Route::post('after-sales/plans/{plan}/materials', [MaintenancePlanMaterialController::class, 'store'])->middleware('can:manage-installations')->name('after-sales.plans.materials.store');
     Route::delete('after-sales/plans/{plan}/materials/{material}', [MaintenancePlanMaterialController::class, 'destroy'])->middleware('can:manage-installations')->name('after-sales.plans.materials.destroy');
     Route::post('after-sales/plans/{plan}/commitments', [ServiceCycleCommitmentController::class, 'store'])->middleware('can:manage-installations')->name('after-sales.plans.commitments.store');
+    Route::post('after-sales/commitments/{commitment}/materialize', [ServiceCycleCommitmentController::class, 'materialize'])->middleware('can:manage-installations')->name('after-sales.commitments.materialize');
+    Route::post('after-sales/commitments/{commitment}/schedule/confirm', [ServiceCycleCommitmentController::class, 'confirmSchedule'])->middleware('can:manage-installations')->name('after-sales.commitments.schedule.confirm');
     Route::post('after-sales/commitments/{commitment}/billing', [ServiceCycleCommitmentController::class, 'prepareBilling'])->middleware('can:manage-treasury')->name('after-sales.commitments.billing.store');
     Route::post('after-sales/commitments/{commitment}/communications', [ServiceCycleCommitmentController::class, 'prepareCommunication'])->middleware('can:manage-customers')->name('after-sales.commitments.communications.store');
     Route::post('after-sales/commitments/{commitment}/communications/{communication}/confirm', [ServiceCycleCommitmentController::class, 'confirmCommunication'])->middleware('can:manage-customers')->name('after-sales.commitments.communications.confirm');

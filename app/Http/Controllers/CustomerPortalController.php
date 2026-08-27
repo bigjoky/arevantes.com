@@ -15,6 +15,7 @@ use App\Models\Person;
 use App\Models\Quote;
 use App\Models\SalesDocument;
 use App\Models\ServiceCycleCommunication;
+use App\Models\ServiceCycleScheduleRevision;
 use App\Models\ServiceTicket;
 use App\Models\WorkOrderAttachment;
 use App\Services\AfterSales\ServiceTicketFactory;
@@ -115,7 +116,26 @@ class CustomerPortalController extends Controller
                     'scheduled_for' => $communication->scheduled_for->toIso8601String(),
                     'confirmed_at' => $communication->confirmed_at?->toIso8601String(),
                     'sent_at' => $communication->sent_at?->toIso8601String(),
+                    'revision' => $communication->revision,
+                    'superseded_at' => $communication->superseded_at?->toIso8601String(),
                     'plan' => $communication->serviceCycleCommitment?->maintenancePlan?->name,
+                ]),
+            'serviceSchedules' => ServiceCycleScheduleRevision::query()
+                ->whereIn('status', ['confirmed', 'superseded'])
+                ->whereHas('commitment.maintenancePlan.installation', fn ($query) => $query->where('person_id', $customer->id))
+                ->with('commitment.maintenancePlan:id,name')
+                ->orderByDesc('scheduled_start')
+                ->limit(30)
+                ->get()
+                ->map(fn (ServiceCycleScheduleRevision $revision) => [
+                    'id' => $revision->id,
+                    'version' => $revision->version,
+                    'status' => $revision->status,
+                    'scheduled_start' => $revision->scheduled_start->toIso8601String(),
+                    'scheduled_end' => $revision->scheduled_end->toIso8601String(),
+                    'confirmed_at' => $revision->confirmed_at?->toIso8601String(),
+                    'superseded_at' => $revision->superseded_at?->toIso8601String(),
+                    'plan' => $revision->commitment?->maintenancePlan?->name,
                 ]),
             'certificates' => WorkOrderAttachment::query()->where('kind', 'document')->where('publication_status', 'published')->where('customer_visible', true)->whereNotNull('published_at')->where('published_at', '<=', now())->whereHas('workOrder.installation', fn ($query) => $query->where('person_id', $customer->id))->with(['workOrder:id,installation_id,number,handover_documents', 'workOrder.installation:id,service_type,status,project_reference,site_name,completed_date'])->latest('published_at')->get()->map(function ($item) {
                 $definition = collect($item->workOrder->handover_documents ?? [])->firstWhere('key', $item->evidence_key);

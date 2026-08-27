@@ -5,6 +5,7 @@ namespace App\Services\AfterSales;
 use App\Models\ServiceCycleCommitment;
 use App\Models\ServiceCycleCommunication;
 use App\Models\User;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -25,6 +26,7 @@ class ServiceCycleCommunicationWorkflow
             $existing = ServiceCycleCommunication::query()
                 ->where('service_cycle_commitment_id', $locked->id)
                 ->where('type', $type)
+                ->latest('revision')
                 ->first();
             if ($existing) {
                 if ($existing->status === 'draft') {
@@ -35,15 +37,21 @@ class ServiceCycleCommunicationWorkflow
                         'scheduled_for' => $scheduledFor,
                         'created_by' => $actor->id,
                     ]);
+
+                    return $existing;
                 }
 
-                return $existing;
+                if ($existing->scheduled_for->equalTo(Carbon::parse($scheduledFor)) && $existing->subject === trim($subject) && $existing->message === trim($message)) {
+                    return $existing;
+                }
             }
 
             return ServiceCycleCommunication::create([
                 'service_cycle_commitment_id' => $locked->id,
                 'person_id' => $customer->id,
                 'type' => $type,
+                'revision' => ($existing?->revision ?? 0) + 1,
+                'supersedes_communication_id' => $existing?->id,
                 'channel' => $this->preferredChannel($customer),
                 'status' => 'draft',
                 'subject' => trim($subject),
@@ -58,6 +66,9 @@ class ServiceCycleCommunicationWorkflow
     {
         return DB::transaction(function () use ($communication, $actor): ServiceCycleCommunication {
             $locked = ServiceCycleCommunication::query()->with(['customer.portalPreference'])->lockForUpdate()->findOrFail($communication->id);
+            if ($locked->superseded_at) {
+                throw ValidationException::withMessages(['communication' => __('This communication was superseded by a newer revision.')]);
+            }
             if ($locked->status === 'confirmed' || $locked->status === 'sent') {
                 return $locked;
             }
@@ -79,6 +90,12 @@ class ServiceCycleCommunicationWorkflow
             }
 
             $locked->update(['status' => 'confirmed', 'confirmed_by' => $actor->id, 'confirmed_at' => now()]);
+            ServiceCycleCommunication::query()
+                ->where('service_cycle_commitment_id', $locked->service_cycle_commitment_id)
+                ->where('type', $locked->type)
+                ->where('id', '!=', $locked->id)
+                ->whereNull('superseded_at')
+                ->update(['superseded_at' => now()]);
 
             return $locked;
         });
@@ -88,6 +105,9 @@ class ServiceCycleCommunicationWorkflow
     {
         return DB::transaction(function () use ($communication, $deliveryNote, $actor): ServiceCycleCommunication {
             $locked = ServiceCycleCommunication::query()->lockForUpdate()->findOrFail($communication->id);
+            if ($locked->superseded_at) {
+                throw ValidationException::withMessages(['communication' => __('This communication was superseded by a newer revision.')]);
+            }
             if ($locked->status === 'sent') {
                 return $locked;
             }
@@ -103,6 +123,31 @@ class ServiceCycleCommunicationWorkflow
 
             return $locked;
         });
+    }
+
+    public function reviseMaintenanceSchedule(ServiceCycleCommitment $commitment, string $scheduledFor, string $reason, User $actor): ?ServiceCycleCommunication
+    {
+        $previous = ServiceCycleCommunication::query()
+            ->where('service_cycle_commitment_id', $commitment->id)
+            ->where('type', 'maintenance_notice')
+            ->whereIn('status', ['confirmed', 'sent'])
+            ->latest('revision')
+            ->first();
+        if (! $previous) {
+            return null;
+        }
+
+        $revision = $this->prepare(
+            $commitment,
+            'maintenance_notice',
+            $previous->subject,
+            __('The service visit has been replanned. :reason', ['reason' => trim($reason)]),
+            $scheduledFor,
+            $actor,
+        );
+        $previous->update(['superseded_at' => now()]);
+
+        return $revision;
     }
 
     private function preferredChannel($customer): string

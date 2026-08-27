@@ -30,7 +30,7 @@ class WorkOrderFactory
     public function create(array $data, ?int $createdBy = null): WorkOrder
     {
         return DB::transaction(function () use ($data, $createdBy): WorkOrder {
-            $data = $this->prepare($data);
+            $data = ($data['frozen_technical_contract'] ?? false) ? $data : $this->prepare($data);
             $installation = Installation::findOrFail($data['installation_id']);
             $template = filled($data['work_order_template_id'] ?? null)
                 ? WorkOrderTemplate::where('is_active', true)->findOrFail($data['work_order_template_id'])
@@ -52,7 +52,9 @@ class WorkOrderFactory
                 'allowed_transitions_snapshot' => ($data['allowed_transitions_snapshot'] ?? null) ?: $template?->allowed_transitions ?: $this->workflow->defaultTransitions(),
             ]);
             $order->update(['number' => 'WO-'.now()->format('Y').'-'.str_pad((string) $order->id, 5, '0', STR_PAD_LEFT)]);
-            $items = $template?->checklist ?: $this->checklists->for($installation->service_type, $kind);
+            $items = array_key_exists('checklist', $data)
+                ? $data['checklist']
+                : ($template?->checklist ?: $this->checklists->for($installation->service_type, $kind));
             $order->checklistItems()->createMany(collect($items)->map(function ($item, $position): array {
                 return is_array($item)
                     ? [...$item, 'position' => $position + 1]
