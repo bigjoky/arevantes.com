@@ -424,16 +424,39 @@ borradores, simulaciones ni importes internos. Los perfiles sin autorización
 comercial no reciben el contenido de los avisos, y los perfiles sin permiso
 financiero no reciben el expediente recurrente ni sus importes.
 
+## Corte ejecutado — Materialización y planificación del servicio recurrente
+
+El quinto vertical del Horizonte 2 convierte cada compromiso aprobado en una
+única pareja de ticket y orden de trabajo. La materialización bloquea el ciclo,
+utiliza la versión contractual exacta y una instantánea técnica de plantilla,
+duración, habilidades, checklist, evidencias y documentación. Un segundo
+intento devuelve la misma orden y el generador automático omite los ciclos
+gobernados todavía pendientes, evitando trabajos paralelos para una misma
+visita.
+
+La capacidad se contrasta de nuevo con el técnico aprobado y los materiales
+preventivos disponibles se reservan directamente para la orden. La fecha nace
+como planificación interna: no aparece en el portal ni permite sincronizar la
+orden móvil hasta una confirmación humana. La API móvil recibe entonces el
+contrato operativo, activos, checklist, evidencias y reservas, sin instantáneas
+de capacidad, previsiones ni importes económicos.
+
+Cada cambio posterior crea una revisión de agenda, conserva la fecha anterior
+como histórica, retira temporalmente la orden de la sincronización móvil y
+prepara una nueva revisión del aviso confirmado. El portal distingue fechas y
+comunicaciones vigentes de las históricas; nada se sobrescribe ni se publica de
+nuevo hasta confirmar la última planificación.
+
 ## Próximo corte recomendado
 
-Materializar el **compromiso aprobado en una orden de trabajo idempotente**.
-Debe resolver la plantilla y versión técnica congeladas, reservar la capacidad
-ya aprobada, enlazar el ciclo con ticket y orden sin duplicados y publicar la
-fecha al cliente solo después de confirmar la planificación. La app móvil
-recibirá entonces la orden, checklist, evidencias y materiales necesarios, pero
-nunca la simulación de capacidad ni los importes económicos internos. El mismo
-corte debe registrar cambios posteriores de fecha y propagar su revisión al
-aviso confirmado sin ocultar el histórico anterior.
+Cerrar el **ciclo recurrente ejecutado con continuidad contractual
+idempotente**. La finalización móvil deberá reconciliar checklist, evidencias,
+material realmente consumido, horas y desplazamiento con el compromiso; cerrar
+ticket y visita una sola vez; publicar únicamente los documentos técnicos
+aprobados; y avanzar la próxima fecha del plan sin saltos ni duplicados. El
+mismo cierre debe alimentar margen real, demanda de reposición, salud del activo
+y portal del cliente desde una única versión operativa, manteniendo facturación
+y contacto extraordinario bajo sus confirmaciones humanas actuales.
 
 ## Corrección transversal — idioma temporal de la plataforma
 
