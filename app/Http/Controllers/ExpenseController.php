@@ -11,16 +11,19 @@ use App\Models\Supplier;
 use App\Models\SupplierPayment;
 use App\Rules\SafeUpload;
 use App\Services\Accounting\AccountingSynchronizer;
+use App\Services\Documents\DocumentNumber;
 use App\Services\Finance\OutstandingBalanceCalculator;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
+use Throwable;
 
 class ExpenseController extends Controller
 {
@@ -43,7 +46,7 @@ class ExpenseController extends Controller
         return Inertia::render('expenses/show', ['expense' => $expense->load(['category', 'supplier', 'attachments', 'payments'])]);
     }
 
-    public function store(Request $request, AccountingSynchronizer $accounting): RedirectResponse
+    public function store(Request $request, AccountingSynchronizer $accounting, DocumentNumber $numbers): RedirectResponse
     {
         if ($request->input('supplier_id') === 'none') {
             $request->merge(['supplier_id' => null]);
@@ -54,18 +57,34 @@ class ExpenseController extends Controller
         $data = $request->validate(['expense_category_id' => ['required', 'exists:expense_categories,id'], 'supplier_id' => ['nullable', 'exists:suppliers,id'], 'installation_id' => ['nullable', 'exists:installations,id'], 'type' => ['required', Rule::in(['receipt', 'invoice', 'other'])], 'document_number' => ['nullable', 'string', 'max:255'], 'merchant_name' => ['nullable', 'string', 'max:255'], 'expense_date' => ['required', 'date'], 'due_date' => ['nullable', 'date', 'after_or_equal:expense_date'], 'subtotal' => ['required', 'numeric', 'min:0'], 'tax_amount' => ['required', 'numeric', 'min:0'], 'notes' => ['nullable', 'string'], 'attachments' => ['nullable', 'array', 'max:10'], 'attachments.*' => ['file', new SafeUpload(['pdf', 'jpg', 'jpeg', 'png', 'webp'], 10240)]]);
         $files = $data['attachments'] ?? [];
         unset($data['attachments']);
-        $expense = DB::transaction(function () use ($request, $data, $files, $accounting) {
-            $number = 'EXP-'.now()->format('Y').'-'.str_pad((string) (Expense::lockForUpdate()->count() + 1), 5, '0', STR_PAD_LEFT);
-            $amount = round((float) $data['subtotal'] + (float) $data['tax_amount'], 2);
-            $expense = Expense::create([...$data, 'created_by' => $request->user()->id, 'number' => $number, 'amount' => $amount, 'status' => 'pending']);
-            foreach ($files as $file) {
-                $path = $file->store("expenses/{$expense->id}", config('filesystems.private'));
-                $expense->attachments()->create(['uploaded_by' => $request->user()->id, 'original_name' => $file->getClientOriginalName(), 'path' => $path, 'mime_type' => $file->getMimeType() ?: 'application/octet-stream', 'size' => $file->getSize()]);
-            }
-            $accounting->syncExpense($expense, $request->user()->id);
+        $storedFiles = [];
 
-            return $expense;
-        });
+        try {
+            $directory = 'expenses/'.Str::uuid();
+            foreach ($files as $file) {
+                $path = $file->store($directory, config('filesystems.private'));
+                if (! is_string($path) || $path === '') {
+                    throw ValidationException::withMessages(['attachments' => __('The expense document could not be stored. Please try again.')]);
+                }
+                $storedFiles[] = ['original_name' => $file->getClientOriginalName(), 'path' => $path, 'mime_type' => $file->getMimeType() ?: 'application/octet-stream', 'size' => $file->getSize()];
+            }
+
+            $expense = DB::transaction(function () use ($request, $data, $storedFiles, $accounting, $numbers) {
+                $number = $numbers->next('expense', $data['expense_date'])['number'];
+                $amount = round((float) $data['subtotal'] + (float) $data['tax_amount'], 2);
+                $expense = Expense::create([...$data, 'created_by' => $request->user()->id, 'number' => $number, 'amount' => $amount, 'status' => 'pending']);
+                foreach ($storedFiles as $storedFile) {
+                    $expense->attachments()->create([...$storedFile, 'uploaded_by' => $request->user()->id]);
+                }
+                $accounting->syncExpense($expense, $request->user()->id);
+
+                return $expense;
+            });
+        } catch (Throwable $exception) {
+            Storage::disk(config('filesystems.private'))->delete(array_column($storedFiles, 'path'));
+
+            throw $exception;
+        }
 
         return to_route('expenses.show', $expense)->with('toast', ['type' => 'success', 'message' => __('Expense created.')]);
     }
