@@ -40,6 +40,9 @@ class AfterSalesController extends Controller
             'cycleCommitments.billing.preparer:id,name',
             'cycleCommitments.communications.confirmer:id,name',
             'cycleCommitments.communications.sender:id,name',
+            'cycleCommitments.serviceTicket:id,number,status',
+            'cycleCommitments.workOrder:id,number,status,scheduled_start,scheduled_end',
+            'cycleCommitments.scheduleRevisions',
             'renewalOpportunity:id,code,title,stage',
         ])
             ->when($request->user()->hasRole('technician'), fn ($query) => $query->where(fn ($scope) => $scope->where('assigned_user_id', $request->user()->id)->orWhereNull('assigned_user_id')))

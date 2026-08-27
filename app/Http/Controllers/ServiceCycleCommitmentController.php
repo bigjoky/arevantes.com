@@ -9,6 +9,8 @@ use App\Models\ServiceCycleCommunication;
 use App\Services\AfterSales\RecurringServiceBillingWorkflow;
 use App\Services\AfterSales\ServiceCycleCommitmentWorkflow;
 use App\Services\AfterSales\ServiceCycleCommunicationWorkflow;
+use App\Services\AfterSales\ServiceCycleScheduleWorkflow;
+use App\Services\AfterSales\ServiceCycleWorkWorkflow;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -40,6 +42,38 @@ class ServiceCycleCommitmentController extends Controller
             'type' => $result['created'] ? 'success' : 'info',
             'message' => $result['created'] ? __('Recurring invoice draft prepared for financial review.') : __('The recurring invoice draft already exists.'),
         ]);
+    }
+
+    public function materialize(Request $request, ServiceCycleCommitment $commitment, ServiceCycleWorkWorkflow $workflow): RedirectResponse
+    {
+        $data = $request->validate([
+            'scheduled_start' => ['required', 'date', 'after_or_equal:today'],
+            'planning_note' => ['required', 'string', 'min:5', 'max:2000'],
+        ]);
+        $result = $workflow->materialize($commitment, $data['scheduled_start'], $data['planning_note'], $request->user());
+
+        return back()->with('toast', [
+            'type' => $result['created'] ? 'success' : 'info',
+            'message' => $result['created'] ? __('Service ticket and work order prepared. Confirm the schedule before publishing it or syncing it to mobile.') : __('The service work order already exists.'),
+        ]);
+    }
+
+    public function confirmSchedule(Request $request, ServiceCycleCommitment $commitment, ServiceCycleScheduleWorkflow $workflow): RedirectResponse
+    {
+        $alreadyConfirmed = $commitment->schedule_status === 'confirmed';
+        $revision = $workflow->confirm($commitment, $request->user());
+        if (! $alreadyConfirmed) {
+            $customer = $commitment->loadMissing('maintenancePlan.installation.customer')->maintenancePlan->installation?->customer;
+            if ($customer) {
+                CustomerPortalEvent::record($customer, 'service_schedule_confirmed', null, $request, $revision, [
+                    'scheduled_start' => $revision->scheduled_start->toIso8601String(),
+                    'scheduled_end' => $revision->scheduled_end->toIso8601String(),
+                    'revision' => $revision->version,
+                ]);
+            }
+        }
+
+        return back()->with('toast', ['type' => 'success', 'message' => __('The service date is confirmed, visible to the customer and available to mobile technicians.')]);
     }
 
     public function prepareCommunication(Request $request, ServiceCycleCommitment $commitment, ServiceCycleCommunicationWorkflow $workflow): RedirectResponse

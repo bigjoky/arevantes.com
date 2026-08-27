@@ -11,7 +11,7 @@ use Illuminate\Validation\ValidationException;
 
 class ServiceCycleCommitmentWorkflow
 {
-    public function __construct(private RecurringServiceCapacityForecast $capacity) {}
+    public function __construct(private RecurringServiceCapacityForecast $capacity, private ServiceCycleTechnicalSnapshot $snapshots) {}
 
     public function approve(MaintenancePlan $plan, int $expectedVersion, float $plannedTravelKm, string $note, User $actor): ServiceCycleCommitment
     {
@@ -82,6 +82,7 @@ class ServiceCycleCommitmentWorkflow
                     'projected_remaining_minutes' => $week['projected_remaining_minutes'],
                     'assigned_user_id' => $planRow['assigned_user_id'],
                 ],
+                'technical_snapshot' => $this->snapshots->capture($locked, $locked->version),
                 'approval_note' => trim($note),
                 'approved_by' => $actor->id,
                 'approved_at' => now(),

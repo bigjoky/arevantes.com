@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class ServiceTicket extends Model
 {
@@ -37,5 +38,10 @@ class ServiceTicket extends Model
     public function slaPolicy(): BelongsTo
     {
         return $this->belongsTo(ServiceSlaPolicy::class, 'sla_policy_id');
+    }
+
+    public function serviceCycleCommitment(): HasOne
+    {
+        return $this->hasOne(ServiceCycleCommitment::class);
     }
 }

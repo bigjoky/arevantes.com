@@ -46,6 +46,14 @@ class ServiceWorkGenerator
                 if ($plan->next_due_on->greaterThan(today()->addDays($plan->lead_days))) {
                     return;
                 }
+                $governedCycle = $plan->cycleCommitments()
+                    ->where('status', 'approved')
+                    ->where('maintenance_plan_version', $plan->version)
+                    ->whereDate('period_starts_on', $plan->next_due_on)
+                    ->first();
+                if ($governedCycle && ! $governedCycle->work_order_id) {
+                    return;
+                }
                 $ticket = $plan->tickets()->whereNotIn('status', ['resolved', 'closed'])->latest()->first();
                 if (! $ticket) {
                     $ticket = $this->tickets->create([

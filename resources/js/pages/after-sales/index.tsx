@@ -136,7 +136,26 @@ type ServiceCycleCommitment = {
     planned_material_cost?: string;
     planned_travel_cost?: string;
     approved_at: string;
+    schedule_status: string;
+    materialized_at: string | null;
+    schedule_confirmed_at: string | null;
     approver: User | null;
+    service_ticket: { id: number; number: string; status: string } | null;
+    work_order: {
+        id: number;
+        number: string;
+        status: string;
+        scheduled_start: string | null;
+        scheduled_end: string | null;
+    } | null;
+    schedule_revisions: {
+        id: number;
+        version: number;
+        status: string;
+        scheduled_start: string;
+        scheduled_end: string;
+        reason: string;
+    }[];
     billing: {
         id: number;
         status: string;
@@ -1518,6 +1537,32 @@ function ServiceCommitmentDialog({
                     Capacity approved · v
                     {currentCommitment.maintenance_plan_version}
                 </Badge>
+                {currentCommitment.work_order ? (
+                    <Button size="sm" variant="outline" asChild>
+                        <Link
+                            href={`/work-orders?work_order=${currentCommitment.work_order.id}`}
+                        >
+                            {currentCommitment.work_order.number}
+                        </Link>
+                    </Button>
+                ) : (
+                    <MaterializeServiceCycleDialog
+                        commitment={currentCommitment}
+                    />
+                )}
+                {currentCommitment.work_order &&
+                currentCommitment.schedule_status !== 'confirmed' ? (
+                    <Form
+                        action={`/after-sales/commitments/${currentCommitment.id}/schedule/confirm`}
+                        method="post"
+                    >
+                        <Button size="sm">
+                            <CalendarClock /> Confirm schedule
+                        </Button>
+                    </Form>
+                ) : currentCommitment.schedule_status === 'confirmed' ? (
+                    <Badge variant="outline">Schedule confirmed</Badge>
+                ) : null}
                 {canManageBilling && currentCommitment.billing?.invoice ? (
                     <Button size="sm" variant="outline" asChild>
                         <Link
@@ -1583,6 +1628,54 @@ function ServiceCommitmentDialog({
                         />
                     </div>
                     <Button>Approve capacity and economics</Button>
+                </Form>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+function MaterializeServiceCycleDialog({
+    commitment,
+}: {
+    commitment: ServiceCycleCommitment;
+}) {
+    return (
+        <Dialog>
+            <DialogTrigger asChild>
+                <Button size="sm" variant="outline">
+                    <Wrench /> Prepare service
+                </Button>
+            </DialogTrigger>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Prepare recurring service work</DialogTitle>
+                </DialogHeader>
+                <p className="text-sm text-muted-foreground">
+                    Creates one ticket and one work order from the frozen plan
+                    version. The date remains internal until it is confirmed.
+                </p>
+                <Form
+                    action={`/after-sales/commitments/${commitment.id}/materialize`}
+                    method="post"
+                    className="grid gap-4"
+                >
+                    <Field
+                        label="Planned start"
+                        name="scheduled_start"
+                        type="datetime-local"
+                        value={`${commitment.period_starts_on.slice(0, 10)}T09:00`}
+                    />
+                    <div className="grid gap-2">
+                        <Label>Planning note</Label>
+                        <textarea
+                            name="planning_note"
+                            required
+                            minLength={5}
+                            className="min-h-24 rounded-md border bg-transparent p-3 text-sm"
+                            defaultValue="Frozen technical version, technician capacity and visit window reviewed."
+                        />
+                    </div>
+                    <Button>Prepare ticket and work order</Button>
                 </Form>
             </DialogContent>
         </Dialog>

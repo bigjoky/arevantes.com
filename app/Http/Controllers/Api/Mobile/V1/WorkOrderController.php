@@ -38,7 +38,7 @@ class WorkOrderController extends Controller
             ? CarbonImmutable::parse($validated['updated_after'])->setTimezone(config('app.timezone'))
             : null;
         $query = $this->accessible($request)
-            ->with(['installation:id,project_reference,service_type,site_name,site_address_line_1,site_city,site_postal_code,site_latitude,site_longitude', 'assignedUser:id,name', 'checklistItems', 'attachments:id,work_order_id,evidence_key', 'activities:id,work_order_id,blocked_reason,priority', 'serviceTicket.maintenancePlan.coveredAssets:id,installation_id,asset_tag,name,category'])
+            ->with(['installation:id,project_reference,service_type,site_name,site_address_line_1,site_city,site_postal_code,site_latitude,site_longitude', 'assignedUser:id,name', 'checklistItems', 'attachments:id,work_order_id,evidence_key', 'activities:id,work_order_id,blocked_reason,priority', 'serviceTicket.serviceCycleCommitment:id,service_ticket_id,maintenance_plan_version,period_starts_on,period_ends_on,schedule_status,schedule_confirmed_at', 'serviceTicket.maintenancePlan.coveredAssets:id,installation_id,asset_tag,name,category'])
             ->when($updatedAfter, fn (Builder $query, CarbonImmutable $date) => $query->where('updated_at', '>', $date))
             ->when($validated['status'] ?? null, fn (Builder $query, string $status) => $query->where('status', $status));
         $perPage = $validated['per_page'] ?? 30;
@@ -88,7 +88,7 @@ class WorkOrderController extends Controller
     public function show(Request $request, WorkOrder $workOrder, WorkOrderPlanningReadiness $readiness): JsonResponse
     {
         $this->ensureAccess($request, $workOrder);
-        $workOrder->load(['installation', 'assignedUser:id,name', 'timeEntries.user:id,name', 'checklistItems', 'attachments', 'stockReservations.product:id,sku,name,track_serials', 'stockReservations.warehouse:id,code,name', 'activities:id,work_order_id,blocked_reason,priority', 'serviceTicket.maintenancePlan.coveredAssets:id,installation_id,asset_tag,name,category']);
+        $workOrder->load(['installation', 'assignedUser:id,name', 'timeEntries.user:id,name', 'checklistItems', 'attachments', 'stockReservations.product:id,sku,name,track_serials', 'stockReservations.warehouse:id,code,name', 'activities:id,work_order_id,blocked_reason,priority', 'serviceTicket.serviceCycleCommitment:id,service_ticket_id,maintenance_plan_version,period_starts_on,period_ends_on,schedule_status,schedule_confirmed_at', 'serviceTicket.maintenancePlan.coveredAssets:id,installation_id,asset_tag,name,category']);
 
         return response()->json(['data' => [...$this->summary($workOrder),
             'instructions' => $workOrder->instructions,
@@ -305,14 +305,16 @@ class WorkOrderController extends Controller
 
     private function accessible(Request $request): Builder
     {
-        return WorkOrder::query()->when($request->user()->hasRole('technician'), fn (Builder $query) => $query->where('assigned_user_id', $request->user()->id));
+        return WorkOrder::query()
+            ->where(fn (Builder $query) => $query
+                ->whereDoesntHave('serviceTicket.serviceCycleCommitment')
+                ->orWhereHas('serviceTicket.serviceCycleCommitment', fn (Builder $query) => $query->where('schedule_status', 'confirmed')))
+            ->when($request->user()->hasRole('technician'), fn (Builder $query) => $query->where('assigned_user_id', $request->user()->id));
     }
 
     private function ensureAccess(Request $request, WorkOrder $workOrder): void
     {
-        if ($request->user()->hasRole('technician')) {
-            abort_unless($workOrder->assigned_user_id === $request->user()->id, 403);
-        }
+        abort_unless($this->accessible($request)->whereKey($workOrder->id)->exists(), 403);
     }
 
     /** @return array<string, mixed>|null */
@@ -346,6 +348,7 @@ class WorkOrderController extends Controller
             'handover_documents' => $order->handover_documents ?? [],
             'blocked_reason' => $order->relationLoaded('activities') ? $order->activities->first()?->blocked_reason : null,
             'service_plan' => $this->servicePlan($order),
+            'service_cycle' => $this->serviceCycle($order),
             'installation' => $order->installation ? ['id' => $order->installation->id, 'project_reference' => $order->installation->project_reference,
                 'site_name' => $order->installation->site_name, 'address' => $order->installation->site_address_line_1,
                 'service_type' => $order->installation->service_type,
@@ -356,6 +359,24 @@ class WorkOrderController extends Controller
                 'id' => $item->id, 'position' => $item->position, 'label' => $item->label, 'is_required' => $item->is_required,
                 'completed_at' => $item->completed_at?->toISOString(), 'notes' => $item->notes,
             ])->values() : [],
+        ];
+    }
+
+    /** @return array<string, mixed>|null */
+    private function serviceCycle(WorkOrder $order): ?array
+    {
+        $commitment = $order->serviceTicket?->serviceCycleCommitment;
+        if (! $commitment) {
+            return null;
+        }
+
+        return [
+            'id' => $commitment->id,
+            'plan_version' => $commitment->maintenance_plan_version,
+            'period_starts_on' => $commitment->period_starts_on->toDateString(),
+            'period_ends_on' => $commitment->period_ends_on->toDateString(),
+            'schedule_status' => $commitment->schedule_status,
+            'schedule_confirmed_at' => $commitment->schedule_confirmed_at?->toISOString(),
         ];
     }
 
