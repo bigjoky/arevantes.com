@@ -6,6 +6,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 type Line = {
     id: number;
+    parent_line_id: number | null;
+    depth: number;
     description: string;
     quantity: string;
     unit_price: string;
@@ -153,7 +155,17 @@ export default function SharedDocument({
                                 {document.lines.map((line) => (
                                     <tr key={line.id} className="border-b">
                                         <td className="py-3">
-                                            <div className="font-medium">
+                                            <div
+                                                className="font-medium"
+                                                style={{
+                                                    paddingLeft: `${Math.max(0, (line.depth || 1) - 1) * 1.25}rem`,
+                                                }}
+                                            >
+                                                {line.depth > 1 && (
+                                                    <span className="mr-2 text-xs font-normal text-muted-foreground">
+                                                        Nivel {line.depth}
+                                                    </span>
+                                                )}
                                                 {line.description}
                                             </div>
                                             {line.selection_mode !==

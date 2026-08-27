@@ -73,6 +73,10 @@ type Component = {
     interval_months: string;
 };
 type Line = {
+    client_key: string;
+    parent_client_key: string | null;
+    parent_line_id?: number | null;
+    depth: number;
     product_id: number | null;
     unit_id: number | null;
     tax_rate_id: number | null;
@@ -139,7 +143,11 @@ export default function QuoteForm({
         service_type: quote?.service_type ?? ('' as ServiceType | ''),
         issue_date:
             quote?.issue_date?.slice(0, 10) ??
-            new Date().toISOString().slice(0, 10),
+            new Intl.DateTimeFormat('en-CA', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+            }).format(new Date()),
         valid_until: quote?.valid_until?.slice(0, 10) ?? '',
         acceptance_payment_percentage: String(
             quote?.acceptance_payment_percentage ??
@@ -159,6 +167,11 @@ export default function QuoteForm({
         lines:
             quote?.lines.map((line) => ({
                 ...line,
+                client_key: `line-${line.id}`,
+                parent_client_key: line.parent_line_id
+                    ? `line-${line.parent_line_id}`
+                    : null,
+                depth: line.depth ?? 1,
                 product_id: line.product_id,
                 unit_id: line.unit_id,
                 tax_rate_id: line.tax_rate_id,
@@ -186,8 +199,12 @@ export default function QuoteForm({
                   ]
                 : [blankLine()]),
     });
-    const [expandedLines, setExpandedLines] = useState<Set<number>>(
-        new Set([0]),
+    const [expandedLines, setExpandedLines] = useState<Set<string>>(
+        new Set(
+            form.data.lines[0]?.client_key
+                ? [form.data.lines[0].client_key]
+                : [],
+        ),
     );
     const availableInstallations = installations.filter(
         (item) =>
@@ -237,6 +254,54 @@ export default function QuoteForm({
                           : form.data.lines[index].components,
             });
         }
+    };
+    const addChildLine = (index: number) => {
+        const parent = form.data.lines[index];
+
+        if (parent.depth >= 5) {
+            return;
+        }
+
+        let insertAt = index + 1;
+
+        while (
+            insertAt < form.data.lines.length &&
+            form.data.lines[insertAt].depth > parent.depth
+        ) {
+            insertAt++;
+        }
+
+        const lines = [...form.data.lines];
+        const child = blankLine(parent.client_key, parent.depth + 1);
+        lines.splice(insertAt, 0, child);
+        form.setData('lines', lines);
+        setExpandedLines((current) => new Set(current).add(child.client_key));
+    };
+    const removeLine = (index: number) => {
+        const keysToRemove = new Set([form.data.lines[index].client_key]);
+        let foundChild = true;
+
+        while (foundChild) {
+            foundChild = false;
+
+            for (const line of form.data.lines) {
+                if (
+                    line.parent_client_key &&
+                    keysToRemove.has(line.parent_client_key) &&
+                    !keysToRemove.has(line.client_key)
+                ) {
+                    keysToRemove.add(line.client_key);
+                    foundChild = true;
+                }
+            }
+        }
+
+        form.setData(
+            'lines',
+            form.data.lines.filter(
+                (line) => !keysToRemove.has(line.client_key),
+            ),
+        );
     };
     const updateComponent = (
         lineIndex: number,
@@ -330,7 +395,10 @@ export default function QuoteForm({
                             label="Business line"
                             value={form.data.service_type}
                             onChange={(value) =>
-                                form.setData('service_type', value as ServiceType)
+                                form.setData(
+                                    'service_type',
+                                    value as ServiceType,
+                                )
                             }
                             options={Object.entries(serviceLabels)}
                         />
@@ -433,14 +501,22 @@ export default function QuoteForm({
                                         <th className="w-32 text-right">
                                             Total
                                         </th>
-                                        <th className="w-12" />
+                                        <th className="sticky right-0 z-10 w-20 bg-background" />
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {form.data.lines.map((line, index) => (
-                                        <Fragment key={index}>
+                                        <Fragment key={line.client_key}>
                                             <tr className="align-top">
-                                                <td className="py-2 pr-2">
+                                                <td
+                                                    className="py-2 pr-2"
+                                                    style={{
+                                                        paddingLeft: `${(line.depth - 1) * 1.25}rem`,
+                                                    }}
+                                                >
+                                                    <div className="mb-1 text-[11px] font-medium text-muted-foreground">
+                                                        Nivel {line.depth}
+                                                    </div>
                                                     <Select
                                                         value={
                                                             line.product_id
@@ -480,6 +556,20 @@ export default function QuoteForm({
                                                             )}
                                                         </SelectContent>
                                                     </Select>
+                                                    <Button
+                                                        type="button"
+                                                        size="sm"
+                                                        variant="ghost"
+                                                        className="mt-1 h-7 px-1 text-xs"
+                                                        disabled={
+                                                            line.depth >= 5
+                                                        }
+                                                        onClick={() =>
+                                                            addChildLine(index)
+                                                        }
+                                                    >
+                                                        <Plus /> Add subline
+                                                    </Button>
                                                 </td>
                                                 <td className="p-2">
                                                     <Input
@@ -560,32 +650,43 @@ export default function QuoteForm({
                                                 <td className="p-2 text-right font-medium">
                                                     {money(lineTotal(line))}
                                                 </td>
-                                                <td className="p-2">
-                                                    <Button
-                                                        type="button"
-                                                        size="icon"
-                                                        variant="ghost"
-                                                        title="Remove line"
-                                                        disabled={
-                                                            form.data.lines
-                                                                .length === 1
-                                                        }
-                                                        onClick={() =>
-                                                            form.setData(
-                                                                'lines',
-                                                                form.data.lines.filter(
-                                                                    (
-                                                                        _,
-                                                                        position,
-                                                                    ) =>
-                                                                        position !==
-                                                                        index,
-                                                                ),
-                                                            )
-                                                        }
-                                                    >
-                                                        <Trash2 />
-                                                    </Button>
+                                                <td className="sticky right-0 z-10 bg-background p-2">
+                                                    <div className="flex items-center gap-1">
+                                                        <Button
+                                                            type="button"
+                                                            size="icon"
+                                                            variant="ghost"
+                                                            title="Añadir sublínea"
+                                                            disabled={
+                                                                line.depth >= 5
+                                                            }
+                                                            onClick={() =>
+                                                                addChildLine(
+                                                                    index,
+                                                                )
+                                                            }
+                                                        >
+                                                            <Plus />
+                                                        </Button>
+                                                        <Button
+                                                            type="button"
+                                                            size="icon"
+                                                            variant="ghost"
+                                                            title="Remove line"
+                                                            disabled={
+                                                                form.data.lines
+                                                                    .length ===
+                                                                1
+                                                            }
+                                                            onClick={() =>
+                                                                removeLine(
+                                                                    index,
+                                                                )
+                                                            }
+                                                        >
+                                                            <Trash2 />
+                                                        </Button>
+                                                    </div>
                                                 </td>
                                             </tr>
                                             <tr className="border-b bg-muted/20">
@@ -607,15 +708,15 @@ export default function QuoteForm({
 
                                                                 if (
                                                                     next.has(
-                                                                        index,
+                                                                        line.client_key,
                                                                     )
                                                                 ) {
                                                                     next.delete(
-                                                                        index,
+                                                                        line.client_key,
                                                                     );
                                                                 } else {
                                                                     next.add(
-                                                                        index,
+                                                                        line.client_key,
                                                                     );
                                                                 }
 
@@ -625,7 +726,7 @@ export default function QuoteForm({
                                                             }}
                                                         >
                                                             {expandedLines.has(
-                                                                index,
+                                                                line.client_key,
                                                             ) ? (
                                                                 <ChevronDown />
                                                             ) : (
@@ -767,7 +868,9 @@ export default function QuoteForm({
                                                             </Button>
                                                         </div>
                                                     </div>
-                                                    {expandedLines.has(index) &&
+                                                    {expandedLines.has(
+                                                        line.client_key,
+                                                    ) &&
                                                         (line.components
                                                             .length > 0 ? (
                                                             <div className="grid gap-2">
@@ -1095,8 +1198,13 @@ export default function QuoteForm({
         </>
     );
 }
-function blankLine(): Line {
+let lineSequence = 0;
+
+function blankLine(parentClientKey: string | null = null, depth = 1): Line {
     return {
+        client_key: `new-line-${Date.now()}-${++lineSequence}`,
+        parent_client_key: parentClientKey,
+        depth,
         product_id: null,
         unit_id: null,
         tax_rate_id: null,

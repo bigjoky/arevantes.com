@@ -31,7 +31,7 @@ class WorkspaceNavigationAuthorizationTest extends TestCase
                 ->where('auth.navigation', function (Collection $navigation): bool {
                     $items = $navigation->keyBy('title');
 
-                    return $items->keys()->all() === ['Dashboard', 'Mi RR. HH.', 'CRM']
+                    return $items->keys()->all() === ['Dashboard', 'My HR', 'CRM']
                         && collect($items['CRM']['children'])->pluck('title')->all() === ['Installations'];
                 }));
     }

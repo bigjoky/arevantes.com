@@ -19,6 +19,58 @@ class QuoteCompositionTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_custom_quote_lines_can_be_nested_up_to_five_levels(): void
+    {
+        $commercial = User::factory()->create(['role' => 'commercial']);
+        $customer = Person::create(['category' => 'customer', 'first_name' => 'Cliente jerarquía']);
+        $lines = collect(range(1, 5))->map(fn (int $level): array => [
+            'client_key' => "level-{$level}",
+            'parent_client_key' => $level === 1 ? null : 'level-'.($level - 1),
+            'description' => "Partida nivel {$level}",
+            'quantity' => 1,
+            'unit_price' => $level * 10,
+            'discount_percent' => 0,
+            'tax_percent' => 0,
+        ])->all();
+
+        $this->actingAs($commercial)->post(route('quotes.store'), [
+            'person_id' => $customer->id,
+            'issue_date' => today()->toDateString(),
+            'lines' => $lines,
+        ])->assertRedirect();
+
+        $quote = Quote::with('lines')->firstOrFail();
+        $this->assertSame('150.00', $quote->amount);
+        $this->assertSame([1, 2, 3, 4, 5], $quote->lines->pluck('depth')->all());
+
+        foreach ($quote->lines->skip(1) as $index => $line) {
+            $this->assertSame($quote->lines[$index - 1]->id, $line->parent_line_id);
+        }
+    }
+
+    public function test_custom_quote_lines_cannot_exceed_five_levels(): void
+    {
+        $commercial = User::factory()->create(['role' => 'commercial']);
+        $customer = Person::create(['category' => 'customer', 'first_name' => 'Cliente límite']);
+        $lines = collect(range(1, 6))->map(fn (int $level): array => [
+            'client_key' => "level-{$level}",
+            'parent_client_key' => $level === 1 ? null : 'level-'.($level - 1),
+            'description' => "Partida nivel {$level}",
+            'quantity' => 1,
+            'unit_price' => 10,
+            'discount_percent' => 0,
+            'tax_percent' => 0,
+        ])->all();
+
+        $this->actingAs($commercial)->post(route('quotes.store'), [
+            'person_id' => $customer->id,
+            'issue_date' => today()->toDateString(),
+            'lines' => $lines,
+        ])->assertSessionHasErrors('lines.5.parent_client_key');
+
+        $this->assertDatabaseCount('quotes', 0);
+    }
+
     public function test_commercial_part_keeps_its_price_and_components_drive_project_operations(): void
     {
         Bus::fake([GeocodeInstallation::class]);

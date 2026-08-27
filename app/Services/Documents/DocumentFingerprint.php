@@ -16,7 +16,7 @@ class DocumentFingerprint
         $payload = [
             'document' => $document->only(['id', 'number', 'issue_date', 'due_date', 'valid_until', 'subtotal', 'discount_amount', 'tax_amount', 'amount', 'customer_snapshot', 'notes']),
             'lines' => $document->lines->map(function ($line) use ($document): array {
-                $data = $line->only(['position', 'selection_mode', 'option_group', 'is_selected', 'description', 'quantity', 'unit_price', 'discount_percent', 'tax_percent', 'subtotal', 'discount_amount', 'tax_amount', 'total']);
+                $data = $line->only(['parent_line_id', 'depth', 'position', 'selection_mode', 'option_group', 'is_selected', 'description', 'quantity', 'unit_price', 'discount_percent', 'tax_percent', 'subtotal', 'discount_amount', 'tax_amount', 'total']);
                 if ($document instanceof Quote) {
                     $data['components'] = $line->components->map->only(['position', 'kind', 'fulfillment_kind', 'visibility', 'description', 'quantity', 'planned_unit_cost', 'interval_months'])->values()->all();
                 }

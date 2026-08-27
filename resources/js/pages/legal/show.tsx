@@ -1,6 +1,7 @@
 import { Head, Link } from '@inertiajs/react';
 import { ArrowLeft, Cookie, Scale, ShieldCheck } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { LanguageSelector } from '@/components/language-selector';
 
 type DocumentKind = 'notice' | 'privacy' | 'cookies';
 
@@ -82,13 +83,16 @@ export default function LegalPage({
                                 className="h-7 w-auto sm:h-8"
                             />
                         </Link>
-                        <Link
-                            href="/"
-                            className="inline-flex items-center gap-2 text-sm font-semibold text-zinc-600 transition hover:text-[#217a3b]"
-                        >
-                            <ArrowLeft className="size-4" />
-                            Volver a la web
-                        </Link>
+                        <div className="flex items-center gap-2">
+                            <LanguageSelector />
+                            <Link
+                                href="/"
+                                className="inline-flex items-center gap-2 text-sm font-semibold text-zinc-600 transition hover:text-[#217a3b]"
+                            >
+                                <ArrowLeft className="size-4" />
+                                Volver a la web
+                            </Link>
+                        </div>
                     </div>
                 </header>
 

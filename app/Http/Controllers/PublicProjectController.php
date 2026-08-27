@@ -30,7 +30,7 @@ class PublicProjectController extends Controller
         return Inertia::render('projects/index', [
             'projects' => $projects,
             'activeService' => $filters['servicio'] ?? null,
-            'services' => collect(config('public_services', []))->map(fn (array $service): array => [
+            'services' => collect(config(app()->isLocale('en') ? 'public_services_en' : 'public_services', []))->map(fn (array $service): array => [
                 'slug' => $service['slug'],
                 'name' => $service['short_name'],
             ])->values(),

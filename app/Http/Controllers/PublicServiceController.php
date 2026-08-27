@@ -12,7 +12,7 @@ class PublicServiceController extends Controller
 {
     public function __invoke(string $service): Response
     {
-        $services = config('public_services', []);
+        $services = config(app()->isLocale('en') ? 'public_services_en' : 'public_services', []);
         abort_unless(Arr::has($services, $service), 404);
 
         return Inertia::render('services/show', [

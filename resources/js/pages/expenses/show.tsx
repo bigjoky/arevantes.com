@@ -8,17 +8,35 @@ type Expense = {
     number: string;
     type: string;
     document_number: string | null;
+    invoice_series: string | null;
     merchant_name: string | null;
+    issuer_legal_name: string | null;
+    issuer_tax_id: string | null;
     expense_date: string;
+    operation_date: string | null;
     due_date: string | null;
+    currency_code: string;
+    tax_regime: string;
     subtotal: string;
     tax_amount: string;
+    withholding_rate: string;
+    withholding_amount: string;
+    deductible_expense_percent: string;
     amount: string;
     paid_amount: string;
     status: string;
     notes: string | null;
     category: { name: string };
     supplier: { legal_name: string; trade_name: string | null } | null;
+    tax_lines: {
+        id: number;
+        kind: string;
+        taxable_base: string;
+        tax_rate: string;
+        tax_amount: string;
+        deductible_percent: string;
+        deductible_amount: string;
+    }[];
     attachments: {
         id: number;
         original_name: string;
@@ -68,21 +86,115 @@ export default function ExpenseShow({ expense }: { expense: Expense }) {
                         </Link>
                     </Button>
                 </header>
-                <section className="grid gap-4 border-y py-4 text-sm sm:grid-cols-4">
+                <section className="grid gap-4 border-y py-4 text-sm sm:grid-cols-3 xl:grid-cols-6">
                     <Info
                         label="Document"
-                        value={expense.document_number || '—'}
+                        value={
+                            [expense.invoice_series, expense.document_number]
+                                .filter(Boolean)
+                                .join(' / ') || '—'
+                        }
                     />
-                    <Info label="Date" value={date(expense.expense_date)} />
+                    <Info
+                        label="Issuer"
+                        value={
+                            expense.issuer_legal_name ||
+                            expense.merchant_name ||
+                            '—'
+                        }
+                    />
+                    <Info label="Tax ID" value={expense.issuer_tax_id || '—'} />
+                    <Info
+                        label="Issue date"
+                        value={date(expense.expense_date)}
+                    />
+                    <Info
+                        label="Operation date"
+                        value={
+                            expense.operation_date
+                                ? date(expense.operation_date)
+                                : '—'
+                        }
+                    />
                     <Info
                         label="Due"
                         value={expense.due_date ? date(expense.due_date) : '—'}
                     />
-                    <Info label="Type" value={expense.type} />
+                    <Info
+                        label="Fiscal document"
+                        value={expense.type.replaceAll('_', ' ')}
+                    />
+                    <Info
+                        label="VAT treatment"
+                        value={fiscalLabel(expense.tax_regime)}
+                    />
+                    <Info label="Currency" value={expense.currency_code} />
+                    <Info
+                        label="Deductible expense"
+                        value={percentage(expense.deductible_expense_percent)}
+                    />
+                </section>
+                <section>
+                    <h2 className="mb-3 font-semibold">Tax breakdown</h2>
+                    <div className="overflow-x-auto border-y">
+                        <table className="w-full min-w-[42rem] text-sm">
+                            <thead>
+                                <tr className="border-b text-left text-muted-foreground">
+                                    <th className="py-2">Tax</th>
+                                    <th className="text-right">Taxable base</th>
+                                    <th className="text-right">Rate</th>
+                                    <th className="text-right">Tax amount</th>
+                                    <th className="text-right">Deductible</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {expense.tax_lines.map((line) => (
+                                    <tr
+                                        key={line.id}
+                                        className="border-b last:border-0"
+                                    >
+                                        <td className="py-3">
+                                            {fiscalLabel(line.kind)}
+                                        </td>
+                                        <td className="text-right">
+                                            {money(line.taxable_base)}
+                                        </td>
+                                        <td className="text-right">
+                                            {percentage(line.tax_rate)}
+                                        </td>
+                                        <td className="text-right">
+                                            {money(line.tax_amount)}
+                                        </td>
+                                        <td className="text-right">
+                                            {money(line.deductible_amount)} (
+                                            {percentage(
+                                                line.deductible_percent,
+                                            )}
+                                            )
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                        {expense.tax_lines.length === 0 && (
+                            <Empty text="No tax breakdown." />
+                        )}
+                    </div>
                 </section>
                 <section className="ml-auto w-full max-w-sm border-t pt-4 text-sm">
                     <Total label="Subtotal" value={expense.subtotal} />
                     <Total label="Tax" value={expense.tax_amount} />
+                    {Number(expense.withholding_amount) > 0 && (
+                        <Total
+                            label={
+                                <>
+                                    <span>Withholding</span> ·{' '}
+                                    {percentage(expense.withholding_rate)}
+                                </>
+                            }
+                            value={String(-Number(expense.withholding_amount))}
+                        />
+                    )}
                     <Total label="Total" value={expense.amount} strong />
                     <Total label="Paid" value={expense.paid_amount} />
                     <Total
@@ -255,7 +367,7 @@ function Total({
     value,
     strong = false,
 }: {
-    label: string;
+    label: React.ReactNode;
     value: string;
     strong?: boolean;
 }) {
@@ -296,15 +408,28 @@ function Empty({ text }: { text: string }) {
     );
 }
 const money = (v: string) =>
-    new Intl.NumberFormat(undefined, {
+    new Intl.NumberFormat(document.documentElement.lang, {
         style: 'currency',
         currency: 'EUR',
     }).format(Number(v));
 const date = (v: string) =>
-    new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(
-        new Date(`${v.slice(0, 10)}T12:00:00`),
-    );
-const today = () => new Date().toISOString().slice(0, 10);
+    new Intl.DateTimeFormat(document.documentElement.lang, {
+        dateStyle: 'medium',
+    }).format(new Date(`${v.slice(0, 10)}T12:00:00`));
+const percentage = (value: string) =>
+    `${new Intl.NumberFormat(document.documentElement.lang, { maximumFractionDigits: 2 }).format(Number(value))}%`;
+const fiscalLabel = (value: string) =>
+    value === 'vat'
+        ? 'VAT'
+        : value
+              .replaceAll('_', ' ')
+              .replace(/^./, (character) => character.toUpperCase());
+const today = () =>
+    new Intl.DateTimeFormat('en-CA', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+    }).format(new Date());
 ExpenseShow.layout = {
     breadcrumbs: [
         { title: 'Expenses', href: '/expenses' },

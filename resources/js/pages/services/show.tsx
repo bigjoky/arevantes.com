@@ -12,6 +12,7 @@ import {
     Zap,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { LanguageSelector } from '@/components/language-selector';
 import { ProjectCard } from '@/components/public/project-card';
 import type { PublicProjectSummary } from '@/types/public-project';
 
@@ -213,6 +214,7 @@ export default function ServicePage({
                             </Link>
                         </nav>
                         <div className="flex items-center gap-2">
+                            <LanguageSelector />
                             <Link
                                 href={contactUrl}
                                 className="hidden items-center gap-2 rounded-full bg-zinc-950 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#217a3b] sm:inline-flex"

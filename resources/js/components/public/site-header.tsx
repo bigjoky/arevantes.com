@@ -1,6 +1,7 @@
 import { Link } from '@inertiajs/react';
 import { ArrowRight, ChevronRight, Menu, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { LanguageSelector } from '@/components/language-selector';
 
 export function PublicSiteHeader({ active }: { active?: 'projects' }) {
     const [open, setOpen] = useState(false);
@@ -63,6 +64,7 @@ export function PublicSiteHeader({ active }: { active?: 'projects' }) {
                     ))}
                 </nav>
                 <div className="flex items-center gap-2">
+                    <LanguageSelector />
                     <Link
                         href="/#contacto"
                         className="hidden items-center gap-2 rounded-full bg-zinc-950 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#217a3b] sm:inline-flex"

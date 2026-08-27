@@ -13,8 +13,11 @@ class SetLocale
     public function handle(Request $request, Closure $next): Response
     {
         $supported = array_keys(config('localization.supported', []));
-        $locale = $request->session()->get('locale', config('app.locale'));
-        App::setLocale(in_array($locale, $supported, true) ? $locale : config('app.locale'));
+        $default = $request->user()
+            ? config('app.locale')
+            : config('localization.default', config('app.locale'));
+        $locale = $request->session()->get('locale', $default);
+        App::setLocale(in_array($locale, $supported, true) ? $locale : $default);
 
         return $next($request);
     }

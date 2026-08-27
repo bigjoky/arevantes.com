@@ -82,6 +82,8 @@ type Quote = {
     approver: { id: number; name: string } | null;
     lines: {
         id: number;
+        parent_line_id: number | null;
+        depth: number;
         description: string;
         quantity: string;
         unit_price: string;
@@ -188,7 +190,14 @@ type MaterialPreview = {
     items: number;
     shortage_items: number;
     shortage_quantity: number;
-    rows: { product_id: number; sku: string | null; name: string; required_quantity: number; available_quantity: number; shortage_quantity: number }[];
+    rows: {
+        product_id: number;
+        sku: string | null;
+        name: string;
+        required_quantity: number;
+        available_quantity: number;
+        shortage_quantity: number;
+    }[];
 };
 type QuoteCapabilities = {
     edit: boolean;
@@ -230,7 +239,8 @@ export default function QuoteShow({
     );
     const [billingLabel, setBillingLabel] = useState('Factura final');
     const projectForm = useForm({
-        service_type: quote.service_type || projectDefaults.service_type || 'solar',
+        service_type:
+            quote.service_type || projectDefaults.service_type || 'solar',
         technician_user_id: '',
         scheduled_at: tomorrowMorning(),
         site_name: projectDefaults.site_name || '',
@@ -300,12 +310,29 @@ export default function QuoteShow({
                     </div>
                 </header>
                 {materialPreview.items > 0 && (
-                    <section className={`rounded-lg border-l-4 p-4 ${materialPreview.shortage_items > 0 ? 'border-l-amber-500 bg-amber-50 dark:bg-amber-950/20' : 'border-l-green-600 bg-green-50 dark:bg-green-950/20'}`}>
-                        <div className="font-medium">Material feasibility before planning</div>
+                    <section
+                        className={`rounded-lg border-l-4 p-4 ${materialPreview.shortage_items > 0 ? 'border-l-amber-500 bg-amber-50 dark:bg-amber-950/20' : 'border-l-green-600 bg-green-50 dark:bg-green-950/20'}`}
+                    >
+                        <div className="font-medium">
+                            Material feasibility before planning
+                        </div>
                         <p className="mt-1 text-sm text-muted-foreground">
-                            {materialPreview.shortage_items > 0 ? `${materialPreview.shortage_items} catalog item(s) · ${materialPreview.shortage_quantity} units currently unavailable` : 'The complete quoted kit is currently available.'}
+                            {materialPreview.shortage_items > 0
+                                ? `${materialPreview.shortage_items} catalog item(s) · ${materialPreview.shortage_quantity} units currently unavailable`
+                                : 'The complete quoted kit is currently available.'}
                         </p>
-                        {materialPreview.shortage_items > 0 && <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs">{materialPreview.rows.filter((row) => row.shortage_quantity > 0).map((row) => <span key={row.product_id}>{row.sku || row.name}: {row.shortage_quantity} short</span>)}</div>}
+                        {materialPreview.shortage_items > 0 && (
+                            <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs">
+                                {materialPreview.rows
+                                    .filter((row) => row.shortage_quantity > 0)
+                                    .map((row) => (
+                                        <span key={row.product_id}>
+                                            {row.sku || row.name}:{' '}
+                                            {row.shortage_quantity} short
+                                        </span>
+                                    ))}
+                            </div>
+                        )}
                     </section>
                 )}
                 <section className="rounded-lg border bg-card p-4 shadow-xs">
@@ -430,8 +457,18 @@ export default function QuoteShow({
                             </Badge>
                         </div>
                         <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
-                            <Info label="Creada por" value={quote.creator?.name || 'Sistema'} />
-                            <Info label="Aprobada por" value={quote.approver ? `${quote.approver.name}${quote.approved_at ? ` · ${dateTime(quote.approved_at)}` : ''}` : 'Sin decisión registrada'} />
+                            <Info
+                                label="Creada por"
+                                value={quote.creator?.name || 'Sistema'}
+                            />
+                            <Info
+                                label="Aprobada por"
+                                value={
+                                    quote.approver
+                                        ? `${quote.approver.name}${quote.approved_at ? ` · ${dateTime(quote.approved_at)}` : ''}`
+                                        : 'Sin decisión registrada'
+                                }
+                            />
                             <Info
                                 label="Expected margin"
                                 value={
@@ -483,35 +520,40 @@ export default function QuoteShow({
                                 />
                             </div>
                         )}
-                        {quote.approval_status === 'pending' && capabilities.approve && (
-                            <Form
-                                action={`/quotes/${quote.id}/approval`}
-                                method="post"
-                                className="mt-4 grid gap-2"
-                            >
-                                <Textarea
-                                    name="approval_notes"
-                                    placeholder="Approval notes"
-                                />
-                                <div className="flex gap-2">
-                                    <Button name="decision" value="approved">
-                                        Approve
-                                    </Button>
-                                    <Button
-                                        name="decision"
-                                        value="rejected"
-                                        variant="destructive"
-                                    >
-                                        Reject
-                                    </Button>
-                                </div>
-                            </Form>
-                        )}
-                        {quote.approval_status === 'pending' && !capabilities.approve && (
-                            <p className="mt-3 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-100">
-                                {capabilities.approvalBlockReason}
-                            </p>
-                        )}
+                        {quote.approval_status === 'pending' &&
+                            capabilities.approve && (
+                                <Form
+                                    action={`/quotes/${quote.id}/approval`}
+                                    method="post"
+                                    className="mt-4 grid gap-2"
+                                >
+                                    <Textarea
+                                        name="approval_notes"
+                                        placeholder="Approval notes"
+                                    />
+                                    <div className="flex gap-2">
+                                        <Button
+                                            name="decision"
+                                            value="approved"
+                                        >
+                                            Approve
+                                        </Button>
+                                        <Button
+                                            name="decision"
+                                            value="rejected"
+                                            variant="destructive"
+                                        >
+                                            Reject
+                                        </Button>
+                                    </div>
+                                </Form>
+                            )}
+                        {quote.approval_status === 'pending' &&
+                            !capabilities.approve && (
+                                <p className="mt-3 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-100">
+                                    {capabilities.approvalBlockReason}
+                                </p>
+                            )}
                         {quote.approval_notes && (
                             <p className="mt-3 text-xs text-muted-foreground">
                                 {quote.approval_notes}
@@ -563,15 +605,20 @@ export default function QuoteShow({
                                         v{version.version}
                                     </Badge>
                                     <div>
-                                        <div>{dateTime(version.created_at)}</div>
+                                        <div>
+                                            {dateTime(version.created_at)}
+                                        </div>
                                         <div className="text-xs text-muted-foreground">
-                                            {version.created_by?.name || 'Sistema'}
+                                            {version.created_by?.name ||
+                                                'Sistema'}
                                             {version.change_note
                                                 ? ` · ${version.change_note}`
                                                 : ''}
                                         </div>
                                     </div>
-                                    <span className="font-medium tabular-nums">{money(version.amount)}</span>
+                                    <span className="font-medium tabular-nums">
+                                        {money(version.amount)}
+                                    </span>
                                 </div>
                             ))}
                         </div>
@@ -592,10 +639,20 @@ export default function QuoteShow({
                         <tbody>
                             {quote.lines.map((line) => (
                                 <tr key={line.id} className="border-b">
-                                    <td className="py-3">
+                                    <td
+                                        className="py-3"
+                                        style={{
+                                            paddingLeft: `${Math.max(0, (line.depth ?? 1) - 1) * 1.25}rem`,
+                                        }}
+                                    >
                                         <div className="font-medium">
                                             {line.description}
                                         </div>
+                                        {(line.depth ?? 1) > 1 && (
+                                            <div className="text-[11px] text-muted-foreground">
+                                                Nivel {line.depth}
+                                            </div>
+                                        )}
                                         {line.selection_mode !== 'included' && (
                                             <div className="mt-1 flex flex-wrap gap-1">
                                                 <Badge variant="secondary">
@@ -785,21 +842,49 @@ export default function QuoteShow({
                 )}
                 <section className="grid gap-6 border-t pt-5 lg:grid-cols-[minmax(20rem,.7fr)_minmax(0,1.3fr)]">
                     {capabilities.send ? (
-                        <Form action={`/quotes/${quote.id}/send`} method="post" className="grid content-start gap-3">
+                        <Form
+                            action={`/quotes/${quote.id}/send`}
+                            method="post"
+                            className="grid content-start gap-3"
+                        >
                             <div>
-                                <h2 className="font-semibold">Enviar al cliente</h2>
-                                <p className="text-sm text-muted-foreground">Envía el PDF y un enlace seguro de aceptación.</p>
+                                <h2 className="font-semibold">
+                                    Enviar al cliente
+                                </h2>
+                                <p className="text-sm text-muted-foreground">
+                                    Envía el PDF y un enlace seguro de
+                                    aceptación.
+                                </p>
                             </div>
                             <div className="grid gap-2">
-                                <label className="text-sm font-medium">Correo destinatario</label>
-                                <input name="recipient_email" type="email" required defaultValue={quote.customer?.billing_email || quote.customer?.email || ''} className="h-9 rounded-md border bg-transparent px-3 text-sm" />
+                                <label className="text-sm font-medium">
+                                    Correo destinatario
+                                </label>
+                                <input
+                                    name="recipient_email"
+                                    type="email"
+                                    required
+                                    defaultValue={
+                                        quote.customer?.billing_email ||
+                                        quote.customer?.email ||
+                                        ''
+                                    }
+                                    className="h-9 rounded-md border bg-transparent px-3 text-sm"
+                                />
                             </div>
-                            <Button className="w-fit"><Send /> Enviar propuesta</Button>
+                            <Button className="w-fit">
+                                <Send /> Enviar propuesta
+                            </Button>
                         </Form>
                     ) : (
                         <div className="text-sm text-muted-foreground">
-                            <h2 className="font-medium text-foreground">Envío al cliente</h2>
-                            <p className="mt-1">Disponible únicamente mientras la propuesta siga abierta y tenga la aprobación necesaria.</p>
+                            <h2 className="font-medium text-foreground">
+                                Envío al cliente
+                            </h2>
+                            <p className="mt-1">
+                                Disponible únicamente mientras la propuesta siga
+                                abierta y tenga la aprobación necesaria.
+                            </p>
                         </div>
                     )}
                     <DeliveryHistory deliveries={quote.deliveries} />
@@ -815,38 +900,41 @@ export default function QuoteShow({
                                     <Wrench /> Iniciar proyecto
                                 </Button>
                             )}
-                            {capabilities.convert && [
-                                ['order', 'Crear pedido'],
-                                ['delivery_note', 'Crear albarán'],
-                            ].map(([type, label]) => (
-                                <Form
-                                    key={type}
-                                    action={`/quotes/${quote.id}/convert`}
-                                    method="post"
-                                >
-                                    <input
-                                        type="hidden"
-                                        name="type"
-                                        value={type}
-                                    />
-                                    <Button variant="outline">{label}</Button>
-                                </Form>
-                            ))}
+                            {capabilities.convert &&
+                                [
+                                    ['order', 'Crear pedido'],
+                                    ['delivery_note', 'Crear albarán'],
+                                ].map(([type, label]) => (
+                                    <Form
+                                        key={type}
+                                        action={`/quotes/${quote.id}/convert`}
+                                        method="post"
+                                    >
+                                        <input
+                                            type="hidden"
+                                            name="type"
+                                            value={type}
+                                        />
+                                        <Button variant="outline">
+                                            {label}
+                                        </Button>
+                                    </Form>
+                                ))}
                         </div>
                     )}
                     {capabilities.delete && (
-                            <Form
-                                action={`/quotes/${quote.id}`}
-                                method="delete"
-                                onBefore={() =>
-                                    confirm(`¿Eliminar ${quote.number}?`)
-                                }
-                            >
-                                <Button variant="destructive">
-                                    <Trash2 /> Eliminar borrador
-                                </Button>
-                            </Form>
-                        )}
+                        <Form
+                            action={`/quotes/${quote.id}`}
+                            method="delete"
+                            onBefore={() =>
+                                confirm(`¿Eliminar ${quote.number}?`)
+                            }
+                        >
+                            <Button variant="destructive">
+                                <Trash2 /> Eliminar borrador
+                            </Button>
+                        </Form>
+                    )}
                 </footer>
             </div>
             <Dialog open={projectOpen} onOpenChange={setProjectOpen}>

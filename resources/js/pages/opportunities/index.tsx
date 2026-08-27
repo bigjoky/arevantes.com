@@ -319,8 +319,7 @@ export default function OpportunitiesIndex({
     >('idle');
     const form = useForm<FormData>(emptyForm);
     const hasActiveFilters = Object.entries(filters).some(
-        ([key, value]) =>
-            !['period', 'view'].includes(key) && Boolean(value),
+        ([key, value]) => !['period', 'view'].includes(key) && Boolean(value),
     );
     const availableInstallations = useMemo(
         () =>
@@ -588,12 +587,37 @@ export default function OpportunitiesIndex({
                     </div>
                 </header>
 
-                <nav className="flex gap-1 border-b" aria-label="Secciones de oportunidades">
-                    <Button variant={section === 'pipeline' ? 'secondary' : 'ghost'} size="sm" asChild>
-                        <Link href={opportunityFilterUrl({ ...filters, section: 'pipeline' })}>Trabajo diario</Link>
+                <nav
+                    className="flex gap-1 border-b"
+                    aria-label="Secciones de oportunidades"
+                >
+                    <Button
+                        variant={section === 'pipeline' ? 'secondary' : 'ghost'}
+                        size="sm"
+                        asChild
+                    >
+                        <Link
+                            href={opportunityFilterUrl({
+                                ...filters,
+                                section: 'pipeline',
+                            })}
+                        >
+                            Trabajo diario
+                        </Link>
                     </Button>
-                    <Button variant={section === 'analysis' ? 'secondary' : 'ghost'} size="sm" asChild>
-                        <Link href={opportunityFilterUrl({ ...filters, section: 'analysis' })}>Análisis comercial</Link>
+                    <Button
+                        variant={section === 'analysis' ? 'secondary' : 'ghost'}
+                        size="sm"
+                        asChild
+                    >
+                        <Link
+                            href={opportunityFilterUrl({
+                                ...filters,
+                                section: 'analysis',
+                            })}
+                        >
+                            Análisis comercial
+                        </Link>
                     </Button>
                     <Button variant="ghost" size="sm" asChild>
                         <Link href="/quotes">Propuestas</Link>
@@ -603,507 +627,632 @@ export default function OpportunitiesIndex({
                 {section === 'pipeline' ? (
                     <>
                         <section className="grid gap-px overflow-hidden border bg-border sm:grid-cols-2 xl:grid-cols-4">
-                            <Metric icon={CircleDollarSign} label="Pipeline abierto" value={money(metrics.pipeline_value)} />
-                            <Metric icon={TrendingUp} label="Previsión ponderada" value={money(metrics.weighted_forecast)} />
-                            <Metric icon={Target} label={`Ganado · ${periodLabel(filters.period)}`} value={money(metrics.won_value)} detail={`${metrics.won_count} oportunidades`} />
-                            <Metric icon={UserPlus} label={`Nuevos leads · ${periodLabel(filters.period)}`} value={String(metrics.new_leads)} />
+                            <Metric
+                                icon={CircleDollarSign}
+                                label="Pipeline abierto"
+                                value={money(metrics.pipeline_value)}
+                            />
+                            <Metric
+                                icon={TrendingUp}
+                                label="Previsión ponderada"
+                                value={money(metrics.weighted_forecast)}
+                            />
+                            <Metric
+                                icon={Target}
+                                label={`Ganado · ${periodLabel(filters.period)}`}
+                                value={money(metrics.won_value)}
+                                detail={`${metrics.won_count} oportunidades`}
+                            />
+                            <Metric
+                                icon={UserPlus}
+                                label={`Nuevos leads · ${periodLabel(filters.period)}`}
+                                value={String(metrics.new_leads)}
+                            />
                         </section>
                         <section className="flex flex-wrap items-center gap-2 rounded-md border p-3">
-                            <span className="mr-1 text-sm font-medium">Requieren atención</span>
-                            <AttentionLink filters={filters} attention="overdue" label="Cierres vencidos" count={metrics.overdue} />
-                            <AttentionLink filters={filters} attention="no_action" label="Sin próxima acción" count={metrics.without_next_action} />
-                            <AttentionLink filters={filters} attention="stale" label="Estancadas" count={metrics.stale} />
-                            <AttentionLink filters={filters} attention="response_sla" label="Fuera de SLA" count={metrics.response_sla_breached} />
-                            <AttentionLink filters={filters} attention="renewal_due" label="Renovaciones" count={metrics.renewals_due} />
+                            <span className="mr-1 text-sm font-medium">
+                                Requieren atención
+                            </span>
+                            <AttentionLink
+                                filters={filters}
+                                attention="overdue"
+                                label="Cierres vencidos"
+                                count={metrics.overdue}
+                            />
+                            <AttentionLink
+                                filters={filters}
+                                attention="no_action"
+                                label="Sin próxima acción"
+                                count={metrics.without_next_action}
+                            />
+                            <AttentionLink
+                                filters={filters}
+                                attention="stale"
+                                label="Estancadas"
+                                count={metrics.stale}
+                            />
+                            <AttentionLink
+                                filters={filters}
+                                attention="response_sla"
+                                label="Fuera de SLA"
+                                count={metrics.response_sla_breached}
+                            />
+                            <AttentionLink
+                                filters={filters}
+                                attention="renewal_due"
+                                label="Renovaciones"
+                                count={metrics.renewals_due}
+                            />
                         </section>
                     </>
                 ) : (
                     <div className="space-y-6">
                         <section className="grid gap-px overflow-hidden border bg-border sm:grid-cols-2 xl:grid-cols-4">
-                            <Metric icon={Target} label="Conversión" value={`${metrics.conversion_rate}%`} detail={`${metrics.won_count} ganadas · ${metrics.lost_count} perdidas`} />
-                            <Metric icon={Timer} label="Ciclo medio" value={metrics.average_cycle_days === null ? '—' : `${metrics.average_cycle_days} días`} />
-                            <Metric icon={Clock3} label="Cumplimiento primera respuesta" value={metrics.response_sla_met_rate === null ? '—' : `${metrics.response_sla_met_rate}%`} detail={metrics.average_first_response_minutes === null ? 'Sin respuestas registradas' : `Media ${formatMinutes(metrics.average_first_response_minutes)}`} />
-                            <Metric icon={CalendarClock} label="Renovaciones próximas" value={String(metrics.renewals_due)} detail="Próximos 30 días" />
+                            <Metric
+                                icon={Target}
+                                label="Conversión"
+                                value={`${metrics.conversion_rate}%`}
+                                detail={`${metrics.won_count} ganadas · ${metrics.lost_count} perdidas`}
+                            />
+                            <Metric
+                                icon={Timer}
+                                label="Ciclo medio"
+                                value={
+                                    metrics.average_cycle_days === null
+                                        ? '—'
+                                        : `${metrics.average_cycle_days} días`
+                                }
+                            />
+                            <Metric
+                                icon={Clock3}
+                                label="Cumplimiento primera respuesta"
+                                value={
+                                    metrics.response_sla_met_rate === null
+                                        ? '—'
+                                        : `${metrics.response_sla_met_rate}%`
+                                }
+                                detail={
+                                    metrics.average_first_response_minutes ===
+                                    null
+                                        ? 'Sin respuestas registradas'
+                                        : `Media ${formatMinutes(metrics.average_first_response_minutes)}`
+                                }
+                            />
+                            <Metric
+                                icon={CalendarClock}
+                                label="Renovaciones próximas"
+                                value={String(metrics.renewals_due)}
+                                detail="Próximos 30 días"
+                            />
                         </section>
                         <FunnelSummary funnel={metrics.funnel} />
-                        {responsePerformance.length > 0 && <ResponsePerformanceSummary rows={responsePerformance} />}
-                        {forecast.length > 0 && <ForecastSummary rows={forecast} />}
+                        {responsePerformance.length > 0 && (
+                            <ResponsePerformanceSummary
+                                rows={responsePerformance}
+                            />
+                        )}
+                        {forecast.length > 0 && (
+                            <ForecastSummary rows={forecast} />
+                        )}
                     </div>
                 )}
 
-                {section === 'pipeline' && <>
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div className="flex flex-wrap items-center gap-2">
-                        {savedFilters.length > 0 && (
-                            <span className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground">
-                                <Bookmark className="size-3.5" /> Vistas
-                                guardadas
-                            </span>
-                        )}
-                        {savedFilters.map((filter) => (
-                            <div key={filter.id} className="inline-flex">
-                                <Button size="sm" variant="outline" asChild>
-                                    <Link
-                                        href={opportunityFilterUrl(
-                                            filter.filters,
-                                        )}
+                {section === 'pipeline' && (
+                    <>
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                            <div className="flex flex-wrap items-center gap-2">
+                                {savedFilters.length > 0 && (
+                                    <span className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground">
+                                        <Bookmark className="size-3.5" /> Vistas
+                                        guardadas
+                                    </span>
+                                )}
+                                {savedFilters.map((filter) => (
+                                    <div
+                                        key={filter.id}
+                                        className="inline-flex"
                                     >
-                                        {filter.name}
-                                        {filter.is_default
-                                            ? ' · predeterminada'
-                                            : ''}
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            asChild
+                                        >
+                                            <Link
+                                                href={opportunityFilterUrl(
+                                                    filter.filters,
+                                                )}
+                                            >
+                                                {filter.name}
+                                                {filter.is_default
+                                                    ? ' · predeterminada'
+                                                    : ''}
+                                            </Link>
+                                        </Button>
+                                        <Form
+                                            action={`/crm/filters/${filter.id}`}
+                                            method="delete"
+                                        >
+                                            <Button
+                                                size="sm"
+                                                variant="ghost"
+                                                aria-label={`Eliminar filtro ${filter.name}`}
+                                            >
+                                                <X />
+                                            </Button>
+                                        </Form>
+                                    </div>
+                                ))}
+                            </div>
+                            <div className="flex gap-1 rounded-md border p-1">
+                                <Button
+                                    size="sm"
+                                    variant={
+                                        filters.view === 'table'
+                                            ? 'ghost'
+                                            : 'secondary'
+                                    }
+                                    asChild
+                                >
+                                    <Link
+                                        href={opportunityFilterUrl({
+                                            ...filters,
+                                            view: 'kanban',
+                                        })}
+                                    >
+                                        <LayoutGrid /> Kanban
                                     </Link>
                                 </Button>
-                                <Form
-                                    action={`/crm/filters/${filter.id}`}
-                                    method="delete"
+                                <Button
+                                    size="sm"
+                                    variant={
+                                        filters.view === 'table'
+                                            ? 'secondary'
+                                            : 'ghost'
+                                    }
+                                    asChild
                                 >
-                                    <Button
-                                        size="sm"
-                                        variant="ghost"
-                                        aria-label={`Eliminar filtro ${filter.name}`}
+                                    <Link
+                                        href={opportunityFilterUrl({
+                                            ...filters,
+                                            view: 'table',
+                                        })}
                                     >
-                                        <X />
-                                    </Button>
-                                </Form>
+                                        <List /> Tabla
+                                    </Link>
+                                </Button>
                             </div>
-                        ))}
-                    </div>
-                    <div className="flex gap-1 rounded-md border p-1">
-                        <Button
-                            size="sm"
-                            variant={
-                                filters.view === 'table' ? 'ghost' : 'secondary'
-                            }
-                            asChild
-                        >
-                            <Link
-                                href={opportunityFilterUrl({
-                                    ...filters,
-                                    view: 'kanban',
-                                })}
-                            >
-                                <LayoutGrid /> Kanban
-                            </Link>
-                        </Button>
-                        <Button
-                            size="sm"
-                            variant={
-                                filters.view === 'table' ? 'secondary' : 'ghost'
-                            }
-                            asChild
-                        >
-                            <Link
-                                href={opportunityFilterUrl({
-                                    ...filters,
-                                    view: 'table',
-                                })}
-                            >
-                                <List /> Tabla
-                            </Link>
-                        </Button>
-                    </div>
-                </div>
-
-                <Form
-                    action="/opportunities"
-                    method="get"
-                    className="grid gap-3 rounded-md border p-3 md:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-[minmax(14rem,1fr)_10rem_11rem_11rem_12rem_12rem_11rem_auto]"
-                >
-                    {filters.archived && (
-                        <input type="hidden" name="archived" value="1" />
-                    )}
-                    <div className="relative">
-                        <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-                        <Input
-                            name="search"
-                            defaultValue={filters.search}
-                            placeholder="Buscar oportunidad o cliente"
-                            className="pl-9"
-                        />
-                    </div>
-                    <NativeSelect
-                        name="stage"
-                        defaultValue={filters.stage}
-                        options={[
-                            ['', 'Todas las etapas'],
-                            ...stages.map((stage) => [
-                                stage.value,
-                                stage.label,
-                            ]),
-                        ]}
-                    />
-                    <NativeSelect
-                        name="owner"
-                        defaultValue={filters.owner}
-                        options={[
-                            ['', 'Todos los responsables'],
-                            ['me', 'Mis oportunidades'],
-                            ...users.map((user) => [
-                                String(user.id),
-                                user.name,
-                            ]),
-                        ]}
-                    />
-                    <NativeSelect
-                        name="source"
-                        defaultValue={filters.source}
-                        options={[
-                            ['', 'Todos los orígenes'],
-                            ...Object.entries(sourceOptions),
-                        ]}
-                    />
-                    <NativeSelect
-                        name="commercial_kind"
-                        defaultValue={filters.commercial_kind}
-                        options={[
-                            ['', 'Todos los tipos'],
-                            ...Object.entries(commercialKindOptions),
-                        ]}
-                    />
-                    <NativeSelect
-                        name="attention"
-                        defaultValue={filters.attention}
-                        options={[
-                            ['', 'Todas las situaciones'],
-                            ['overdue', 'Cierre vencido'],
-                            ['no_action', 'Sin próxima acción'],
-                            ['stale', 'Estancada en etapa'],
-                            ['response_sla', 'Primera respuesta fuera de SLA'],
-                            ['renewal_due', 'Renovación próxima'],
-                        ]}
-                    />
-                    <NativeSelect
-                        name="period"
-                        defaultValue={filters.period || '90'}
-                        options={[
-                            ['30', 'Últimos 30 días'],
-                            ['90', 'Últimos 90 días'],
-                            ['365', 'Último año'],
-                            ['all', 'Todo el histórico'],
-                        ]}
-                    />
-                    <div className="flex gap-2">
-                        <Button variant="outline">
-                            <Search /> Filtrar
-                        </Button>
-                        {hasActiveFilters && (
-                            <Button type="button" variant="ghost" asChild>
-                                <Link href="/opportunities">
-                                    <X /> Limpiar
-                                </Link>
-                            </Button>
-                        )}
-                    </div>
-                </Form>
-
-                {hasActiveFilters && (
-                    <Form
-                        action="/crm/filters"
-                        method="post"
-                        className="flex flex-wrap items-end gap-2"
-                    >
-                        <input
-                            type="hidden"
-                            name="scope"
-                            value="opportunities"
-                        />
-                        {Object.entries(filters).map(([key, value]) =>
-                            value && key !== 'archived' ? (
-                                <input
-                                    key={key}
-                                    type="hidden"
-                                    name={`filters[${key}]`}
-                                    value={value}
-                                />
-                            ) : null,
-                        )}
-                        <div className="grid gap-1">
-                            <Label
-                                htmlFor="opportunity_filter_name"
-                                className="text-xs text-muted-foreground"
-                            >
-                                Guardar vista actual
-                            </Label>
-                            <Input
-                                id="opportunity_filter_name"
-                                name="name"
-                                required
-                                placeholder="Nombre de la vista"
-                            />
                         </div>
-                        <label className="flex h-9 items-center gap-2 rounded-md border px-3 text-xs">
-                            <input
-                                type="checkbox"
-                                name="is_default"
-                                value="1"
-                            />{' '}
-                            Predeterminada
-                        </label>
-                        <Button size="sm" variant="outline">
-                            <Bookmark /> Guardar
-                        </Button>
-                    </Form>
-                )}
 
-                {filters.view === 'table' ? (
-                    <OpportunityTable
-                        opportunities={opportunities}
-                        sourceOptions={sourceOptions}
-                        commercialKindOptions={commercialKindOptions}
-                        onEdit={openEditor}
-                    />
-                ) : (
-                    <section className="snap-x snap-proximity [scrollbar-gutter:stable] overflow-x-auto pb-3">
-                        <div className="grid min-w-[98rem] grid-cols-7 gap-3">
-                            {stages.map((stage) => {
-                                const items = opportunities.filter(
-                                    (item) => item.stage === stage.value,
-                                );
-
-                                return (
-                                    <div
-                                        key={stage.value}
-                                        className="min-w-0 border-t-2 pt-3"
+                        <Form
+                            action="/opportunities"
+                            method="get"
+                            className="grid gap-3 rounded-md border p-3 md:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-[minmax(14rem,1fr)_10rem_11rem_11rem_12rem_12rem_11rem_auto]"
+                        >
+                            {filters.archived && (
+                                <input
+                                    type="hidden"
+                                    name="archived"
+                                    value="1"
+                                />
+                            )}
+                            <div className="relative">
+                                <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+                                <Input
+                                    name="search"
+                                    defaultValue={filters.search}
+                                    placeholder="Buscar oportunidad o cliente"
+                                    className="pl-9"
+                                />
+                            </div>
+                            <NativeSelect
+                                name="stage"
+                                defaultValue={filters.stage}
+                                options={[
+                                    ['', 'Todas las etapas'],
+                                    ...stages.map((stage) => [
+                                        stage.value,
+                                        stage.label,
+                                    ]),
+                                ]}
+                            />
+                            <NativeSelect
+                                name="owner"
+                                defaultValue={filters.owner}
+                                options={[
+                                    ['', 'Todos los responsables'],
+                                    ['me', 'Mis oportunidades'],
+                                    ...users.map((user) => [
+                                        String(user.id),
+                                        user.name,
+                                    ]),
+                                ]}
+                            />
+                            <NativeSelect
+                                name="source"
+                                defaultValue={filters.source}
+                                options={[
+                                    ['', 'Todos los orígenes'],
+                                    ...Object.entries(sourceOptions),
+                                ]}
+                            />
+                            <NativeSelect
+                                name="commercial_kind"
+                                defaultValue={filters.commercial_kind}
+                                options={[
+                                    ['', 'Todos los tipos'],
+                                    ...Object.entries(commercialKindOptions),
+                                ]}
+                            />
+                            <NativeSelect
+                                name="attention"
+                                defaultValue={filters.attention}
+                                options={[
+                                    ['', 'Todas las situaciones'],
+                                    ['overdue', 'Cierre vencido'],
+                                    ['no_action', 'Sin próxima acción'],
+                                    ['stale', 'Estancada en etapa'],
+                                    [
+                                        'response_sla',
+                                        'Primera respuesta fuera de SLA',
+                                    ],
+                                    ['renewal_due', 'Renovación próxima'],
+                                ]}
+                            />
+                            <NativeSelect
+                                name="period"
+                                defaultValue={filters.period || '90'}
+                                options={[
+                                    ['30', 'Últimos 30 días'],
+                                    ['90', 'Últimos 90 días'],
+                                    ['365', 'Último año'],
+                                    ['all', 'Todo el histórico'],
+                                ]}
+                            />
+                            <div className="flex gap-2">
+                                <Button variant="outline">
+                                    <Search /> Filtrar
+                                </Button>
+                                {hasActiveFilters && (
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        asChild
                                     >
-                                        <div className="mb-3 flex items-center justify-between px-1">
-                                            <div className="text-sm font-semibold">
-                                                {stage.label}
-                                            </div>
-                                            <Badge variant="secondary">
-                                                {items.length}
-                                            </Badge>
-                                        </div>
-                                        <div className="grid content-start gap-2">
-                                            {items.map((item) => (
-                                                <article
-                                                    key={item.id}
-                                                    className="rounded-md border bg-card p-3 shadow-xs"
-                                                >
-                                                    <Link
-                                                        href={`/opportunities/${item.id}`}
-                                                        className="block w-full text-left"
-                                                    >
-                                                        <span className="text-xs text-muted-foreground">
-                                                            {item.code}
-                                                        </span>
-                                                        <span className="mt-1 block text-sm leading-snug font-medium">
-                                                            {item.title}
-                                                        </span>
-                                                        {item.customer && (
-                                                            <span className="mt-1 block truncate text-xs text-muted-foreground">
-                                                                {customerName(
-                                                                    item.customer,
-                                                                )}
-                                                            </span>
-                                                        )}
-                                                        {item.source && (
-                                                            <span className="mt-2 block">
-                                                                <Badge
-                                                                    variant="outline"
-                                                                    title={
-                                                                        item.source_detail ||
-                                                                        undefined
-                                                                    }
-                                                                >
-                                                                    {sourceOptions[
-                                                                        item
-                                                                            .source
-                                                                    ] ||
-                                                                        item.source}
-                                                                </Badge>
-                                                            </span>
-                                                        )}
-                                                        <span className="mt-2 block">
-                                                            <Badge variant="secondary">
-                                                                {commercialKindOptions[
-                                                                    item
-                                                                        .commercial_kind
-                                                                ] ||
-                                                                    item.commercial_kind}
-                                                            </Badge>
-                                                        </span>
-                                                        {item.renewal_due_on && (
-                                                            <span className="mt-1 block text-xs text-muted-foreground">
-                                                                Renovación:{' '}
-                                                                {date(
-                                                                    item.renewal_due_on,
-                                                                )}
-                                                            </span>
-                                                        )}
-                                                        <span className="mt-2 block text-xs text-muted-foreground">
-                                                            Scoring{' '}
-                                                            {
-                                                                item.commercial_score
-                                                            }
-                                                            /100
-                                                        </span>
-                                                        <span
-                                                            className={`mt-1 block text-xs ${item.is_stale ? 'font-medium text-amber-700 dark:text-amber-300' : 'text-muted-foreground'}`}
-                                                        >
-                                                            {item.days_in_stage}{' '}
-                                                            días en etapa
-                                                            {item.is_stale
-                                                                ? ' · estancada'
-                                                                : ''}
-                                                        </span>
-                                                        <ResponseSlaBadge
-                                                            opportunity={item}
-                                                        />
-                                                    </Link>
-                                                    <div className="mt-3 flex items-end justify-between gap-2 border-t pt-2">
-                                                        <div>
-                                                            <div className="text-sm font-semibold">
-                                                                {money(
-                                                                    Number(
-                                                                        item.estimated_value,
-                                                                    ),
-                                                                )}
-                                                            </div>
-                                                            <div className="text-xs text-muted-foreground">
-                                                                {
-                                                                    item.probability
-                                                                }
-                                                                % ·{' '}
-                                                                {date(
-                                                                    item.expected_close_on,
-                                                                )}
-                                                            </div>
-                                                        </div>
-                                                        <Button
-                                                            type="button"
-                                                            variant="ghost"
-                                                            size="icon"
-                                                            className="size-8"
-                                                            onClick={() =>
-                                                                openEditor(item)
-                                                            }
-                                                            aria-label={`Edit ${item.title}`}
-                                                        >
-                                                            <Pencil className="size-3.5" />
-                                                        </Button>
+                                        <Link href="/opportunities">
+                                            <X /> Limpiar
+                                        </Link>
+                                    </Button>
+                                )}
+                            </div>
+                        </Form>
+
+                        {hasActiveFilters && (
+                            <Form
+                                action="/crm/filters"
+                                method="post"
+                                className="flex flex-wrap items-end gap-2"
+                            >
+                                <input
+                                    type="hidden"
+                                    name="scope"
+                                    value="opportunities"
+                                />
+                                {Object.entries(filters).map(([key, value]) =>
+                                    value && key !== 'archived' ? (
+                                        <input
+                                            key={key}
+                                            type="hidden"
+                                            name={`filters[${key}]`}
+                                            value={value}
+                                        />
+                                    ) : null,
+                                )}
+                                <div className="grid gap-1">
+                                    <Label
+                                        htmlFor="opportunity_filter_name"
+                                        className="text-xs text-muted-foreground"
+                                    >
+                                        Guardar vista actual
+                                    </Label>
+                                    <Input
+                                        id="opportunity_filter_name"
+                                        name="name"
+                                        required
+                                        placeholder="Nombre de la vista"
+                                    />
+                                </div>
+                                <label className="flex h-9 items-center gap-2 rounded-md border px-3 text-xs">
+                                    <input
+                                        type="checkbox"
+                                        name="is_default"
+                                        value="1"
+                                    />{' '}
+                                    Predeterminada
+                                </label>
+                                <Button size="sm" variant="outline">
+                                    <Bookmark /> Guardar
+                                </Button>
+                            </Form>
+                        )}
+
+                        {filters.view === 'table' ? (
+                            <OpportunityTable
+                                opportunities={opportunities}
+                                sourceOptions={sourceOptions}
+                                commercialKindOptions={commercialKindOptions}
+                                onEdit={openEditor}
+                            />
+                        ) : (
+                            <section className="snap-x snap-proximity [scrollbar-gutter:stable] overflow-x-auto pb-3">
+                                <div className="grid min-w-[98rem] grid-cols-7 gap-3">
+                                    {stages.map((stage) => {
+                                        const items = opportunities.filter(
+                                            (item) =>
+                                                item.stage === stage.value,
+                                        );
+
+                                        return (
+                                            <div
+                                                key={stage.value}
+                                                className="min-w-0 border-t-2 pt-3"
+                                            >
+                                                <div className="mb-3 flex items-center justify-between px-1">
+                                                    <div className="text-sm font-semibold">
+                                                        {stage.label}
                                                     </div>
-                                                    <div
-                                                        className={`mt-2 rounded-md border px-2 py-1.5 text-xs ${
-                                                            item.next_activity &&
-                                                            isOverdue(
-                                                                item
-                                                                    .next_activity
-                                                                    .due_at,
-                                                            )
-                                                                ? 'border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200'
-                                                                : 'text-muted-foreground'
-                                                        }`}
-                                                    >
-                                                        {item.next_activity ? (
-                                                            <>
-                                                                <div className="flex items-center gap-1 font-medium">
-                                                                    <Clock3 className="size-3" />
-                                                                    Próxima
-                                                                    acción
-                                                                </div>
-                                                                <div className="mt-1 truncate">
+                                                    <Badge variant="secondary">
+                                                        {items.length}
+                                                    </Badge>
+                                                </div>
+                                                <div className="grid content-start gap-2">
+                                                    {items.map((item) => (
+                                                        <article
+                                                            key={item.id}
+                                                            className="rounded-md border bg-card p-3 shadow-xs"
+                                                        >
+                                                            <Link
+                                                                href={`/opportunities/${item.id}`}
+                                                                className="block w-full text-left"
+                                                            >
+                                                                <span className="text-xs text-muted-foreground">
+                                                                    {item.code}
+                                                                </span>
+                                                                <span className="mt-1 block text-sm leading-snug font-medium">
+                                                                    {item.title}
+                                                                </span>
+                                                                {item.customer && (
+                                                                    <span className="mt-1 block truncate text-xs text-muted-foreground">
+                                                                        {customerName(
+                                                                            item.customer,
+                                                                        )}
+                                                                    </span>
+                                                                )}
+                                                                {item.source && (
+                                                                    <span className="mt-2 block">
+                                                                        <Badge
+                                                                            variant="outline"
+                                                                            title={
+                                                                                item.source_detail ||
+                                                                                undefined
+                                                                            }
+                                                                        >
+                                                                            {sourceOptions[
+                                                                                item
+                                                                                    .source
+                                                                            ] ||
+                                                                                item.source}
+                                                                        </Badge>
+                                                                    </span>
+                                                                )}
+                                                                <span className="mt-2 block">
+                                                                    <Badge variant="secondary">
+                                                                        {commercialKindOptions[
+                                                                            item
+                                                                                .commercial_kind
+                                                                        ] ||
+                                                                            item.commercial_kind}
+                                                                    </Badge>
+                                                                </span>
+                                                                {item.renewal_due_on && (
+                                                                    <span className="mt-1 block text-xs text-muted-foreground">
+                                                                        Renovación:{' '}
+                                                                        {date(
+                                                                            item.renewal_due_on,
+                                                                        )}
+                                                                    </span>
+                                                                )}
+                                                                <span className="mt-2 block text-xs text-muted-foreground">
+                                                                    Scoring{' '}
                                                                     {
-                                                                        item
-                                                                            .next_activity
-                                                                            .title
+                                                                        item.commercial_score
+                                                                    }
+                                                                    /100
+                                                                </span>
+                                                                <span
+                                                                    className={`mt-1 block text-xs ${item.is_stale ? 'font-medium text-amber-700 dark:text-amber-300' : 'text-muted-foreground'}`}
+                                                                >
+                                                                    {
+                                                                        item.days_in_stage
                                                                     }{' '}
-                                                                    ·{' '}
-                                                                    {dateTime(
+                                                                    días en
+                                                                    etapa
+                                                                    {item.is_stale
+                                                                        ? ' · estancada'
+                                                                        : ''}
+                                                                </span>
+                                                                <ResponseSlaBadge
+                                                                    opportunity={
+                                                                        item
+                                                                    }
+                                                                />
+                                                            </Link>
+                                                            <div className="mt-3 flex items-end justify-between gap-2 border-t pt-2">
+                                                                <div>
+                                                                    <div className="text-sm font-semibold">
+                                                                        {money(
+                                                                            Number(
+                                                                                item.estimated_value,
+                                                                            ),
+                                                                        )}
+                                                                    </div>
+                                                                    <div className="text-xs text-muted-foreground">
+                                                                        {
+                                                                            item.probability
+                                                                        }
+                                                                        % ·{' '}
+                                                                        {date(
+                                                                            item.expected_close_on,
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                                <Button
+                                                                    type="button"
+                                                                    variant="ghost"
+                                                                    size="icon"
+                                                                    className="size-8"
+                                                                    onClick={() =>
+                                                                        openEditor(
+                                                                            item,
+                                                                        )
+                                                                    }
+                                                                    aria-label={`Edit ${item.title}`}
+                                                                >
+                                                                    <Pencil className="size-3.5" />
+                                                                </Button>
+                                                            </div>
+                                                            <div
+                                                                className={`mt-2 rounded-md border px-2 py-1.5 text-xs ${
+                                                                    item.next_activity &&
+                                                                    isOverdue(
                                                                         item
                                                                             .next_activity
                                                                             .due_at,
-                                                                    )}
-                                                                </div>
-                                                            </>
-                                                        ) : (
-                                                            <span>
-                                                                Sin próxima
-                                                                acción
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                    {!item.deleted_at &&
-                                                        ![
-                                                            'won',
-                                                            'lost',
-                                                        ].includes(
-                                                            item.stage,
-                                                        ) && (
-                                                            <OpportunityActivityDialog
-                                                                opportunity={
-                                                                    item
-                                                                }
-                                                                users={users}
-                                                            />
-                                                        )}
-                                                    {item.deleted_at ? (
-                                                        <Badge
-                                                            variant="secondary"
-                                                            className="mt-2"
-                                                        >
-                                                            Archivada
-                                                        </Badge>
-                                                    ) : (
-                                                        <select
-                                                            value={item.stage}
-                                                            disabled={
-                                                                item
-                                                                    .available_stages
-                                                                    .length <= 1
-                                                            }
-                                                            onChange={(event) =>
-                                                                changeStage(
-                                                                    item,
-                                                                    event.target
-                                                                        .value,
-                                                                )
-                                                            }
-                                                            aria-label={`Estado de ${item.title}`}
-                                                            className="mt-2 h-9 w-full rounded-md border border-input bg-background px-3 text-sm font-medium shadow-xs"
-                                                        >
-                                                            {stages
-                                                                .filter(
-                                                                    (option) =>
-                                                                        item.available_stages.includes(
-                                                                            option.value,
-                                                                        ),
-                                                                )
-                                                                .map(
-                                                                    (
-                                                                        option,
-                                                                    ) => (
-                                                                        <option
-                                                                            key={
-                                                                                option.value
-                                                                            }
-                                                                            value={
-                                                                                option.value
-                                                                            }
-                                                                        >
+                                                                    )
+                                                                        ? 'border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200'
+                                                                        : 'text-muted-foreground'
+                                                                }`}
+                                                            >
+                                                                {item.next_activity ? (
+                                                                    <>
+                                                                        <div className="flex items-center gap-1 font-medium">
+                                                                            <Clock3 className="size-3" />
+                                                                            Próxima
+                                                                            acción
+                                                                        </div>
+                                                                        <div className="mt-1 truncate">
                                                                             {
-                                                                                option.label
-                                                                            }
-                                                                        </option>
-                                                                    ),
+                                                                                item
+                                                                                    .next_activity
+                                                                                    .title
+                                                                            }{' '}
+                                                                            ·{' '}
+                                                                            {dateTime(
+                                                                                item
+                                                                                    .next_activity
+                                                                                    .due_at,
+                                                                            )}
+                                                                        </div>
+                                                                    </>
+                                                                ) : (
+                                                                    <span>
+                                                                        Sin
+                                                                        próxima
+                                                                        acción
+                                                                    </span>
                                                                 )}
-                                                        </select>
+                                                            </div>
+                                                            {!item.deleted_at &&
+                                                                ![
+                                                                    'won',
+                                                                    'lost',
+                                                                ].includes(
+                                                                    item.stage,
+                                                                ) && (
+                                                                    <OpportunityActivityDialog
+                                                                        opportunity={
+                                                                            item
+                                                                        }
+                                                                        users={
+                                                                            users
+                                                                        }
+                                                                    />
+                                                                )}
+                                                            {item.deleted_at ? (
+                                                                <Badge
+                                                                    variant="secondary"
+                                                                    className="mt-2"
+                                                                >
+                                                                    Archivada
+                                                                </Badge>
+                                                            ) : (
+                                                                <select
+                                                                    value={
+                                                                        item.stage
+                                                                    }
+                                                                    disabled={
+                                                                        item
+                                                                            .available_stages
+                                                                            .length <=
+                                                                        1
+                                                                    }
+                                                                    onChange={(
+                                                                        event,
+                                                                    ) =>
+                                                                        changeStage(
+                                                                            item,
+                                                                            event
+                                                                                .target
+                                                                                .value,
+                                                                        )
+                                                                    }
+                                                                    aria-label={`Estado de ${item.title}`}
+                                                                    className="mt-2 h-9 w-full rounded-md border border-input bg-background px-3 text-sm font-medium shadow-xs"
+                                                                >
+                                                                    {stages
+                                                                        .filter(
+                                                                            (
+                                                                                option,
+                                                                            ) =>
+                                                                                item.available_stages.includes(
+                                                                                    option.value,
+                                                                                ),
+                                                                        )
+                                                                        .map(
+                                                                            (
+                                                                                option,
+                                                                            ) => (
+                                                                                <option
+                                                                                    key={
+                                                                                        option.value
+                                                                                    }
+                                                                                    value={
+                                                                                        option.value
+                                                                                    }
+                                                                                >
+                                                                                    {
+                                                                                        option.label
+                                                                                    }
+                                                                                </option>
+                                                                            ),
+                                                                        )}
+                                                                </select>
+                                                            )}
+                                                        </article>
+                                                    ))}
+                                                    {items.length === 0 && (
+                                                        <div className="rounded-md border border-dashed p-4 text-center text-xs text-muted-foreground">
+                                                            No opportunities
+                                                        </div>
                                                     )}
-                                                </article>
-                                            ))}
-                                            {items.length === 0 && (
-                                                <div className="rounded-md border border-dashed p-4 text-center text-xs text-muted-foreground">
-                                                    No opportunities
                                                 </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </section>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </section>
+                        )}
+                    </>
                 )}
-                </>}
             </div>
 
             <Dialog open={open} onOpenChange={setOpen}>
@@ -1832,9 +1981,16 @@ export default function OpportunitiesIndex({
                                 </Field>
                             ) : null}
                             {editing ? (
-                                <p className="sm:col-span-2 text-xs text-muted-foreground">
-                                    El scoring y el histórico completo se consultan en el{' '}
-                                    <Link href={`/opportunities/${editing.id}`} className="font-medium text-foreground hover:underline">expediente de la oportunidad</Link>.
+                                <p className="text-xs text-muted-foreground sm:col-span-2">
+                                    El scoring y el histórico completo se
+                                    consultan en el{' '}
+                                    <Link
+                                        href={`/opportunities/${editing.id}`}
+                                        className="font-medium text-foreground hover:underline"
+                                    >
+                                        expediente de la oportunidad
+                                    </Link>
+                                    .
                                 </p>
                             ) : null}
                         </div>
@@ -1972,9 +2128,9 @@ function ResponsePerformanceSummary({
                     Rendimiento de primera respuesta
                 </h2>
                 <p className="text-sm text-muted-foreground">
-                    Comparativa por responsable sobre las oportunidades
-                    visibles con SLA aplicable. Datos en tiempo real según los
-                    filtros actuales.
+                    Comparativa por responsable sobre las oportunidades visibles
+                    con SLA aplicable. Datos en tiempo real según los filtros
+                    actuales.
                 </p>
             </div>
             <div className="overflow-x-auto">
@@ -2021,7 +2177,7 @@ function ResponsePerformanceSummary({
                                         </span>
                                     </div>
                                 </td>
-                                <td className="p-3 text-right tabular-nums text-emerald-700 dark:text-emerald-300">
+                                <td className="p-3 text-right text-emerald-700 tabular-nums dark:text-emerald-300">
                                     {row.met}
                                 </td>
                                 <td
@@ -2640,7 +2796,10 @@ function AttentionLink({
     return (
         <Button size="sm" variant={count > 0 ? 'outline' : 'ghost'} asChild>
             <Link href={opportunityFilterUrl({ ...filters, attention })}>
-                {label} <Badge variant={count > 0 ? 'secondary' : 'outline'}>{count}</Badge>
+                {label}{' '}
+                <Badge variant={count > 0 ? 'secondary' : 'outline'}>
+                    {count}
+                </Badge>
             </Link>
         </Button>
     );
@@ -2701,7 +2860,7 @@ function installationName(item: Installation) {
     );
 }
 function money(value: number) {
-    return new Intl.NumberFormat(undefined, {
+    return new Intl.NumberFormat(document.documentElement.lang, {
         style: 'currency',
         currency: 'EUR',
     }).format(value);
@@ -2720,13 +2879,13 @@ function formatMinutes(value: number) {
 }
 function date(value: string | null) {
     return value
-        ? new Intl.DateTimeFormat(undefined, { dateStyle: 'short' }).format(
-              new Date(`${value}T00:00:00`),
-          )
+        ? new Intl.DateTimeFormat(document.documentElement.lang, {
+              dateStyle: 'short',
+          }).format(new Date(`${value}T00:00:00`))
         : 'No date';
 }
 function dateTime(value: string) {
-    return new Intl.DateTimeFormat(undefined, {
+    return new Intl.DateTimeFormat(document.documentElement.lang, {
         dateStyle: 'short',
         timeStyle: 'short',
     }).format(new Date(value));
