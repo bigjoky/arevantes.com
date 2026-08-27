@@ -399,15 +399,41 @@ resto recibe estado operativo sin campos económicos. Arevia distingue fuentes
 previstas y objetivos aprobados, pero mantiene compras, agenda y comunicaciones
 externas bajo confirmación humana.
 
+## Corte ejecutado — Facturación recurrente y comunicación gobernada
+
+El cuarto vertical del Horizonte 2 enlaza cada compromiso contractual aprobado
+con un único expediente de facturación. La preparación es idempotente, conserva
+importe neto, impuesto, vencimiento, nota y autor, y genera exclusivamente una
+factura en borrador. Su contenido contractual no puede alterarse desde la
+edición general; la emisión fiscal continúa siendo una acción humana separada.
+
+La factura, sus cobros y el abono corrector permanecen vinculados al ciclo y a
+la versión exacta del plan. El estado recurrente acompaña borrador, emisión,
+vencimiento, cobro parcial o completo y abono. Analítica utiliza el ingreso neto
+en proporción a los cobros registrados, con las previsiones históricas
+liquidadas únicamente como compatibilidad para ciclos anteriores.
+
+Cada ciclo puede preparar un aviso de mantenimiento y otro de facturación sin
+duplicados. El canal procede de la preferencia vigente del cliente; la
+confirmación se bloquea cuando existe oposición al contacto, falta el dato de
+destino o están desactivados los avisos de mantenimiento. Borrador,
+confirmación y entrega conservan autores, fechas y evidencia operativa.
+
+El portal recibe solo comunicaciones confirmadas o entregadas y nunca muestra
+borradores, simulaciones ni importes internos. Los perfiles sin autorización
+comercial no reciben el contenido de los avisos, y los perfiles sin permiso
+financiero no reciben el expediente recurrente ni sus importes.
+
 ## Próximo corte recomendado
 
-Completar la **facturación recurrente y comunicación proactiva gobernada**. Debe
-enlazar factura, abono y cobro con el ciclo contractual exacto, generar el
-borrador de facturación sin duplicados y exigir confirmación antes de emitirlo.
-El portal debe mostrar únicamente revisiones y fechas confirmadas, respetar la
-preferencia de canal y conservar el histórico de cada comunicación. La app
-móvil recibirá el compromiso aprobado cuando se materialice en una orden, no la
-simulación ni los datos económicos internos.
+Materializar el **compromiso aprobado en una orden de trabajo idempotente**.
+Debe resolver la plantilla y versión técnica congeladas, reservar la capacidad
+ya aprobada, enlazar el ciclo con ticket y orden sin duplicados y publicar la
+fecha al cliente solo después de confirmar la planificación. La app móvil
+recibirá entonces la orden, checklist, evidencias y materiales necesarios, pero
+nunca la simulación de capacidad ni los importes económicos internos. El mismo
+corte debe registrar cambios posteriores de fecha y propagar su revisión al
+aviso confirmado sin ocultar el histórico anterior.
 
 ## Corrección transversal — idioma temporal de la plataforma
 

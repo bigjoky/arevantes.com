@@ -150,6 +150,11 @@ class Person extends Model
         return $this->hasMany(CustomerConsent::class)->latest('captured_at');
     }
 
+    public function serviceCycleCommunications(): HasMany
+    {
+        return $this->hasMany(ServiceCycleCommunication::class)->orderByDesc('scheduled_for');
+    }
+
     /**
      * Get the attributes that should be cast.
      *

@@ -227,6 +227,10 @@ Route::middleware(['auth'])->group(function () {
     Route::post('after-sales/plans/{plan}/materials', [MaintenancePlanMaterialController::class, 'store'])->middleware('can:manage-installations')->name('after-sales.plans.materials.store');
     Route::delete('after-sales/plans/{plan}/materials/{material}', [MaintenancePlanMaterialController::class, 'destroy'])->middleware('can:manage-installations')->name('after-sales.plans.materials.destroy');
     Route::post('after-sales/plans/{plan}/commitments', [ServiceCycleCommitmentController::class, 'store'])->middleware('can:manage-installations')->name('after-sales.plans.commitments.store');
+    Route::post('after-sales/commitments/{commitment}/billing', [ServiceCycleCommitmentController::class, 'prepareBilling'])->middleware('can:manage-treasury')->name('after-sales.commitments.billing.store');
+    Route::post('after-sales/commitments/{commitment}/communications', [ServiceCycleCommitmentController::class, 'prepareCommunication'])->middleware('can:manage-customers')->name('after-sales.commitments.communications.store');
+    Route::post('after-sales/commitments/{commitment}/communications/{communication}/confirm', [ServiceCycleCommitmentController::class, 'confirmCommunication'])->middleware('can:manage-customers')->name('after-sales.commitments.communications.confirm');
+    Route::post('after-sales/commitments/{commitment}/communications/{communication}/sent', [ServiceCycleCommitmentController::class, 'markCommunicationSent'])->middleware('can:manage-customers')->name('after-sales.commitments.communications.sent');
     Route::patch('after-sales/warranties/{serial}', [AfterSalesController::class, 'updateWarranty'])->middleware('can:manage-installations')->name('after-sales.warranties.update');
     Route::post('after-sales/sla-policies', [AfterSalesController::class, 'storeSlaPolicy'])->middleware('can:manage-installations')->name('after-sales.sla-policies.store');
     Route::patch('work-orders/bulk-reschedule', [WorkOrderController::class, 'bulkReschedule'])->middleware('can:manage-installations')->name('work-orders.bulk-reschedule');

@@ -35,7 +35,12 @@ class AfterSalesController extends Controller
             'installation:id,project_reference,site_name', 'assignedUser:id,name', 'template:id,name,kind',
             'coveredAssets:id,installation_id,asset_tag,name,category', 'preventiveMaterials.product:id,sku,name,supply_criticality',
             'versions' => fn ($query) => $query->select(['id', 'maintenance_plan_id', 'version', 'change_note', 'created_by', 'created_at']),
-            'versions.creator:id,name', 'cycleCommitments.approver:id,name', 'renewalOpportunity:id,code,title,stage',
+            'versions.creator:id,name', 'cycleCommitments.approver:id,name',
+            'cycleCommitments.billing.invoice:id,number,status,amount,paid_amount,due_date',
+            'cycleCommitments.billing.preparer:id,name',
+            'cycleCommitments.communications.confirmer:id,name',
+            'cycleCommitments.communications.sender:id,name',
+            'renewalOpportunity:id,code,title,stage',
         ])
             ->when($request->user()->hasRole('technician'), fn ($query) => $query->where(fn ($scope) => $scope->where('assigned_user_id', $request->user()->id)->orWhereNull('assigned_user_id')))
             ->orderBy('next_due_on')->get();
@@ -43,7 +48,13 @@ class AfterSalesController extends Controller
             $plans->each(function (MaintenancePlan $plan): void {
                 $plan->makeHidden(['billing_frequency_months', 'billing_amount', 'next_billing_on']);
                 $plan->cycleCommitments->each->makeHidden(['planned_revenue', 'planned_labor_cost', 'planned_material_cost', 'planned_travel_cost']);
+                $plan->cycleCommitments->each(fn ($commitment) => $commitment->unsetRelation('billing'));
             });
+        }
+        if (! $request->user()->can('manage-customers')) {
+            $plans->each(fn (MaintenancePlan $plan) => $plan->cycleCommitments->each(
+                fn ($commitment) => $commitment->unsetRelation('communications'),
+            ));
         }
 
         return Inertia::render('after-sales/index', [
@@ -75,6 +86,7 @@ class AfterSalesController extends Controller
             'serviceCapacity' => $capacity->forecast(today(), 6, $request->user()),
             'serviceEconomics' => $economics->build($request->user()->can('view-finance')),
             'canViewFinancials' => $request->user()->can('view-finance'),
+            'canManageBilling' => $request->user()->can('manage-treasury'),
         ]);
     }
 

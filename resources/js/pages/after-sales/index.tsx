@@ -137,6 +137,36 @@ type ServiceCycleCommitment = {
     planned_travel_cost?: string;
     approved_at: string;
     approver: User | null;
+    billing: {
+        id: number;
+        status: string;
+        net_amount: string;
+        gross_amount: string;
+        due_on: string;
+        preparer: User | null;
+        invoice: {
+            id: number;
+            number: string;
+            status: string;
+            amount: string;
+            paid_amount: string;
+            due_date: string;
+        } | null;
+    } | null;
+    communications: {
+        id: number;
+        type: string;
+        channel: string;
+        status: string;
+        subject: string;
+        message: string;
+        scheduled_for: string;
+        confirmed_at: string | null;
+        sent_at: string | null;
+        delivery_note: string | null;
+        confirmer: User | null;
+        sender: User | null;
+    }[];
 };
 type Warranty = {
     id: number;
@@ -214,6 +244,7 @@ export default function AfterSalesIndex({
     serviceCapacity,
     serviceEconomics,
     canViewFinancials,
+    canManageBilling,
 }: {
     tickets: Ticket[];
     plans: Plan[];
@@ -239,6 +270,7 @@ export default function AfterSalesIndex({
     serviceCapacity: ServiceCapacity;
     serviceEconomics: ServiceEconomics;
     canViewFinancials: boolean;
+    canManageBilling: boolean;
 }) {
     const [tab, setTab] = useState<Tab>('tickets');
 
@@ -611,6 +643,12 @@ export default function AfterSalesIndex({
                                                         />
                                                         <ServiceCommitmentDialog
                                                             plan={plan}
+                                                            canManageBilling={
+                                                                canManageBilling
+                                                            }
+                                                            canManageCustomers={
+                                                                canManageCustomers
+                                                            }
                                                         />
                                                         <Form
                                                             action={`/after-sales/plans/${plan.id}`}
@@ -1456,7 +1494,15 @@ function ServiceCapacityPanel({ capacity }: { capacity: ServiceCapacity }) {
     );
 }
 
-function ServiceCommitmentDialog({ plan }: { plan: Plan }) {
+function ServiceCommitmentDialog({
+    plan,
+    canManageBilling,
+    canManageCustomers,
+}: {
+    plan: Plan;
+    canManageBilling: boolean;
+    canManageCustomers: boolean;
+}) {
     const currentCommitment = plan.cycle_commitments.find(
         (commitment) =>
             commitment.status === 'approved' &&
@@ -1467,10 +1513,29 @@ function ServiceCommitmentDialog({ plan }: { plan: Plan }) {
 
     if (currentCommitment) {
         return (
-            <Badge variant="secondary">
-                Capacity approved · v
-                {currentCommitment.maintenance_plan_version}
-            </Badge>
+            <div className="flex flex-wrap items-center gap-1">
+                <Badge variant="secondary">
+                    Capacity approved · v
+                    {currentCommitment.maintenance_plan_version}
+                </Badge>
+                {canManageBilling && currentCommitment.billing?.invoice ? (
+                    <Button size="sm" variant="outline" asChild>
+                        <Link
+                            href={`/sales/${currentCommitment.billing.invoice.id}`}
+                        >
+                            {currentCommitment.billing.invoice.number}
+                        </Link>
+                    </Button>
+                ) : canManageBilling ? (
+                    <RecurringBillingDialog commitment={currentCommitment} />
+                ) : null}
+                {canManageCustomers ? (
+                    <ServiceCommunicationDialog
+                        commitment={currentCommitment}
+                        plan={plan}
+                    />
+                ) : null}
+            </div>
         );
     }
 
@@ -1519,6 +1584,173 @@ function ServiceCommitmentDialog({ plan }: { plan: Plan }) {
                     </div>
                     <Button>Approve capacity and economics</Button>
                 </Form>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+function RecurringBillingDialog({
+    commitment,
+}: {
+    commitment: ServiceCycleCommitment;
+}) {
+    return (
+        <Dialog>
+            <DialogTrigger asChild>
+                <Button size="sm" variant="outline">
+                    <CircleDollarSign /> Prepare invoice
+                </Button>
+            </DialogTrigger>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Prepare recurring invoice</DialogTitle>
+                </DialogHeader>
+                <p className="text-sm text-muted-foreground">
+                    Creates one draft for this exact contract version and cycle.
+                    A finance user must still review and issue it.
+                </p>
+                <Form
+                    action={`/after-sales/commitments/${commitment.id}/billing`}
+                    method="post"
+                    className="grid gap-4"
+                >
+                    <Field
+                        label="VAT (%)"
+                        name="tax_percent"
+                        type="number"
+                        step="0.01"
+                        value="21"
+                    />
+                    <Field
+                        label="Payment term (days)"
+                        name="due_days"
+                        type="number"
+                        value="30"
+                    />
+                    <div className="grid gap-2">
+                        <Label>Generation note</Label>
+                        <textarea
+                            name="generation_note"
+                            required
+                            minLength={5}
+                            className="min-h-24 rounded-md border bg-transparent p-3 text-sm"
+                            defaultValue="Approved recurring cycle reviewed before invoice preparation."
+                        />
+                    </div>
+                    <Button>Prepare draft for review</Button>
+                </Form>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+function ServiceCommunicationDialog({
+    commitment,
+    plan,
+}: {
+    commitment: ServiceCycleCommitment;
+    plan: Plan;
+}) {
+    return (
+        <Dialog>
+            <DialogTrigger asChild>
+                <Button size="sm" variant="outline">
+                    <CalendarClock /> Customer notice
+                </Button>
+            </DialogTrigger>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Governed customer notice</DialogTitle>
+                </DialogHeader>
+                <p className="text-sm text-muted-foreground">
+                    The channel is taken from the customer preference. Drafts
+                    remain internal until an authorised user confirms them.
+                </p>
+                <Form
+                    action={`/after-sales/commitments/${commitment.id}/communications`}
+                    method="post"
+                    className="grid gap-4"
+                >
+                    <div className="grid gap-2">
+                        <Label>Notice type</Label>
+                        <select
+                            name="type"
+                            className="h-9 rounded-md border bg-background px-3 text-sm"
+                            defaultValue="maintenance_notice"
+                        >
+                            <option value="maintenance_notice">
+                                Maintenance visit
+                            </option>
+                            <option value="billing_notice">
+                                Billing notice
+                            </option>
+                        </select>
+                    </div>
+                    <Field
+                        label="Confirmed date and time"
+                        name="scheduled_for"
+                        type="datetime-local"
+                        value={`${commitment.period_starts_on.slice(0, 10)}T09:00`}
+                    />
+                    <Field
+                        label="Subject"
+                        name="subject"
+                        value={`Upcoming service · ${plan.name}`}
+                    />
+                    <div className="grid gap-2">
+                        <Label>Message</Label>
+                        <textarea
+                            name="message"
+                            required
+                            minLength={5}
+                            className="min-h-24 rounded-md border bg-transparent p-3 text-sm"
+                            defaultValue={`We have prepared the next service cycle for ${plan.name}. The date shown will only become visible after confirmation.`}
+                        />
+                    </div>
+                    <Button>Prepare internal draft</Button>
+                </Form>
+                {commitment.communications.length > 0 ? (
+                    <div className="grid gap-2 border-t pt-4">
+                        {commitment.communications.map((communication) => (
+                            <div
+                                key={communication.id}
+                                className="flex items-center justify-between gap-3 text-sm"
+                            >
+                                <span>
+                                    {communication.subject} ·{' '}
+                                    {communication.channel} ·{' '}
+                                    {dateTime(communication.scheduled_for)}
+                                </span>
+                                {communication.status === 'draft' ? (
+                                    <Form
+                                        action={`/after-sales/commitments/${commitment.id}/communications/${communication.id}/confirm`}
+                                        method="post"
+                                    >
+                                        <Button size="sm">Confirm</Button>
+                                    </Form>
+                                ) : communication.status === 'confirmed' ? (
+                                    <Form
+                                        action={`/after-sales/commitments/${commitment.id}/communications/${communication.id}/sent`}
+                                        method="post"
+                                        className="flex items-center gap-2"
+                                    >
+                                        <Input
+                                            name="delivery_note"
+                                            required
+                                            minLength={5}
+                                            aria-label="Delivery note"
+                                            placeholder="Delivery evidence"
+                                            className="h-8 w-40"
+                                        />
+                                        <Button size="sm">Mark sent</Button>
+                                    </Form>
+                                ) : (
+                                    <Badge variant="secondary">Sent</Badge>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                ) : null}
             </DialogContent>
         </Dialog>
     );

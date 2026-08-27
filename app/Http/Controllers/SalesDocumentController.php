@@ -76,12 +76,12 @@ class SalesDocumentController extends Controller
 
     public function show(SalesDocument $salesDocument, SalesDocumentConversion $conversion): Response
     {
-        return Inertia::render('sales/show', ['document' => $salesDocument->load(['customer', 'installation', 'quote:id,number', 'sourceDocument:id,number,type', 'lines.product:id,name,track_stock,track_serials', 'accountingEntry:id,source_type,source_id,number,status', 'payments.accountingEntry:id,source_type,source_id,number,status', 'deliveries:id,sales_document_id,recipient_email,status,sent_at,first_viewed_at,responded_at,revoked_at']), 'conversion' => $conversion->summary($salesDocument), 'warehouses' => Warehouse::where('is_active', true)->orderByDesc('is_default')->orderBy('name')->get(['id', 'code', 'name'])]);
+        return Inertia::render('sales/show', ['document' => $salesDocument->load(['customer', 'installation', 'quote:id,number', 'sourceDocument:id,number,type', 'lines.product:id,name,track_stock,track_serials', 'accountingEntry:id,source_type,source_id,number,status', 'payments.accountingEntry:id,source_type,source_id,number,status', 'deliveries:id,sales_document_id,recipient_email,status,sent_at,first_viewed_at,responded_at,revoked_at', 'recurringServiceBilling.serviceCycleCommitment.maintenancePlan:id,name']), 'conversion' => $conversion->summary($salesDocument), 'warehouses' => Warehouse::where('is_active', true)->orderByDesc('is_default')->orderBy('name')->get(['id', 'code', 'name'])]);
     }
 
     public function edit(SalesDocument $salesDocument): Response
     {
-        abort_unless($salesDocument->status === 'draft' && ! $salesDocument->locked_at && ! $salesDocument->quote_id && ! $salesDocument->source_document_id && in_array($salesDocument->type, ['order', 'delivery_note', 'invoice'], true), 422, __('Only direct draft documents can be edited.'));
+        abort_unless($salesDocument->status === 'draft' && ! $salesDocument->locked_at && ! $salesDocument->quote_id && ! $salesDocument->source_document_id && ! $salesDocument->recurringServiceBilling()->exists() && in_array($salesDocument->type, ['order', 'delivery_note', 'invoice'], true), 422, __('Only direct draft documents can be edited.'));
 
         return Inertia::render('sales/form', [
             ...$this->formData(),
@@ -99,7 +99,7 @@ class SalesDocumentController extends Controller
 
     public function update(Request $request, SalesDocument $salesDocument, QuoteCalculator $calculator): RedirectResponse
     {
-        abort_unless($salesDocument->status === 'draft' && ! $salesDocument->locked_at && ! $salesDocument->quote_id && ! $salesDocument->source_document_id && in_array($salesDocument->type, ['order', 'delivery_note', 'invoice'], true), 422, __('Only direct draft documents can be edited.'));
+        abort_unless($salesDocument->status === 'draft' && ! $salesDocument->locked_at && ! $salesDocument->quote_id && ! $salesDocument->source_document_id && ! $salesDocument->recurringServiceBilling()->exists() && in_array($salesDocument->type, ['order', 'delivery_note', 'invoice'], true), 422, __('Only direct draft documents can be edited.'));
         $data = $this->validateDirectDocument($request);
         abort_unless($data['type'] === $salesDocument->type, 422, __('The document type cannot be changed after creation.'));
         DB::transaction(fn () => $this->persistDirectDocument($salesDocument, $data, $request, $calculator));
@@ -184,11 +184,19 @@ class SalesDocumentController extends Controller
     public function issue(Request $request, SalesDocument $salesDocument, AccountingSynchronizer $accounting): RedirectResponse
     {
         abort_unless(in_array($salesDocument->type, ['invoice', 'credit_note'], true) && $salesDocument->status === 'draft', 422, __('Only draft invoices can be issued.'));
+        $isRecurring = $salesDocument->recurringServiceBilling()->exists()
+            || $salesDocument->sourceDocument?->recurringServiceBilling()->exists();
+        abort_if($isRecurring && ! $request->user()->can('manage-treasury'), 403);
         $data = $request->validate(['issue_date' => ['required', 'date'], 'due_date' => ['nullable', 'date', 'after_or_equal:issue_date']]);
         DB::transaction(function () use ($request, $salesDocument, $data, $accounting) {
             $issued = app(DocumentNumber::class)->next($salesDocument->type, $data['issue_date']);
             $salesDocument->update([...$data, 'document_series_id' => $issued['series']->id, 'number' => $issued['number'], 'status' => 'issued', 'issued_at' => now(), 'locked_at' => now()]);
             $accounting->syncSalesDocument($salesDocument->refresh(), $request->user()->id);
+            if ($salesDocument->type === 'invoice') {
+                $salesDocument->recurringServiceBilling?->update(['status' => 'issued', 'issued_by' => $request->user()->id, 'issued_at' => now()]);
+            } elseif ($salesDocument->type === 'credit_note') {
+                $salesDocument->sourceDocument?->recurringServiceBilling?->update(['status' => 'credited']);
+            }
         });
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Invoice issued and locked.')]);
@@ -314,6 +322,7 @@ class SalesDocumentController extends Controller
         $paid = round((float) $document->payments()->sum('amount'), 2);
         $status = $paid >= (float) $document->amount ? 'paid' : ($paid > 0 ? 'partial' : ($document->due_date?->isPast() ? 'overdue' : 'issued'));
         $document->update(['paid_amount' => $paid, 'status' => $status]);
+        $document->recurringServiceBilling?->update(['status' => $status]);
     }
 
     private function formData(): array

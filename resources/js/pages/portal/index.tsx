@@ -126,6 +126,17 @@ type Preferences = {
     email_tickets: boolean;
     email_maintenance: boolean;
 };
+type ServiceCommunication = {
+    id: number;
+    type: string;
+    channel: string;
+    subject: string;
+    message: string;
+    scheduled_for: string;
+    confirmed_at: string | null;
+    sent_at: string | null;
+    plan: string | null;
+};
 type Tab = 'overview' | 'documents' | 'support' | 'activity' | 'preferences';
 export default function Portal({
     company,
@@ -136,6 +147,7 @@ export default function Portal({
     documents,
     tickets,
     maintenance,
+    serviceCommunications,
     certificates,
     timeline,
     preferences,
@@ -160,6 +172,7 @@ export default function Portal({
     documents: Document[];
     tickets: Ticket[];
     maintenance: Maintenance[];
+    serviceCommunications: ServiceCommunication[];
     certificates: Certificate[];
     timeline: TimelineEvent[];
     preferences: Preferences;
@@ -392,6 +405,65 @@ export default function Portal({
                                     )}
                                 </div>
                             </section>
+                            {serviceCommunications.length > 0 ? (
+                                <section className="border-t pt-5">
+                                    <h2 className="font-semibold">
+                                        Comunicaciones confirmadas
+                                    </h2>
+                                    <p className="mt-1 text-sm text-muted-foreground">
+                                        Solo mostramos avisos revisados y fechas
+                                        confirmadas por nuestro equipo.
+                                    </p>
+                                    <div className="mt-3 divide-y border-y">
+                                        {serviceCommunications.map(
+                                            (communication) => (
+                                                <article
+                                                    key={communication.id}
+                                                    className="grid gap-2 py-4 text-sm sm:grid-cols-[1fr_auto]"
+                                                >
+                                                    <div>
+                                                        <div className="flex flex-wrap items-center gap-2">
+                                                            <span className="font-medium">
+                                                                {
+                                                                    communication.subject
+                                                                }
+                                                            </span>
+                                                            <Badge variant="outline">
+                                                                {
+                                                                    communication.channel
+                                                                }
+                                                            </Badge>
+                                                        </div>
+                                                        <p className="mt-1 text-muted-foreground">
+                                                            {
+                                                                communication.message
+                                                            }
+                                                        </p>
+                                                        {communication.plan ? (
+                                                            <p className="mt-1 text-xs text-muted-foreground">
+                                                                Plan:{' '}
+                                                                {
+                                                                    communication.plan
+                                                                }
+                                                            </p>
+                                                        ) : null}
+                                                    </div>
+                                                    <div className="font-medium sm:text-right">
+                                                        {dateTime(
+                                                            communication.scheduled_for,
+                                                        )}
+                                                        <div className="text-xs font-normal text-muted-foreground">
+                                                            {communication.sent_at
+                                                                ? `Entregada ${dateTime(communication.sent_at)}`
+                                                                : 'Confirmada'}
+                                                        </div>
+                                                    </div>
+                                                </article>
+                                            ),
+                                        )}
+                                    </div>
+                                </section>
+                            ) : null}
                             {!has_sale_survey &&
                                 installations.some(
                                     (item) => item.status === 'completed',
