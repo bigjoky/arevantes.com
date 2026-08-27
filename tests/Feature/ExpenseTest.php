@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\DocumentSeries;
 use App\Models\Expense;
 use App\Models\ExpenseCategory;
 use App\Models\PermissionProfile;
@@ -47,6 +48,8 @@ class ExpenseTest extends TestCase
         $this->assertSame('partial', $expense->refresh()->status);
         $this->assertSame('50.00', $expense->paid_amount);
         $this->assertSame('AST-2026-000002', $expense->payments()->firstOrFail()->accountingEntry()->firstOrFail()->number);
+        $this->assertSame(2, DocumentSeries::where('document_type', 'expense')->firstOrFail()->next_number);
+        $this->assertSame(3, DocumentSeries::where('document_type', 'journal_entry')->firstOrFail()->next_number);
         $this->actingAs($user)->delete(route('expenses.destroy', $expense))->assertUnprocessable();
     }
 

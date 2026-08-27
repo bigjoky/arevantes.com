@@ -11,13 +11,14 @@ use App\Models\SalesDocument;
 use App\Models\SalesDocumentPayment;
 use App\Models\SupplierPayment;
 use App\Models\TaxRate;
+use App\Services\Documents\DocumentNumber;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class AccountingSynchronizer
 {
-    public function __construct(private AccountingPeriodManager $periods) {}
+    public function __construct(private AccountingPeriodManager $periods, private DocumentNumber $numbers) {}
 
     private array $accounts = [];
 
@@ -191,7 +192,7 @@ class AccountingSynchronizer
 
     private function number(string $date): string
     {
-        return 'AST-'.substr($date, 0, 4).'-'.str_pad((string) (JournalEntry::whereYear('entry_date', substr($date, 0, 4))->lockForUpdate()->count() + 1), 6, '0', STR_PAD_LEFT);
+        return $this->numbers->next('journal_entry', $date, 6)['number'];
     }
 
     private function taxAccount(?float $rate, string $direction): string

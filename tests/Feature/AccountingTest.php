@@ -472,7 +472,9 @@ class AccountingTest extends TestCase
         $admin = User::factory()->create(['role' => 'admin']);
         $year = FiscalYear::where('year', now()->year)->firstOrFail();
         $invoice = SalesDocument::create(['type' => 'invoice', 'number' => 'FAC-CLOSE-1', 'status' => 'issued', 'issue_date' => $year->ends_on, 'subtotal' => 100, 'discount_amount' => 0, 'tax_amount' => 0, 'amount' => 100, 'paid_amount' => 0, 'customer_snapshot' => []]);
-        FiscalYear::create(['year' => $year->year + 1, 'starts_on' => $year->ends_on->copy()->addDay(), 'ends_on' => $year->ends_on->copy()->addYear(), 'status' => 'open']);
+        $this->actingAs($admin)->post(route('fiscal-settings.years.store'), ['year' => $year->year + 1])
+            ->assertRedirect()
+            ->assertSessionHasNoErrors();
         $this->travelTo($year->ends_on->copy()->addDays(10));
 
         $this->actingAs($admin)->post(route('accounting.years.close', $year), ['confirmation' => (string) $year->year])

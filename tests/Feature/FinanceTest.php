@@ -918,6 +918,7 @@ class FinanceTest extends TestCase
         $this->assertDatabaseHas('collection_actions', ['sales_document_id' => $sale->id, 'status' => 'promised']);
         $this->assertDatabaseHas('collection_action_events', ['collection_action_id' => $sale->collectionAction->id, 'event_type' => 'promise', 'status_to' => 'promised', 'created_by' => $commercial->id]);
         $batch = PaymentBatch::firstOrFail();
+        $this->assertSame('PAY-'.now()->year.'-00001', $batch->number);
         $this->assertSame('121.00', $batch->items()->firstOrFail()->amount);
         $this->get(route('finance.index'))->assertOk()->assertInertia(fn (Assert $page) => $page
             ->where('payables.0.payment_batch.number', $batch->number)

@@ -10,7 +10,7 @@ use Illuminate\Validation\ValidationException;
 
 class DocumentNumber
 {
-    public function next(string $type, CarbonInterface|string $date): array
+    public function next(string $type, CarbonInterface|string $date, int $padding = 5): array
     {
         $date = $date instanceof CarbonInterface ? $date : Carbon::parse($date);
         $year = FiscalYear::whereDate('starts_on', '<=', $date)->whereDate('ends_on', '>=', $date)->lockForUpdate()->first();
@@ -24,7 +24,7 @@ class DocumentNumber
         if (! $series) {
             throw ValidationException::withMessages(['issue_date' => __('No active document series exists for this fiscal year.')]);
         }
-        $number = $series->prefix.'-'.$year->year.'-'.str_pad((string) $series->next_number, 5, '0', STR_PAD_LEFT);
+        $number = $series->prefix.'-'.$year->year.'-'.str_pad((string) $series->next_number, $padding, '0', STR_PAD_LEFT);
         $series->update(['next_number' => $series->next_number + 1, 'last_issued_at' => now()]);
 
         return ['series' => $series, 'number' => $number, 'fiscalYear' => $year];

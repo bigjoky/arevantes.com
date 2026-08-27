@@ -28,7 +28,7 @@ class CatalogTest extends TestCase
             ->component('catalog/index')
             ->has('units', 5)
             ->has('taxRates', 4)
-            ->has('documentSeries', 11));
+            ->has('documentSeries', 14));
     }
 
     public function test_a_product_can_be_created_and_updated(): void
