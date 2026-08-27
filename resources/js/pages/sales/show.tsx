@@ -70,6 +70,17 @@ type Document = {
         revoked_at: string | null;
     }[];
     accounting_entry: { number: string; status: string } | null;
+    recurring_service_billing: {
+        id: number;
+        status: string;
+        service_cycle_commitment: {
+            id: number;
+            maintenance_plan_version: number;
+            period_starts_on: string;
+            period_ends_on: string;
+            maintenance_plan: { id: number; name: string };
+        };
+    } | null;
 };
 
 type Conversion = {
@@ -149,6 +160,16 @@ export default function SalesShow({
                                     Billing {document.billing_status}
                                 </Badge>
                             )}
+                            {document.recurring_service_billing ? (
+                                <Badge variant="secondary">
+                                    Recurring cycle · v
+                                    {
+                                        document.recurring_service_billing
+                                            .service_cycle_commitment
+                                            .maintenance_plan_version
+                                    }
+                                </Badge>
+                            ) : null}
                         </div>
                         <p className="text-sm text-muted-foreground capitalize">
                             {document.type.replaceAll('_', ' ')} · {customer}
@@ -179,6 +200,7 @@ export default function SalesShow({
                         {document.status === 'draft' &&
                             !document.quote &&
                             !document.source_document &&
+                            !document.recurring_service_billing &&
                             !document.locked_at && (
                                 <Button variant="outline" asChild>
                                     <Link href={`/sales/${document.id}/edit`}>
@@ -205,6 +227,9 @@ export default function SalesShow({
                         value={
                             document.quote?.number ||
                             document.source_document?.number ||
+                            document.recurring_service_billing
+                                ?.service_cycle_commitment.maintenance_plan
+                                .name ||
                             '—'
                         }
                     />

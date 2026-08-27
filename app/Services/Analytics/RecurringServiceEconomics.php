@@ -14,7 +14,7 @@ class RecurringServiceEconomics
     public function build(bool $includeFinancials): array
     {
         $commitments = ServiceCycleCommitment::query()
-            ->with(['maintenancePlan.installation:id,project_reference,site_name,service_type', 'approver:id,name'])
+            ->with(['maintenancePlan.installation:id,project_reference,site_name,service_type', 'approver:id,name', 'billing.invoice.payments'])
             ->latest('period_starts_on')->limit(100)->get();
         if (! $includeFinancials) {
             return ['summary' => null, 'cycles' => [], 'definition' => __('Economic cycle data requires financial permission.')];
@@ -39,7 +39,15 @@ class RecurringServiceEconomics
             $cycleForecasts = $forecasts->where('maintenance_plan_id', $commitment->maintenance_plan_id)
                 ->where('maintenance_plan_version', $commitment->maintenance_plan_version)
                 ->filter(fn (FinancialForecastItem $item) => $item->due_on->betweenIncluded($commitment->period_starts_on, $commitment->period_ends_on));
-            $settledRevenue = (float) $cycleForecasts->where('status', 'settled')->sum(fn ($item) => (float) ($item->actual_amount ?? $item->amount));
+            $invoicedRevenue = $commitment->billing?->invoice && $commitment->billing->invoice->status !== 'draft' && $commitment->billing->status !== 'credited'
+                ? (float) $commitment->billing->net_amount
+                : 0;
+            $paidRatio = $commitment->billing?->invoice && $commitment->billing->status !== 'credited' && (float) $commitment->billing->invoice->amount > 0
+                ? min(1, (float) $commitment->billing->invoice->payments->sum('amount') / (float) $commitment->billing->invoice->amount)
+                : 0;
+            $settledRevenue = $commitment->billing?->invoice
+                ? $invoicedRevenue * $paidRatio
+                : (float) $cycleForecasts->where('status', 'settled')->sum(fn ($item) => (float) ($item->actual_amount ?? $item->amount));
             $plannedCost = (float) $commitment->planned_labor_cost + (float) $commitment->planned_material_cost + (float) $commitment->planned_travel_cost;
 
             return [
@@ -56,6 +64,9 @@ class RecurringServiceEconomics
                 'planned_cost' => round($plannedCost, 2),
                 'planned_margin' => round((float) $commitment->planned_revenue - $plannedCost, 2),
                 'settled_revenue' => round($settledRevenue, 2),
+                'billing_status' => $commitment->billing?->status,
+                'invoice_id' => $commitment->billing?->sales_document_id,
+                'invoice_number' => $commitment->billing?->invoice?->number,
                 'actual_cost' => round($actualCost, 2),
                 'actual_margin' => round($settledRevenue - $actualCost, 2),
                 'tickets' => $cycleTickets->count(),
@@ -67,7 +78,7 @@ class RecurringServiceEconomics
         return [
             'summary' => $this->summary($cycles),
             'cycles' => $cycles->values()->all(),
-            'definition' => __('Planned margin uses the approved contractual cycle snapshot. Actual margin uses settled recurring forecast revenue minus recorded labour, travel and issued materials for tickets on the same plan version and period.'),
+            'definition' => __('Planned margin uses the approved contractual cycle snapshot. Actual margin uses net recurring invoice revenue in proportion to registered collections, with legacy settled forecasts as fallback, minus recorded labour, travel and issued materials for the same plan version and period.'),
         ];
     }
 

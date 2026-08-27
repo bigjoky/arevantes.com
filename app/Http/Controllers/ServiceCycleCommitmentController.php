@@ -2,10 +2,16 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\CustomerPortalEvent;
 use App\Models\MaintenancePlan;
+use App\Models\ServiceCycleCommitment;
+use App\Models\ServiceCycleCommunication;
+use App\Services\AfterSales\RecurringServiceBillingWorkflow;
 use App\Services\AfterSales\ServiceCycleCommitmentWorkflow;
+use App\Services\AfterSales\ServiceCycleCommunicationWorkflow;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class ServiceCycleCommitmentController extends Controller
 {
@@ -19,5 +25,61 @@ class ServiceCycleCommitmentController extends Controller
         $workflow->approve($plan, (int) $data['plan_version'], (float) $data['planned_travel_km'], $data['approval_note'], $request->user());
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Service capacity and cycle economics approved. No work order or customer commitment was created.')]);
+    }
+
+    public function prepareBilling(Request $request, ServiceCycleCommitment $commitment, RecurringServiceBillingWorkflow $workflow): RedirectResponse
+    {
+        $data = $request->validate([
+            'tax_percent' => ['required', 'numeric', 'between:0,100'],
+            'due_days' => ['required', 'integer', 'between:0,365'],
+            'generation_note' => ['required', 'string', 'min:5', 'max:2000'],
+        ]);
+        $result = $workflow->prepare($commitment, (float) $data['tax_percent'], (int) $data['due_days'], $data['generation_note'], $request->user());
+
+        return to_route('sales-documents.show', $result['document'])->with('toast', [
+            'type' => $result['created'] ? 'success' : 'info',
+            'message' => $result['created'] ? __('Recurring invoice draft prepared for financial review.') : __('The recurring invoice draft already exists.'),
+        ]);
+    }
+
+    public function prepareCommunication(Request $request, ServiceCycleCommitment $commitment, ServiceCycleCommunicationWorkflow $workflow): RedirectResponse
+    {
+        $data = $request->validate([
+            'type' => ['required', Rule::in(['maintenance_notice', 'billing_notice'])],
+            'subject' => ['required', 'string', 'max:255'],
+            'message' => ['required', 'string', 'min:5', 'max:5000'],
+            'scheduled_for' => ['required', 'date', 'after_or_equal:today'],
+        ]);
+        $communication = $workflow->prepare($commitment, $data['type'], $data['subject'], $data['message'], $data['scheduled_for'], $request->user());
+
+        return back()->with('toast', [
+            'type' => $communication->wasRecentlyCreated ? 'success' : 'info',
+            'message' => $communication->wasRecentlyCreated ? __('Customer communication prepared for confirmation.') : __('This cycle communication already exists.'),
+        ]);
+    }
+
+    public function confirmCommunication(Request $request, ServiceCycleCommitment $commitment, ServiceCycleCommunication $communication, ServiceCycleCommunicationWorkflow $workflow): RedirectResponse
+    {
+        abort_unless($communication->service_cycle_commitment_id === $commitment->id, 404);
+        $alreadyConfirmed = in_array($communication->status, ['confirmed', 'sent'], true);
+        $communication = $workflow->confirm($communication, $request->user());
+        if (! $alreadyConfirmed) {
+            CustomerPortalEvent::record($communication->customer, 'service_communication_confirmed', null, $request, $communication, ['subject' => $communication->subject, 'channel' => $communication->channel, 'scheduled_for' => $communication->scheduled_for->toIso8601String()]);
+        }
+
+        return back()->with('toast', ['type' => 'success', 'message' => __('Customer communication confirmed and visible in the portal.')]);
+    }
+
+    public function markCommunicationSent(Request $request, ServiceCycleCommitment $commitment, ServiceCycleCommunication $communication, ServiceCycleCommunicationWorkflow $workflow): RedirectResponse
+    {
+        abort_unless($communication->service_cycle_commitment_id === $commitment->id, 404);
+        $data = $request->validate(['delivery_note' => ['required', 'string', 'min:5', 'max:2000']]);
+        $alreadySent = $communication->status === 'sent';
+        $communication = $workflow->markSent($communication, $data['delivery_note'], $request->user());
+        if (! $alreadySent) {
+            CustomerPortalEvent::record($communication->customer, 'service_communication_sent', null, $request, $communication, ['subject' => $communication->subject, 'channel' => $communication->channel]);
+        }
+
+        return back()->with('toast', ['type' => 'success', 'message' => __('Customer communication delivery recorded.')]);
     }
 }

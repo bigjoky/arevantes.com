@@ -14,6 +14,7 @@ use App\Models\MaintenancePlan;
 use App\Models\Person;
 use App\Models\Quote;
 use App\Models\SalesDocument;
+use App\Models\ServiceCycleCommunication;
 use App\Models\ServiceTicket;
 use App\Models\WorkOrderAttachment;
 use App\Services\AfterSales\ServiceTicketFactory;
@@ -98,6 +99,24 @@ class CustomerPortalController extends Controller
             }),
             'tickets' => ServiceTicket::whereIn('installation_id', $installationIds)->latest()->get(['id', 'installation_id', 'number', 'kind', 'priority', 'status', 'title', 'description', 'resolution', 'created_at', 'updated_at', 'resolved_at']),
             'maintenance' => MaintenancePlan::with('coveredAssets:id,installation_id,asset_tag,name,category')->whereIn('installation_id', $installationIds)->where('is_active', true)->orderBy('next_due_on')->get(['id', 'installation_id', 'name', 'version', 'service_level', 'coverage_type', 'included_visits', 'response_minutes', 'resolution_minutes', 'contract_ends_on', 'next_due_on', 'last_completed_on', 'scope']),
+            'serviceCommunications' => ServiceCycleCommunication::query()
+                ->where('person_id', $customer->id)
+                ->whereIn('status', ['confirmed', 'sent'])
+                ->with('serviceCycleCommitment.maintenancePlan:id,name')
+                ->orderByDesc('scheduled_for')
+                ->limit(30)
+                ->get()
+                ->map(fn (ServiceCycleCommunication $communication) => [
+                    'id' => $communication->id,
+                    'type' => $communication->type,
+                    'channel' => $communication->channel,
+                    'subject' => $communication->subject,
+                    'message' => $communication->message,
+                    'scheduled_for' => $communication->scheduled_for->toIso8601String(),
+                    'confirmed_at' => $communication->confirmed_at?->toIso8601String(),
+                    'sent_at' => $communication->sent_at?->toIso8601String(),
+                    'plan' => $communication->serviceCycleCommitment?->maintenancePlan?->name,
+                ]),
             'certificates' => WorkOrderAttachment::query()->where('kind', 'document')->where('publication_status', 'published')->where('customer_visible', true)->whereNotNull('published_at')->where('published_at', '<=', now())->whereHas('workOrder.installation', fn ($query) => $query->where('person_id', $customer->id))->with(['workOrder:id,installation_id,number,handover_documents', 'workOrder.installation:id,service_type,status,project_reference,site_name,completed_date'])->latest('published_at')->get()->map(function ($item) {
                 $definition = collect($item->workOrder->handover_documents ?? [])->firstWhere('key', $item->evidence_key);
 
@@ -266,6 +285,8 @@ class CustomerPortalController extends Controller
             'document_revoked' => __('Shared document :number revoked', ['number' => $metadata['number'] ?? '']),
             'preferences_updated' => __('Notification preferences updated'),
             'survey_submitted' => __('Satisfaction survey submitted (:score/5)', ['score' => $metadata['score'] ?? '']),
+            'service_communication_confirmed' => __('Service communication confirmed: :subject', ['subject' => $metadata['subject'] ?? '']),
+            'service_communication_sent' => __('Service communication delivered: :subject', ['subject' => $metadata['subject'] ?? '']),
             default => Str::headline($type),
         };
     }

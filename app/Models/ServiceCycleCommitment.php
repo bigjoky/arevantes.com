@@ -4,6 +4,8 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class ServiceCycleCommitment extends Model
 {
@@ -27,5 +29,15 @@ class ServiceCycleCommitment extends Model
     public function approver(): BelongsTo
     {
         return $this->belongsTo(User::class, 'approved_by');
+    }
+
+    public function billing(): HasOne
+    {
+        return $this->hasOne(RecurringServiceBilling::class);
+    }
+
+    public function communications(): HasMany
+    {
+        return $this->hasMany(ServiceCycleCommunication::class)->orderByDesc('scheduled_for');
     }
 }

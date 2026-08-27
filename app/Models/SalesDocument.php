@@ -76,4 +76,9 @@ class SalesDocument extends Model
     {
         return $this->hasOne(CollectionAction::class);
     }
+
+    public function recurringServiceBilling(): HasOne
+    {
+        return $this->hasOne(RecurringServiceBilling::class);
+    }
 }

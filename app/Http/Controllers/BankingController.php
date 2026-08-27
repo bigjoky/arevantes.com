@@ -776,7 +776,9 @@ class BankingController extends Controller
             $payment = $document->payments()->create(['created_by' => $userId, 'origin_bank_transaction_id' => $transaction->id, 'paid_at' => $transaction->booked_on, 'amount' => $amount, 'method' => 'bank_transfer', 'reference' => $transaction->reference, 'notes' => __('Created from bank reconciliation.')]);
             $accounting->syncCustomerPayment($payment, $userId);
             $paid = (float) $document->payments()->sum('amount');
-            $document->update(['paid_amount' => $paid, 'status' => $paid >= (float) $document->amount ? 'paid' : 'partial']);
+            $status = $paid >= (float) $document->amount ? 'paid' : 'partial';
+            $document->update(['paid_amount' => $paid, 'status' => $status]);
+            $document->recurringServiceBilling?->update(['status' => $status]);
 
             return ['customer', $payment->id];
         }
@@ -820,6 +822,7 @@ class BankingController extends Controller
             $paid = (float) $customerDocument->payments()->sum('amount');
             $status = $paid >= (float) $customerDocument->amount ? 'paid' : ($paid > 0 ? 'partial' : ($customerDocument->due_date?->isPast() ? 'overdue' : 'issued'));
             $customerDocument->update(['paid_amount' => $paid, 'status' => $status]);
+            $customerDocument->recurringServiceBilling?->update(['status' => $status]);
 
             return;
         }
