@@ -128,7 +128,7 @@ class WorkOrderController extends Controller
     {
         $this->ensureAccess($request, $workOrder);
         $data = $request->validate(['status' => ['required', Rule::in(['planned', 'in_progress', 'blocked', 'completed', 'cancelled'])], 'completion_notes' => ['nullable', 'string']]);
-        $states->transition($workOrder, $data['status'], $data['completion_notes'] ?? null);
+        $states->transition($workOrder, $data['status'], $data['completion_notes'] ?? null, actorId: $request->user()->id);
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Work order updated.')]);
     }

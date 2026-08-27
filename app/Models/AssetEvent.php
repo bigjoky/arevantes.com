@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class AssetEvent extends Model
 {
-    protected $fillable = ['installation_asset_id', 'work_order_id', 'service_ticket_id', 'recorded_by', 'type', 'summary', 'details', 'occurred_at'];
+    protected $fillable = ['installation_asset_id', 'work_order_id', 'service_ticket_id', 'service_cycle_commitment_id', 'recorded_by', 'type', 'summary', 'details', 'occurred_at'];
 
     protected function casts(): array
     {
