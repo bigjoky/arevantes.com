@@ -38,7 +38,7 @@ class WorkOrderController extends Controller
             ? CarbonImmutable::parse($validated['updated_after'])->setTimezone(config('app.timezone'))
             : null;
         $query = $this->accessible($request)
-            ->with(['installation:id,project_reference,service_type,site_name,site_address_line_1,site_city,site_postal_code,site_latitude,site_longitude', 'assignedUser:id,name', 'checklistItems', 'attachments:id,work_order_id,evidence_key', 'activities:id,work_order_id,blocked_reason,priority', 'serviceTicket.serviceCycleCommitment:id,service_ticket_id,maintenance_plan_version,period_starts_on,period_ends_on,schedule_status,schedule_confirmed_at', 'serviceTicket.maintenancePlan.coveredAssets:id,installation_id,asset_tag,name,category'])
+            ->with(['installation:id,project_reference,service_type,site_name,site_address_line_1,site_city,site_postal_code,site_latitude,site_longitude', 'assignedUser:id,name', 'checklistItems', 'attachments:id,work_order_id,evidence_key', 'activities:id,work_order_id,blocked_reason,priority', 'serviceTicket.serviceCycleCommitment:id,service_ticket_id,maintenance_plan_version,period_starts_on,period_ends_on,status,schedule_status,schedule_confirmed_at,completion_snapshot,completed_at', 'serviceTicket.maintenancePlan.coveredAssets:id,installation_id,asset_tag,name,category'])
             ->when($updatedAfter, fn (Builder $query, CarbonImmutable $date) => $query->where('updated_at', '>', $date))
             ->when($validated['status'] ?? null, fn (Builder $query, string $status) => $query->where('status', $status));
         $perPage = $validated['per_page'] ?? 30;
@@ -88,7 +88,7 @@ class WorkOrderController extends Controller
     public function show(Request $request, WorkOrder $workOrder, WorkOrderPlanningReadiness $readiness): JsonResponse
     {
         $this->ensureAccess($request, $workOrder);
-        $workOrder->load(['installation', 'assignedUser:id,name', 'timeEntries.user:id,name', 'checklistItems', 'attachments', 'stockReservations.product:id,sku,name,track_serials', 'stockReservations.warehouse:id,code,name', 'activities:id,work_order_id,blocked_reason,priority', 'serviceTicket.serviceCycleCommitment:id,service_ticket_id,maintenance_plan_version,period_starts_on,period_ends_on,schedule_status,schedule_confirmed_at', 'serviceTicket.maintenancePlan.coveredAssets:id,installation_id,asset_tag,name,category']);
+        $workOrder->load(['installation', 'assignedUser:id,name', 'timeEntries.user:id,name', 'checklistItems', 'attachments', 'stockReservations.product:id,sku,name,track_serials', 'stockReservations.warehouse:id,code,name', 'activities:id,work_order_id,blocked_reason,priority', 'serviceTicket.serviceCycleCommitment:id,service_ticket_id,maintenance_plan_version,period_starts_on,period_ends_on,status,schedule_status,schedule_confirmed_at,completion_snapshot,completed_at', 'serviceTicket.maintenancePlan.coveredAssets:id,installation_id,asset_tag,name,category']);
 
         return response()->json(['data' => [...$this->summary($workOrder),
             'instructions' => $workOrder->instructions,
@@ -143,7 +143,7 @@ class WorkOrderController extends Controller
             'completion_notes' => ['required', 'string', 'max:5000'],
             'expected_updated_at' => ['nullable', 'date'],
         ]);
-        $updated = $states->transition($workOrder, 'completed', $data['completion_notes'], expectedUpdatedAt: $data['expected_updated_at'] ?? null);
+        $updated = $states->transition($workOrder, 'completed', $data['completion_notes'], expectedUpdatedAt: $data['expected_updated_at'] ?? null, actorId: $request->user()->id);
         $updated->load(['installation', 'assignedUser:id,name', 'checklistItems']);
 
         return response()->json(['data' => [
@@ -377,6 +377,17 @@ class WorkOrderController extends Controller
             'period_ends_on' => $commitment->period_ends_on->toDateString(),
             'schedule_status' => $commitment->schedule_status,
             'schedule_confirmed_at' => $commitment->schedule_confirmed_at?->toISOString(),
+            'status' => $commitment->status,
+            'completed_at' => $commitment->completed_at?->toISOString(),
+            'completion' => $commitment->completion_snapshot ? [
+                'checklist_completed' => $commitment->completion_snapshot['checklist']['completed'] ?? 0,
+                'evidence_total' => $commitment->completion_snapshot['evidence']['total'] ?? 0,
+                'consumed_quantity' => $commitment->completion_snapshot['materials']['consumed_quantity'] ?? 0,
+                'minutes' => $commitment->completion_snapshot['time']['minutes'] ?? 0,
+                'travel_km' => $commitment->completion_snapshot['time']['travel_km'] ?? 0,
+                'assets_serviced' => $commitment->completion_snapshot['assets']['serviced'] ?? 0,
+                'next_due_on' => $commitment->completion_snapshot['continuity']['next_due_on_after'] ?? null,
+            ] : null,
         ];
     }
 

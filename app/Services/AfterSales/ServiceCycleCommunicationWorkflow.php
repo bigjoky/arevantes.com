@@ -15,8 +15,8 @@ class ServiceCycleCommunicationWorkflow
     {
         return DB::transaction(function () use ($commitment, $type, $subject, $message, $scheduledFor, $actor): ServiceCycleCommunication {
             $locked = ServiceCycleCommitment::query()->with('maintenancePlan.installation.customer')->lockForUpdate()->findOrFail($commitment->id);
-            if ($locked->status !== 'approved') {
-                throw ValidationException::withMessages(['communication' => __('Only approved service cycles can prepare customer communications.')]);
+            if (! in_array($locked->status, ['approved', 'completed'], true)) {
+                throw ValidationException::withMessages(['communication' => __('Only approved or completed service cycles can prepare customer communications.')]);
             }
             $customer = $locked->maintenancePlan->installation?->customer;
             if (! $customer) {

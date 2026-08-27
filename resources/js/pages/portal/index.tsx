@@ -149,6 +149,18 @@ type ServiceSchedule = {
     superseded_at: string | null;
     plan: string | null;
 };
+type ServiceCompletion = {
+    id: number;
+    plan: string | null;
+    work_order: string | null;
+    completed_at: string;
+    next_due_on: string | null;
+    checklist_completed: number;
+    evidence_total: number;
+    consumed_quantity: number;
+    minutes: number;
+    assets_serviced: number;
+};
 type Tab = 'overview' | 'documents' | 'support' | 'activity' | 'preferences';
 export default function Portal({
     company,
@@ -161,6 +173,7 @@ export default function Portal({
     maintenance,
     serviceCommunications,
     serviceSchedules,
+    serviceCompletions,
     certificates,
     timeline,
     preferences,
@@ -187,6 +200,7 @@ export default function Portal({
     maintenance: Maintenance[];
     serviceCommunications: ServiceCommunication[];
     serviceSchedules: ServiceSchedule[];
+    serviceCompletions: ServiceCompletion[];
     certificates: Certificate[];
     timeline: TimelineEvent[];
     preferences: Preferences;
@@ -419,6 +433,65 @@ export default function Portal({
                                     )}
                                 </div>
                             </section>
+                            {serviceCompletions.length > 0 ? (
+                                <section className="border-t pt-5">
+                                    <h2 className="font-semibold">
+                                        Servicios realizados
+                                    </h2>
+                                    <p className="mt-1 text-sm text-muted-foreground">
+                                        Resumen operativo cerrado; los
+                                        documentos técnicos solo aparecen tras
+                                        su revisión y publicación.
+                                    </p>
+                                    <div className="mt-3 divide-y border-y">
+                                        {serviceCompletions.map(
+                                            (completion) => (
+                                                <article
+                                                    key={completion.id}
+                                                    className="grid gap-3 py-4 text-sm sm:grid-cols-[1fr_auto]"
+                                                >
+                                                    <div>
+                                                        <div className="font-medium">
+                                                            {completion.plan ??
+                                                                'Servicio recurrente'}
+                                                        </div>
+                                                        <div className="mt-1 text-xs text-muted-foreground">
+                                                            {
+                                                                completion.work_order
+                                                            }{' '}
+                                                            ·{' '}
+                                                            {
+                                                                completion.checklist_completed
+                                                            }{' '}
+                                                            tareas ·{' '}
+                                                            {
+                                                                completion.evidence_total
+                                                            }{' '}
+                                                            evidencias ·{' '}
+                                                            {
+                                                                completion.assets_serviced
+                                                            }{' '}
+                                                            activos
+                                                        </div>
+                                                    </div>
+                                                    <div className="sm:text-right">
+                                                        <div className="font-medium">
+                                                            {dateTime(
+                                                                completion.completed_at,
+                                                            )}
+                                                        </div>
+                                                        <div className="text-xs text-muted-foreground">
+                                                            {completion.next_due_on
+                                                                ? `Próxima revisión ${date(completion.next_due_on)}`
+                                                                : `${completion.minutes} min registrados`}
+                                                        </div>
+                                                    </div>
+                                                </article>
+                                            ),
+                                        )}
+                                    </div>
+                                </section>
+                            ) : null}
                             {serviceSchedules.length > 0 ? (
                                 <section className="border-t pt-5">
                                     <h2 className="font-semibold">

@@ -36,6 +36,7 @@ class AfterSalesController extends Controller
             'coveredAssets:id,installation_id,asset_tag,name,category', 'preventiveMaterials.product:id,sku,name,supply_criticality',
             'versions' => fn ($query) => $query->select(['id', 'maintenance_plan_id', 'version', 'change_note', 'created_by', 'created_at']),
             'versions.creator:id,name', 'cycleCommitments.approver:id,name',
+            'cycleCommitments.completer:id,name',
             'cycleCommitments.billing.invoice:id,number,status,amount,paid_amount,due_date',
             'cycleCommitments.billing.preparer:id,name',
             'cycleCommitments.communications.confirmer:id,name',
@@ -47,6 +48,21 @@ class AfterSalesController extends Controller
         ])
             ->when($request->user()->hasRole('technician'), fn ($query) => $query->where(fn ($scope) => $scope->where('assigned_user_id', $request->user()->id)->orWhereNull('assigned_user_id')))
             ->orderBy('next_due_on')->get();
+        $plans->each(fn (MaintenancePlan $plan) => $plan->cycleCommitments->each(function ($commitment): void {
+            $snapshot = $commitment->completion_snapshot;
+            $commitment->setAttribute('completion_summary', $snapshot ? [
+                'completed_at' => $commitment->completed_at?->toIso8601String(),
+                'checklist_completed' => $snapshot['checklist']['completed'] ?? 0,
+                'checklist_required' => $snapshot['checklist']['required'] ?? 0,
+                'evidence_total' => $snapshot['evidence']['total'] ?? 0,
+                'pending_documents' => $snapshot['evidence']['pending_documents'] ?? 0,
+                'consumed_quantity' => $snapshot['materials']['consumed_quantity'] ?? 0,
+                'minutes' => $snapshot['time']['minutes'] ?? 0,
+                'travel_km' => $snapshot['time']['travel_km'] ?? 0,
+                'assets_serviced' => $snapshot['assets']['serviced'] ?? 0,
+                'next_due_on' => $snapshot['continuity']['next_due_on_after'] ?? null,
+            ] : null);
+        }));
         if (! $request->user()->can('view-finance')) {
             $plans->each(function (MaintenancePlan $plan): void {
                 $plan->makeHidden(['billing_frequency_months', 'billing_amount', 'next_billing_on']);
@@ -115,16 +131,22 @@ class AfterSalesController extends Controller
         }
         abort_if(in_array($data['status'], ['resolved', 'closed'], true) && blank($data['resolution']), 422, __('Resolution is required.'));
         DB::transaction(function () use ($ticket, $data): void {
-            $locked = ServiceTicket::query()->with('maintenancePlan')->lockForUpdate()->findOrFail($ticket->id);
+            if ($ticket->maintenance_plan_id) {
+                MaintenancePlan::query()->lockForUpdate()->findOrFail($ticket->maintenance_plan_id);
+            }
+            $locked = ServiceTicket::query()->with(['maintenancePlan', 'serviceCycleCommitment'])->lockForUpdate()->findOrFail($ticket->id);
             $wasResolved = in_array($locked->status, ['resolved', 'closed'], true);
             $isResolved = in_array($data['status'], ['resolved', 'closed'], true);
+            if ($isResolved && ! $wasResolved && $locked->serviceCycleCommitment && ! $locked->serviceCycleCommitment->completed_at) {
+                throw ValidationException::withMessages(['status' => __('Complete the governed work order to close this recurring service ticket.')]);
+            }
             $locked->update([
                 ...$data,
                 'first_responded_at' => $locked->first_responded_at ?: (in_array($data['status'], ['assigned', 'in_progress', 'resolved', 'closed'], true) ? now() : null),
                 'reopened_count' => $wasResolved && ! $isResolved ? $locked->reopened_count + 1 : $locked->reopened_count,
                 'resolved_at' => $isResolved ? ($locked->resolved_at ?: now()) : null,
             ]);
-            if ($locked->maintenancePlan && ! $wasResolved && $isResolved) {
+            if ($locked->maintenancePlan && ! $locked->serviceCycleCommitment && ! $wasResolved && $isResolved) {
                 $nextDue = $locked->maintenancePlan->next_due_on->copy();
                 do {
                     $nextDue = $nextDue->addMonthsNoOverflow($locked->maintenancePlan->interval_months);

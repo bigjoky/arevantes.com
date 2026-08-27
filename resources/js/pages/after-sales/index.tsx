@@ -139,7 +139,21 @@ type ServiceCycleCommitment = {
     schedule_status: string;
     materialized_at: string | null;
     schedule_confirmed_at: string | null;
+    completed_at: string | null;
     approver: User | null;
+    completer: User | null;
+    completion_summary: {
+        completed_at: string;
+        checklist_completed: number;
+        checklist_required: number;
+        evidence_total: number;
+        pending_documents: number;
+        consumed_quantity: number;
+        minutes: number;
+        travel_km: number;
+        assets_serviced: number;
+        next_due_on: string | null;
+    } | null;
     service_ticket: { id: number; number: string; status: string } | null;
     work_order: {
         id: number;
@@ -1529,6 +1543,15 @@ function ServiceCommitmentDialog({
             commitment.period_starts_on.slice(0, 10) ===
                 plan.next_due_on.slice(0, 10),
     );
+    const completedCommitment =
+        plan.cycle_commitments.reduce<ServiceCycleCommitment | null>(
+            (latest, commitment) =>
+                commitment.status === 'completed' &&
+                (!latest || commitment.id > latest.id)
+                    ? commitment
+                    : latest,
+            null,
+        );
 
     if (currentCommitment) {
         return (
@@ -1585,52 +1608,85 @@ function ServiceCommitmentDialog({
     }
 
     return (
-        <Dialog>
-            <DialogTrigger asChild>
-                <Button size="sm" variant="outline">
-                    <ShieldCheck /> Approve cycle
-                </Button>
-            </DialogTrigger>
-            <DialogContent>
-                <DialogHeader>
-                    <DialogTitle>Approve service cycle</DialogTitle>
-                </DialogHeader>
-                <p className="text-sm text-muted-foreground">
-                    This freezes capacity and planned economics for {plan.name}{' '}
-                    v{plan.version}. Approval does not create a work order,
-                    reserve stock or communicate a date to the customer.
-                </p>
-                <Form
-                    action={`/after-sales/plans/${plan.id}/commitments`}
-                    method="post"
-                    className="grid gap-4"
-                >
-                    <input
-                        type="hidden"
-                        name="plan_version"
-                        value={plan.version}
-                    />
-                    <Field
-                        label="Planned travel (km)"
-                        name="planned_travel_km"
-                        type="number"
-                        step="0.01"
-                        value="0"
-                    />
-                    <div className="grid gap-2">
-                        <Label>Approval note</Label>
-                        <textarea
-                            name="approval_note"
-                            required
-                            minLength={5}
-                            className="min-h-24 rounded-md border bg-transparent p-3 text-sm"
-                            placeholder="Capacity, responsible technician and assumptions reviewed."
+        <div className="flex flex-wrap items-center gap-1">
+            {completedCommitment?.completion_summary ? (
+                <Badge variant="outline">
+                    Last service ·{' '}
+                    {dateTime(
+                        completedCommitment.completion_summary.completed_at,
+                    )}{' '}
+                    · {completedCommitment.completion_summary.minutes} min ·{' '}
+                    {completedCommitment.completion_summary.assets_serviced}{' '}
+                    assets
+                </Badge>
+            ) : null}
+            {completedCommitment && canManageBilling ? (
+                completedCommitment.billing?.invoice ? (
+                    <Button size="sm" variant="outline" asChild>
+                        <Link
+                            href={`/sales/${completedCommitment.billing.invoice.id}`}
+                        >
+                            {completedCommitment.billing.invoice.number}
+                        </Link>
+                    </Button>
+                ) : (
+                    <RecurringBillingDialog commitment={completedCommitment} />
+                )
+            ) : null}
+            {completedCommitment && canManageCustomers ? (
+                <ServiceCommunicationDialog
+                    commitment={completedCommitment}
+                    plan={plan}
+                />
+            ) : null}
+            <Dialog>
+                <DialogTrigger asChild>
+                    <Button size="sm" variant="outline">
+                        <ShieldCheck /> Approve cycle
+                    </Button>
+                </DialogTrigger>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Approve service cycle</DialogTitle>
+                    </DialogHeader>
+                    <p className="text-sm text-muted-foreground">
+                        This freezes capacity and planned economics for{' '}
+                        {plan.name} v{plan.version}. Approval does not create a
+                        work order, reserve stock or communicate a date to the
+                        customer.
+                    </p>
+                    <Form
+                        action={`/after-sales/plans/${plan.id}/commitments`}
+                        method="post"
+                        className="grid gap-4"
+                    >
+                        <input
+                            type="hidden"
+                            name="plan_version"
+                            value={plan.version}
                         />
-                    </div>
-                    <Button>Approve capacity and economics</Button>
-                </Form>
-            </DialogContent>
-        </Dialog>
+                        <Field
+                            label="Planned travel (km)"
+                            name="planned_travel_km"
+                            type="number"
+                            step="0.01"
+                            value="0"
+                        />
+                        <div className="grid gap-2">
+                            <Label>Approval note</Label>
+                            <textarea
+                                name="approval_note"
+                                required
+                                minLength={5}
+                                className="min-h-24 rounded-md border bg-transparent p-3 text-sm"
+                                placeholder="Capacity, responsible technician and assumptions reviewed."
+                            />
+                        </div>
+                        <Button>Approve capacity and economics</Button>
+                    </Form>
+                </DialogContent>
+            </Dialog>
+        </div>
     );
 }
 

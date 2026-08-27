@@ -14,6 +14,7 @@ use App\Models\MaintenancePlan;
 use App\Models\Person;
 use App\Models\Quote;
 use App\Models\SalesDocument;
+use App\Models\ServiceCycleCommitment;
 use App\Models\ServiceCycleCommunication;
 use App\Models\ServiceCycleScheduleRevision;
 use App\Models\ServiceTicket;
@@ -137,6 +138,29 @@ class CustomerPortalController extends Controller
                     'superseded_at' => $revision->superseded_at?->toIso8601String(),
                     'plan' => $revision->commitment?->maintenancePlan?->name,
                 ]),
+            'serviceCompletions' => ServiceCycleCommitment::query()
+                ->where('status', 'completed')
+                ->whereHas('maintenancePlan.installation', fn ($query) => $query->where('person_id', $customer->id))
+                ->with(['maintenancePlan:id,name', 'workOrder:id,number'])
+                ->latest('completed_at')
+                ->limit(30)
+                ->get()
+                ->map(function (ServiceCycleCommitment $commitment): array {
+                    $snapshot = $commitment->completion_snapshot ?? [];
+
+                    return [
+                        'id' => $commitment->id,
+                        'plan' => $commitment->maintenancePlan?->name,
+                        'work_order' => $commitment->workOrder?->number,
+                        'completed_at' => $commitment->completed_at?->toIso8601String(),
+                        'next_due_on' => $snapshot['continuity']['next_due_on_after'] ?? null,
+                        'checklist_completed' => $snapshot['checklist']['completed'] ?? 0,
+                        'evidence_total' => $snapshot['evidence']['total'] ?? 0,
+                        'consumed_quantity' => $snapshot['materials']['consumed_quantity'] ?? 0,
+                        'minutes' => $snapshot['time']['minutes'] ?? 0,
+                        'assets_serviced' => $snapshot['assets']['serviced'] ?? 0,
+                    ];
+                }),
             'certificates' => WorkOrderAttachment::query()->where('kind', 'document')->where('publication_status', 'published')->where('customer_visible', true)->whereNotNull('published_at')->where('published_at', '<=', now())->whereHas('workOrder.installation', fn ($query) => $query->where('person_id', $customer->id))->with(['workOrder:id,installation_id,number,handover_documents', 'workOrder.installation:id,service_type,status,project_reference,site_name,completed_date'])->latest('published_at')->get()->map(function ($item) {
                 $definition = collect($item->workOrder->handover_documents ?? [])->firstWhere('key', $item->evidence_key);
 
@@ -307,6 +331,7 @@ class CustomerPortalController extends Controller
             'survey_submitted' => __('Satisfaction survey submitted (:score/5)', ['score' => $metadata['score'] ?? '']),
             'service_communication_confirmed' => __('Service communication confirmed: :subject', ['subject' => $metadata['subject'] ?? '']),
             'service_communication_sent' => __('Service communication delivered: :subject', ['subject' => $metadata['subject'] ?? '']),
+            'service_cycle_completed' => __('Service completed: :plan', ['plan' => $metadata['plan'] ?? '']),
             default => Str::headline($type),
         };
     }
