@@ -45,6 +45,7 @@ use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\KnowledgeDocumentController;
 use App\Http\Controllers\KnowledgeSourceController;
 use App\Http\Controllers\LegalController;
+use App\Http\Controllers\LocaleController;
 use App\Http\Controllers\MaintenancePlanMaterialController;
 use App\Http\Controllers\MyHumanResourcesController;
 use App\Http\Controllers\OperationsController;
@@ -114,6 +115,7 @@ Route::middleware(ProtectCustomerPortalLinks::class)->group(function (): void {
 });
 
 Route::middleware(['auth'])->group(function () {
+    Route::patch('locale', [LocaleController::class, 'update'])->name('locale.update');
     Route::get('dashboard', DashboardController::class)->name('dashboard');
     Route::resource('website/projects', PortfolioProjectAdminController::class)
         ->only(['index', 'store', 'update', 'destroy'])
