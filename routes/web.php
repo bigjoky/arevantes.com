@@ -90,6 +90,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', HomeController::class)->name('home');
+Route::patch('locale', [LocaleController::class, 'update'])->name('locale.update');
 Route::get('proyectos', [PublicProjectController::class, 'index'])->name('projects.index');
 Route::get('proyectos/{project}', [PublicProjectController::class, 'show'])->name('projects.show');
 Route::get('proyectos/imagenes/{portfolioProjectImage}', PortfolioProjectImageController::class)->name('project-images.show');
@@ -115,7 +116,6 @@ Route::middleware(ProtectCustomerPortalLinks::class)->group(function (): void {
 });
 
 Route::middleware(['auth'])->group(function () {
-    Route::patch('locale', [LocaleController::class, 'update'])->name('locale.update');
     Route::get('dashboard', DashboardController::class)->name('dashboard');
     Route::resource('website/projects', PortfolioProjectAdminController::class)
         ->only(['index', 'store', 'update', 'destroy'])

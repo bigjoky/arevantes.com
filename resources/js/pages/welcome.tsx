@@ -15,6 +15,7 @@ import {
     Zap,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { LanguageSelector } from '@/components/language-selector';
 import { ProjectCard } from '@/components/public/project-card';
 import { dashboard, login } from '@/routes';
 import type { PublicProjectSummary } from '@/types/public-project';
@@ -97,10 +98,6 @@ const businessLines = [
     },
 ];
 
-const siteDescription =
-    'Arevantes diseña, instala y mantiene soluciones de energía, instalaciones eléctricas y sistemas de seguridad en Córdoba y Andalucía.';
-
-const siteTitle = 'Arevantes · Energía, electricidad y seguridad';
 const contactServiceValues = new Set(['solar', 'electrical', 'security']);
 
 export default function Welcome({
@@ -110,7 +107,14 @@ export default function Welcome({
     siteUrl: string;
     projects: PublicProjectSummary[];
 }) {
-    const { auth } = usePage().props;
+    const { auth, localization } = usePage().props;
+    const isSpanish = localization.current === 'es';
+    const siteTitle = isSpanish
+        ? 'Arevantes · Energía, electricidad y seguridad'
+        : 'Arevantes · Energy, electrical installations and security';
+    const siteDescription = isSpanish
+        ? 'Arevantes diseña, instala y mantiene soluciones de energía, instalaciones eléctricas y sistemas de seguridad en Córdoba y Andalucía.'
+        : 'Arevantes designs, installs and maintains energy solutions, electrical installations and security systems in Córdoba and Andalusia.';
     const privateArea = auth.user ? dashboard().url : login().url;
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [activeModeIndex, setActiveModeIndex] = useState(0);
@@ -163,7 +167,7 @@ export default function Welcome({
                 <meta
                     head-key="og-locale"
                     property="og:locale"
-                    content="es_ES"
+                    content={isSpanish ? 'es_ES' : 'en_GB'}
                 />
                 <meta
                     head-key="og-site-name"
@@ -199,7 +203,7 @@ export default function Welcome({
                 <meta
                     head-key="og-image-alt"
                     property="og:image:alt"
-                    content="Arevantes: energía, electricidad y seguridad"
+                    content={siteTitle}
                 />
                 <meta
                     head-key="twitter-card"
@@ -319,6 +323,7 @@ export default function Welcome({
                         </nav>
 
                         <div className="flex items-center gap-2">
+                            <LanguageSelector />
                             <a
                                 href={privateArea}
                                 className="hidden items-center gap-2 rounded-full border border-zinc-300 bg-white px-4 py-2 text-sm font-semibold shadow-sm transition hover:border-[#289548] hover:text-[#217a3b] sm:inline-flex"

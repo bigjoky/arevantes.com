@@ -40,9 +40,24 @@ class LocaleSelectionTest extends TestCase
             ->assertInertia(fn (Assert $page) => $page->where('localization.current', 'en'));
     }
 
-    public function test_language_selection_is_authenticated_and_rejects_unsupported_locales(): void
+    public function test_guest_can_select_language_for_public_pages(): void
     {
-        $this->patch(route('locale.update'), ['locale' => 'es'])->assertRedirect(route('login'));
+        $this->patch(route('locale.update'), ['locale' => 'es'])
+            ->assertRedirect()
+            ->assertSessionHas('locale', 'es');
+
+        $this->get(route('home'))
+            ->assertOk()
+            ->assertSee('<html lang="es"', false)
+            ->assertInertia(fn (Assert $page) => $page->where('localization.current', 'es'));
+    }
+
+    public function test_language_selection_rejects_unsupported_locales(): void
+    {
+        $this->withSession(['locale' => 'es'])
+            ->patch(route('locale.update'), ['locale' => 'fr'])
+            ->assertSessionHasErrors('locale')
+            ->assertSessionHas('locale', 'es');
 
         $user = User::factory()->create(['role' => 'admin']);
         $this->actingAs($user)->withSession(['locale' => 'es'])

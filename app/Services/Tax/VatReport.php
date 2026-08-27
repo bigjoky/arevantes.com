@@ -90,7 +90,20 @@ class VatReport
 
             return $rows;
         });
-        $expenses = Expense::with('supplier')->whereBetween('expense_date', [$from, $to])->orderBy('expense_date')->get()->map(fn ($expense) => $this->row('received', $expense->expense_date, $expense->document_number ?: $expense->number, $expense->supplier?->legal_name ?: ($expense->merchant_name ?: __('Unknown merchant')), $expense->supplier?->tax_id, (float) $this->effectiveRate($expense->subtotal, $expense->tax_amount), (float) $expense->subtotal, (float) $expense->tax_amount, (float) $expense->amount, 'expense', $expense->id));
+        $expenses = Expense::with(['supplier', 'taxLines'])->whereBetween('expense_date', [$from, $to])->orderBy('expense_date')->get()->flatMap(function ($expense) {
+            $party = $expense->issuer_legal_name ?: $expense->supplier?->legal_name ?: ($expense->merchant_name ?: __('Unknown merchant'));
+            $taxId = $expense->issuer_tax_id ?: $expense->supplier?->tax_id;
+            if ($expense->taxLines->isEmpty()) {
+                return [$this->row('received', $expense->expense_date, $expense->document_number ?: $expense->number, $party, $taxId, (float) $this->effectiveRate($expense->subtotal, $expense->tax_amount), (float) $expense->subtotal, (float) $expense->tax_amount, (float) $expense->subtotal + (float) $expense->tax_amount, 'expense', $expense->id)];
+            }
+
+            return $expense->taxLines->where('kind', 'vat')->map(fn ($line) => $this->row(
+                'received', $expense->expense_date, $expense->document_number ?: $expense->number,
+                $party, $taxId, (float) $line->tax_rate, (float) $line->taxable_base,
+                (float) $line->deductible_amount, (float) $line->taxable_base + (float) $line->tax_amount,
+                'expense', $expense->id,
+            ));
+        });
 
         return $purchases->concat($expenses)->sortBy('date')->values();
     }

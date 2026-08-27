@@ -1,5 +1,11 @@
 import { Form, Head, Link, usePage } from '@inertiajs/react';
-import { FilePlus2, Plus, ReceiptText, WalletCards } from 'lucide-react';
+import {
+    FilePlus2,
+    Plus,
+    ReceiptText,
+    Trash2,
+    WalletCards,
+} from 'lucide-react';
 import { useState } from 'react';
 import InputError from '@/components/input-error';
 import { Badge } from '@/components/ui/badge';
@@ -21,7 +27,12 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 type Category = { id: number; name: string };
-type Supplier = { id: number; legal_name: string; trade_name: string | null };
+type Supplier = {
+    id: number;
+    legal_name: string;
+    trade_name: string | null;
+    tax_id: string | null;
+};
 type Installation = {
     id: number;
     project_reference: string | null;
@@ -263,6 +274,19 @@ function ExpenseDialog({
     initialOpen?: boolean;
 }) {
     const [open, setOpen] = useState(initialOpen);
+    const [taxLines, setTaxLines] = useState([
+        { kind: 'vat', base: 0, rate: 21, deductible: 100 },
+    ]);
+    const [withholdingRate, setWithholdingRate] = useState(0);
+    const subtotal = taxLines
+        .filter((line) => line.kind === 'vat')
+        .reduce((sum, line) => sum + line.base, 0);
+    const taxAmount = taxLines.reduce(
+        (sum, line) => sum + (line.base * line.rate) / 100,
+        0,
+    );
+    const withholdingAmount = (subtotal * withholdingRate) / 100;
+    const total = subtotal + taxAmount - withholdingAmount;
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
@@ -271,7 +295,7 @@ function ExpenseDialog({
                     <Plus /> New expense
                 </Button>
             </DialogTrigger>
-            <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+            <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl">
                 <DialogHeader>
                     <DialogTitle>Register expense</DialogTitle>
                 </DialogHeader>
@@ -293,15 +317,39 @@ function ExpenseDialog({
                                     ha registrado todavía.
                                 </div>
                             )}
+                            <input
+                                name="currency_code"
+                                type="hidden"
+                                value="EUR"
+                            />
+                            <input
+                                name="subtotal"
+                                type="hidden"
+                                value={subtotal.toFixed(2)}
+                            />
+                            <input
+                                name="tax_amount"
+                                type="hidden"
+                                value={taxAmount.toFixed(2)}
+                            />
+                            <input
+                                name="withholding_amount"
+                                type="hidden"
+                                value={withholdingAmount.toFixed(2)}
+                            />
                             <div className="grid gap-4 sm:grid-cols-2">
                                 <SelectField
-                                    label="Type"
+                                    label="Fiscal document type"
                                     name="type"
                                     error={errors.type}
                                     options={[
                                         ['receipt', 'Receipt / ticket'],
-                                        ['invoice', 'Expense invoice'],
-                                        ['other', 'Other'],
+                                        [
+                                            'simplified_invoice',
+                                            'Simplified invoice',
+                                        ],
+                                        ['invoice', 'Full invoice'],
+                                        ['other', 'Other supporting document'],
                                     ]}
                                 />
                                 <SelectField
@@ -340,21 +388,42 @@ function ExpenseDialog({
                                     ]}
                                 />
                                 <Field
-                                    label="Merchant"
-                                    name="merchant_name"
-                                    error={errors.merchant_name}
-                                />
-                                <Field
-                                    label="Document number"
+                                    label="Issuer invoice number"
                                     name="document_number"
                                     error={errors.document_number}
                                 />
                                 <Field
-                                    label="Expense date"
+                                    label="Invoice series (optional)"
+                                    name="invoice_series"
+                                    error={errors.invoice_series}
+                                />
+                                <Field
+                                    label="Issuer legal name"
+                                    name="issuer_legal_name"
+                                    error={errors.issuer_legal_name}
+                                />
+                                <Field
+                                    label="Issuer tax ID / VAT number"
+                                    name="issuer_tax_id"
+                                    error={errors.issuer_tax_id}
+                                />
+                                <Field
+                                    label="Trade name (optional)"
+                                    name="merchant_name"
+                                    error={errors.merchant_name}
+                                />
+                                <Field
+                                    label="Issue date"
                                     name="expense_date"
                                     type="date"
                                     value={today()}
                                     error={errors.expense_date}
+                                />
+                                <Field
+                                    label="Operation date (if different)"
+                                    name="operation_date"
+                                    type="date"
+                                    error={errors.operation_date}
                                 />
                                 <Field
                                     label="Due date"
@@ -362,22 +431,243 @@ function ExpenseDialog({
                                     type="date"
                                     error={errors.due_date}
                                 />
-                                <Field
-                                    label="Subtotal"
-                                    name="subtotal"
-                                    type="number"
-                                    value="0"
-                                    step="0.01"
-                                    error={errors.subtotal}
+                                <SelectField
+                                    label="VAT treatment"
+                                    name="tax_regime"
+                                    error={errors.tax_regime}
+                                    options={[
+                                        ['standard', 'Standard'],
+                                        ['exempt', 'Exempt'],
+                                        ['non_subject', 'Not subject to VAT'],
+                                        ['reverse_charge', 'Reverse charge'],
+                                        ['intra_community', 'Intra-Community'],
+                                        ['import', 'Import'],
+                                    ]}
                                 />
                                 <Field
-                                    label="Tax amount"
-                                    name="tax_amount"
+                                    label="Deductible expense (%)"
+                                    name="deductible_expense_percent"
                                     type="number"
-                                    value="0"
+                                    value="100"
                                     step="0.01"
-                                    error={errors.tax_amount}
+                                    error={errors.deductible_expense_percent}
                                 />
+                            </div>
+
+                            <section className="grid gap-3 rounded-lg border p-4">
+                                <div className="flex items-center justify-between gap-3">
+                                    <div>
+                                        <h3 className="font-medium">
+                                            Tax breakdown
+                                        </h3>
+                                        <p className="text-xs text-muted-foreground">
+                                            Add one row for each VAT rate shown
+                                            on the document.
+                                        </p>
+                                    </div>
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() =>
+                                            setTaxLines((lines) => [
+                                                ...lines,
+                                                {
+                                                    kind: 'vat',
+                                                    base: 0,
+                                                    rate: 21,
+                                                    deductible: 100,
+                                                },
+                                            ])
+                                        }
+                                    >
+                                        <Plus /> Add tax rate
+                                    </Button>
+                                </div>
+                                {taxLines.map((line, index) => {
+                                    const quota = (line.base * line.rate) / 100;
+
+                                    return (
+                                        <div
+                                            key={index}
+                                            className="grid gap-3 border-t pt-3 sm:grid-cols-[1.2fr_1fr_1fr_1fr_1fr_auto] sm:items-end"
+                                        >
+                                            <SelectField
+                                                label="Tax"
+                                                name={`tax_lines[${index}][kind]`}
+                                                onValueChange={(value) =>
+                                                    setTaxLines((lines) =>
+                                                        lines.map(
+                                                            (
+                                                                item,
+                                                                itemIndex,
+                                                            ) =>
+                                                                itemIndex ===
+                                                                index
+                                                                    ? {
+                                                                          ...item,
+                                                                          kind: value,
+                                                                          deductible:
+                                                                              value ===
+                                                                              'equivalence_surcharge'
+                                                                                  ? 0
+                                                                                  : item.deductible,
+                                                                      }
+                                                                    : item,
+                                                        ),
+                                                    )
+                                                }
+                                                options={[
+                                                    ['vat', 'VAT'],
+                                                    [
+                                                        'equivalence_surcharge',
+                                                        'Equivalence surcharge',
+                                                    ],
+                                                ]}
+                                            />
+                                            <FiscalNumber
+                                                label="Taxable base"
+                                                name={`tax_lines[${index}][taxable_base]`}
+                                                value={line.base}
+                                                onChange={(value) =>
+                                                    setTaxLines((lines) =>
+                                                        lines.map(
+                                                            (
+                                                                item,
+                                                                itemIndex,
+                                                            ) =>
+                                                                itemIndex ===
+                                                                index
+                                                                    ? {
+                                                                          ...item,
+                                                                          base: value,
+                                                                      }
+                                                                    : item,
+                                                        ),
+                                                    )
+                                                }
+                                                error={
+                                                    errors[
+                                                        `tax_lines.${index}.taxable_base`
+                                                    ]
+                                                }
+                                            />
+                                            <FiscalNumber
+                                                label="Rate (%)"
+                                                name={`tax_lines[${index}][tax_rate]`}
+                                                value={line.rate}
+                                                onChange={(value) =>
+                                                    setTaxLines((lines) =>
+                                                        lines.map(
+                                                            (
+                                                                item,
+                                                                itemIndex,
+                                                            ) =>
+                                                                itemIndex ===
+                                                                index
+                                                                    ? {
+                                                                          ...item,
+                                                                          rate: value,
+                                                                      }
+                                                                    : item,
+                                                        ),
+                                                    )
+                                                }
+                                                error={
+                                                    errors[
+                                                        `tax_lines.${index}.tax_rate`
+                                                    ]
+                                                }
+                                            />
+                                            <div className="grid gap-2">
+                                                <Label>Tax amount</Label>
+                                                <Input
+                                                    readOnly
+                                                    value={quota.toFixed(2)}
+                                                />
+                                                <input
+                                                    name={`tax_lines[${index}][tax_amount]`}
+                                                    type="hidden"
+                                                    value={quota.toFixed(2)}
+                                                />
+                                            </div>
+                                            <FiscalNumber
+                                                label="Deductible (%)"
+                                                name={`tax_lines[${index}][deductible_percent]`}
+                                                value={line.deductible}
+                                                onChange={(value) =>
+                                                    setTaxLines((lines) =>
+                                                        lines.map(
+                                                            (
+                                                                item,
+                                                                itemIndex,
+                                                            ) =>
+                                                                itemIndex ===
+                                                                index
+                                                                    ? {
+                                                                          ...item,
+                                                                          deductible:
+                                                                              value,
+                                                                      }
+                                                                    : item,
+                                                        ),
+                                                    )
+                                                }
+                                                error={
+                                                    errors[
+                                                        `tax_lines.${index}.deductible_percent`
+                                                    ]
+                                                }
+                                            />
+                                            <Button
+                                                type="button"
+                                                size="icon"
+                                                variant="ghost"
+                                                disabled={taxLines.length === 1}
+                                                onClick={() =>
+                                                    setTaxLines((lines) =>
+                                                        lines.filter(
+                                                            (_, itemIndex) =>
+                                                                itemIndex !==
+                                                                index,
+                                                        ),
+                                                    )
+                                                }
+                                            >
+                                                <Trash2 />
+                                            </Button>
+                                        </div>
+                                    );
+                                })}
+                            </section>
+
+                            <section className="grid gap-4 rounded-lg border p-4 sm:grid-cols-3">
+                                <FiscalNumber
+                                    label="Withholding (%)"
+                                    name="withholding_rate"
+                                    value={withholdingRate}
+                                    onChange={setWithholdingRate}
+                                    error={errors.withholding_rate}
+                                />
+                                <div className="grid gap-2 text-sm">
+                                    <span className="text-muted-foreground">
+                                        Withholding amount
+                                    </span>
+                                    <strong>
+                                        {money(withholdingAmount.toFixed(2))}
+                                    </strong>
+                                </div>
+                                <div className="grid gap-2 text-sm">
+                                    <span className="text-muted-foreground">
+                                        Document total
+                                    </span>
+                                    <strong className="text-lg">
+                                        {money(total.toFixed(2))}
+                                    </strong>
+                                </div>
+                            </section>
+
+                            <div className="grid gap-4 sm:grid-cols-2">
                                 <div className="grid gap-2 sm:col-span-2">
                                     <Label>Receipts or invoices</Label>
                                     <Input
@@ -453,16 +743,22 @@ function SelectField({
     name,
     options,
     error,
+    onValueChange,
 }: {
     label: string;
     name: string;
     options: string[][];
     error?: string;
+    onValueChange?: (value: string) => void;
 }) {
     return (
         <div className="grid gap-2">
             <Label>{label}</Label>
-            <Select name={name} defaultValue={options[0]?.[0]}>
+            <Select
+                name={name}
+                defaultValue={options[0]?.[0]}
+                onValueChange={onValueChange}
+            >
                 <SelectTrigger>
                     <SelectValue />
                 </SelectTrigger>
@@ -474,6 +770,34 @@ function SelectField({
                     ))}
                 </SelectContent>
             </Select>
+            <InputError message={error} />
+        </div>
+    );
+}
+function FiscalNumber({
+    label,
+    name,
+    value,
+    onChange,
+    error,
+}: {
+    label: string;
+    name: string;
+    value: number;
+    onChange: (value: number) => void;
+    error?: string;
+}) {
+    return (
+        <div className="grid gap-2">
+            <Label>{label}</Label>
+            <Input
+                name={name}
+                type="number"
+                min="0"
+                step="0.01"
+                value={value}
+                onChange={(event) => onChange(Number(event.target.value))}
+            />
             <InputError message={error} />
         </div>
     );
@@ -509,15 +833,20 @@ function Empty({ text }: { text: string }) {
     );
 }
 const money = (v: string) =>
-    new Intl.NumberFormat(undefined, {
+    new Intl.NumberFormat(document.documentElement.lang, {
         style: 'currency',
         currency: 'EUR',
     }).format(Number(v));
 const date = (v: string) =>
-    new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(
-        new Date(`${v.slice(0, 10)}T12:00:00`),
-    );
-const today = () => new Date().toISOString().slice(0, 10);
+    new Intl.DateTimeFormat(document.documentElement.lang, {
+        dateStyle: 'medium',
+    }).format(new Date(`${v.slice(0, 10)}T12:00:00`));
+const today = () =>
+    new Intl.DateTimeFormat('en-CA', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+    }).format(new Date());
 ExpensesIndex.layout = {
     breadcrumbs: [{ title: 'Expenses', href: '/expenses' }],
 };

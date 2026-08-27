@@ -7,31 +7,43 @@
     $serviceMetadata = $isServicePage ? data_get($page, 'props.service') : null;
     $legalDocument = $component === 'legal/show' ? data_get($page, 'props.document') : null;
     $isPublicWebsite = $isHomepage || $isServicePage || $isProjectsIndex || filled($projectMetadata) || filled($legalDocument);
+    $locale = app()->getLocale();
+    $isSpanish = $locale === 'es';
     $siteUrl = rtrim(config('app.url'), '/');
-    $siteTitle = 'Arevantes · Energía, electricidad y seguridad';
-    $siteDescription = 'Arevantes diseña, instala y mantiene soluciones de energía, instalaciones eléctricas y sistemas de seguridad en Córdoba y Andalucía.';
-    $projectsTitle = 'Proyectos realizados · Arevantes';
-    $projectsDescription = 'Una selección de proyectos de energía, electricidad y seguridad realizados por Arevantes en Andalucía.';
-    $serviceCatalog = [
+    $siteTitle = $isSpanish
+        ? 'Arevantes · Energía, electricidad y seguridad'
+        : 'Arevantes · Energy, electrical installations and security';
+    $siteDescription = $isSpanish
+        ? 'Arevantes diseña, instala y mantiene soluciones de energía, instalaciones eléctricas y sistemas de seguridad en Córdoba y Andalucía.'
+        : 'Arevantes designs, installs and maintains energy solutions, electrical installations and security systems in Córdoba and Andalusia.';
+    $projectsTitle = $isSpanish ? 'Proyectos realizados · Arevantes' : 'Completed projects · Arevantes';
+    $projectsDescription = $isSpanish
+        ? 'Una selección de proyectos de energía, electricidad y seguridad realizados por Arevantes en Andalucía.'
+        : 'A selection of energy, electrical and security projects completed by Arevantes in Andalusia.';
+    $serviceCatalog = $isSpanish ? [
         'Energía y movilidad' => ['Fotovoltaica', 'Almacenamiento', 'Puntos de recarga'],
         'Instalaciones eléctricas' => ['Instalaciones', 'Adecuaciones', 'Certificación'],
         'Alarmas y seguridad' => ['Alarmas', 'Videovigilancia', 'Control de accesos'],
+    ] : [
+        'Energy and mobility' => ['Solar energy', 'Energy storage', 'EV charging points'],
+        'Electrical installations' => ['Installations', 'Upgrades', 'Certification'],
+        'Alarms and security' => ['Alarms', 'Video surveillance', 'Access control'],
     ];
     $legalMetadata = [
         'notice' => [
             'path' => 'aviso-legal',
-            'title' => 'Aviso legal',
-            'description' => 'Información identificativa y condiciones de uso de este sitio web.',
+            'title' => $isSpanish ? 'Aviso legal' : 'Legal notice',
+            'description' => $isSpanish ? 'Información identificativa y condiciones de uso de este sitio web.' : 'Company information and terms of use for this website.',
         ],
         'privacy' => [
             'path' => 'privacidad',
-            'title' => 'Política de privacidad',
-            'description' => 'Cómo tratamos los datos personales que nos facilitas.',
+            'title' => $isSpanish ? 'Política de privacidad' : 'Privacy policy',
+            'description' => $isSpanish ? 'Cómo tratamos los datos personales que nos facilitas.' : 'How we process the personal data you provide.',
         ],
         'cookies' => [
             'path' => 'cookies',
-            'title' => 'Política de cookies',
-            'description' => 'Información sobre las cookies técnicas utilizadas en este sitio.',
+            'title' => $isSpanish ? 'Política de cookies' : 'Cookie policy',
+            'description' => $isSpanish ? 'Información sobre las cookies técnicas utilizadas en este sitio.' : 'Information about the technical cookies used on this website.',
         ],
     ];
     $currentLegalMetadata = $legalDocument ? ($legalMetadata[$legalDocument] ?? null) : null;
@@ -52,10 +64,10 @@
             'addressRegion' => config('company.province'),
             'addressCountry' => 'ES',
         ],
-        'areaServed' => 'Andalucía',
+        'areaServed' => $isSpanish ? 'Andalucía' : 'Andalusia',
         'hasOfferCatalog' => [
             '@type' => 'OfferCatalog',
-            'name' => 'Servicios Arevantes',
+        'name' => $isSpanish ? 'Servicios Arevantes' : 'Arevantes services',
             'itemListElement' => collect($serviceCatalog)->map(fn (array $services, string $line): array => [
                 '@type' => 'OfferCatalog',
                 'name' => $line,
@@ -71,7 +83,7 @@
     ];
 @endphp
 <!DOCTYPE html>
-<html lang="{{ $isPublicWebsite ? 'es' : str_replace('_', '-', app()->getLocale()) }}" @class(['dark' => ! $isPublicWebsite && ($appearance ?? 'system') == 'dark'])>
+<html lang="{{ str_replace('_', '-', $locale) }}" @class(['dark' => ! $isPublicWebsite && ($appearance ?? 'system') == 'dark'])>
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -119,7 +131,7 @@
                 <meta data-inertia="robots" name="robots" content="index, follow">
                 <link data-inertia="canonical" rel="canonical" href="{{ $siteUrl }}">
                 <meta data-inertia="og-type" property="og:type" content="website">
-                <meta data-inertia="og-locale" property="og:locale" content="es_ES">
+                <meta data-inertia="og-locale" property="og:locale" content="{{ $isSpanish ? 'es_ES' : 'en_GB' }}">
                 <meta data-inertia="og-site-name" property="og:site_name" content="Arevantes">
                 <meta data-inertia="og-title" property="og:title" content="{{ $siteTitle }}">
                 <meta data-inertia="og-description" property="og:description" content="{{ $siteDescription }}">
@@ -127,7 +139,7 @@
                 <meta data-inertia="og-image" property="og:image" content="{{ $siteUrl }}/og-multirramo-v2.png">
                 <meta data-inertia="og-image-width" property="og:image:width" content="1200">
                 <meta data-inertia="og-image-height" property="og:image:height" content="630">
-                <meta data-inertia="og-image-alt" property="og:image:alt" content="Arevantes: energía, electricidad y seguridad">
+                <meta data-inertia="og-image-alt" property="og:image:alt" content="{{ $siteTitle }}">
                 <meta data-inertia="twitter-card" name="twitter:card" content="summary_large_image">
                 <meta data-inertia="twitter-title" name="twitter:title" content="{{ $siteTitle }}">
                 <meta data-inertia="twitter-description" name="twitter:description" content="{{ $siteDescription }}">
@@ -168,7 +180,7 @@
                 <meta data-inertia="robots" name="robots" content="index, follow">
                 <link data-inertia="canonical" rel="canonical" href="{{ $serviceUrl }}">
                 <meta data-inertia="og-type" property="og:type" content="website">
-                <meta data-inertia="og-locale" property="og:locale" content="es_ES">
+                <meta data-inertia="og-locale" property="og:locale" content="{{ $isSpanish ? 'es_ES' : 'en_GB' }}">
                 <meta data-inertia="og-title" property="og:title" content="{{ $serviceMetadata['seo_title'] }}">
                 <meta data-inertia="og-description" property="og:description" content="{{ $serviceMetadata['seo_description'] }}">
                 <meta data-inertia="og-url" property="og:url" content="{{ $serviceUrl }}">
@@ -186,7 +198,7 @@
                 <meta data-inertia="robots" name="robots" content="index, follow">
                 <link data-inertia="canonical" rel="canonical" href="{{ $siteUrl }}/proyectos">
                 <meta data-inertia="og-type" property="og:type" content="website">
-                <meta data-inertia="og-locale" property="og:locale" content="es_ES">
+                <meta data-inertia="og-locale" property="og:locale" content="{{ $isSpanish ? 'es_ES' : 'en_GB' }}">
                 <meta data-inertia="og-title" property="og:title" content="{{ $projectsTitle }}">
                 <meta data-inertia="og-description" property="og:description" content="{{ $projectsDescription }}">
                 <meta data-inertia="og-url" property="og:url" content="{{ $siteUrl }}/proyectos">
@@ -198,7 +210,7 @@
             @elseif ($projectMetadata)
                 @php
                     $projectUrl = $siteUrl.$projectMetadata['href'];
-                    $projectTitle = $projectMetadata['title'].' · Proyectos Arevantes';
+                    $projectTitle = $projectMetadata['title'].($isSpanish ? ' · Proyectos Arevantes' : ' · Arevantes projects');
                     $projectImage = data_get($projectMetadata, 'images.0');
                     $projectStructuredData = [
                         '@context' => 'https://schema.org',
@@ -217,7 +229,7 @@
                 <meta data-inertia="robots" name="robots" content="index, follow">
                 <link data-inertia="canonical" rel="canonical" href="{{ $projectUrl }}">
                 <meta data-inertia="og-type" property="og:type" content="article">
-                <meta data-inertia="og-locale" property="og:locale" content="es_ES">
+                <meta data-inertia="og-locale" property="og:locale" content="{{ $isSpanish ? 'es_ES' : 'en_GB' }}">
                 <meta data-inertia="og-title" property="og:title" content="{{ $projectTitle }}">
                 <meta data-inertia="og-description" property="og:description" content="{{ $projectMetadata['summary'] }}">
                 <meta data-inertia="og-url" property="og:url" content="{{ $projectUrl }}">

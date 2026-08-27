@@ -127,12 +127,28 @@ class AccountingSynchronizer
 
     private function expense(Expense $expense, ?int $userId): int
     {
-        $expense->loadMissing(['category', 'supplier']);
+        $expense->loadMissing(['category', 'supplier', 'taxLines']);
         $creditorAccount = $expense->supplier?->payable_account_code ?: '410';
+        $deductibleTax = round((float) $expense->taxLines->sum('deductible_amount'), 2);
+        if ($expense->taxLines->isEmpty()) {
+            $deductibleTax = (float) $expense->tax_amount;
+        }
+        $nonDeductibleTax = round((float) $expense->tax_amount - $deductibleTax, 2);
+        $lines = [
+            [$expense->category?->expense_account_code ?: '629', round((float) $expense->subtotal + $nonDeductibleTax, 2), 0],
+        ];
+        foreach ($expense->taxLines->where('deductible_amount', '>', 0)->groupBy(fn ($line) => (string) $line->tax_rate) as $rate => $taxLines) {
+            $lines[] = [$this->taxAccount((float) $rate, 'input'), round((float) $taxLines->sum('deductible_amount'), 2), 0];
+        }
+        if ($expense->taxLines->isEmpty() && $deductibleTax > 0) {
+            $lines[] = [$this->taxAccount((float) $expense->subtotal > 0 ? (float) $expense->tax_amount / (float) $expense->subtotal * 100 : null, 'input'), $deductibleTax, 0];
+        }
+        if ((float) $expense->withholding_amount > 0) {
+            $lines[] = ['4751', 0, (float) $expense->withholding_amount];
+        }
+        $lines[] = [$creditorAccount, 0, (float) $expense->amount];
 
-        return $this->post($expense, 'document', $expense->expense_date->toDateString(), $expense->number, $userId, [
-            [$expense->category?->expense_account_code ?: '629', $expense->subtotal, 0], [$this->taxAccount((float) $expense->subtotal > 0 ? (float) $expense->tax_amount / (float) $expense->subtotal * 100 : null, 'input'), $expense->tax_amount, 0], [$creditorAccount, 0, $expense->amount],
-        ]);
+        return $this->post($expense, 'document', $expense->expense_date->toDateString(), $expense->number, $userId, $lines);
     }
 
     private function customerPayment(SalesDocumentPayment $payment, ?int $userId): int

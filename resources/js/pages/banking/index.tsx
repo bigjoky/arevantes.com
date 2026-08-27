@@ -3572,13 +3572,14 @@ function Metric({ label, value }: { label: string; value: string }) {
     );
 }
 const money = (value: number, currency: string) =>
-    new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(
-        value,
-    );
+    new Intl.NumberFormat(document.documentElement.lang, {
+        style: 'currency',
+        currency,
+    }).format(value);
 const date = (value: string) =>
-    new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(
-        new Date(`${value.slice(0, 10)}T12:00:00`),
-    );
+    new Intl.DateTimeFormat(document.documentElement.lang, {
+        dateStyle: 'medium',
+    }).format(new Date(`${value.slice(0, 10)}T12:00:00`));
 const dateInput = (value?: string | null) => value?.slice(0, 10) ?? '';
 BankingIndex.layout = {
     breadcrumbs: [

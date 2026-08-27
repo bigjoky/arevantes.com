@@ -33,6 +33,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -324,7 +325,17 @@ class QuoteController extends Controller
 
     private function validateDocument(Request $request, ?Quote $quote = null): array
     {
-        return $request->validate([
+        $request->merge([
+            'lines' => collect($request->input('lines', []))->map(function (array $line, int $index): array {
+                return [
+                    ...$line,
+                    'client_key' => filled($line['client_key'] ?? null) ? (string) $line['client_key'] : 'line-'.($index + 1),
+                    'parent_client_key' => filled($line['parent_client_key'] ?? null) ? (string) $line['parent_client_key'] : null,
+                ];
+            })->all(),
+        ]);
+
+        $data = $request->validate([
             'opportunity_id' => ['nullable', 'exists:opportunities,id', Rule::unique('quotes', 'opportunity_id')->ignore($quote?->id)],
             'service_type' => ['nullable', Rule::in(BusinessLineCatalog::INSTALLATION_TYPES)],
             'person_id' => ['required', 'exists:people,id'], 'installation_id' => ['nullable', 'exists:installations,id'],
@@ -332,7 +343,10 @@ class QuoteController extends Controller
             'acceptance_payment_percentage' => ['sometimes', 'numeric', 'between:0,100'],
             'acceptance_payment_due_days' => ['sometimes', 'integer', 'between:0,365'],
             'change_note' => [$quote ? 'required' : 'nullable', 'string', 'min:5', 'max:2000'],
-            'lines' => ['required', 'array', 'min:1'], 'lines.*.product_id' => ['nullable', 'exists:products,id'], 'lines.*.unit_id' => ['nullable', 'exists:units,id'],
+            'lines' => ['required', 'array', 'min:1'],
+            'lines.*.client_key' => ['required', 'string', 'max:100', 'distinct'],
+            'lines.*.parent_client_key' => ['nullable', 'string', 'max:100'],
+            'lines.*.product_id' => ['nullable', 'exists:products,id'], 'lines.*.unit_id' => ['nullable', 'exists:units,id'],
             'lines.*.tax_rate_id' => ['nullable', 'exists:tax_rates,id'], 'lines.*.description' => ['required', 'string'], 'lines.*.quantity' => ['required', 'numeric', 'gt:0'],
             'lines.*.unit_price' => ['required', 'numeric', 'min:0'], 'lines.*.discount_percent' => ['required', 'numeric', 'between:0,100'], 'lines.*.tax_percent' => ['required', 'numeric', 'between:0,100'],
             'lines.*.selection_mode' => ['sometimes', Rule::in(['included', 'optional', 'alternative'])],
@@ -349,6 +363,49 @@ class QuoteController extends Controller
             'lines.*.components.*.planned_unit_cost' => ['nullable', 'numeric', 'min:0'],
             'lines.*.components.*.interval_months' => ['nullable', 'integer', 'between:1,120'],
         ]);
+
+        return $this->normalizeLineHierarchy($data);
+    }
+
+    private function normalizeLineHierarchy(array $data): array
+    {
+        $linesByKey = collect($data['lines'])->keyBy('client_key');
+
+        foreach ($data['lines'] as $index => &$line) {
+            $depth = 1;
+            $parentKey = $line['parent_client_key'] ?? null;
+            $visited = [$line['client_key'] => true];
+
+            while ($parentKey !== null) {
+                if (! $linesByKey->has($parentKey)) {
+                    throw ValidationException::withMessages([
+                        "lines.{$index}.parent_client_key" => __('The parent proposal line no longer exists.'),
+                    ]);
+                }
+
+                if (isset($visited[$parentKey])) {
+                    throw ValidationException::withMessages([
+                        "lines.{$index}.parent_client_key" => __('Proposal lines cannot contain a circular hierarchy.'),
+                    ]);
+                }
+
+                $visited[$parentKey] = true;
+                $depth++;
+
+                if ($depth > 5) {
+                    throw ValidationException::withMessages([
+                        "lines.{$index}.parent_client_key" => __('Proposal lines can be nested up to five levels.'),
+                    ]);
+                }
+
+                $parentKey = $linesByKey->get($parentKey)['parent_client_key'] ?? null;
+            }
+
+            $line['depth'] = $depth;
+        }
+        unset($line);
+
+        return $data;
     }
 
     private function persist(Quote $quote, array $data, QuoteCalculator $calculator, array $extra = [], ?int $actorId = null): Quote
@@ -420,11 +477,16 @@ class QuoteController extends Controller
         unset($data['lines']);
         $quote->fill([...$data, ...$extra, ...array_diff_key($totals, ['lines' => true]), 'expected_margin_amount' => $margin, 'approval_status' => $requiresApproval ? 'pending' : 'not_required', 'approved_by' => null, 'approved_at' => null, 'approval_notes' => null, 'customer_snapshot' => $customer->only(['first_name', 'last_name', 'company_name', 'tax_id', 'document_number', 'billing_email', 'email', 'address_line_1', 'address_line_2', 'postal_code', 'city', 'province_state', 'country'])])->save();
         $quote->lines()->delete();
-        foreach ($totals['lines'] as $lineData) {
+        $createdLines = [];
+        foreach (collect($totals['lines'])->sortBy('depth') as $lineData) {
             $components = $lineData['components'] ?? [];
-            unset($lineData['components']);
+            $clientKey = $lineData['client_key'];
+            $parentClientKey = $lineData['parent_client_key'] ?? null;
+            unset($lineData['components'], $lineData['client_key'], $lineData['parent_client_key']);
+            $lineData['parent_line_id'] = $parentClientKey ? $createdLines[$parentClientKey] : null;
             $line = $quote->lines()->create($lineData);
             $line->components()->createMany($components);
+            $createdLines[$clientKey] = $line->id;
         }
         $quote->versions()->updateOrCreate(['version' => $quote->version], [
             'created_by' => $actorId,

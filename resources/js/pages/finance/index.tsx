@@ -3785,7 +3785,7 @@ function Empty({ text }: { text: string }) {
     );
 }
 const money = (v: number, currency = 'EUR') =>
-    new Intl.NumberFormat(undefined, {
+    new Intl.NumberFormat(document.documentElement.lang, {
         style: 'currency',
         currency,
     }).format(v);
@@ -3800,9 +3800,9 @@ const forecastSourceLabel = (source: TreasuryEvent['sourceType']) =>
         credit_facility: 'Card settlement',
     })[source];
 const monthLabel = (month: number) =>
-    new Intl.DateTimeFormat(undefined, { month: 'short' }).format(
-        new Date(2024, month - 1, 1),
-    );
+    new Intl.DateTimeFormat(document.documentElement.lang, {
+        month: 'short',
+    }).format(new Date(2024, month - 1, 1));
 const tooltipStyle = {
     background: 'var(--background)',
     border: '1px solid var(--border)',
@@ -3833,11 +3833,11 @@ const formatDaysVariance = (value: number | null) => {
     return `${Math.abs(value)}d ${value > 0 ? 'late' : 'early'}`;
 };
 const date = (v: string) =>
-    new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(
-        new Date(`${v.slice(0, 10)}T12:00:00`),
-    );
+    new Intl.DateTimeFormat(document.documentElement.lang, {
+        dateStyle: 'medium',
+    }).format(new Date(`${v.slice(0, 10)}T12:00:00`));
 const dateTime = (v: string) =>
-    new Intl.DateTimeFormat(undefined, {
+    new Intl.DateTimeFormat(document.documentElement.lang, {
         dateStyle: 'medium',
         timeStyle: 'short',
     }).format(new Date(v));

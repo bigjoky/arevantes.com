@@ -72,6 +72,8 @@ class WorkspaceNavigation
     /** @return array{title: string, href: string, icon?: string} */
     private function item(string $title, string $href, ?string $icon = null): array
     {
+        $title = __($title);
+
         return array_filter(compact('title', 'href', 'icon'));
     }
 
@@ -81,7 +83,7 @@ class WorkspaceNavigation
         $children = array_values(array_filter($children));
 
         return $children === [] ? null : [
-            'title' => $title,
+            'title' => __($title),
             'href' => $children[0]['href'],
             'icon' => $icon,
             'children' => $children,

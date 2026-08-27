@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { usePage } from '@inertiajs/react';
 
 type Locale = 'en' | 'es';
 
@@ -233,13 +233,8 @@ const dictionaries = {
 } as const;
 
 export function useLocale() {
-    const locale = useMemo<Locale>(() => {
-        if (typeof navigator === 'undefined') {
-            return 'en';
-        }
-
-        return navigator.language.toLowerCase().startsWith('es') ? 'es' : 'en';
-    }, []);
+    const current = usePage().props.localization.current;
+    const locale: Locale = current === 'es' ? 'es' : 'en';
 
     return {
         locale,

@@ -35,7 +35,7 @@ class ExpenseController extends Controller
             'expenses' => Expense::with(['category:id,name', 'supplier:id,legal_name,trade_name'])->latest('expense_date')->get(),
             'supplierInvoices' => PurchaseDocument::with('supplier:id,legal_name,trade_name')->whereIn('type', ['supplier_invoice', 'supplier_credit_note'])->latest('issue_date')->get(),
             'categories' => ExpenseCategory::where('is_active', true)->orderBy('name')->get(),
-            'suppliers' => Supplier::where('is_active', true)->orderBy('legal_name')->get(['id', 'legal_name', 'trade_name']),
+            'suppliers' => Supplier::where('is_active', true)->orderBy('legal_name')->get(['id', 'legal_name', 'trade_name', 'tax_id']),
             'installations' => Installation::orderByDesc('created_at')->get(['id', 'project_reference', 'site_name']),
             'summary' => ['pending' => $this->pendingTotal(), 'paidThisMonth' => SupplierPayment::whereBetween('paid_at', [now()->startOfMonth(), now()->endOfMonth()])->sum('amount'), 'expensesThisMonth' => Expense::whereBetween('expense_date', [now()->startOfMonth(), now()->endOfMonth()])->sum('amount')],
         ]);
@@ -43,20 +43,102 @@ class ExpenseController extends Controller
 
     public function show(Expense $expense): Response
     {
-        return Inertia::render('expenses/show', ['expense' => $expense->load(['category', 'supplier', 'attachments', 'payments'])]);
+        return Inertia::render('expenses/show', ['expense' => $expense->load(['category', 'supplier', 'attachments', 'payments', 'taxLines'])]);
     }
 
     public function store(Request $request, AccountingSynchronizer $accounting, DocumentNumber $numbers): RedirectResponse
     {
+        $request->merge([
+            'currency_code' => $request->input('currency_code', 'EUR'),
+            'tax_regime' => $request->input('tax_regime', 'standard'),
+            'deductible_expense_percent' => $request->input('deductible_expense_percent', 100),
+            'withholding_rate' => $request->input('withholding_rate', 0),
+            'withholding_amount' => $request->input('withholding_amount', 0),
+        ]);
         if ($request->input('supplier_id') === 'none') {
             $request->merge(['supplier_id' => null]);
         }
         if ($request->input('installation_id') === 'none') {
             $request->merge(['installation_id' => null]);
         }
-        $data = $request->validate(['expense_category_id' => ['required', 'exists:expense_categories,id'], 'supplier_id' => ['nullable', 'exists:suppliers,id'], 'installation_id' => ['nullable', 'exists:installations,id'], 'type' => ['required', Rule::in(['receipt', 'invoice', 'other'])], 'document_number' => ['nullable', 'string', 'max:255'], 'merchant_name' => ['nullable', 'string', 'max:255'], 'expense_date' => ['required', 'date'], 'due_date' => ['nullable', 'date', 'after_or_equal:expense_date'], 'subtotal' => ['required', 'numeric', 'min:0'], 'tax_amount' => ['required', 'numeric', 'min:0'], 'notes' => ['nullable', 'string'], 'attachments' => ['nullable', 'array', 'max:10'], 'attachments.*' => ['file', new SafeUpload(['pdf', 'jpg', 'jpeg', 'png', 'webp'], 10240)]]);
+
+        if ($request->filled('supplier_id')) {
+            $supplier = Supplier::find($request->integer('supplier_id'));
+            $request->merge([
+                'issuer_legal_name' => $request->input('issuer_legal_name') ?: $supplier?->legal_name,
+                'issuer_tax_id' => $request->input('issuer_tax_id') ?: $supplier?->tax_id,
+                'merchant_name' => $request->input('merchant_name') ?: $supplier?->trade_name ?: $supplier?->legal_name,
+            ]);
+        }
+
+        $data = $request->validate([
+            'expense_category_id' => ['required', 'exists:expense_categories,id'],
+            'supplier_id' => ['nullable', 'exists:suppliers,id'],
+            'installation_id' => ['nullable', 'exists:installations,id'],
+            'type' => ['required', Rule::in(['receipt', 'simplified_invoice', 'invoice', 'other'])],
+            'document_number' => [Rule::requiredIf(fn () => $request->input('type') === 'invoice'), 'nullable', 'string', 'max:255'],
+            'invoice_series' => ['nullable', 'string', 'max:64'],
+            'merchant_name' => ['nullable', 'string', 'max:255'],
+            'issuer_legal_name' => [Rule::requiredIf(fn () => $request->input('type') === 'invoice'), 'nullable', 'string', 'max:255'],
+            'issuer_tax_id' => [Rule::requiredIf(fn () => $request->input('type') === 'invoice'), 'nullable', 'string', 'max:32'],
+            'expense_date' => ['required', 'date'],
+            'operation_date' => ['nullable', 'date'],
+            'due_date' => ['nullable', 'date', 'after_or_equal:expense_date'],
+            'currency_code' => ['required', 'string', 'size:3'],
+            'tax_regime' => ['required', Rule::in(['standard', 'exempt', 'non_subject', 'reverse_charge', 'intra_community', 'import'])],
+            'deductible_expense_percent' => ['required', 'numeric', 'between:0,100'],
+            'withholding_rate' => ['nullable', 'numeric', 'between:0,100'],
+            'withholding_amount' => ['nullable', 'numeric', 'min:0'],
+            'subtotal' => ['required_without:tax_lines', 'nullable', 'numeric', 'min:0'],
+            'tax_amount' => ['required_without:tax_lines', 'nullable', 'numeric', 'min:0'],
+            'tax_lines' => ['nullable', 'array', 'max:20'],
+            'tax_lines.*.kind' => ['required', Rule::in(['vat', 'equivalence_surcharge'])],
+            'tax_lines.*.taxable_base' => ['required', 'numeric', 'min:0'],
+            'tax_lines.*.tax_rate' => ['required', 'numeric', 'between:0,100'],
+            'tax_lines.*.tax_amount' => ['required', 'numeric', 'min:0'],
+            'tax_lines.*.deductible_percent' => ['required', 'numeric', 'between:0,100'],
+            'tax_lines.*.exemption_reason' => ['nullable', 'string', 'max:255'],
+            'notes' => ['nullable', 'string'],
+            'attachments' => ['nullable', 'array', 'max:10'],
+            'attachments.*' => ['file', new SafeUpload(['pdf', 'jpg', 'jpeg', 'png', 'webp'], 10240)],
+        ]);
+
+        $taxLines = collect($data['tax_lines'] ?? [
+            ['kind' => 'vat', 'taxable_base' => $data['subtotal'], 'tax_rate' => (float) $data['subtotal'] > 0 ? (float) $data['tax_amount'] / (float) $data['subtotal'] * 100 : 0, 'tax_amount' => $data['tax_amount'], 'deductible_percent' => 100],
+        ])->values()->map(function (array $line, int $index) {
+            $expectedTax = round((float) $line['taxable_base'] * (float) $line['tax_rate'] / 100, 2);
+            if (abs($expectedTax - (float) $line['tax_amount']) > 0.02) {
+                throw ValidationException::withMessages(["tax_lines.{$index}.tax_amount" => __('The tax amount does not match its taxable base and rate.')]);
+            }
+
+            $deductiblePercent = $line['kind'] === 'equivalence_surcharge' ? 0 : (float) $line['deductible_percent'];
+
+            return [...$line, 'position' => $index + 1, 'deductible_percent' => $deductiblePercent, 'deductible_amount' => round((float) $line['tax_amount'] * $deductiblePercent / 100, 2)];
+        });
+
+        $subtotal = round((float) $taxLines->where('kind', 'vat')->sum('taxable_base'), 2);
+        $taxAmount = round((float) $taxLines->sum('tax_amount'), 2);
+        $withholdingAmount = round((float) ($data['withholding_amount'] ?? 0), 2);
+        $calculatedWithholding = round($subtotal * (float) ($data['withholding_rate'] ?? 0) / 100, 2);
+        if (abs($calculatedWithholding - $withholdingAmount) > 0.02) {
+            throw ValidationException::withMessages(['withholding_amount' => __('The withholding amount does not match its taxable base and rate.')]);
+        }
+
+        if ($data['issuer_tax_id'] ?? null) {
+            $duplicate = Expense::where('issuer_tax_id', strtoupper(trim($data['issuer_tax_id'])))
+                ->where('document_number', $data['document_number'] ?? null)->exists();
+            if ($duplicate && filled($data['document_number'] ?? null)) {
+                throw ValidationException::withMessages(['document_number' => __('This issuer invoice is already registered.')]);
+            }
+        }
+
         $files = $data['attachments'] ?? [];
-        unset($data['attachments']);
+        unset($data['attachments'], $data['tax_lines']);
+        $data['issuer_tax_id'] = filled($data['issuer_tax_id'] ?? null) ? strtoupper(trim($data['issuer_tax_id'])) : null;
+        $data['currency_code'] = strtoupper($data['currency_code']);
+        $data['subtotal'] = $subtotal;
+        $data['tax_amount'] = $taxAmount;
+        $data['withholding_amount'] = $withholdingAmount;
         $storedFiles = [];
 
         try {
@@ -69,10 +151,11 @@ class ExpenseController extends Controller
                 $storedFiles[] = ['original_name' => $file->getClientOriginalName(), 'path' => $path, 'mime_type' => $file->getMimeType() ?: 'application/octet-stream', 'size' => $file->getSize()];
             }
 
-            $expense = DB::transaction(function () use ($request, $data, $storedFiles, $accounting, $numbers) {
+            $expense = DB::transaction(function () use ($request, $data, $taxLines, $storedFiles, $accounting, $numbers) {
                 $number = $numbers->next('expense', $data['expense_date'])['number'];
-                $amount = round((float) $data['subtotal'] + (float) $data['tax_amount'], 2);
+                $amount = round((float) $data['subtotal'] + (float) $data['tax_amount'] - (float) $data['withholding_amount'], 2);
                 $expense = Expense::create([...$data, 'created_by' => $request->user()->id, 'number' => $number, 'amount' => $amount, 'status' => 'pending']);
+                $expense->taxLines()->createMany($taxLines->all());
                 foreach ($storedFiles as $storedFile) {
                     $expense->attachments()->create([...$storedFile, 'uploaded_by' => $request->user()->id]);
                 }
