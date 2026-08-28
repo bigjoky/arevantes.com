@@ -39,4 +39,23 @@ class QuoteLine extends Model
     {
         return $this->hasMany(QuoteLineComponent::class)->orderBy('position');
     }
+
+    public function effectiveComponentQuantity(QuoteLineComponent $component): float
+    {
+        $quantity = (float) $this->quantity * (float) $component->quantity;
+        $components = $this->components->keyBy('id');
+        $parentId = $component->parent_component_id;
+
+        while ($parentId) {
+            $parent = $components->get($parentId);
+            if (! $parent) {
+                break;
+            }
+
+            $quantity *= (float) $parent->quantity;
+            $parentId = $parent->parent_component_id;
+        }
+
+        return $quantity;
+    }
 }

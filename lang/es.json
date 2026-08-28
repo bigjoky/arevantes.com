@@ -1,4 +1,8 @@
 {
+    "Component identifiers must be unique within each proposal line.": "Los identificadores de componente deben ser únicos dentro de cada línea de propuesta.",
+    "The parent component no longer exists.": "El componente padre ya no existe.",
+    "Components cannot contain a circular hierarchy.": "Los componentes no pueden contener una jerarquía circular.",
+    "Proposal components can be nested up to level five.": "Los componentes de la propuesta pueden anidarse hasta el nivel cinco.",
     "Language changed for this session.": "Idioma cambiado para esta sesión.",
     "New notification": "Nueva notificación",
     " and amount is within the configured range": "y la cantidad está dentro del rango configurado",

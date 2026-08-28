@@ -27,7 +27,7 @@ class ProjectMaterialPlanner
                         'product_id' => $component->product_id,
                         'product' => $component->product,
                         'description' => $component->description,
-                        'quantity' => (float) $component->quantity * (float) $line->quantity,
+                        'quantity' => $line->effectiveComponentQuantity($component),
                         'planned_unit_cost' => $component->planned_unit_cost,
                     ]);
             });

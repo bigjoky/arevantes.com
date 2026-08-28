@@ -62,6 +62,11 @@ type Product = {
     }>;
 };
 type Component = {
+    id?: number;
+    client_key: string;
+    parent_client_key: string | null;
+    parent_component_id?: number | null;
+    depth: number;
     product_id: number | null;
     unit_id: number | null;
     kind: 'material' | 'labor' | 'service' | 'document' | 'other';
@@ -74,8 +79,6 @@ type Component = {
 };
 type Line = {
     client_key: string;
-    parent_client_key: string | null;
-    parent_line_id?: number | null;
     depth: number;
     product_id: number | null;
     unit_id: number | null;
@@ -168,10 +171,7 @@ export default function QuoteForm({
             quote?.lines.map((line) => ({
                 ...line,
                 client_key: `line-${line.id}`,
-                parent_client_key: line.parent_line_id
-                    ? `line-${line.parent_line_id}`
-                    : null,
-                depth: line.depth ?? 1,
+                depth: 1,
                 product_id: line.product_id,
                 unit_id: line.unit_id,
                 tax_rate_id: line.tax_rate_id,
@@ -180,6 +180,11 @@ export default function QuoteForm({
                 is_selected: line.is_selected ?? true,
                 components: (line.components || []).map((component) => ({
                     ...component,
+                    client_key: `component-${component.id}`,
+                    parent_client_key: component.parent_component_id
+                        ? `component-${component.parent_component_id}`
+                        : null,
+                    depth: component.depth ?? 2,
                     quantity: String(component.quantity),
                     planned_unit_cost: String(component.planned_unit_cost),
                     interval_months: component.interval_months
@@ -240,6 +245,7 @@ export default function QuoteForm({
                     product.resolved_components.length > 0
                         ? product.resolved_components.map((component) => ({
                               ...component,
+                              ...componentIdentity(),
                               quantity: String(component.quantity),
                               planned_unit_cost: String(
                                   component.planned_unit_cost,
@@ -255,52 +261,10 @@ export default function QuoteForm({
             });
         }
     };
-    const addChildLine = (index: number) => {
-        const parent = form.data.lines[index];
-
-        if (parent.depth >= 5) {
-            return;
-        }
-
-        let insertAt = index + 1;
-
-        while (
-            insertAt < form.data.lines.length &&
-            form.data.lines[insertAt].depth > parent.depth
-        ) {
-            insertAt++;
-        }
-
-        const lines = [...form.data.lines];
-        const child = blankLine(parent.client_key, parent.depth + 1);
-        lines.splice(insertAt, 0, child);
-        form.setData('lines', lines);
-        setExpandedLines((current) => new Set(current).add(child.client_key));
-    };
     const removeLine = (index: number) => {
-        const keysToRemove = new Set([form.data.lines[index].client_key]);
-        let foundChild = true;
-
-        while (foundChild) {
-            foundChild = false;
-
-            for (const line of form.data.lines) {
-                if (
-                    line.parent_client_key &&
-                    keysToRemove.has(line.parent_client_key) &&
-                    !keysToRemove.has(line.client_key)
-                ) {
-                    keysToRemove.add(line.client_key);
-                    foundChild = true;
-                }
-            }
-        }
-
         form.setData(
             'lines',
-            form.data.lines.filter(
-                (line) => !keysToRemove.has(line.client_key),
-            ),
+            form.data.lines.filter((_, position) => position !== index),
         );
     };
     const updateComponent = (
@@ -339,6 +303,56 @@ export default function QuoteForm({
                       : 'none',
             description: product.description || product.name,
             planned_unit_cost: product.cost_price,
+        });
+    };
+    const addChildComponent = (lineIndex: number, componentIndex: number) => {
+        const components = [...form.data.lines[lineIndex].components];
+        const parent = components[componentIndex];
+
+        if (parent.depth >= 5) {
+            return;
+        }
+
+        let insertAt = componentIndex + 1;
+
+        while (
+            insertAt < components.length &&
+            components[insertAt].depth > parent.depth
+        ) {
+            insertAt++;
+        }
+
+        components.splice(
+            insertAt,
+            0,
+            blankComponent(parent.client_key, parent.depth + 1),
+        );
+        updateLine(lineIndex, { components });
+    };
+    const removeComponent = (lineIndex: number, componentIndex: number) => {
+        const components = form.data.lines[lineIndex].components;
+        const keysToRemove = new Set([components[componentIndex].client_key]);
+        let changed = true;
+
+        while (changed) {
+            changed = false;
+
+            for (const component of components) {
+                if (
+                    component.parent_client_key &&
+                    keysToRemove.has(component.parent_client_key) &&
+                    !keysToRemove.has(component.client_key)
+                ) {
+                    keysToRemove.add(component.client_key);
+                    changed = true;
+                }
+            }
+        }
+
+        updateLine(lineIndex, {
+            components: components.filter(
+                (component) => !keysToRemove.has(component.client_key),
+            ),
         });
     };
     const submit = () =>
@@ -508,15 +522,7 @@ export default function QuoteForm({
                                     {form.data.lines.map((line, index) => (
                                         <Fragment key={line.client_key}>
                                             <tr className="align-top">
-                                                <td
-                                                    className="py-2 pr-2"
-                                                    style={{
-                                                        paddingLeft: `${(line.depth - 1) * 1.25}rem`,
-                                                    }}
-                                                >
-                                                    <div className="mb-1 text-[11px] font-medium text-muted-foreground">
-                                                        Nivel {line.depth}
-                                                    </div>
+                                                <td className="py-2 pr-2">
                                                     <Select
                                                         value={
                                                             line.product_id
@@ -556,20 +562,6 @@ export default function QuoteForm({
                                                             )}
                                                         </SelectContent>
                                                     </Select>
-                                                    <Button
-                                                        type="button"
-                                                        size="sm"
-                                                        variant="ghost"
-                                                        className="mt-1 h-7 px-1 text-xs"
-                                                        disabled={
-                                                            line.depth >= 5
-                                                        }
-                                                        onClick={() =>
-                                                            addChildLine(index)
-                                                        }
-                                                    >
-                                                        <Plus /> Add subline
-                                                    </Button>
                                                 </td>
                                                 <td className="p-2">
                                                     <Input
@@ -652,22 +644,6 @@ export default function QuoteForm({
                                                 </td>
                                                 <td className="sticky right-0 z-10 bg-background p-2">
                                                     <div className="flex items-center gap-1">
-                                                        <Button
-                                                            type="button"
-                                                            size="icon"
-                                                            variant="ghost"
-                                                            title="Añadir sublínea"
-                                                            disabled={
-                                                                line.depth >= 5
-                                                            }
-                                                            onClick={() =>
-                                                                addChildLine(
-                                                                    index,
-                                                                )
-                                                            }
-                                                        >
-                                                            <Plus />
-                                                        </Button>
                                                         <Button
                                                             type="button"
                                                             size="icon"
@@ -856,7 +832,10 @@ export default function QuoteForm({
                                                                             components:
                                                                                 [
                                                                                     ...line.components,
-                                                                                    blankComponent(),
+                                                                                    blankComponent(
+                                                                                        null,
+                                                                                        2,
+                                                                                    ),
                                                                                 ],
                                                                         },
                                                                     )
@@ -881,52 +860,63 @@ export default function QuoteForm({
                                                                     ) => (
                                                                         <div
                                                                             key={
-                                                                                componentIndex
+                                                                                component.client_key
                                                                             }
-                                                                            className="grid min-w-0 gap-2 rounded-md border bg-background p-2 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-[minmax(10rem,1fr)_minmax(12rem,1.4fr)_5.5rem_minmax(10rem,1fr)_minmax(10rem,1fr)_7rem_3rem]"
+                                                                            className="grid min-w-0 gap-2 rounded-md border bg-background p-2 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-[minmax(10rem,1fr)_minmax(12rem,1.4fr)_5.5rem_minmax(10rem,1fr)_minmax(10rem,1fr)_7rem_5.5rem]"
+                                                                            style={{
+                                                                                marginLeft: `${Math.max(0, component.depth - 2) * 1.25}rem`,
+                                                                            }}
                                                                         >
-                                                                            <Select
-                                                                                value={
-                                                                                    component.product_id
-                                                                                        ? String(
-                                                                                              component.product_id,
-                                                                                          )
-                                                                                        : ''
-                                                                                }
-                                                                                onValueChange={(
-                                                                                    value,
-                                                                                ) =>
-                                                                                    selectComponentProduct(
-                                                                                        index,
-                                                                                        componentIndex,
+                                                                            <div className="grid min-w-0 gap-1">
+                                                                                <span className="text-[11px] font-medium text-muted-foreground">
+                                                                                    Nivel{' '}
+                                                                                    {
+                                                                                        component.depth
+                                                                                    }
+                                                                                </span>
+                                                                                <Select
+                                                                                    value={
+                                                                                        component.product_id
+                                                                                            ? String(
+                                                                                                  component.product_id,
+                                                                                              )
+                                                                                            : ''
+                                                                                    }
+                                                                                    onValueChange={(
                                                                                         value,
-                                                                                    )
-                                                                                }
-                                                                            >
-                                                                                <SelectTrigger className="w-full min-w-0">
-                                                                                    <SelectValue placeholder="Producto o servicio" />
-                                                                                </SelectTrigger>
-                                                                                <SelectContent>
-                                                                                    {availableProducts.map(
-                                                                                        (
-                                                                                            product,
-                                                                                        ) => (
-                                                                                            <SelectItem
-                                                                                                key={
-                                                                                                    product.id
-                                                                                                }
-                                                                                                value={String(
-                                                                                                    product.id,
-                                                                                                )}
-                                                                                            >
-                                                                                                {
-                                                                                                    product.name
-                                                                                                }
-                                                                                            </SelectItem>
-                                                                                        ),
-                                                                                    )}
-                                                                                </SelectContent>
-                                                                            </Select>
+                                                                                    ) =>
+                                                                                        selectComponentProduct(
+                                                                                            index,
+                                                                                            componentIndex,
+                                                                                            value,
+                                                                                        )
+                                                                                    }
+                                                                                >
+                                                                                    <SelectTrigger className="w-full min-w-0">
+                                                                                        <SelectValue placeholder="Componente personalizado" />
+                                                                                    </SelectTrigger>
+                                                                                    <SelectContent>
+                                                                                        {availableProducts.map(
+                                                                                            (
+                                                                                                product,
+                                                                                            ) => (
+                                                                                                <SelectItem
+                                                                                                    key={
+                                                                                                        product.id
+                                                                                                    }
+                                                                                                    value={String(
+                                                                                                        product.id,
+                                                                                                    )}
+                                                                                                >
+                                                                                                    {
+                                                                                                        product.name
+                                                                                                    }
+                                                                                                </SelectItem>
+                                                                                            ),
+                                                                                        )}
+                                                                                    </SelectContent>
+                                                                                </Select>
+                                                                            </div>
                                                                             <Input
                                                                                 value={
                                                                                     component.description
@@ -1081,30 +1071,40 @@ export default function QuoteForm({
                                                                                     )}
                                                                                 </div>
                                                                             )}
-                                                                            <Button
-                                                                                type="button"
-                                                                                size="icon"
-                                                                                variant="ghost"
-                                                                                title="Eliminar componente"
-                                                                                onClick={() =>
-                                                                                    updateLine(
-                                                                                        index,
-                                                                                        {
-                                                                                            components:
-                                                                                                line.components.filter(
-                                                                                                    (
-                                                                                                        _,
-                                                                                                        position,
-                                                                                                    ) =>
-                                                                                                        position !==
-                                                                                                        componentIndex,
-                                                                                                ),
-                                                                                        },
-                                                                                    )
-                                                                                }
-                                                                            >
-                                                                                <Trash2 />
-                                                                            </Button>
+                                                                            <div className="flex items-center justify-end gap-1">
+                                                                                <Button
+                                                                                    type="button"
+                                                                                    size="icon"
+                                                                                    variant="ghost"
+                                                                                    title="Añadir subcomponente"
+                                                                                    disabled={
+                                                                                        component.depth >=
+                                                                                        5
+                                                                                    }
+                                                                                    onClick={() =>
+                                                                                        addChildComponent(
+                                                                                            index,
+                                                                                            componentIndex,
+                                                                                        )
+                                                                                    }
+                                                                                >
+                                                                                    <Plus />
+                                                                                </Button>
+                                                                                <Button
+                                                                                    type="button"
+                                                                                    size="icon"
+                                                                                    variant="ghost"
+                                                                                    title="Eliminar componente y sus subcomponentes"
+                                                                                    onClick={() =>
+                                                                                        removeComponent(
+                                                                                            index,
+                                                                                            componentIndex,
+                                                                                        )
+                                                                                    }
+                                                                                >
+                                                                                    <Trash2 />
+                                                                                </Button>
+                                                                            </div>
                                                                         </div>
                                                                     ),
                                                                 )}
@@ -1200,11 +1200,10 @@ export default function QuoteForm({
 }
 let lineSequence = 0;
 
-function blankLine(parentClientKey: string | null = null, depth = 1): Line {
+function blankLine(): Line {
     return {
         client_key: `new-line-${Date.now()}-${++lineSequence}`,
-        parent_client_key: parentClientKey,
-        depth,
+        depth: 1,
         product_id: null,
         unit_id: null,
         tax_rate_id: null,
@@ -1219,8 +1218,21 @@ function blankLine(parentClientKey: string | null = null, depth = 1): Line {
         components: [],
     };
 }
-function blankComponent(): Component {
+let componentSequence = 0;
+
+function componentIdentity(parentClientKey: string | null = null, depth = 2) {
     return {
+        client_key: `new-component-${Date.now()}-${++componentSequence}`,
+        parent_client_key: parentClientKey,
+        depth,
+    };
+}
+function blankComponent(
+    parentClientKey: string | null = null,
+    depth = 2,
+): Component {
+    return {
+        ...componentIdentity(parentClientKey, depth),
         product_id: null,
         unit_id: null,
         kind: 'material',
@@ -1280,15 +1292,29 @@ function calculate(lines: Line[]) {
     );
 }
 function componentCost(line: Line) {
+    const componentsByKey = new Map(
+        line.components.map((component) => [component.client_key, component]),
+    );
+
     return (
         Number(line.quantity) *
-        line.components.reduce(
-            (sum, component) =>
-                sum +
-                Number(component.quantity) *
-                    Number(component.planned_unit_cost || 0),
-            0,
-        )
+        line.components.reduce((sum, component) => {
+            let quantity = Number(component.quantity);
+            let parentKey = component.parent_client_key;
+
+            while (parentKey) {
+                const parent = componentsByKey.get(parentKey);
+
+                if (!parent) {
+                    break;
+                }
+
+                quantity *= Number(parent.quantity);
+                parentKey = parent.parent_client_key;
+            }
+
+            return sum + quantity * Number(component.planned_unit_cost || 0);
+        }, 0)
     );
 }
 function money(value: number) {

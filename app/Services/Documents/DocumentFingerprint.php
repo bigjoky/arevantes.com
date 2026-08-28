@@ -18,7 +18,7 @@ class DocumentFingerprint
             'lines' => $document->lines->map(function ($line) use ($document): array {
                 $data = $line->only(['parent_line_id', 'depth', 'position', 'selection_mode', 'option_group', 'is_selected', 'description', 'quantity', 'unit_price', 'discount_percent', 'tax_percent', 'subtotal', 'discount_amount', 'tax_amount', 'total']);
                 if ($document instanceof Quote) {
-                    $data['components'] = $line->components->map->only(['position', 'kind', 'fulfillment_kind', 'visibility', 'description', 'quantity', 'planned_unit_cost', 'interval_months'])->values()->all();
+                    $data['components'] = $line->components->map->only(['parent_component_id', 'depth', 'position', 'kind', 'fulfillment_kind', 'visibility', 'description', 'quantity', 'planned_unit_cost', 'interval_months'])->values()->all();
                 }
 
                 return $data;

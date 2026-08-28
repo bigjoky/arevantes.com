@@ -53,12 +53,11 @@
 </table>
 
 <table class="lines"><thead><tr><th>Descripción</th><th class="right">Cantidad</th><th class="right">Precio</th><th class="right">Dto.</th><th class="right">IVA</th><th class="right">Total</th></tr></thead><tbody>
-@foreach($document->lines as $line)<tr><td style="padding-left: {{ max(0, ((int) ($line->depth ?? 1)) - 1) * 10 + 5 }}px"><span class="strong">{{ $line->description }}</span>
-@if($kind === 'quote' && ($line->depth ?? 1) > 1)<div class="muted" style="font-size:8pt">Nivel {{ $line->depth }}</div>@endif
+@foreach($document->lines as $line)<tr><td><span class="strong">{{ $line->description }}</span>
 @if($kind === 'quote' && ($line->selection_mode ?? 'included') !== 'included')<div class="muted" style="font-size:8pt">{{ $line->selection_mode === 'optional' ? 'OPCIONAL' : 'ALTERNATIVA · '.($line->option_group ?: 'sin grupo') }} · {{ $line->is_selected ? 'seleccionada' : 'no incluida en el total' }}</div>@endif
 @if($kind === 'quote' && $line->relationLoaded('components'))
 @php($visibleComponents = $line->components->where('visibility', '!=', 'hidden'))
-@if($visibleComponents->isNotEmpty())<ul class="components">@foreach($visibleComponents as $component)<li>@if($component->visibility === 'detailed'){{ rtrim(rtrim(number_format((float)$component->quantity * (float)$line->quantity, 3, ',', '.'), '0'), ',') }}{{ $component->unit?->symbol ? ' '.$component->unit->symbol : '' }} · @endif{{ $component->description }} <span class="muted">(incluido)</span></li>@endforeach</ul>@endif
+@if($visibleComponents->isNotEmpty())<ul class="components">@foreach($visibleComponents as $component)<li style="margin-left: {{ max(0, ((int) $component->depth) - 2) * 10 }}px"><span class="muted">Nivel {{ $component->depth }} · </span>@if($component->visibility === 'detailed'){{ rtrim(rtrim(number_format($line->effectiveComponentQuantity($component), 3, ',', '.'), '0'), ',') }}{{ $component->unit?->symbol ? ' '.$component->unit->symbol : '' }} · @endif{{ $component->description }} <span class="muted">(incluido)</span></li>@endforeach</ul>@endif
 @endif
 </td><td class="right">{{ rtrim(rtrim(number_format((float)$line->quantity, 3, ',', '.'), '0'), ',') }}</td><td class="right">{{ number_format((float)$line->unit_price, 2, ',', '.') }} €</td><td class="right">{{ number_format((float)$line->discount_percent, 2, ',', '.') }}%</td><td class="right">{{ number_format((float)$line->tax_percent, 2, ',', '.') }}%</td><td class="right strong">{{ number_format((float)$line->total, 2, ',', '.') }} €</td></tr>@endforeach
 </tbody></table>

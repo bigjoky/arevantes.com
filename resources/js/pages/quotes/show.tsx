@@ -96,6 +96,8 @@ type Quote = {
         is_selected: boolean;
         components: Array<{
             id: number;
+            parent_component_id: number | null;
+            depth: number;
             description: string;
             quantity: string;
             kind: string;
@@ -639,20 +641,10 @@ export default function QuoteShow({
                         <tbody>
                             {quote.lines.map((line) => (
                                 <tr key={line.id} className="border-b">
-                                    <td
-                                        className="py-3"
-                                        style={{
-                                            paddingLeft: `${Math.max(0, (line.depth ?? 1) - 1) * 1.25}rem`,
-                                        }}
-                                    >
+                                    <td className="py-3">
                                         <div className="font-medium">
                                             {line.description}
                                         </div>
-                                        {(line.depth ?? 1) > 1 && (
-                                            <div className="text-[11px] text-muted-foreground">
-                                                Nivel {line.depth}
-                                            </div>
-                                        )}
                                         {line.selection_mode !== 'included' && (
                                             <div className="mt-1 flex flex-wrap gap-1">
                                                 <Badge variant="secondary">
@@ -675,14 +667,23 @@ export default function QuoteShow({
                                                         <li
                                                             key={component.id}
                                                             className="flex flex-wrap items-center gap-2"
+                                                            style={{
+                                                                marginLeft: `${Math.max(0, component.depth - 2)}rem`,
+                                                            }}
                                                         >
+                                                            <span className="text-[10px] font-medium uppercase">
+                                                                Nivel{' '}
+                                                                {
+                                                                    component.depth
+                                                                }
+                                                            </span>
                                                             <span className="min-w-0 break-words">
                                                                 {component.visibility ===
                                                                 'hidden'
                                                                     ? 'Interno'
                                                                     : component.visibility ===
                                                                         'detailed'
-                                                                      ? `${Number(component.quantity) * Number(line.quantity)}${component.unit?.symbol ? ` ${component.unit.symbol}` : ''}`
+                                                                      ? `${effectiveComponentQuantity(line, component)}${component.unit?.symbol ? ` ${component.unit.symbol}` : ''}`
                                                                       : 'Incluido'}
                                                                 {' · '}
                                                                 {
@@ -1506,6 +1507,27 @@ function money(value: string | number) {
         style: 'currency',
         currency: 'EUR',
     }).format(Number(value));
+}
+function effectiveComponentQuantity(
+    line: Quote['lines'][number],
+    component: Quote['lines'][number]['components'][number],
+) {
+    const components = new Map(line.components.map((item) => [item.id, item]));
+    let quantity = Number(line.quantity) * Number(component.quantity);
+    let parentId = component.parent_component_id;
+
+    while (parentId) {
+        const parent = components.get(parentId);
+
+        if (!parent) {
+            break;
+        }
+
+        quantity *= Number(parent.quantity);
+        parentId = parent.parent_component_id;
+    }
+
+    return quantity;
 }
 function quoteStatusLabel(status: string) {
     return quoteStatuses.find(([value]) => value === status)?.[1] || status;

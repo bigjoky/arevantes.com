@@ -33,7 +33,7 @@ class QuoteSelection
             $totals = app(QuoteCalculator::class)->calculate($quote->lines->map(fn ($line) => $line->only(['product_id', 'unit_id', 'tax_rate_id', 'position', 'selection_mode', 'option_group', 'is_selected', 'description', 'quantity', 'unit_price', 'discount_percent', 'tax_percent']))->all());
             $cost = $quote->lines->where('is_selected', true)->sum(function ($line): float {
                 if ($line->components->isNotEmpty()) {
-                    return (float) $line->quantity * $line->components->sum(fn ($component) => (float) $component->quantity * (float) $component->planned_unit_cost);
+                    return $line->components->sum(fn ($component) => $line->effectiveComponentQuantity($component) * (float) $component->planned_unit_cost);
                 }
 
                 return (float) $line->quantity * (float) ($line->product?->cost_price ?? 0);

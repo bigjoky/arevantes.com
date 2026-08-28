@@ -19,54 +19,71 @@ class QuoteCompositionTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_custom_quote_lines_can_be_nested_up_to_five_levels(): void
+    public function test_custom_quote_line_components_can_be_nested_up_to_level_five(): void
     {
         $commercial = User::factory()->create(['role' => 'commercial']);
         $customer = Person::create(['category' => 'customer', 'first_name' => 'Cliente jerarquía']);
-        $lines = collect(range(1, 5))->map(fn (int $level): array => [
+        $components = collect(range(2, 5))->map(fn (int $level): array => [
             'client_key' => "level-{$level}",
-            'parent_client_key' => $level === 1 ? null : 'level-'.($level - 1),
-            'description' => "Partida nivel {$level}",
-            'quantity' => 1,
-            'unit_price' => $level * 10,
-            'discount_percent' => 0,
-            'tax_percent' => 0,
+            'parent_client_key' => $level === 2 ? null : 'level-'.($level - 1),
+            'kind' => 'other',
+            'fulfillment_kind' => 'none',
+            'visibility' => 'detailed',
+            'description' => "Componente nivel {$level}",
+            'quantity' => 2,
+            'planned_unit_cost' => 1,
         ])->all();
 
         $this->actingAs($commercial)->post(route('quotes.store'), [
             'person_id' => $customer->id,
             'issue_date' => today()->toDateString(),
-            'lines' => $lines,
+            'lines' => [[
+                'description' => 'Partida personalizada nivel 1',
+                'quantity' => 3,
+                'unit_price' => 100,
+                'discount_percent' => 0,
+                'tax_percent' => 0,
+                'components' => $components,
+            ]],
         ])->assertRedirect();
 
         $quote = Quote::with('lines')->firstOrFail();
-        $this->assertSame('150.00', $quote->amount);
-        $this->assertSame([1, 2, 3, 4, 5], $quote->lines->pluck('depth')->all());
+        $this->assertSame('300.00', $quote->amount);
+        $this->assertSame([2, 3, 4, 5], $quote->lines->first()->components->pluck('depth')->all());
+        $this->assertSame('210.00', $quote->expected_margin_amount);
 
-        foreach ($quote->lines->skip(1) as $index => $line) {
-            $this->assertSame($quote->lines[$index - 1]->id, $line->parent_line_id);
+        foreach ($quote->lines->first()->components->skip(1)->values() as $index => $component) {
+            $this->assertSame($quote->lines->first()->components[$index]->id, $component->parent_component_id);
         }
     }
 
-    public function test_custom_quote_lines_cannot_exceed_five_levels(): void
+    public function test_custom_quote_line_components_cannot_exceed_level_five(): void
     {
         $commercial = User::factory()->create(['role' => 'commercial']);
         $customer = Person::create(['category' => 'customer', 'first_name' => 'Cliente límite']);
-        $lines = collect(range(1, 6))->map(fn (int $level): array => [
+        $components = collect(range(2, 6))->map(fn (int $level): array => [
             'client_key' => "level-{$level}",
-            'parent_client_key' => $level === 1 ? null : 'level-'.($level - 1),
-            'description' => "Partida nivel {$level}",
+            'parent_client_key' => $level === 2 ? null : 'level-'.($level - 1),
+            'kind' => 'other',
+            'fulfillment_kind' => 'none',
+            'visibility' => 'detailed',
+            'description' => "Componente nivel {$level}",
             'quantity' => 1,
-            'unit_price' => 10,
-            'discount_percent' => 0,
-            'tax_percent' => 0,
+            'planned_unit_cost' => 0,
         ])->all();
 
         $this->actingAs($commercial)->post(route('quotes.store'), [
             'person_id' => $customer->id,
             'issue_date' => today()->toDateString(),
-            'lines' => $lines,
-        ])->assertSessionHasErrors('lines.5.parent_client_key');
+            'lines' => [[
+                'description' => 'Partida personalizada nivel 1',
+                'quantity' => 1,
+                'unit_price' => 10,
+                'discount_percent' => 0,
+                'tax_percent' => 0,
+                'components' => $components,
+            ]],
+        ])->assertSessionHasErrors('lines.0.components.4.parent_client_key');
 
         $this->assertDatabaseCount('quotes', 0);
     }

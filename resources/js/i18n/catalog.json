@@ -1,4 +1,16 @@
 {
+    "Componente personalizado": {
+        "en": "Custom component",
+        "es": "Componente personalizado"
+    },
+    "Añadir subcomponente": {
+        "en": "Add subcomponent",
+        "es": "Añadir subcomponente"
+    },
+    "Eliminar componente y sus subcomponentes": {
+        "en": "Remove component and its subcomponents",
+        "es": "Eliminar componente y sus subcomponentes"
+    },
     "Add subline": { "en": "Add subline", "es": "Añadir sublínea" },
     "Withholding": { "en": "Withholding", "es": "Retención" },
     "Add one row for each VAT rate shown on the document.": {

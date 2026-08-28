@@ -15,7 +15,7 @@ class QuoteMaterialReadiness
         $requirements = $quote->lines->where('is_selected', true)->flatMap(function ($line) {
             $components = $line->components->whereIn('fulfillment_kind', ['stock', 'material'])
                 ->filter(fn ($component) => $component->product?->track_stock)
-                ->map(fn ($component): array => ['product' => $component->product, 'quantity' => (float) $component->quantity * (float) $line->quantity]);
+                ->map(fn ($component): array => ['product' => $component->product, 'quantity' => $line->effectiveComponentQuantity($component)]);
 
             return $components->isNotEmpty() ? $components : ($line->product?->track_stock
                 ? collect([['product' => $line->product, 'quantity' => (float) $line->quantity]])

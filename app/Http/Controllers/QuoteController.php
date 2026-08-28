@@ -330,7 +330,11 @@ class QuoteController extends Controller
                 return [
                     ...$line,
                     'client_key' => filled($line['client_key'] ?? null) ? (string) $line['client_key'] : 'line-'.($index + 1),
-                    'parent_client_key' => filled($line['parent_client_key'] ?? null) ? (string) $line['parent_client_key'] : null,
+                    'components' => collect($line['components'] ?? [])->map(fn (array $component, int $componentIndex): array => [
+                        ...$component,
+                        'client_key' => filled($component['client_key'] ?? null) ? (string) $component['client_key'] : 'component-'.($componentIndex + 1),
+                        'parent_client_key' => filled($component['parent_client_key'] ?? null) ? (string) $component['parent_client_key'] : null,
+                    ])->all(),
                 ];
             })->all(),
         ]);
@@ -345,7 +349,6 @@ class QuoteController extends Controller
             'change_note' => [$quote ? 'required' : 'nullable', 'string', 'min:5', 'max:2000'],
             'lines' => ['required', 'array', 'min:1'],
             'lines.*.client_key' => ['required', 'string', 'max:100', 'distinct'],
-            'lines.*.parent_client_key' => ['nullable', 'string', 'max:100'],
             'lines.*.product_id' => ['nullable', 'exists:products,id'], 'lines.*.unit_id' => ['nullable', 'exists:units,id'],
             'lines.*.tax_rate_id' => ['nullable', 'exists:tax_rates,id'], 'lines.*.description' => ['required', 'string'], 'lines.*.quantity' => ['required', 'numeric', 'gt:0'],
             'lines.*.unit_price' => ['required', 'numeric', 'min:0'], 'lines.*.discount_percent' => ['required', 'numeric', 'between:0,100'], 'lines.*.tax_percent' => ['required', 'numeric', 'between:0,100'],
@@ -353,6 +356,8 @@ class QuoteController extends Controller
             'lines.*.option_group' => ['nullable', 'string', 'max:100'],
             'lines.*.is_selected' => ['sometimes', 'boolean'],
             'lines.*.components' => ['sometimes', 'array'],
+            'lines.*.components.*.client_key' => ['required', 'string', 'max:100'],
+            'lines.*.components.*.parent_client_key' => ['nullable', 'string', 'max:100'],
             'lines.*.components.*.product_id' => ['nullable', 'exists:products,id'],
             'lines.*.components.*.unit_id' => ['nullable', 'exists:units,id'],
             'lines.*.components.*.kind' => ['required', Rule::in(['material', 'labor', 'service', 'document', 'other'])],
@@ -364,48 +369,86 @@ class QuoteController extends Controller
             'lines.*.components.*.interval_months' => ['nullable', 'integer', 'between:1,120'],
         ]);
 
-        return $this->normalizeLineHierarchy($data);
+        return $this->normalizeComponentHierarchy($data);
     }
 
-    private function normalizeLineHierarchy(array $data): array
+    private function normalizeComponentHierarchy(array $data): array
     {
-        $linesByKey = collect($data['lines'])->keyBy('client_key');
-
         foreach ($data['lines'] as $index => &$line) {
-            $depth = 1;
-            $parentKey = $line['parent_client_key'] ?? null;
-            $visited = [$line['client_key'] => true];
-
-            while ($parentKey !== null) {
-                if (! $linesByKey->has($parentKey)) {
-                    throw ValidationException::withMessages([
-                        "lines.{$index}.parent_client_key" => __('The parent proposal line no longer exists.'),
-                    ]);
-                }
-
-                if (isset($visited[$parentKey])) {
-                    throw ValidationException::withMessages([
-                        "lines.{$index}.parent_client_key" => __('Proposal lines cannot contain a circular hierarchy.'),
-                    ]);
-                }
-
-                $visited[$parentKey] = true;
-                $depth++;
-
-                if ($depth > 5) {
-                    throw ValidationException::withMessages([
-                        "lines.{$index}.parent_client_key" => __('Proposal lines can be nested up to five levels.'),
-                    ]);
-                }
-
-                $parentKey = $linesByKey->get($parentKey)['parent_client_key'] ?? null;
+            $components = collect($line['components'] ?? []);
+            if ($components->pluck('client_key')->duplicates()->isNotEmpty()) {
+                throw ValidationException::withMessages([
+                    "lines.{$index}.components" => __('Component identifiers must be unique within each proposal line.'),
+                ]);
             }
+            $componentsByKey = $components->keyBy('client_key');
 
-            $line['depth'] = $depth;
+            $line['components'] ??= [];
+            foreach ($line['components'] as $componentIndex => &$component) {
+                $depth = 2;
+                $parentKey = $component['parent_client_key'] ?? null;
+                $visited = [$component['client_key'] => true];
+
+                while ($parentKey !== null) {
+                    if (! $componentsByKey->has($parentKey)) {
+                        throw ValidationException::withMessages([
+                            "lines.{$index}.components.{$componentIndex}.parent_client_key" => __('The parent component no longer exists.'),
+                        ]);
+                    }
+
+                    if (isset($visited[$parentKey])) {
+                        throw ValidationException::withMessages([
+                            "lines.{$index}.components.{$componentIndex}.parent_client_key" => __('Components cannot contain a circular hierarchy.'),
+                        ]);
+                    }
+
+                    $visited[$parentKey] = true;
+                    $depth++;
+
+                    if ($depth > 5) {
+                        throw ValidationException::withMessages([
+                            "lines.{$index}.components.{$componentIndex}.parent_client_key" => __('Proposal components can be nested up to level five.'),
+                        ]);
+                    }
+
+                    $parentKey = $componentsByKey->get($parentKey)['parent_client_key'] ?? null;
+                }
+
+                $component['depth'] = $depth;
+            }
+            unset($component);
+
+            $line['depth'] = 1;
+            $line['parent_client_key'] = null;
         }
         unset($line);
 
         return $data;
+    }
+
+    /** @param array<int, array<string, mixed>> $components */
+    private function componentCost(array $components): float
+    {
+        $componentsByKey = collect($components)->keyBy('client_key');
+
+        return collect($components)->sum(function (array $component) use ($componentsByKey): float {
+            $quantity = (float) $component['quantity'];
+            $parentKey = $component['parent_client_key'] ?? null;
+
+            while ($parentKey !== null) {
+                $parent = $componentsByKey->get($parentKey);
+                if (! $parent) {
+                    throw ValidationException::withMessages([
+                        'components' => __('The parent component no longer exists.'),
+                    ]);
+                }
+
+                $quantity *= (float) $parent['quantity'];
+                $parentKey = $parent['parent_client_key'] ?? null;
+            }
+
+            return $quantity * (float) $component['planned_unit_cost'];
+        });
     }
 
     private function persist(Quote $quote, array $data, QuoteCalculator $calculator, array $extra = [], ?int $actorId = null): Quote
@@ -457,7 +500,7 @@ class QuoteController extends Controller
         $lineCost = function (array $line) use ($productCosts): float {
             $components = collect($line['components'] ?? []);
             if ($components->isNotEmpty()) {
-                return (float) $line['quantity'] * $components->sum(fn (array $component) => (float) $component['quantity'] * (float) $component['planned_unit_cost']);
+                return (float) $line['quantity'] * $this->componentCost($components->all());
             }
 
             return (float) ($productCosts->get((int) ($line['product_id'] ?? 0)) ?? 0) * (float) $line['quantity'];
@@ -477,16 +520,21 @@ class QuoteController extends Controller
         unset($data['lines']);
         $quote->fill([...$data, ...$extra, ...array_diff_key($totals, ['lines' => true]), 'expected_margin_amount' => $margin, 'approval_status' => $requiresApproval ? 'pending' : 'not_required', 'approved_by' => null, 'approved_at' => null, 'approval_notes' => null, 'customer_snapshot' => $customer->only(['first_name', 'last_name', 'company_name', 'tax_id', 'document_number', 'billing_email', 'email', 'address_line_1', 'address_line_2', 'postal_code', 'city', 'province_state', 'country'])])->save();
         $quote->lines()->delete();
-        $createdLines = [];
-        foreach (collect($totals['lines'])->sortBy('depth') as $lineData) {
+        foreach ($totals['lines'] as $lineData) {
             $components = $lineData['components'] ?? [];
-            $clientKey = $lineData['client_key'];
-            $parentClientKey = $lineData['parent_client_key'] ?? null;
             unset($lineData['components'], $lineData['client_key'], $lineData['parent_client_key']);
-            $lineData['parent_line_id'] = $parentClientKey ? $createdLines[$parentClientKey] : null;
+            $lineData['parent_line_id'] = null;
+            $lineData['depth'] = 1;
             $line = $quote->lines()->create($lineData);
-            $line->components()->createMany($components);
-            $createdLines[$clientKey] = $line->id;
+            $createdComponents = [];
+            foreach (collect($components)->sortBy('depth') as $componentData) {
+                $componentClientKey = $componentData['client_key'];
+                $parentClientKey = $componentData['parent_client_key'] ?? null;
+                unset($componentData['client_key'], $componentData['parent_client_key']);
+                $componentData['parent_component_id'] = $parentClientKey ? $createdComponents[$parentClientKey] : null;
+                $component = $line->components()->create($componentData);
+                $createdComponents[$componentClientKey] = $component->id;
+            }
         }
         $quote->versions()->updateOrCreate(['version' => $quote->version], [
             'created_by' => $actorId,

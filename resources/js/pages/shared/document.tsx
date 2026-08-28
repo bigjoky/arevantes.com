@@ -19,6 +19,8 @@ type Line = {
     is_selected: boolean;
     components?: Array<{
         id: number;
+        parent_component_id: number | null;
+        depth: number;
         description: string;
         quantity: string;
         visibility: 'detailed' | 'summary' | 'hidden';
@@ -155,17 +157,7 @@ export default function SharedDocument({
                                 {document.lines.map((line) => (
                                     <tr key={line.id} className="border-b">
                                         <td className="py-3">
-                                            <div
-                                                className="font-medium"
-                                                style={{
-                                                    paddingLeft: `${Math.max(0, (line.depth || 1) - 1) * 1.25}rem`,
-                                                }}
-                                            >
-                                                {line.depth > 1 && (
-                                                    <span className="mr-2 text-xs font-normal text-muted-foreground">
-                                                        Nivel {line.depth}
-                                                    </span>
-                                                )}
+                                            <div className="font-medium">
                                                 {line.description}
                                             </div>
                                             {line.selection_mode !==
@@ -268,10 +260,22 @@ export default function SharedDocument({
                                                                             component.id
                                                                         }
                                                                         className="break-words"
+                                                                        style={{
+                                                                            marginLeft: `${Math.max(0, component.depth - 2)}rem`,
+                                                                        }}
                                                                     >
+                                                                        <span className="mr-1 text-[10px] font-medium uppercase">
+                                                                            Nivel{' '}
+                                                                            {
+                                                                                component.depth
+                                                                            }
+                                                                            {
+                                                                                ' · '
+                                                                            }
+                                                                        </span>
                                                                         {component.visibility ===
                                                                         'detailed'
-                                                                            ? `${Number(component.quantity) * Number(line.quantity)}${component.unit?.symbol ? ` ${component.unit.symbol}` : ''} · `
+                                                                            ? `${effectiveComponentQuantity(line, component)}${component.unit?.symbol ? ` ${component.unit.symbol}` : ''} · `
                                                                             : ''}
                                                                         {
                                                                             component.description
@@ -428,6 +432,29 @@ const money = (v: string | number) =>
         style: 'currency',
         currency: 'EUR',
     }).format(Number(v));
+function effectiveComponentQuantity(
+    line: Line,
+    component: NonNullable<Line['components']>[number],
+) {
+    const components = new Map(
+        (line.components || []).map((item) => [item.id, item]),
+    );
+    let quantity = Number(line.quantity) * Number(component.quantity);
+    let parentId = component.parent_component_id;
+
+    while (parentId) {
+        const parent = components.get(parentId);
+
+        if (!parent) {
+            break;
+        }
+
+        quantity *= Number(parent.quantity);
+        parentId = parent.parent_component_id;
+    }
+
+    return quantity;
+}
 function selectionTotals(lines: Line[], selectedLineIds: number[]) {
     return lines
         .filter(
