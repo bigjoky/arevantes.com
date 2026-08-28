@@ -10,6 +10,8 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import { useLocale } from '@/hooks/use-locale';
+import { translate } from '@/i18n';
 
 type Customer = {
     id: number;
@@ -77,6 +79,7 @@ export default function SalesForm({
     defaultInstallationId?: number | null;
     defaultType?: string;
 }) {
+    const { locale } = useLocale();
     const form = useForm({
         type: document?.type ?? defaultType,
         person_id: String(document?.person_id ?? defaultCustomerId ?? ''),
@@ -105,6 +108,12 @@ export default function SalesForm({
             item.person_id === Number(form.data.person_id),
     );
     const totals = calculate(form.data.lines);
+    const pageTitle = document
+        ? `${translate('Edit', locale)} ${document.number}`
+        : translate(
+              `New ${typeLabels[form.data.type].toLowerCase()}`,
+              locale,
+          );
 
     const updateLine = (index: number, changes: Partial<Line>) =>
         form.setData(
@@ -133,16 +142,12 @@ export default function SalesForm({
 
     return (
         <>
-            <Head
-                title={document ? `Edit ${document.number}` : 'New document'}
-            />
+            <Head title={pageTitle} />
             <div className="flex flex-1 flex-col gap-6 p-4 md:p-6">
                 <header className="flex flex-wrap items-center justify-between gap-3">
                     <div>
                         <h1 className="text-xl font-semibold">
-                            {document
-                                ? `Edit ${document.number}`
-                                : `New ${typeLabels[form.data.type].toLowerCase()}`}
+                            {pageTitle}
                         </h1>
                         <p className="text-sm text-muted-foreground">
                             Create a standalone sales document using catalog

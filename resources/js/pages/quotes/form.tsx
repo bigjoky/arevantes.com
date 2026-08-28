@@ -21,6 +21,8 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { useLocale } from '@/hooks/use-locale';
+import { translate } from '@/i18n';
 import { serviceLabels } from '@/lib/business-lines';
 import type { ServiceType } from '@/lib/business-lines';
 
@@ -135,6 +137,10 @@ export default function QuoteForm({
     opportunityDraft?: OpportunityDraft | null;
     acceptancePaymentDefaults: { percentage: number; due_days: number };
 }) {
+    const { locale } = useLocale();
+    const pageTitle = quote
+        ? `${translate('Edit', locale)} ${quote.number}`
+        : translate('Nueva propuesta', locale);
     const form = useForm({
         opportunity_id: String(
             quote?.opportunity_id ?? opportunityDraft?.id ?? '',
@@ -360,12 +366,12 @@ export default function QuoteForm({
 
     return (
         <>
-            <Head title={quote ? `Edit ${quote.number}` : 'New quote'} />
+            <Head title={pageTitle} />
             <div className="flex min-w-0 flex-1 flex-col gap-6 overflow-x-clip p-4 md:p-6">
                 <header className="flex flex-wrap items-center justify-between gap-3">
                     <div>
                         <h1 className="text-xl font-semibold">
-                            {quote ? `Edit ${quote.number}` : 'New quote'}
+                            {pageTitle}
                         </h1>
                         <p className="text-sm text-muted-foreground">
                             {opportunityDraft

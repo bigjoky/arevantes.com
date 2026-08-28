@@ -119,6 +119,7 @@ export function LocalizedDocument({ children }: { children: ReactNode }) {
             }
         };
 
+        localizeTree(document.head);
         localizeTree(document.body);
         const observer = new MutationObserver((mutations) => {
             for (const mutation of mutations) {
@@ -132,7 +133,7 @@ export function LocalizedDocument({ children }: { children: ReactNode }) {
                 }
             }
         });
-        observer.observe(document.body, {
+        observer.observe(document.documentElement, {
             childList: true,
             characterData: true,
             subtree: true,

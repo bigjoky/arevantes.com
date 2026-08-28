@@ -18,6 +18,8 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import { useLocale } from '@/hooks/use-locale';
+import { translate } from '@/i18n';
 
 type Document = {
     id: number;
@@ -58,6 +60,7 @@ export default function SalesIndex({
     filters: Filters;
     summary: Summary;
 }) {
+    const { locale } = useLocale();
     const [search, setSearch] = useState(filters.search ?? '');
 
     function applyFilters(key: keyof Filters, value: string) {
@@ -74,7 +77,7 @@ export default function SalesIndex({
 
     return (
         <>
-            <Head title="Sales" />
+            <Head title={translate('Sales', locale)} />
             <div className="flex flex-1 flex-col gap-5 p-4 md:p-6">
                 <header className="flex flex-wrap items-start justify-between gap-3">
                     <div>

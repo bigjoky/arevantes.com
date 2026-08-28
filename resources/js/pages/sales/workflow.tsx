@@ -18,6 +18,8 @@ import {
     DialogTitle,
     DialogTrigger,
 } from '@/components/ui/dialog';
+import { useLocale } from '@/hooks/use-locale';
+import { translate } from '@/i18n';
 
 type ProgressLine = {
     id: number;
@@ -101,9 +103,11 @@ export default function SalesWorkflow({
         shortages: number;
     };
 }) {
+    const { locale } = useLocale();
+
     return (
         <>
-            <Head title="Sales workflow" />
+            <Head title={translate('Sales workflow', locale)} />
             <div className="flex flex-1 flex-col gap-6 p-4 md:p-6">
                 <header className="flex flex-wrap items-start justify-between gap-3">
                     <div>

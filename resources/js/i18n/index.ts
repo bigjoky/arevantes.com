@@ -5,6 +5,273 @@ export type Locale = 'en' | 'es';
 type Translation = { en: string; es: string };
 
 const terminologyOverrides: Record<string, Translation> = {
+    'Custom line': { en: 'Custom line', es: 'Línea personalizada' },
+    Quote: { en: 'Proposal', es: 'Propuesta' },
+    Propuesta: { en: 'Proposal', es: 'Propuesta' },
+    'New quote': { en: 'New proposal', es: 'Nueva propuesta' },
+    'Build the commercial offer from catalog items or free-text lines.': {
+        en: 'Build the commercial offer from catalog items or custom lines.',
+        es: 'Prepara la oferta comercial con artículos de catálogo o líneas personalizadas.',
+    },
+    'Acceptance payment (%)': {
+        en: 'Acceptance payment (%)',
+        es: 'Anticipo a la aceptación (%)',
+    },
+    'Payment term after acceptance (days)': {
+        en: 'Payment term after acceptance (days)',
+        es: 'Plazo de pago tras la aceptación (días)',
+    },
+    'When the customer accepts, the platform issues this advance invoice automatically. Use 0% when no acceptance payment is required.':
+        {
+            en: 'When the customer accepts, the platform issues this advance invoice automatically. Use 0% when no acceptance payment is required.',
+            es: 'Cuando el cliente acepte, la plataforma emitirá automáticamente esta factura de anticipo. Indica 0 % si no se requiere anticipo.',
+        },
+    'Prices are before tax.': {
+        en: 'Prices exclude tax.',
+        es: 'Los precios no incluyen impuestos.',
+    },
+    'Catalog item': {
+        en: 'Catalog item',
+        es: 'Artículo de catálogo',
+    },
+    'Business line': { en: 'Business line', es: 'Línea de negocio' },
+    'Qty.': { en: 'Qty.', es: 'Cant.' },
+    'Disc. %': { en: 'Disc. %', es: 'Dto. %' },
+    'Tax %': { en: 'Tax %', es: 'IVA %' },
+    'componentes · coste': {
+        en: 'components · cost',
+        es: 'componentes · coste',
+    },
+    Grupo: { en: 'Group', es: 'Grupo' },
+    'No incluida': { en: 'Not included', es: 'No incluida' },
+    'Cantidad del componente': {
+        en: 'Component quantity',
+        es: 'Cantidad del componente',
+    },
+    Informativo: { en: 'Informational', es: 'Informativo' },
+    Meses: { en: 'Months', es: 'Meses' },
+    'Periodicidad en meses': {
+        en: 'Frequency in months',
+        es: 'Periodicidad en meses',
+    },
+    'Save quote': { en: 'Save proposal', es: 'Guardar propuesta' },
+    'Create quote': { en: 'Create proposal', es: 'Crear propuesta' },
+    'Pendientes de aprobación': {
+        en: 'Awaiting approval',
+        es: 'Pendientes de aprobación',
+    },
+    'Valor abierto': { en: 'Open value', es: 'Valor abierto' },
+    'Valor aceptado': { en: 'Accepted value', es: 'Valor aceptado' },
+    'Número, cliente u oportunidad': {
+        en: 'Number, customer or opportunity',
+        es: 'Número, cliente u oportunidad',
+    },
+    Estado: { en: 'Status', es: 'Estado' },
+    Aprobación: { en: 'Approval', es: 'Aprobación' },
+    'Material feasibility before planning': {
+        en: 'Material availability before planning',
+        es: 'Disponibilidad de materiales antes de planificar',
+    },
+    'The complete quoted kit is currently available.': {
+        en: 'The complete quoted kit is currently available.',
+        es: 'Todos los materiales incluidos en la propuesta están disponibles.',
+    },
+    'Este es un estado final y no admite cambios directos.': {
+        en: 'This is a final status and cannot be changed directly.',
+        es: 'Este es un estado final y no admite cambios directos.',
+    },
+    not_required: { en: 'Not required', es: 'No requerida' },
+    'Acceptance payment': {
+        en: 'Acceptance payment',
+        es: 'Pago a la aceptación',
+    },
+    'Acceptance invoice': {
+        en: 'Acceptance invoice',
+        es: 'Factura de anticipo',
+    },
+    'Financial clearance': {
+        en: 'Financial status',
+        es: 'Situación financiera',
+    },
+    'Aprobada por': { en: 'Approved by', es: 'Aprobada por' },
+    'Margen real actualizado': {
+        en: 'Updated actual margin',
+        es: 'Margen real actualizado',
+    },
+    'Ingreso previsto (sin IVA)': {
+        en: 'Expected revenue (excluding VAT)',
+        es: 'Ingreso previsto (sin IVA)',
+    },
+    'Ingreso real facturado': {
+        en: 'Actual invoiced revenue',
+        es: 'Ingreso real facturado',
+    },
+    'Coste real registrado': {
+        en: 'Actual recorded cost',
+        es: 'Coste real registrado',
+    },
+    'Coste previsto': { en: 'Expected cost', es: 'Coste previsto' },
+    'Desviación de margen': {
+        en: 'Margin variance',
+        es: 'Desviación de margen',
+    },
+    Interno: { en: 'Internal', es: 'Interno' },
+    Incluido: { en: 'Included', es: 'Incluido' },
+    'Invoice the accepted quote in controlled milestones.': {
+        en: 'Invoice the accepted quote in controlled milestones.',
+        es: 'Factura la propuesta aceptada mediante hitos controlados.',
+    },
+    Remaining: { en: 'Remaining', es: 'Pendiente' },
+    'Issued amount': { en: 'Issued amount', es: 'Importe emitido' },
+    'Correo destinatario': {
+        en: 'Recipient email',
+        es: 'Correo destinatario',
+    },
+    'Enviar propuesta': { en: 'Send proposal', es: 'Enviar propuesta' },
+    delivery_note: { en: 'Delivery note', es: 'Albarán' },
+    'Crear albarán': { en: 'Create delivery note', es: 'Crear albarán' },
+    'Create the installation, technical visit and initial work order from this accepted quote.':
+        {
+            en: 'Create the installation, technical visit and initial work order from this accepted quote.',
+            es: 'Crea la instalación, la visita técnica y la orden de trabajo inicial a partir de esta propuesta aceptada.',
+        },
+    Street: { en: 'Street', es: 'Calle' },
+    Quedan: { en: 'Remaining', es: 'Quedan' },
+    Anticipo: { en: 'Advance payment', es: 'Anticipo' },
+    Intermedio: { en: 'Intermediate', es: 'Intermedio' },
+    Porcentaje: { en: 'Percentage', es: 'Porcentaje' },
+    'Importe exacto de la cuota': {
+        en: 'Exact instalment amount',
+        es: 'Importe exacto de la cuota',
+    },
+    superseded: { en: 'Superseded', es: 'Reemplazado' },
+    'Document notes': { en: 'Document notes', es: 'Notas del documento' },
+    'Create a standalone sales document using catalog items or custom lines.': {
+        en: 'Create a standalone sales document using catalog items or custom lines.',
+        es: 'Crea un documento de venta independiente con artículos de catálogo o líneas personalizadas.',
+    },
+    'No installation': { en: 'No installation', es: 'Sin instalación' },
+    'Sales order': { en: 'Sales order', es: 'Pedido' },
+    'Delivery note': { en: 'Delivery note', es: 'Albarán' },
+    'Credit note': { en: 'Credit note', es: 'Factura rectificativa' },
+    Orders: { en: 'Orders', es: 'Pedidos' },
+    'Delivery notes': { en: 'Delivery notes', es: 'Albaranes' },
+    Invoices: { en: 'Invoices', es: 'Facturas' },
+    'Credit notes': {
+        en: 'Credit notes',
+        es: 'Facturas rectificativas',
+    },
+    'Search number or customer': {
+        en: 'Search by number or customer',
+        es: 'Buscar por número o cliente',
+    },
+    'Search sales documents': {
+        en: 'Search sales documents',
+        es: 'Buscar documentos de venta',
+    },
+    delivered: { en: 'Delivered', es: 'Entregado' },
+    'Accounting entry': { en: 'Accounting entry', es: 'Asiento contable' },
+    'Recurring cycle · v': {
+        en: 'Recurring cycle · v',
+        es: 'Ciclo recurrente · v',
+    },
+    'Issue document': { en: 'Issue document', es: 'Emitir documento' },
+    'Issue and lock': { en: 'Issue and lock', es: 'Emitir y bloquear' },
+    'Post the stock issue and assign serialized equipment to the linked installation.':
+        {
+            en: 'Post the stock issue and assign serialized equipment to the linked installation.',
+            es: 'Registra la salida de existencias y asigna los equipos serializados a la instalación vinculada.',
+        },
+    'Dispatch delivery note': {
+        en: 'Dispatch delivery note',
+        es: 'Preparar salida del albarán',
+    },
+    'Mark as delivered': {
+        en: 'Mark as delivered',
+        es: 'Marcar como entregado',
+    },
+    'Delete draft': { en: 'Delete draft', es: 'Eliminar borrador' },
+    'Document progress': {
+        en: 'Document progress',
+        es: 'Progreso del documento',
+    },
+    Delivered: { en: 'Delivered', es: 'Entregado' },
+    remaining_delivery_quantity: {
+        en: 'Remaining to deliver',
+        es: 'Pendiente de entregar',
+    },
+    remaining_invoice_quantity: {
+        en: 'Remaining to invoice',
+        es: 'Pendiente de facturar',
+    },
+    'Mark this delivery note as delivered before invoicing it.': {
+        en: 'Mark this delivery note as delivered before invoicing it.',
+        es: 'Marca este albarán como entregado antes de facturarlo.',
+    },
+    'Stock shortages': { en: 'Stock shortages', es: 'Faltas de stock' },
+    'Open orders': { en: 'Open orders', es: 'Pedidos abiertos' },
+    'Orders to prepare': {
+        en: 'Orders to prepare',
+        es: 'Pedidos por preparar',
+    },
+    'Reserve materials and create the next delivery or invoice.': {
+        en: 'Reserve materials and create the next delivery or invoice.',
+        es: 'Reserva materiales y crea el siguiente albarán o factura.',
+    },
+    'No sales orders require action.': {
+        en: 'No sales orders require action.',
+        es: 'No hay pedidos que requieran intervención.',
+    },
+    'No delivery notes are waiting for dispatch.': {
+        en: 'No delivery notes are waiting for dispatch.',
+        es: 'No hay albaranes pendientes de expedición.',
+    },
+    'No delivered quantities are waiting to be invoiced.': {
+        en: 'No delivered quantities are waiting to be invoiced.',
+        es: 'No hay cantidades entregadas pendientes de facturar.',
+    },
+    'Delivery notes to dispatch': {
+        en: 'Delivery notes to dispatch',
+        es: 'Albaranes por expedir',
+    },
+    'Confirm services directly or open stock dispatches to select warehouse and serial numbers.':
+        {
+            en: 'Confirm services directly or open stock dispatches to select warehouse and serial numbers.',
+            es: 'Confirma directamente los servicios o abre las salidas de stock para seleccionar almacén y números de serie.',
+        },
+    'Warehouse and serial selection required': {
+        en: 'Warehouse and serial selection required',
+        es: 'Requiere seleccionar almacén y números de serie',
+    },
+    'No stock movement required': {
+        en: 'No stock movement required',
+        es: 'No requiere movimiento de stock',
+    },
+    'Delivered and pending invoice': {
+        en: 'Delivered and pending invoice',
+        es: 'Entregado y pendiente de facturar',
+    },
+    'Generate draft invoices from confirmed delivery quantities.': {
+        en: 'Generate draft invoices from confirmed delivery quantities.',
+        es: 'Genera borradores de factura a partir de las cantidades entregadas y confirmadas.',
+    },
+    'reserved of': { en: 'reserved of', es: 'reservadas de' },
+    'No stock-tracked products pending.': {
+        en: 'No stock-tracked products pending.',
+        es: 'No hay productos con control de stock pendientes.',
+    },
+    'Replenishment is already requested. Receive it before dispatching the full quantity.':
+        {
+            en: 'Replenishment is already requested. Receive it before dispatching the full quantity.',
+            es: 'La reposición ya está solicitada. Registra su recepción antes de expedir la cantidad completa.',
+        },
+    'Open order': { en: 'Open order', es: 'Abrir pedido' },
+    'Request quotes': {
+        en: 'Request quotes',
+        es: 'Solicitar presupuestos',
+    },
+    quote: { en: 'Proposal', es: 'Propuesta' },
+    '· incluido': { en: '· included', es: '· incluido' },
     'Actual cash': { en: 'Actual cash', es: 'Efectivo real' },
     'Actual cash net': { en: 'Actual net cash', es: 'Flujo de caja neto real' },
     Aprobar: { en: 'Approve', es: 'Aprobar' },
@@ -543,12 +810,144 @@ export function translate(value: string, locale: Locale): string {
         }
     }
 
+    const editLabel = key.match(/^Edit (.+)$/);
+
+    if (editLabel) {
+        return locale === 'en'
+            ? `Edit ${editLabel[1]}`
+            : `Editar ${translate(editLabel[1], locale)}`;
+    }
+
+    const selectLabel = key.match(/^Select (.+)$/);
+
+    if (selectLabel) {
+        const subject = `${selectLabel[1].charAt(0).toUpperCase()}${selectLabel[1].slice(1)}`;
+        const translatedSubject = translate(subject, locale);
+
+        return locale === 'en'
+            ? `Select ${translatedSubject.toLocaleLowerCase('en')}`
+            : `Seleccionar ${translatedSubject.toLocaleLowerCase('es')}`;
+    }
+
+    const newLabel = key.match(/^New (.+)$/);
+
+    if (newLabel) {
+        const subject = translate(newLabel[1], locale);
+        const feminine = /^(factura|propuesta|nota)/i.test(subject);
+
+        return locale === 'en'
+            ? `New ${translate(newLabel[1], locale)}`
+            : `${feminine ? 'Nueva' : 'Nuevo'} ${subject.toLocaleLowerCase('es')}`;
+    }
+
+    const preparedFromOpportunity = key.match(
+        /^Prepared from opportunity (.+)\.$/,
+    );
+
+    if (preparedFromOpportunity) {
+        return locale === 'en'
+            ? `Prepared from opportunity ${preparedFromOpportunity[1]}.`
+            : `Preparada desde la oportunidad ${preparedFromOpportunity[1]}.`;
+    }
+
+    const preparedFrom = key.match(
+        /^Prepared from (.+)\. Review prices and taxes before saving\.$/,
+    );
+
+    if (preparedFrom) {
+        return locale === 'en'
+            ? key
+            : `Preparada desde ${preparedFrom[1]}. Revisa precios e impuestos antes de guardar.`;
+    }
+
+    const days = key.match(/^(\d+) days$/);
+
+    if (days) {
+        return locale === 'en' ? key : `${days[1]} días`;
+    }
+
+    const materialShortage = key.match(
+        /^(\d+) catalog item\(s\) · ([\d.,]+) units currently unavailable$/,
+    );
+
+    if (materialShortage) {
+        return locale === 'en'
+            ? key
+            : `${materialShortage[1]} artículo(s) de catálogo · ${materialShortage[2]} unidades no disponibles actualmente`;
+    }
+
+    const milestone = key.match(/^Milestone (.+)$/);
+
+    if (milestone) {
+        return locale === 'en' ? key : `Hito ${milestone[1]}`;
+    }
+
+    const billingMilestone = key.match(/^Billing milestone (.+)$/);
+
+    if (billingMilestone) {
+        return locale === 'en'
+            ? key
+            : `Hito de facturación ${billingMilestone[1]}`;
+    }
+
+    const acceptanceConfirmation = key.match(
+        /^¿Confirmas la aceptación de (.+), versión (.+)\?$/,
+    );
+
+    if (acceptanceConfirmation) {
+        return locale === 'en'
+            ? `Confirm acceptance of ${acceptanceConfirmation[1]}, version ${acceptanceConfirmation[2]}?`
+            : key;
+    }
+
+    for (const [pattern, enLabel, esLabel] of [
+        [/^([\d.,]+) requested$/, 'requested', 'solicitadas'],
+        [/^([\d.,]+) short$/, 'short', 'faltantes'],
+        [/^([\d.,]+) reserved$/, 'reserved', 'reservadas'],
+        [/^([\d.,]+) free$/, 'free', 'disponibles'],
+        [/^(\d+) suppliers$/, 'suppliers', 'proveedores'],
+    ] as const) {
+        const match = key.match(pattern);
+
+        if (match) {
+            return `${match[1]} ${locale === 'en' ? enLabel : esLabel}`;
+        }
+    }
+
+    const quantityProgress = key.match(
+        /^Quantity ([\d.,]+) · invoiced ([\d.,]+)$/,
+    );
+
+    if (quantityProgress) {
+        return locale === 'en'
+            ? key
+            : `Cantidad ${quantityProgress[1]} · facturada ${quantityProgress[2]}`;
+    }
+
+    const orderProgress = key.match(
+        /^Ordered ([\d.,]+) · allocated ([\d.,]+) · delivered ([\d.,]+) · invoiced ([\d.,]+)$/,
+    );
+
+    if (orderProgress) {
+        return locale === 'en'
+            ? key
+            : `Pedida ${orderProgress[1]} · asignada ${orderProgress[2]} · entregada ${orderProgress[3]} · facturada ${orderProgress[4]}`;
+    }
+
     for (const [sourcePrefix, targetPrefix] of [
         ['Mostrar solución: ', 'Show solution: '],
         ['Ver proyecto: ', 'View project: '],
+        ['Elegir alternativa · ', 'Choose alternative · '],
+        ['Alternativa · ', 'Alternative · '],
     ]) {
-        if (key.startsWith(sourcePrefix)) {
-            const subject = key.slice(sourcePrefix.length);
+        const matchedPrefix = key.startsWith(sourcePrefix)
+            ? sourcePrefix
+            : key.startsWith(targetPrefix)
+              ? targetPrefix
+              : null;
+
+        if (matchedPrefix) {
+            const subject = key.slice(matchedPrefix.length);
 
             return locale === 'en'
                 ? `${targetPrefix}${translate(subject, locale)}`

@@ -490,3 +490,13 @@ traducibles, los metadatos de accesibilidad y las propiedades compartidas con
 la interfaz. Cuando falte una cadena se conserva el texto de respaldo, de modo
 que el selector puede convivir con la traducción progresiva de cada sección sin
 mostrar claves técnicas ni bloquear la navegación.
+
+### Corte completado — circuito comercial bilingüe
+
+Propuestas, documentos de venta y el flujo operativo de pedidos, albaranes,
+facturas y faltas de stock disponen ya de terminología coherente en español e
+inglés. La localización incluye títulos de página, campos y ayudas de formularios,
+estados, acciones, mensajes vacíos y textos dinámicos con cantidades o referencias.
+La interfaz utiliza **propuesta** para la oferta comercial, **pedido** para el
+documento de venta previo al albarán y **factura rectificativa** para los abonos,
+evitando traducciones literales incompatibles con el uso administrativo español.
