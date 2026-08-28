@@ -102,7 +102,7 @@ class QuoteCompositionTest extends TestCase
             'unit_id' => $unit->id,
             'tax_rate_id' => $tax->id,
             'sale_price' => 200,
-            'cost_price' => 100,
+            'cost_price' => 10,
             'track_stock' => true,
             'track_serials' => true,
             'is_active' => true,
@@ -120,6 +120,17 @@ class QuoteCompositionTest extends TestCase
                 'tax_percent' => 21,
                 'components' => [
                     [
+                        'client_key' => 'custom-assembly',
+                        'kind' => 'other',
+                        'fulfillment_kind' => 'none',
+                        'visibility' => 'summary',
+                        'description' => 'Conjunto fotovoltaico personalizado',
+                        'quantity' => 2,
+                        'planned_unit_cost' => 0,
+                    ],
+                    [
+                        'client_key' => 'panel',
+                        'parent_client_key' => 'custom-assembly',
                         'product_id' => $panel->id,
                         'unit_id' => $unit->id,
                         'kind' => 'material',
@@ -152,8 +163,10 @@ class QuoteCompositionTest extends TestCase
 
         $quote = Quote::with('lines.components')->firstOrFail();
         $this->assertSame('2420.00', $quote->amount);
-        $this->assertSame('100.00', $quote->lines->first()->components->first()->planned_unit_cost);
-        $this->assertCount(3, $quote->versions()->firstOrFail()->lines[0]['components']);
+        $this->assertSame('10.00', $quote->lines->first()->components->firstWhere('product_id', $panel->id)->planned_unit_cost);
+        $this->assertSame(2, $quote->lines->first()->components->firstWhere('description', 'Conjunto fotovoltaico personalizado')->depth);
+        $this->assertSame(3, $quote->lines->first()->components->firstWhere('product_id', $panel->id)->depth);
+        $this->assertCount(4, $quote->versions()->firstOrFail()->lines[0]['components']);
         $this->get(route('quotes.pdf', $quote))->assertOk()->assertHeader('Content-Type', 'application/pdf');
 
         $this->patch(route('quotes.status.update', $quote), ['status' => 'accepted'])->assertRedirect();
@@ -170,8 +183,8 @@ class QuoteCompositionTest extends TestCase
         $this->assertDatabaseHas('installation_material_requirements', [
             'installation_id' => $installation->id,
             'product_id' => $panel->id,
-            'planned_quantity' => 8,
-            'planned_unit_cost' => 100,
+            'planned_quantity' => 16,
+            'planned_unit_cost' => 10,
         ]);
         $this->assertDatabaseHas('crm_activities', [
             'installation_id' => $installation->id,

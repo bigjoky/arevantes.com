@@ -1076,7 +1076,7 @@ export default function QuoteForm({
                                                                                     type="button"
                                                                                     size="icon"
                                                                                     variant="ghost"
-                                                                                    title="Añadir subcomponente"
+                                                                                    title="Añadir producto o subcomponente"
                                                                                     disabled={
                                                                                         component.depth >=
                                                                                         5
@@ -1235,8 +1235,8 @@ function blankComponent(
         ...componentIdentity(parentClientKey, depth),
         product_id: null,
         unit_id: null,
-        kind: 'material',
-        fulfillment_kind: 'stock',
+        kind: 'other',
+        fulfillment_kind: 'none',
         visibility: 'detailed',
         description: '',
         quantity: '1',
