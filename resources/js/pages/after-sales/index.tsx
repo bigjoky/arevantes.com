@@ -11,6 +11,7 @@ import {
     Wrench,
 } from 'lucide-react';
 import { Fragment, useState } from 'react';
+import { AfterSalesSectionNav } from '@/components/after-sales/section-nav';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -335,6 +336,7 @@ export default function AfterSalesIndex({
                         />
                     ) : null}
                 </header>
+                <AfterSalesSectionNav />
                 <section className="grid grid-cols-2 border-y md:grid-cols-4 xl:grid-cols-7">
                     <Metric label="Open tickets" value={metrics.open} />
                     <Metric

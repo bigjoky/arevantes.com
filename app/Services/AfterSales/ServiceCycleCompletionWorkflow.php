@@ -14,6 +14,8 @@ use Illuminate\Validation\ValidationException;
 
 class ServiceCycleCompletionWorkflow
 {
+    public function __construct(private RecurringServiceQualityDetector $quality) {}
+
     /** @return array{MaintenancePlan, ServiceCycleCommitment, ServiceTicket}|null */
     public function lockContext(int $workOrderId): ?array
     {
@@ -179,6 +181,8 @@ class ServiceCycleCompletionWorkflow
                 'next_due_on' => $nextDueAfter?->toDateString(),
             ]);
         }
+
+        $this->quality->detect($commitment->refresh());
 
         return $commitment->refresh();
     }

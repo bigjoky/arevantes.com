@@ -1,4 +1,100 @@
 {
+    "Service quality": {
+        "en": "Service quality",
+        "es": "Calidad del servicio"
+    },
+    "After-sales sections": {
+        "en": "After-sales sections",
+        "es": "Secciones de posventa"
+    },
+    "Recurring service quality": {
+        "en": "Recurring service quality",
+        "es": "Calidad del servicio recurrente"
+    },
+    "Compare approved scope with actual execution and govern every exception before it influences assets, replenishment, profitability or renewals.": {
+        "en": "Compare approved scope with actual execution and govern every exception before it influences assets, replenishment, profitability or renewals.",
+        "es": "Compara el alcance aprobado con la ejecución real y gobierna cada excepción antes de que influya en activos, reposición, rentabilidad o renovaciones."
+    },
+    "Analyse completed cycles": {
+        "en": "Analyse completed cycles",
+        "es": "Analizar ciclos completados"
+    },
+    "Quality score": { "en": "Quality score", "es": "Puntuación de calidad" },
+    "Completed cycles": {
+        "en": "Completed cycles",
+        "es": "Ciclos completados"
+    },
+    "Open reviews": { "en": "Open reviews", "es": "Revisiones abiertas" },
+    "Confirmed deviations": {
+        "en": "Confirmed deviations",
+        "es": "Desviaciones confirmadas"
+    },
+    "Overdue reviews": { "en": "Overdue reviews", "es": "Revisiones vencidas" },
+    "Affected assets": { "en": "Affected assets", "es": "Activos afectados" },
+    "Deviation type": { "en": "Deviation type", "es": "Tipo de desviación" },
+    "All": { "en": "All", "es": "Todos" },
+    "No deviations match these filters.": {
+        "en": "No deviations match these filters.",
+        "es": "Ninguna desviación coincide con estos filtros."
+    },
+    "Analyse completed cycles to reconcile any historical work.": {
+        "en": "Analyse completed cycles to reconcile any historical work.",
+        "es": "Analiza los ciclos completados para conciliar el trabajo histórico."
+    },
+    "Governed impact": { "en": "Governed impact", "es": "Impacto gobernado" },
+    "Confirmed deviations inform asset health, replenishment review, contractual profitability and renewal preparation. They never modify a plan, create a purchase, contact a customer or issue a proposal without a separate human decision.": {
+        "en": "Confirmed deviations inform asset health, replenishment review, contractual profitability and renewal preparation. They never modify a plan, create a purchase, contact a customer or issue a proposal without a separate human decision.",
+        "es": "Las desviaciones confirmadas alimentan la salud de los activos, la revisión de reposición, la rentabilidad contractual y la preparación de renovaciones. Nunca modifican un plan, crean una compra, contactan con un cliente ni emiten una propuesta sin una decisión humana independiente."
+    },
+    "Tolerance": { "en": "Tolerance", "es": "Tolerancia" },
+    "Review by": { "en": "Review by", "es": "Revisar antes del" },
+    "affected assets": { "en": "affected assets", "es": "activos afectados" },
+    "Review note:": { "en": "Review note:", "es": "Nota de revisión:" },
+    "Keep current": { "en": "Keep current", "es": "Mantener actual" },
+    "Review due date": {
+        "en": "Review due date",
+        "es": "Fecha límite de revisión"
+    },
+    "Decision note": { "en": "Decision note", "es": "Nota de decisión" },
+    "Explain the evidence reviewed and the decision taken.": {
+        "en": "Explain the evidence reviewed and the decision taken.",
+        "es": "Explica las evidencias revisadas y la decisión adoptada."
+    },
+    "Record review": { "en": "Record review", "es": "Registrar revisión" },
+    "History": { "en": "History", "es": "Historial" },
+    "history": { "en": "history", "es": "historial" },
+    "Calidad recurrente": {
+        "en": "Recurring quality",
+        "es": "Calidad recurrente"
+    },
+    "Desviaciones confirmadas": {
+        "en": "Confirmed deviations",
+        "es": "Desviaciones confirmadas"
+    },
+    "Execution duration is outside the approved tolerance.": {
+        "en": "Execution duration is outside the approved tolerance.",
+        "es": "La duración de la ejecución está fuera de la tolerancia aprobada."
+    },
+    "Recorded travel is outside the approved tolerance.": {
+        "en": "Recorded travel is outside the approved tolerance.",
+        "es": "El desplazamiento registrado está fuera de la tolerancia aprobada."
+    },
+    "Material consumption is outside the approved tolerance.": {
+        "en": "Material consumption is outside the approved tolerance.",
+        "es": "El consumo de materiales está fuera de la tolerancia aprobada."
+    },
+    "The service required an unplanned reopening.": {
+        "en": "The service required an unplanned reopening.",
+        "es": "El servicio requirió una reapertura no planificada."
+    },
+    "Required service evidence is incomplete.": {
+        "en": "Required service evidence is incomplete.",
+        "es": "Las evidencias obligatorias del servicio están incompletas."
+    },
+    "Required handover documents are missing or pending review.": {
+        "en": "Required handover documents are missing or pending review.",
+        "es": "Faltan documentos de entrega obligatorios o están pendientes de revisión."
+    },
     "Añadir producto o subcomponente": {
         "en": "Add product or subcomponent",
         "es": "Añadir producto o subcomponente"

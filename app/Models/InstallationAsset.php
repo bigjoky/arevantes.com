@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class InstallationAsset extends Model
@@ -48,5 +49,10 @@ class InstallationAsset extends Model
     public function rmas(): HasMany
     {
         return $this->hasMany(AssetRma::class)->latest('requested_at');
+    }
+
+    public function serviceQualityDeviations(): BelongsToMany
+    {
+        return $this->belongsToMany(ServiceCycleDeviation::class, 'service_cycle_deviation_assets');
     }
 }

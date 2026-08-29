@@ -55,6 +55,7 @@ use App\Models\PurchaseDocumentLine;
 use App\Models\Quote;
 use App\Models\SalesDocument;
 use App\Models\SalesDocumentPayment;
+use App\Models\ServiceCycleDeviation;
 use App\Models\ServiceTicket;
 use App\Models\Supplier;
 use App\Models\SupplierPayment;
@@ -136,6 +137,7 @@ class AppServiceProvider extends ServiceProvider
         FieldServiceProfile::observe(AuditableObserver::class);
         MaintenancePlan::observe(AuditableObserver::class);
         ServiceTicket::observe(AuditableObserver::class);
+        ServiceCycleDeviation::observe(AuditableObserver::class);
         WorkOrderTemplate::observe(AuditableObserver::class);
         WorkOrder::observe(AuditableObserver::class);
         WorkOrderAttachment::observe(AuditableObserver::class);

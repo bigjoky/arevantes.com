@@ -25,6 +25,7 @@ class WorkspaceNavigation
                 $this->when($user, 'manage-operations', fn () => $this->item('Planning', route('operations.index', absolute: false))),
                 $this->when($user, 'manage-operations', fn () => $this->item('Work orders', route('work-orders.index', absolute: false))),
                 $this->when($user, 'manage-operations', fn () => $this->item('After-sales', route('after-sales.index', absolute: false))),
+                $this->when($user, 'manage-operations', fn () => $this->item('Service quality', route('after-sales.quality.index', absolute: false))),
             ]),
             $this->section('Supply', 'shopping-cart', [
                 $this->when($user, 'manage-catalog', fn () => $this->item('Catalog', route('catalog.index', absolute: false))),

@@ -64,6 +64,7 @@ use App\Http\Controllers\PurchaseMailboxController;
 use App\Http\Controllers\PurchaseSettingsController;
 use App\Http\Controllers\PurchaseWorkflowController;
 use App\Http\Controllers\QuoteController;
+use App\Http\Controllers\RecurringServiceQualityController;
 use App\Http\Controllers\RemoteStationController;
 use App\Http\Controllers\ReplenishmentController;
 use App\Http\Controllers\ReplenishmentTargetController;
@@ -218,6 +219,9 @@ Route::middleware(['auth'])->group(function () {
     Route::get('operations', [OperationsController::class, 'index'])->middleware('can:manage-operations')->name('operations.index');
     Route::get('work-orders', [WorkOrderController::class, 'index'])->middleware('can:manage-operations')->name('work-orders.index');
     Route::get('after-sales', [AfterSalesController::class, 'index'])->middleware('can:manage-operations')->name('after-sales.index');
+    Route::get('after-sales/quality', [RecurringServiceQualityController::class, 'index'])->middleware('can:manage-operations')->name('after-sales.quality.index');
+    Route::post('after-sales/quality/analyse', [RecurringServiceQualityController::class, 'analyse'])->middleware('can:manage-operations')->name('after-sales.quality.analyse');
+    Route::patch('after-sales/quality/deviations/{deviation}', [RecurringServiceQualityController::class, 'review'])->middleware('can:manage-operations')->name('after-sales.quality.review');
     Route::post('after-sales/tickets', [AfterSalesController::class, 'storeTicket'])->middleware('can:manage-operations')->name('after-sales.tickets.store');
     Route::patch('after-sales/tickets/{ticket}', [AfterSalesController::class, 'updateTicket'])->middleware('can:manage-operations')->name('after-sales.tickets.update');
     Route::post('after-sales/tickets/{ticket}/work-order', [AfterSalesController::class, 'createWorkOrder'])->middleware('can:manage-operations')->name('after-sales.tickets.work-order');

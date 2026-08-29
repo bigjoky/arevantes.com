@@ -62,4 +62,9 @@ class ServiceCycleCommitment extends Model
     {
         return $this->hasMany(ServiceCycleScheduleRevision::class)->orderByDesc('version');
     }
+
+    public function deviations(): HasMany
+    {
+        return $this->hasMany(ServiceCycleDeviation::class);
+    }
 }

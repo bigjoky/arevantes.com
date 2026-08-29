@@ -470,16 +470,34 @@ adjuntos. Posventa y la API móvil exponen únicamente métricas operativas; las
 instantáneas técnicas, económicas y de capacidad permanecen fuera de esos
 contratos.
 
+## Corte ejecutado — Desviaciones y calidad del servicio recurrente
+
+Cada cierre recurrente compara el alcance contractual congelado con su ejecución
+real y detecta, sin duplicados, desviaciones de duración, desplazamiento, consumo
+de materiales, reaperturas, evidencias y documentación. Las tolerancias se
+definen por línea de negocio y cada hallazgo abre una revisión interna con
+gravedad, responsable, vencimiento, activos afectados e histórico inmutable de
+asignación, confirmación, descarte, resolución o reapertura.
+
+Posventa separa la operación diaria de un área específica de calidad. Solo las
+desviaciones confirmadas reducen la puntuación de salud recurrente, señalan los
+activos afectados y acompañan la lectura de rentabilidad contractual. Los
+hallazgos abiertos o descartados nunca alteran indicadores históricos. El coste
+de materiales permanece oculto para perfiles sin permiso financiero.
+
+El análisis puede reconciliar ciclos históricos, pero no modifica planes, no
+crea compras u objetivos de reposición, no contacta con clientes y no prepara
+renovaciones o propuestas. Cada una de esas consecuencias continúa requiriendo
+una decisión humana separada y trazable.
+
 ## Próximo corte recomendado
 
-Construir el **control de desviaciones y calidad del servicio recurrente**.
-Debe comparar alcance previsto y ejecución real por línea de negocio, detectar
-duración, desplazamiento, consumo, reincidencia, evidencias o documentos fuera
-de tolerancia y abrir tareas internas de revisión con responsable y fecha. Las
-desviaciones confirmadas alimentarán salud del activo, objetivos de reposición,
-rentabilidad contractual y preparación de renovación, pero cualquier cambio de
-plan, compra, comunicación extraordinaria o propuesta seguirá requiriendo una
-decisión humana explícita.
+Construir el **plan de acción correctiva y aprendizaje recurrente**. Debe permitir
+agrupar desviaciones confirmadas por causa raíz, asignar acciones preventivas,
+verificar su eficacia en ciclos posteriores y preparar —sin ejecutar— propuestas
+de ajuste de plantilla, stock preventivo, alcance contractual o renovación. La
+comparación antes/después debe distinguir mejora real de cambios de volumen y
+conservar siempre la versión del plan y la tolerancia utilizadas.
 
 ## Corrección transversal — idioma temporal de la plataforma
 

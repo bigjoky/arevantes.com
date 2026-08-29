@@ -5,6 +5,8 @@ namespace App\Services\Analytics;
 use App\Models\Installation;
 use App\Models\MaintenancePlan;
 use App\Models\Opportunity;
+use App\Models\ServiceCycleCommitment;
+use App\Models\ServiceCycleDeviation;
 use App\Models\ServiceTicket;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
@@ -36,6 +38,20 @@ class RecurringServiceHealth
             ->get(['id', 'work_order_id', 'first_response_due_at', 'first_responded_at', 'resolution_due_at', 'resolved_at', 'reopened_count']);
         $workOrderIds = $tickets->pluck('work_order_id')->filter()->unique();
         $closedRenewals = $renewals->whereIn('stage', ['won', 'lost']);
+        $completedCycles = ServiceCycleCommitment::query()
+            ->whereHas('maintenancePlan', fn (Builder $query) => $query->whereIn('installation_id', $installationIds))
+            ->where('status', 'completed')
+            ->whereBetween('completed_at', [$filter->from, $filter->to])
+            ->count();
+        $qualityDeviations = ServiceCycleDeviation::query()
+            ->with('assets:id')
+            ->whereHas('commitment.maintenancePlan', fn (Builder $query) => $query->whereIn('installation_id', $installationIds))
+            ->whereIn('status', ['confirmed', 'resolved'])
+            ->whereBetween('confirmed_at', [$filter->from, $filter->to])
+            ->get();
+        $qualityPenalty = $qualityDeviations->sum(fn (ServiceCycleDeviation $deviation) => match ($deviation->severity) {
+            'critical' => 12, 'high' => 7, default => 3,
+        });
 
         return [
             'summary' => [
@@ -50,6 +66,9 @@ class RecurringServiceHealth
                 'response_sla_attainment' => $this->attainment($tickets, 'first_responded_at', 'first_response_due_at', $filter->to),
                 'resolution_sla_attainment' => $this->attainment($tickets, 'resolved_at', 'resolution_due_at', $filter->to),
                 'first_time_fix_rate' => $this->percent($tickets->whereNotNull('resolved_at')->where('reopened_count', 0)->count(), $tickets->whereNotNull('resolved_at')->count()),
+                'service_quality_score' => $completedCycles > 0 ? max(0, round(100 - ($qualityPenalty / $completedCycles), 1)) : null,
+                'confirmed_quality_deviations' => $qualityDeviations->count(),
+                'quality_affected_assets' => $qualityDeviations->flatMap->assets->pluck('id')->unique()->count(),
                 'actual_service_cost' => $includeFinancials ? $this->actualCost($workOrderIds, $filter) : null,
             ],
             'by_line' => $installations->groupBy('service_type')->map(function (Collection $lineInstallations, string $line) use ($plans): array {
@@ -68,6 +87,7 @@ class RecurringServiceHealth
                 'renewal_conversion' => __('Won renewal opportunities divided by won plus lost renewals whose renewal date falls within the selected period.'),
                 'sla_attainment' => __('Service-plan tickets completed within their recorded response or resolution deadline.'),
                 'first_time_fix_rate' => __('Resolved service-plan tickets that have never been reopened.'),
+                'service_quality_score' => __('Completed recurring cycles start at 100 points. Confirmed deviations reduce the score according to their severity; dismissed findings never affect it.'),
                 'actual_service_cost' => __('Recorded labour, travel and issued material cost on work orders linked to service-plan tickets in the selected period.'),
             ],
         ];

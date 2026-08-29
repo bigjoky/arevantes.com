@@ -173,6 +173,9 @@ type RecurringHealth = {
         response_sla_attainment: number;
         resolution_sla_attainment: number;
         first_time_fix_rate: number;
+        service_quality_score: number | null;
+        confirmed_quality_deviations: number;
+        quality_affected_assets: number;
         actual_service_cost: number | null;
     };
     by_line: {
@@ -566,7 +569,7 @@ function RecurringHealthPanel({ health }: { health: RecurringHealth }) {
                     calculados desde instalaciones, planes y tickets enlazados.
                 </p>
             </div>
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-7">
                 <ConversionKpi
                     label="Attach rate"
                     value={`${health.summary.attach_rate}%`}
@@ -593,6 +596,14 @@ function RecurringHealthPanel({ health }: { health: RecurringHealth }) {
                 <ConversionKpi
                     label="First-time fix"
                     value={`${health.summary.first_time_fix_rate}%`}
+                />
+                <ConversionKpi
+                    label="Calidad recurrente"
+                    value={
+                        health.summary.service_quality_score === null
+                            ? '—'
+                            : `${health.summary.service_quality_score}%`
+                    }
                 />
             </div>
             <Card className="gap-0 overflow-hidden py-0">
@@ -640,7 +651,16 @@ function RecurringHealthPanel({ health }: { health: RecurringHealth }) {
                     </table>
                 </div>
             </Card>
-            <div className="grid gap-3 rounded-lg border p-4 text-sm sm:grid-cols-3">
+            <div className="grid gap-3 rounded-lg border p-4 text-sm sm:grid-cols-4">
+                <div>
+                    <span className="text-muted-foreground">
+                        Desviaciones confirmadas
+                    </span>
+                    <div className="font-semibold">
+                        {health.summary.confirmed_quality_deviations} ·{' '}
+                        {health.summary.quality_affected_assets} activos
+                    </div>
+                </div>
                 <div>
                     <span className="text-muted-foreground">
                         Renovaciones preparadas

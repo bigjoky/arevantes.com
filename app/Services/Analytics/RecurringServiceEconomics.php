@@ -14,7 +14,7 @@ class RecurringServiceEconomics
     public function build(bool $includeFinancials): array
     {
         $commitments = ServiceCycleCommitment::query()
-            ->with(['maintenancePlan.installation:id,project_reference,site_name,service_type', 'approver:id,name', 'billing.invoice.payments'])
+            ->with(['maintenancePlan.installation:id,project_reference,site_name,service_type', 'approver:id,name', 'billing.invoice.payments', 'deviations:id,service_cycle_commitment_id,status,severity,category'])
             ->latest('period_starts_on')->limit(100)->get();
         if (! $includeFinancials) {
             return ['summary' => null, 'cycles' => [], 'definition' => __('Economic cycle data requires financial permission.')];
@@ -72,6 +72,8 @@ class RecurringServiceEconomics
                 'invoice_number' => $commitment->billing?->invoice?->number,
                 'actual_cost' => round($actualCost, 2),
                 'actual_margin' => round($settledRevenue - $actualCost, 2),
+                'confirmed_deviations' => $commitment->deviations->whereIn('status', ['confirmed', 'resolved'])->count(),
+                'quality_attention' => $commitment->deviations->whereIn('status', ['open', 'confirmed'])->isNotEmpty(),
                 'completed_at' => $commitment->completed_at?->toIso8601String(),
                 'tickets' => $cycleTickets->count(),
                 'approved_by' => $commitment->approver?->name,
