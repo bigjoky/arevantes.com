@@ -1062,5 +1062,8 @@
     "The resulting maintenance scope exceeds the allowed length.": "El alcance de mantenimiento resultante supera la longitud permitida.",
     "Select a preventive product belonging to this maintenance plan.": "Selecciona un producto preventivo perteneciente a este plan de mantenimiento.",
     "Enter a positive replenishment objective.": "Introduce un objetivo de reposición positivo.",
-    "Approved improvement applied through its controlled workflow.": "Mejora aprobada aplicada mediante su flujo controlado."
+    "Approved improvement applied through its controlled workflow.": "Mejora aprobada aplicada mediante su flujo controlado.",
+    "Planning scenarios": "Escenarios de planificación",
+    "Every selected opportunity must exist and remain open.": "Todas las oportunidades seleccionadas deben existir y permanecer abiertas.",
+    "Scenario frozen without committing resources.": "Escenario congelado sin comprometer recursos."
 }

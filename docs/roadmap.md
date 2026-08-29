@@ -584,13 +584,26 @@ posterior: una segunda decisión autorizada enlaza el sucesor aplicado, conserva
 los consumidores de la versión anterior y transfiere el seguimiento activo sin
 revertir ni reescribir trabajos terminados.
 
+## Corte ejecutado — Primer escenario compartido
+
+El Horizonte 3 comienza con una fotografía inmutable de la cartera comercial
+seleccionada. Administración puede congelar hasta cincuenta oportunidades abiertas
+en un horizonte definido; cada versión conserva autor, huella, datos confirmados de
+oportunidad y propuesta, composición conocida y las hipótesis explícitas de horas,
+coste material cuando todavía no existe propuesta y plazo de cobro.
+
+La comparación calcula valor confirmado y ponderado, demanda de capacidad,
+materiales esperados y entradas y salidas mensuales de caja. Los cambios posteriores
+en las oportunidades no reescriben escenarios ya congelados. El proceso registra un
+evento de seguridad y no crea órdenes, reservas, objetivos de reposición, compras,
+previsiones contables, pagos ni comunicaciones al cliente.
+
 ## Próximo corte recomendado
 
-Iniciar el **primer escenario compartido del Horizonte 3**: congelar una cartera
-comercial seleccionada y comparar, sin comprometer recursos, su demanda prevista
-de capacidad, materiales y caja. Cada escenario debe separar datos confirmados de
-supuestos, conservar versión y autor, y requerir aprobación antes de originar
-agenda, reservas, compras, pagos o comunicaciones externas.
+Incorporar comparación entre versiones y escenarios base, riesgo y alternativa,
+añadiendo capacidad disponible y stock libre como referencias fechadas. Después se
+habilitará una aprobación separada; aun aprobados, los escenarios seguirán sin
+originar recursos hasta que cada área confirme su acción en un circuito propio.
 
 ## Corrección transversal — idioma temporal de la plataforma
 

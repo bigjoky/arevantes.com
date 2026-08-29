@@ -14191,5 +14191,85 @@
     "No eligible controlled destination is currently available. Return the proposal and revise its scope before applying it.": {
         "en": "No eligible controlled destination is currently available. Return the proposal and revise its scope before applying it.",
         "es": "Actualmente no hay un destino controlado elegible. Devuelve la propuesta y revisa su alcance antes de aplicarla."
+    },
+    "Planning scenarios": {
+        "en": "Planning scenarios",
+        "es": "Escenarios de planificación"
+    },
+    "Freeze a commercial portfolio and compare revenue, capacity, materials and cash without committing resources.": {
+        "en": "Freeze a commercial portfolio and compare revenue, capacity, materials and cash without committing resources.",
+        "es": "Congela una cartera comercial y compara ingresos, capacidad, materiales y caja sin comprometer recursos."
+    },
+    "Non-committing analysis": {
+        "en": "Non-committing analysis",
+        "es": "Análisis sin compromiso"
+    },
+    "Saving a scenario never creates work orders, reservations, purchases, payments or customer communications.": {
+        "en": "Saving a scenario never creates work orders, reservations, purchases, payments or customer communications.",
+        "es": "Guardar un escenario nunca crea órdenes de trabajo, reservas, compras, pagos ni comunicaciones al cliente."
+    },
+    "Freeze new scenario": {
+        "en": "Freeze new scenario",
+        "es": "Congelar nuevo escenario"
+    },
+    "Confirmed data is copied once; assumptions remain visible and auditable.": {
+        "en": "Confirmed data is copied once; assumptions remain visible and auditable.",
+        "es": "Los datos confirmados se copian una sola vez; las hipótesis permanecen visibles y auditables."
+    },
+    "Scenario name": {
+        "en": "Scenario name",
+        "es": "Nombre del escenario"
+    },
+    "No confirmed quote": {
+        "en": "No confirmed quote",
+        "es": "Sin propuesta confirmada"
+    },
+    "No open opportunities are available.": {
+        "en": "No open opportunities are available.",
+        "es": "No hay oportunidades abiertas disponibles."
+    },
+    "Freeze scenario": {
+        "en": "Freeze scenario",
+        "es": "Congelar escenario"
+    },
+    "Frozen scenarios": {
+        "en": "Frozen scenarios",
+        "es": "Escenarios congelados"
+    },
+    "Frozen": {
+        "en": "Frozen",
+        "es": "Congelado"
+    },
+    "Expected materials": {
+        "en": "Expected materials",
+        "es": "Materiales previstos"
+    },
+    "No confirmed material composition.": {
+        "en": "No confirmed material composition.",
+        "es": "No hay una composición de materiales confirmada."
+    },
+    "Expected cash by month": {
+        "en": "Expected cash by month",
+        "es": "Caja prevista por mes"
+    },
+    "Visible assumptions": {
+        "en": "Visible assumptions",
+        "es": "Hipótesis visibles"
+    },
+    "hours per opportunity": {
+        "en": "hours per opportunity",
+        "es": "horas por oportunidad"
+    },
+    "opportunity": {
+        "en": "opportunity",
+        "es": "oportunidad"
+    },
+    "material without quote": {
+        "en": "material without quote",
+        "es": "material sin propuesta"
+    },
+    "collection days": {
+        "en": "collection days",
+        "es": "días de cobro"
     }
 }

@@ -51,6 +51,7 @@ use App\Http\Controllers\MyHumanResourcesController;
 use App\Http\Controllers\OperationsController;
 use App\Http\Controllers\OpportunityController;
 use App\Http\Controllers\PersonController;
+use App\Http\Controllers\PlanningScenarioController;
 use App\Http\Controllers\PortfolioProjectAdminController;
 use App\Http\Controllers\PortfolioProjectImageController;
 use App\Http\Controllers\PublicProjectController;
@@ -447,6 +448,8 @@ Route::middleware(['auth'])->group(function () {
     Route::post('operations/work-order-templates', [FieldServiceSettingsController::class, 'storeTemplate'])->middleware('can:manage-installations')->name('work-order-templates.store');
     Route::patch('operations/work-order-templates/{template}', [FieldServiceSettingsController::class, 'updateTemplate'])->middleware('can:manage-installations')->name('work-order-templates.update');
     Route::get('quotes', [QuoteController::class, 'index'])->middleware('can:manage-quotes')->name('quotes.index');
+    Route::get('planning-scenarios', [PlanningScenarioController::class, 'index'])->middleware('can:manage-admin')->name('planning-scenarios.index');
+    Route::post('planning-scenarios', [PlanningScenarioController::class, 'store'])->middleware('can:manage-admin')->name('planning-scenarios.store');
     Route::get('quotes/create', [QuoteController::class, 'create'])->middleware('can:manage-quotes')->name('quotes.create');
     Route::post('quotes', [QuoteController::class, 'store'])->middleware('can:manage-quotes')->name('quotes.store');
     Route::get('quotes/{quote}', [QuoteController::class, 'show'])->middleware('can:manage-quotes')->name('quotes.show');

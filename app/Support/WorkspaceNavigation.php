@@ -13,6 +13,7 @@ class WorkspaceNavigation
         return array_values(array_filter([
             $this->item('Dashboard', route('dashboard', absolute: false), 'layout-grid'),
             $this->when($user, 'view-analytics', fn () => $this->item('Analítica', route('analytics.index', absolute: false), 'chart-spline')),
+            $this->when($user, 'manage-admin', fn () => $this->item('Planning scenarios', route('planning-scenarios.index', absolute: false), 'git-compare-arrows')),
             $this->item('Mi RR. HH.', route('my-human-resources.index', absolute: false), 'calendar-days'),
             $this->whenAny($user, ['manage-operations', 'manage-purchases', 'manage-customers'], fn () => $this->item('Improvement decisions', route('improvement-decisions.index', absolute: false), 'list-checks')),
             $this->section('CRM', 'briefcase-business', [
