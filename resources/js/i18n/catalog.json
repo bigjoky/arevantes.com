@@ -7820,6 +7820,10 @@
         "en": "PDF",
         "es": "PDF"
     },
+    "PDF without watermark": {
+        "en": "PDF without watermark",
+        "es": "PDF sin marca de agua"
+    },
     "PDF or image": {
         "en": "PDF or image",
         "es": "PDF o imagen"

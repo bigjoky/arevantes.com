@@ -458,6 +458,7 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('quotes/{quote}', [QuoteController::class, 'destroy'])->middleware('can:manage-quotes')->name('quotes.destroy');
     Route::post('quotes/{quote}/send', [DocumentDeliveryController::class, 'sendQuote'])->middleware('can:manage-quotes')->name('quotes.send');
     Route::get('quotes/{quote}/pdf', [SalesDocumentController::class, 'quotePdf'])->middleware('can:manage-quotes')->name('quotes.pdf');
+    Route::get('quotes/{quote}/pdf/without-watermark', [SalesDocumentController::class, 'quotePdfWithoutWatermark'])->middleware('can:manage-admin')->name('quotes.pdf.without-watermark');
     Route::post('quotes/{quote}/convert', [SalesDocumentController::class, 'convert'])->middleware('can:manage-installations')->name('quotes.convert');
     Route::get('sales', [SalesDocumentController::class, 'index'])->middleware('can:manage-installations')->name('sales.index');
     Route::get('sales-workflow', [SalesOperationsController::class, 'index'])->middleware('can:manage-installations')->name('sales-workflow.index');

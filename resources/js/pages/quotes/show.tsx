@@ -5,6 +5,7 @@ import {
     FileDown,
     Pencil,
     Send,
+    ShieldCheck,
     Trash2,
     Wrench,
 } from 'lucide-react';
@@ -30,6 +31,8 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { useLocale } from '@/hooks/use-locale';
+import { translate } from '@/i18n';
 import type { ServiceType } from '@/lib/business-lines';
 
 type Quote = {
@@ -207,6 +210,7 @@ type QuoteCapabilities = {
     send: boolean;
     delete: boolean;
     approve: boolean;
+    exportWithoutWatermark: boolean;
     startProject: boolean;
     convert: boolean;
     approvalBlockReason: string | null;
@@ -231,6 +235,7 @@ export default function QuoteShow({
     capabilities: QuoteCapabilities;
     availableStatuses: string[];
 }) {
+    const { locale } = useLocale();
     const [projectOpen, setProjectOpen] = useState(false);
     const [billingOpen, setBillingOpen] = useState(false);
     const [billingPercentage, setBillingPercentage] = useState(
@@ -287,7 +292,7 @@ export default function QuoteShow({
                             </Link>
                         )}
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap justify-end gap-2">
                         <Button variant="outline" asChild>
                             <Link href="/quotes">
                                 <ArrowLeft /> Propuestas
@@ -302,6 +307,16 @@ export default function QuoteShow({
                                 <FileDown /> PDF
                             </a>
                         </Button>
+                        {capabilities.exportWithoutWatermark && (
+                            <Button variant="outline" asChild>
+                                <a
+                                    href={`/quotes/${quote.id}/pdf/without-watermark`}
+                                >
+                                    <ShieldCheck />
+                                    {translate('PDF without watermark', locale)}
+                                </a>
+                            </Button>
+                        )}
                         {capabilities.edit && (
                             <Button asChild>
                                 <Link href={`/quotes/${quote.id}/edit`}>

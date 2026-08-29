@@ -144,6 +144,7 @@ class QuoteController extends Controller
                     && ! $quote->customer?->do_not_contact,
                 'delete' => $quote->status === 'draft' && ! $hasTraceability,
                 'approve' => $canApprove,
+                'exportWithoutWatermark' => Gate::allows('manage-admin') && $quote->status === 'draft',
                 'startProject' => Gate::allows('manage-installations') && $quote->status === 'accepted' && ! $quote->installation_id,
                 'convert' => Gate::allows('manage-installations') && $quote->status === 'accepted',
                 'approvalBlockReason' => $quote->approval_status !== 'pending' || $canApprove

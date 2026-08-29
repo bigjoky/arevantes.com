@@ -7,9 +7,12 @@ use App\Models\Installation;
 use App\Models\Opportunity;
 use App\Models\Person;
 use App\Models\Quote;
+use App\Models\SecurityEvent;
 use App\Models\Unit;
+use App\Models\User;
 use App\Services\Documents\DocumentPdf;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
 class QuotePdfTest extends TestCase
@@ -33,11 +36,19 @@ class QuotePdfTest extends TestCase
         $this->assertStringContainsString('Anticipo del 30%', $html);
         $this->assertStringContainsString('Aceptación de la propuesta', $html);
         $this->assertStringContainsString('Gateway de comunicaciones', $html);
+        $this->assertStringContainsString('class="watermark"', $html);
         $this->assertStringNotContainsString('Coste interno de aprovisionamiento', $html);
         $this->assertLessThan(
             strpos($html, 'Opciones disponibles no incluidas'),
             strpos($html, 'Sistema fotovoltaico llave en mano'),
         );
+
+        $cleanHtml = view('pdf.quote', [
+            'document' => $quote,
+            'company' => $company,
+            'isDraft' => false,
+        ])->render();
+        $this->assertStringNotContainsString('class="watermark"', $cleanHtml);
 
         $pdf = app(DocumentPdf::class)->render($quote, 'quote');
         $this->assertStringStartsWith('%PDF', $pdf);
@@ -45,6 +56,39 @@ class QuotePdfTest extends TestCase
         if ($output = getenv('GENERATE_QUOTE_PDF_ARTIFACT')) {
             file_put_contents($output, $pdf);
         }
+    }
+
+    public function test_only_administrators_can_export_a_draft_pdf_without_watermark(): void
+    {
+        $quote = $this->representativeQuote();
+        $commercial = User::factory()->create(['role' => 'commercial']);
+        $admin = User::factory()->create(['role' => 'admin']);
+
+        $this->actingAs($commercial)
+            ->get(route('quotes.show', $quote))
+            ->assertInertia(fn (Assert $page) => $page->where('capabilities.exportWithoutWatermark', false));
+        $this->get(route('quotes.pdf.without-watermark', $quote))->assertForbidden();
+
+        $this->actingAs($admin)
+            ->get(route('quotes.show', $quote))
+            ->assertInertia(fn (Assert $page) => $page->where('capabilities.exportWithoutWatermark', true));
+
+        $this->mock(DocumentPdf::class, function ($mock) use ($quote): void {
+            $mock->shouldReceive('render')
+                ->once()
+                ->withArgs(fn (Quote $document, string $kind, bool $final) => $document->is($quote) && $kind === 'quote' && $final)
+                ->andReturn('%PDF-clean');
+        });
+
+        $this->get(route('quotes.pdf.without-watermark', $quote))
+            ->assertOk()
+            ->assertHeader('Content-Type', 'application/pdf')
+            ->assertHeader('Content-Disposition', 'attachment; filename="'.$quote->number.'-sin-marca.pdf"');
+
+        $event = SecurityEvent::where('type', 'quote_pdf_exported_without_watermark')->firstOrFail();
+        $this->assertSame($admin->id, $event->user_id);
+        $this->assertSame($quote->id, $event->context['quote_id']);
+        $this->assertSame('draft', $event->context['quote_status']);
     }
 
     private function representativeQuote(): Quote

@@ -18,6 +18,7 @@ use App\Services\Inventory\SalesStockAllocator;
 use App\Services\Inventory\StockLedger;
 use App\Services\Operations\FinancialClearanceGuard;
 use App\Services\Quotes\QuoteCalculator;
+use App\Services\Security\SecurityEventRecorder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -315,6 +316,21 @@ class SalesDocumentController extends Controller
         $quote->load('lines');
 
         return response($pdf->render($quote, 'quote'), 200, ['Content-Type' => 'application/pdf', 'Content-Disposition' => 'inline; filename="'.$quote->number.'.pdf"']);
+    }
+
+    public function quotePdfWithoutWatermark(Request $request, Quote $quote, DocumentPdf $pdf, SecurityEventRecorder $events): HttpResponse
+    {
+        $quote->load('lines');
+        $events->record('quote_pdf_exported_without_watermark', $request->user(), [
+            'quote_id' => $quote->id,
+            'quote_number' => $quote->number,
+            'quote_status' => $quote->status,
+        ], 'warning');
+
+        return response($pdf->render($quote, 'quote', true), 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="'.$quote->number.'-sin-marca.pdf"',
+        ]);
     }
 
     private function refreshPaymentStatus(SalesDocument $document): void
