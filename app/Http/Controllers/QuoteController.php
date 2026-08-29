@@ -119,7 +119,10 @@ class QuoteController extends Controller
                 : null,
         );
 
-        $availableStatuses = app(QuoteStatusWorkflow::class)->availableTransitions($quote);
+        $availableStatuses = array_values(array_diff(
+            app(QuoteStatusWorkflow::class)->availableTransitions($quote),
+            ['sent'],
+        ));
         $canApprove = Gate::allows('approve-quotes')
             && $quote->approval_status === 'pending'
             && (int) $quote->created_by !== (int) request()->user()->id;
@@ -178,14 +181,14 @@ class QuoteController extends Controller
         $data = $this->validateDocument($request);
         $quote = DB::transaction(function () use ($request, $data, $calculator, $numbers, $workflow, $salesCycle) {
             $issued = $numbers->next('quote', $data['issue_date']);
-            $quote = $this->persist(new Quote, $data, $calculator, ['number' => $issued['number'], 'version' => 1, 'document_series_id' => $issued['series']->id, 'created_by' => $request->user()->id], $request->user()->id);
+            $quote = $this->persist(new Quote, $data, $calculator, ['number' => $issued['number'], 'version' => 1, 'status' => 'draft', 'document_series_id' => $issued['series']->id, 'created_by' => $request->user()->id], $request->user()->id);
             $this->syncOpportunity($quote, $request, $salesCycle);
             $workflow->recordInitial($quote, $request->user());
 
             return $quote;
         });
 
-        return to_route('quotes.show', $quote)->with('toast', ['type' => 'success', 'message' => __('Quote created.')]);
+        return to_route('quotes.show', $quote)->with('toast', ['type' => 'success', 'message' => __('Proposal saved as draft.')]);
     }
 
     public function updateDocument(Request $request, Quote $quote, QuoteCalculator $calculator): RedirectResponse
@@ -193,12 +196,12 @@ class QuoteController extends Controller
         abort_unless($quote->status === 'draft', 422, __('Only draft quotes can be edited.'));
         DB::transaction(fn () => $this->persist($quote, $this->validateDocument($request, $quote), $calculator, ['version' => $quote->version + 1], $request->user()->id));
 
-        return to_route('quotes.show', $quote)->with('toast', ['type' => 'success', 'message' => __('Quote updated.')]);
+        return to_route('quotes.show', $quote)->with('toast', ['type' => 'success', 'message' => __('Draft changes saved.')]);
     }
 
     public function updateStatus(Request $request, Quote $quote, QuoteStatusWorkflow $workflow): RedirectResponse
     {
-        $data = $request->validate(['status' => ['required', Rule::in(['draft', 'sent', 'accepted', 'rejected', 'expired'])]]);
+        $data = $request->validate(['status' => ['required', Rule::in(['accepted', 'rejected', 'expired'])]]);
         $workflow->apply($quote, $data['status'], $request->user(), 'internal');
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Quote updated.')]);

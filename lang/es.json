@@ -563,6 +563,8 @@
     "Quote :number rejected.": "Presupuesto :number rechazado.",
     "Quote :number version :version": "Presupuesto :number versión :version",
     "Quote created.": "Presupuesto creado.",
+    "Proposal saved as draft.": "Propuesta guardada como borrador.",
+    "Draft changes saved.": "Cambios del borrador guardados.",
     "Quote deleted.": "Presupuesto eliminado.",
     "Quote status changed": "Estado del presupuesto cambiado",
     "Quote updated.": "Presupuesto actualizado.",

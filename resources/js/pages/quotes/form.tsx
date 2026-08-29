@@ -370,9 +370,7 @@ export default function QuoteForm({
             <div className="flex min-w-0 flex-1 flex-col gap-6 overflow-x-clip p-4 md:p-6">
                 <header className="flex flex-wrap items-center justify-between gap-3">
                     <div>
-                        <h1 className="text-xl font-semibold">
-                            {pageTitle}
-                        </h1>
+                        <h1 className="text-xl font-semibold">{pageTitle}</h1>
                         <p className="text-sm text-muted-foreground">
                             {opportunityDraft
                                 ? `Prepared from ${opportunityDraft.code}. Review prices and taxes before saving.`
@@ -1194,9 +1192,19 @@ export default function QuoteForm({
                                 {error}
                             </p>
                         ))}
-                    <div className="flex justify-end">
+                    <div className="flex flex-col gap-3 border-t pt-5 sm:flex-row sm:items-center sm:justify-between">
+                        <p className="max-w-2xl text-sm text-muted-foreground">
+                            {translate(
+                                'The proposal will remain private and editable until you send it definitively from its record.',
+                                locale,
+                            )}
+                        </p>
                         <Button disabled={form.processing}>
-                            <Save /> {quote ? 'Save quote' : 'Create quote'}
+                            <Save />
+                            {translate(
+                                quote ? 'Save draft changes' : 'Save as draft',
+                                locale,
+                            )}
                         </Button>
                     </div>
                 </form>

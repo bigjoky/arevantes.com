@@ -78,6 +78,48 @@ const terminologyOverrides: Record<string, Translation> = {
     },
     'Save quote': { en: 'Save proposal', es: 'Guardar propuesta' },
     'Create quote': { en: 'Create proposal', es: 'Crear propuesta' },
+    'Save as draft': { en: 'Save as draft', es: 'Guardar como borrador' },
+    'Save draft changes': {
+        en: 'Save draft changes',
+        es: 'Guardar cambios del borrador',
+    },
+    'The proposal will remain private and editable until you send it definitively from its record.':
+        {
+            en: 'The proposal will remain private and editable until you send it definitively from its record.',
+            es: 'La propuesta seguirá siendo privada y editable hasta que la envíes definitivamente desde su ficha.',
+        },
+    'Propuesta guardada como borrador': {
+        en: 'Proposal saved as draft',
+        es: 'Propuesta guardada como borrador',
+    },
+    'Aún no es visible para el cliente. Puedes seguir editándola; cuando esté lista, envíala definitivamente desde el bloque de envío al final de esta ficha.':
+        {
+            en: 'The customer cannot see it yet. You can continue editing it; when it is ready, send it definitively from the delivery section at the bottom of this record.',
+            es: 'Aún no es visible para el cliente. Puedes seguir editándola; cuando esté lista, envíala definitivamente desde el bloque de envío al final de esta ficha.',
+        },
+    'Envía el PDF y un enlace seguro de aceptación. Después del envío, la propuesta quedará bloqueada para conservar exactamente la versión recibida por el cliente.':
+        {
+            en: 'Send the PDF and a secure acceptance link. After delivery, the proposal will be locked to preserve the exact version received by the customer.',
+            es: 'Envía el PDF y un enlace seguro de aceptación. Después del envío, la propuesta quedará bloqueada para conservar exactamente la versión recibida por el cliente.',
+        },
+    'Enviar definitivamente': {
+        en: 'Send definitively',
+        es: 'Enviar definitivamente',
+    },
+    Borrador: { en: 'Draft', es: 'Borrador' },
+    Enviada: { en: 'Sent', es: 'Enviada' },
+    Aceptada: { en: 'Accepted', es: 'Aceptada' },
+    Rechazada: { en: 'Rejected', es: 'Rechazada' },
+    Caducada: { en: 'Expired', es: 'Caducada' },
+    'Sin decisión registrada': {
+        en: 'No decision recorded',
+        es: 'Sin decisión registrada',
+    },
+    'Pendiente de ingresos o costes': {
+        en: 'Awaiting revenue or costs',
+        es: 'Pendiente de ingresos o costes',
+    },
+    internal: { en: 'Internal', es: 'Interno' },
     'Pendientes de aprobación': {
         en: 'Awaiting approval',
         es: 'Pendientes de aprobación',

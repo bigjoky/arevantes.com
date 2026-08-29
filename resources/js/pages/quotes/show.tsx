@@ -311,6 +311,19 @@ export default function QuoteShow({
                         )}
                     </div>
                 </header>
+                {quote.status === 'draft' && (
+                    <section className="rounded-lg border border-dashed bg-muted/30 p-4">
+                        <div className="font-medium">
+                            Propuesta guardada como borrador
+                        </div>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                            Aún no es visible para el cliente. Puedes seguir
+                            editándola; cuando esté lista, envíala
+                            definitivamente desde el bloque de envío al final de
+                            esta ficha.
+                        </p>
+                    </section>
+                )}
                 {materialPreview.items > 0 && (
                     <section
                         className={`rounded-lg border-l-4 p-4 ${materialPreview.shortage_items > 0 ? 'border-l-amber-500 bg-amber-50 dark:bg-amber-950/20' : 'border-l-green-600 bg-green-50 dark:bg-green-950/20'}`}
@@ -854,7 +867,9 @@ export default function QuoteShow({
                                 </h2>
                                 <p className="text-sm text-muted-foreground">
                                     Envía el PDF y un enlace seguro de
-                                    aceptación.
+                                    aceptación. Después del envío, la propuesta
+                                    quedará bloqueada para conservar exactamente
+                                    la versión recibida por el cliente.
                                 </p>
                             </div>
                             <div className="grid gap-2">
@@ -874,7 +889,7 @@ export default function QuoteShow({
                                 />
                             </div>
                             <Button className="w-fit">
-                                <Send /> Enviar propuesta
+                                <Send /> Enviar definitivamente
                             </Button>
                         </Form>
                     ) : (

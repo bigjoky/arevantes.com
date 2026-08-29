@@ -33,6 +33,15 @@ class DocumentDeliveryTest extends TestCase
         $this->assertNotNull($delivery->document_version);
         $this->assertSame(64, strlen($delivery->document_hash));
         $this->assertSame('sent', $quote->refresh()->status);
+        $this->assertNotNull($quote->sent_at);
+        $this->assertDatabaseHas('quote_status_histories', [
+            'quote_id' => $quote->id,
+            'changed_by' => $user->id,
+            'from_status' => 'draft',
+            'to_status' => 'sent',
+            'channel' => 'email',
+        ]);
+        $this->get(route('quotes.edit', $quote))->assertUnprocessable();
         $token = null;
         Mail::assertSent(DocumentSharedMail::class, function (DocumentSharedMail $mail) use (&$token) {
             $token = basename(parse_url($mail->url, PHP_URL_PATH));

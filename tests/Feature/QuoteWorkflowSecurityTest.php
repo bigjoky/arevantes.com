@@ -18,6 +18,50 @@ class QuoteWorkflowSecurityTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_a_new_proposal_is_always_saved_as_an_editable_private_draft(): void
+    {
+        $commercial = User::factory()->create(['role' => 'commercial']);
+        $customer = Person::create([
+            'category' => 'customer',
+            'first_name' => 'Cliente borrador',
+            'email' => 'draft@example.test',
+        ]);
+
+        $this->actingAs($commercial)
+            ->post(route('quotes.store'), [
+                'person_id' => $customer->id,
+                'status' => 'sent',
+                'issue_date' => today()->toDateString(),
+                'lines' => [[
+                    'description' => 'Propuesta todavía no enviada',
+                    'quantity' => 1,
+                    'unit_price' => 100,
+                    'discount_percent' => 0,
+                    'tax_percent' => 21,
+                ]],
+            ])
+            ->assertRedirect();
+
+        $quote = Quote::firstOrFail();
+
+        $this->assertSame('draft', $quote->status);
+        $this->assertNull($quote->sent_at);
+        $this->assertDatabaseHas('quote_status_histories', [
+            'quote_id' => $quote->id,
+            'changed_by' => $commercial->id,
+            'from_status' => null,
+            'to_status' => 'draft',
+            'channel' => 'internal',
+        ]);
+        $this->get(route('quotes.edit', $quote))->assertOk();
+        $this->get(route('quotes.show', $quote))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('capabilities.edit', true)
+                ->where('capabilities.send', true)
+                ->where('availableStatuses', fn ($statuses) => ! $statuses->contains('sent')));
+    }
+
     public function test_quote_management_is_explicit_and_administrators_receive_clear_capabilities(): void
     {
         $commercial = User::factory()->create(['role' => 'commercial']);
@@ -90,14 +134,14 @@ class QuoteWorkflowSecurityTest extends TestCase
         ]);
         $quote = $this->quote($commercial, ['person_id' => $customer->id, 'opportunity_id' => $opportunity->id]);
 
-        $this->actingAs($commercial)->patch(route('quotes.status.update', $quote), ['status' => 'sent'])->assertRedirect();
+        $this->actingAs($commercial)->patch(route('quotes.status.update', $quote), ['status' => 'sent'])->assertSessionHasErrors('status');
         $this->patch(route('quotes.status.update', $quote), ['status' => 'accepted'])->assertRedirect();
         $this->patch(route('quotes.status.update', $quote), ['status' => 'draft'])->assertSessionHasErrors('status');
 
         $this->assertSame('accepted', $quote->fresh()->status);
         $this->assertSame('won', $opportunity->fresh()->stage);
-        $this->assertDatabaseHas('quote_status_histories', ['quote_id' => $quote->id, 'from_status' => 'draft', 'to_status' => 'sent', 'channel' => 'internal']);
-        $this->assertDatabaseHas('quote_status_histories', ['quote_id' => $quote->id, 'from_status' => 'sent', 'to_status' => 'accepted', 'channel' => 'internal']);
+        $this->assertDatabaseMissing('quote_status_histories', ['quote_id' => $quote->id, 'from_status' => 'draft', 'to_status' => 'sent', 'channel' => 'internal']);
+        $this->assertDatabaseHas('quote_status_histories', ['quote_id' => $quote->id, 'from_status' => 'draft', 'to_status' => 'accepted', 'channel' => 'internal']);
     }
 
     public function test_quote_approval_requires_a_different_authorized_user(): void
