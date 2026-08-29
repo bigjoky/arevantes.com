@@ -1,5 +1,6 @@
 import { Form } from '@inertiajs/react';
 import { AlertTriangle, CheckCircle2, RotateCcw, XCircle } from 'lucide-react';
+import { useState } from 'react';
 import type { ImprovementProposal } from '@/components/after-sales/corrective-plan-board';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -87,10 +88,19 @@ function ProposalCard({ proposal }: { proposal: ImprovementInboxProposal }) {
                 ) : null}
                 {conflict ? (
                     <p className="text-sm text-destructive">
-                        Prepared against {proposal.conflict?.prepared_version || '—'};
-                        the current version is{' '}
-                        {proposal.conflict?.current_version || '—'}. Approval is
-                        blocked until the proposal is returned and resubmitted.
+                        {proposal.status === 'approved'
+                            ? 'The destination changed after approval.'
+                            : `Prepared against ${proposal.conflict?.prepared_version || '—'}; the current version is ${proposal.conflict?.current_version || '—'}.`}{' '}
+                        Return and resubmit the proposal before continuing.
+                    </p>
+                ) : null}
+                {proposal.status === 'approved' &&
+                proposal.application_preview &&
+                !proposal.application_preview.can_apply &&
+                !conflict ? (
+                    <p className="text-sm text-destructive">
+                        No eligible controlled destination is currently available.
+                        Return the proposal and revise its scope before applying it.
                     </p>
                 ) : null}
                 {proposal.decision_note ? (
@@ -107,6 +117,18 @@ function ProposalCard({ proposal }: { proposal: ImprovementInboxProposal }) {
                         ? ` · Resubmissions: ${proposal.resubmission_count}`
                         : ''}
                 </p>
+                {proposal.status === 'applied' ? (
+                    <div className="rounded-md border border-emerald-600/30 bg-emerald-500/5 p-3 text-sm">
+                        <p className="font-medium">Controlled application completed</p>
+                        <p className="text-muted-foreground">
+                            Applied by {proposal.applier?.name || 'Unknown user'}.
+                            {proposal.application_note
+                                ? ` ${proposal.application_note}`
+                                : ''}
+                        </p>
+                        <ApplicationResult result={proposal.application_result} />
+                    </div>
+                ) : null}
             </div>
             <div className="flex flex-wrap content-start gap-2 lg:justify-end">
                 {proposal.status === 'prepared' && proposal.can_decide ? (
@@ -123,9 +145,180 @@ function ProposalCard({ proposal }: { proposal: ImprovementInboxProposal }) {
                 {proposal.status === 'returned' && proposal.can_decide ? (
                     <DecisionDialog proposal={proposal} action="resubmit" />
                 ) : null}
+                {proposal.status === 'approved' && proposal.can_decide ? (
+                    proposal.application_preview?.can_apply ? (
+                        <ApplicationDialog proposal={proposal} />
+                    ) : (
+                        <DecisionDialog proposal={proposal} action="return" />
+                    )
+                ) : null}
             </div>
         </article>
     );
+}
+
+function ApplicationDialog({ proposal }: { proposal: ImprovementInboxProposal }) {
+    const preview = proposal.application_preview;
+    const products = preview?.current.products?.filter((product) => product.eligible) ?? [];
+    const [productId, setProductId] = useState(products[0]?.id.toString() ?? '');
+    const selectedProduct = products.find((product) => product.id.toString() === productId);
+
+    return (
+        <Dialog>
+            <DialogTrigger asChild>
+                <Button size="sm">
+                    <CheckCircle2 /> Apply
+                </Button>
+            </DialogTrigger>
+            <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-xl">
+                <DialogHeader>
+                    <DialogTitle>Apply approved improvement</DialogTitle>
+                    <DialogDescription>
+                        Review the exact destination and confirm a second time.
+                        The controlled adapter will record its result in the CAPA history.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="rounded-md bg-muted/50 p-3 text-sm">
+                    <p>
+                        <span className="font-medium">Destination: </span>
+                        {preview?.target?.name || 'Unavailable'} · version{' '}
+                        {preview?.current_version || '—'}
+                    </p>
+                    <p className="mt-1">
+                        <span className="font-medium">Approved change: </span>
+                        {preview?.proposed_change || proposal.title}
+                    </p>
+                </div>
+                <Form
+                    action={`/improvement-decisions/${proposal.id}/apply`}
+                    method="post"
+                    className="grid gap-4"
+                >
+                    {({ errors, processing }) => (
+                        <>
+                            {proposal.type === 'work_order_template' ? (
+                                <div className="grid gap-2">
+                                    <Label htmlFor={`application-${proposal.id}-checklist`}>
+                                        Required checklist item
+                                    </Label>
+                                    <Textarea
+                                        id={`application-${proposal.id}-checklist`}
+                                        name="checklist_label"
+                                        defaultValue={(preview?.proposed_change || '').slice(0, 255)}
+                                        required
+                                    />
+                                    <FieldError message={errors.checklist_label} />
+                                </div>
+                            ) : null}
+                            {proposal.type === 'maintenance_scope' ? (
+                                <div className="grid gap-2">
+                                    <Label htmlFor={`application-${proposal.id}-scope`}>
+                                        Text to add to the maintenance scope
+                                    </Label>
+                                    <Textarea
+                                        id={`application-${proposal.id}-scope`}
+                                        name="scope_addition"
+                                        defaultValue={preview?.proposed_change || ''}
+                                        required
+                                    />
+                                    <FieldError message={errors.scope_addition} />
+                                </div>
+                            ) : null}
+                            {proposal.type === 'preventive_stock' ? (
+                                <div className="grid gap-4 sm:grid-cols-2">
+                                    <div className="grid gap-2">
+                                        <Label htmlFor={`application-${proposal.id}-product`}>
+                                            Preventive product
+                                        </Label>
+                                        <select
+                                            id={`application-${proposal.id}-product`}
+                                            name="product_id"
+                                            value={productId}
+                                            onChange={(event) => setProductId(event.target.value)}
+                                            className="h-9 rounded-md border bg-background px-3 text-sm"
+                                            required
+                                        >
+                                            {products.map((product) => (
+                                                <option key={product.id} value={product.id}>
+                                                    {product.sku ? `${product.sku} · ` : ''}
+                                                    {product.name}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        <FieldError message={errors.product_id} />
+                                    </div>
+                                    <div className="grid gap-2">
+                                        <Label htmlFor={`application-${proposal.id}-quantity`}>
+                                            Replenishment objective
+                                        </Label>
+                                        <input
+                                            key={productId}
+                                            id={`application-${proposal.id}-quantity`}
+                                            name="target_quantity"
+                                            type="number"
+                                            min="0.001"
+                                            step="0.001"
+                                            defaultValue={selectedProduct?.forecast_shortage ?? ''}
+                                            className="h-9 rounded-md border bg-background px-3 text-sm"
+                                            required
+                                        />
+                                        <FieldError message={errors.target_quantity} />
+                                    </div>
+                                </div>
+                            ) : null}
+                            <div className="grid gap-2">
+                                <Label htmlFor={`application-${proposal.id}-note`}>
+                                    Application evidence and reason
+                                </Label>
+                                <Textarea
+                                    id={`application-${proposal.id}-note`}
+                                    name="application_note"
+                                    placeholder="Explain why this exact change is safe to apply now."
+                                    required
+                                />
+                                <FieldError message={errors.application_note || errors.application} />
+                            </div>
+                            <label className="flex items-start gap-2 rounded-md border p-3 text-sm">
+                                <input
+                                    type="checkbox"
+                                    name="confirmed"
+                                    value="1"
+                                    className="mt-0.5"
+                                    required
+                                />
+                                <span>
+                                    I reviewed the destination and confirm this second, controlled application action.
+                                </span>
+                            </label>
+                            <Button disabled={processing}>Apply controlled improvement</Button>
+                        </>
+                    )}
+                </Form>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+function ApplicationResult({
+    result,
+}: {
+    result: ImprovementInboxProposal['application_result'];
+}) {
+    if (!result) {
+        return null;
+    }
+
+    const reference =
+        result.opportunity_code ||
+        result.replenishment_target_id ||
+        result.maintenance_plan_version ||
+        result.checklist_item;
+
+    return reference ? (
+        <p className="mt-1 text-xs text-muted-foreground">
+            Result: {String(reference)}
+        </p>
+    ) : null;
 }
 
 function DecisionDialog({
@@ -214,6 +407,10 @@ function StatusBadge({ status }: { status: string }) {
 
     if (status === 'rejected') {
         return <Badge variant="secondary">Rejected</Badge>;
+    }
+
+    if (status === 'applied') {
+        return <Badge className="bg-emerald-700">Applied</Badge>;
     }
 
     if (status === 'returned') {

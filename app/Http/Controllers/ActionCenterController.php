@@ -73,18 +73,22 @@ class ActionCenterController extends Controller
     {
         $query = ServiceCorrectiveProposal::query()
             ->whereIn('type', $types)
-            ->whereIn('status', ['prepared', 'returned']);
+            ->whereIn('status', ['prepared', 'returned', 'approved']);
         $items = (clone $query)
             ->with('plan:id,code,title')
-            ->orderByRaw("case status when 'prepared' then 0 else 1 end")
+            ->orderByRaw("case status when 'approved' then 0 when 'prepared' then 1 else 2 end")
             ->oldest('created_at')
             ->limit(10)
             ->get()
             ->map(fn (ServiceCorrectiveProposal $proposal): array => [
                 'id' => 'improvement-proposal-'.$proposal->id,
                 'title' => $proposal->title,
-                'subtitle' => $proposal->plan->code.' · '.($proposal->status === 'returned' ? __('Returned for revision') : __('Pending decision')),
-                'href' => '/improvement-decisions?status=open#proposal-'.$proposal->id,
+                'subtitle' => $proposal->plan->code.' · '.match ($proposal->status) {
+                    'approved' => __('Ready to apply'),
+                    'returned' => __('Returned for revision'),
+                    default => __('Pending decision'),
+                },
+                'href' => '/improvement-decisions?status='.($proposal->status === 'approved' ? 'approved' : 'open').'#proposal-'.$proposal->id,
                 'severity' => $proposal->status === 'returned' ? 'critical' : 'warning',
                 'due_at' => $proposal->created_at->toIso8601String(),
             ]);

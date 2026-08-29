@@ -159,7 +159,7 @@ class RecurringServiceCorrectivePlanWorkflow
         return DB::transaction(function () use ($proposal, $action, $note, $proposedChange, $actor): ServiceCorrectiveProposal {
             $locked = ServiceCorrectiveProposal::query()->with('plan')->lockForUpdate()->findOrFail($proposal->id);
             $allowed = [
-                'approve' => ['prepared'], 'reject' => ['prepared'], 'return' => ['prepared'],
+                'approve' => ['prepared'], 'reject' => ['prepared'], 'return' => ['prepared', 'approved'],
                 'resubmit' => ['returned'],
             ];
             if (! in_array($locked->status, $allowed[$action] ?? [], true)) {

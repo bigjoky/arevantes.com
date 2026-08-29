@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class ServiceCorrectiveProposal extends Model
 {
@@ -11,6 +12,7 @@ class ServiceCorrectiveProposal extends Model
         'service_corrective_plan_id', 'type', 'title', 'rationale', 'payload',
         'target_type', 'target_id', 'target_version', 'target_snapshot', 'status',
         'decision_note', 'decided_by', 'decided_at', 'resubmission_count', 'created_by',
+        'application_note', 'application_result', 'applied_by', 'applied_at',
     ];
 
     protected function casts(): array
@@ -18,6 +20,7 @@ class ServiceCorrectiveProposal extends Model
         return [
             'payload' => 'array', 'target_snapshot' => 'array',
             'decided_at' => 'datetime', 'resubmission_count' => 'integer',
+            'application_result' => 'array', 'applied_at' => 'datetime',
         ];
     }
 
@@ -34,5 +37,15 @@ class ServiceCorrectiveProposal extends Model
     public function decider(): BelongsTo
     {
         return $this->belongsTo(User::class, 'decided_by');
+    }
+
+    public function applier(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'applied_by');
+    }
+
+    public function applications(): HasMany
+    {
+        return $this->hasMany(ServiceCorrectiveProposalApplication::class, 'service_corrective_proposal_id')->latest();
     }
 }

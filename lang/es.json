@@ -1044,5 +1044,15 @@
     "Improvement proposal decision recorded without applying downstream changes.": "Decisión de la propuesta de mejora registrada sin aplicar cambios posteriores.",
     "Improvement decisions": "Decisiones de mejora",
     "Returned for revision": "Devuelta para revisión",
-    "Pending decision": "Decisión pendiente"
+    "Pending decision": "Decisión pendiente",
+    "Ready to apply": "Lista para aplicar",
+    "Only an approved improvement proposal can be applied.": "Solo se puede aplicar una propuesta de mejora aprobada.",
+    "The destination changed after approval. Return and resubmit the proposal before applying it.": "El destino cambió después de la aprobación. Devuelve y reenvía la propuesta antes de aplicarla.",
+    "Enter the checklist item that will be added to the template.": "Introduce el elemento de checklist que se añadirá a la plantilla.",
+    "The work-order template already contains the maximum number of checklist items.": "La plantilla de orden de trabajo ya contiene el número máximo de elementos de checklist.",
+    "Enter the text that will be added to the maintenance scope.": "Introduce el texto que se añadirá al alcance de mantenimiento.",
+    "The resulting maintenance scope exceeds the allowed length.": "El alcance de mantenimiento resultante supera la longitud permitida.",
+    "Select a preventive product belonging to this maintenance plan.": "Selecciona un producto preventivo perteneciente a este plan de mantenimiento.",
+    "Enter a positive replenishment objective.": "Introduce un objetivo de reposición positivo.",
+    "Approved improvement applied through its controlled workflow.": "Mejora aprobada aplicada mediante su flujo controlado."
 }

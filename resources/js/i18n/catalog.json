@@ -13979,5 +13979,105 @@
     "proposals": {
         "en": "proposals",
         "es": "propuestas"
+    },
+    "The destination changed after approval.": {
+        "en": "The destination changed after approval.",
+        "es": "El destino cambió después de la aprobación."
+    },
+    "Return and resubmit the proposal before continuing.": {
+        "en": "Return and resubmit the proposal before continuing.",
+        "es": "Devuelve y reenvía la propuesta antes de continuar."
+    },
+    "applied": {
+        "en": "applied",
+        "es": "aplicada"
+    },
+    "Controlled application completed": {
+        "en": "Controlled application completed",
+        "es": "Aplicación controlada completada"
+    },
+    "Applied by": {
+        "en": "Applied by",
+        "es": "Aplicada por"
+    },
+    "Apply approved improvement": {
+        "en": "Apply approved improvement",
+        "es": "Aplicar mejora aprobada"
+    },
+    "Review the exact destination and confirm a second time. The controlled adapter will record its result in the CAPA history.": {
+        "en": "Review the exact destination and confirm a second time. The controlled adapter will record its result in the CAPA history.",
+        "es": "Revisa el destino exacto y confirma por segunda vez. El adaptador controlado registrará su resultado en el histórico CAPA."
+    },
+    "Destination:": {
+        "en": "Destination:",
+        "es": "Destino:"
+    },
+    "Unavailable": {
+        "en": "Unavailable",
+        "es": "No disponible"
+    },
+    "Approved change:": {
+        "en": "Approved change:",
+        "es": "Cambio aprobado:"
+    },
+    "work_order_template": {
+        "en": "work order template",
+        "es": "plantilla de orden de trabajo"
+    },
+    "Required checklist item": {
+        "en": "Required checklist item",
+        "es": "Elemento obligatorio de checklist"
+    },
+    "maintenance_scope": {
+        "en": "maintenance scope",
+        "es": "alcance de mantenimiento"
+    },
+    "Text to add to the maintenance scope": {
+        "en": "Text to add to the maintenance scope",
+        "es": "Texto que se añadirá al alcance de mantenimiento"
+    },
+    "preventive_stock": {
+        "en": "preventive stock",
+        "es": "stock preventivo"
+    },
+    "Preventive product": {
+        "en": "Preventive product",
+        "es": "Producto preventivo"
+    },
+    "Replenishment objective": {
+        "en": "Replenishment objective",
+        "es": "Objetivo de reposición"
+    },
+    "Application evidence and reason": {
+        "en": "Application evidence and reason",
+        "es": "Evidencia y motivo de aplicación"
+    },
+    "Explain why this exact change is safe to apply now.": {
+        "en": "Explain why this exact change is safe to apply now.",
+        "es": "Explica por qué es seguro aplicar ahora este cambio exacto."
+    },
+    "I reviewed the destination and confirm this second, controlled application action.": {
+        "en": "I reviewed the destination and confirm this second, controlled application action.",
+        "es": "He revisado el destino y confirmo esta segunda acción de aplicación controlada."
+    },
+    "Apply controlled improvement": {
+        "en": "Apply controlled improvement",
+        "es": "Aplicar mejora de forma controlada"
+    },
+    "Result:": {
+        "en": "Result:",
+        "es": "Resultado:"
+    },
+    "Applied": {
+        "en": "Applied",
+        "es": "Aplicadas"
+    },
+    "Ready to apply": {
+        "en": "Ready to apply",
+        "es": "Listas para aplicar"
+    },
+    "No eligible controlled destination is currently available. Return the proposal and revise its scope before applying it.": {
+        "en": "No eligible controlled destination is currently available. Return the proposal and revise its scope before applying it.",
+        "es": "Actualmente no hay un destino controlado elegible. Devuelve la propuesta y revisa su alcance antes de aplicarla."
     }
 }

@@ -6,13 +6,19 @@ use App\Models\Installation;
 use App\Models\InstallationAsset;
 use App\Models\MaintenancePlan;
 use App\Models\PermissionProfile;
+use App\Models\Person;
+use App\Models\Product;
+use App\Models\ReplenishmentTarget;
 use App\Models\ServiceCorrectivePlan;
 use App\Models\ServiceCorrectiveProposal;
 use App\Models\ServiceCycleCommitment;
 use App\Models\ServiceCycleDeviation;
 use App\Models\ServiceTicket;
+use App\Models\TaxRate;
+use App\Models\Unit;
 use App\Models\User;
 use App\Models\WorkOrder;
+use App\Models\WorkOrderTemplate;
 use App\Services\AfterSales\RecurringServiceQualityDetector;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -143,6 +149,28 @@ class RecurringServiceQualityTest extends TestCase
             'action' => 'approve', 'note' => 'Operations approves this proposal for a separate controlled application.',
         ])->assertRedirect()->assertSessionHasNoErrors();
         $this->assertSame('approved', $proposal->refresh()->status);
+        $this->post(route('improvement-decisions.apply', $proposal), [
+            'confirmed' => '1',
+            'application_note' => 'This controlled attempt intentionally lacks its required structured checklist item.',
+        ])->assertSessionHasErrors('checklist_label');
+        $this->assertDatabaseHas('service_corrective_proposal_applications', [
+            'service_corrective_proposal_id' => $proposal->id, 'status' => 'failed',
+        ]);
+        $this->post(route('improvement-decisions.apply', $proposal), [
+            'confirmed' => '1',
+            'application_note' => 'The approved readiness checkpoint is safe to add to future work orders.',
+            'checklist_label' => 'Confirm route, remote diagnosis and required evidence before dispatch.',
+        ])->assertRedirect()->assertSessionHasNoErrors();
+        $this->assertSame('applied', $proposal->refresh()->status);
+        $template = WorkOrderTemplate::findOrFail($plan->maintenancePlan->work_order_template_id);
+        $this->assertCount(2, $template->checklist);
+        $this->post(route('improvement-decisions.apply', $proposal), [
+            'confirmed' => '1',
+            'application_note' => 'This is an idempotent retry of the already completed controlled application.',
+            'checklist_label' => 'Confirm route, remote diagnosis and required evidence before dispatch.',
+        ])->assertRedirect()->assertSessionHasNoErrors();
+        $this->assertCount(2, $template->refresh()->checklist);
+        $this->assertDatabaseHas('service_corrective_proposal_applications', ['service_corrective_proposal_id' => $proposal->id, 'status' => 'replayed']);
 
         $this->post(route('after-sales.quality.corrective-plans.proposals.store', $plan), [
             'type' => 'maintenance_scope', 'title' => 'Align the recurring scope',
@@ -170,6 +198,13 @@ class RecurringServiceQualityTest extends TestCase
             'action' => 'approve', 'note' => 'Operations approves the reconciled proposal for separate application.',
         ])->assertRedirect()->assertSessionHasNoErrors();
         $this->assertSame('approved', $scopeProposal->refresh()->status);
+        $this->post(route('improvement-decisions.apply', $scopeProposal), [
+            'confirmed' => '1',
+            'application_note' => 'The reconciled scope addition is approved for the next governed plan version.',
+            'scope_addition' => 'Add readiness confirmation to the current maintenance scope version.',
+        ])->assertRedirect()->assertSessionHasNoErrors();
+        $this->assertSame('applied', $scopeProposal->refresh()->status);
+        $this->assertStringContainsString('Add readiness confirmation', $maintenancePlan->refresh()->scope);
 
         $this->post(route('after-sales.quality.corrective-plans.proposals.store', $plan), [
             'type' => 'preventive_stock', 'title' => 'Review readiness spare stock',
@@ -200,7 +235,43 @@ class RecurringServiceQualityTest extends TestCase
             'action' => 'approve', 'note' => 'Supply approves the stock review for a separate controlled application.',
         ])->assertRedirect()->assertSessionHasNoErrors();
         $this->assertSame('approved', $stockProposal->refresh()->status);
+        $product = Product::where('sku', 'SEC-PREV-1')->sole();
+        $this->getJson(route('action-center'))
+            ->assertJsonFragment(['href' => '/improvement-decisions?status=approved#proposal-'.$stockProposal->id]);
+        $this->actingAs($technician)->post(route('improvement-decisions.apply', $stockProposal), [
+            'confirmed' => '1', 'application_note' => 'A technical profile cannot apply a supply-owned objective.',
+            'product_id' => $product->id, 'target_quantity' => 10,
+        ])->assertForbidden();
+        $this->actingAs($purchaser);
+        $this->post(route('improvement-decisions.apply', $stockProposal), [
+            'confirmed' => '1',
+            'application_note' => 'Supply confirms the forecast shortage and approves an objective without creating a purchase.',
+            'product_id' => $product->id,
+            'target_quantity' => 10,
+        ])->assertRedirect()->assertSessionHasNoErrors();
+        $this->assertSame('applied', $stockProposal->refresh()->status);
+        $this->assertSame(1, ReplenishmentTarget::where('product_id', $product->id)->count());
         $this->actingAs($admin);
+
+        $this->post(route('after-sales.quality.corrective-plans.proposals.store', $plan), [
+            'type' => 'renewal', 'title' => 'Prepare a governed renewal review',
+            'rationale' => 'The verified service improvement should be considered in the upcoming renewal.',
+            'proposed_change' => 'Prepare a renewal opportunity for human commercial review without contacting the customer.',
+        ])->assertRedirect()->assertSessionHasNoErrors();
+        $renewalProposal = ServiceCorrectiveProposal::where('type', 'renewal')->sole();
+        $this->patch(route('after-sales.quality.corrective-proposals.decision', $renewalProposal), [
+            'action' => 'approve', 'note' => 'CRM approves preparation of an internal renewal opportunity for review.',
+        ])->assertRedirect()->assertSessionHasNoErrors();
+        $this->post(route('improvement-decisions.apply', $renewalProposal), [
+            'confirmed' => '1',
+            'application_note' => 'Prepare the internal opportunity now; customer contact remains a later human action.',
+        ])->assertRedirect()->assertSessionHasNoErrors();
+        $this->assertSame('applied', $renewalProposal->refresh()->status);
+        $this->assertNotNull($plan->maintenancePlan->refresh()->renewal_opportunity_id);
+        $this->get(route('improvement-decisions.index', ['status' => 'applied']))
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('proposals.data', 4)
+                ->where('summary.applied', 4));
 
         $this->patch(route('after-sales.quality.corrective-plans.transition', $plan), [
             'action' => 'start_verification', 'note' => 'The corrective action is complete and the next comparable cycle will be observed.',
@@ -240,7 +311,16 @@ class RecurringServiceQualityTest extends TestCase
         $this->travelTo('2026-08-29 10:00:00');
         $admin = User::factory()->create(['role' => 'admin']);
         $technician = User::factory()->create(['role' => 'technician']);
+        $customer = Person::create(['category' => 'customer', 'company_name' => 'Quality Security Customer', 'first_name' => 'Quality']);
+        $template = WorkOrderTemplate::create([
+            'name' => 'Security recurring quality template', 'service_type' => 'security',
+            'kind' => 'maintenance', 'title' => 'Security review', 'estimated_duration_minutes' => 60,
+            'checklist' => [['label' => 'Inspect the security panel', 'is_required' => true]],
+            'required_skills' => [], 'required_evidence' => [], 'handover_documents' => [],
+            'allowed_transitions' => [], 'is_active' => true, 'is_system' => false,
+        ]);
         $installation = Installation::create([
+            'person_id' => $customer->id,
             'technician_user_id' => $technician->id,
             'service_type' => 'security',
             'status' => 'completed',
@@ -256,6 +336,7 @@ class RecurringServiceQualityTest extends TestCase
         ]);
         $plan = MaintenancePlan::create([
             'installation_id' => $installation->id,
+            'work_order_template_id' => $template->id,
             'assigned_user_id' => $technician->id,
             'name' => 'Security quality care',
             'version' => 1,
@@ -263,8 +344,20 @@ class RecurringServiceQualityTest extends TestCase
             'coverage_type' => 'preventive',
             'interval_months' => 3,
             'starts_on' => today(),
+            'contract_ends_on' => today()->addYear(),
             'next_due_on' => today()->addMonths(3),
             'is_active' => true,
+        ]);
+        $product = Product::create([
+            'type' => 'product', 'sku' => 'SEC-PREV-1', 'name' => 'Security preventive battery',
+            'unit_id' => Unit::firstOrFail()->id,
+            'tax_rate_id' => TaxRate::firstOrFail()->id,
+            'sale_price' => 25, 'cost_price' => 10, 'track_stock' => true,
+            'track_serials' => false, 'is_active' => true,
+        ]);
+        $plan->preventiveMaterials()->create([
+            'product_id' => $product->id, 'quantity_per_visit' => 1,
+            'expected_usage_percent' => 100, 'minimum_stock' => 2,
         ]);
         $plan->coveredAssets()->attach($asset);
         $order = WorkOrder::create([

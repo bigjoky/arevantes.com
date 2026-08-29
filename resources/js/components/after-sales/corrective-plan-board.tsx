@@ -65,6 +65,32 @@ export type ImprovementProposal = {
     decided_at: string | null;
     resubmission_count: number;
     can_decide: boolean;
+    application_preview: {
+        can_apply: boolean;
+        available: boolean;
+        current_version: string;
+        proposed_change: string | null;
+        target: { id: number; name: string } | null;
+        current: {
+            checklist_items?: number;
+            scope?: string | null;
+            plan_version?: number;
+            contract_ends_on?: string | null;
+            renewal_opportunity_id?: number | null;
+            products?: Array<{
+                id: number;
+                sku: string | null;
+                name: string | null;
+                forecast_shortage: number;
+                eligible: boolean;
+            }>;
+        };
+        fields: string[];
+    } | null;
+    application_note: string | null;
+    application_result: Record<string, string | number | null> | null;
+    applier: User | null;
+    applied_at: string | null;
 };
 export type CorrectivePlan = {
     id: number;

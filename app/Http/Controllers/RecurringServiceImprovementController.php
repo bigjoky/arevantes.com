@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\ServiceCorrectiveProposal;
 use App\Services\AfterSales\RecurringServiceCorrectivePlanWorkflow;
+use App\Services\AfterSales\RecurringServiceImprovementApplicator;
 use App\Services\AfterSales\RecurringServiceProposalConflictDetector;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -16,9 +17,10 @@ class RecurringServiceImprovementController extends Controller
         Request $request,
         RecurringServiceCorrectivePlanWorkflow $workflow,
         RecurringServiceProposalConflictDetector $conflicts,
+        RecurringServiceImprovementApplicator $applicator,
     ): Response {
         $filters = $request->validate([
-            'status' => ['nullable', Rule::in(['open', 'approved', 'rejected', 'all'])],
+            'status' => ['nullable', Rule::in(['open', 'approved', 'applied', 'rejected', 'all'])],
         ]);
         $status = $filters['status'] ?? 'open';
         $types = $workflow->decisionTypesFor($request->user());
@@ -28,7 +30,7 @@ class RecurringServiceImprovementController extends Controller
         $accessible = ServiceCorrectiveProposal::query()->whereIn('type', $types);
         $query = (clone $accessible)
             ->with([
-                'creator:id,name', 'decider:id,name',
+                'creator:id,name', 'decider:id,name', 'applier:id,name',
                 'plan:id,maintenance_plan_id,code,title,status',
                 'plan.maintenancePlan.template',
                 'plan.maintenancePlan.preventiveMaterials',
@@ -37,12 +39,13 @@ class RecurringServiceImprovementController extends Controller
             ])
             ->when($status === 'open', fn ($query) => $query->whereIn('status', ['prepared', 'returned']))
             ->when($status === 'approved', fn ($query) => $query->where('status', 'approved'))
+            ->when($status === 'applied', fn ($query) => $query->where('status', 'applied'))
             ->when($status === 'rejected', fn ($query) => $query->where('status', 'rejected'))
-            ->orderByRaw("case status when 'prepared' then 0 when 'returned' then 1 when 'approved' then 2 else 3 end")
+            ->orderByRaw("case status when 'prepared' then 0 when 'returned' then 1 when 'approved' then 2 when 'applied' then 3 else 4 end")
             ->latest('created_at')
             ->paginate(30)
             ->withQueryString()
-            ->through(fn (ServiceCorrectiveProposal $proposal): array => $this->present($proposal, $conflicts));
+            ->through(fn (ServiceCorrectiveProposal $proposal): array => $this->present($proposal, $conflicts, $applicator));
 
         $prepared = (clone $accessible)
             ->where('status', 'prepared')
@@ -58,6 +61,7 @@ class RecurringServiceImprovementController extends Controller
             'summary' => [
                 'open' => (clone $accessible)->whereIn('status', ['prepared', 'returned'])->count(),
                 'approved' => (clone $accessible)->where('status', 'approved')->count(),
+                'applied' => (clone $accessible)->where('status', 'applied')->count(),
                 'rejected' => (clone $accessible)->where('status', 'rejected')->count(),
                 'conflicting' => $prepared->filter(fn (ServiceCorrectiveProposal $proposal) => $conflicts->evaluate($proposal)['has_conflict'])->count(),
             ],
@@ -66,8 +70,13 @@ class RecurringServiceImprovementController extends Controller
     }
 
     /** @return array<string, mixed> */
-    private function present(ServiceCorrectiveProposal $proposal, RecurringServiceProposalConflictDetector $conflicts): array
-    {
+    private function present(
+        ServiceCorrectiveProposal $proposal,
+        RecurringServiceProposalConflictDetector $conflicts,
+        RecurringServiceImprovementApplicator $applicator,
+    ): array {
+        $applicationPreview = $proposal->status === 'approved' ? $applicator->preview($proposal) : null;
+
         return [
             'id' => $proposal->id,
             'type' => $proposal->type,
@@ -79,12 +88,19 @@ class RecurringServiceImprovementController extends Controller
             'creator' => $proposal->creator,
             'target_type' => $proposal->target_type,
             'target_version' => $proposal->target_version,
-            'conflict' => in_array($proposal->status, ['prepared', 'returned'], true) ? $conflicts->evaluate($proposal) : null,
+            'conflict' => in_array($proposal->status, ['prepared', 'returned'], true)
+                ? $conflicts->evaluate($proposal)
+                : ($applicationPreview['conflict'] ?? null),
             'decision_note' => $proposal->decision_note,
             'decider' => $proposal->decider,
             'decided_at' => $proposal->decided_at?->toISOString(),
             'resubmission_count' => $proposal->resubmission_count,
             'can_decide' => true,
+            'application_preview' => $applicationPreview,
+            'application_note' => $proposal->application_note,
+            'application_result' => $proposal->application_result,
+            'applier' => $proposal->applier,
+            'applied_at' => $proposal->applied_at?->toISOString(),
             'plan' => [
                 'id' => $proposal->plan->id,
                 'code' => $proposal->plan->code,

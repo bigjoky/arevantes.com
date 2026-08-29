@@ -14,17 +14,18 @@ type Props = {
         links: PaginationLink[];
         total: number;
     };
-    filters: { status: 'open' | 'approved' | 'rejected' | 'all' };
+    filters: { status: 'open' | 'approved' | 'applied' | 'rejected' | 'all' };
     summary: {
         open: number;
         approved: number;
+        applied: number;
         rejected: number;
         conflicting: number;
     };
     canManageOperations: boolean;
 };
 
-const views = ['open', 'approved', 'rejected', 'all'] as const;
+const views = ['open', 'approved', 'applied', 'rejected', 'all'] as const;
 
 export default function ImprovementDecisions({
     proposals,
@@ -52,7 +53,7 @@ export default function ImprovementDecisions({
                     }
                 />
 
-                <section className="grid grid-cols-2 border-y md:grid-cols-4">
+                <section className="grid grid-cols-2 border-y md:grid-cols-5">
                     <Metric label="Pending decisions" value={summary.open} icon={Clock3} />
                     <Metric
                         label="Conflicting proposals"
@@ -60,7 +61,8 @@ export default function ImprovementDecisions({
                         icon={AlertTriangle}
                         attention={summary.conflicting > 0}
                     />
-                    <Metric label="Approved" value={summary.approved} icon={CheckCircle2} />
+                    <Metric label="Ready to apply" value={summary.approved} icon={CheckCircle2} />
+                    <Metric label="Applied" value={summary.applied} icon={CheckCircle2} />
                     <Metric label="Rejected" value={summary.rejected} icon={XCircle} />
                 </section>
 

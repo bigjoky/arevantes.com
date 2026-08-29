@@ -548,14 +548,33 @@ La aprobación no modifica plantillas, existencias, contratos ni oportunidades:
 solo declara que el cambio está autorizado para pasar a un circuito de aplicación
 posterior y controlado.
 
+## Corte ejecutado — Aplicación controlada de mejoras
+
+Una propuesta aprobada requiere una segunda confirmación sobre una vista previa
+del destino y de la versión vigente. El sistema vuelve a comprobar su huella bajo
+bloqueo y rechaza la ejecución si plantilla, plan, materiales u oportunidad han
+cambiado desde la aprobación. Cada intento conserva entrada, persona, resultado o
+error; un reintento posterior a un éxito devuelve el mismo resultado sin repetir
+el efecto.
+
+Los adaptadores limitan expresamente cada aplicación: Operaciones puede añadir un
+control obligatorio a la plantilla o incorporar texto al alcance mediante una
+nueva versión del plan; Suministro puede aprobar un objetivo de reposición para
+un producto preventivo con carencia vigente; CRM puede preparar la oportunidad de
+renovación mediante el flujo existente. No se crean pedidos, reservas ni mensajes
+al cliente, y la ficha CAPA conserva destino anterior, destino resultante y autor.
+
+La bandeja distingue decisiones pendientes, propuestas listas para aplicar y
+aplicaciones completadas. También alimenta el centro de acciones y mantiene el
+aislamiento por área tanto al consultar como al ejecutar.
+
 ## Próximo corte recomendado
 
-Construir la **aplicación controlada de mejoras aprobadas** como una segunda
-acción explícita. Debe mostrar el cambio antes de confirmarlo, volver a comprobar
-la versión destino, reutilizar los servicios versionados de cada área, ser
-idempotente y registrar resultado o fallo en el expediente CAPA. Ningún adaptador
-podrá crear compras, cambiar contratos o contactar clientes fuera de los límites
-específicos que confirme la persona responsable.
+Construir el **seguimiento de implantación de mejoras**: identificar las primeras
+órdenes, ciclos u oportunidades que consumen cada cambio aplicado, medir adopción
+y resultado frente a la línea base CAPA, y permitir retirar o sustituir una
+mejora mediante otra versión gobernada. El seguimiento debe diferenciar ausencia
+de uso, fallo de implantación y falta de eficacia sin alterar trabajos históricos.
 
 ## Corrección transversal — idioma temporal de la plataforma
 

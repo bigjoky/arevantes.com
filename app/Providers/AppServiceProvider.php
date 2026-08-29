@@ -58,6 +58,7 @@ use App\Models\SalesDocumentPayment;
 use App\Models\ServiceCorrectiveAction;
 use App\Models\ServiceCorrectivePlan;
 use App\Models\ServiceCorrectiveProposal;
+use App\Models\ServiceCorrectiveProposalApplication;
 use App\Models\ServiceCycleDeviation;
 use App\Models\ServiceTicket;
 use App\Models\Supplier;
@@ -144,6 +145,7 @@ class AppServiceProvider extends ServiceProvider
         ServiceCorrectivePlan::observe(AuditableObserver::class);
         ServiceCorrectiveAction::observe(AuditableObserver::class);
         ServiceCorrectiveProposal::observe(AuditableObserver::class);
+        ServiceCorrectiveProposalApplication::observe(AuditableObserver::class);
         WorkOrderTemplate::observe(AuditableObserver::class);
         WorkOrder::observe(AuditableObserver::class);
         WorkOrderAttachment::observe(AuditableObserver::class);

@@ -7,6 +7,7 @@ use App\Models\ServiceCorrectivePlan;
 use App\Models\ServiceCorrectiveProposal;
 use App\Models\ServiceCycleDeviation;
 use App\Services\AfterSales\RecurringServiceCorrectivePlanWorkflow;
+use App\Services\AfterSales\RecurringServiceImprovementApplicator;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -104,5 +105,27 @@ class RecurringServiceCorrectivePlanController extends Controller
         );
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Improvement proposal decision recorded without applying downstream changes.')]);
+    }
+
+    public function applyProposal(
+        Request $request,
+        ServiceCorrectiveProposal $correctiveProposal,
+        RecurringServiceCorrectivePlanWorkflow $workflow,
+        RecurringServiceImprovementApplicator $applicator,
+    ): RedirectResponse {
+        abort_unless($request->user()->can($workflow->decisionAbility($correctiveProposal->type)), 403);
+        $data = $request->validate([
+            'confirmed' => ['accepted'],
+            'application_note' => ['required', 'string', 'min:10', 'max:3000'],
+            'checklist_label' => ['nullable', 'string', 'max:255'],
+            'scope_addition' => ['nullable', 'string', 'max:5000'],
+            'product_id' => ['nullable', 'integer', 'exists:products,id'],
+            'target_quantity' => ['nullable', 'numeric', 'between:0.001,99999999999.999'],
+        ]);
+        $note = $data['application_note'];
+        unset($data['confirmed'], $data['application_note']);
+        $applicator->apply($correctiveProposal, $data, $note, $request->user());
+
+        return back()->with('toast', ['type' => 'success', 'message' => __('Approved improvement applied through its controlled workflow.')]);
     }
 }
