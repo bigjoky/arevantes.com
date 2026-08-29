@@ -128,4 +128,20 @@ class RecurringServiceCorrectivePlanController extends Controller
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Approved improvement applied through its controlled workflow.')]);
     }
+
+    public function supersedeProposal(
+        Request $request,
+        ServiceCorrectiveProposal $correctiveProposal,
+        RecurringServiceCorrectivePlanWorkflow $workflow,
+    ): RedirectResponse {
+        abort_unless($request->user()->can($workflow->decisionAbility($correctiveProposal->type)), 403);
+        $data = $request->validate([
+            'successor_proposal_id' => ['required', 'integer', 'exists:service_corrective_proposals,id'],
+            'note' => ['required', 'string', 'min:10', 'max:3000'],
+        ]);
+        $successor = ServiceCorrectiveProposal::findOrFail($data['successor_proposal_id']);
+        $workflow->supersedeProposal($correctiveProposal, $successor, $data['note'], $request->user());
+
+        return back()->with('toast', ['type' => 'success', 'message' => __('Improvement monitoring transferred to its governed successor.')]);
+    }
 }

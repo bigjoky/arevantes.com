@@ -205,6 +205,53 @@ class RecurringServiceCorrectivePlanWorkflow
         return self::DECISION_ABILITIES[$type] ?? 'manage-operations';
     }
 
+    public function supersedeProposal(ServiceCorrectiveProposal $proposal, ServiceCorrectiveProposal $successor, string $note, User $actor): ServiceCorrectiveProposal
+    {
+        return DB::transaction(function () use ($proposal, $successor, $note, $actor): ServiceCorrectiveProposal {
+            $locked = ServiceCorrectiveProposal::query()
+                ->with('plan')
+                ->whereIn('id', [$proposal->id, $successor->id])
+                ->orderBy('id')
+                ->lockForUpdate()
+                ->get()
+                ->keyBy('id');
+            $current = $locked->get($proposal->id);
+            $replacement = $locked->get($successor->id);
+
+            if (! $current || ! $replacement || $current->id === $replacement->id) {
+                throw ValidationException::withMessages(['successor_proposal_id' => __('Select a different governed improvement version.')]);
+            }
+            if ($current->status !== 'applied' || $current->superseded_at) {
+                throw ValidationException::withMessages(['monitoring' => __('Only an active applied improvement can be superseded.')]);
+            }
+            if ($replacement->status !== 'applied' || $replacement->superseded_at
+                || $replacement->type !== $current->type
+                || $replacement->service_corrective_plan_id !== $current->service_corrective_plan_id
+                || $replacement->applied_at?->lessThan($current->applied_at)
+                || ($replacement->applied_at?->equalTo($current->applied_at) && $replacement->id < $current->id)) {
+                throw ValidationException::withMessages(['successor_proposal_id' => __('The successor must be a later active applied version from the same corrective plan and improvement type.')]);
+            }
+
+            $current->update([
+                'superseded_by_proposal_id' => $replacement->id,
+                'supersession_note' => trim($note),
+                'superseded_by' => $actor->id,
+                'superseded_at' => now(),
+            ]);
+            $this->event(
+                $current->plan,
+                'proposal_superseded',
+                'applied',
+                'superseded',
+                $note,
+                ['proposal_id' => $current->id, 'successor_proposal_id' => $replacement->id],
+                $actor,
+            );
+
+            return $current->refresh();
+        });
+    }
+
     /** @return list<string> */
     public function decisionTypesFor(User $user): array
     {

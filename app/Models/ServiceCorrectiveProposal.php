@@ -13,6 +13,7 @@ class ServiceCorrectiveProposal extends Model
         'target_type', 'target_id', 'target_version', 'target_snapshot', 'status',
         'decision_note', 'decided_by', 'decided_at', 'resubmission_count', 'created_by',
         'application_note', 'application_result', 'applied_by', 'applied_at',
+        'superseded_by_proposal_id', 'supersession_note', 'superseded_by', 'superseded_at',
     ];
 
     protected function casts(): array
@@ -20,7 +21,7 @@ class ServiceCorrectiveProposal extends Model
         return [
             'payload' => 'array', 'target_snapshot' => 'array',
             'decided_at' => 'datetime', 'resubmission_count' => 'integer',
-            'application_result' => 'array', 'applied_at' => 'datetime',
+            'application_result' => 'array', 'applied_at' => 'datetime', 'superseded_at' => 'datetime',
         ];
     }
 
@@ -47,5 +48,15 @@ class ServiceCorrectiveProposal extends Model
     public function applications(): HasMany
     {
         return $this->hasMany(ServiceCorrectiveProposalApplication::class, 'service_corrective_proposal_id')->latest();
+    }
+
+    public function successor(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'superseded_by_proposal_id');
+    }
+
+    public function superseder(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'superseded_by');
     }
 }

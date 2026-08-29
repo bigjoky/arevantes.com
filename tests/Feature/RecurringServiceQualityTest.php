@@ -164,6 +164,11 @@ class RecurringServiceQualityTest extends TestCase
         $this->assertSame('applied', $proposal->refresh()->status);
         $template = WorkOrderTemplate::findOrFail($plan->maintenancePlan->work_order_template_id);
         $this->assertCount(2, $template->checklist);
+        $this->get(route('improvement-decisions.index', ['status' => 'applied']))
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('proposals.data', 1)
+                ->where('proposals.data.0.monitoring.state', 'not_used')
+                ->where('proposals.data.0.monitoring.adoption_count', 0));
         $this->post(route('improvement-decisions.apply', $proposal), [
             'confirmed' => '1',
             'application_note' => 'This is an idempotent retry of the already completed controlled application.',
@@ -273,6 +278,36 @@ class RecurringServiceQualityTest extends TestCase
                 ->has('proposals.data', 4)
                 ->where('summary.applied', 4));
 
+        $this->travelTo(now()->addMinute());
+        $this->post(route('after-sales.quality.corrective-plans.proposals.store', $plan), [
+            'type' => 'work_order_template', 'title' => 'Refine the readiness checkpoint',
+            'rationale' => 'The first applied checkpoint requires a governed follow-up version.',
+            'proposed_change' => 'Add confirmation that the remote diagnosis result was recorded.',
+        ])->assertRedirect()->assertSessionHasNoErrors();
+        $successor = ServiceCorrectiveProposal::where('title', 'Refine the readiness checkpoint')->sole();
+        $this->patch(route('after-sales.quality.corrective-proposals.decision', $successor), [
+            'action' => 'approve', 'note' => 'Operations approves the later governed checklist version.',
+        ])->assertRedirect()->assertSessionHasNoErrors();
+        $this->post(route('improvement-decisions.apply', $successor), [
+            'confirmed' => '1',
+            'application_note' => 'The refined checkpoint is ready for controlled use in future cycles.',
+            'checklist_label' => 'Confirm that the remote diagnosis result was recorded.',
+        ])->assertRedirect()->assertSessionHasNoErrors();
+        $this->actingAs($purchaser)->patch(route('improvement-decisions.supersede', $proposal), [
+            'successor_proposal_id' => $successor->id,
+            'note' => 'A purchasing-only profile cannot transfer operations improvement monitoring.',
+        ])->assertForbidden();
+        $this->actingAs($admin)->patch(route('improvement-decisions.supersede', $proposal), [
+            'successor_proposal_id' => $successor->id,
+            'note' => 'The refined checklist version replaces the original while preserving its historical consumers.',
+        ])->assertRedirect()->assertSessionHasNoErrors();
+        $this->assertSame($successor->id, $proposal->refresh()->superseded_by_proposal_id);
+        $this->assertDatabaseHas('service_corrective_plan_events', [
+            'service_corrective_plan_id' => $plan->id,
+            'event' => 'proposal_superseded',
+            'actor_id' => $admin->id,
+        ]);
+
         $this->patch(route('after-sales.quality.corrective-plans.transition', $plan), [
             'action' => 'start_verification', 'note' => 'The corrective action is complete and the next comparable cycle will be observed.',
         ])->assertRedirect()->assertSessionHasNoErrors();
@@ -285,8 +320,27 @@ class RecurringServiceQualityTest extends TestCase
         $followup->period_ends_on = today()->addMonths(4);
         $followup->completed_at = now()->addMonths(4);
         $followup->approved_at = now()->addMonths(3);
+        $followup->maintenance_plan_version = $maintenancePlan->refresh()->version;
+        $followup->technical_snapshot = [
+            'plan' => ['scope' => $maintenancePlan->scope],
+            'template' => ['id' => $template->id, 'checklist' => $template->refresh()->checklist],
+        ];
         $followup->completion_snapshot = ['time' => ['minutes' => 60, 'travel_km' => 5], 'materials' => ['actual_cost' => 10], 'evidence' => ['items' => [], 'published_documents' => 1, 'pending_documents' => 0]];
         $followup->save();
+
+        $this->get(route('improvement-decisions.index', ['status' => 'applied']))
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('proposals.data', 5)
+                ->where('proposals.data', function ($rows) use ($successor, $proposal): bool {
+                    $byId = collect($rows)->keyBy('id');
+
+                    return data_get($byId, $successor->id.'.monitoring.state') === 'effective'
+                        && data_get($byId, $successor->id.'.monitoring.adoption_count') === 1
+                        && data_get($byId, $successor->id.'.monitoring.completed_count') === 1
+                        && data_get($byId, $successor->id.'.monitoring.observed_deviation_rate') === 0
+                        && data_get($byId, $proposal->id.'.monitoring.state') === 'superseded'
+                        && data_get($byId, $proposal->id.'.successor.id') === $successor->id;
+                }));
 
         $this->patch(route('after-sales.quality.corrective-plans.transition', $plan), [
             'action' => 'verify_effective', 'note' => 'The next comparable cycle completed without confirmed duration or travel deviations.',

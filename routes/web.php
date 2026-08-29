@@ -232,6 +232,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('after-sales/quality/corrective-plans/{correctivePlan}/proposals', [RecurringServiceCorrectivePlanController::class, 'storeProposal'])->middleware('can:manage-operations')->name('after-sales.quality.corrective-plans.proposals.store');
     Route::patch('after-sales/quality/corrective-proposals/{correctiveProposal}', [RecurringServiceCorrectivePlanController::class, 'decideProposal'])->name('after-sales.quality.corrective-proposals.decision');
     Route::post('improvement-decisions/{correctiveProposal}/apply', [RecurringServiceCorrectivePlanController::class, 'applyProposal'])->name('improvement-decisions.apply');
+    Route::patch('improvement-decisions/{correctiveProposal}/supersede', [RecurringServiceCorrectivePlanController::class, 'supersedeProposal'])->name('improvement-decisions.supersede');
     Route::post('after-sales/tickets', [AfterSalesController::class, 'storeTicket'])->middleware('can:manage-operations')->name('after-sales.tickets.store');
     Route::patch('after-sales/tickets/{ticket}', [AfterSalesController::class, 'updateTicket'])->middleware('can:manage-operations')->name('after-sales.tickets.update');
     Route::post('after-sales/tickets/{ticket}/work-order', [AfterSalesController::class, 'createWorkOrder'])->middleware('can:manage-operations')->name('after-sales.tickets.work-order');

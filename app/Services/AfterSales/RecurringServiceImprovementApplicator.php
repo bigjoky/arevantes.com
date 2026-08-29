@@ -221,7 +221,11 @@ class RecurringServiceImprovementApplicator
         }
         $updated = $this->plans->revise($plan, ['scope' => $scope], null, $note, $actor);
 
-        return ['maintenance_plan_id' => $updated->id, 'maintenance_plan_version' => $updated->version];
+        return [
+            'maintenance_plan_id' => $updated->id,
+            'maintenance_plan_version' => $updated->version,
+            'scope_addition' => $addition,
+        ];
     }
 
     /** @param array<string, mixed> $input @return array<string, mixed> */

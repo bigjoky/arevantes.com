@@ -568,13 +568,29 @@ La bandeja distingue decisiones pendientes, propuestas listas para aplicar y
 aplicaciones completadas. También alimenta el centro de acciones y mantiene el
 aislamiento por área tanto al consultar como al ejecutar.
 
+## Corte ejecutado — Seguimiento de implantación de mejoras
+
+Cada mejora aplicada identifica automáticamente los primeros ciclos, órdenes,
+objetivos de reposición u oportunidades que consumen su versión exacta. La
+bandeja distingue una mejora todavía no utilizada, una implantación cuyo destino
+ha desaparecido o perdido el cambio, una adopción aún bajo observación, un uso
+sin eficacia suficiente y un resultado eficaz frente a la línea base CAPA.
+
+Las tasas observadas solo utilizan ciclos comparables completados y desviaciones
+confirmadas o resueltas de las mismas categorías que originaron el expediente.
+Se muestran adopción, ciclos requeridos, consumidores y resultado sin exponer
+costes internos. El histórico no se recalifica cuando aparece una versión
+posterior: una segunda decisión autorizada enlaza el sucesor aplicado, conserva
+los consumidores de la versión anterior y transfiere el seguimiento activo sin
+revertir ni reescribir trabajos terminados.
+
 ## Próximo corte recomendado
 
-Construir el **seguimiento de implantación de mejoras**: identificar las primeras
-órdenes, ciclos u oportunidades que consumen cada cambio aplicado, medir adopción
-y resultado frente a la línea base CAPA, y permitir retirar o sustituir una
-mejora mediante otra versión gobernada. El seguimiento debe diferenciar ausencia
-de uso, fallo de implantación y falta de eficacia sin alterar trabajos históricos.
+Iniciar el **primer escenario compartido del Horizonte 3**: congelar una cartera
+comercial seleccionada y comparar, sin comprometer recursos, su demanda prevista
+de capacidad, materiales y caja. Cada escenario debe separar datos confirmados de
+supuestos, conservar versión y autor, y requerir aprobación antes de originar
+agenda, reservas, compras, pagos o comunicaciones externas.
 
 ## Corrección transversal — idioma temporal de la plataforma
 

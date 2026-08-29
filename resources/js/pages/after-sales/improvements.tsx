@@ -23,6 +23,13 @@ type Props = {
         conflicting: number;
     };
     canManageOperations: boolean;
+    successorCandidates: Array<{
+        id: number;
+        plan_id: number;
+        type: string;
+        title: string;
+        applied_at: string;
+    }>;
 };
 
 const views = ['open', 'approved', 'applied', 'rejected', 'all'] as const;
@@ -32,6 +39,7 @@ export default function ImprovementDecisions({
     filters,
     summary,
     canManageOperations,
+    successorCandidates,
 }: Props) {
     const { locale } = useLocale();
 
@@ -54,34 +62,60 @@ export default function ImprovementDecisions({
                 />
 
                 <section className="grid grid-cols-2 border-y md:grid-cols-5">
-                    <Metric label="Pending decisions" value={summary.open} icon={Clock3} />
+                    <Metric
+                        label="Pending decisions"
+                        value={summary.open}
+                        icon={Clock3}
+                    />
                     <Metric
                         label="Conflicting proposals"
                         value={summary.conflicting}
                         icon={AlertTriangle}
                         attention={summary.conflicting > 0}
                     />
-                    <Metric label="Ready to apply" value={summary.approved} icon={CheckCircle2} />
-                    <Metric label="Applied" value={summary.applied} icon={CheckCircle2} />
-                    <Metric label="Rejected" value={summary.rejected} icon={XCircle} />
+                    <Metric
+                        label="Ready to apply"
+                        value={summary.approved}
+                        icon={CheckCircle2}
+                    />
+                    <Metric
+                        label="Applied"
+                        value={summary.applied}
+                        icon={CheckCircle2}
+                    />
+                    <Metric
+                        label="Rejected"
+                        value={summary.rejected}
+                        icon={XCircle}
+                    />
                 </section>
 
-                <nav className="flex flex-wrap gap-2" aria-label="Improvement proposal views">
+                <nav
+                    className="flex flex-wrap gap-2"
+                    aria-label="Improvement proposal views"
+                >
                     {views.map((view) => (
                         <Button
                             key={view}
                             size="sm"
-                            variant={filters.status === view ? 'default' : 'outline'}
+                            variant={
+                                filters.status === view ? 'default' : 'outline'
+                            }
                             asChild
                         >
-                            <Link href={`/improvement-decisions?status=${view}`}>
+                            <Link
+                                href={`/improvement-decisions?status=${view}`}
+                            >
                                 {viewLabel(view)}
                             </Link>
                         </Button>
                     ))}
                 </nav>
 
-                <ImprovementDecisionInbox proposals={proposals.data} />
+                <ImprovementDecisionInbox
+                    proposals={proposals.data}
+                    successorCandidates={successorCandidates}
+                />
                 <PaginationBar
                     links={proposals.links}
                     total={proposals.total}
@@ -108,7 +142,13 @@ function Metric({
             <div className="mb-2 flex items-center gap-2 text-xs text-muted-foreground">
                 <Icon className="size-4" /> {label}
             </div>
-            <div className={attention ? 'text-xl font-semibold text-destructive' : 'text-xl font-semibold'}>
+            <div
+                className={
+                    attention
+                        ? 'text-xl font-semibold text-destructive'
+                        : 'text-xl font-semibold'
+                }
+            >
                 {value}
             </div>
         </div>

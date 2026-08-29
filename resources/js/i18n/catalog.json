@@ -40,6 +40,86 @@
         "en": "Send definitively",
         "es": "Enviar definitivamente"
     },
+    "Implementation monitoring": {
+        "en": "Implementation monitoring",
+        "es": "Seguimiento de implantación"
+    },
+    "consuming record(s) ·": {
+        "en": "consuming record(s) ·",
+        "es": "registros consumidores ·"
+    },
+    "completed comparable cycle(s) of": {
+        "en": "completed comparable cycle(s) of",
+        "es": "ciclos comparables completados de"
+    },
+    "required.": { "en": "required.", "es": "requeridos." },
+    "Confirmed deviation rate: baseline": {
+        "en": "Confirmed deviation rate: baseline",
+        "es": "Tasa de desviaciones confirmadas: referencia"
+    },
+    "% · observed": { "en": "% · observed", "es": "% · observada" },
+    "Monitoring transferred by": {
+        "en": "Monitoring transferred by",
+        "es": "Seguimiento transferido por"
+    },
+    "to": { "en": "to", "es": "a" },
+    "a governed successor": {
+        "en": "a governed successor",
+        "es": "un sucesor gobernado"
+    },
+    "Effective in use": {
+        "en": "Effective in use",
+        "es": "Eficaz en uso"
+    },
+    "Used without effectiveness": {
+        "en": "Used without effectiveness",
+        "es": "Utilizada sin eficacia"
+    },
+    "Implementation failed": {
+        "en": "Implementation failed",
+        "es": "Implantación fallida"
+    },
+    "Superseded": { "en": "Superseded", "es": "Sustituida" },
+    "Not used yet": {
+        "en": "Not used yet",
+        "es": "Aún no utilizada"
+    },
+    "Monitoring result": {
+        "en": "Monitoring result",
+        "es": "Resultado en seguimiento"
+    },
+    "Replace tracking": {
+        "en": "Replace tracking",
+        "es": "Sustituir seguimiento"
+    },
+    "Transfer monitoring to a successor": {
+        "en": "Transfer monitoring to a successor",
+        "es": "Transferir el seguimiento a un sucesor"
+    },
+    "Historical consumers remain attached to this version. The selected later applied version becomes the active governed improvement.": {
+        "en": "Historical consumers remain attached to this version. The selected later applied version becomes the active governed improvement.",
+        "es": "Los consumidores históricos permanecen vinculados a esta versión. La versión aplicada posterior seleccionada pasa a ser la mejora gobernada activa."
+    },
+    "Governed successor": {
+        "en": "Governed successor",
+        "es": "Sucesor gobernado"
+    },
+    "Select a later applied version": {
+        "en": "Select a later applied version",
+        "es": "Selecciona una versión aplicada posterior"
+    },
+    "Supersession evidence and reason": {
+        "en": "Supersession evidence and reason",
+        "es": "Evidencia y motivo de sustitución"
+    },
+    "Explain why the later governed version replaces this improvement.": {
+        "en": "Explain why the later governed version replaces this improvement.",
+        "es": "Explica por qué la versión gobernada posterior sustituye esta mejora."
+    },
+    "Transfer monitoring": {
+        "en": "Transfer monitoring",
+        "es": "Transferir seguimiento"
+    },
     "Activate": { "en": "Activate", "es": "Activar" },
     "Start verification": {
         "en": "Start verification",

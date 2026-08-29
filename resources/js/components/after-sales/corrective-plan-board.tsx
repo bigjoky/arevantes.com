@@ -91,6 +91,35 @@ export type ImprovementProposal = {
     application_result: Record<string, string | number | null> | null;
     applier: User | null;
     applied_at: string | null;
+    monitoring?: {
+        state:
+            | 'not_used'
+            | 'implementation_failed'
+            | 'monitoring'
+            | 'effective'
+            | 'ineffective'
+            | 'superseded';
+        implemented: boolean;
+        adoption_count: number;
+        completed_count: number;
+        required_cycles: number;
+        first_used_at: string | null;
+        baseline_deviation_rate: number;
+        observed_deviation_rate: number | null;
+        confirmed_deviation_count: number;
+        consumers: Array<{
+            type: string;
+            id: number;
+            label: string;
+            status: string;
+            used_at: string | null;
+            href: string;
+        }>;
+    } | null;
+    supersession_note?: string | null;
+    superseder?: User | null;
+    superseded_at?: string | null;
+    successor?: { id: number; title: string } | null;
 };
 export type CorrectivePlan = {
     id: number;

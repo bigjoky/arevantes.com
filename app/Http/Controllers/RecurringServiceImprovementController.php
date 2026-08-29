@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\ServiceCorrectiveProposal;
 use App\Services\AfterSales\RecurringServiceCorrectivePlanWorkflow;
 use App\Services\AfterSales\RecurringServiceImprovementApplicator;
+use App\Services\AfterSales\RecurringServiceImprovementMonitor;
 use App\Services\AfterSales\RecurringServiceProposalConflictDetector;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -18,6 +19,7 @@ class RecurringServiceImprovementController extends Controller
         RecurringServiceCorrectivePlanWorkflow $workflow,
         RecurringServiceProposalConflictDetector $conflicts,
         RecurringServiceImprovementApplicator $applicator,
+        RecurringServiceImprovementMonitor $monitor,
     ): Response {
         $filters = $request->validate([
             'status' => ['nullable', Rule::in(['open', 'approved', 'applied', 'rejected', 'all'])],
@@ -30,8 +32,8 @@ class RecurringServiceImprovementController extends Controller
         $accessible = ServiceCorrectiveProposal::query()->whereIn('type', $types);
         $query = (clone $accessible)
             ->with([
-                'creator:id,name', 'decider:id,name', 'applier:id,name',
-                'plan:id,maintenance_plan_id,code,title,status',
+                'creator:id,name', 'decider:id,name', 'applier:id,name', 'successor:id,title', 'superseder:id,name',
+                'plan:id,maintenance_plan_id,code,title,status,verification_cycles,baseline_snapshot',
                 'plan.maintenancePlan.template',
                 'plan.maintenancePlan.preventiveMaterials',
                 'plan.maintenancePlan.renewalOpportunity',
@@ -45,7 +47,7 @@ class RecurringServiceImprovementController extends Controller
             ->latest('created_at')
             ->paginate(30)
             ->withQueryString()
-            ->through(fn (ServiceCorrectiveProposal $proposal): array => $this->present($proposal, $conflicts, $applicator));
+            ->through(fn (ServiceCorrectiveProposal $proposal): array => $this->present($proposal, $conflicts, $applicator, $monitor));
 
         $prepared = (clone $accessible)
             ->where('status', 'prepared')
@@ -66,6 +68,18 @@ class RecurringServiceImprovementController extends Controller
                 'conflicting' => $prepared->filter(fn (ServiceCorrectiveProposal $proposal) => $conflicts->evaluate($proposal)['has_conflict'])->count(),
             ],
             'canManageOperations' => $request->user()->can('manage-operations'),
+            'successorCandidates' => (clone $accessible)
+                ->where('status', 'applied')
+                ->whereNull('superseded_at')
+                ->orderByDesc('applied_at')
+                ->get(['id', 'service_corrective_plan_id', 'type', 'title', 'applied_at'])
+                ->map(fn (ServiceCorrectiveProposal $candidate): array => [
+                    'id' => $candidate->id,
+                    'plan_id' => $candidate->service_corrective_plan_id,
+                    'type' => $candidate->type,
+                    'title' => $candidate->title,
+                    'applied_at' => $candidate->applied_at?->toISOString(),
+                ]),
         ]);
     }
 
@@ -74,6 +88,7 @@ class RecurringServiceImprovementController extends Controller
         ServiceCorrectiveProposal $proposal,
         RecurringServiceProposalConflictDetector $conflicts,
         RecurringServiceImprovementApplicator $applicator,
+        RecurringServiceImprovementMonitor $monitor,
     ): array {
         $applicationPreview = $proposal->status === 'approved' ? $applicator->preview($proposal) : null;
 
@@ -101,6 +116,11 @@ class RecurringServiceImprovementController extends Controller
             'application_result' => $proposal->application_result,
             'applier' => $proposal->applier,
             'applied_at' => $proposal->applied_at?->toISOString(),
+            'monitoring' => $proposal->status === 'applied' ? $monitor->summarize($proposal) : null,
+            'supersession_note' => $proposal->supersession_note,
+            'superseder' => $proposal->superseder,
+            'superseded_at' => $proposal->superseded_at?->toISOString(),
+            'successor' => $proposal->successor,
             'plan' => [
                 'id' => $proposal->plan->id,
                 'code' => $proposal->plan->code,
