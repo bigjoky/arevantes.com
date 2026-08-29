@@ -8,6 +8,7 @@ use App\Services\Planning\SharedPortfolioScenario;
 use App\Services\Security\SecurityEventRecorder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -15,7 +16,7 @@ class PlanningScenarioController extends Controller
 {
     public function index(Request $request): Response
     {
-        $scenarios = PlanningScenario::query()->with('creator:id,name')->latest()->get();
+        $scenarios = PlanningScenario::query()->with(['creator:id,name', 'baselineScenario:id,name,version'])->latest()->get();
         $selected = $scenarios->firstWhere('id', $request->integer('scenario')) ?: $scenarios->first();
 
         return Inertia::render('planning-scenarios/index', [
@@ -38,6 +39,8 @@ class PlanningScenarioController extends Controller
     {
         $data = $request->validate([
             'name' => ['required', 'string', 'max:120'],
+            'scenario_kind' => ['required', Rule::in(['base', 'risk', 'alternative'])],
+            'baseline_scenario_id' => ['nullable', 'required_unless:scenario_kind,base', 'integer', 'exists:planning_scenarios,id'],
             'horizon_starts_on' => ['required', 'date'],
             'horizon_ends_on' => ['required', 'date', 'after_or_equal:horizon_starts_on'],
             'opportunity_ids' => ['required', 'array', 'min:1', 'max:50'],

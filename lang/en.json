@@ -45,5 +45,6 @@
     "Proposal lines can be nested up to five levels.": "Proposal lines can be nested up to five levels.",
     "Planning scenarios": "Planning scenarios",
     "Every selected opportunity must exist and remain open.": "Every selected opportunity must exist and remain open.",
-    "Scenario frozen without committing resources.": "Scenario frozen without committing resources."
+    "Scenario frozen without committing resources.": "Scenario frozen without committing resources.",
+    "Risk and alternative scenarios require a frozen base scenario.": "Risk and alternative scenarios require a frozen base scenario."
 }

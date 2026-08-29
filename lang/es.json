@@ -1065,5 +1065,6 @@
     "Approved improvement applied through its controlled workflow.": "Mejora aprobada aplicada mediante su flujo controlado.",
     "Planning scenarios": "Escenarios de planificación",
     "Every selected opportunity must exist and remain open.": "Todas las oportunidades seleccionadas deben existir y permanecer abiertas.",
-    "Scenario frozen without committing resources.": "Escenario congelado sin comprometer recursos."
+    "Scenario frozen without committing resources.": "Escenario congelado sin comprometer recursos.",
+    "Risk and alternative scenarios require a frozen base scenario.": "Los escenarios de riesgo y alternativos requieren un escenario base congelado."
 }

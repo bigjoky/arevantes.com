@@ -6,6 +6,13 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import { useLocale } from '@/hooks/use-locale';
 import { translate } from '@/i18n';
 
@@ -31,6 +38,9 @@ type Scenario = {
     name: string;
     version: number;
     status: string;
+    scenario_kind: 'base' | 'risk' | 'alternative';
+    baseline_scenario_id: number | null;
+    baseline_scenario: { id: number; name: string; version: number } | null;
     horizon_starts_on: string;
     horizon_ends_on: string;
     assumptions: {
@@ -60,6 +70,53 @@ type Scenario = {
         }>;
         non_committing: boolean;
     };
+    reference_snapshot: {
+        captured_at: string;
+        capacity: {
+            period: { from: string; to: string; weeks: number };
+            available_hours: number;
+            planned_hours: number;
+            remaining_hours: number;
+            scenario_demand_hours: number;
+            scenario_overload_hours: number;
+        };
+        stock: {
+            products: Array<{
+                product_id: number;
+                sku: string | null;
+                name: string;
+                expected_quantity: number;
+                free_quantity: number;
+                shortage_quantity: number;
+            }>;
+            products_at_risk: number;
+            expected_units: number;
+            shortage_units: number;
+        };
+    } | null;
+    comparison_snapshot: {
+        baseline_id: number;
+        baseline_name: string;
+        baseline_version: number;
+        deltas: {
+            confirmed_value: number;
+            weighted_revenue: number;
+            capacity_hours: number;
+            expected_material_cost: number;
+        };
+        capacity: {
+            remaining_hours_delta: number;
+            overload_hours_delta: number;
+        };
+        stock: {
+            products_at_risk_delta: number;
+            shortage_units_delta: number;
+        };
+        portfolio: {
+            added_opportunity_ids: number[];
+            removed_opportunity_ids: number[];
+        };
+    } | null;
     creator: { id: number; name: string };
     created_at: string;
 };
@@ -69,6 +126,22 @@ const money = (value: number, locale: 'en' | 'es') =>
         style: 'currency',
         currency: 'EUR',
     }).format(value);
+
+const scenarioKindLabel = (
+    kind: Scenario['scenario_kind'],
+    locale: 'en' | 'es',
+) =>
+    translate(
+        kind === 'risk'
+            ? 'Risk scenario'
+            : kind === 'alternative'
+              ? 'Alternative scenario'
+              : 'Base scenario',
+        locale,
+    );
+
+const signed = (value: number, suffix = '') =>
+    `${value > 0 ? '+' : ''}${value}${suffix}`;
 
 export default function PlanningScenarioIndex({
     scenarios,
@@ -84,6 +157,8 @@ export default function PlanningScenarioIndex({
     const { locale } = useLocale();
     const form = useForm({
         name: '',
+        scenario_kind: 'base' as 'base' | 'risk' | 'alternative',
+        baseline_scenario_id: '',
         horizon_starts_on: defaults.horizon_starts_on,
         horizon_ends_on: defaults.horizon_ends_on,
         opportunity_ids: [] as number[],
@@ -91,6 +166,10 @@ export default function PlanningScenarioIndex({
         material_cost_percent_without_quote: '35',
         collection_delay_days: '30',
     });
+    const baselineScenarios = scenarios.filter(
+        (scenario) => scenario.scenario_kind === 'base',
+    );
+    const isComparisonScenario = form.data.scenario_kind !== 'base';
     const toggle = (id: number) =>
         form.setData(
             'opportunity_ids',
@@ -170,6 +249,96 @@ export default function PlanningScenarioIndex({
                                 />
                                 <InputError message={form.errors.name} />
                             </div>
+                            <div>
+                                <Label>
+                                    {translate('Scenario type', locale)}
+                                </Label>
+                                <Select
+                                    value={form.data.scenario_kind}
+                                    onValueChange={(value) => {
+                                        form.setData(
+                                            'scenario_kind',
+                                            value as
+                                                | 'base'
+                                                | 'risk'
+                                                | 'alternative',
+                                        );
+
+                                        if (value === 'base') {
+                                            form.setData(
+                                                'baseline_scenario_id',
+                                                '',
+                                            );
+                                        }
+                                    }}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="base">
+                                            {translate('Base scenario', locale)}
+                                        </SelectItem>
+                                        <SelectItem value="risk">
+                                            {translate('Risk scenario', locale)}
+                                        </SelectItem>
+                                        <SelectItem value="alternative">
+                                            {translate(
+                                                'Alternative scenario',
+                                                locale,
+                                            )}
+                                        </SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            {isComparisonScenario && (
+                                <div className="md:col-span-2">
+                                    <Label>
+                                        {translate(
+                                            'Compare with base scenario',
+                                            locale,
+                                        )}
+                                    </Label>
+                                    <Select
+                                        value={form.data.baseline_scenario_id}
+                                        onValueChange={(value) =>
+                                            form.setData(
+                                                'baseline_scenario_id',
+                                                value,
+                                            )
+                                        }
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue
+                                                placeholder={translate(
+                                                    'Select base scenario',
+                                                    locale,
+                                                )}
+                                            />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {baselineScenarios.map(
+                                                (scenario) => (
+                                                    <SelectItem
+                                                        key={scenario.id}
+                                                        value={String(
+                                                            scenario.id,
+                                                        )}
+                                                    >
+                                                        {scenario.name} · v
+                                                        {scenario.version}
+                                                    </SelectItem>
+                                                ),
+                                            )}
+                                        </SelectContent>
+                                    </Select>
+                                    <InputError
+                                        message={
+                                            form.errors.baseline_scenario_id
+                                        }
+                                    />
+                                </div>
+                            )}
                             <Field
                                 label={translate('Horizon start', locale)}
                                 type="date"
@@ -326,7 +495,10 @@ export default function PlanningScenarioIndex({
                                                 </span>
                                             </span>
                                             <Badge variant="outline">
-                                                {translate('Frozen', locale)}
+                                                {scenarioKindLabel(
+                                                    scenario.scenario_kind,
+                                                    locale,
+                                                )}
                                             </Badge>
                                         </Link>
                                     </Button>
@@ -391,7 +563,12 @@ function ScenarioResult({
                         {scenario.horizon_ends_on}
                     </p>
                 </div>
-                <CheckCircle2 className="size-5 text-emerald-600" />
+                <div className="flex items-center gap-2">
+                    <Badge variant="outline">
+                        {scenarioKindLabel(scenario.scenario_kind, locale)}
+                    </Badge>
+                    <CheckCircle2 className="size-5 text-emerald-600" />
+                </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
                 <Metric
@@ -411,6 +588,103 @@ function ScenarioResult({
                     value={money(summary.expected_material_cost, locale)}
                 />
             </div>
+            {scenario.reference_snapshot && (
+                <div className="space-y-3 rounded-md border p-3">
+                    <div>
+                        <h3 className="text-sm font-medium">
+                            {translate('Capacity reference', locale)}
+                        </h3>
+                        <p className="text-xs text-muted-foreground">
+                            {translate('Captured at', locale)}{' '}
+                            {scenario.reference_snapshot.captured_at
+                                .replace('T', ' ')
+                                .slice(0, 16)}
+                        </p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                        <Metric
+                            label={translate('Remaining capacity', locale)}
+                            value={`${scenario.reference_snapshot.capacity.remaining_hours} h`}
+                        />
+                        <Metric
+                            label={translate('Scenario overload', locale)}
+                            value={`${scenario.reference_snapshot.capacity.scenario_overload_hours} h`}
+                        />
+                        <Metric
+                            label={translate('Products at risk', locale)}
+                            value={String(
+                                scenario.reference_snapshot.stock
+                                    .products_at_risk,
+                            )}
+                        />
+                        <Metric
+                            label={translate('Expected shortage', locale)}
+                            value={String(
+                                scenario.reference_snapshot.stock
+                                    .shortage_units,
+                            )}
+                        />
+                    </div>
+                </div>
+            )}
+            {scenario.comparison_snapshot && (
+                <div className="space-y-3 rounded-md border border-primary/30 bg-primary/5 p-3">
+                    <div>
+                        <h3 className="text-sm font-medium">
+                            {translate('Difference from base scenario', locale)}
+                        </h3>
+                        <p className="text-xs text-muted-foreground">
+                            {scenario.comparison_snapshot.baseline_name} · v
+                            {scenario.comparison_snapshot.baseline_version}
+                        </p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                        <Metric
+                            label={translate('Weighted revenue', locale)}
+                            value={money(
+                                scenario.comparison_snapshot.deltas
+                                    .weighted_revenue,
+                                locale,
+                            )}
+                        />
+                        <Metric
+                            label={translate('Capacity demand', locale)}
+                            value={signed(
+                                scenario.comparison_snapshot.deltas
+                                    .capacity_hours,
+                                ' h',
+                            )}
+                        />
+                        <Metric
+                            label={translate('Overload variation', locale)}
+                            value={signed(
+                                scenario.comparison_snapshot.capacity
+                                    .overload_hours_delta,
+                                ' h',
+                            )}
+                        />
+                        <Metric
+                            label={translate('Shortage variation', locale)}
+                            value={signed(
+                                scenario.comparison_snapshot.stock
+                                    .shortage_units_delta,
+                            )}
+                        />
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                        {
+                            scenario.comparison_snapshot.portfolio
+                                .added_opportunity_ids.length
+                        }{' '}
+                        {translate('added opportunities', locale)} ·{' '}
+                        {
+                            scenario.comparison_snapshot.portfolio
+                                .removed_opportunity_ids.length
+                        }{' '}
+                        {translate('removed opportunities', locale)}
+                    </p>
+                </div>
+            )}
             <div>
                 <h3 className="text-sm font-medium">
                     {translate('Expected materials', locale)}

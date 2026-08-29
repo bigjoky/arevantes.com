@@ -8,9 +8,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class PlanningScenario extends Model
 {
     protected $fillable = [
-        'name', 'version', 'status', 'horizon_starts_on', 'horizon_ends_on',
+        'name', 'version', 'status', 'scenario_kind', 'baseline_scenario_id', 'horizon_starts_on', 'horizon_ends_on',
         'assumptions', 'opportunity_snapshot', 'result_snapshot', 'fingerprint',
-        'created_by', 'approved_by', 'approved_at',
+        'reference_snapshot', 'comparison_snapshot', 'created_by', 'approved_by', 'approved_at',
     ];
 
     public function creator(): BelongsTo
@@ -23,6 +23,11 @@ class PlanningScenario extends Model
         return $this->belongsTo(User::class, 'approved_by');
     }
 
+    public function baselineScenario(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'baseline_scenario_id');
+    }
+
     protected function casts(): array
     {
         return [
@@ -31,6 +36,8 @@ class PlanningScenario extends Model
             'assumptions' => 'array',
             'opportunity_snapshot' => 'array',
             'result_snapshot' => 'array',
+            'reference_snapshot' => 'array',
+            'comparison_snapshot' => 'array',
             'approved_at' => 'datetime',
         ];
     }

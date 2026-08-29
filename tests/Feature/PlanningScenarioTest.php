@@ -7,9 +7,11 @@ use App\Models\Person;
 use App\Models\PlanningScenario;
 use App\Models\Product;
 use App\Models\Quote;
+use App\Models\StockMovement;
 use App\Models\TaxRate;
 use App\Models\Unit;
 use App\Models\User;
+use App\Models\Warehouse;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
@@ -45,9 +47,13 @@ class PlanningScenarioTest extends TestCase
             'description' => 'Two security panels', 'quantity' => 2, 'unit_price' => 1000, 'discount_percent' => 0,
             'tax_percent' => 0, 'subtotal' => 2000, 'discount_amount' => 0, 'tax_amount' => 0, 'total' => 2000,
         ]);
+        $warehouse = Warehouse::create(['code' => 'SCENARIO', 'name' => 'Scenario stock', 'is_default' => true, 'is_active' => true]);
+        $movement = StockMovement::create(['created_by' => $admin->id, 'number' => 'MOV-SCENARIO', 'type' => 'receipt', 'posted_at' => now()]);
+        $movement->lines()->create(['warehouse_id' => $warehouse->id, 'product_id' => $product->id, 'quantity' => 1, 'unit_cost' => 400]);
 
         $this->actingAs($admin)->post(route('planning-scenarios.store'), [
             'name' => 'Base Q4',
+            'scenario_kind' => 'base',
             'horizon_starts_on' => '2026-09-01',
             'horizon_ends_on' => '2026-12-31',
             'opportunity_ids' => [$withoutQuote->id, $withQuote->id],
@@ -58,6 +64,7 @@ class PlanningScenarioTest extends TestCase
 
         $scenario = PlanningScenario::firstOrFail();
         $this->assertSame('frozen', $scenario->status);
+        $this->assertSame('base', $scenario->scenario_kind);
         $this->assertSame(2, $scenario->result_snapshot['summary']['opportunities']);
         $this->assertSame(12000.0, (float) $scenario->result_snapshot['summary']['confirmed_value']);
         $this->assertSame(7000.0, (float) $scenario->result_snapshot['summary']['weighted_revenue']);
@@ -65,20 +72,46 @@ class PlanningScenarioTest extends TestCase
         $this->assertSame(2550.0, (float) $scenario->result_snapshot['summary']['expected_material_cost']);
         $this->assertSame(2.0, (float) $scenario->result_snapshot['materials'][0]['expected_quantity']);
         $this->assertTrue($scenario->result_snapshot['non_committing']);
+        $this->assertSame(60.0, (float) $scenario->reference_snapshot['capacity']['scenario_overload_hours']);
+        $this->assertSame(1, $scenario->reference_snapshot['stock']['products_at_risk']);
+        $this->assertSame(1.0, (float) $scenario->reference_snapshot['stock']['shortage_units']);
+        $this->assertSame(1.0, (float) $scenario->reference_snapshot['stock']['products'][0]['free_quantity']);
         $this->assertDatabaseCount('stock_reservations', 0);
         $this->assertDatabaseCount('purchase_documents', 0);
         $this->assertDatabaseCount('work_orders', 0);
         $this->assertDatabaseCount('financial_forecast_items', 0);
         $this->assertDatabaseHas('security_events', ['type' => 'planning_scenario_frozen', 'user_id' => $admin->id]);
 
-        $withoutQuote->update(['estimated_value' => 99999, 'probability' => 1]);
-        $this->assertSame(10000.0, (float) PlanningScenario::firstOrFail()->opportunity_snapshot['opportunities'][0]['confirmed']['value']);
-
         $this->get(route('planning-scenarios.index', ['scenario' => $scenario]))
             ->assertInertia(fn (Assert $page) => $page
                 ->component('planning-scenarios/index')
                 ->where('selectedScenario.id', $scenario->id)
                 ->where('selectedScenario.fingerprint', $scenario->fingerprint));
+
+        $this->post(route('planning-scenarios.store'), [
+            'name' => 'Risk Q4',
+            'scenario_kind' => 'risk',
+            'baseline_scenario_id' => $scenario->id,
+            'horizon_starts_on' => '2026-09-01',
+            'horizon_ends_on' => '2026-12-31',
+            'opportunity_ids' => [$withoutQuote->id, $withQuote->id],
+            'capacity_hours_per_opportunity' => 80,
+            'material_cost_percent_without_quote' => 50,
+            'collection_delay_days' => 45,
+        ])->assertRedirect();
+
+        $risk = PlanningScenario::where('scenario_kind', 'risk')->firstOrFail();
+        $this->assertSame($scenario->id, $risk->baseline_scenario_id);
+        $this->assertSame(60.0, (float) $risk->comparison_snapshot['deltas']['capacity_hours']);
+        $this->assertSame(60.0, (float) $risk->comparison_snapshot['capacity']['overload_hours_delta']);
+        $this->assertSame(0.0, (float) $risk->comparison_snapshot['stock']['shortage_units_delta']);
+        $this->assertSame([], $risk->comparison_snapshot['portfolio']['added_opportunity_ids']);
+        $withoutQuote->update(['estimated_value' => 99999, 'probability' => 1]);
+        $this->assertSame(10000.0, (float) $scenario->fresh()->opportunity_snapshot['opportunities'][0]['confirmed']['value']);
+        $this->assertDatabaseCount('stock_reservations', 0);
+        $this->assertDatabaseCount('purchase_documents', 0);
+        $this->assertDatabaseCount('work_orders', 0);
+        $this->assertDatabaseCount('financial_forecast_items', 0);
     }
 
     public function test_scenarios_are_admin_only_and_reject_closed_opportunities(): void
@@ -96,6 +129,7 @@ class PlanningScenarioTest extends TestCase
         $admin = User::factory()->create(['role' => 'admin']);
         $this->actingAs($admin)->post(route('planning-scenarios.store'), [
             'name' => 'Invalid closed portfolio',
+            'scenario_kind' => 'base',
             'horizon_starts_on' => '2026-09-01',
             'horizon_ends_on' => '2026-12-31',
             'opportunity_ids' => [$closed->id],
@@ -103,6 +137,21 @@ class PlanningScenarioTest extends TestCase
             'material_cost_percent_without_quote' => 35,
             'collection_delay_days' => 30,
         ])->assertSessionHasErrors('opportunity_ids');
+
+        $open = Opportunity::create([
+            'person_id' => $customer->id, 'code' => 'OPP-OPEN', 'title' => 'Open sale',
+            'stage' => 'qualified', 'probability' => 50, 'estimated_value' => 3000,
+        ]);
+        $this->post(route('planning-scenarios.store'), [
+            'name' => 'Risk without baseline',
+            'scenario_kind' => 'risk',
+            'horizon_starts_on' => '2026-09-01',
+            'horizon_ends_on' => '2026-12-31',
+            'opportunity_ids' => [$open->id],
+            'capacity_hours_per_opportunity' => 40,
+            'material_cost_percent_without_quote' => 35,
+            'collection_delay_days' => 30,
+        ])->assertSessionHasErrors('baseline_scenario_id');
 
         $this->assertDatabaseCount('planning_scenarios', 0);
     }

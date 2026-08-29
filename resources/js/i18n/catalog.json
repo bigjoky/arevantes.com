@@ -14271,5 +14271,45 @@
     "collection days": {
         "en": "collection days",
         "es": "días de cobro"
+    },
+    "Scenario type": {
+        "en": "Scenario type",
+        "es": "Tipo de escenario"
+    },
+    "Base scenario": {
+        "en": "Base scenario",
+        "es": "Escenario base"
+    },
+    "Risk scenario": {
+        "en": "Risk scenario",
+        "es": "Escenario de riesgo"
+    },
+    "Alternative scenario": {
+        "en": "Alternative scenario",
+        "es": "Escenario alternativo"
+    },
+    "Compare with base scenario": {
+        "en": "Compare with base scenario",
+        "es": "Comparar con el escenario base"
+    },
+    "Capacity reference": {
+        "en": "Capacity reference",
+        "es": "Referencia de capacidad"
+    },
+    "Captured at": {
+        "en": "Captured at",
+        "es": "Capturado el"
+    },
+    "Difference from base scenario": {
+        "en": "Difference from base scenario",
+        "es": "Diferencia respecto al escenario base"
+    },
+    "added opportunities": {
+        "en": "added opportunities",
+        "es": "oportunidades añadidas"
+    },
+    "removed opportunities": {
+        "en": "removed opportunities",
+        "es": "oportunidades retiradas"
     }
 }

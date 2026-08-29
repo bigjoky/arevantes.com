@@ -598,12 +598,26 @@ en las oportunidades no reescriben escenarios ya congelados. El proceso registra
 evento de seguridad y no crea órdenes, reservas, objetivos de reposición, compras,
 previsiones contables, pagos ni comunicaciones al cliente.
 
+## Corte ejecutado — Comparación de escenarios y referencias operativas
+
+Cada escenario se clasifica como base, riesgo o alternativa. Los dos últimos exigen
+un escenario base congelado y conservan diferencias de cartera, ingreso ponderado,
+coste material, demanda de capacidad, sobrecarga y faltas de stock. No se comparan
+consultas vivas: los deltas quedan almacenados con la misma huella del escenario.
+
+La fotografía operativa captura fecha, periodo y capacidad disponible, planificada y
+remanente, junto con existencias, reservas y stock libre de cada producto implicado.
+La interfaz muestra tanto la referencia como sus diferencias y mantiene las
+hipótesis separadas. Las claves foráneas están indexadas y la captura se realiza
+antes de una transacción de escritura mínima. Ningún escenario crea o altera
+órdenes, reservas, movimientos, compras, pagos ni comunicaciones.
+
 ## Próximo corte recomendado
 
-Incorporar comparación entre versiones y escenarios base, riesgo y alternativa,
-añadiendo capacidad disponible y stock libre como referencias fechadas. Después se
-habilitará una aprobación separada; aun aprobados, los escenarios seguirán sin
-originar recursos hasta que cada área confirme su acción en un circuito propio.
+Habilitar una aprobación separada para el escenario elegido, con comprobación de
+huella y caducidad de las referencias de capacidad y stock. La aprobación seguirá
+sin originar recursos: cada área deberá confirmar después su propia agenda, reserva,
+compra, previsión o comunicación en un circuito específico.
 
 ## Corrección transversal — idioma temporal de la plataforma
 
