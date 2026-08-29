@@ -9,6 +9,8 @@ import {
     UserRoundCheck,
 } from 'lucide-react';
 import { useState } from 'react';
+import { CorrectivePlanBoard } from '@/components/after-sales/corrective-plan-board';
+import type { CorrectivePlan } from '@/components/after-sales/corrective-plan-board';
 import { AfterSalesSectionNav } from '@/components/after-sales/section-nav';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -55,8 +57,10 @@ type Deviation = {
     assignee: User | null;
     assets: { id: number; asset_tag: string; name: string }[];
     events: Event[];
+    corrective_plans: { id: number; code: string; status: string }[];
     cycle: {
         id: number;
+        maintenance_plan_id: number;
         period_starts_on: string;
         period_ends_on: string;
         completed_at: string | null;
@@ -73,6 +77,7 @@ type Deviation = {
 };
 type Props = {
     deviations: Deviation[];
+    correctivePlans: CorrectivePlan[];
     filters: {
         status?: string;
         category?: string;
@@ -86,6 +91,8 @@ type Props = {
         affected_assets: number;
         quality_score: number | null;
         completed_cycles: number;
+        active_corrective_plans: number;
+        overdue_corrective_actions: number;
     };
     businessLines: string[];
     users: User[];
@@ -104,6 +111,7 @@ const statuses = ['open', 'confirmed', 'dismissed', 'resolved'];
 
 export default function RecurringServiceQuality({
     deviations,
+    correctivePlans,
     filters,
     summary,
     businessLines,
@@ -136,7 +144,7 @@ export default function RecurringServiceQuality({
 
                 <AfterSalesSectionNav />
 
-                <section className="grid grid-cols-2 border-y md:grid-cols-3 xl:grid-cols-6">
+                <section className="grid grid-cols-2 border-y md:grid-cols-4 xl:grid-cols-8">
                     <Metric
                         label="Quality score"
                         value={
@@ -167,6 +175,16 @@ export default function RecurringServiceQuality({
                     <Metric
                         label="Affected assets"
                         value={summary.affected_assets}
+                    />
+                    <Metric
+                        label="Active corrective plans"
+                        value={summary.active_corrective_plans}
+                        attention={summary.active_corrective_plans > 0}
+                    />
+                    <Metric
+                        label="Overdue corrective actions"
+                        value={summary.overdue_corrective_actions}
+                        attention={summary.overdue_corrective_actions > 0}
                     />
                 </section>
 
@@ -220,6 +238,20 @@ export default function RecurringServiceQuality({
                         </div>
                     </Form>
                 </section>
+
+                <CorrectivePlanBoard
+                    plans={correctivePlans}
+                    users={users}
+                    deviations={deviations.map((deviation) => ({
+                        id: deviation.id,
+                        reference: deviation.reference,
+                        summary: deviation.summary,
+                        category: deviation.category,
+                        severity: deviation.severity,
+                        status: deviation.status,
+                        maintenancePlanId: deviation.cycle.maintenance_plan_id,
+                    }))}
+                />
 
                 <section className="grid gap-4">
                     {deviations.length === 0 ? (

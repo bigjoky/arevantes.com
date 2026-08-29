@@ -71,4 +71,9 @@ class MaintenancePlan extends Model
     {
         return $this->hasOne(FinancialForecastItem::class);
     }
+
+    public function correctivePlans(): HasMany
+    {
+        return $this->hasMany(ServiceCorrectivePlan::class);
+    }
 }

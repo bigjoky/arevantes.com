@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Installation;
 use App\Models\InstallationAsset;
 use App\Models\MaintenancePlan;
+use App\Models\ServiceCorrectivePlan;
 use App\Models\ServiceCycleCommitment;
 use App\Models\ServiceCycleDeviation;
 use App\Models\ServiceTicket;
@@ -84,6 +85,84 @@ class RecurringServiceQualityTest extends TestCase
             'note' => 'Operational coaching completed and the next visit will be reviewed.',
         ])->assertRedirect()->assertSessionHasNoErrors();
         $this->assertSame('resolved', $deviation->refresh()->status);
+    }
+
+    public function test_confirmed_deviations_become_a_traceable_corrective_plan_with_normalized_effectiveness(): void
+    {
+        [$admin, $technician, $commitment] = $this->completedSecurityCycle();
+        app(RecurringServiceQualityDetector::class)->detect($commitment);
+        $duration = ServiceCycleDeviation::where('category', 'duration')->sole();
+        $travel = ServiceCycleDeviation::where('category', 'travel')->sole();
+        foreach ([$duration, $travel] as $deviation) {
+            $this->actingAs($admin)->patch(route('after-sales.quality.review', $deviation), [
+                'action' => 'confirm', 'assigned_to' => $technician->id,
+                'review_due_on' => today()->addWeek()->toDateString(),
+                'note' => 'Execution records confirm this deviation and require corrective analysis.',
+            ])->assertRedirect();
+        }
+
+        $this->post(route('after-sales.quality.corrective-plans.store', $duration), [
+            'deviation_ids' => [$duration->id, $travel->id],
+            'title' => 'Reduce security service overruns',
+            'root_cause_category' => 'process',
+            'root_cause_analysis' => 'The visit sequence repeats diagnosis and travel preparation without a shared pre-visit check.',
+            'owner_id' => $admin->id, 'target_date' => today()->addMonth()->toDateString(),
+            'verification_cycles' => 1, 'action_type' => 'corrective',
+            'action_title' => 'Introduce a pre-visit readiness review',
+            'action_details' => 'Confirm route, remote diagnosis and required evidence before dispatch.',
+            'action_owner_id' => $technician->id, 'action_due_on' => today()->addWeek()->toDateString(),
+        ])->assertRedirect()->assertSessionHasNoErrors();
+
+        $plan = ServiceCorrectivePlan::with(['actions', 'deviations', 'events'])->sole();
+        $this->assertSame('draft', $plan->status);
+        $this->assertStringStartsWith('CAP-2026-', $plan->code);
+        $this->assertCount(2, $plan->deviations);
+        $this->assertSame(['duration', 'travel'], $plan->baseline_snapshot['categories']);
+        $this->assertEquals(1.0, $plan->baseline_snapshot['deviation_rate']);
+        $this->assertSame('created', $plan->events->first()->event);
+
+        $this->patch(route('after-sales.quality.corrective-plans.transition', $plan), [
+            'action' => 'activate', 'note' => 'Root cause and responsible action have been reviewed.',
+        ])->assertRedirect()->assertSessionHasNoErrors();
+        $action = $plan->actions->first();
+        $this->patch(route('after-sales.quality.corrective-actions.update', $action), [
+            'status' => 'completed', 'completion_note' => 'Readiness checklist piloted and signed by the service lead.',
+        ])->assertRedirect()->assertSessionHasNoErrors();
+        $this->post(route('after-sales.quality.corrective-plans.proposals.store', $plan), [
+            'type' => 'work_order_template', 'title' => 'Add readiness checkpoint',
+            'rationale' => 'The corrective trial removed duplicate diagnosis work.',
+            'proposed_change' => 'Add a mandatory pre-visit readiness item to the security maintenance template.',
+        ])->assertRedirect()->assertSessionHasNoErrors();
+        $this->assertDatabaseHas('service_corrective_proposals', ['service_corrective_plan_id' => $plan->id, 'status' => 'prepared']);
+
+        $this->patch(route('after-sales.quality.corrective-plans.transition', $plan), [
+            'action' => 'start_verification', 'note' => 'The corrective action is complete and the next comparable cycle will be observed.',
+        ])->assertRedirect()->assertSessionHasNoErrors();
+        $this->patch(route('after-sales.quality.corrective-plans.transition', $plan), [
+            'action' => 'verify_effective', 'note' => 'This must wait for a completed follow-up cycle.',
+        ])->assertSessionHasErrors('action');
+
+        $followup = $commitment->replicate(['service_ticket_id', 'work_order_id']);
+        $followup->period_starts_on = today()->addMonths(3);
+        $followup->period_ends_on = today()->addMonths(4);
+        $followup->completed_at = now()->addMonths(4);
+        $followup->approved_at = now()->addMonths(3);
+        $followup->completion_snapshot = ['time' => ['minutes' => 60, 'travel_km' => 5], 'materials' => ['actual_cost' => 10], 'evidence' => ['items' => [], 'published_documents' => 1, 'pending_documents' => 0]];
+        $followup->save();
+
+        $this->patch(route('after-sales.quality.corrective-plans.transition', $plan), [
+            'action' => 'verify_effective', 'note' => 'The next comparable cycle completed without confirmed duration or travel deviations.',
+        ])->assertRedirect()->assertSessionHasNoErrors();
+        $plan->refresh();
+        $this->assertSame('effective', $plan->status);
+        $this->assertSame('effective', $plan->effectiveness_result);
+        $this->assertEquals(0.0, $plan->effectiveness_snapshot['after']['deviation_rate']);
+        $this->assertEquals(0.0, $plan->effectiveness_snapshot['volume_change_percent']);
+
+        $this->get(route('after-sales.quality.index'))->assertInertia(fn (Assert $page) => $page
+            ->has('correctivePlans', 1)
+            ->where('correctivePlans.0.code', $plan->code)
+            ->where('correctivePlans.0.effectiveness_result', 'effective'));
     }
 
     /** @return array{User, User, ServiceCycleCommitment, InstallationAsset} */

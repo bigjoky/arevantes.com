@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ServiceCorrectivePlan;
 use App\Models\ServiceCycleCommitment;
 use App\Models\ServiceCycleDeviation;
 use App\Models\User;
+use App\Services\AfterSales\RecurringServiceEffectivenessEvaluator;
 use App\Services\AfterSales\RecurringServiceQualityDetector;
 use App\Services\AfterSales\RecurringServiceQualityWorkflow;
 use Illuminate\Http\RedirectResponse;
@@ -16,7 +18,7 @@ use Inertia\Response;
 
 class RecurringServiceQualityController extends Controller
 {
-    public function index(Request $request): Response
+    public function index(Request $request, RecurringServiceEffectivenessEvaluator $effectiveness): Response
     {
         $filters = $request->validate([
             'status' => ['nullable', Rule::in(['open', 'confirmed', 'dismissed', 'resolved'])],
@@ -28,6 +30,7 @@ class RecurringServiceQualityController extends Controller
         $query = ServiceCycleDeviation::query()
             ->with([
                 'assignee:id,name', 'events.actor:id,name', 'assets:id,asset_tag,name',
+                'correctivePlans:id,code,status',
                 'commitment:id,maintenance_plan_id,service_ticket_id,work_order_id,period_starts_on,period_ends_on,completed_at',
                 'commitment.maintenancePlan:id,installation_id,name,assigned_user_id',
                 'commitment.maintenancePlan.installation:id,project_reference,site_name,service_type',
@@ -70,8 +73,10 @@ class RecurringServiceQualityController extends Controller
                     'to_status' => $event->to_status, 'note' => $event->note,
                     'created_at' => $event->created_at->toISOString(), 'actor' => $event->actor,
                 ])->values(),
+                'corrective_plans' => $deviation->correctivePlans->map->only(['id', 'code', 'status'])->values(),
                 'cycle' => [
                     'id' => $deviation->commitment->id,
+                    'maintenance_plan_id' => $deviation->commitment->maintenance_plan_id,
                     'period_starts_on' => $deviation->commitment->period_starts_on->toDateString(),
                     'period_ends_on' => $deviation->commitment->period_ends_on->toDateString(),
                     'completed_at' => $deviation->commitment->completed_at?->toISOString(),
@@ -89,9 +94,60 @@ class RecurringServiceQualityController extends Controller
         $penalty = $confirmed->sum(fn ($item) => match ($item->severity) {
             'critical' => 12, 'high' => 7, default => 3,
         });
+        $correctivePlans = ServiceCorrectivePlan::query()
+            ->with([
+                'owner:id,name', 'maintenancePlan:id,installation_id,name',
+                'maintenancePlan.installation:id,project_reference,site_name,service_type',
+                'deviations:id,category,severity,status,summary', 'actions.owner:id,name',
+                'proposals.creator:id,name', 'events.actor:id,name',
+            ])
+            ->orderByRaw("case status when 'verification' then 0 when 'in_progress' then 1 when 'draft' then 2 else 3 end")
+            ->orderBy('target_date')
+            ->get()
+            ->map(function (ServiceCorrectivePlan $plan) use ($effectiveness): array {
+                $evaluation = $plan->status === 'verification'
+                    ? $effectiveness->evaluate($plan)
+                    : $plan->effectiveness_snapshot;
+
+                return [
+                    'id' => $plan->id, 'code' => $plan->code, 'title' => $plan->title,
+                    'root_cause_category' => $plan->root_cause_category, 'root_cause_analysis' => $plan->root_cause_analysis,
+                    'status' => $plan->status, 'target_date' => $plan->target_date->toDateString(),
+                    'verification_cycles' => $plan->verification_cycles, 'owner' => $plan->owner,
+                    'baseline_snapshot' => $plan->baseline_snapshot, 'effectiveness' => $evaluation,
+                    'effectiveness_result' => $plan->effectiveness_result, 'effectiveness_note' => $plan->effectiveness_note,
+                    'maintenance_plan' => [
+                        'id' => $plan->maintenancePlan->id, 'name' => $plan->maintenancePlan->name,
+                        'installation' => $plan->maintenancePlan->installation,
+                    ],
+                    'deviations' => $plan->deviations->map(fn ($deviation) => [
+                        'id' => $deviation->id, 'reference' => 'DEV-'.str_pad((string) $deviation->id, 6, '0', STR_PAD_LEFT),
+                        'category' => $deviation->category, 'severity' => $deviation->severity,
+                        'status' => $deviation->status, 'summary' => __($deviation->summary),
+                    ])->values(),
+                    'actions' => $plan->actions->map(fn ($action) => [
+                        'id' => $action->id, 'type' => $action->type, 'title' => $action->title,
+                        'details' => $action->details, 'status' => $action->status,
+                        'due_on' => $action->due_on->toDateString(), 'owner' => $action->owner,
+                        'completion_note' => $action->completion_note, 'completed_at' => $action->completed_at?->toISOString(),
+                    ])->values(),
+                    'proposals' => $plan->proposals->map(fn ($proposal) => [
+                        'id' => $proposal->id, 'type' => $proposal->type, 'title' => $proposal->title,
+                        'rationale' => $proposal->rationale, 'payload' => $proposal->payload,
+                        'status' => $proposal->status, 'created_at' => $proposal->created_at->toISOString(),
+                        'creator' => $proposal->creator,
+                    ])->values(),
+                    'events' => $plan->events->map(fn ($event) => [
+                        'id' => $event->id, 'event' => $event->event, 'from_status' => $event->from_status,
+                        'to_status' => $event->to_status, 'note' => $event->note,
+                        'created_at' => $event->created_at->toISOString(), 'actor' => $event->actor,
+                    ])->values(),
+                ];
+            })->values();
 
         return Inertia::render('after-sales/quality', [
             'deviations' => $deviations,
+            'correctivePlans' => $correctivePlans,
             'filters' => $filters,
             'summary' => [
                 'open' => (clone $base)->where('status', 'open')->count(),
@@ -103,6 +159,8 @@ class RecurringServiceQualityController extends Controller
                     ->distinct()->count('service_cycle_deviation_assets.installation_asset_id'),
                 'quality_score' => $completedCycles > 0 ? max(0, round(100 - ($penalty / $completedCycles), 1)) : null,
                 'completed_cycles' => $completedCycles,
+                'active_corrective_plans' => ServiceCorrectivePlan::whereIn('status', ['draft', 'in_progress', 'verification'])->count(),
+                'overdue_corrective_actions' => DB::table('service_corrective_actions')->join('service_corrective_plans', 'service_corrective_plans.id', '=', 'service_corrective_actions.service_corrective_plan_id')->whereIn('service_corrective_plans.status', ['draft', 'in_progress'])->whereIn('service_corrective_actions.status', ['open', 'in_progress'])->whereDate('service_corrective_actions.due_on', '<', today())->count(),
             ],
             'businessLines' => ServiceCycleDeviation::query()->distinct()->orderBy('business_line')->pluck('business_line'),
             'users' => User::query()->orderBy('name')->get(['id', 'name']),

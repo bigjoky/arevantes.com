@@ -61,4 +61,9 @@ class ServiceCycleDeviation extends Model
     {
         return $this->belongsToMany(InstallationAsset::class, 'service_cycle_deviation_assets');
     }
+
+    public function correctivePlans(): BelongsToMany
+    {
+        return $this->belongsToMany(ServiceCorrectivePlan::class, 'service_corrective_plan_deviation');
+    }
 }

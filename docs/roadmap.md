@@ -508,14 +508,33 @@ la ficha y se aplica retroactivamente a la plantilla existente. Cuando una
 persona paga un gasto, el auxiliar 465 deja contabilizada la deuda que deberá
 liquidarse en el circuito de reembolso, sin duplicar el pago del proveedor.
 
+## Corte ejecutado — Acción correctiva y aprendizaje recurrente
+
+Las desviaciones confirmadas de un mismo plan de mantenimiento pueden agruparse
+en un expediente CAPA con causa raíz, responsable, vencimiento y línea base
+congelada. Cada expediente separa acciones correctivas de preventivas, exige
+evidencia para completarlas y conserva un histórico inmutable de activación,
+ejecución, verificación, cierre o reapertura.
+
+La verificación espera el número configurado de ciclos posteriores comparables.
+Contrasta la tasa normalizada de desviaciones y el exceso medio sobre tolerancia
+antes y después, mientras muestra por separado el cambio de carga planificada
+por ciclo. Así, una reducción de actividad no se interpreta como mejora. La
+decisión humana puede confirmar o contradecir la recomendación calculada, pero
+debe dejar nota y queda vinculada a la instantánea empleada.
+
+El plan puede preparar propuestas para plantilla de trabajo, stock preventivo,
+alcance de mantenimiento o renovación. Estas propuestas son artefactos de
+análisis: no modifican configuración, no reservan material, no alteran contratos
+y no crean oportunidades por sí mismas.
+
 ## Próximo corte recomendado
 
-Construir el **plan de acción correctiva y aprendizaje recurrente**. Debe permitir
-agrupar desviaciones confirmadas por causa raíz, asignar acciones preventivas,
-verificar su eficacia en ciclos posteriores y preparar —sin ejecutar— propuestas
-de ajuste de plantilla, stock preventivo, alcance contractual o renovación. La
-comparación antes/después debe distinguir mejora real de cambios de volumen y
-conservar siempre la versión del plan y la tolerancia utilizadas.
+Construir la **bandeja de decisiones de mejora** que reciba esas propuestas,
+compruebe conflictos con versiones posteriores y permita aprobar, rechazar o
+devolver cada cambio al área propietaria. La aplicación efectiva debe seguir
+siendo una segunda acción explícita, reutilizar los flujos versionados existentes
+y enlazar el resultado con el expediente CAPA que justificó la decisión.
 
 ## Corrección transversal — idioma temporal de la plataforma
 

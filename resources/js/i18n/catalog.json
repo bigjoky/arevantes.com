@@ -1,4 +1,159 @@
 {
+    "Work order template": {
+        "en": "Work order template",
+        "es": "Plantilla de orden de trabajo"
+    },
+    "Preventive stock": { "en": "Preventive stock", "es": "Stock preventivo" },
+    "Process": { "en": "Process", "es": "Proceso" },
+    "Scope": { "en": "Scope", "es": "Alcance" },
+    "Scheduling": { "en": "Scheduling", "es": "Planificación" },
+    "External": { "en": "External", "es": "Externa" },
+    "Corrective": { "en": "Corrective", "es": "Correctiva" },
+    "Preventive": { "en": "Preventive", "es": "Preventiva" },
+    "Verification": { "en": "Verification", "es": "Verificación" },
+    "Draft": { "en": "Draft", "es": "Borrador" },
+    "Activate": { "en": "Activate", "es": "Activar" },
+    "Start verification": {
+        "en": "Start verification",
+        "es": "Iniciar verificación"
+    },
+    "Verify effective": {
+        "en": "Verify effective",
+        "es": "Confirmar como eficaz"
+    },
+    "Verify ineffective": {
+        "en": "Verify ineffective",
+        "es": "Confirmar como no eficaz"
+    },
+    "Corrective action and learning": {
+        "en": "Corrective action and learning",
+        "es": "Acción correctiva y aprendizaje"
+    },
+    "Group confirmed deviations by root cause, complete corrective and preventive actions, then verify improvement against comparable later cycles.": {
+        "en": "Group confirmed deviations by root cause, complete corrective and preventive actions, then verify improvement against comparable later cycles.",
+        "es": "Agrupa las desviaciones confirmadas por causa raíz, completa acciones correctivas y preventivas y verifica después la mejora frente a ciclos posteriores comparables."
+    },
+    "No corrective action plans have been prepared.": {
+        "en": "No corrective action plans have been prepared.",
+        "es": "No se ha preparado ningún plan de acción correctiva."
+    },
+    "Root cause:": { "en": "Root cause:", "es": "Causa raíz:" },
+    "Target": { "en": "Target", "es": "Objetivo" },
+    "linked deviations": {
+        "en": "linked deviations",
+        "es": "desviaciones vinculadas"
+    },
+    "actions completed": {
+        "en": "actions completed",
+        "es": "acciones completadas"
+    },
+    "effective": { "en": "effective", "es": "eficaz" },
+    "ineffective": { "en": "ineffective", "es": "no eficaz" },
+    "Prepared proposals": {
+        "en": "Prepared proposals",
+        "es": "Propuestas preparadas"
+    },
+    "No downstream changes prepared.": {
+        "en": "No downstream changes prepared.",
+        "es": "No se han preparado cambios posteriores."
+    },
+    "Evidence:": { "en": "Evidence:", "es": "Evidencia:" },
+    "In progress": { "en": "In progress", "es": "En curso" },
+    "Completion evidence (required when completing)": {
+        "en": "Completion evidence (required when completing)",
+        "es": "Evidencia de finalización (obligatoria al completar)"
+    },
+    "Effectiveness": { "en": "Effectiveness", "es": "Eficacia" },
+    "Verification has not started.": {
+        "en": "Verification has not started.",
+        "es": "La verificación no ha comenzado."
+    },
+    "Before": { "en": "Before", "es": "Antes" },
+    "After": { "en": "After", "es": "Después" },
+    "Planned workload per cycle changed": {
+        "en": "Planned workload per cycle changed",
+        "es": "La carga planificada por ciclo cambió"
+    },
+    "% and is shown separately from quality improvement.": {
+        "en": "% and is shown separately from quality improvement.",
+        "es": "% y se muestra separada de la mejora de calidad."
+    },
+    "Prepare corrective plan": {
+        "en": "Prepare corrective plan",
+        "es": "Preparar plan correctivo"
+    },
+    "Prepare corrective action plan": {
+        "en": "Prepare corrective action plan",
+        "es": "Preparar plan de acción correctiva"
+    },
+    "The baseline is frozen from confirmed deviations belonging to one maintenance plan.": {
+        "en": "The baseline is frozen from confirmed deviations belonging to one maintenance plan.",
+        "es": "La línea base se congela con desviaciones confirmadas de un mismo plan de mantenimiento."
+    },
+    "Originating deviation": {
+        "en": "Originating deviation",
+        "es": "Desviación de origen"
+    },
+    "Related confirmed deviations": {
+        "en": "Related confirmed deviations",
+        "es": "Desviaciones confirmadas relacionadas"
+    },
+    "Plan title": { "en": "Plan title", "es": "Título del plan" },
+    "Root-cause category": {
+        "en": "Root-cause category",
+        "es": "Categoría de causa raíz"
+    },
+    "Root-cause analysis": {
+        "en": "Root-cause analysis",
+        "es": "Análisis de causa raíz"
+    },
+    "Explain why the deviation occurred, based on evidence rather than symptoms.": {
+        "en": "Explain why the deviation occurred, based on evidence rather than symptoms.",
+        "es": "Explica por qué ocurrió la desviación basándote en evidencias y no solo en síntomas."
+    },
+    "Plan owner": { "en": "Plan owner", "es": "Responsable del plan" },
+    "Target date": { "en": "Target date", "es": "Fecha objetivo" },
+    "Cycles to verify": {
+        "en": "Cycles to verify",
+        "es": "Ciclos para verificar"
+    },
+    "First action": { "en": "First action", "es": "Primera acción" },
+    "Action type": { "en": "Action type", "es": "Tipo de acción" },
+    "Action title": { "en": "Action title", "es": "Título de la acción" },
+    "Action detail": { "en": "Action detail", "es": "Detalle de la acción" },
+    "Freeze baseline and prepare": {
+        "en": "Freeze baseline and prepare",
+        "es": "Congelar línea base y preparar"
+    },
+    "Confirm at least one deviation before preparing a corrective plan.": {
+        "en": "Confirm at least one deviation before preparing a corrective plan.",
+        "es": "Confirma al menos una desviación antes de preparar un plan correctivo."
+    },
+    "Details": { "en": "Details", "es": "Detalles" },
+    "Add action": { "en": "Add action", "es": "Añadir acción" },
+    "This records a proposal only. It does not alter templates, stock, contracts or opportunities.": {
+        "en": "This records a proposal only. It does not alter templates, stock, contracts or opportunities.",
+        "es": "Esto solo registra una propuesta. No modifica plantillas, existencias, contratos ni oportunidades."
+    },
+    "Rationale": { "en": "Rationale", "es": "Justificación" },
+    "Proposed change": { "en": "Proposed change", "es": "Cambio propuesto" },
+    "Prepare without applying": {
+        "en": "Prepare without applying",
+        "es": "Preparar sin aplicar"
+    },
+    "Explain the evidence and decision.": {
+        "en": "Explain the evidence and decision.",
+        "es": "Explica la evidencia y la decisión."
+    },
+    "Record decision": { "en": "Record decision", "es": "Registrar decisión" },
+    "Active corrective plans": {
+        "en": "Active corrective plans",
+        "es": "Planes correctivos activos"
+    },
+    "Overdue corrective actions": {
+        "en": "Overdue corrective actions",
+        "es": "Acciones correctivas vencidas"
+    },
     "Advance account": {
         "en": "Advance account",
         "es": "Cuenta de anticipos"
