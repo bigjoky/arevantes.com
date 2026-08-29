@@ -12,6 +12,7 @@ use App\Models\Supplier;
 use App\Models\SupplierQualityIncident;
 use App\Models\Warehouse;
 use App\Services\Accounting\AccountingSynchronizer;
+use App\Services\Accounting\SupplierPaymentSourceResolver;
 use App\Services\Documents\DocumentNumber;
 use App\Services\Documents\PurchaseInvoiceMatcher;
 use App\Services\Documents\PurchaseOrderApprovalWorkflow;
@@ -78,10 +79,11 @@ class PurchaseController extends Controller
         ]);
     }
 
-    public function show(PurchaseDocument $purchaseDocument, PurchaseInvoiceMatcher $matcher): Response
+    public function show(PurchaseDocument $purchaseDocument, PurchaseInvoiceMatcher $matcher, SupplierPaymentSourceResolver $paymentSources): Response
     {
         $orderSummary = $purchaseDocument->type === 'purchase_order' ? $matcher->summary($purchaseDocument) : null;
-        $purchaseDocument->load(['supplier', 'assignee:id,name', 'destinationWarehouse:id,code,name', 'sourceDocument:id,number,type,shipping_cost', 'derivedDocuments:id,source_document_id,number,type,status,matching_status,amount,issue_date,supplier_number', 'salesOrder:id,number', 'approver:id,name', 'orderApprovals.rule:id,name', 'orderApprovals.requester:id,name', 'orderApprovals.decider:id,name', 'lines.product:id,name,sku,track_stock,track_serials', 'receipts.movement:id,number', 'returns.movement:id,number', 'payments', 'attachment.verifier:id,name', 'events.user:id,name', 'qualityIncidents.product:id,sku,name', 'qualityIncidents.warehouse:id,code,name', 'qualityIncidents.reporter:id,name', 'qualityIncidents.resolver:id,name']);
+        $purchaseDocument->load(['supplier', 'assignee:id,name', 'destinationWarehouse:id,code,name', 'sourceDocument:id,number,type,shipping_cost', 'derivedDocuments:id,source_document_id,number,type,status,matching_status,amount,issue_date,supplier_number', 'salesOrder:id,number', 'approver:id,name', 'orderApprovals.rule:id,name', 'orderApprovals.requester:id,name', 'orderApprovals.decider:id,name', 'lines.product:id,name,sku,track_stock,track_serials', 'receipts.movement:id,number', 'returns.movement:id,number', 'payments.ledgerAccount', 'payments.fundingBankAccount', 'payments.fundingCard', 'payments.fundingEmployee', 'attachment.verifier:id,name', 'events.user:id,name', 'qualityIncidents.product:id,sku,name', 'qualityIncidents.warehouse:id,code,name', 'qualityIncidents.reporter:id,name', 'qualityIncidents.resolver:id,name']);
+        $purchaseDocument->payments->each(fn ($payment) => $payment->setAttribute('source_label', $payment->sourceLabel()));
 
         return Inertia::render('purchases/show', [
             'document' => $purchaseDocument,
@@ -92,6 +94,7 @@ class PurchaseController extends Controller
             'creditedAmount' => $purchaseDocument->type === 'supplier_invoice' ? abs((float) $purchaseDocument->creditNotes()->sum('amount')) : 0,
             'extractionComparison' => in_array($purchaseDocument->type, ['supplier_invoice', 'supplier_credit_note'], true) ? app(SupplierInvoiceExtraction::class)->comparison($purchaseDocument) : [],
             'warehouses' => Warehouse::where('is_active', true)->orderByDesc('is_default')->orderBy('name')->get(['id', 'code', 'name']),
+            'paymentSources' => $paymentSources->options(),
         ]);
     }
 

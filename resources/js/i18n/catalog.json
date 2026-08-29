@@ -1,4 +1,36 @@
 {
+    "Advance account": {
+        "en": "Advance account",
+        "es": "Cuenta de anticipos"
+    },
+    "Employee expenses payable account": {
+        "en": "Employee expenses payable account",
+        "es": "Cuenta de gastos pendientes con el empleado"
+    },
+    "Cash account": {
+        "en": "Cash account",
+        "es": "Cuenta de caja"
+    },
+    "Paid by": {
+        "en": "Paid by",
+        "es": "Pagado por"
+    },
+    "Accounting account": {
+        "en": "Accounting account",
+        "es": "Cuenta contable"
+    },
+    "Paid by employee": {
+        "en": "Paid by employee",
+        "es": "Pagado por un empleado"
+    },
+    "Select payment source": {
+        "en": "Select payment source",
+        "es": "Selecciona el origen del pago"
+    },
+    "No compatible payment sources are configured.": {
+        "en": "No compatible payment sources are configured.",
+        "es": "No hay orígenes de pago compatibles configurados."
+    },
     "Service quality": {
         "en": "Service quality",
         "es": "Calidad del servicio"

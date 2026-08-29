@@ -163,11 +163,12 @@ class AccountingSynchronizer
 
     private function supplierPayment(SupplierPayment $payment, ?int $userId): int
     {
-        $payment->loadMissing(['expense.supplier', 'purchaseDocument.supplier']);
+        $payment->loadMissing(['expense.supplier', 'purchaseDocument.supplier', 'ledgerAccount']);
         $supplierAccount = $payment->expense?->supplier?->payable_account_code ?? $payment->purchaseDocument?->supplier?->payable_account_code ?? ($payment->expense_id ? '410' : '400');
+        $fundingAccount = $payment->ledgerAccount?->code ?: ($payment->method === 'cash' ? '570' : '572');
 
         return $this->post($payment, 'payment', $payment->paid_at->toDateString(), __('Supplier payment :reference', ['reference' => $payment->reference ?: $payment->id]), $userId, [
-            [$supplierAccount, $payment->amount, 0], [$payment->method === 'cash' ? '570' : '572', 0, $payment->amount],
+            [$supplierAccount, $payment->amount, 0], [$fundingAccount, 0, $payment->amount],
         ]);
     }
 

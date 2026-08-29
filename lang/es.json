@@ -1,4 +1,10 @@
 {
+    "Advances — :name": "Anticipos — :name",
+    "Employee expenses payable — :name": "Gastos de personal pendientes de pago — :name",
+    "account pending": "cuenta pendiente",
+    "Select a payment source compatible with the payment method.": "Selecciona un origen compatible con la forma de pago.",
+    "The selected payment source has no active postable accounting account.": "El origen de pago seleccionado no tiene una cuenta contable activa que admita movimientos.",
+    "Legacy treasury account": "Cuenta de tesorería histórica",
     "Service quality": "Calidad del servicio",
     "This quality review action is not valid for the current status.": "Esta acción de revisión de calidad no es válida para el estado actual.",
     "Review responsibility updated.": "Responsabilidad de revisión actualizada.",

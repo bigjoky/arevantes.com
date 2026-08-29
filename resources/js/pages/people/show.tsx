@@ -63,6 +63,8 @@ type Person = {
     last_name: string | null;
     company_name: string | null;
     tax_id: string | null;
+    employee_advance_account_code?: string | null;
+    employee_payable_account_code?: string | null;
     staff_role: string | null;
     document_type: string | null;
     document_number: string | null;
@@ -260,6 +262,20 @@ export default function PeopleShow({
                                 ['ID type', person.document_type],
                                 ['ID number', person.document_number],
                                 ['Tax ID', person.tax_id],
+                                ...(isStaff
+                                    ? [
+                                          [
+                                              'Advance account',
+                                              person.employee_advance_account_code ??
+                                                  null,
+                                          ] as [string, string | null],
+                                          [
+                                              'Employee expenses payable account',
+                                              person.employee_payable_account_code ??
+                                                  null,
+                                          ] as [string, string | null],
+                                      ]
+                                    : []),
                             ]}
                         />
                         <InfoBlock

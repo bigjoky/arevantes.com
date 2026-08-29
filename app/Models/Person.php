@@ -34,6 +34,8 @@ class Person extends Model
         'company_name',
         'tax_id',
         'receivable_account_code',
+        'employee_advance_account_code',
+        'employee_payable_account_code',
         'staff_role',
         'document_type',
         'document_number',

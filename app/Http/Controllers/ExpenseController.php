@@ -11,6 +11,7 @@ use App\Models\Supplier;
 use App\Models\SupplierPayment;
 use App\Rules\SafeUpload;
 use App\Services\Accounting\AccountingSynchronizer;
+use App\Services\Accounting\SupplierPaymentSourceResolver;
 use App\Services\Documents\DocumentNumber;
 use App\Services\Finance\OutstandingBalanceCalculator;
 use Illuminate\Http\RedirectResponse;
@@ -41,9 +42,12 @@ class ExpenseController extends Controller
         ]);
     }
 
-    public function show(Expense $expense): Response
+    public function show(Expense $expense, SupplierPaymentSourceResolver $sources): Response
     {
-        return Inertia::render('expenses/show', ['expense' => $expense->load(['category', 'supplier', 'attachments', 'payments', 'taxLines'])]);
+        $expense->load(['category', 'supplier', 'attachments', 'payments.ledgerAccount', 'payments.fundingBankAccount', 'payments.fundingCard', 'payments.fundingEmployee', 'taxLines']);
+        $expense->payments->each(fn (SupplierPayment $payment) => $payment->setAttribute('source_label', $payment->sourceLabel()));
+
+        return Inertia::render('expenses/show', ['expense' => $expense, 'paymentSources' => $sources->options()]);
     }
 
     public function store(Request $request, AccountingSynchronizer $accounting, DocumentNumber $numbers): RedirectResponse
@@ -231,7 +235,16 @@ class ExpenseController extends Controller
 
     private function storePayment(Request $request, ?Expense $expense, ?PurchaseDocument $invoice, AccountingSynchronizer $accounting): void
     {
-        $data = $request->validate(['paid_at' => ['required', 'date'], 'amount' => ['required', 'numeric', 'gt:0'], 'method' => ['required', Rule::in(['bank_transfer', 'card', 'cash', 'direct_debit', 'other'])], 'reference' => ['nullable', 'string', 'max:255'], 'notes' => ['nullable', 'string']]);
+        $data = $request->validate([
+            'paid_at' => ['required', 'date'],
+            'amount' => ['required', 'numeric', 'gt:0'],
+            'method' => ['required', Rule::in(['bank_transfer', 'card', 'cash', 'direct_debit', 'employee_funds', 'other'])],
+            'funding_source_type' => ['required', Rule::in(['bank_account', 'card', 'employee', 'ledger_account'])],
+            'funding_source_id' => ['required', 'integer', 'min:1'],
+            'reference' => ['nullable', 'string', 'max:255'],
+            'notes' => ['nullable', 'string'],
+        ]);
+        $data = [...$data, ...app(SupplierPaymentSourceResolver::class)->resolve($data['method'], $data['funding_source_type'], (int) $data['funding_source_id'])];
         DB::transaction(function () use ($request, $expense, $invoice, $accounting, $data) {
             $lockedExpense = $expense ? Expense::lockForUpdate()->findOrFail($expense->id) : null;
             $lockedInvoice = $invoice ? PurchaseDocument::lockForUpdate()->findOrFail($invoice->id) : null;

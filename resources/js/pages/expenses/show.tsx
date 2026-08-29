@@ -1,5 +1,7 @@
 import { Form, Head, Link, usePage } from '@inertiajs/react';
 import { ArrowLeft, Download, Trash2, WalletCards } from 'lucide-react';
+import { PaymentSourceFields } from '@/components/payment-source-fields';
+import type { PaymentSources } from '@/components/payment-source-fields';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -49,9 +51,16 @@ type Expense = {
         amount: string;
         method: string;
         reference: string | null;
+        source_label: string;
     }[];
 };
-export default function ExpenseShow({ expense }: { expense: Expense }) {
+export default function ExpenseShow({
+    expense,
+    paymentSources,
+}: {
+    expense: Expense;
+    paymentSources: PaymentSources;
+}) {
     const canManagePayments = usePage<{
         auth: { abilities: { managePurchasePayments: boolean } };
     }>().props.auth.abilities.managePurchasePayments;
@@ -266,6 +275,9 @@ export default function ExpenseShow({ expense }: { expense: Expense }) {
                                         </div>
                                         <div className="text-xs text-muted-foreground">
                                             {date(payment.paid_at)}
+                                            {payment.source_label
+                                                ? ` · ${payment.source_label}`
+                                                : ''}
                                             {payment.reference
                                                 ? ` · ${payment.reference}`
                                                 : ''}
@@ -296,7 +308,7 @@ export default function ExpenseShow({ expense }: { expense: Expense }) {
                             action={`/expenses/${expense.id}/payments`}
                             method="post"
                             resetOnSuccess
-                            className="mt-3 grid gap-4 sm:grid-cols-4 sm:items-end"
+                            className="mt-3 grid gap-4 sm:grid-cols-2 xl:grid-cols-5 xl:items-end"
                         >
                             <Field
                                 label="Date"
@@ -311,25 +323,7 @@ export default function ExpenseShow({ expense }: { expense: Expense }) {
                                 value={String(outstanding)}
                                 step="0.01"
                             />
-                            <div className="grid gap-2">
-                                <label className="text-sm font-medium">
-                                    Method
-                                </label>
-                                <select
-                                    name="method"
-                                    className="h-9 rounded-md border bg-background px-3 text-sm"
-                                >
-                                    <option value="bank_transfer">
-                                        Bank transfer
-                                    </option>
-                                    <option value="card">Card</option>
-                                    <option value="cash">Cash</option>
-                                    <option value="direct_debit">
-                                        Direct debit
-                                    </option>
-                                    <option value="other">Other</option>
-                                </select>
-                            </div>
+                            <PaymentSourceFields sources={paymentSources} />
                             <Button>
                                 <WalletCards /> Register payment
                             </Button>

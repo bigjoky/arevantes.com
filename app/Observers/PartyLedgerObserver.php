@@ -5,11 +5,17 @@ namespace App\Observers;
 use App\Models\LedgerAccount;
 use App\Models\Person;
 use App\Models\Supplier;
+use App\Services\Accounting\EmployeeLedgerAccountManager;
 
 class PartyLedgerObserver
 {
     public function saved(Person|Supplier $party): void
     {
+        if ($party instanceof Person && $party->category === 'staff') {
+            app(EmployeeLedgerAccountManager::class)->sync($party);
+
+            return;
+        }
         if ($party instanceof Person && $party->category !== 'customer') {
             return;
         }

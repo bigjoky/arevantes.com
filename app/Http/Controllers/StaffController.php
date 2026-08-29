@@ -57,6 +57,8 @@ class StaffController extends Controller
             'person' => [
                 ...$this->personSummary($staff),
                 'tax_id' => $staff->tax_id,
+                'employee_advance_account_code' => $staff->employee_advance_account_code,
+                'employee_payable_account_code' => $staff->employee_payable_account_code,
                 'lead_source' => $staff->lead_source,
                 'billing_email' => $staff->billing_email,
                 'address_line_1' => $staff->address_line_1,

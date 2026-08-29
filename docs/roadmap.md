@@ -490,6 +490,24 @@ crea compras u objetivos de reposición, no contacta con clientes y no prepara
 renovaciones o propuestas. Cada una de esas consecuencias continúa requiriendo
 una decisión humana separada y trazable.
 
+## Corrección transversal ejecutada — origen real de pagos y personal
+
+El pago de gastos y facturas de proveedor mantiene la forma de pago y exige
+además su origen real. Transferencias y adeudos seleccionan una cuenta bancaria
+activa; las tarjetas se limitan a productos financieros configurados; caja y
+otros medios usan un auxiliar compatible; y los importes adelantados por el
+personal identifican a la persona acreedora. El asiento conserva el auxiliar
+seleccionado y el historial muestra de dónde salió el dinero, evitando agrupar
+toda la tesorería en las cuentas genéricas 570 o 572.
+
+Cada integrante del personal dispone de auxiliares individuales 460 para
+anticipos y 465 para cantidades pendientes. Los tres últimos dígitos coinciden
+siempre con los de su identificación; una secuencia intermedia resuelve
+colisiones sin romper esa regla. La generación se ejecuta al crear o actualizar
+la ficha y se aplica retroactivamente a la plantilla existente. Cuando una
+persona paga un gasto, el auxiliar 465 deja contabilizada la deuda que deberá
+liquidarse en el circuito de reembolso, sin duplicar el pago del proveedor.
+
 ## Próximo corte recomendado
 
 Construir el **plan de acción correctiva y aprendizaje recurrente**. Debe permitir

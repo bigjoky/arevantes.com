@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\MorphOne;
 
 class SupplierPayment extends Model
 {
-    protected $fillable = ['purchase_document_id', 'expense_id', 'created_by', 'origin_bank_transaction_id', 'paid_at', 'amount', 'method', 'reference', 'notes'];
+    protected $fillable = ['purchase_document_id', 'expense_id', 'created_by', 'origin_bank_transaction_id', 'paid_at', 'amount', 'method', 'funding_source_type', 'funding_source_id', 'ledger_account_id', 'reference', 'notes'];
 
     protected function casts(): array
     {
@@ -24,6 +24,36 @@ class SupplierPayment extends Model
     public function purchaseDocument(): BelongsTo
     {
         return $this->belongsTo(PurchaseDocument::class);
+    }
+
+    public function ledgerAccount(): BelongsTo
+    {
+        return $this->belongsTo(LedgerAccount::class);
+    }
+
+    public function fundingBankAccount(): BelongsTo
+    {
+        return $this->belongsTo(BankAccount::class, 'funding_source_id');
+    }
+
+    public function fundingCard(): BelongsTo
+    {
+        return $this->belongsTo(BankFinancialProduct::class, 'funding_source_id');
+    }
+
+    public function fundingEmployee(): BelongsTo
+    {
+        return $this->belongsTo(Person::class, 'funding_source_id');
+    }
+
+    public function sourceLabel(): string
+    {
+        return match ($this->funding_source_type) {
+            'bank_account' => $this->fundingBankAccount?->name ?: $this->ledgerAccount?->name,
+            'card' => ($this->fundingCard?->name ?: $this->ledgerAccount?->name).($this->fundingCard?->identifier_last_four ? ' · •••• '.$this->fundingCard->identifier_last_four : ''),
+            'employee' => $this->fundingEmployee?->company_name ?: trim(($this->fundingEmployee?->first_name ?? '').' '.($this->fundingEmployee?->last_name ?? '')),
+            default => $this->ledgerAccount?->name ?: __('Legacy treasury account'),
+        };
     }
 
     public function reconciliation(): HasOne

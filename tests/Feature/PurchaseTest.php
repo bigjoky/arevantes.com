@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Models\BankAccount;
+use App\Models\LedgerAccount;
 use App\Models\PermissionProfile;
 use App\Models\Product;
 use App\Models\PurchaseApprovalRule;
@@ -294,8 +296,9 @@ class PurchaseTest extends TestCase
         $this->assertSame('review_required', $invoice->matching_status);
         $this->assertSame('1089.00', $invoice->match_variance_amount);
         $this->assertNull($invoice->accountingEntry()->first());
+        $bank = $this->bankAccount();
         $this->actingAs($this->financeUser())->post(route('supplier-invoices.payments.store', $invoice), [
-            'paid_at' => '2026-07-13', 'amount' => 100, 'method' => 'bank_transfer',
+            'paid_at' => '2026-07-13', 'amount' => 100, 'method' => 'bank_transfer', 'funding_source_type' => 'bank_account', 'funding_source_id' => $bank->id,
         ])->assertStatus(422);
 
         $this->actingAs($user);
@@ -402,8 +405,10 @@ class PurchaseTest extends TestCase
         $this->assertNotNull($credit->accountingEntry()->first());
         $this->assertSame('partially_invoiced', $order->refresh()->invoicing_status);
         $this->actingAs($this->financeUser());
-        $this->post(route('supplier-invoices.payments.store', $firstInvoice), ['paid_at' => '2026-07-14', 'amount' => 969, 'method' => 'bank_transfer'])->assertSessionHasErrors('amount');
-        $this->post(route('supplier-invoices.payments.store', $firstInvoice), ['paid_at' => '2026-07-14', 'amount' => 968, 'method' => 'bank_transfer'])->assertRedirect();
+        $bank = $this->bankAccount();
+        $source = ['funding_source_type' => 'bank_account', 'funding_source_id' => $bank->id];
+        $this->post(route('supplier-invoices.payments.store', $firstInvoice), ['paid_at' => '2026-07-14', 'amount' => 969, 'method' => 'bank_transfer', ...$source])->assertSessionHasErrors('amount');
+        $this->post(route('supplier-invoices.payments.store', $firstInvoice), ['paid_at' => '2026-07-14', 'amount' => 968, 'method' => 'bank_transfer', ...$source])->assertRedirect();
         $this->assertSame('paid', $firstInvoice->refresh()->status);
 
         $this->actingAs($user)->post(route('purchases.return', $order), [
@@ -500,5 +505,13 @@ class PurchaseTest extends TestCase
             'role' => 'commercial',
             'permission_profile_id' => PermissionProfile::where('slug', 'finance')->firstOrFail()->id,
         ]);
+    }
+
+    private function bankAccount(): BankAccount
+    {
+        $sequence = BankAccount::count() + 1;
+        $ledger = LedgerAccount::create(['code' => '572'.str_pad((string) $sequence, 6, '0', STR_PAD_LEFT), 'name' => 'Purchase bank '.$sequence, 'type' => 'asset', 'parent_code' => '572', 'level' => 9, 'is_postable' => true, 'is_active' => true]);
+
+        return BankAccount::create(['name' => 'Purchase account '.$sequence, 'currency' => 'EUR', 'ledger_account_id' => $ledger->id, 'opening_balance' => 0, 'is_active' => true]);
     }
 }
