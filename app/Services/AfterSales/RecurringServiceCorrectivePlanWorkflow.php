@@ -13,7 +13,17 @@ use Illuminate\Validation\ValidationException;
 
 class RecurringServiceCorrectivePlanWorkflow
 {
-    public function __construct(private RecurringServiceEffectivenessEvaluator $effectiveness) {}
+    public const DECISION_ABILITIES = [
+        'work_order_template' => 'manage-operations',
+        'maintenance_scope' => 'manage-operations',
+        'preventive_stock' => 'manage-purchases',
+        'renewal' => 'manage-customers',
+    ];
+
+    public function __construct(
+        private RecurringServiceEffectivenessEvaluator $effectiveness,
+        private RecurringServiceProposalConflictDetector $proposalConflicts,
+    ) {}
 
     /** @param list<int> $deviationIds @param array<string, mixed> $attributes @param array<string, mixed> $firstAction */
     public function create(ServiceCycleDeviation $primary, array $deviationIds, array $attributes, array $firstAction, User $actor): ServiceCorrectivePlan
@@ -135,10 +145,74 @@ class RecurringServiceCorrectivePlanWorkflow
         if (in_array($plan->status, ['effective', 'ineffective', 'closed'], true)) {
             throw ValidationException::withMessages(['proposal' => __('Closed corrective plans cannot prepare new change proposals.')]);
         }
-        $proposal = $plan->proposals()->create([...$attributes, 'status' => 'prepared', 'created_by' => $actor->id]);
+        $target = $this->proposalConflicts->capture($plan, $attributes['type']);
+        $proposal = $plan->proposals()->create([
+            ...$attributes, ...$target, 'status' => 'prepared', 'created_by' => $actor->id,
+        ]);
         $this->event($plan, 'proposal_prepared', $plan->status, $plan->status, $proposal->title, ['proposal_id' => $proposal->id, 'type' => $proposal->type], $actor);
 
         return $proposal;
+    }
+
+    public function decideProposal(ServiceCorrectiveProposal $proposal, string $action, string $note, ?string $proposedChange, User $actor): ServiceCorrectiveProposal
+    {
+        return DB::transaction(function () use ($proposal, $action, $note, $proposedChange, $actor): ServiceCorrectiveProposal {
+            $locked = ServiceCorrectiveProposal::query()->with('plan')->lockForUpdate()->findOrFail($proposal->id);
+            $allowed = [
+                'approve' => ['prepared'], 'reject' => ['prepared'], 'return' => ['prepared'],
+                'resubmit' => ['returned'],
+            ];
+            if (! in_array($locked->status, $allowed[$action] ?? [], true)) {
+                throw ValidationException::withMessages(['action' => __('This improvement-proposal transition is not valid.')]);
+            }
+
+            $conflict = $this->proposalConflicts->evaluate($locked);
+            if ($action === 'approve' && $conflict['has_conflict']) {
+                throw ValidationException::withMessages(['action' => __('The referenced configuration changed after this proposal was prepared. Return and resubmit it before approval.')]);
+            }
+
+            $from = $locked->status;
+            if ($action === 'resubmit') {
+                if (blank($proposedChange)) {
+                    throw ValidationException::withMessages(['proposed_change' => __('Describe the revised change before resubmitting it.')]);
+                }
+                $target = $this->proposalConflicts->capture($locked->plan, $locked->type);
+                $locked->update([
+                    ...$target, 'payload' => [...($locked->payload ?? []), 'proposed_change' => trim((string) $proposedChange)],
+                    'status' => 'prepared', 'decision_note' => null, 'decided_by' => null,
+                    'decided_at' => null, 'resubmission_count' => $locked->resubmission_count + 1,
+                ]);
+            } else {
+                $locked->update([
+                    'status' => match ($action) {
+                        'approve' => 'approved', 'reject' => 'rejected', 'return' => 'returned',
+                    },
+                    'decision_note' => trim($note), 'decided_by' => $actor->id, 'decided_at' => now(),
+                ]);
+            }
+
+            $this->event(
+                $locked->plan, 'proposal_'.$action, $from, $locked->status, $note,
+                ['proposal_id' => $locked->id, 'type' => $locked->type, 'conflict' => $conflict], $actor,
+            );
+
+            return $locked->refresh();
+        });
+    }
+
+    public function decisionAbility(string $type): string
+    {
+        return self::DECISION_ABILITIES[$type] ?? 'manage-operations';
+    }
+
+    /** @return list<string> */
+    public function decisionTypesFor(User $user): array
+    {
+        return collect(self::DECISION_ABILITIES)
+            ->filter(fn (string $ability): bool => $user->can($ability))
+            ->keys()
+            ->values()
+            ->all();
     }
 
     /** @param Collection<int, ServiceCycleDeviation> $deviations @return array<string, mixed> */

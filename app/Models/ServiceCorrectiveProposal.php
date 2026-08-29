@@ -7,11 +7,18 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ServiceCorrectiveProposal extends Model
 {
-    protected $fillable = ['service_corrective_plan_id', 'type', 'title', 'rationale', 'payload', 'status', 'created_by'];
+    protected $fillable = [
+        'service_corrective_plan_id', 'type', 'title', 'rationale', 'payload',
+        'target_type', 'target_id', 'target_version', 'target_snapshot', 'status',
+        'decision_note', 'decided_by', 'decided_at', 'resubmission_count', 'created_by',
+    ];
 
     protected function casts(): array
     {
-        return ['payload' => 'array'];
+        return [
+            'payload' => 'array', 'target_snapshot' => 'array',
+            'decided_at' => 'datetime', 'resubmission_count' => 'integer',
+        ];
     }
 
     public function plan(): BelongsTo
@@ -22,5 +29,10 @@ class ServiceCorrectiveProposal extends Model
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function decider(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'decided_by');
     }
 }

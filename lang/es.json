@@ -1037,5 +1037,12 @@
     "This issuer invoice is already registered.": "Esta factura del emisor ya está registrada.",
     "The parent proposal line no longer exists.": "La línea superior de la propuesta ya no existe.",
     "Proposal lines cannot contain a circular hierarchy.": "Las líneas de la propuesta no pueden contener una jerarquía circular.",
-    "Proposal lines can be nested up to five levels.": "Las líneas de la propuesta pueden anidarse hasta cinco niveles."
+    "Proposal lines can be nested up to five levels.": "Las líneas de la propuesta pueden anidarse hasta cinco niveles.",
+    "This improvement-proposal transition is not valid.": "Esta transición de la propuesta de mejora no es válida.",
+    "The referenced configuration changed after this proposal was prepared. Return and resubmit it before approval.": "La configuración referenciada cambió después de preparar esta propuesta. Devuélvela y reenvíala antes de aprobarla.",
+    "Describe the revised change before resubmitting it.": "Describe el cambio revisado antes de reenviar la propuesta.",
+    "Improvement proposal decision recorded without applying downstream changes.": "Decisión de la propuesta de mejora registrada sin aplicar cambios posteriores.",
+    "Improvement decisions": "Decisiones de mejora",
+    "Returned for revision": "Devuelta para revisión",
+    "Pending decision": "Decisión pendiente"
 }

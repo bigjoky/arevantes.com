@@ -43,6 +43,29 @@ type Evaluation = {
         cycles: number;
     };
 };
+export type ImprovementProposal = {
+    id: number;
+    type: string;
+    title: string;
+    rationale: string;
+    payload: { proposed_change?: string } | null;
+    status: string;
+    created_at: string;
+    creator: User | null;
+    target_type: string | null;
+    target_version: string | null;
+    conflict: {
+        has_conflict: boolean;
+        reason: string | null;
+        prepared_version: string | null;
+        current_version: string;
+    } | null;
+    decision_note: string | null;
+    decider: User | null;
+    decided_at: string | null;
+    resubmission_count: number;
+    can_decide: boolean;
+};
 export type CorrectivePlan = {
     id: number;
     code: string;
@@ -77,16 +100,7 @@ export type CorrectivePlan = {
         completion_note: string | null;
         completed_at: string | null;
     }>;
-    proposals: Array<{
-        id: number;
-        type: string;
-        title: string;
-        rationale: string;
-        payload: { proposed_change?: string } | null;
-        status: string;
-        created_at: string;
-        creator: User | null;
-    }>;
+    proposals: ImprovementProposal[];
     events: Array<{
         id: number;
         event: string;
@@ -240,7 +254,7 @@ function PlanCard({ plan, users }: { plan: CorrectivePlan; users: User[] }) {
                     />
                     <div>
                         <h4 className="mb-2 text-sm font-medium">
-                            Prepared proposals
+                            Improvement proposals
                         </h4>
                         {plan.proposals.length === 0 ? (
                             <p className="text-sm text-muted-foreground">
@@ -258,7 +272,8 @@ function PlanCard({ plan, users }: { plan: CorrectivePlan; users: User[] }) {
                                                 {proposal.title}
                                             </span>
                                             <Badge variant="outline">
-                                                {humanize(proposal.type)}
+                                                {humanize(proposal.type)} ·{' '}
+                                                {humanize(proposal.status)}
                                             </Badge>
                                         </div>
                                         <p className="mt-1 text-muted-foreground">

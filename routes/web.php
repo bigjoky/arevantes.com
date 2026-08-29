@@ -65,6 +65,7 @@ use App\Http\Controllers\PurchaseSettingsController;
 use App\Http\Controllers\PurchaseWorkflowController;
 use App\Http\Controllers\QuoteController;
 use App\Http\Controllers\RecurringServiceCorrectivePlanController;
+use App\Http\Controllers\RecurringServiceImprovementController;
 use App\Http\Controllers\RecurringServiceQualityController;
 use App\Http\Controllers\RemoteStationController;
 use App\Http\Controllers\ReplenishmentController;
@@ -221,6 +222,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('work-orders', [WorkOrderController::class, 'index'])->middleware('can:manage-operations')->name('work-orders.index');
     Route::get('after-sales', [AfterSalesController::class, 'index'])->middleware('can:manage-operations')->name('after-sales.index');
     Route::get('after-sales/quality', [RecurringServiceQualityController::class, 'index'])->middleware('can:manage-operations')->name('after-sales.quality.index');
+    Route::get('improvement-decisions', RecurringServiceImprovementController::class)->name('improvement-decisions.index');
     Route::post('after-sales/quality/analyse', [RecurringServiceQualityController::class, 'analyse'])->middleware('can:manage-operations')->name('after-sales.quality.analyse');
     Route::patch('after-sales/quality/deviations/{deviation}', [RecurringServiceQualityController::class, 'review'])->middleware('can:manage-operations')->name('after-sales.quality.review');
     Route::post('after-sales/quality/deviations/{deviation}/corrective-plans', [RecurringServiceCorrectivePlanController::class, 'store'])->middleware('can:manage-operations')->name('after-sales.quality.corrective-plans.store');
@@ -228,6 +230,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('after-sales/quality/corrective-plans/{correctivePlan}/actions', [RecurringServiceCorrectivePlanController::class, 'storeAction'])->middleware('can:manage-operations')->name('after-sales.quality.corrective-plans.actions.store');
     Route::patch('after-sales/quality/corrective-actions/{correctiveAction}', [RecurringServiceCorrectivePlanController::class, 'updateAction'])->middleware('can:manage-operations')->name('after-sales.quality.corrective-actions.update');
     Route::post('after-sales/quality/corrective-plans/{correctivePlan}/proposals', [RecurringServiceCorrectivePlanController::class, 'storeProposal'])->middleware('can:manage-operations')->name('after-sales.quality.corrective-plans.proposals.store');
+    Route::patch('after-sales/quality/corrective-proposals/{correctiveProposal}', [RecurringServiceCorrectivePlanController::class, 'decideProposal'])->name('after-sales.quality.corrective-proposals.decision');
     Route::post('after-sales/tickets', [AfterSalesController::class, 'storeTicket'])->middleware('can:manage-operations')->name('after-sales.tickets.store');
     Route::patch('after-sales/tickets/{ticket}', [AfterSalesController::class, 'updateTicket'])->middleware('can:manage-operations')->name('after-sales.tickets.update');
     Route::post('after-sales/tickets/{ticket}/work-order', [AfterSalesController::class, 'createWorkOrder'])->middleware('can:manage-operations')->name('after-sales.tickets.work-order');

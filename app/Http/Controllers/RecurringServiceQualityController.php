@@ -6,7 +6,9 @@ use App\Models\ServiceCorrectivePlan;
 use App\Models\ServiceCycleCommitment;
 use App\Models\ServiceCycleDeviation;
 use App\Models\User;
+use App\Services\AfterSales\RecurringServiceCorrectivePlanWorkflow;
 use App\Services\AfterSales\RecurringServiceEffectivenessEvaluator;
+use App\Services\AfterSales\RecurringServiceProposalConflictDetector;
 use App\Services\AfterSales\RecurringServiceQualityDetector;
 use App\Services\AfterSales\RecurringServiceQualityWorkflow;
 use Illuminate\Http\RedirectResponse;
@@ -18,8 +20,12 @@ use Inertia\Response;
 
 class RecurringServiceQualityController extends Controller
 {
-    public function index(Request $request, RecurringServiceEffectivenessEvaluator $effectiveness): Response
-    {
+    public function index(
+        Request $request,
+        RecurringServiceEffectivenessEvaluator $effectiveness,
+        RecurringServiceProposalConflictDetector $proposalConflicts,
+        RecurringServiceCorrectivePlanWorkflow $correctiveWorkflow,
+    ): Response {
         $filters = $request->validate([
             'status' => ['nullable', Rule::in(['open', 'confirmed', 'dismissed', 'resolved'])],
             'category' => ['nullable', Rule::in(['duration', 'travel', 'materials', 'recurrence', 'evidence', 'documents'])],
@@ -94,17 +100,18 @@ class RecurringServiceQualityController extends Controller
         $penalty = $confirmed->sum(fn ($item) => match ($item->severity) {
             'critical' => 12, 'high' => 7, default => 3,
         });
+        $conflictingProposalCount = 0;
         $correctivePlans = ServiceCorrectivePlan::query()
             ->with([
                 'owner:id,name', 'maintenancePlan:id,installation_id,name',
                 'maintenancePlan.installation:id,project_reference,site_name,service_type',
                 'deviations:id,category,severity,status,summary', 'actions.owner:id,name',
-                'proposals.creator:id,name', 'events.actor:id,name',
+                'proposals.creator:id,name', 'proposals.decider:id,name', 'events.actor:id,name',
             ])
             ->orderByRaw("case status when 'verification' then 0 when 'in_progress' then 1 when 'draft' then 2 else 3 end")
             ->orderBy('target_date')
             ->get()
-            ->map(function (ServiceCorrectivePlan $plan) use ($effectiveness): array {
+            ->map(function (ServiceCorrectivePlan $plan) use ($effectiveness, $proposalConflicts, $correctiveWorkflow, $request, &$conflictingProposalCount): array {
                 $evaluation = $plan->status === 'verification'
                     ? $effectiveness->evaluate($plan)
                     : $plan->effectiveness_snapshot;
@@ -131,12 +138,27 @@ class RecurringServiceQualityController extends Controller
                         'due_on' => $action->due_on->toDateString(), 'owner' => $action->owner,
                         'completion_note' => $action->completion_note, 'completed_at' => $action->completed_at?->toISOString(),
                     ])->values(),
-                    'proposals' => $plan->proposals->map(fn ($proposal) => [
-                        'id' => $proposal->id, 'type' => $proposal->type, 'title' => $proposal->title,
-                        'rationale' => $proposal->rationale, 'payload' => $proposal->payload,
-                        'status' => $proposal->status, 'created_at' => $proposal->created_at->toISOString(),
-                        'creator' => $proposal->creator,
-                    ])->values(),
+                    'proposals' => $plan->proposals->map(function ($proposal) use ($plan, $proposalConflicts, $correctiveWorkflow, $request, &$conflictingProposalCount): array {
+                        $proposal->setRelation('plan', $plan);
+                        $conflict = in_array($proposal->status, ['prepared', 'returned'], true)
+                            ? $proposalConflicts->evaluate($proposal)
+                            : null;
+                        if ($proposal->status === 'prepared' && ($conflict['has_conflict'] ?? false)) {
+                            $conflictingProposalCount++;
+                        }
+
+                        return [
+                            'id' => $proposal->id, 'type' => $proposal->type, 'title' => $proposal->title,
+                            'rationale' => $proposal->rationale, 'payload' => $proposal->payload,
+                            'status' => $proposal->status, 'created_at' => $proposal->created_at->toISOString(),
+                            'creator' => $proposal->creator, 'target_type' => $proposal->target_type,
+                            'target_version' => $proposal->target_version, 'conflict' => $conflict,
+                            'decision_note' => $proposal->decision_note, 'decider' => $proposal->decider,
+                            'decided_at' => $proposal->decided_at?->toISOString(),
+                            'resubmission_count' => $proposal->resubmission_count,
+                            'can_decide' => $request->user()->can($correctiveWorkflow->decisionAbility($proposal->type)),
+                        ];
+                    })->values(),
                     'events' => $plan->events->map(fn ($event) => [
                         'id' => $event->id, 'event' => $event->event, 'from_status' => $event->from_status,
                         'to_status' => $event->to_status, 'note' => $event->note,
@@ -161,6 +183,8 @@ class RecurringServiceQualityController extends Controller
                 'completed_cycles' => $completedCycles,
                 'active_corrective_plans' => ServiceCorrectivePlan::whereIn('status', ['draft', 'in_progress', 'verification'])->count(),
                 'overdue_corrective_actions' => DB::table('service_corrective_actions')->join('service_corrective_plans', 'service_corrective_plans.id', '=', 'service_corrective_actions.service_corrective_plan_id')->whereIn('service_corrective_plans.status', ['draft', 'in_progress'])->whereIn('service_corrective_actions.status', ['open', 'in_progress'])->whereDate('service_corrective_actions.due_on', '<', today())->count(),
+                'pending_improvement_decisions' => DB::table('service_corrective_proposals')->where('status', 'prepared')->count(),
+                'conflicting_improvement_proposals' => $conflictingProposalCount,
             ],
             'businessLines' => ServiceCycleDeviation::query()->distinct()->orderBy('business_line')->pluck('business_line'),
             'users' => User::query()->orderBy('name')->get(['id', 'name']),

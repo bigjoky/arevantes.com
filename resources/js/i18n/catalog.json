@@ -13835,5 +13835,149 @@
     "”. La siguiente acción pendiente pasará a ser la activa automáticamente.": {
         "en": ". \"The next outstanding action will become the activated action automatically.",
         "es": "”. La siguiente acción pendiente pasará a ser la activa automáticamente."
+    },
+    "Improvement proposals": {
+        "en": "Improvement proposals",
+        "es": "Propuestas de mejora"
+    },
+    "Improvement decision inbox": {
+        "en": "Improvement decision inbox",
+        "es": "Bandeja de decisiones de mejora"
+    },
+    "Review proposals with the responsible area, detect changes made after preparation and record a decision without applying configuration, stock, contracts or opportunities.": {
+        "en": "Review proposals with the responsible area, detect changes made after preparation and record a decision without applying configuration, stock, contracts or opportunities.",
+        "es": "Revisa las propuestas con el área responsable, detecta cambios posteriores a su preparación y registra una decisión sin aplicar configuraciones, existencias, contratos ni oportunidades."
+    },
+    "No improvement proposals are awaiting governance.": {
+        "en": "No improvement proposals are awaiting governance.",
+        "es": "No hay propuestas de mejora pendientes de gobernanza."
+    },
+    "Configuration changed": {
+        "en": "Configuration changed",
+        "es": "Configuración modificada"
+    },
+    "Proposed change:": {
+        "en": "Proposed change:",
+        "es": "Cambio propuesto:"
+    },
+    "Prepared against": {
+        "en": "Prepared against",
+        "es": "Preparada sobre"
+    },
+    "; the current version is": {
+        "en": "; the current version is",
+        "es": "; la versión actual es"
+    },
+    ". Approval is blocked until the proposal is returned and resubmitted.": {
+        "en": ". Approval is blocked until the proposal is returned and resubmitted.",
+        "es": ". La aprobación queda bloqueada hasta que la propuesta se devuelva y se reenvíe."
+    },
+    "Decision by": {
+        "en": "Decision by",
+        "es": "Decisión de"
+    },
+    "Unknown user": {
+        "en": "Unknown user",
+        "es": "Usuario desconocido"
+    },
+    "Responsible area:": {
+        "en": "Responsible area:",
+        "es": "Área responsable:"
+    },
+    "· Target:": {
+        "en": "· Target:",
+        "es": "· Destino:"
+    },
+    "not assigned": {
+        "en": "not assigned",
+        "es": "sin asignar"
+    },
+    "· Version:": {
+        "en": "· Version:",
+        "es": "· Versión:"
+    },
+    "Decision reserved for the responsible area.": {
+        "en": "Decision reserved for the responsible area.",
+        "es": "Decisión reservada al área responsable."
+    },
+    "This decision is recorded in the CAPA history. It does not apply the proposed downstream change.": {
+        "en": "This decision is recorded in the CAPA history. It does not apply the proposed downstream change.",
+        "es": "Esta decisión queda registrada en el histórico CAPA. No aplica el cambio posterior propuesto."
+    },
+    "resubmit": {
+        "en": "resubmit",
+        "es": "reenviar"
+    },
+    "Revised proposed change": {
+        "en": "Revised proposed change",
+        "es": "Cambio propuesto revisado"
+    },
+    "Explain the evidence, ownership and next step.": {
+        "en": "Explain the evidence, ownership and next step.",
+        "es": "Explica la evidencia, la responsabilidad y el siguiente paso."
+    },
+    "Record without applying": {
+        "en": "Record without applying",
+        "es": "Registrar sin aplicar"
+    },
+    "Approved for application": {
+        "en": "Approved for application",
+        "es": "Aprobada para aplicar"
+    },
+    "Returned for revision": {
+        "en": "Returned for revision",
+        "es": "Devuelta para revisión"
+    },
+    "Pending decision": {
+        "en": "Pending decision",
+        "es": "Decisión pendiente"
+    },
+    "Pending improvement decisions": {
+        "en": "Pending improvement decisions",
+        "es": "Decisiones de mejora pendientes"
+    },
+    "Conflicting proposals": {
+        "en": "Conflicting proposals",
+        "es": "Propuestas con conflicto"
+    },
+    "No improvement proposals match this view.": {
+        "en": "No improvement proposals match this view.",
+        "es": "No hay propuestas de mejora que coincidan con esta vista."
+    },
+    "Improvement decisions": {
+        "en": "Improvement decisions",
+        "es": "Decisiones de mejora"
+    },
+    "Each area reviews only the CAPA proposals within its authority. Approval records intent and evidence, but never applies the downstream change automatically.": {
+        "en": "Each area reviews only the CAPA proposals within its authority. Approval records intent and evidence, but never applies the downstream change automatically.",
+        "es": "Cada área revisa únicamente las propuestas CAPA que están bajo su autoridad. La aprobación registra la intención y la evidencia, pero nunca aplica automáticamente el cambio posterior."
+    },
+    "Return to service quality": {
+        "en": "Return to service quality",
+        "es": "Volver a calidad del servicio"
+    },
+    "Pending decisions": {
+        "en": "Pending decisions",
+        "es": "Decisiones pendientes"
+    },
+    "Approved": {
+        "en": "Approved",
+        "es": "Aprobadas"
+    },
+    "Improvement proposal views": {
+        "en": "Improvement proposal views",
+        "es": "Vistas de propuestas de mejora"
+    },
+    "Review improvement decisions": {
+        "en": "Review improvement decisions",
+        "es": "Revisar decisiones de mejora"
+    },
+    "Awaiting decision": {
+        "en": "Awaiting decision",
+        "es": "Pendientes de decisión"
+    },
+    "proposals": {
+        "en": "proposals",
+        "es": "propuestas"
     }
 }

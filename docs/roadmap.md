@@ -528,13 +528,34 @@ alcance de mantenimiento o renovación. Estas propuestas son artefactos de
 análisis: no modifican configuración, no reservan material, no alteran contratos
 y no crean oportunidades por sí mismas.
 
+## Corte ejecutado — Decisiones de mejora transversales
+
+Las propuestas CAPA llegan a una bandeja común que filtra en servidor el ámbito
+de cada persona: Operaciones gobierna plantillas y alcance recurrente, Suministro
+revisa stock preventivo y CRM decide renovaciones. Un perfil no recibe títulos,
+motivos, destinos ni históricos pertenecientes a otra área. La bandeja se integra
+en la navegación autorizada y en el centro de acciones sin abrir el resto del
+módulo de calidad a roles que no deben consultarlo.
+
+Cada propuesta congela la referencia, versión, contenido y huella del destino en
+el momento de prepararse. Antes de aprobar se vuelve a leer la configuración
+vigente; cualquier cambio de plantilla, plan, materiales u oportunidad bloquea
+la aprobación. El área puede devolverla, revisar el cambio propuesto y reenviarla
+sobre una nueva instantánea, conservando contador, decisiones y eventos CAPA.
+
+Aprobar, rechazar, devolver y reenviar exige una nota y registra persona y fecha.
+La aprobación no modifica plantillas, existencias, contratos ni oportunidades:
+solo declara que el cambio está autorizado para pasar a un circuito de aplicación
+posterior y controlado.
+
 ## Próximo corte recomendado
 
-Construir la **bandeja de decisiones de mejora** que reciba esas propuestas,
-compruebe conflictos con versiones posteriores y permita aprobar, rechazar o
-devolver cada cambio al área propietaria. La aplicación efectiva debe seguir
-siendo una segunda acción explícita, reutilizar los flujos versionados existentes
-y enlazar el resultado con el expediente CAPA que justificó la decisión.
+Construir la **aplicación controlada de mejoras aprobadas** como una segunda
+acción explícita. Debe mostrar el cambio antes de confirmarlo, volver a comprobar
+la versión destino, reutilizar los servicios versionados de cada área, ser
+idempotente y registrar resultado o fallo en el expediente CAPA. Ningún adaptador
+podrá crear compras, cambiar contratos o contactar clientes fuera de los límites
+específicos que confirme la persona responsable.
 
 ## Corrección transversal — idioma temporal de la plataforma
 

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\ServiceCorrectiveAction;
 use App\Models\ServiceCorrectivePlan;
+use App\Models\ServiceCorrectiveProposal;
 use App\Models\ServiceCycleDeviation;
 use App\Services\AfterSales\RecurringServiceCorrectivePlanWorkflow;
 use Illuminate\Http\RedirectResponse;
@@ -88,5 +89,20 @@ class RecurringServiceCorrectivePlanController extends Controller
         ], $request->user());
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Change proposal prepared without applying it.')]);
+    }
+
+    public function decideProposal(Request $request, ServiceCorrectiveProposal $correctiveProposal, RecurringServiceCorrectivePlanWorkflow $workflow): RedirectResponse
+    {
+        abort_unless($request->user()->can($workflow->decisionAbility($correctiveProposal->type)), 403);
+        $data = $request->validate([
+            'action' => ['required', Rule::in(['approve', 'reject', 'return', 'resubmit'])],
+            'note' => ['required', 'string', 'min:10', 'max:3000'],
+            'proposed_change' => [Rule::requiredIf($request->input('action') === 'resubmit'), 'nullable', 'string', 'min:5', 'max:5000'],
+        ]);
+        $workflow->decideProposal(
+            $correctiveProposal, $data['action'], $data['note'], $data['proposed_change'] ?? null, $request->user(),
+        );
+
+        return back()->with('toast', ['type' => 'success', 'message' => __('Improvement proposal decision recorded without applying downstream changes.')]);
     }
 }

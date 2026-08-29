@@ -14,6 +14,7 @@ class WorkspaceNavigation
             $this->item('Dashboard', route('dashboard', absolute: false), 'layout-grid'),
             $this->when($user, 'view-analytics', fn () => $this->item('Analítica', route('analytics.index', absolute: false), 'chart-spline')),
             $this->item('Mi RR. HH.', route('my-human-resources.index', absolute: false), 'calendar-days'),
+            $this->whenAny($user, ['manage-operations', 'manage-purchases', 'manage-customers'], fn () => $this->item('Improvement decisions', route('improvement-decisions.index', absolute: false), 'list-checks')),
             $this->section('CRM', 'briefcase-business', [
                 $this->when($user, 'manage-customers', fn () => $this->item('Customers', route('people.index', absolute: false))),
                 $this->when($user, 'manage-customers', fn () => $this->item('Opportunities', route('opportunities.index', absolute: false))),
@@ -95,5 +96,11 @@ class WorkspaceNavigation
     private function when(User $user, string $ability, callable $item): ?array
     {
         return Gate::forUser($user)->allows($ability) ? $item() : null;
+    }
+
+    /** @param list<string> $abilities */
+    private function whenAny(User $user, array $abilities, callable $item): ?array
+    {
+        return collect($abilities)->contains(fn (string $ability): bool => Gate::forUser($user)->allows($ability)) ? $item() : null;
     }
 }

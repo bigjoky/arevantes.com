@@ -5,7 +5,9 @@ namespace Tests\Feature;
 use App\Models\Installation;
 use App\Models\InstallationAsset;
 use App\Models\MaintenancePlan;
+use App\Models\PermissionProfile;
 use App\Models\ServiceCorrectivePlan;
+use App\Models\ServiceCorrectiveProposal;
 use App\Models\ServiceCycleCommitment;
 use App\Models\ServiceCycleDeviation;
 use App\Models\ServiceTicket;
@@ -134,6 +136,71 @@ class RecurringServiceQualityTest extends TestCase
             'proposed_change' => 'Add a mandatory pre-visit readiness item to the security maintenance template.',
         ])->assertRedirect()->assertSessionHasNoErrors();
         $this->assertDatabaseHas('service_corrective_proposals', ['service_corrective_plan_id' => $plan->id, 'status' => 'prepared']);
+        $proposal = ServiceCorrectiveProposal::sole();
+        $this->assertSame('work_order_template', $proposal->target_type);
+        $this->assertNotNull($proposal->target_snapshot['fingerprint']);
+        $this->patch(route('after-sales.quality.corrective-proposals.decision', $proposal), [
+            'action' => 'approve', 'note' => 'Operations approves this proposal for a separate controlled application.',
+        ])->assertRedirect()->assertSessionHasNoErrors();
+        $this->assertSame('approved', $proposal->refresh()->status);
+
+        $this->post(route('after-sales.quality.corrective-plans.proposals.store', $plan), [
+            'type' => 'maintenance_scope', 'title' => 'Align the recurring scope',
+            'rationale' => 'The readiness control should be visible in the contractual service scope.',
+            'proposed_change' => 'Include readiness confirmation in the governed maintenance scope.',
+        ])->assertRedirect()->assertSessionHasNoErrors();
+        $scopeProposal = ServiceCorrectiveProposal::where('type', 'maintenance_scope')->sole();
+        $maintenancePlan = $plan->maintenancePlan;
+        $maintenancePlan->update(['version' => $maintenancePlan->version + 1, 'scope' => 'Scope changed after proposal preparation.']);
+
+        $this->patch(route('after-sales.quality.corrective-proposals.decision', $scopeProposal), [
+            'action' => 'approve', 'note' => 'This stale proposal must not be approved against a later plan version.',
+        ])->assertSessionHasErrors('action');
+        $this->assertSame('prepared', $scopeProposal->refresh()->status);
+        $this->patch(route('after-sales.quality.corrective-proposals.decision', $scopeProposal), [
+            'action' => 'return', 'note' => 'The maintenance scope changed and the proposal must be reconciled with it.',
+        ])->assertRedirect()->assertSessionHasNoErrors();
+        $this->patch(route('after-sales.quality.corrective-proposals.decision', $scopeProposal), [
+            'action' => 'resubmit', 'note' => 'The proposed wording now reflects the current governed maintenance scope.',
+            'proposed_change' => 'Add readiness confirmation to the current maintenance scope version.',
+        ])->assertRedirect()->assertSessionHasNoErrors();
+        $this->assertSame(1, $scopeProposal->refresh()->resubmission_count);
+        $this->assertSame((string) $maintenancePlan->refresh()->version, $scopeProposal->target_version);
+        $this->patch(route('after-sales.quality.corrective-proposals.decision', $scopeProposal), [
+            'action' => 'approve', 'note' => 'Operations approves the reconciled proposal for separate application.',
+        ])->assertRedirect()->assertSessionHasNoErrors();
+        $this->assertSame('approved', $scopeProposal->refresh()->status);
+
+        $this->post(route('after-sales.quality.corrective-plans.proposals.store', $plan), [
+            'type' => 'preventive_stock', 'title' => 'Review readiness spare stock',
+            'rationale' => 'The corrective review identified a possible dependency on prepared spare parts.',
+            'proposed_change' => 'Review minimum preventive quantities without reserving or purchasing stock.',
+        ])->assertRedirect()->assertSessionHasNoErrors();
+        $stockProposal = ServiceCorrectiveProposal::where('type', 'preventive_stock')->sole();
+        $this->actingAs($technician)->patch(route('after-sales.quality.corrective-proposals.decision', $stockProposal), [
+            'action' => 'approve', 'note' => 'A technician cannot approve a supply-owned improvement proposal.',
+        ])->assertForbidden();
+        $this->assertSame('prepared', $stockProposal->refresh()->status);
+        $purchaser = User::factory()->create([
+            'role' => 'commercial',
+            'permission_profile_id' => PermissionProfile::where('slug', 'purchasing')->firstOrFail()->id,
+        ]);
+        $this->actingAs($purchaser)->get(route('after-sales.quality.index'))->assertForbidden();
+        $this->get(route('improvement-decisions.index'))->assertInertia(fn (Assert $page) => $page
+            ->component('after-sales/improvements')
+            ->has('proposals.data', 1)
+            ->where('proposals.data.0.id', $stockProposal->id)
+            ->where('proposals.data.0.can_decide', true)
+            ->where('summary.open', 1));
+        $this->getJson(route('action-center'))
+            ->assertOk()
+            ->assertJsonFragment(['label' => 'Improvement decisions'])
+            ->assertJsonFragment(['href' => '/improvement-decisions?status=open#proposal-'.$stockProposal->id]);
+        $this->patch(route('after-sales.quality.corrective-proposals.decision', $stockProposal), [
+            'action' => 'approve', 'note' => 'Supply approves the stock review for a separate controlled application.',
+        ])->assertRedirect()->assertSessionHasNoErrors();
+        $this->assertSame('approved', $stockProposal->refresh()->status);
+        $this->actingAs($admin);
 
         $this->patch(route('after-sales.quality.corrective-plans.transition', $plan), [
             'action' => 'start_verification', 'note' => 'The corrective action is complete and the next comparable cycle will be observed.',
@@ -162,7 +229,9 @@ class RecurringServiceQualityTest extends TestCase
         $this->get(route('after-sales.quality.index'))->assertInertia(fn (Assert $page) => $page
             ->has('correctivePlans', 1)
             ->where('correctivePlans.0.code', $plan->code)
-            ->where('correctivePlans.0.effectiveness_result', 'effective'));
+            ->where('correctivePlans.0.effectiveness_result', 'effective')
+            ->where('summary.pending_improvement_decisions', 0)
+            ->where('summary.conflicting_improvement_proposals', 0));
     }
 
     /** @return array{User, User, ServiceCycleCommitment, InstallationAsset} */

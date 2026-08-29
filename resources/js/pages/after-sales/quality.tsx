@@ -93,6 +93,8 @@ type Props = {
         completed_cycles: number;
         active_corrective_plans: number;
         overdue_corrective_actions: number;
+        pending_improvement_decisions: number;
+        conflicting_improvement_proposals: number;
     };
     businessLines: string[];
     users: User[];
@@ -135,16 +137,23 @@ export default function RecurringServiceQuality({
                             replenishment, profitability or renewals.
                         </p>
                     </div>
-                    <Form action="/after-sales/quality/analyse" method="post">
-                        <Button variant="outline">
-                            <RefreshCw /> Analyse completed cycles
+                    <div className="flex flex-wrap gap-2">
+                        <Button asChild variant="outline">
+                            <Link href="/improvement-decisions">
+                                Review improvement decisions
+                            </Link>
                         </Button>
-                    </Form>
+                        <Form action="/after-sales/quality/analyse" method="post">
+                            <Button variant="outline">
+                                <RefreshCw /> Analyse completed cycles
+                            </Button>
+                        </Form>
+                    </div>
                 </header>
 
                 <AfterSalesSectionNav />
 
-                <section className="grid grid-cols-2 border-y md:grid-cols-4 xl:grid-cols-8">
+                <section className="grid grid-cols-2 border-y md:grid-cols-4 xl:grid-cols-10">
                     <Metric
                         label="Quality score"
                         value={
@@ -185,6 +194,16 @@ export default function RecurringServiceQuality({
                         label="Overdue corrective actions"
                         value={summary.overdue_corrective_actions}
                         attention={summary.overdue_corrective_actions > 0}
+                    />
+                    <Metric
+                        label="Pending improvement decisions"
+                        value={summary.pending_improvement_decisions}
+                        attention={summary.pending_improvement_decisions > 0}
+                    />
+                    <Metric
+                        label="Conflicting proposals"
+                        value={summary.conflicting_improvement_proposals}
+                        attention={summary.conflicting_improvement_proposals > 0}
                     />
                 </section>
 

@@ -11,7 +11,9 @@ use App\Models\PaymentBatchItem;
 use App\Models\PurchaseDocument;
 use App\Models\PurchaseInboxDocument;
 use App\Models\SalesDocument;
+use App\Models\ServiceCorrectiveProposal;
 use App\Models\WorkOrder;
+use App\Services\AfterSales\RecurringServiceCorrectivePlanWorkflow;
 use App\Services\Finance\FinancialAlertService;
 use App\Services\Finance\OutstandingBalanceCalculator;
 use App\Services\Work\TechnicianSchedule;
@@ -25,6 +27,7 @@ class ActionCenterController extends Controller
     public function __construct(
         private OutstandingBalanceCalculator $balances,
         private FinancialAlertService $financialAlerts,
+        private RecurringServiceCorrectivePlanWorkflow $correctiveWorkflow,
     ) {}
 
     public function __invoke(Request $request, TechnicianSchedule $schedule): JsonResponse
@@ -43,6 +46,11 @@ class ActionCenterController extends Controller
             $groups->push($this->supply(), $this->purchaseInbox());
         }
 
+        $improvementTypes = $this->correctiveWorkflow->decisionTypesFor($request->user());
+        if ($improvementTypes !== []) {
+            $groups->push($this->improvementDecisions($improvementTypes));
+        }
+
         if (Gate::allows('approve-purchase-orders')) {
             $groups->push($this->purchaseApprovals());
         }
@@ -58,6 +66,30 @@ class ActionCenterController extends Controller
             'groups' => $groups,
             'generated_at' => now()->toIso8601String(),
         ]);
+    }
+
+    /** @param list<string> $types @return array<string, mixed> */
+    private function improvementDecisions(array $types): array
+    {
+        $query = ServiceCorrectiveProposal::query()
+            ->whereIn('type', $types)
+            ->whereIn('status', ['prepared', 'returned']);
+        $items = (clone $query)
+            ->with('plan:id,code,title')
+            ->orderByRaw("case status when 'prepared' then 0 else 1 end")
+            ->oldest('created_at')
+            ->limit(10)
+            ->get()
+            ->map(fn (ServiceCorrectiveProposal $proposal): array => [
+                'id' => 'improvement-proposal-'.$proposal->id,
+                'title' => $proposal->title,
+                'subtitle' => $proposal->plan->code.' · '.($proposal->status === 'returned' ? __('Returned for revision') : __('Pending decision')),
+                'href' => '/improvement-decisions?status=open#proposal-'.$proposal->id,
+                'severity' => $proposal->status === 'returned' ? 'critical' : 'warning',
+                'due_at' => $proposal->created_at->toIso8601String(),
+            ]);
+
+        return $this->group(__('Improvement decisions'), (clone $query)->count(), $items);
     }
 
     /** @return array<string, mixed> */
