@@ -41,6 +41,10 @@ class DashboardTest extends TestCase
 
         $response = $this->get(route('dashboard'));
         $response->assertOk();
+        $this->assertMatchesRegularExpression(
+            '/^app;dur=\d+(?:\.\d+)?, db;dur=\d+(?:\.\d+)?$/',
+            (string) $response->headers->get('Server-Timing'),
+        );
     }
 
     public function test_dashboard_includes_summary_and_installation_map_data()

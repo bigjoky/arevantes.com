@@ -100,7 +100,7 @@ prioridad sobre añadir pantallas que amplíen deuda de interfaz.
 | Prioridad | Trabajo | Estado y criterio de salida |
 | --------- | ------- | --------------------------- |
 | P0 | Direcciones editables | Primer corte completado. País, provincia, municipio y localidad guardados reconstruyen sus listas dependientes al crear y editar clientes e instalaciones; los catálogos estables se cachean durante 24 horas. |
-| P0 | Rendimiento medible | Pendiente de línea base. Instrumentar tiempos, consultas, payload, caché y Core Web Vitals; después fijar presupuestos por tipo de página y eliminar N+1, cargas no usadas y bundles evitables. |
+| P0 | Rendimiento medible | Primera instrumentación ejecutada. Cada respuesta web expone tiempos de aplicación y base de datos mediante `Server-Timing`; las rutas que superan 750 ms o 500 kB registran ruta, estado, duración, tiempo SQL, tamaño y correlación sin contenido del usuario. Pendiente recoger línea base, añadir Core Web Vitals y optimizar los puntos demostrados. |
 | P0 | Localización completa | En curso. España ya conserva `Spain` como valor canónico y se presenta como `España` en formularios españoles. Ningún otro texto visible puede quedar mezclado y los demás catálogos seguirán el mismo patrón. |
 | P0 | Adaptación móvil integral | En curso continuo. Cada ficha, tabla, diálogo y acción principal debe funcionar desde 320 px sin desbordamiento, pérdida de información ni acciones inaccesibles. |
 | P1 | Sistema único de formularios | Planificado. Unificar cabecera, secciones, espaciado, controles, ayuda, errores, estados de carga y acciones para cliente, instalación y nuevos módulos. |
@@ -805,13 +805,33 @@ revisiones sin cancelar ni reescribir tareas, reservas, documentos o previsiones
 creados. Las operaciones usan bloqueos breves, claves foráneas indexadas y
 restricciones únicas para evitar secuencias duplicadas y carreras de cierre.
 
+## Corte ejecutado — Aprendizaje desde escenarios cerrados
+
+Cada escenario cerrado transforma su fotografía final inmutable en una lectura
+plan-real por operaciones, inventario, compras y finanzas. Las magnitudes conservan
+valor planificado, observado, desviación absoluta y porcentual, unidad y severidad;
+el resumen distingue métricas alineadas, en observación y significativamente
+desviadas.
+
+Las áreas con desviaciones reciben una recomendación explicada para revisar
+capacidad, finalización, materiales, precios, cobros o pagos en el siguiente
+escenario. La lectura referencia la huella del cierre, no hace consultas vivas y
+declara expresamente que nunca aplica cambios automáticos sobre supuestos o datos
+maestros.
+
+Este corte añade también la primera instrumentación transversal de rendimiento.
+Las respuestas web publican tiempos de aplicación y SQL en `Server-Timing`; las que
+superan los presupuestos configurables registran únicamente ruta, método, estado,
+duración, tiempo de base de datos, tamaño y correlación. Así se podrá priorizar con
+datos reales sin guardar payloads ni información del cliente.
+
 ## Próximo corte recomendado
 
-Convertir el histórico de escenarios cerrados en aprendizaje gobernado: comparar
-supuestos con resultados finales por línea de negocio, medir error de ingreso,
-capacidad, materiales y caja, y proponer ajustes explicados para nuevos escenarios.
-Las recomendaciones deberán ser revisables y nunca cambiar supuestos ni datos
-maestros de forma automática.
+Recoger la línea base de las rutas principales y optimizar primero las regresiones
+demostradas. En escenarios, agrupar varios cierres comparables por línea de negocio
+y convertir patrones repetidos en propuestas de calibración versionadas que una
+persona pueda aceptar o descartar; ninguna propuesta modificará supuestos por sí
+sola ni se emitirá con una muestra insuficiente.
 
 ## Corrección transversal — idioma temporal de la plataforma
 

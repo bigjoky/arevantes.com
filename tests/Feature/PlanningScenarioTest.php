@@ -614,6 +614,12 @@ class PlanningScenarioTest extends TestCase
                 ->where('selectedScenario.reviews.0.id', $review->id)
                 ->where('selectedScenario.reviews.1.id', $latestReview->id)
                 ->where('selectedScenario.closer.id', $admin->id)
-                ->where('selectedScenario.closure_snapshot.summary.pending_exceptions', 0));
+                ->where('selectedScenario.closure_snapshot.summary.pending_exceptions', 0)
+                ->where('selectedScenario.learning_summary.source', 'immutable_closure')
+                ->where('selectedScenario.learning_summary.auto_apply', false)
+                ->where('selectedScenario.learning_summary.summary.metrics', 2)
+                ->where('selectedScenario.learning_summary.summary.aligned', 1)
+                ->where('selectedScenario.learning_summary.summary.significant', 1)
+                ->where('selectedScenario.learning_summary.recommendations.0.area', 'operations'));
     }
 }

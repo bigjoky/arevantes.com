@@ -14661,6 +14661,50 @@
         "en": "Spain",
         "es": "España"
     },
+    "Outcome learning": {
+        "en": "Outcome learning",
+        "es": "Aprendizaje del resultado"
+    },
+    "Based only on the immutable closure snapshot.": {
+        "en": "Based only on the immutable closure snapshot.",
+        "es": "Basado únicamente en la fotografía inmutable del cierre."
+    },
+    "Aligned": {
+        "en": "Aligned",
+        "es": "Alineadas"
+    },
+    "Watch": {
+        "en": "Watch",
+        "es": "En observación"
+    },
+    "Significant deviations": {
+        "en": "Significant deviations",
+        "es": "Desviaciones significativas"
+    },
+    "Significant": {
+        "en": "Significant",
+        "es": "Significativa"
+    },
+    "Planned value": {
+        "en": "Planned value",
+        "es": "Valor planificado"
+    },
+    "Observed value": {
+        "en": "Observed value",
+        "es": "Valor observado"
+    },
+    "Variance": {
+        "en": "Variance",
+        "es": "Desviación"
+    },
+    "Recommendations for next scenario": {
+        "en": "Recommendations for next scenario",
+        "es": "Recomendaciones para el siguiente escenario"
+    },
+    "Recommendations never modify assumptions or master data automatically.": {
+        "en": "Recommendations never modify assumptions or master data automatically.",
+        "es": "Las recomendaciones nunca modifican automáticamente los supuestos ni los datos maestros."
+    },
     "Scenario closed": {
         "en": "Scenario closed",
         "es": "Escenario cerrado"

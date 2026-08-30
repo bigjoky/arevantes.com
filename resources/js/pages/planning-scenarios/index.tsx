@@ -137,6 +137,7 @@ type Scenario = {
     closed_at: string | null;
     closer: { id: number; name: string } | null;
     reviews: ScenarioReview[];
+    learning_summary: ScenarioLearning | null;
     approval_eligibility: {
         can_approve: boolean;
         integrity_valid: boolean;
@@ -171,6 +172,34 @@ type ScenarioReview = {
     creator: { id: number; name: string };
 };
 
+type ScenarioLearning = {
+    source: 'immutable_closure';
+    closure_fingerprint: string;
+    auto_apply: false;
+    summary: {
+        metrics: number;
+        aligned: number;
+        watch: number;
+        significant: number;
+    };
+    metrics: Array<{
+        area: string;
+        label: string;
+        unit: 'currency' | 'units' | 'items' | string;
+        planned: number;
+        current: number;
+        delta: number;
+        delta_percent: number | null;
+        severity: 'aligned' | 'watch' | 'significant';
+    }>;
+    recommendations: Array<{
+        area: string;
+        severity: 'watch' | 'significant';
+        message: string;
+        metric_labels: string[];
+    }>;
+};
+
 const money = (value: number, locale: 'en' | 'es') =>
     new Intl.NumberFormat(locale === 'es' ? 'es-ES' : 'en-GB', {
         style: 'currency',
@@ -192,6 +221,19 @@ const scenarioKindLabel = (
 
 const signed = (value: number, suffix = '') =>
     `${value > 0 ? '+' : ''}${value}${suffix}`;
+
+const learningSeverityLabel = (
+    severity: ScenarioLearning['metrics'][number]['severity'],
+) =>
+    severity === 'significant'
+        ? 'Significant'
+        : severity === 'watch'
+          ? 'Watch'
+          : 'Aligned';
+
+const learningSeverityVariant = (
+    severity: ScenarioLearning['metrics'][number]['severity'],
+) => (severity === 'significant' ? 'destructive' : 'outline');
 
 export default function PlanningScenarioIndex({
     scenarios,
@@ -1197,25 +1239,139 @@ function ScenarioLifecycle({
             )}
 
             {scenario.status === 'closed' && scenario.closure_snapshot && (
-                <div className="rounded-md border border-emerald-300 bg-emerald-50/60 p-3 text-sm dark:bg-emerald-950/20">
-                    <div className="font-medium">
-                        {translate('Scenario closed', locale)}
+                <div className="space-y-4">
+                    <div className="rounded-md border border-emerald-300 bg-emerald-50/60 p-3 text-sm dark:bg-emerald-950/20">
+                        <div className="font-medium">
+                            {translate('Scenario closed', locale)}
+                        </div>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                            {translate('Closed by', locale)}{' '}
+                            {scenario.closer?.name} ·{' '}
+                            {scenario.closed_at?.replace('T', ' ').slice(0, 16)}
+                        </p>
+                        <p className="mt-2">{scenario.closure_note}</p>
+                        <OutcomeSummary
+                            snapshot={scenario.closure_snapshot}
+                            locale={locale}
+                        />
+                        <p className="mt-2 font-mono text-[10px] break-all text-muted-foreground">
+                            {translate('Closure fingerprint', locale)}:{' '}
+                            {scenario.closure_fingerprint}
+                        </p>
                     </div>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                        {translate('Closed by', locale)} {scenario.closer?.name}{' '}
-                        · {scenario.closed_at?.replace('T', ' ').slice(0, 16)}
-                    </p>
-                    <p className="mt-2">{scenario.closure_note}</p>
-                    <OutcomeSummary
-                        snapshot={scenario.closure_snapshot}
-                        locale={locale}
-                    />
-                    <p className="mt-2 font-mono text-[10px] break-all text-muted-foreground">
-                        {translate('Closure fingerprint', locale)}:{' '}
-                        {scenario.closure_fingerprint}
-                    </p>
+                    {scenario.learning_summary && (
+                        <ScenarioLearningSummary
+                            learning={scenario.learning_summary}
+                            locale={locale}
+                        />
+                    )}
                 </div>
             )}
+        </div>
+    );
+}
+
+function ScenarioLearningSummary({
+    learning,
+    locale,
+}: {
+    learning: ScenarioLearning;
+    locale: 'en' | 'es';
+}) {
+    const value = (amount: number, unit: string) =>
+        unit === 'currency' ? money(amount, locale) : String(amount);
+
+    return (
+        <div className="space-y-3 rounded-md border border-violet-300 bg-violet-50/50 p-3 text-sm dark:bg-violet-950/20">
+            <div>
+                <h4 className="font-medium">
+                    {translate('Outcome learning', locale)}
+                </h4>
+                <p className="text-xs text-muted-foreground">
+                    {translate(
+                        'Based only on the immutable closure snapshot.',
+                        locale,
+                    )}
+                </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+                <Badge variant="outline">
+                    {translate('Aligned', locale)}: {learning.summary.aligned}
+                </Badge>
+                <Badge variant="outline">
+                    {translate('Watch', locale)}: {learning.summary.watch}
+                </Badge>
+                <Badge variant="outline">
+                    {translate('Significant deviations', locale)}:{' '}
+                    {learning.summary.significant}
+                </Badge>
+            </div>
+            <div className="grid gap-2 md:grid-cols-2">
+                {learning.metrics.map((metric) => (
+                    <div
+                        key={`${metric.area}-${metric.label}`}
+                        className="rounded-md border bg-background/70 p-3"
+                    >
+                        <div className="flex items-start justify-between gap-2">
+                            <div>
+                                <div className="font-medium">
+                                    {translate(metric.label, locale)}
+                                </div>
+                                <div className="text-xs text-muted-foreground capitalize">
+                                    {translate(metric.area, locale)}
+                                </div>
+                            </div>
+                            <Badge
+                                variant={learningSeverityVariant(
+                                    metric.severity,
+                                )}
+                            >
+                                {translate(
+                                    learningSeverityLabel(metric.severity),
+                                    locale,
+                                )}
+                            </Badge>
+                        </div>
+                        <div className="mt-2 grid gap-2 text-xs sm:grid-cols-3">
+                            <span>
+                                {translate('Planned value', locale)}:{' '}
+                                {value(metric.planned, metric.unit)}
+                            </span>
+                            <span>
+                                {translate('Observed value', locale)}:{' '}
+                                {value(metric.current, metric.unit)}
+                            </span>
+                            <span>
+                                {translate('Variance', locale)}:{' '}
+                                {signed(metric.delta)}
+                                {metric.delta_percent !== null
+                                    ? ` (${signed(metric.delta_percent, '%')})`
+                                    : ''}
+                            </span>
+                        </div>
+                    </div>
+                ))}
+            </div>
+            {learning.recommendations.length > 0 && (
+                <div>
+                    <h5 className="font-medium">
+                        {translate('Recommendations for next scenario', locale)}
+                    </h5>
+                    <ul className="mt-1 list-disc space-y-1 pl-5 text-sm">
+                        {learning.recommendations.map((recommendation) => (
+                            <li key={recommendation.area}>
+                                {recommendation.message}
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+            )}
+            <p className="text-xs text-muted-foreground">
+                {translate(
+                    'Recommendations never modify assumptions or master data automatically.',
+                    locale,
+                )}
+            </p>
         </div>
     );
 }

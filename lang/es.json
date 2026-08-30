@@ -1131,5 +1131,10 @@
     "Promote purchase and finance drafts before closing the scenario.": "Promueve los borradores de compras y finanzas antes de cerrar el escenario.",
     "Scenario outcomes changed after the latest review. Record a new review before closing.": "Los resultados del escenario cambiaron después de la última revisión. Registra una nueva revisión antes de cerrar.",
     "Scenario review recorded with a frozen outcome snapshot.": "Revisión del escenario registrada con una fotografía inmutable del resultado.",
-    "Scenario horizon closed without altering native resources.": "Horizonte del escenario cerrado sin alterar los recursos nativos."
+    "Scenario horizon closed without altering native resources.": "Horizonte del escenario cerrado sin alterar los recursos nativos.",
+    "Review capacity and task-completion assumptions before the next scenario.": "Revisa los supuestos de capacidad y finalización de tareas antes del siguiente escenario.",
+    "Review material quantities and consumption assumptions before the next scenario.": "Revisa las cantidades de material y los supuestos de consumo antes del siguiente escenario.",
+    "Review shortage quantities, supplier prices and purchasing assumptions before the next scenario.": "Revisa las cantidades en falta, los precios de proveedor y los supuestos de compra antes del siguiente escenario.",
+    "Review collection timing and material-payment assumptions before the next scenario.": "Revisa los plazos de cobro y los supuestos de pago de materiales antes del siguiente escenario.",
+    "Review this variance before preparing the next scenario.": "Revisa esta desviación antes de preparar el siguiente escenario."
 }

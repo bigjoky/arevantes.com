@@ -6,6 +6,7 @@ use App\Models\Opportunity;
 use App\Models\PlanningScenario;
 use App\Services\Planning\PlanningScenarioApproval;
 use App\Services\Planning\PlanningScenarioIntegrity;
+use App\Services\Planning\PlanningScenarioLearning;
 use App\Services\Planning\PlanningScenarioLifecycle;
 use App\Services\Planning\SharedPortfolioScenario;
 use App\Services\Security\SecurityEventRecorder;
@@ -17,14 +18,14 @@ use Inertia\Response;
 
 class PlanningScenarioController extends Controller
 {
-    public function index(Request $request, PlanningScenarioIntegrity $integrity): Response
+    public function index(Request $request, PlanningScenarioIntegrity $integrity, PlanningScenarioLearning $learning): Response
     {
         $scenarios = PlanningScenario::query()->with([
             'creator:id,name', 'approver:id,name', 'closer:id,name', 'baselineScenario:id,name,version',
             'reviews.creator:id,name',
             'actionRequests:id,planning_scenario_id,area,status',
         ])->latest()->get();
-        $scenarios->each(function (PlanningScenario $scenario) use ($integrity): void {
+        $scenarios->each(function (PlanningScenario $scenario) use ($integrity, $learning): void {
             $integrityValid = $integrity->matches($scenario);
             $referenceFresh = $scenario->reference_valid_until?->isFuture() ?? false;
             $scenario->setAttribute('approval_eligibility', [
@@ -32,6 +33,7 @@ class PlanningScenarioController extends Controller
                 'integrity_valid' => $integrityValid,
                 'reference_fresh' => $referenceFresh,
             ]);
+            $scenario->setAttribute('learning_summary', $learning->for($scenario));
         });
         $selected = $scenarios->firstWhere('id', $request->integer('scenario')) ?: $scenarios->first();
 
