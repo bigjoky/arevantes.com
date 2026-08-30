@@ -14351,5 +14351,81 @@
     "Approval checks the frozen fingerprint and reference freshness without committing resources.": {
         "en": "Approval checks the frozen fingerprint and reference freshness without committing resources.",
         "es": "La aprobación comprueba la huella congelada y la vigencia de las referencias sin comprometer recursos."
+    },
+    "Planning requests": {
+        "en": "Planning requests",
+        "es": "Solicitudes de planificación"
+    },
+    "Each area confirms only its preliminary request. Confirmation records responsibility but does not create operational resources.": {
+        "en": "Each area confirms only its preliminary request. Confirmation records responsibility but does not create operational resources.",
+        "es": "Cada área confirma únicamente su solicitud preliminar. La confirmación registra la responsabilidad, pero no crea recursos operativos."
+    },
+    "There are no planning requests for your areas.": {
+        "en": "There are no planning requests for your areas.",
+        "es": "No hay solicitudes de planificación para tus áreas."
+    },
+    "Confirmed request": {
+        "en": "Confirmed request",
+        "es": "Solicitud confirmada"
+    },
+    "Draft request": {
+        "en": "Draft request",
+        "es": "Solicitud en borrador"
+    },
+    "This request is non-committing and cannot create schedules, reservations, purchases or forecasts.": {
+        "en": "This request is non-committing and cannot create schedules, reservations, purchases or forecasts.",
+        "es": "Esta solicitud no compromete recursos y no puede crear agendas, reservas, compras ni previsiones."
+    },
+    "Confirmed by": {
+        "en": "Confirmed by",
+        "es": "Confirmada por"
+    },
+    "Confirmation note": {
+        "en": "Confirmation note",
+        "es": "Nota de confirmación"
+    },
+    "Confirm area request": {
+        "en": "Confirm area request",
+        "es": "Confirmar solicitud del área"
+    },
+    "Area planning requests": {
+        "en": "Area planning requests",
+        "es": "Solicitudes de planificación por área"
+    },
+    "Create separate non-committing drafts for operations, inventory, purchases and finance.": {
+        "en": "Create separate non-committing drafts for operations, inventory, purchases and finance.",
+        "es": "Crea borradores independientes y no vinculantes para operaciones, almacén, compras y finanzas."
+    },
+    "Generate area drafts": {
+        "en": "Generate area drafts",
+        "es": "Generar borradores por área"
+    },
+    "area requests generated": {
+        "en": "area requests generated",
+        "es": "solicitudes de área generadas"
+    },
+    "Open planning requests": {
+        "en": "Open planning requests",
+        "es": "Abrir solicitudes de planificación"
+    },
+    "Capacity demand": {
+        "en": "Capacity demand",
+        "es": "Demanda de capacidad"
+    },
+    "Scenario overload": {
+        "en": "Scenario overload",
+        "es": "Sobrecarga del escenario"
+    },
+    "Expected material cost": {
+        "en": "Expected material cost",
+        "es": "Coste previsto de materiales"
+    },
+    "Products at risk": {
+        "en": "Products at risk",
+        "es": "Productos en riesgo"
+    },
+    "Weighted revenue": {
+        "en": "Weighted revenue",
+        "es": "Ingresos ponderados"
     }
 }

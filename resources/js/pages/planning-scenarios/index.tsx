@@ -1,6 +1,7 @@
 import { Head, Link, useForm } from '@inertiajs/react';
 import {
     CheckCircle2,
+    ClipboardCheck,
     Clock3,
     GitCompareArrows,
     LockKeyhole,
@@ -135,6 +136,11 @@ type Scenario = {
         integrity_valid: boolean;
         reference_fresh: boolean;
     };
+    action_requests: Array<{
+        id: number;
+        area: 'operations' | 'inventory' | 'purchases' | 'finance';
+        status: 'draft' | 'confirmed';
+    }>;
     creator: { id: number; name: string };
     created_at: string;
 };
@@ -582,6 +588,13 @@ function ScenarioResult({
         string,
         string | undefined
     >;
+    const requestForm = useForm({
+        fingerprint: scenario.approved_fingerprint ?? '',
+    });
+    const requestErrors = requestForm.errors as Record<
+        string,
+        string | undefined
+    >;
 
     return (
         <section className="space-y-4 rounded-lg border p-4">
@@ -894,6 +907,56 @@ function ScenarioResult({
                         </Button>
                     </form>
                 )}
+            {scenario.status === 'approved' && (
+                <div className="space-y-3 rounded-md border border-primary/30 bg-primary/5 p-3">
+                    <div>
+                        <h3 className="text-sm font-medium">
+                            {translate('Area planning requests', locale)}
+                        </h3>
+                        <p className="text-xs text-muted-foreground">
+                            {translate(
+                                'Create separate non-committing drafts for operations, inventory, purchases and finance.',
+                                locale,
+                            )}
+                        </p>
+                    </div>
+                    {scenario.action_requests.length === 0 ? (
+                        <form
+                            onSubmit={(event) => {
+                                event.preventDefault();
+                                requestForm.post(
+                                    `/planning-scenarios/${scenario.id}/requests`,
+                                    { preserveScroll: true },
+                                );
+                            }}
+                        >
+                            <InputError message={requestErrors.requests} />
+                            <Button
+                                type="submit"
+                                disabled={requestForm.processing}
+                            >
+                                <ClipboardCheck />
+                                {translate('Generate area drafts', locale)}
+                            </Button>
+                        </form>
+                    ) : (
+                        <div className="flex items-center justify-between gap-3">
+                            <p className="text-sm">
+                                {scenario.action_requests.length}{' '}
+                                {translate('area requests generated', locale)}
+                            </p>
+                            <Button asChild variant="outline" size="sm">
+                                <Link href="/planning-requests">
+                                    {translate(
+                                        'Open planning requests',
+                                        locale,
+                                    )}
+                                </Link>
+                            </Button>
+                        </div>
+                    )}
+                </div>
+            )}
         </section>
     );
 }

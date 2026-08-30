@@ -51,5 +51,17 @@
     "The scenario changed after it was opened. Refresh it before approval.": "The scenario changed after it was opened. Refresh it before approval.",
     "The scenario fingerprint no longer matches its frozen contents.": "The scenario fingerprint no longer matches its frozen contents.",
     "The capacity and stock references have expired. Freeze a new scenario before approval.": "The capacity and stock references have expired. Freeze a new scenario before approval.",
-    "Scenario approved without committing resources.": "Scenario approved without committing resources."
+    "Scenario approved without committing resources.": "Scenario approved without committing resources.",
+    "Planning requests": "Planning requests",
+    "Only an approved planning scenario can create area requests.": "Only an approved planning scenario can create area requests.",
+    "The approved scenario changed after it was opened. Refresh it before continuing.": "The approved scenario changed after it was opened. Refresh it before continuing.",
+    "The approved scenario failed its integrity check.": "The approved scenario failed its integrity check.",
+    "The approved scenario references have expired. Freeze and approve a new scenario.": "The approved scenario references have expired. Freeze and approve a new scenario.",
+    "Area requests have already been generated for this scenario.": "Area requests have already been generated for this scenario.",
+    "Only draft area requests can be confirmed.": "Only draft area requests can be confirmed.",
+    "The area request changed after it was opened. Refresh it before confirmation.": "The area request changed after it was opened. Refresh it before confirmation.",
+    "The area request failed its integrity check.": "The area request failed its integrity check.",
+    "The originating scenario is no longer the approved version.": "The originating scenario is no longer the approved version.",
+    "Area requests generated as non-committing drafts.": "Area requests generated as non-committing drafts.",
+    "Area request confirmed without creating operational resources.": "Area request confirmed without creating operational resources."
 }

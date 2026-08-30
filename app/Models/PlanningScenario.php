@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class PlanningScenario extends Model
 {
@@ -27,6 +28,11 @@ class PlanningScenario extends Model
     public function baselineScenario(): BelongsTo
     {
         return $this->belongsTo(self::class, 'baseline_scenario_id');
+    }
+
+    public function actionRequests(): HasMany
+    {
+        return $this->hasMany(PlanningScenarioRequest::class);
     }
 
     protected function casts(): array

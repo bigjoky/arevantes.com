@@ -1,0 +1,64 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\PlanningScenario;
+use App\Models\PlanningScenarioRequest;
+use App\Services\Planning\PlanningScenarioRequestWorkflow;
+use App\Services\Security\SecurityEventRecorder;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Inertia\Inertia;
+use Inertia\Response;
+
+class PlanningScenarioRequestController extends Controller
+{
+    public function index(Request $request, PlanningScenarioRequestWorkflow $workflow): Response
+    {
+        $areas = $workflow->areasFor($request->user());
+        abort_if($areas === [], 403);
+
+        return Inertia::render('planning-scenario-requests/index', [
+            'areas' => $areas,
+            'requests' => PlanningScenarioRequest::query()
+                ->whereIn('area', $areas)
+                ->with(['scenario:id,name,version,horizon_starts_on,horizon_ends_on', 'generator:id,name', 'confirmer:id,name'])
+                ->orderByRaw("case status when 'draft' then 0 else 1 end")
+                ->latest()
+                ->get(),
+        ]);
+    }
+
+    public function generate(Request $request, PlanningScenario $scenario, PlanningScenarioRequestWorkflow $workflow, SecurityEventRecorder $events): RedirectResponse
+    {
+        $data = $request->validate(['fingerprint' => ['required', 'string', 'size:64']]);
+        $requests = $workflow->generate($scenario, $request->user(), $data['fingerprint']);
+        $events->record('planning_scenario_requests_generated', $request->user(), [
+            'planning_scenario_id' => $scenario->id,
+            'areas' => $requests->pluck('area')->all(),
+            'approved_fingerprint' => $data['fingerprint'],
+            'non_committing' => true,
+        ]);
+
+        return redirect()->route('planning-scenario-requests.index')
+            ->with('toast', ['type' => 'success', 'message' => __('Area requests generated as non-committing drafts.')]);
+    }
+
+    public function confirm(Request $request, PlanningScenarioRequest $scenarioRequest, PlanningScenarioRequestWorkflow $workflow, SecurityEventRecorder $events): RedirectResponse
+    {
+        $data = $request->validate([
+            'fingerprint' => ['required', 'string', 'size:64'],
+            'confirmation_note' => ['required', 'string', 'min:3', 'max:1000'],
+        ]);
+        $confirmed = $workflow->confirm($scenarioRequest, $request->user(), $data['fingerprint'], $data['confirmation_note']);
+        $events->record('planning_scenario_request_confirmed', $request->user(), [
+            'planning_scenario_request_id' => $confirmed->id,
+            'planning_scenario_id' => $confirmed->planning_scenario_id,
+            'area' => $confirmed->area,
+            'request_fingerprint' => $confirmed->request_fingerprint,
+            'non_committing' => true,
+        ]);
+
+        return back()->with('toast', ['type' => 'success', 'message' => __('Area request confirmed without creating operational resources.')]);
+    }
+}

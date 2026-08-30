@@ -18,7 +18,10 @@ class PlanningScenarioController extends Controller
 {
     public function index(Request $request, PlanningScenarioIntegrity $integrity): Response
     {
-        $scenarios = PlanningScenario::query()->with(['creator:id,name', 'approver:id,name', 'baselineScenario:id,name,version'])->latest()->get();
+        $scenarios = PlanningScenario::query()->with([
+            'creator:id,name', 'approver:id,name', 'baselineScenario:id,name,version',
+            'actionRequests:id,planning_scenario_id,area,status',
+        ])->latest()->get();
         $scenarios->each(function (PlanningScenario $scenario) use ($integrity): void {
             $integrityValid = $integrity->matches($scenario);
             $referenceFresh = $scenario->reference_valid_until?->isFuture() ?? false;

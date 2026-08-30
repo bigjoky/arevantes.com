@@ -52,6 +52,7 @@ use App\Http\Controllers\OperationsController;
 use App\Http\Controllers\OpportunityController;
 use App\Http\Controllers\PersonController;
 use App\Http\Controllers\PlanningScenarioController;
+use App\Http\Controllers\PlanningScenarioRequestController;
 use App\Http\Controllers\PortfolioProjectAdminController;
 use App\Http\Controllers\PortfolioProjectImageController;
 use App\Http\Controllers\PublicProjectController;
@@ -451,6 +452,9 @@ Route::middleware(['auth'])->group(function () {
     Route::get('planning-scenarios', [PlanningScenarioController::class, 'index'])->middleware('can:manage-admin')->name('planning-scenarios.index');
     Route::post('planning-scenarios', [PlanningScenarioController::class, 'store'])->middleware('can:manage-admin')->name('planning-scenarios.store');
     Route::post('planning-scenarios/{scenario}/approval', [PlanningScenarioController::class, 'approve'])->middleware('can:manage-admin')->name('planning-scenarios.approval.store');
+    Route::post('planning-scenarios/{scenario}/requests', [PlanningScenarioRequestController::class, 'generate'])->middleware('can:manage-admin')->name('planning-scenarios.requests.store');
+    Route::get('planning-requests', [PlanningScenarioRequestController::class, 'index'])->name('planning-scenario-requests.index');
+    Route::post('planning-requests/{scenarioRequest}/confirmation', [PlanningScenarioRequestController::class, 'confirm'])->name('planning-scenario-requests.confirmation.store');
     Route::get('quotes/create', [QuoteController::class, 'create'])->middleware('can:manage-quotes')->name('quotes.create');
     Route::post('quotes', [QuoteController::class, 'store'])->middleware('can:manage-quotes')->name('quotes.store');
     Route::get('quotes/{quote}', [QuoteController::class, 'show'])->middleware('can:manage-quotes')->name('quotes.show');

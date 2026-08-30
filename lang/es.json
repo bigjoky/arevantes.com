@@ -1071,5 +1071,17 @@
     "The scenario changed after it was opened. Refresh it before approval.": "El escenario ha cambiado desde que se abrió. Actualízalo antes de aprobarlo.",
     "The scenario fingerprint no longer matches its frozen contents.": "La huella del escenario ya no coincide con su contenido congelado.",
     "The capacity and stock references have expired. Freeze a new scenario before approval.": "Las referencias de capacidad y stock han caducado. Congela un escenario nuevo antes de aprobarlo.",
-    "Scenario approved without committing resources.": "Escenario aprobado sin comprometer recursos."
+    "Scenario approved without committing resources.": "Escenario aprobado sin comprometer recursos.",
+    "Planning requests": "Solicitudes de planificación",
+    "Only an approved planning scenario can create area requests.": "Solo un escenario de planificación aprobado puede crear solicitudes por área.",
+    "The approved scenario changed after it was opened. Refresh it before continuing.": "El escenario aprobado ha cambiado desde que se abrió. Actualízalo antes de continuar.",
+    "The approved scenario failed its integrity check.": "El escenario aprobado no ha superado la comprobación de integridad.",
+    "The approved scenario references have expired. Freeze and approve a new scenario.": "Las referencias del escenario aprobado han caducado. Congela y aprueba un escenario nuevo.",
+    "Area requests have already been generated for this scenario.": "Las solicitudes por área ya se han generado para este escenario.",
+    "Only draft area requests can be confirmed.": "Solo se pueden confirmar solicitudes de área en borrador.",
+    "The area request changed after it was opened. Refresh it before confirmation.": "La solicitud del área ha cambiado desde que se abrió. Actualízala antes de confirmarla.",
+    "The area request failed its integrity check.": "La solicitud del área no ha superado la comprobación de integridad.",
+    "The originating scenario is no longer the approved version.": "El escenario de origen ya no es la versión aprobada.",
+    "Area requests generated as non-committing drafts.": "Solicitudes por área generadas como borradores sin compromiso de recursos.",
+    "Area request confirmed without creating operational resources.": "Solicitud del área confirmada sin crear recursos operativos."
 }

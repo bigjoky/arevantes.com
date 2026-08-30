@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Opportunity;
 use App\Models\Person;
 use App\Models\PlanningScenario;
+use App\Models\PlanningScenarioRequest;
 use App\Models\Product;
 use App\Models\Quote;
 use App\Models\StockMovement;
@@ -124,6 +125,61 @@ class PlanningScenarioTest extends TestCase
         $this->post(route('planning-scenarios.approval.store', $risk), [
             'fingerprint' => $risk->fingerprint,
         ])->assertSessionHasErrors('approval');
+
+        $this->post(route('planning-scenarios.requests.store', $risk), [
+            'fingerprint' => $risk->approved_fingerprint,
+        ])->assertRedirect(route('planning-scenario-requests.index'));
+        $this->assertDatabaseCount('planning_scenario_requests', 4);
+        $this->assertSame(
+            ['finance', 'inventory', 'operations', 'purchases'],
+            PlanningScenarioRequest::query()->orderBy('area')->pluck('area')->all(),
+        );
+        $operationRequest = PlanningScenarioRequest::where('area', 'operations')->firstOrFail();
+        $this->assertSame('draft', $operationRequest->status);
+        $this->assertSame($risk->approved_fingerprint, $operationRequest->approved_fingerprint);
+        $this->assertTrue($operationRequest->payload['non_committing']);
+        $this->assertDatabaseHas('security_events', ['type' => 'planning_scenario_requests_generated']);
+        $this->post(route('planning-scenarios.requests.store', $risk), [
+            'fingerprint' => $risk->approved_fingerprint,
+        ])->assertSessionHasErrors('requests');
+
+        $purchaseRequest = PlanningScenarioRequest::where('area', 'purchases')->firstOrFail();
+        $purchaseRequest->update(['payload' => [...$purchaseRequest->payload, 'expected_material_cost' => 999999]]);
+        $this->post(route('planning-scenario-requests.confirmation.store', $purchaseRequest), [
+            'fingerprint' => $purchaseRequest->request_fingerprint,
+            'confirmation_note' => 'Tampered request.',
+        ])->assertSessionHasErrors('confirmation');
+
+        $technician = User::factory()->create(['role' => 'technician']);
+        $inventoryRequest = PlanningScenarioRequest::where('area', 'inventory')->firstOrFail();
+        $this->actingAs($technician)->post(route('planning-scenario-requests.confirmation.store', $inventoryRequest), [
+            'fingerprint' => $inventoryRequest->request_fingerprint,
+            'confirmation_note' => 'Inventory reviewed.',
+        ])->assertForbidden();
+        $this->get(route('planning-scenario-requests.index'))
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('planning-scenario-requests/index')
+                ->has('requests', 1)
+                ->where('requests.0.area', 'operations'));
+        $this->post(route('planning-scenario-requests.confirmation.store', $operationRequest), [
+            'fingerprint' => str_repeat('b', 64),
+            'confirmation_note' => 'Operations reviewed.',
+        ])->assertSessionHasErrors('confirmation');
+        $this->post(route('planning-scenario-requests.confirmation.store', $operationRequest), [
+            'fingerprint' => $operationRequest->request_fingerprint,
+            'confirmation_note' => 'Capacity and opportunity workload reviewed.',
+        ])->assertRedirect();
+        $operationRequest->refresh();
+        $this->assertSame('confirmed', $operationRequest->status);
+        $this->assertSame($technician->id, $operationRequest->confirmed_by);
+        $this->assertDatabaseHas('security_events', [
+            'type' => 'planning_scenario_request_confirmed',
+            'user_id' => $technician->id,
+        ]);
+        $this->post(route('planning-scenario-requests.confirmation.store', $operationRequest), [
+            'fingerprint' => $operationRequest->request_fingerprint,
+            'confirmation_note' => 'Duplicate confirmation.',
+        ])->assertSessionHasErrors('confirmation');
 
         $withoutQuote->update(['estimated_value' => 99999, 'probability' => 1]);
         $this->assertSame(10000.0, (float) $scenario->fresh()->opportunity_snapshot['opportunities'][0]['confirmed']['value']);

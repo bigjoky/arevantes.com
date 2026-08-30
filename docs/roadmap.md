@@ -625,12 +625,27 @@ de seguridad. Los escenarios anteriores a este control deben volver a congelarse
 La aprobación no crea órdenes, reservas, movimientos, compras, pagos, previsiones ni
 comunicaciones; solo identifica de forma auditable el escenario elegido.
 
+## Corte ejecutado — Solicitudes preliminares por área
+
+Un escenario aprobado y todavía vigente puede generar una sola vez cuatro
+solicitudes independientes: operaciones, almacén, compras y finanzas. Cada una copia
+únicamente su carga de trabajo, materiales, faltas o caja, conserva la huella
+aprobada y añade una huella propia del contenido. Todas nacen como borrador y no
+consultan después datos vivos para reescribir su fotografía.
+
+La bandeja filtra las solicitudes según los permisos reales de cada usuario. La
+confirmación exige una nota, compara la huella mostrada, recalcula la integridad,
+bloquea decisiones concurrentes y registra responsable, fecha y evento de
+seguridad. Ni la generación ni la confirmación crean agendas, órdenes, reservas,
+compras, pagos o previsiones.
+
 ## Próximo corte recomendado
 
-Materializar desde un escenario aprobado solicitudes preliminares e independientes
-para operaciones, almacén, compras y finanzas. Cada solicitud deberá conservar la
-huella aprobada, nacer en borrador y exigir confirmación expresa del responsable del
-área antes de crear agenda, reserva, compra, previsión o comunicación alguna.
+Añadir a cada solicitud confirmada una previsualización de materialización, con
+revalidación de conflictos, claves de idempotencia y una segunda decisión de
+ejecución. Operaciones y almacén iniciarán el circuito con el mismo contrato de
+seguridad que después usarán compras y finanzas, manteniendo los cuatro avances
+alineados y reversibles.
 
 ## Corrección transversal — idioma temporal de la plataforma
 
