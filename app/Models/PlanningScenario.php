@@ -13,6 +13,7 @@ class PlanningScenario extends Model
         'assumptions', 'opportunity_snapshot', 'result_snapshot', 'fingerprint',
         'reference_snapshot', 'reference_valid_until', 'comparison_snapshot', 'created_by', 'approved_by', 'approved_at',
         'approved_fingerprint', 'approval_note',
+        'closure_snapshot', 'closure_fingerprint', 'closure_note', 'closed_by', 'closed_at',
     ];
 
     public function creator(): BelongsTo
@@ -35,6 +36,16 @@ class PlanningScenario extends Model
         return $this->hasMany(PlanningScenarioRequest::class);
     }
 
+    public function reviews(): HasMany
+    {
+        return $this->hasMany(PlanningScenarioReview::class)->orderBy('sequence');
+    }
+
+    public function closer(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'closed_by');
+    }
+
     protected function casts(): array
     {
         return [
@@ -47,6 +58,8 @@ class PlanningScenario extends Model
             'reference_valid_until' => 'datetime',
             'comparison_snapshot' => 'array',
             'approved_at' => 'datetime',
+            'closure_snapshot' => 'array',
+            'closed_at' => 'datetime',
         ];
     }
 }

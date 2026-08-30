@@ -519,4 +519,101 @@ class PlanningScenarioTest extends TestCase
         $this->assertDatabaseCount('work_orders', 0);
         $this->assertDatabaseCount('financial_forecast_items', 0);
     }
+
+    public function test_admin_records_immutable_reviews_and_closes_an_executed_scenario_without_altering_resources(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $commercial = User::factory()->create(['role' => 'commercial']);
+        $scenario = PlanningScenario::create([
+            'name' => 'Reviewed horizon', 'version' => 1, 'status' => 'approved', 'scenario_kind' => 'base',
+            'horizon_starts_on' => '2026-09-01', 'horizon_ends_on' => '2026-12-31',
+            'assumptions' => ['capacity_hours_per_opportunity' => 40],
+            'opportunity_snapshot' => ['opportunities' => []],
+            'result_snapshot' => ['summary' => ['opportunities' => 0], 'materials' => [], 'cash_by_month' => [], 'non_committing' => true],
+            'reference_snapshot' => ['captured_at' => now()->toIso8601String(), 'capacity' => [], 'stock' => []],
+            'comparison_snapshot' => null, 'fingerprint' => str_repeat('0', 64),
+            'created_by' => $admin->id, 'approved_by' => $admin->id, 'approved_at' => now(),
+        ]);
+        $fingerprint = app(PlanningScenarioIntegrity::class)->for($scenario);
+        $scenario->update(['fingerprint' => $fingerprint, 'approved_fingerprint' => $fingerprint]);
+        $operationsRequest = $this->executedRequest($scenario->fresh(), $admin, 'operations', [
+            'kind' => 'operational_agenda', 'activity_ids' => [],
+        ]);
+        $activity = CrmActivity::create([
+            'planning_scenario_request_id' => $operationsRequest->id, 'created_by' => $admin->id,
+            'type' => 'task', 'title' => 'Pending planning result', 'status' => 'pending', 'due_at' => now()->subDay(),
+        ]);
+
+        $this->actingAs($commercial)->post(route('planning-scenarios.reviews.store', $scenario), [
+            'approved_fingerprint' => $fingerprint,
+            'explanation' => 'Commercial users cannot govern scenario reviews.',
+        ])->assertForbidden();
+
+        $this->actingAs($admin)->post(route('planning-scenarios.reviews.store', $scenario), [
+            'approved_fingerprint' => $fingerprint,
+            'explanation' => 'The open task remains overdue and still needs an owner.',
+        ])->assertRedirect();
+
+        $review = $scenario->reviews()->firstOrFail();
+        $this->assertSame(1, $review->sequence);
+        $this->assertSame(1, $review->outcome_snapshot['summary']['resources']);
+        $this->assertSame(2, $review->outcome_snapshot['summary']['pending_exceptions']);
+        $this->assertDatabaseHas('security_events', ['type' => 'planning_scenario_review_recorded', 'user_id' => $admin->id]);
+
+        $this->post(route('planning-scenarios.closure.store', $scenario), [
+            'approved_fingerprint' => $fingerprint,
+            'review_fingerprint' => str_repeat('f', 64),
+            'closure_note' => 'Close with a stale review fingerprint.',
+            'acknowledge_exceptions' => '1',
+        ])->assertSessionHasErrors('closure');
+        $this->post(route('planning-scenarios.closure.store', $scenario), [
+            'approved_fingerprint' => $fingerprint,
+            'review_fingerprint' => $review->fingerprint,
+            'closure_note' => 'Close without acknowledging the remaining exceptions.',
+        ])->assertSessionHasErrors('acknowledge_exceptions');
+
+        $activity->update(['assigned_user_id' => $admin->id, 'due_at' => now()->addDay()]);
+        $this->post(route('planning-scenarios.closure.store', $scenario), [
+            'approved_fingerprint' => $fingerprint,
+            'review_fingerprint' => $review->fingerprint,
+            'closure_note' => 'The result changed after the review and must be reviewed again.',
+            'acknowledge_exceptions' => '1',
+        ])->assertSessionHasErrors('closure');
+        $this->post(route('planning-scenarios.reviews.store', $scenario), [
+            'approved_fingerprint' => $fingerprint,
+            'explanation' => 'The overdue task now has an owner and a future target.',
+        ])->assertRedirect();
+        $latestReview = $scenario->reviews()->reorder()->latest('sequence')->firstOrFail();
+        $this->assertSame(2, $latestReview->sequence);
+        $this->assertSame(0, $latestReview->outcome_snapshot['summary']['pending_exceptions']);
+
+        $this->post(route('planning-scenarios.closure.store', $scenario), [
+            'approved_fingerprint' => $fingerprint,
+            'review_fingerprint' => $latestReview->fingerprint,
+            'closure_note' => 'The horizon is complete and native follow-up will continue.',
+            'acknowledge_exceptions' => '1',
+        ])->assertRedirect();
+
+        $closed = $scenario->fresh();
+        $this->assertSame('closed', $closed->status);
+        $this->assertSame($admin->id, $closed->closed_by);
+        $this->assertNotNull($closed->closed_at);
+        $this->assertNotNull($closed->closure_fingerprint);
+        $this->assertSame(0, $closed->closure_snapshot['summary']['pending_exceptions']);
+        $this->assertSame(2, $review->fresh()->outcome_snapshot['summary']['pending_exceptions']);
+        $this->assertDatabaseHas('crm_activities', ['id' => $activity->id, 'status' => 'pending']);
+        $this->assertDatabaseHas('security_events', ['type' => 'planning_scenario_closed', 'user_id' => $admin->id]);
+
+        $this->post(route('planning-scenarios.reviews.store', $scenario), [
+            'approved_fingerprint' => $fingerprint,
+            'explanation' => 'Closed scenarios cannot receive another review.',
+        ])->assertSessionHasErrors('lifecycle');
+        $this->get(route('planning-scenarios.index', ['scenario' => $scenario]))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('selectedScenario.status', 'closed')
+                ->where('selectedScenario.reviews.0.id', $review->id)
+                ->where('selectedScenario.reviews.1.id', $latestReview->id)
+                ->where('selectedScenario.closer.id', $admin->id)
+                ->where('selectedScenario.closure_snapshot.summary.pending_exceptions', 0));
+    }
 }

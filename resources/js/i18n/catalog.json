@@ -14656,5 +14656,73 @@
     "Opportunity is no longer open": {
         "en": "Opportunity is no longer open",
         "es": "La oportunidad ya no está abierta"
+    },
+    "Scenario closed": {
+        "en": "Scenario closed",
+        "es": "Escenario cerrado"
+    },
+    "Scenario reviews": {
+        "en": "Scenario reviews",
+        "es": "Revisiones del escenario"
+    },
+    "Each milestone freezes the current result and its explanation without rewriting the approved scenario.": {
+        "en": "Each milestone freezes the current result and its explanation without rewriting the approved scenario.",
+        "es": "Cada hito congela el resultado actual y su explicación sin reescribir el escenario aprobado."
+    },
+    "Review": {
+        "en": "Review",
+        "es": "Revisión"
+    },
+    "Review explanation": {
+        "en": "Review explanation",
+        "es": "Explicación de la revisión"
+    },
+    "Record review": {
+        "en": "Record review",
+        "es": "Registrar revisión"
+    },
+    "Close scenario horizon": {
+        "en": "Close scenario horizon",
+        "es": "Cerrar horizonte del escenario"
+    },
+    "Closure requires all area requests to be executed and preserves their native resources.": {
+        "en": "Closure requires all area requests to be executed and preserves their native resources.",
+        "es": "El cierre exige ejecutar todas las solicitudes de área y conserva sus recursos nativos."
+    },
+    "Closure note": {
+        "en": "Closure note",
+        "es": "Nota de cierre"
+    },
+    "I acknowledge pending exceptions and understand native resources will continue independently.": {
+        "en": "I acknowledge pending exceptions and understand native resources will continue independently.",
+        "es": "Reconozco las excepciones pendientes y entiendo que los recursos nativos continuarán de forma independiente."
+    },
+    "Close scenario": {
+        "en": "Close scenario",
+        "es": "Cerrar escenario"
+    },
+    "Closed by": {
+        "en": "Closed by",
+        "es": "Cerrado por"
+    },
+    "Closure fingerprint": {
+        "en": "Closure fingerprint",
+        "es": "Huella del cierre"
+    },
+    "Area requests": {
+        "en": "Area requests",
+        "es": "Solicitudes de área"
+    },
+    "Requests executed": {
+        "en": "Requests executed",
+        "es": "Solicitudes ejecutadas"
+    },
+    "Resources tracked": {
+        "en": "Resources tracked",
+        "es": "Recursos trazados"
+    },
+    "Pending exceptions": {
+        "en": "Pending exceptions",
+        "es": "Excepciones pendientes"
     }
 }

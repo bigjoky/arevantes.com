@@ -1120,5 +1120,16 @@
     "Only an executed request with matching generated resources can govern exceptions.": "Solo una solicitud ejecutada con recursos generados coincidentes puede gestionar excepciones.",
     "Open planning tasks assigned with a target date.": "Tareas abiertas de planificación asignadas con fecha objetivo.",
     "Expired planning reservations renewed.": "Reservas de planificación caducadas renovadas.",
-    "Expired planning reservations released.": "Reservas de planificación caducadas liberadas."
+    "Expired planning reservations released.": "Reservas de planificación caducadas liberadas.",
+    "Generate the area requests before recording a scenario review.": "Genera las solicitudes de las áreas antes de registrar una revisión del escenario.",
+    "Record at least one review before closing the scenario.": "Registra al menos una revisión antes de cerrar el escenario.",
+    "The latest scenario review changed after it was opened. Refresh before closing.": "La última revisión del escenario cambió después de abrirla. Actualiza antes de cerrar.",
+    "Only an approved open scenario can be reviewed or closed.": "Solo se puede revisar o cerrar un escenario aprobado y abierto.",
+    "The approved scenario changed after it was opened. Refresh before continuing.": "El escenario aprobado cambió después de abrirlo. Actualiza antes de continuar.",
+    "The approved scenario failed its integrity check.": "El escenario aprobado no ha superado la comprobación de integridad.",
+    "Execute every area request before closing the scenario.": "Ejecuta todas las solicitudes de área antes de cerrar el escenario.",
+    "Promote purchase and finance drafts before closing the scenario.": "Promueve los borradores de compras y finanzas antes de cerrar el escenario.",
+    "Scenario outcomes changed after the latest review. Record a new review before closing.": "Los resultados del escenario cambiaron después de la última revisión. Registra una nueva revisión antes de cerrar.",
+    "Scenario review recorded with a frozen outcome snapshot.": "Revisión del escenario registrada con una fotografía inmutable del resultado.",
+    "Scenario horizon closed without altering native resources.": "Horizonte del escenario cerrado sin alterar los recursos nativos."
 }

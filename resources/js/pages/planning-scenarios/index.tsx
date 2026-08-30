@@ -131,6 +131,12 @@ type Scenario = {
     approval_note: string | null;
     approved_at: string | null;
     approver: { id: number; name: string } | null;
+    closure_snapshot: OutcomeSnapshot | null;
+    closure_fingerprint: string | null;
+    closure_note: string | null;
+    closed_at: string | null;
+    closer: { id: number; name: string } | null;
+    reviews: ScenarioReview[];
     approval_eligibility: {
         can_approve: boolean;
         integrity_valid: boolean;
@@ -143,6 +149,26 @@ type Scenario = {
     }>;
     creator: { id: number; name: string };
     created_at: string;
+};
+
+type OutcomeSnapshot = {
+    captured_at: string;
+    summary: {
+        requests: number;
+        executed: number;
+        resources: number;
+        pending_exceptions: number;
+    };
+};
+
+type ScenarioReview = {
+    id: number;
+    sequence: number;
+    outcome_snapshot: OutcomeSnapshot;
+    fingerprint: string;
+    explanation: string;
+    reviewed_at: string;
+    creator: { id: number; name: string };
 };
 
 const money = (value: number, locale: 'en' | 'es') =>
@@ -519,15 +545,21 @@ export default function PlanningScenarioIndex({
                                                 </span>
                                             </span>
                                             <Badge variant="outline">
-                                                {scenario.status === 'approved'
+                                                {scenario.status === 'closed'
                                                     ? translate(
-                                                          'Scenario approved',
+                                                          'Scenario closed',
                                                           locale,
                                                       )
-                                                    : scenarioKindLabel(
-                                                          scenario.scenario_kind,
-                                                          locale,
-                                                      )}
+                                                    : scenario.status ===
+                                                        'approved'
+                                                      ? translate(
+                                                            'Scenario approved',
+                                                            locale,
+                                                        )
+                                                      : scenarioKindLabel(
+                                                            scenario.scenario_kind,
+                                                            locale,
+                                                        )}
                                             </Badge>
                                         </Link>
                                     </Button>
@@ -612,7 +644,9 @@ function ScenarioResult({
                     <Badge variant="outline">
                         {scenarioKindLabel(scenario.scenario_kind, locale)}
                     </Badge>
-                    {scenario.status === 'approved' ? (
+                    {scenario.status === 'closed' ? (
+                        <LockKeyhole className="size-5 text-slate-600" />
+                    ) : scenario.status === 'approved' ? (
                         <ShieldCheck className="size-5 text-emerald-600" />
                     ) : (
                         <CheckCircle2 className="size-5 text-sky-600" />
@@ -622,9 +656,11 @@ function ScenarioResult({
             <div className="rounded-md border bg-muted/30 p-3 text-sm">
                 <div className="flex items-center justify-between gap-3">
                     <span className="font-medium">
-                        {scenario.status === 'approved'
-                            ? translate('Scenario approved', locale)
-                            : translate('Frozen', locale)}
+                        {scenario.status === 'closed'
+                            ? translate('Scenario closed', locale)
+                            : scenario.status === 'approved'
+                              ? translate('Scenario approved', locale)
+                              : translate('Frozen', locale)}
                     </span>
                     {scenario.reference_valid_until && (
                         <span className="flex items-center gap-1 text-xs text-muted-foreground">
@@ -636,7 +672,9 @@ function ScenarioResult({
                         </span>
                     )}
                 </div>
-                {scenario.status === 'approved' && scenario.approver ? (
+                {(scenario.status === 'approved' ||
+                    scenario.status === 'closed') &&
+                scenario.approver ? (
                     <div className="mt-1 space-y-1 text-xs text-muted-foreground">
                         <p>
                             {translate('Approved by', locale)}{' '}
@@ -957,7 +995,257 @@ function ScenarioResult({
                     )}
                 </div>
             )}
+            {(scenario.status === 'approved' ||
+                scenario.status === 'closed') && (
+                <ScenarioLifecycle scenario={scenario} locale={locale} />
+            )}
         </section>
+    );
+}
+
+function ScenarioLifecycle({
+    scenario,
+    locale,
+}: {
+    scenario: Scenario;
+    locale: 'en' | 'es';
+}) {
+    const latestReview = scenario.reviews.at(-1) ?? null;
+    const reviewForm = useForm({
+        approved_fingerprint: scenario.approved_fingerprint ?? '',
+        explanation: '',
+    });
+    const closureForm = useForm({
+        approved_fingerprint: scenario.approved_fingerprint ?? '',
+        review_fingerprint: latestReview?.fingerprint ?? '',
+        closure_note: '',
+        acknowledge_exceptions: false,
+    });
+    const reviewErrors = reviewForm.errors as Record<
+        string,
+        string | undefined
+    >;
+    const closureErrors = closureForm.errors as Record<
+        string,
+        string | undefined
+    >;
+
+    return (
+        <div className="space-y-4 rounded-md border border-slate-300 p-3 dark:border-slate-700">
+            <div>
+                <h3 className="text-sm font-medium">
+                    {translate('Scenario reviews', locale)}
+                </h3>
+                <p className="text-xs text-muted-foreground">
+                    {translate(
+                        'Each milestone freezes the current result and its explanation without rewriting the approved scenario.',
+                        locale,
+                    )}
+                </p>
+            </div>
+
+            {scenario.reviews.length > 0 && (
+                <div className="space-y-2">
+                    {scenario.reviews.map((review) => (
+                        <div
+                            key={review.id}
+                            className="rounded-md bg-muted/50 p-3 text-sm"
+                        >
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                                <span className="font-medium">
+                                    {translate('Review', locale)} #
+                                    {review.sequence}
+                                </span>
+                                <span className="text-xs text-muted-foreground">
+                                    {review.creator.name} ·{' '}
+                                    {review.reviewed_at
+                                        .replace('T', ' ')
+                                        .slice(0, 16)}
+                                </span>
+                            </div>
+                            <p className="mt-1">{review.explanation}</p>
+                            <OutcomeSummary
+                                snapshot={review.outcome_snapshot}
+                                locale={locale}
+                            />
+                            <p className="mt-2 font-mono text-[10px] break-all text-muted-foreground">
+                                {review.fingerprint}
+                            </p>
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            {scenario.status === 'approved' &&
+                scenario.action_requests.length > 0 && (
+                    <form
+                        className="space-y-3"
+                        onSubmit={(event) => {
+                            event.preventDefault();
+                            reviewForm.post(
+                                `/planning-scenarios/${scenario.id}/reviews`,
+                                {
+                                    preserveScroll: true,
+                                    onSuccess: () =>
+                                        reviewForm.reset('explanation'),
+                                },
+                            );
+                        }}
+                    >
+                        <Label htmlFor={`review-explanation-${scenario.id}`}>
+                            {translate('Review explanation', locale)}
+                        </Label>
+                        <Textarea
+                            id={`review-explanation-${scenario.id}`}
+                            value={reviewForm.data.explanation}
+                            onChange={(event) =>
+                                reviewForm.setData(
+                                    'explanation',
+                                    event.target.value,
+                                )
+                            }
+                            rows={3}
+                            maxLength={3000}
+                            required
+                        />
+                        <InputError message={reviewForm.errors.explanation} />
+                        <InputError
+                            message={
+                                reviewErrors.review ?? reviewErrors.lifecycle
+                            }
+                        />
+                        <Button
+                            type="submit"
+                            variant="outline"
+                            disabled={reviewForm.processing}
+                        >
+                            <ClipboardCheck />
+                            {translate('Record review', locale)}
+                        </Button>
+                    </form>
+                )}
+
+            {scenario.status === 'approved' && latestReview && (
+                <form
+                    className="space-y-3 border-t pt-4"
+                    onSubmit={(event) => {
+                        event.preventDefault();
+                        closureForm.post(
+                            `/planning-scenarios/${scenario.id}/closure`,
+                            { preserveScroll: true },
+                        );
+                    }}
+                >
+                    <div>
+                        <h4 className="text-sm font-medium">
+                            {translate('Close scenario horizon', locale)}
+                        </h4>
+                        <p className="text-xs text-muted-foreground">
+                            {translate(
+                                'Closure requires all area requests to be executed and preserves their native resources.',
+                                locale,
+                            )}
+                        </p>
+                    </div>
+                    <Label htmlFor={`closure-note-${scenario.id}`}>
+                        {translate('Closure note', locale)}
+                    </Label>
+                    <Textarea
+                        id={`closure-note-${scenario.id}`}
+                        value={closureForm.data.closure_note}
+                        onChange={(event) =>
+                            closureForm.setData(
+                                'closure_note',
+                                event.target.value,
+                            )
+                        }
+                        rows={3}
+                        maxLength={3000}
+                        required
+                    />
+                    <InputError message={closureForm.errors.closure_note} />
+                    <label className="flex items-start gap-2 text-sm">
+                        <Checkbox
+                            checked={closureForm.data.acknowledge_exceptions}
+                            onCheckedChange={(checked) =>
+                                closureForm.setData(
+                                    'acknowledge_exceptions',
+                                    checked === true,
+                                )
+                            }
+                        />
+                        <span>
+                            {translate(
+                                'I acknowledge pending exceptions and understand native resources will continue independently.',
+                                locale,
+                            )}
+                        </span>
+                    </label>
+                    <InputError
+                        message={closureForm.errors.acknowledge_exceptions}
+                    />
+                    <InputError
+                        message={
+                            closureErrors.closure ?? closureErrors.lifecycle
+                        }
+                    />
+                    <Button type="submit" disabled={closureForm.processing}>
+                        <LockKeyhole />
+                        {translate('Close scenario', locale)}
+                    </Button>
+                </form>
+            )}
+
+            {scenario.status === 'closed' && scenario.closure_snapshot && (
+                <div className="rounded-md border border-emerald-300 bg-emerald-50/60 p-3 text-sm dark:bg-emerald-950/20">
+                    <div className="font-medium">
+                        {translate('Scenario closed', locale)}
+                    </div>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                        {translate('Closed by', locale)} {scenario.closer?.name}{' '}
+                        · {scenario.closed_at?.replace('T', ' ').slice(0, 16)}
+                    </p>
+                    <p className="mt-2">{scenario.closure_note}</p>
+                    <OutcomeSummary
+                        snapshot={scenario.closure_snapshot}
+                        locale={locale}
+                    />
+                    <p className="mt-2 font-mono text-[10px] break-all text-muted-foreground">
+                        {translate('Closure fingerprint', locale)}:{' '}
+                        {scenario.closure_fingerprint}
+                    </p>
+                </div>
+            )}
+        </div>
+    );
+}
+
+function OutcomeSummary({
+    snapshot,
+    locale,
+}: {
+    snapshot: OutcomeSnapshot;
+    locale: 'en' | 'es';
+}) {
+    return (
+        <div className="mt-2 grid grid-cols-2 gap-2 text-xs md:grid-cols-4">
+            <span>
+                {translate('Area requests', locale)}:{' '}
+                {snapshot.summary.requests}
+            </span>
+            <span>
+                {translate('Requests executed', locale)}:{' '}
+                {snapshot.summary.executed}
+            </span>
+            <span>
+                {translate('Resources tracked', locale)}:{' '}
+                {snapshot.summary.resources}
+            </span>
+            <span>
+                {translate('Pending exceptions', locale)}:{' '}
+                {snapshot.summary.pending_exceptions}
+            </span>
+        </div>
     );
 }
 

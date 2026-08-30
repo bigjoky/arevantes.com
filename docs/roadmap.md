@@ -710,12 +710,28 @@ liberación queda limitada a la misma procedencia. Ambas operaciones bloquean so
 solicitud y las filas afectadas durante una transacción corta, rechazan reintentos sin
 excepciones pendientes y registran actor, nota e identificadores afectados.
 
+## Corte ejecutado — Revisiones y cierre formal del escenario
+
+Los escenarios aprobados disponen de hitos de revisión correlativos e inmutables.
+Cada revisión conserva actor, fecha, explicación, resultado actual por área,
+recursos vinculados, excepciones pendientes y una huella verificable, sin modificar
+la fotografía aprobada ni el estado de los recursos nativos.
+
+El cierre exige una revisión vigente, la ejecución completa de las solicitudes de
+área y la promoción de los borradores de compras y finanzas. Una confirmación
+explícita permite reconocer las excepciones que aún permanezcan abiertas. El cierre
+conserva responsable, fecha, nota, fotografía final y huella propia, y bloquea nuevas
+revisiones sin cancelar ni reescribir tareas, reservas, documentos o previsiones ya
+creados. Las operaciones usan bloqueos breves, claves foráneas indexadas y
+restricciones únicas para evitar secuencias duplicadas y carreras de cierre.
+
 ## Próximo corte recomendado
 
-Incorporar hitos de revisión del escenario para registrar una explicación de
-desviaciones significativas y cerrar formalmente el horizonte sin reescribir sus
-datos aprobados. El cierre deberá conservar responsable, fecha, resultado resumido y
-excepciones pendientes, sin impedir que los recursos nativos mantengan su histórico.
+Convertir el histórico de escenarios cerrados en aprendizaje gobernado: comparar
+supuestos con resultados finales por línea de negocio, medir error de ingreso,
+capacidad, materiales y caja, y proponer ajustes explicados para nuevos escenarios.
+Las recomendaciones deberán ser revisables y nunca cambiar supuestos ni datos
+maestros de forma automática.
 
 ## Corrección transversal — idioma temporal de la plataforma
 

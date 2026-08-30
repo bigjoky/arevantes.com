@@ -6,6 +6,7 @@ use App\Models\Opportunity;
 use App\Models\PlanningScenario;
 use App\Services\Planning\PlanningScenarioApproval;
 use App\Services\Planning\PlanningScenarioIntegrity;
+use App\Services\Planning\PlanningScenarioLifecycle;
 use App\Services\Planning\SharedPortfolioScenario;
 use App\Services\Security\SecurityEventRecorder;
 use Illuminate\Http\RedirectResponse;
@@ -19,7 +20,8 @@ class PlanningScenarioController extends Controller
     public function index(Request $request, PlanningScenarioIntegrity $integrity): Response
     {
         $scenarios = PlanningScenario::query()->with([
-            'creator:id,name', 'approver:id,name', 'baselineScenario:id,name,version',
+            'creator:id,name', 'approver:id,name', 'closer:id,name', 'baselineScenario:id,name,version',
+            'reviews.creator:id,name',
             'actionRequests:id,planning_scenario_id,area,status',
         ])->latest()->get();
         $scenarios->each(function (PlanningScenario $scenario) use ($integrity): void {
@@ -90,5 +92,41 @@ class PlanningScenarioController extends Controller
 
         return redirect()->route('planning-scenarios.index', ['scenario' => $approved->id])
             ->with('toast', ['type' => 'success', 'message' => __('Scenario approved without committing resources.')]);
+    }
+
+    public function review(Request $request, PlanningScenario $scenario, PlanningScenarioLifecycle $lifecycle, SecurityEventRecorder $events): RedirectResponse
+    {
+        $data = $request->validate([
+            'approved_fingerprint' => ['required', 'string', 'size:64'],
+            'explanation' => ['required', 'string', 'min:10', 'max:3000'],
+        ]);
+        $review = $lifecycle->review($scenario, $request->user(), $data['approved_fingerprint'], $data['explanation']);
+        $events->record('planning_scenario_review_recorded', $request->user(), [
+            'planning_scenario_id' => $scenario->id,
+            'planning_scenario_review_id' => $review->id,
+            'sequence' => $review->sequence,
+            'fingerprint' => $review->fingerprint,
+            'summary' => $review->outcome_snapshot['summary'],
+        ]);
+
+        return back()->with('toast', ['type' => 'success', 'message' => __('Scenario review recorded with a frozen outcome snapshot.')]);
+    }
+
+    public function close(Request $request, PlanningScenario $scenario, PlanningScenarioLifecycle $lifecycle, SecurityEventRecorder $events): RedirectResponse
+    {
+        $data = $request->validate([
+            'approved_fingerprint' => ['required', 'string', 'size:64'],
+            'review_fingerprint' => ['required', 'string', 'size:64'],
+            'closure_note' => ['required', 'string', 'min:10', 'max:3000'],
+            'acknowledge_exceptions' => ['required', 'accepted'],
+        ]);
+        $closed = $lifecycle->close($scenario, $request->user(), $data['approved_fingerprint'], $data['review_fingerprint'], $data['closure_note']);
+        $events->record('planning_scenario_closed', $request->user(), [
+            'planning_scenario_id' => $closed->id,
+            'closure_fingerprint' => $closed->closure_fingerprint,
+            'summary' => $closed->closure_snapshot['summary'],
+        ]);
+
+        return back()->with('toast', ['type' => 'success', 'message' => __('Scenario horizon closed without altering native resources.')]);
     }
 }

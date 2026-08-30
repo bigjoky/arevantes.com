@@ -90,7 +90,7 @@ class ExecutiveAnalyticsTest extends TestCase
                 ->component('analytics/index')
                 ->where('metrics.0.key', 'net_revenue')
                 ->where('metrics.0.value', 900)
-                ->where('metrics.0.target', round(1500 * today()->day / today()->daysInMonth, 2))
+                ->where('metrics.0.target', fn (int|float $target): bool => (float) $target === round(1500 * today()->day / today()->daysInMonth, 2))
                 ->where('metrics.1.key', 'open_pipeline')
                 ->where('metrics.1.value', 5000)
                 ->where('metrics.2.key', 'completed_projects')

@@ -452,6 +452,8 @@ Route::middleware(['auth'])->group(function () {
     Route::get('planning-scenarios', [PlanningScenarioController::class, 'index'])->middleware('can:manage-admin')->name('planning-scenarios.index');
     Route::post('planning-scenarios', [PlanningScenarioController::class, 'store'])->middleware('can:manage-admin')->name('planning-scenarios.store');
     Route::post('planning-scenarios/{scenario}/approval', [PlanningScenarioController::class, 'approve'])->middleware('can:manage-admin')->name('planning-scenarios.approval.store');
+    Route::post('planning-scenarios/{scenario}/reviews', [PlanningScenarioController::class, 'review'])->middleware('can:manage-admin')->name('planning-scenarios.reviews.store');
+    Route::post('planning-scenarios/{scenario}/closure', [PlanningScenarioController::class, 'close'])->middleware('can:manage-admin')->name('planning-scenarios.closure.store');
     Route::post('planning-scenarios/{scenario}/requests', [PlanningScenarioRequestController::class, 'generate'])->middleware('can:manage-admin')->name('planning-scenarios.requests.store');
     Route::get('planning-requests', [PlanningScenarioRequestController::class, 'index'])->name('planning-scenario-requests.index');
     Route::post('planning-requests/{scenarioRequest}/confirmation', [PlanningScenarioRequestController::class, 'confirm'])->name('planning-scenario-requests.confirmation.store');
