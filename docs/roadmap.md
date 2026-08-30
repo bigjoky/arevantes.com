@@ -37,6 +37,29 @@ transversales aplicables a esas líneas, no ramas comerciales desconectadas.
 - La configuración específica de una línea no contamina las fichas técnicas de
   las demás.
 
+### Gobierno continuo del roadmap
+
+Este documento es acumulativo y constituye la única secuencia de evolución de
+la plataforma. Una incidencia, corrección urgente o nueva idea no sustituye los
+horizontes ya acordados ni crea un roadmap paralelo: se incorpora al tramo que
+corresponda por dependencia, riesgo y valor, y el desarrollo continúa después
+desde el siguiente punto pendiente.
+
+Cada corte debe mantener simultáneamente:
+
+1. el objetivo funcional de los horizontes previamente planificados;
+2. las mejoras transversales de rendimiento, traducción, responsive, permisos y
+   consistencia de interfaz que afecten a ese objetivo;
+3. las nuevas tareas aceptadas, con prioridad, estado y criterio de salida;
+4. una actualización de este documento que indique qué se ejecutó, qué cambió y
+   cuál es el siguiente corte lineal.
+
+Las tareas pueden adelantarse cuando resuelvan un bloqueo o una regresión, pero
+después se retorna a la secuencia pendiente. Ninguna tarea se considera
+completada solo por existir código: requiere validación proporcional, publicación
+y trazabilidad en el roadmap. Las propuestas futuras permanecen visibles aunque
+un corte posterior cambie su orden o alcance.
+
 ## Arquitectura funcional objetivo — 20 áreas
 
 La navegación, los permisos, la búsqueda y los futuros límites de dominio se
