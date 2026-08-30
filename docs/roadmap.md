@@ -612,12 +612,25 @@ hipótesis separadas. Las claves foráneas están indexadas y la captura se real
 antes de una transacción de escritura mínima. Ningún escenario crea o altera
 órdenes, reservas, movimientos, compras, pagos ni comunicaciones.
 
+## Corte ejecutado — Aprobación gobernada de escenarios
+
+Los escenarios nuevos fijan una vigencia de 24 horas para su fotografía de capacidad
+y stock. La aprobación administrativa bloquea el registro durante la decisión,
+compara la huella mostrada por la interfaz con la persistida y recalcula la huella de
+todo el contenido congelado. Una referencia caducada, una pantalla obsoleta, una
+alteración del contenido o una aprobación concurrente detienen el proceso.
+
+La decisión conserva aprobador, fecha, nota y huella aprobada, y registra un evento
+de seguridad. Los escenarios anteriores a este control deben volver a congelarse.
+La aprobación no crea órdenes, reservas, movimientos, compras, pagos, previsiones ni
+comunicaciones; solo identifica de forma auditable el escenario elegido.
+
 ## Próximo corte recomendado
 
-Habilitar una aprobación separada para el escenario elegido, con comprobación de
-huella y caducidad de las referencias de capacidad y stock. La aprobación seguirá
-sin originar recursos: cada área deberá confirmar después su propia agenda, reserva,
-compra, previsión o comunicación en un circuito específico.
+Materializar desde un escenario aprobado solicitudes preliminares e independientes
+para operaciones, almacén, compras y finanzas. Cada solicitud deberá conservar la
+huella aprobada, nacer en borrador y exigir confirmación expresa del responsable del
+área antes de crear agenda, reserva, compra, previsión o comunicación alguna.
 
 ## Corrección transversal — idioma temporal de la plataforma
 

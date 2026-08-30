@@ -1,5 +1,11 @@
 import { Head, Link, useForm } from '@inertiajs/react';
-import { CheckCircle2, GitCompareArrows, LockKeyhole } from 'lucide-react';
+import {
+    CheckCircle2,
+    Clock3,
+    GitCompareArrows,
+    LockKeyhole,
+    ShieldCheck,
+} from 'lucide-react';
 import InputError from '@/components/input-error';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -13,6 +19,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 import { useLocale } from '@/hooks/use-locale';
 import { translate } from '@/i18n';
 
@@ -117,6 +124,17 @@ type Scenario = {
             removed_opportunity_ids: number[];
         };
     } | null;
+    fingerprint: string;
+    reference_valid_until: string | null;
+    approved_fingerprint: string | null;
+    approval_note: string | null;
+    approved_at: string | null;
+    approver: { id: number; name: string } | null;
+    approval_eligibility: {
+        can_approve: boolean;
+        integrity_valid: boolean;
+        reference_fresh: boolean;
+    };
     creator: { id: number; name: string };
     created_at: string;
 };
@@ -495,10 +513,15 @@ export default function PlanningScenarioIndex({
                                                 </span>
                                             </span>
                                             <Badge variant="outline">
-                                                {scenarioKindLabel(
-                                                    scenario.scenario_kind,
-                                                    locale,
-                                                )}
+                                                {scenario.status === 'approved'
+                                                    ? translate(
+                                                          'Scenario approved',
+                                                          locale,
+                                                      )
+                                                    : scenarioKindLabel(
+                                                          scenario.scenario_kind,
+                                                          locale,
+                                                      )}
                                             </Badge>
                                         </Link>
                                     </Button>
@@ -507,6 +530,7 @@ export default function PlanningScenarioIndex({
                         </section>
                         {selectedScenario && (
                             <ScenarioResult
+                                key={selectedScenario.id}
                                 scenario={selectedScenario}
                                 locale={locale}
                             />
@@ -550,6 +574,14 @@ function ScenarioResult({
     locale: 'en' | 'es';
 }) {
     const summary = scenario.result_snapshot.summary;
+    const approvalForm = useForm({
+        fingerprint: scenario.fingerprint,
+        approval_note: '',
+    });
+    const approvalErrors = approvalForm.errors as Record<
+        string,
+        string | undefined
+    >;
 
     return (
         <section className="space-y-4 rounded-lg border p-4">
@@ -567,8 +599,69 @@ function ScenarioResult({
                     <Badge variant="outline">
                         {scenarioKindLabel(scenario.scenario_kind, locale)}
                     </Badge>
-                    <CheckCircle2 className="size-5 text-emerald-600" />
+                    {scenario.status === 'approved' ? (
+                        <ShieldCheck className="size-5 text-emerald-600" />
+                    ) : (
+                        <CheckCircle2 className="size-5 text-sky-600" />
+                    )}
                 </div>
+            </div>
+            <div className="rounded-md border bg-muted/30 p-3 text-sm">
+                <div className="flex items-center justify-between gap-3">
+                    <span className="font-medium">
+                        {scenario.status === 'approved'
+                            ? translate('Scenario approved', locale)
+                            : translate('Frozen', locale)}
+                    </span>
+                    {scenario.reference_valid_until && (
+                        <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <Clock3 className="size-3.5" />
+                            {translate('References valid until', locale)}{' '}
+                            {scenario.reference_valid_until
+                                .replace('T', ' ')
+                                .slice(0, 16)}
+                        </span>
+                    )}
+                </div>
+                {scenario.status === 'approved' && scenario.approver ? (
+                    <div className="mt-1 space-y-1 text-xs text-muted-foreground">
+                        <p>
+                            {translate('Approved by', locale)}{' '}
+                            {scenario.approver.name} ·{' '}
+                            {scenario.approved_at
+                                ?.replace('T', ' ')
+                                .slice(0, 16)}
+                        </p>
+                        {scenario.approval_note && (
+                            <p>{scenario.approval_note}</p>
+                        )}
+                        {scenario.approved_fingerprint && (
+                            <p className="font-mono break-all">
+                                {translate('Approved fingerprint', locale)}:{' '}
+                                {scenario.approved_fingerprint}
+                            </p>
+                        )}
+                    </div>
+                ) : !scenario.reference_valid_until ? (
+                    <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">
+                        {translate(
+                            'This scenario predates controlled approval. Freeze a new scenario.',
+                            locale,
+                        )}
+                    </p>
+                ) : !scenario.approval_eligibility.integrity_valid ? (
+                    <p className="mt-1 text-xs text-destructive">
+                        {translate('Scenario integrity check failed.', locale)}
+                    </p>
+                ) : !scenario.approval_eligibility.reference_fresh &&
+                  scenario.status === 'frozen' ? (
+                    <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">
+                        {translate(
+                            'Reference expired. Freeze a new scenario before approval.',
+                            locale,
+                        )}
+                    </p>
+                ) : null}
             </div>
             <div className="grid grid-cols-2 gap-3">
                 <Metric
@@ -748,6 +841,59 @@ function ScenarioResult({
                     {translate('collection days', locale)}
                 </p>
             </div>
+            {scenario.status === 'frozen' &&
+                scenario.approval_eligibility.can_approve && (
+                    <form
+                        className="space-y-3 rounded-md border border-emerald-300 bg-emerald-50/60 p-3 dark:bg-emerald-950/20"
+                        onSubmit={(event) => {
+                            event.preventDefault();
+                            approvalForm.post(
+                                `/planning-scenarios/${scenario.id}/approval`,
+                                { preserveScroll: true },
+                            );
+                        }}
+                    >
+                        <div>
+                            <h3 className="text-sm font-medium">
+                                {translate('Approve scenario', locale)}
+                            </h3>
+                            <p className="text-xs text-muted-foreground">
+                                {translate(
+                                    'Approval checks the frozen fingerprint and reference freshness without committing resources.',
+                                    locale,
+                                )}
+                            </p>
+                        </div>
+                        <div>
+                            <Label htmlFor="approval_note">
+                                {translate('Approval note', locale)}
+                            </Label>
+                            <Textarea
+                                id="approval_note"
+                                value={approvalForm.data.approval_note}
+                                onChange={(event) =>
+                                    approvalForm.setData(
+                                        'approval_note',
+                                        event.target.value,
+                                    )
+                                }
+                                maxLength={1000}
+                                rows={3}
+                            />
+                            <InputError
+                                message={approvalForm.errors.approval_note}
+                            />
+                            <InputError message={approvalErrors.approval} />
+                        </div>
+                        <Button
+                            type="submit"
+                            disabled={approvalForm.processing}
+                        >
+                            <ShieldCheck />
+                            {translate('Approve scenario', locale)}
+                        </Button>
+                    </form>
+                )}
         </section>
     );
 }

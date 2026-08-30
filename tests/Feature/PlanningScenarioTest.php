@@ -12,6 +12,7 @@ use App\Models\TaxRate;
 use App\Models\Unit;
 use App\Models\User;
 use App\Models\Warehouse;
+use App\Services\Planning\PlanningScenarioIntegrity;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
@@ -106,6 +107,24 @@ class PlanningScenarioTest extends TestCase
         $this->assertSame(60.0, (float) $risk->comparison_snapshot['capacity']['overload_hours_delta']);
         $this->assertSame(0.0, (float) $risk->comparison_snapshot['stock']['shortage_units_delta']);
         $this->assertSame([], $risk->comparison_snapshot['portfolio']['added_opportunity_ids']);
+
+        $this->post(route('planning-scenarios.approval.store', $risk), [
+            'fingerprint' => $risk->fingerprint,
+            'approval_note' => 'Capacity, stock and risk variation reviewed.',
+        ])->assertRedirect();
+        $risk->refresh();
+        $this->assertSame('approved', $risk->status);
+        $this->assertSame($admin->id, $risk->approved_by);
+        $this->assertSame($risk->fingerprint, $risk->approved_fingerprint);
+        $this->assertSame('Capacity, stock and risk variation reviewed.', $risk->approval_note);
+        $this->assertDatabaseHas('security_events', [
+            'type' => 'planning_scenario_approved',
+            'user_id' => $admin->id,
+        ]);
+        $this->post(route('planning-scenarios.approval.store', $risk), [
+            'fingerprint' => $risk->fingerprint,
+        ])->assertSessionHasErrors('approval');
+
         $withoutQuote->update(['estimated_value' => 99999, 'probability' => 1]);
         $this->assertSame(10000.0, (float) $scenario->fresh()->opportunity_snapshot['opportunities'][0]['confirmed']['value']);
         $this->assertDatabaseCount('stock_reservations', 0);
@@ -154,5 +173,57 @@ class PlanningScenarioTest extends TestCase
         ])->assertSessionHasErrors('baseline_scenario_id');
 
         $this->assertDatabaseCount('planning_scenarios', 0);
+    }
+
+    public function test_approval_rejects_stale_expired_or_corrupted_scenarios_and_remains_admin_only(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $commercial = User::factory()->create(['role' => 'commercial']);
+        $scenario = PlanningScenario::create([
+            'name' => 'Governed scenario',
+            'version' => 1,
+            'status' => 'frozen',
+            'scenario_kind' => 'base',
+            'horizon_starts_on' => '2026-09-01',
+            'horizon_ends_on' => '2026-12-31',
+            'assumptions' => ['capacity_hours_per_opportunity' => 40],
+            'opportunity_snapshot' => ['opportunities' => []],
+            'result_snapshot' => ['summary' => ['opportunities' => 0], 'materials' => [], 'cash_by_month' => [], 'non_committing' => true],
+            'reference_snapshot' => ['captured_at' => now()->toIso8601String(), 'capacity' => [], 'stock' => []],
+            'reference_valid_until' => now()->addDay(),
+            'comparison_snapshot' => null,
+            'fingerprint' => str_repeat('0', 64),
+            'created_by' => $admin->id,
+        ]);
+        $scenario->update(['fingerprint' => app(PlanningScenarioIntegrity::class)->for($scenario)]);
+        $fingerprint = $scenario->fresh()->fingerprint;
+
+        $this->actingAs($commercial)->post(route('planning-scenarios.approval.store', $scenario), [
+            'fingerprint' => $fingerprint,
+        ])->assertForbidden();
+
+        $this->actingAs($admin)->post(route('planning-scenarios.approval.store', $scenario), [
+            'fingerprint' => str_repeat('a', 64),
+        ])->assertSessionHasErrors('approval');
+
+        $scenario->update(['reference_valid_until' => now()->subMinute()]);
+        $this->post(route('planning-scenarios.approval.store', $scenario), [
+            'fingerprint' => $fingerprint,
+        ])->assertSessionHasErrors('approval');
+
+        $scenario->update([
+            'reference_valid_until' => now()->addDay(),
+            'assumptions' => ['capacity_hours_per_opportunity' => 999],
+        ]);
+        $this->post(route('planning-scenarios.approval.store', $scenario), [
+            'fingerprint' => $fingerprint,
+        ])->assertSessionHasErrors('approval');
+
+        $this->assertSame('frozen', $scenario->fresh()->status);
+        $this->assertDatabaseMissing('security_events', ['type' => 'planning_scenario_approved']);
+        $this->assertDatabaseCount('stock_reservations', 0);
+        $this->assertDatabaseCount('purchase_documents', 0);
+        $this->assertDatabaseCount('work_orders', 0);
+        $this->assertDatabaseCount('financial_forecast_items', 0);
     }
 }

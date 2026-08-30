@@ -14240,6 +14240,10 @@
         "en": "Frozen",
         "es": "Congelado"
     },
+    "frozen": {
+        "en": "frozen",
+        "es": "congelado"
+    },
     "Expected materials": {
         "en": "Expected materials",
         "es": "Materiales previstos"
@@ -14311,5 +14315,41 @@
     "removed opportunities": {
         "en": "removed opportunities",
         "es": "oportunidades retiradas"
+    },
+    "Scenario approved": {
+        "en": "Scenario approved",
+        "es": "Escenario aprobado"
+    },
+    "References valid until": {
+        "en": "References valid until",
+        "es": "Referencias válidas hasta"
+    },
+    "Approved by": {
+        "en": "Approved by",
+        "es": "Aprobado por"
+    },
+    "Approved fingerprint": {
+        "en": "Approved fingerprint",
+        "es": "Huella aprobada"
+    },
+    "This scenario predates controlled approval. Freeze a new scenario.": {
+        "en": "This scenario predates controlled approval. Freeze a new scenario.",
+        "es": "Este escenario es anterior a la aprobación controlada. Congela uno nuevo."
+    },
+    "Scenario integrity check failed.": {
+        "en": "Scenario integrity check failed.",
+        "es": "La comprobación de integridad del escenario ha fallado."
+    },
+    "Reference expired. Freeze a new scenario before approval.": {
+        "en": "Reference expired. Freeze a new scenario before approval.",
+        "es": "La referencia ha caducado. Congela un escenario nuevo antes de aprobarlo."
+    },
+    "Approve scenario": {
+        "en": "Approve scenario",
+        "es": "Aprobar escenario"
+    },
+    "Approval checks the frozen fingerprint and reference freshness without committing resources.": {
+        "en": "Approval checks the frozen fingerprint and reference freshness without committing resources.",
+        "es": "La aprobación comprueba la huella congelada y la vigencia de las referencias sin comprometer recursos."
     }
 }

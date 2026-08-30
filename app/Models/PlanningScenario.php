@@ -10,7 +10,8 @@ class PlanningScenario extends Model
     protected $fillable = [
         'name', 'version', 'status', 'scenario_kind', 'baseline_scenario_id', 'horizon_starts_on', 'horizon_ends_on',
         'assumptions', 'opportunity_snapshot', 'result_snapshot', 'fingerprint',
-        'reference_snapshot', 'comparison_snapshot', 'created_by', 'approved_by', 'approved_at',
+        'reference_snapshot', 'reference_valid_until', 'comparison_snapshot', 'created_by', 'approved_by', 'approved_at',
+        'approved_fingerprint', 'approval_note',
     ];
 
     public function creator(): BelongsTo
@@ -37,6 +38,7 @@ class PlanningScenario extends Model
             'opportunity_snapshot' => 'array',
             'result_snapshot' => 'array',
             'reference_snapshot' => 'array',
+            'reference_valid_until' => 'datetime',
             'comparison_snapshot' => 'array',
             'approved_at' => 'datetime',
         ];

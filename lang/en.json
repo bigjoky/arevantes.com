@@ -46,5 +46,10 @@
     "Planning scenarios": "Planning scenarios",
     "Every selected opportunity must exist and remain open.": "Every selected opportunity must exist and remain open.",
     "Scenario frozen without committing resources.": "Scenario frozen without committing resources.",
-    "Risk and alternative scenarios require a frozen base scenario.": "Risk and alternative scenarios require a frozen base scenario."
+    "Risk and alternative scenarios require a frozen base scenario.": "Risk and alternative scenarios require a frozen base scenario.",
+    "Only frozen planning scenarios can be approved.": "Only frozen planning scenarios can be approved.",
+    "The scenario changed after it was opened. Refresh it before approval.": "The scenario changed after it was opened. Refresh it before approval.",
+    "The scenario fingerprint no longer matches its frozen contents.": "The scenario fingerprint no longer matches its frozen contents.",
+    "The capacity and stock references have expired. Freeze a new scenario before approval.": "The capacity and stock references have expired. Freeze a new scenario before approval.",
+    "Scenario approved without committing resources.": "Scenario approved without committing resources."
 }

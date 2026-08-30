@@ -450,6 +450,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('quotes', [QuoteController::class, 'index'])->middleware('can:manage-quotes')->name('quotes.index');
     Route::get('planning-scenarios', [PlanningScenarioController::class, 'index'])->middleware('can:manage-admin')->name('planning-scenarios.index');
     Route::post('planning-scenarios', [PlanningScenarioController::class, 'store'])->middleware('can:manage-admin')->name('planning-scenarios.store');
+    Route::post('planning-scenarios/{scenario}/approval', [PlanningScenarioController::class, 'approve'])->middleware('can:manage-admin')->name('planning-scenarios.approval.store');
     Route::get('quotes/create', [QuoteController::class, 'create'])->middleware('can:manage-quotes')->name('quotes.create');
     Route::post('quotes', [QuoteController::class, 'store'])->middleware('can:manage-quotes')->name('quotes.store');
     Route::get('quotes/{quote}', [QuoteController::class, 'show'])->middleware('can:manage-quotes')->name('quotes.show');

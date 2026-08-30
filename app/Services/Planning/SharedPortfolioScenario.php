@@ -14,7 +14,10 @@ use Illuminate\Validation\ValidationException;
 
 class SharedPortfolioScenario
 {
-    public function __construct(private WorkforceCapacityForecast $capacity) {}
+    public function __construct(
+        private WorkforceCapacityForecast $capacity,
+        private PlanningScenarioIntegrity $integrity,
+    ) {}
 
     /** @param array<string, mixed> $data */
     public function freeze(array $data, User $actor): PlanningScenario
@@ -48,7 +51,7 @@ class SharedPortfolioScenario
         $baseline = $this->baseline($data);
         $references = $this->references($results, $data, $actor);
         $comparison = $baseline ? $this->compare($baseline, $results, $references, $snapshot) : null;
-        $fingerprint = hash('sha256', json_encode([$assumptions, $snapshot, $results, $references, $comparison], JSON_THROW_ON_ERROR));
+        $fingerprint = $this->integrity->fromSnapshots($assumptions, $snapshot, $results, $references, $comparison);
 
         return DB::transaction(fn () => PlanningScenario::create([
             'name' => $data['name'],
@@ -62,6 +65,7 @@ class SharedPortfolioScenario
             'opportunity_snapshot' => $snapshot,
             'result_snapshot' => $results,
             'reference_snapshot' => $references,
+            'reference_valid_until' => now()->addDay(),
             'comparison_snapshot' => $comparison,
             'fingerprint' => $fingerprint,
             'created_by' => $actor->id,

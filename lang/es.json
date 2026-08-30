@@ -1066,5 +1066,10 @@
     "Planning scenarios": "Escenarios de planificación",
     "Every selected opportunity must exist and remain open.": "Todas las oportunidades seleccionadas deben existir y permanecer abiertas.",
     "Scenario frozen without committing resources.": "Escenario congelado sin comprometer recursos.",
-    "Risk and alternative scenarios require a frozen base scenario.": "Los escenarios de riesgo y alternativos requieren un escenario base congelado."
+    "Risk and alternative scenarios require a frozen base scenario.": "Los escenarios de riesgo y alternativos requieren un escenario base congelado.",
+    "Only frozen planning scenarios can be approved.": "Solo se pueden aprobar escenarios de planificación congelados.",
+    "The scenario changed after it was opened. Refresh it before approval.": "El escenario ha cambiado desde que se abrió. Actualízalo antes de aprobarlo.",
+    "The scenario fingerprint no longer matches its frozen contents.": "La huella del escenario ya no coincide con su contenido congelado.",
+    "The capacity and stock references have expired. Freeze a new scenario before approval.": "Las referencias de capacidad y stock han caducado. Congela un escenario nuevo antes de aprobarlo.",
+    "Scenario approved without committing resources.": "Escenario aprobado sin comprometer recursos."
 }

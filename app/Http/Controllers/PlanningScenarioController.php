@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\Opportunity;
 use App\Models\PlanningScenario;
+use App\Services\Planning\PlanningScenarioApproval;
+use App\Services\Planning\PlanningScenarioIntegrity;
 use App\Services\Planning\SharedPortfolioScenario;
 use App\Services\Security\SecurityEventRecorder;
 use Illuminate\Http\RedirectResponse;
@@ -14,9 +16,18 @@ use Inertia\Response;
 
 class PlanningScenarioController extends Controller
 {
-    public function index(Request $request): Response
+    public function index(Request $request, PlanningScenarioIntegrity $integrity): Response
     {
-        $scenarios = PlanningScenario::query()->with(['creator:id,name', 'baselineScenario:id,name,version'])->latest()->get();
+        $scenarios = PlanningScenario::query()->with(['creator:id,name', 'approver:id,name', 'baselineScenario:id,name,version'])->latest()->get();
+        $scenarios->each(function (PlanningScenario $scenario) use ($integrity): void {
+            $integrityValid = $integrity->matches($scenario);
+            $referenceFresh = $scenario->reference_valid_until?->isFuture() ?? false;
+            $scenario->setAttribute('approval_eligibility', [
+                'can_approve' => $scenario->status === 'frozen' && $integrityValid && $referenceFresh,
+                'integrity_valid' => $integrityValid,
+                'reference_fresh' => $referenceFresh,
+            ]);
+        });
         $selected = $scenarios->firstWhere('id', $request->integer('scenario')) ?: $scenarios->first();
 
         return Inertia::render('planning-scenarios/index', [
@@ -58,5 +69,23 @@ class PlanningScenarioController extends Controller
 
         return redirect()->route('planning-scenarios.index', ['scenario' => $scenario->id])
             ->with('toast', ['type' => 'success', 'message' => __('Scenario frozen without committing resources.')]);
+    }
+
+    public function approve(Request $request, PlanningScenario $scenario, PlanningScenarioApproval $approval, SecurityEventRecorder $events): RedirectResponse
+    {
+        $data = $request->validate([
+            'fingerprint' => ['required', 'string', 'size:64'],
+            'approval_note' => ['nullable', 'string', 'max:1000'],
+        ]);
+        $approved = $approval->approve($scenario, $request->user(), $data['fingerprint'], $data['approval_note'] ?? null);
+        $events->record('planning_scenario_approved', $request->user(), [
+            'planning_scenario_id' => $approved->id,
+            'fingerprint' => $approved->approved_fingerprint,
+            'reference_valid_until' => $approved->reference_valid_until?->toIso8601String(),
+            'non_committing' => true,
+        ]);
+
+        return redirect()->route('planning-scenarios.index', ['scenario' => $approved->id])
+            ->with('toast', ['type' => 'success', 'message' => __('Scenario approved without committing resources.')]);
     }
 }
