@@ -6,6 +6,7 @@ use App\Ai\Agents\AreviaChat;
 use App\Ai\Agents\InstallationAdvisor;
 use App\Ai\Agents\InstallationSnapshot;
 use App\Models\AuditLog;
+use App\Models\Country;
 use App\Models\Installation;
 use App\Models\KnowledgeDocument;
 use App\Models\Person;
@@ -408,6 +409,11 @@ class DashboardTest extends TestCase
             'category' => 'customer',
             'first_name' => 'Ana',
             'email' => 'ana@example.com',
+            'city' => 'Lucena',
+            'locality' => 'Lucena',
+            'province_state' => 'Córdoba',
+            'postal_code' => '14900',
+            'country' => 'Spain',
         ]);
 
         $staff = Person::create([
@@ -424,7 +430,13 @@ class DashboardTest extends TestCase
                 ->has('people.data', 1)
             );
         $this->get(route('people.show', $person))->assertOk();
-        $this->get(route('people.edit', $person))->assertOk();
+        $this->get(route('people.edit', $person))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('person.city', 'Lucena')
+                ->where('person.locality', 'Lucena')
+                ->where('person.province_state', 'Córdoba')
+                ->where('person.country', 'Spain'));
         $this->get(route('people.show', $staff))->assertNotFound();
     }
 
@@ -1290,5 +1302,32 @@ class DashboardTest extends TestCase
             ->assertJsonPath('localities.0.municipality.name', 'Lucena')
             ->assertJsonPath('localities.0.province.name', 'Córdoba')
             ->assertJsonPath('localities.0.country.code', 'ES');
+    }
+
+    public function test_location_catalogs_are_scoped_and_cached_for_edit_forms()
+    {
+        Cache::clear();
+        $this->seed(LocationSeeder::class);
+        $country = Country::where('code', 'ES')->firstOrFail();
+
+        $countries = $this->getJson('/api/locations/countries')
+            ->assertOk()
+            ->assertJsonFragment(['code' => 'ES', 'name' => 'Spain']);
+        $provinceId = $this->getJson("/api/locations/provinces?country_id={$country->id}")
+            ->assertOk()
+            ->assertJsonCount(1)
+            ->assertJsonPath('0.name', 'Córdoba')
+            ->json('0.id');
+        $municipalityId = $this->getJson("/api/locations/municipalities?province_id={$provinceId}")
+            ->assertOk()
+            ->assertJsonFragment(['name' => 'Lucena'])
+            ->json('0.id');
+        $this->getJson("/api/locations/localities?municipality_id={$municipalityId}")
+            ->assertOk()
+            ->assertJsonStructure([['id', 'municipality_id', 'name']]);
+
+        $countries->assertJsonPath('0.name', 'Spain');
+        $this->assertTrue(Cache::has('locations:countries:v1'));
+        $this->assertTrue(Cache::has("locations:provinces:{$country->id}:v1"));
     }
 }

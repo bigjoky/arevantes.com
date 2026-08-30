@@ -37,6 +37,63 @@ transversales aplicables a esas líneas, no ramas comerciales desconectadas.
 - La configuración específica de una línea no contamina las fichas técnicas de
   las demás.
 
+## Arquitectura funcional objetivo — 20 áreas
+
+La navegación, los permisos, la búsqueda y los futuros límites de dominio se
+alinearán sobre estas veinte áreas. Esta taxonomía no obliga a mostrar veinte
+entradas abiertas a todos los usuarios: el sidebar será jerárquico, plegable y
+derivado de permisos, con accesos recientes y favoritos. Las rutas y datos
+existentes se migrarán de forma compatible, sin renombrados masivos ni módulos
+vacíos.
+
+| # | Área                         | Código | Cobertura principal                              |
+| -: | ---------------------------- | :----: | ------------------------------------------------ |
+| 1 | Personas y Empresas          | PTY    | Clientes, proveedores y contactos                |
+| 2 | CRM                          | CRM    | Leads y oportunidades                            |
+| 3 | Ventas                       | SAL    | Propuestas, pedidos y contratos comerciales      |
+| 4 | Ingeniería                   | ENG    | Estudios, cálculos y diseños                      |
+| 5 | Proyectos                    | PRJ    | Gestión integral de instalaciones                |
+| 6 | Planificación                | PLN    | Agenda, recursos, cargas y escenarios             |
+| 7 | Operaciones / SAT            | OPS    | Órdenes de trabajo e intervención                 |
+| 8 | Compras                      | PUR    | Aprovisionamiento                                 |
+| 9 | Inventario                   | INV    | Stock y almacenes                                 |
+| 10 | Activos                     | AST    | Vehículos, herramientas y equipos                 |
+| 11 | Mantenimiento               | MNT    | Preventivo y correctivo                           |
+| 12 | Finanzas                    | FIN    | Facturación, cobros, pagos y tesorería            |
+| 13 | Contabilidad                | ACC    | PGC, impuestos y contabilidad                     |
+| 14 | Recursos Humanos            | HRM    | Personal, horarios y PRL                          |
+| 15 | Documentación               | DOC    | Expedientes y documentos                          |
+| 16 | Dirección / BI              | BI     | KPIs, planificación y rentabilidad                |
+| 17 | Calidad                     | QMS    | No conformidades, inspecciones y mejora           |
+| 18 | Atención al cliente         | CS     | Tickets, incidencias y posventa                   |
+| 19 | Contratos y Servicios       | CTR    | Recurrencia, garantías y SLA                      |
+| 20 | Administración de Plataforma | SYS  | Configuración, permisos, auditoría e integraciones |
+
+### Programa transversal de experiencia y rendimiento
+
+Este programa se ejecuta en cortes verticales junto al roadmap funcional y tiene
+prioridad sobre añadir pantallas que amplíen deuda de interfaz.
+
+| Prioridad | Trabajo | Estado y criterio de salida |
+| --------- | ------- | --------------------------- |
+| P0 | Direcciones editables | Primer corte completado. País, provincia, municipio y localidad guardados reconstruyen sus listas dependientes al crear y editar clientes e instalaciones; los catálogos estables se cachean durante 24 horas. |
+| P0 | Rendimiento medible | Pendiente de línea base. Instrumentar tiempos, consultas, payload, caché y Core Web Vitals; después fijar presupuestos por tipo de página y eliminar N+1, cargas no usadas y bundles evitables. |
+| P0 | Localización completa | En curso. España ya conserva `Spain` como valor canónico y se presenta como `España` en formularios españoles. Ningún otro texto visible puede quedar mezclado y los demás catálogos seguirán el mismo patrón. |
+| P0 | Adaptación móvil integral | En curso continuo. Cada ficha, tabla, diálogo y acción principal debe funcionar desde 320 px sin desbordamiento, pérdida de información ni acciones inaccesibles. |
+| P1 | Sistema único de formularios | Planificado. Unificar cabecera, secciones, espaciado, controles, ayuda, errores, estados de carga y acciones para cliente, instalación y nuevos módulos. |
+| P1 | Cliente según naturaleza | Planificado. Particular, empresa, comunidad y organismo público compartirán identidad base, pero exigirán y mostrarán únicamente denominación, representantes, identificación fiscal, facturación y contacto pertinentes. |
+| P1 | Sidebar y arquitectura de módulos | Planificado. Mapear rutas actuales a las 20 áreas, resolver solapamientos, aplicar permisos en servidor y desplegar la navegación por etapas con pruebas por rol. |
+
+La optimización se considera terminada únicamente con mediciones antes/después;
+la traducción y el responsive se validan sobre las rutas realmente autorizadas a
+cada rol, no mediante una revisión visual parcial del perfil administrador.
+
+La primera línea base del build identifica tres objetivos claros: el núcleo de
+aplicación ronda 597 kB, las gráficas 352 kB y el mapa —ya separado del núcleo—
+1.042 kB antes de gzip. El siguiente corte de rendimiento medirá respuesta de
+servidor, consultas y payload de las rutas principales y decidirá con esos datos
+qué pantallas, mapas y gráficas deben cargarse bajo demanda.
+
 ## Base consolidada
 
 Esta es la línea de partida ya disponible y sobre la que se construyen los

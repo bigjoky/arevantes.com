@@ -9,44 +9,49 @@ use App\Models\PostalCode;
 use App\Models\Province;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 
 class LocationController extends Controller
 {
     public function countries(): JsonResponse
     {
-        return response()->json(
-            Country::query()->orderBy('name')->get(['id', 'code', 'name'])
-        );
+        return response()->json(Cache::remember('locations:countries:v1', now()->addDay(), fn () => Country::query()
+            ->orderBy('name')
+            ->get(['id', 'code', 'name'])
+            ->toArray()));
     }
 
     public function provinces(Request $request): JsonResponse
     {
-        return response()->json(
-            Province::query()
-                ->when($request->integer('country_id'), fn ($query, $countryId) => $query->where('country_id', $countryId))
-                ->orderBy('name')
-                ->get(['id', 'country_id', 'code', 'name'])
-        );
+        $countryId = $request->integer('country_id');
+
+        return response()->json(Cache::remember("locations:provinces:{$countryId}:v1", now()->addDay(), fn () => Province::query()
+            ->when($countryId, fn ($query) => $query->where('country_id', $countryId))
+            ->orderBy('name')
+            ->get(['id', 'country_id', 'code', 'name'])
+            ->toArray()));
     }
 
     public function municipalities(Request $request): JsonResponse
     {
-        return response()->json(
-            Municipality::query()
-                ->when($request->integer('province_id'), fn ($query, $provinceId) => $query->where('province_id', $provinceId))
-                ->orderBy('name')
-                ->get(['id', 'province_id', 'code', 'name'])
-        );
+        $provinceId = $request->integer('province_id');
+
+        return response()->json(Cache::remember("locations:municipalities:{$provinceId}:v1", now()->addDay(), fn () => Municipality::query()
+            ->when($provinceId, fn ($query) => $query->where('province_id', $provinceId))
+            ->orderBy('name')
+            ->get(['id', 'province_id', 'code', 'name'])
+            ->toArray()));
     }
 
     public function localities(Request $request): JsonResponse
     {
-        return response()->json(
-            Locality::query()
-                ->when($request->integer('municipality_id'), fn ($query, $municipalityId) => $query->where('municipality_id', $municipalityId))
-                ->orderBy('name')
-                ->get(['id', 'municipality_id', 'name'])
-        );
+        $municipalityId = $request->integer('municipality_id');
+
+        return response()->json(Cache::remember("locations:localities:{$municipalityId}:v1", now()->addDay(), fn () => Locality::query()
+            ->when($municipalityId, fn ($query) => $query->where('municipality_id', $municipalityId))
+            ->orderBy('name')
+            ->get(['id', 'municipality_id', 'name'])
+            ->toArray()));
     }
 
     public function postalCode(string $code): JsonResponse

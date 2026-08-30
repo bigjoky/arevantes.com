@@ -10,6 +10,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { useLocale } from '@/hooks/use-locale';
+import { translate } from '@/i18n';
 
 type LocationRecord = {
     id: number;
@@ -38,13 +39,47 @@ type LocationFieldsProps = {
 };
 
 const fieldClassName = 'grid gap-2';
+const normalized = (value: string | null | undefined) =>
+    value
+        ?.normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .trim()
+        .toLocaleLowerCase() ?? '';
+
+const matchesName = (
+    record: LocationRecord,
+    value: string | null | undefined,
+) => normalized(record.name) === normalized(value);
+
+const matchesCountry = (
+    record: LocationRecord,
+    value: string | null | undefined,
+) =>
+    matchesName(record, value) ||
+    (record.code === 'ES' && ['spain', 'espana'].includes(normalized(value)));
+
+const countryLabel = (record: LocationRecord, locale: 'en' | 'es') =>
+    record.code === 'ES' ? translate('Spain', locale) : record.name;
+
+async function fetchLocations<T>(
+    url: string,
+    signal?: AbortSignal,
+): Promise<T> {
+    const response = await fetch(url, { signal });
+
+    if (!response.ok) {
+        throw new Error(`Location request failed with ${response.status}`);
+    }
+
+    return response.json() as Promise<T>;
+}
 
 export default function LocationFields({
     prefix = '',
     defaults,
     errors,
 }: LocationFieldsProps) {
-    const { t } = useLocale();
+    const { locale, t } = useLocale();
     const [countries, setCountries] = useState<LocationRecord[]>([]);
     const [provinces, setProvinces] = useState<LocationRecord[]>([]);
     const [municipalities, setMunicipalities] = useState<LocationRecord[]>([]);
@@ -62,37 +97,107 @@ export default function LocationFields({
 
     useEffect(() => {
         const initialCountry = defaults?.country ?? 'Spain';
+        const controller = new AbortController();
 
-        fetch('/api/locations/countries')
-            .then((response) => response.json())
-            .then((data) => {
-                setCountries(data);
-                const selected = data.find(
-                    (item: LocationRecord) => item.name === initialCountry,
+        async function hydrateSavedLocation() {
+            try {
+                const countryRecords = await fetchLocations<LocationRecord[]>(
+                    '/api/locations/countries',
+                    controller.signal,
+                );
+                setCountries(countryRecords);
+                const selectedCountry = countryRecords.find((item) =>
+                    matchesCountry(item, initialCountry),
                 );
 
-                if (selected) {
-                    loadProvinces(selected.id);
+                if (!selectedCountry) {
+                    return;
                 }
-            });
-    }, [defaults?.country]);
 
-    function loadProvinces(countryId: number) {
-        fetch(`/api/locations/provinces?country_id=${countryId}`)
-            .then((response) => response.json())
-            .then(setProvinces);
+                setCountry(selectedCountry.name);
+                const provinceRecords = await fetchLocations<LocationRecord[]>(
+                    `/api/locations/provinces?country_id=${selectedCountry.id}`,
+                    controller.signal,
+                );
+                setProvinces(provinceRecords);
+                const selectedProvince = provinceRecords.find((item) =>
+                    matchesName(item, defaults?.province),
+                );
+
+                if (!selectedProvince) {
+                    return;
+                }
+
+                setProvince(selectedProvince.name);
+                const municipalityRecords = await fetchLocations<
+                    LocationRecord[]
+                >(
+                    `/api/locations/municipalities?province_id=${selectedProvince.id}`,
+                    controller.signal,
+                );
+                setMunicipalities(municipalityRecords);
+                const selectedMunicipality = municipalityRecords.find((item) =>
+                    matchesName(item, defaults?.municipality),
+                );
+
+                if (!selectedMunicipality) {
+                    return;
+                }
+
+                setMunicipality(selectedMunicipality.name);
+                const localityRecords = await fetchLocations<LocationRecord[]>(
+                    `/api/locations/localities?municipality_id=${selectedMunicipality.id}`,
+                    controller.signal,
+                );
+                setLocalities(localityRecords);
+                const selectedLocality = localityRecords.find((item) =>
+                    matchesName(item, defaults?.locality),
+                );
+
+                if (selectedLocality) {
+                    setLocality(selectedLocality.name);
+                }
+            } catch (error) {
+                if (
+                    !(
+                        error instanceof DOMException &&
+                        error.name === 'AbortError'
+                    )
+                ) {
+                    setCountries([]);
+                }
+            }
+        }
+
+        void hydrateSavedLocation();
+
+        return () => controller.abort();
+    }, [
+        defaults?.country,
+        defaults?.locality,
+        defaults?.municipality,
+        defaults?.province,
+    ]);
+
+    async function loadProvinces(countryId: number) {
+        const records = await fetchLocations<LocationRecord[]>(
+            `/api/locations/provinces?country_id=${countryId}`,
+        );
+        setProvinces(records);
     }
 
-    function loadMunicipalities(provinceId: number) {
-        fetch(`/api/locations/municipalities?province_id=${provinceId}`)
-            .then((response) => response.json())
-            .then(setMunicipalities);
+    async function loadMunicipalities(provinceId: number) {
+        const records = await fetchLocations<LocationRecord[]>(
+            `/api/locations/municipalities?province_id=${provinceId}`,
+        );
+        setMunicipalities(records);
     }
 
-    function loadLocalities(municipalityId: number) {
-        fetch(`/api/locations/localities?municipality_id=${municipalityId}`)
-            .then((response) => response.json())
-            .then(setLocalities);
+    async function loadLocalities(municipalityId: number) {
+        const records = await fetchLocations<LocationRecord[]>(
+            `/api/locations/localities?municipality_id=${municipalityId}`,
+        );
+        setLocalities(records);
     }
 
     function lookupPostalCode(value: string) {
@@ -144,7 +249,7 @@ export default function LocationFields({
                         setLocalities([]);
 
                         if (selected) {
-                            loadProvinces(selected.id);
+                            void loadProvinces(selected.id);
                         }
                     }}
                 >
@@ -154,7 +259,7 @@ export default function LocationFields({
                     <SelectContent>
                         {countries.map((item) => (
                             <SelectItem key={item.id} value={item.name}>
-                                {item.name}
+                                {countryLabel(item, locale)}
                             </SelectItem>
                         ))}
                     </SelectContent>
@@ -177,7 +282,7 @@ export default function LocationFields({
                         setLocalities([]);
 
                         if (selected) {
-                            loadMunicipalities(selected.id);
+                            void loadMunicipalities(selected.id);
                         }
                     }}
                 >
@@ -215,7 +320,7 @@ export default function LocationFields({
                         setLocality('');
 
                         if (selected) {
-                            loadLocalities(selected.id);
+                            void loadLocalities(selected.id);
                         }
                     }}
                 >
