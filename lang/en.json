@@ -63,5 +63,18 @@
     "The area request failed its integrity check.": "The area request failed its integrity check.",
     "The originating scenario is no longer the approved version.": "The originating scenario is no longer the approved version.",
     "Area requests generated as non-committing drafts.": "Area requests generated as non-committing drafts.",
-    "Area request confirmed without creating operational resources.": "Area request confirmed without creating operational resources."
+    "Area request confirmed without creating operational resources.": "Area request confirmed without creating operational resources.",
+    "Authorized materialization previews cannot be replaced.": "Authorized materialization previews cannot be replaced.",
+    "Only prepared materialization previews can be authorized.": "Only prepared materialization previews can be authorized.",
+    "The materialization preview changed after it was opened. Refresh it before authorization.": "The materialization preview changed after it was opened. Refresh it before authorization.",
+    "The materialization preview failed its integrity check.": "The materialization preview failed its integrity check.",
+    "Operational data changed after the preview. Prepare it again before authorization.": "Operational data changed after the preview. Prepare it again before authorization.",
+    "Resolve every blocking conflict before authorization.": "Resolve every blocking conflict before authorization.",
+    "A different user must grant the second authorization.": "A different user must grant the second authorization.",
+    "Confirm the area request before preparing materialization.": "Confirm the area request before preparing materialization.",
+    "The area request changed after it was opened. Refresh it before materialization.": "The area request changed after it was opened. Refresh it before materialization.",
+    "The confirmed area request failed its integrity check.": "The confirmed area request failed its integrity check.",
+    "This planning area is not supported.": "This planning area is not supported.",
+    "Materialization preview prepared without creating resources.": "Materialization preview prepared without creating resources.",
+    "Materialization authorized without creating resources.": "Materialization authorized without creating resources."
 }

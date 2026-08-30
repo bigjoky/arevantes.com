@@ -14427,5 +14427,61 @@
     "Weighted revenue": {
         "en": "Weighted revenue",
         "es": "Ingresos ponderados"
+    },
+    "Execution authorized by": {
+        "en": "Execution authorized by",
+        "es": "Ejecución autorizada por"
+    },
+    "Idempotency key": {
+        "en": "Idempotency key",
+        "es": "Clave de idempotencia"
+    },
+    "Materialization preview": {
+        "en": "Materialization preview",
+        "es": "Previsualización de materialización"
+    },
+    "Recalculate current capacity, stock, suppliers or accounting periods before a second user authorizes execution.": {
+        "en": "Recalculate current capacity, stock, suppliers or accounting periods before a second user authorizes execution.",
+        "es": "Recalcula la capacidad, el stock, los proveedores o los periodos contables actuales antes de que un segundo usuario autorice la ejecución."
+    },
+    "Items reviewed": {
+        "en": "Items reviewed",
+        "es": "Elementos revisados"
+    },
+    "Blocking conflicts": {
+        "en": "Blocking conflicts",
+        "es": "Conflictos bloqueantes"
+    },
+    "Refresh preview": {
+        "en": "Refresh preview",
+        "es": "Actualizar previsualización"
+    },
+    "Prepare preview": {
+        "en": "Prepare preview",
+        "es": "Preparar previsualización"
+    },
+    "Authorization note": {
+        "en": "Authorization note",
+        "es": "Nota de autorización"
+    },
+    "Grant second authorization": {
+        "en": "Grant second authorization",
+        "es": "Conceder segunda autorización"
+    },
+    "Insufficient capacity": {
+        "en": "Insufficient capacity",
+        "es": "Capacidad insuficiente"
+    },
+    "Insufficient stock": {
+        "en": "Insufficient stock",
+        "es": "Stock insuficiente"
+    },
+    "No active supplier": {
+        "en": "No active supplier",
+        "es": "Sin proveedor activo"
+    },
+    "Closed accounting period": {
+        "en": "Closed accounting period",
+        "es": "Periodo contable cerrado"
     }
 }

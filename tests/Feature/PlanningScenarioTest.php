@@ -181,6 +181,56 @@ class PlanningScenarioTest extends TestCase
             'confirmation_note' => 'Duplicate confirmation.',
         ])->assertSessionHasErrors('confirmation');
 
+        $this->post(route('planning-scenario-requests.materialization.store', $operationRequest), [
+            'fingerprint' => $operationRequest->request_fingerprint,
+        ])->assertRedirect();
+        $operationRequest->refresh();
+        $this->assertSame('prepared', $operationRequest->materialization_status);
+        $this->assertNotNull($operationRequest->idempotency_key);
+        $this->assertSame(0, $operationRequest->materialization_preview['state']['summary']['blocking_conflicts']);
+        $this->assertDatabaseHas('security_events', [
+            'type' => 'planning_scenario_materialization_prepared',
+            'user_id' => $technician->id,
+        ]);
+        $this->post(route('planning-scenario-requests.materialization.authorization.store', $operationRequest), [
+            'fingerprint' => $operationRequest->materialization_fingerprint,
+            'authorization_note' => 'Same-user authorization attempt.',
+        ])->assertSessionHasErrors('authorization');
+
+        $this->actingAs($admin)->post(route('planning-scenario-requests.materialization.authorization.store', $operationRequest), [
+            'fingerprint' => str_repeat('c', 64),
+            'authorization_note' => 'Stale preview attempt.',
+        ])->assertSessionHasErrors('authorization');
+        $this->post(route('planning-scenario-requests.materialization.authorization.store', $operationRequest), [
+            'fingerprint' => $operationRequest->materialization_fingerprint,
+            'authorization_note' => 'Live capacity preview independently reviewed.',
+        ])->assertRedirect();
+        $operationRequest->refresh();
+        $this->assertSame('authorized', $operationRequest->materialization_status);
+        $this->assertSame($admin->id, $operationRequest->authorized_by);
+        $this->assertDatabaseHas('security_events', [
+            'type' => 'planning_scenario_materialization_authorized',
+            'user_id' => $admin->id,
+        ]);
+        $this->post(route('planning-scenario-requests.materialization.store', $operationRequest), [
+            'fingerprint' => $operationRequest->request_fingerprint,
+        ])->assertSessionHasErrors('materialization');
+
+        $this->post(route('planning-scenario-requests.confirmation.store', $inventoryRequest), [
+            'fingerprint' => $inventoryRequest->request_fingerprint,
+            'confirmation_note' => 'Inventory shortage reviewed.',
+        ])->assertRedirect();
+        $inventoryRequest->refresh();
+        $this->post(route('planning-scenario-requests.materialization.store', $inventoryRequest), [
+            'fingerprint' => $inventoryRequest->request_fingerprint,
+        ])->assertRedirect();
+        $inventoryRequest->refresh();
+        $this->assertSame(1, $inventoryRequest->materialization_preview['state']['summary']['blocking_conflicts']);
+        $this->post(route('planning-scenario-requests.materialization.authorization.store', $inventoryRequest), [
+            'fingerprint' => $inventoryRequest->materialization_fingerprint,
+            'authorization_note' => 'Cannot authorize with shortage.',
+        ])->assertSessionHasErrors('authorization');
+
         $withoutQuote->update(['estimated_value' => 99999, 'probability' => 1]);
         $this->assertSame(10000.0, (float) $scenario->fresh()->opportunity_snapshot['opportunities'][0]['confirmed']['value']);
         $this->assertDatabaseCount('stock_reservations', 0);

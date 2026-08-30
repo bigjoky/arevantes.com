@@ -1083,5 +1083,18 @@
     "The area request failed its integrity check.": "La solicitud del área no ha superado la comprobación de integridad.",
     "The originating scenario is no longer the approved version.": "El escenario de origen ya no es la versión aprobada.",
     "Area requests generated as non-committing drafts.": "Solicitudes por área generadas como borradores sin compromiso de recursos.",
-    "Area request confirmed without creating operational resources.": "Solicitud del área confirmada sin crear recursos operativos."
+    "Area request confirmed without creating operational resources.": "Solicitud del área confirmada sin crear recursos operativos.",
+    "Authorized materialization previews cannot be replaced.": "Las previsualizaciones de materialización autorizadas no se pueden reemplazar.",
+    "Only prepared materialization previews can be authorized.": "Solo se pueden autorizar previsualizaciones de materialización preparadas.",
+    "The materialization preview changed after it was opened. Refresh it before authorization.": "La previsualización de materialización ha cambiado desde que se abrió. Actualízala antes de autorizarla.",
+    "The materialization preview failed its integrity check.": "La previsualización de materialización no ha superado la comprobación de integridad.",
+    "Operational data changed after the preview. Prepare it again before authorization.": "Los datos operativos han cambiado después de la previsualización. Prepárala de nuevo antes de autorizarla.",
+    "Resolve every blocking conflict before authorization.": "Resuelve todos los conflictos bloqueantes antes de la autorización.",
+    "A different user must grant the second authorization.": "Un usuario diferente debe conceder la segunda autorización.",
+    "Confirm the area request before preparing materialization.": "Confirma la solicitud del área antes de preparar la materialización.",
+    "The area request changed after it was opened. Refresh it before materialization.": "La solicitud del área ha cambiado desde que se abrió. Actualízala antes de materializarla.",
+    "The confirmed area request failed its integrity check.": "La solicitud del área confirmada no ha superado la comprobación de integridad.",
+    "This planning area is not supported.": "Esta área de planificación no está soportada.",
+    "Materialization preview prepared without creating resources.": "Previsualización de materialización preparada sin crear recursos.",
+    "Materialization authorized without creating resources.": "Materialización autorizada sin crear recursos."
 }

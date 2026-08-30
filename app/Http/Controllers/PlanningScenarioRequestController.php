@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\PlanningScenario;
 use App\Models\PlanningScenarioRequest;
+use App\Services\Planning\PlanningScenarioMaterializationWorkflow;
 use App\Services\Planning\PlanningScenarioRequestWorkflow;
 use App\Services\Security\SecurityEventRecorder;
 use Illuminate\Http\RedirectResponse;
@@ -22,7 +23,10 @@ class PlanningScenarioRequestController extends Controller
             'areas' => $areas,
             'requests' => PlanningScenarioRequest::query()
                 ->whereIn('area', $areas)
-                ->with(['scenario:id,name,version,horizon_starts_on,horizon_ends_on', 'generator:id,name', 'confirmer:id,name'])
+                ->with([
+                    'scenario:id,name,version,horizon_starts_on,horizon_ends_on', 'generator:id,name', 'confirmer:id,name',
+                    'preparer:id,name', 'authorizer:id,name',
+                ])
                 ->orderByRaw("case status when 'draft' then 0 else 1 end")
                 ->latest()
                 ->get(),
@@ -60,5 +64,39 @@ class PlanningScenarioRequestController extends Controller
         ]);
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Area request confirmed without creating operational resources.')]);
+    }
+
+    public function prepare(Request $request, PlanningScenarioRequest $scenarioRequest, PlanningScenarioMaterializationWorkflow $workflow, SecurityEventRecorder $events): RedirectResponse
+    {
+        $data = $request->validate(['fingerprint' => ['required', 'string', 'size:64']]);
+        $prepared = $workflow->prepare($scenarioRequest, $request->user(), $data['fingerprint']);
+        $events->record('planning_scenario_materialization_prepared', $request->user(), [
+            'planning_scenario_request_id' => $prepared->id,
+            'area' => $prepared->area,
+            'materialization_fingerprint' => $prepared->materialization_fingerprint,
+            'idempotency_key' => $prepared->idempotency_key,
+            'blocking_conflicts' => data_get($prepared->materialization_preview, 'state.summary.blocking_conflicts'),
+            'non_committing' => true,
+        ]);
+
+        return back()->with('toast', ['type' => 'success', 'message' => __('Materialization preview prepared without creating resources.')]);
+    }
+
+    public function authorizeMaterialization(Request $request, PlanningScenarioRequest $scenarioRequest, PlanningScenarioMaterializationWorkflow $workflow, SecurityEventRecorder $events): RedirectResponse
+    {
+        $data = $request->validate([
+            'fingerprint' => ['required', 'string', 'size:64'],
+            'authorization_note' => ['required', 'string', 'min:3', 'max:1000'],
+        ]);
+        $authorized = $workflow->authorize($scenarioRequest, $request->user(), $data['fingerprint'], $data['authorization_note']);
+        $events->record('planning_scenario_materialization_authorized', $request->user(), [
+            'planning_scenario_request_id' => $authorized->id,
+            'area' => $authorized->area,
+            'materialization_fingerprint' => $authorized->materialization_fingerprint,
+            'idempotency_key' => $authorized->idempotency_key,
+            'non_committing' => true,
+        ]);
+
+        return back()->with('toast', ['type' => 'success', 'message' => __('Materialization authorized without creating resources.')]);
     }
 }

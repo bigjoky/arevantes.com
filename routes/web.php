@@ -455,6 +455,8 @@ Route::middleware(['auth'])->group(function () {
     Route::post('planning-scenarios/{scenario}/requests', [PlanningScenarioRequestController::class, 'generate'])->middleware('can:manage-admin')->name('planning-scenarios.requests.store');
     Route::get('planning-requests', [PlanningScenarioRequestController::class, 'index'])->name('planning-scenario-requests.index');
     Route::post('planning-requests/{scenarioRequest}/confirmation', [PlanningScenarioRequestController::class, 'confirm'])->name('planning-scenario-requests.confirmation.store');
+    Route::post('planning-requests/{scenarioRequest}/materialization', [PlanningScenarioRequestController::class, 'prepare'])->name('planning-scenario-requests.materialization.store');
+    Route::post('planning-requests/{scenarioRequest}/materialization/authorization', [PlanningScenarioRequestController::class, 'authorizeMaterialization'])->name('planning-scenario-requests.materialization.authorization.store');
     Route::get('quotes/create', [QuoteController::class, 'create'])->middleware('can:manage-quotes')->name('quotes.create');
     Route::post('quotes', [QuoteController::class, 'store'])->middleware('can:manage-quotes')->name('quotes.store');
     Route::get('quotes/{quote}', [QuoteController::class, 'show'])->middleware('can:manage-quotes')->name('quotes.show');

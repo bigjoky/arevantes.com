@@ -10,6 +10,8 @@ class PlanningScenarioRequest extends Model
     protected $fillable = [
         'planning_scenario_id', 'area', 'status', 'approved_fingerprint', 'request_fingerprint',
         'payload', 'generated_by', 'confirmed_by', 'confirmed_at', 'confirmation_note',
+        'materialization_status', 'materialization_preview', 'materialization_fingerprint', 'idempotency_key',
+        'prepared_by', 'prepared_at', 'authorized_by', 'authorized_at', 'authorization_note',
     ];
 
     public function scenario(): BelongsTo
@@ -27,11 +29,24 @@ class PlanningScenarioRequest extends Model
         return $this->belongsTo(User::class, 'confirmed_by');
     }
 
+    public function preparer(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'prepared_by');
+    }
+
+    public function authorizer(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'authorized_by');
+    }
+
     protected function casts(): array
     {
         return [
             'payload' => 'array',
             'confirmed_at' => 'datetime',
+            'materialization_preview' => 'array',
+            'prepared_at' => 'datetime',
+            'authorized_at' => 'datetime',
         ];
     }
 }

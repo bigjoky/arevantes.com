@@ -1,5 +1,12 @@
 import { Head, useForm } from '@inertiajs/react';
-import { CheckCircle2, ClipboardCheck, LockKeyhole } from 'lucide-react';
+import {
+    CheckCircle2,
+    ClipboardCheck,
+    Eye,
+    LockKeyhole,
+    RefreshCw,
+    ShieldCheck,
+} from 'lucide-react';
 import InputError from '@/components/input-error';
 import { PageHeader, PageShell } from '@/components/page-shell';
 import { Badge } from '@/components/ui/badge';
@@ -40,6 +47,22 @@ type ScenarioRequest = {
     confirmer: { id: number; name: string } | null;
     confirmed_at: string | null;
     confirmation_note: string | null;
+    materialization_status: 'pending' | 'prepared' | 'authorized';
+    materialization_preview: {
+        captured_at: string;
+        non_committing: boolean;
+        state: {
+            summary: { items: number; blocking_conflicts: number };
+            conflicts: Array<{ code: string; subject: string }>;
+        };
+    } | null;
+    materialization_fingerprint: string | null;
+    idempotency_key: string | null;
+    preparer: { id: number; name: string } | null;
+    prepared_at: string | null;
+    authorizer: { id: number; name: string } | null;
+    authorized_at: string | null;
+    authorization_note: string | null;
 };
 
 const areaLabel = (area: Area, locale: 'en' | 'es') =>
@@ -167,16 +190,23 @@ function RequestCard({
             </div>
 
             {request.status === 'confirmed' ? (
-                <div className="rounded-md border border-emerald-300 bg-emerald-50 p-3 text-sm dark:bg-emerald-950/20">
-                    <p className="flex items-center gap-2 font-medium">
-                        <CheckCircle2 className="size-4" />
-                        {translate('Confirmed by', locale)}{' '}
-                        {request.confirmer?.name}
-                    </p>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                        {request.confirmation_note}
-                    </p>
-                </div>
+                <>
+                    <div className="rounded-md border border-emerald-300 bg-emerald-50 p-3 text-sm dark:bg-emerald-950/20">
+                        <p className="flex items-center gap-2 font-medium">
+                            <CheckCircle2 className="size-4" />
+                            {translate('Confirmed by', locale)}{' '}
+                            {request.confirmer?.name}
+                        </p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                            {request.confirmation_note}
+                        </p>
+                    </div>
+                    <MaterializationControl
+                        key={request.materialization_fingerprint ?? 'pending'}
+                        request={request}
+                        locale={locale}
+                    />
+                </>
             ) : (
                 <form
                     className="space-y-3"
@@ -216,6 +246,177 @@ function RequestCard({
                 </form>
             )}
         </article>
+    );
+}
+
+function MaterializationControl({
+    request,
+    locale,
+}: {
+    request: ScenarioRequest;
+    locale: 'en' | 'es';
+}) {
+    const prepareForm = useForm({ fingerprint: request.request_fingerprint });
+    const authorizeForm = useForm({
+        fingerprint: request.materialization_fingerprint ?? '',
+        authorization_note: '',
+    });
+    const prepareErrors = prepareForm.errors as Record<
+        string,
+        string | undefined
+    >;
+    const authorizationErrors = authorizeForm.errors as Record<
+        string,
+        string | undefined
+    >;
+    const preview = request.materialization_preview;
+    const conflicts = preview?.state.conflicts ?? [];
+
+    if (request.materialization_status === 'authorized') {
+        return (
+            <div className="space-y-2 rounded-md border border-primary/30 bg-primary/5 p-3 text-sm">
+                <p className="flex items-center gap-2 font-medium">
+                    <ShieldCheck className="size-4" />
+                    {translate('Execution authorized by', locale)}{' '}
+                    {request.authorizer?.name}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                    {request.authorization_note}
+                </p>
+                <code className="block text-[11px] break-all text-muted-foreground">
+                    {translate('Idempotency key', locale)}:{' '}
+                    {request.idempotency_key}
+                </code>
+            </div>
+        );
+    }
+
+    return (
+        <div className="space-y-3 rounded-md border p-3">
+            <div>
+                <h3 className="flex items-center gap-2 text-sm font-medium">
+                    <Eye className="size-4" />
+                    {translate('Materialization preview', locale)}
+                </h3>
+                <p className="text-xs text-muted-foreground">
+                    {translate(
+                        'Recalculate current capacity, stock, suppliers or accounting periods before a second user authorizes execution.',
+                        locale,
+                    )}
+                </p>
+            </div>
+
+            {preview && (
+                <div className="space-y-2">
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                        <div className="rounded bg-muted p-2">
+                            <div className="text-xs text-muted-foreground">
+                                {translate('Items reviewed', locale)}
+                            </div>
+                            <div className="font-semibold">
+                                {preview.state.summary.items}
+                            </div>
+                        </div>
+                        <div className="rounded bg-muted p-2">
+                            <div className="text-xs text-muted-foreground">
+                                {translate('Blocking conflicts', locale)}
+                            </div>
+                            <div className="font-semibold">
+                                {preview.state.summary.blocking_conflicts}
+                            </div>
+                        </div>
+                    </div>
+                    {conflicts.map((conflict) => (
+                        <p
+                            key={`${conflict.code}-${conflict.subject}`}
+                            className="text-xs text-destructive"
+                        >
+                            {conflictLabel(conflict.code, locale)} ·{' '}
+                            {conflict.subject}
+                        </p>
+                    ))}
+                    <code className="block text-[11px] break-all text-muted-foreground">
+                        {translate('Idempotency key', locale)}:{' '}
+                        {request.idempotency_key}
+                    </code>
+                </div>
+            )}
+
+            <form
+                onSubmit={(event) => {
+                    event.preventDefault();
+                    prepareForm.post(
+                        `/planning-requests/${request.id}/materialization`,
+                        { preserveScroll: true },
+                    );
+                }}
+            >
+                <InputError message={prepareErrors.materialization} />
+                <Button
+                    type="submit"
+                    variant="outline"
+                    disabled={prepareForm.processing}
+                >
+                    {preview ? <RefreshCw /> : <Eye />}
+                    {translate(
+                        preview ? 'Refresh preview' : 'Prepare preview',
+                        locale,
+                    )}
+                </Button>
+            </form>
+
+            {preview && preview.state.summary.blocking_conflicts === 0 && (
+                <form
+                    className="space-y-2 border-t pt-3"
+                    onSubmit={(event) => {
+                        event.preventDefault();
+                        authorizeForm.post(
+                            `/planning-requests/${request.id}/materialization/authorization`,
+                            { preserveScroll: true },
+                        );
+                    }}
+                >
+                    <Label htmlFor={`authorization_note_${request.id}`}>
+                        {translate('Authorization note', locale)}
+                    </Label>
+                    <Textarea
+                        id={`authorization_note_${request.id}`}
+                        value={authorizeForm.data.authorization_note}
+                        onChange={(event) =>
+                            authorizeForm.setData(
+                                'authorization_note',
+                                event.target.value,
+                            )
+                        }
+                        minLength={3}
+                        maxLength={1000}
+                        rows={3}
+                        required
+                    />
+                    <InputError
+                        message={authorizeForm.errors.authorization_note}
+                    />
+                    <InputError message={authorizationErrors.authorization} />
+                    <Button type="submit" disabled={authorizeForm.processing}>
+                        <ShieldCheck />
+                        {translate('Grant second authorization', locale)}
+                    </Button>
+                </form>
+            )}
+        </div>
+    );
+}
+
+function conflictLabel(code: string, locale: 'en' | 'es') {
+    return translate(
+        code === 'capacity_shortage'
+            ? 'Insufficient capacity'
+            : code === 'stock_shortage'
+              ? 'Insufficient stock'
+              : code === 'missing_supplier'
+                ? 'No active supplier'
+                : 'Closed accounting period',
+        locale,
     );
 }
 

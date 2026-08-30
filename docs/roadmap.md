@@ -639,13 +639,26 @@ bloquea decisiones concurrentes y registra responsable, fecha y evento de
 seguridad. Ni la generación ni la confirmación crean agendas, órdenes, reservas,
 compras, pagos o previsiones.
 
+## Corte ejecutado — Previsualización y segunda autorización
+
+Cada solicitud confirmada puede preparar y renovar una previsualización contra el
+estado vivo: operaciones recalcula capacidad, almacén existencias y reservas,
+compras proveedores activos y finanzas periodos contables. La fotografía conserva
+conflictos bloqueantes, huella propia, autor, fecha y una clave UUID de idempotencia.
+
+Antes de la segunda autorización se recalculan los datos. Cualquier cambio obliga a
+renovar la previsualización; tampoco se admiten contenido alterado, pestañas
+obsoletas, conflictos pendientes ni que el mismo usuario que confirmó conceda la
+segunda decisión. La preparación y autorización registran eventos de seguridad y
+siguen sin crear ningún recurso real.
+
 ## Próximo corte recomendado
 
-Añadir a cada solicitud confirmada una previsualización de materialización, con
-revalidación de conflictos, claves de idempotencia y una segunda decisión de
-ejecución. Operaciones y almacén iniciarán el circuito con el mismo contrato de
-seguridad que después usarán compras y finanzas, manteniendo los cuatro avances
-alineados y reversibles.
+Incorporar los ejecutores finales con revalidación inmediata y consumo atómico de la
+clave de idempotencia. Operaciones y almacén materializarán primero agenda de trabajo
+y reservas controladas; compras y finanzas reutilizarán el mismo estado para crear
+borradores trazables, nunca documentos enviados, contabilizados o pagados sin sus
+aprobaciones específicas.
 
 ## Corrección transversal — idioma temporal de la plataforma
 
