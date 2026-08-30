@@ -15,12 +15,19 @@ import InputError from '@/components/input-error';
 import { PageHeader, PageShell } from '@/components/page-shell';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useLocale } from '@/hooks/use-locale';
 import { translate } from '@/i18n';
 
 type Area = 'operations' | 'inventory' | 'purchases' | 'finance';
+
+type Governance = {
+    canAssignTasks: boolean;
+    canManageReservations: boolean;
+    assignees: Array<{ id: number; name: string; role: string }>;
+};
 
 type ScenarioRequest = {
     id: number;
@@ -120,9 +127,11 @@ const areaLabel = (area: Area, locale: 'en' | 'es') =>
 export default function PlanningScenarioRequests({
     requests,
     areas,
+    governance,
 }: {
     requests: ScenarioRequest[];
     areas: Area[];
+    governance: Governance;
 }) {
     const { locale } = useLocale();
 
@@ -150,6 +159,7 @@ export default function PlanningScenarioRequests({
                             key={request.id}
                             request={request}
                             locale={locale}
+                            governance={governance}
                         />
                     ))}
                     {requests.length === 0 && (
@@ -169,9 +179,11 @@ export default function PlanningScenarioRequests({
 function RequestCard({
     request,
     locale,
+    governance,
 }: {
     request: ScenarioRequest;
     locale: 'en' | 'es';
+    governance: Governance;
 }) {
     const form = useForm({
         fingerprint: request.request_fingerprint,
@@ -245,6 +257,7 @@ function RequestCard({
                         key={request.materialization_fingerprint ?? 'pending'}
                         request={request}
                         locale={locale}
+                        governance={governance}
                     />
                 </>
             ) : (
@@ -292,9 +305,11 @@ function RequestCard({
 function MaterializationControl({
     request,
     locale,
+    governance,
 }: {
     request: ScenarioRequest;
     locale: 'en' | 'es';
+    governance: Governance;
 }) {
     const prepareForm = useForm({ fingerprint: request.request_fingerprint });
     const authorizeForm = useForm({
@@ -387,6 +402,11 @@ function MaterializationControl({
                         )}
                     </div>
                 )}
+                <ExceptionGovernance
+                    request={request}
+                    governance={governance}
+                    locale={locale}
+                />
                 {(request.outcome_monitoring.comparison?.length ?? 0) > 0 && (
                     <div className="grid grid-cols-2 gap-2 border-t pt-3 text-xs">
                         {request.outcome_monitoring.comparison?.map((row) => (
@@ -641,6 +661,205 @@ function MaterializationControl({
                 </form>
             )}
         </div>
+    );
+}
+
+function ExceptionGovernance({
+    request,
+    governance,
+    locale,
+}: {
+    request: ScenarioRequest;
+    governance: Governance;
+    locale: 'en' | 'es';
+}) {
+    const taskForm = useForm<{
+        assignee_id: number | '';
+        due_on: string;
+        governance_note: string;
+    }>({ assignee_id: '', due_on: '', governance_note: '' });
+    const reservationForm = useForm<{
+        action: 'renew' | 'release';
+        reserved_until: string;
+        governance_note: string;
+    }>({ action: 'renew', reserved_until: '', governance_note: '' });
+    const unassigned = request.outcome_monitoring.unassigned ?? 0;
+    const expired = request.outcome_monitoring.expired ?? 0;
+
+    if (
+        (request.area !== 'operations' ||
+            !governance.canAssignTasks ||
+            unassigned === 0) &&
+        (request.area !== 'inventory' ||
+            !governance.canManageReservations ||
+            expired === 0)
+    ) {
+        return null;
+    }
+
+    if (request.area === 'operations') {
+        return (
+            <form
+                className="space-y-2 border-t pt-3"
+                onSubmit={(event) => {
+                    event.preventDefault();
+                    taskForm.post(
+                        `/planning-requests/${request.id}/exceptions/tasks/assignment`,
+                        { preserveScroll: true },
+                    );
+                }}
+            >
+                <p className="text-xs font-medium">
+                    {translate('Govern unassigned tasks', locale)} · {unassigned}
+                </p>
+                <div className="grid gap-2 sm:grid-cols-2">
+                    <select
+                        className="h-9 rounded-md border bg-background px-3 text-sm"
+                        value={taskForm.data.assignee_id}
+                        onChange={(event) =>
+                            taskForm.setData(
+                                'assignee_id',
+                                Number(event.target.value),
+                            )
+                        }
+                        required
+                    >
+                        <option value="">
+                            {translate('Select assignee', locale)}
+                        </option>
+                        {governance.assignees.map((assignee) => (
+                            <option key={assignee.id} value={assignee.id}>
+                                {assignee.name} · {assignee.role}
+                            </option>
+                        ))}
+                    </select>
+                    <Input
+                        type="date"
+                        aria-label={translate('Target date', locale)}
+                        value={taskForm.data.due_on}
+                        onChange={(event) =>
+                            taskForm.setData('due_on', event.target.value)
+                        }
+                        required
+                    />
+                </div>
+                <Textarea
+                    value={taskForm.data.governance_note}
+                    onChange={(event) =>
+                        taskForm.setData(
+                            'governance_note',
+                            event.target.value,
+                        )
+                    }
+                    placeholder={translate('Governance note', locale)}
+                    minLength={3}
+                    maxLength={1000}
+                    rows={2}
+                    required
+                />
+                <InputError message={taskForm.errors.assignee_id} />
+                <InputError message={taskForm.errors.due_on} />
+                <InputError message={taskForm.errors.governance_note} />
+                <InputError
+                    message={
+                        (taskForm.errors as Record<string, string | undefined>)
+                            .governance
+                    }
+                />
+                <Button type="submit" size="sm" disabled={taskForm.processing}>
+                    {translate('Assign open tasks', locale)}
+                </Button>
+            </form>
+        );
+    }
+
+    return (
+        <form
+            className="space-y-2 border-t pt-3"
+            onSubmit={(event) => {
+                event.preventDefault();
+                reservationForm.post(
+                    `/planning-requests/${request.id}/exceptions/reservations`,
+                    { preserveScroll: true },
+                );
+            }}
+        >
+            <p className="text-xs font-medium">
+                {translate('Govern expired reservations', locale)} · {expired}
+            </p>
+            <div className="grid gap-2 sm:grid-cols-2">
+                <select
+                    className="h-9 rounded-md border bg-background px-3 text-sm"
+                    value={reservationForm.data.action}
+                    onChange={(event) =>
+                        reservationForm.setData(
+                            'action',
+                            event.target.value as 'renew' | 'release',
+                        )
+                    }
+                >
+                    <option value="renew">{translate('Renew', locale)}</option>
+                    <option value="release">{translate('Release', locale)}</option>
+                </select>
+                {reservationForm.data.action === 'renew' && (
+                    <Input
+                        type="date"
+                        aria-label={translate(
+                            'New reservation expiry',
+                            locale,
+                        )}
+                        value={reservationForm.data.reserved_until}
+                        onChange={(event) =>
+                            reservationForm.setData(
+                                'reserved_until',
+                                event.target.value,
+                            )
+                        }
+                        required
+                    />
+                )}
+            </div>
+            <Textarea
+                value={reservationForm.data.governance_note}
+                onChange={(event) =>
+                    reservationForm.setData(
+                        'governance_note',
+                        event.target.value,
+                    )
+                }
+                placeholder={translate('Governance note', locale)}
+                minLength={3}
+                maxLength={1000}
+                rows={2}
+                required
+            />
+            <InputError message={reservationForm.errors.reserved_until} />
+            <InputError message={reservationForm.errors.governance_note} />
+            <InputError
+                message={
+                    (
+                        reservationForm.errors as Record<
+                            string,
+                            string | undefined
+                        >
+                    ).governance
+                }
+            />
+            <Button
+                type="submit"
+                size="sm"
+                variant={
+                    reservationForm.data.action === 'release'
+                        ? 'destructive'
+                        : 'default'
+                }
+                disabled={reservationForm.processing}
+            >
+                {reservationForm.data.action === 'renew'
+                    ? translate('Renew expired reservations', locale)
+                    : translate('Release expired reservations', locale)}
+            </Button>
+        </form>
     );
 }
 

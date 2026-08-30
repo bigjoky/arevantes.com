@@ -4,12 +4,16 @@ namespace App\Http\Controllers;
 
 use App\Models\PlanningScenario;
 use App\Models\PlanningScenarioRequest;
+use App\Models\User;
+use App\Services\Planning\PlanningScenarioExceptionWorkflow;
 use App\Services\Planning\PlanningScenarioMaterializationWorkflow;
 use App\Services\Planning\PlanningScenarioOutcomeMonitor;
 use App\Services\Planning\PlanningScenarioRequestWorkflow;
 use App\Services\Security\SecurityEventRecorder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -37,6 +41,13 @@ class PlanningScenarioRequestController extends Controller
                 ...$scenarioRequest->toArray(),
                 'outcome_monitoring' => $monitoring[$scenarioRequest->id],
             ]),
+            'governance' => [
+                'canAssignTasks' => Gate::allows('manage-installations'),
+                'canManageReservations' => Gate::allows('manage-catalog'),
+                'assignees' => Gate::allows('manage-installations')
+                    ? User::query()->whereIn('role', ['admin', 'commercial', 'technician'])->orderBy('name')->get(['id', 'name', 'role'])
+                    : [],
+            ],
         ]);
     }
 
@@ -138,5 +149,37 @@ class PlanningScenarioRequestController extends Controller
         ]);
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Planning drafts promoted to their native workflow.')]);
+    }
+
+    public function assignTasks(Request $request, PlanningScenarioRequest $scenarioRequest, PlanningScenarioExceptionWorkflow $workflow, SecurityEventRecorder $events): RedirectResponse
+    {
+        $data = $request->validate([
+            'assignee_id' => ['required', 'integer', Rule::exists('users', 'id')->whereIn('role', ['admin', 'commercial', 'technician'])],
+            'due_on' => ['required', 'date', 'after_or_equal:today'],
+            'governance_note' => ['required', 'string', 'min:3', 'max:1000'],
+        ]);
+        $result = $workflow->assignOpenTasks($scenarioRequest, $request->user(), (int) $data['assignee_id'], $data['due_on'], $data['governance_note']);
+        $events->record('planning_scenario_tasks_assigned', $request->user(), [
+            'planning_scenario_request_id' => $scenarioRequest->id,
+            ...$result,
+        ]);
+
+        return back()->with('toast', ['type' => 'success', 'message' => __('Open planning tasks assigned with a target date.')]);
+    }
+
+    public function resolveReservations(Request $request, PlanningScenarioRequest $scenarioRequest, PlanningScenarioExceptionWorkflow $workflow, SecurityEventRecorder $events): RedirectResponse
+    {
+        $data = $request->validate([
+            'action' => ['required', Rule::in(['renew', 'release'])],
+            'reserved_until' => ['nullable', 'required_if:action,renew', 'date', 'after:today'],
+            'governance_note' => ['required', 'string', 'min:3', 'max:1000'],
+        ]);
+        $result = $workflow->resolveExpiredReservations($scenarioRequest, $request->user(), $data['action'], $data['reserved_until'] ?? null, $data['governance_note']);
+        $events->record($data['action'] === 'renew' ? 'planning_scenario_reservations_renewed' : 'planning_scenario_reservations_released', $request->user(), [
+            'planning_scenario_request_id' => $scenarioRequest->id,
+            ...$result,
+        ]);
+
+        return back()->with('toast', ['type' => 'success', 'message' => $data['action'] === 'renew' ? __('Expired planning reservations renewed.') : __('Expired planning reservations released.')]);
     }
 }

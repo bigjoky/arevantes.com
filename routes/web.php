@@ -459,6 +459,8 @@ Route::middleware(['auth'])->group(function () {
     Route::post('planning-requests/{scenarioRequest}/materialization/authorization', [PlanningScenarioRequestController::class, 'authorizeMaterialization'])->name('planning-scenario-requests.materialization.authorization.store');
     Route::post('planning-requests/{scenarioRequest}/execution', [PlanningScenarioRequestController::class, 'execute'])->name('planning-scenario-requests.execution.store');
     Route::post('planning-requests/{scenarioRequest}/promotion', [PlanningScenarioRequestController::class, 'promote'])->name('planning-scenario-requests.promotion.store');
+    Route::post('planning-requests/{scenarioRequest}/exceptions/tasks/assignment', [PlanningScenarioRequestController::class, 'assignTasks'])->name('planning-scenario-requests.exceptions.tasks.assignment.store');
+    Route::post('planning-requests/{scenarioRequest}/exceptions/reservations', [PlanningScenarioRequestController::class, 'resolveReservations'])->name('planning-scenario-requests.exceptions.reservations.store');
     Route::get('quotes/create', [QuoteController::class, 'create'])->middleware('can:manage-quotes')->name('quotes.create');
     Route::post('quotes', [QuoteController::class, 'store'])->middleware('can:manage-quotes')->name('quotes.store');
     Route::get('quotes/{quote}', [QuoteController::class, 'show'])->middleware('can:manage-quotes')->name('quotes.show');

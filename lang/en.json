@@ -94,5 +94,11 @@
     "Generated from authorized planning request :request. Review and send from Purchases.": "Generated from authorized planning request :request. Review and send from Purchases.",
     "Scenario :scenario expected collections": "Scenario :scenario expected collections",
     "Scenario :scenario expected material payments": "Scenario :scenario expected material payments",
-    "Planning drafts promoted to their native workflow.": "Planning drafts promoted to their native workflow."
+    "Planning drafts promoted to their native workflow.": "Planning drafts promoted to their native workflow.",
+    "There are no unassigned open tasks in this planning request.": "There are no unassigned open tasks in this planning request.",
+    "There are no expired active reservations in this planning request.": "There are no expired active reservations in this planning request.",
+    "Only an executed request with matching generated resources can govern exceptions.": "Only an executed request with matching generated resources can govern exceptions.",
+    "Open planning tasks assigned with a target date.": "Open planning tasks assigned with a target date.",
+    "Expired planning reservations renewed.": "Expired planning reservations renewed.",
+    "Expired planning reservations released.": "Expired planning reservations released."
 }

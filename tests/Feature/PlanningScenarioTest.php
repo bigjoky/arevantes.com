@@ -76,7 +76,7 @@ class PlanningScenarioTest extends TestCase
             'planning_scenario_request_id' => $operationsRequest->id, 'created_by' => $admin->id,
             'type' => 'task', 'title' => 'Planning exception', 'status' => 'pending', 'due_at' => now()->subDay(),
         ]);
-        CrmActivity::create(['created_by' => $admin->id, 'type' => 'task', 'title' => 'Unrelated task', 'status' => 'pending']);
+        $unrelated = CrmActivity::create(['created_by' => $admin->id, 'type' => 'task', 'title' => 'Unrelated task', 'status' => 'pending']);
         $installation = Installation::create(['service_type' => 'security', 'status' => 'scheduled', 'project_reference' => 'PLAN-NATIVE', 'site_address_line_1' => 'Planning 1']);
         $inventoryRequest = $this->executedRequest($scenario, $admin, 'inventory', ['kind' => 'inventory_reservations', 'reservation_ids' => []]);
         $reservation = StockReservation::create([
@@ -125,6 +125,35 @@ class PlanningScenarioTest extends TestCase
         $this->assertSame(2.0, $monitoring[$purchaseRequest->id]['comparison'][0]['planned']);
         $this->assertSame(2.0, $monitoring[$purchaseRequest->id]['comparison'][0]['current']);
         $this->assertSame("/purchases?planning_request={$purchaseRequest->id}", $monitoring[$purchaseRequest->id]['direct_url']);
+        $technician = User::factory()->create(['role' => 'technician']);
+        $this->actingAs($technician)->post(route('planning-scenario-requests.exceptions.tasks.assignment.store', $operationsRequest), [
+            'assignee_id' => $technician->id, 'due_on' => today()->addDays(3)->toDateString(),
+            'governance_note' => 'Technician cannot govern the whole request.',
+        ])->assertForbidden();
+        $this->actingAs($admin)->post(route('planning-scenario-requests.exceptions.tasks.assignment.store', $operationsRequest), [
+            'assignee_id' => $technician->id, 'due_on' => today()->addDays(3)->toDateString(),
+            'governance_note' => 'Assign the outstanding planning work.',
+        ])->assertRedirect();
+        $this->assertSame($technician->id, $activity->fresh()->assigned_user_id);
+        $this->assertSame(today()->addDays(3)->toDateString(), $activity->fresh()->due_at->toDateString());
+        $this->assertNull($unrelated->fresh()->assigned_user_id);
+        $this->assertDatabaseHas('security_events', ['type' => 'planning_scenario_tasks_assigned', 'user_id' => $admin->id]);
+
+        $this->post(route('planning-scenario-requests.exceptions.reservations.store', $inventoryRequest), [
+            'action' => 'renew', 'reserved_until' => today()->addDays(7)->toDateString(),
+            'governance_note' => 'Keep materials assigned until the revised target.',
+        ])->assertRedirect();
+        $this->assertSame(today()->addDays(7)->toDateString(), $reservation->fresh()->reserved_until->toDateString());
+        $this->assertDatabaseHas('security_events', ['type' => 'planning_scenario_reservations_renewed', 'user_id' => $admin->id]);
+        $reservation->update(['reserved_until' => now()->subMinute()]);
+        $this->post(route('planning-scenario-requests.exceptions.reservations.store', $inventoryRequest), [
+            'action' => 'release', 'governance_note' => 'The material is no longer required.',
+        ])->assertRedirect();
+        $this->assertSame('released', $reservation->fresh()->status);
+        $this->assertDatabaseHas('security_events', ['type' => 'planning_scenario_reservations_released', 'user_id' => $admin->id]);
+        $this->post(route('planning-scenario-requests.exceptions.reservations.store', $inventoryRequest), [
+            'action' => 'release', 'governance_note' => 'Idempotent retry.',
+        ])->assertSessionHasErrors('governance');
         $this->get(route('planning-scenario-requests.index'))->assertInertia(fn (Assert $page) => $page->has('requests', 4));
     }
 

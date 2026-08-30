@@ -14437,6 +14437,50 @@
         "en": "Expired reservations",
         "es": "Reservas caducadas"
     },
+    "Govern unassigned tasks": {
+        "en": "Govern unassigned tasks",
+        "es": "Gestionar tareas sin asignar"
+    },
+    "Select assignee": {
+        "en": "Select assignee",
+        "es": "Seleccionar responsable"
+    },
+    "Governance note": {
+        "en": "Governance note",
+        "es": "Nota de gestión"
+    },
+    "Assign open tasks": {
+        "en": "Assign open tasks",
+        "es": "Asignar tareas abiertas"
+    },
+    "Target date": {
+        "en": "Target date",
+        "es": "Fecha objetivo"
+    },
+    "Govern expired reservations": {
+        "en": "Govern expired reservations",
+        "es": "Gestionar reservas caducadas"
+    },
+    "Renew": {
+        "en": "Renew",
+        "es": "Renovar"
+    },
+    "renew": {
+        "en": "renew",
+        "es": "renovar"
+    },
+    "Renew expired reservations": {
+        "en": "Renew expired reservations",
+        "es": "Renovar reservas caducadas"
+    },
+    "New reservation expiry": {
+        "en": "New reservation expiry",
+        "es": "Nueva caducidad de la reserva"
+    },
+    "Release expired reservations": {
+        "en": "Release expired reservations",
+        "es": "Liberar reservas caducadas"
+    },
     "Promote to native workflow": {
         "en": "Promote to native workflow",
         "es": "Promover al circuito nativo"

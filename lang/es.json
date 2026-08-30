@@ -1114,5 +1114,11 @@
     "Generated from authorized planning request :request. Review and send from Purchases.": "Generada desde la solicitud de planificación autorizada :request. Revísala y envíala desde Compras.",
     "Scenario :scenario expected collections": "Cobros previstos del escenario :scenario",
     "Scenario :scenario expected material payments": "Pagos de materiales previstos del escenario :scenario",
-    "Planning drafts promoted to their native workflow.": "Borradores de planificación promovidos a su circuito nativo."
+    "Planning drafts promoted to their native workflow.": "Borradores de planificación promovidos a su circuito nativo.",
+    "There are no unassigned open tasks in this planning request.": "No hay tareas abiertas sin asignar en esta solicitud de planificación.",
+    "There are no expired active reservations in this planning request.": "No hay reservas activas caducadas en esta solicitud de planificación.",
+    "Only an executed request with matching generated resources can govern exceptions.": "Solo una solicitud ejecutada con recursos generados coincidentes puede gestionar excepciones.",
+    "Open planning tasks assigned with a target date.": "Tareas abiertas de planificación asignadas con fecha objetivo.",
+    "Expired planning reservations renewed.": "Reservas de planificación caducadas renovadas.",
+    "Expired planning reservations released.": "Reservas de planificación caducadas liberadas."
 }

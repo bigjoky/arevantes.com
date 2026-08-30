@@ -696,13 +696,26 @@ tareas creadas y terminadas, unidades reservadas y consumidas, unidades e import
 solicitados, y cobros y pagos materiales previstos. Los cálculos se obtienen de los
 recursos vinculados y no modifican la huella ni la fotografía del escenario.
 
+## Corte ejecutado — Resolución gobernada de excepciones
+
+Las solicitudes de operaciones permiten asignar en bloque únicamente sus tareas
+abiertas y todavía sin responsable. La decisión exige responsable, fecha objetivo y
+nota; excluye trabajos ajenos, completados o cancelados y queda registrada como
+evento de seguridad. Los técnicos pueden consultar y trabajar sus tareas, pero no
+gobernar la asignación global del escenario.
+
+Las solicitudes de almacén permiten renovar o liberar en bloque exclusivamente sus
+reservas activas ya caducadas. La renovación exige una nueva fecha futura y la
+liberación queda limitada a la misma procedencia. Ambas operaciones bloquean solo la
+solicitud y las filas afectadas durante una transacción corta, rechazan reintentos sin
+excepciones pendientes y registran actor, nota e identificadores afectados.
+
 ## Próximo corte recomendado
 
-Convertir las excepciones del escenario en acciones gobernadas: asignación masiva de
-tareas, renovación o liberación controlada de reservas y responsables con fecha
-objetivo. Incorporar después hitos de revisión del escenario para registrar una
-explicación de desviaciones significativas y cerrar formalmente el horizonte sin
-reescribir sus datos aprobados.
+Incorporar hitos de revisión del escenario para registrar una explicación de
+desviaciones significativas y cerrar formalmente el horizonte sin reescribir sus
+datos aprobados. El cierre deberá conservar responsable, fecha, resultado resumido y
+excepciones pendientes, sin impedir que los recursos nativos mantengan su histórico.
 
 ## Corrección transversal — idioma temporal de la plataforma
 
