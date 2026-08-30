@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\FinancialForecastItem;
 use App\Models\Opportunity;
 use App\Models\Person;
 use App\Models\PlanningScenario;
@@ -9,6 +10,8 @@ use App\Models\PlanningScenarioRequest;
 use App\Models\Product;
 use App\Models\Quote;
 use App\Models\StockMovement;
+use App\Models\Supplier;
+use App\Models\SupplierProduct;
 use App\Models\TaxRate;
 use App\Models\Unit;
 use App\Models\User;
@@ -21,6 +24,83 @@ use Tests\TestCase;
 class PlanningScenarioTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_executed_purchase_and_finance_drafts_are_promoted_once_and_remain_traceable(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $scenario = PlanningScenario::create([
+            'name' => 'Native workflow', 'version' => 1, 'status' => 'approved',
+            'horizon_starts_on' => '2026-09-01', 'horizon_ends_on' => '2026-12-31',
+            'assumptions' => [], 'opportunity_snapshot' => ['opportunities' => []],
+            'result_snapshot' => ['summary' => [], 'cash_by_month' => []],
+            'fingerprint' => str_repeat('a', 64), 'approved_fingerprint' => str_repeat('a', 64),
+            'created_by' => $admin->id, 'approved_by' => $admin->id, 'approved_at' => now(),
+        ]);
+        $product = Product::create([
+            'type' => 'product', 'sku' => 'PLAN-NATIVE', 'name' => 'Planned panel',
+            'unit_id' => Unit::firstOrFail()->id, 'tax_rate_id' => TaxRate::firstOrFail()->id,
+            'sale_price' => 200, 'cost_price' => 100, 'track_stock' => true, 'is_active' => true,
+        ]);
+        $supplier = Supplier::create(['legal_name' => 'Planning Supplier SL', 'country' => 'ES', 'is_active' => true]);
+        $source = SupplierProduct::create([
+            'supplier_id' => $supplier->id, 'product_id' => $product->id, 'last_unit_price' => 90,
+            'lead_time_days' => 5, 'is_preferred' => true, 'is_active' => true,
+        ]);
+        Warehouse::create(['code' => 'NATIVE', 'name' => 'Native stock', 'is_default' => true, 'is_active' => true]);
+        $purchaseResult = ['kind' => 'purchase_drafts', 'drafts' => [[
+            'product_id' => $product->id, 'name' => $product->name, 'shortage_quantity' => 2,
+            'recommended_source' => ['supplier_product_id' => $source->id, 'supplier_id' => $supplier->id, 'unit_price' => 90, 'lead_time_days' => 5],
+        ]], 'requires_purchase_approval' => true];
+        $financeResult = ['kind' => 'forecast_drafts', 'drafts' => [[
+            'month' => '2026-10', 'expected_inflow' => 1000, 'expected_material_outflow' => 180,
+        ]], 'requires_finance_approval' => true];
+
+        $purchaseRequest = $this->executedRequest($scenario, $admin, 'purchases', $purchaseResult);
+        $financeRequest = $this->executedRequest($scenario, $admin, 'finance', $financeResult);
+        $this->actingAs($admin)->post(route('planning-scenario-requests.promotion.store', $purchaseRequest), [
+            'fingerprint' => $purchaseRequest->execution_fingerprint,
+        ])->assertRedirect();
+        $this->post(route('planning-scenario-requests.promotion.store', $purchaseRequest), [
+            'fingerprint' => $purchaseRequest->execution_fingerprint,
+        ])->assertRedirect();
+        $this->post(route('planning-scenario-requests.promotion.store', $financeRequest), [
+            'fingerprint' => $financeRequest->execution_fingerprint,
+        ])->assertRedirect();
+
+        $this->assertDatabaseCount('purchase_documents', 1);
+        $this->assertDatabaseHas('purchase_documents', [
+            'planning_scenario_request_id' => $purchaseRequest->id, 'supplier_id' => $supplier->id,
+            'type' => 'purchase_rfq', 'status' => 'draft', 'amount' => 217.80,
+        ]);
+        $this->assertDatabaseCount('financial_forecast_items', 2);
+        $this->assertSame(['in', 'out'], FinancialForecastItem::where('planning_scenario_request_id', $financeRequest->id)->orderBy('direction')->pluck('direction')->sort()->values()->all());
+        $this->assertSame('promoted', $purchaseRequest->fresh()->promotion_status);
+        $this->assertSame('promoted', $financeRequest->fresh()->promotion_status);
+        $this->assertCount(1, $purchaseRequest->fresh()->promotion_result['purchase_document_ids']);
+        $this->assertCount(2, $financeRequest->fresh()->promotion_result['financial_forecast_item_ids']);
+        $this->get(route('planning-scenario-requests.index'))->assertInertia(fn (Assert $page) => $page
+            ->where('requests.0.outcome_monitoring.total', 2)
+            ->where('requests.1.outcome_monitoring.total', 1));
+    }
+
+    /** @param array<string, mixed> $result */
+    private function executedRequest(PlanningScenario $scenario, User $user, string $area, array $result): PlanningScenarioRequest
+    {
+        $request = PlanningScenarioRequest::create([
+            'planning_scenario_id' => $scenario->id, 'area' => $area, 'status' => 'confirmed',
+            'approved_fingerprint' => $scenario->approved_fingerprint, 'request_fingerprint' => str_repeat($area === 'purchases' ? 'b' : 'c', 64),
+            'payload' => ['scenario' => ['name' => $scenario->name], 'horizon' => ['from' => '2026-09-01', 'to' => '2026-12-31']],
+            'generated_by' => $user->id, 'confirmed_by' => $user->id, 'confirmed_at' => now(),
+            'materialization_status' => 'authorized', 'materialization_fingerprint' => str_repeat('d', 64),
+            'idempotency_key' => $area === 'purchases' ? '10000000-0000-4000-8000-000000000000' : '20000000-0000-4000-8000-000000000000',
+            'execution_status' => 'executed', 'execution_result' => $result, 'executed_by' => $user->id, 'executed_at' => now(),
+        ]);
+        $request->update(['execution_fingerprint' => hash('sha256', json_encode([
+            $request->id, $request->idempotency_key, $request->materialization_fingerprint, $result,
+        ], JSON_THROW_ON_ERROR))]);
+
+        return $request->refresh();
+    }
 
     public function test_admin_freezes_a_non_committing_cross_area_portfolio_scenario(): void
     {

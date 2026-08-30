@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class FinancialForecastItem extends Model
 {
-    protected $fillable = ['direction', 'category', 'financial_category_id', 'description', 'amount', 'baseline_amount', 'due_on', 'baseline_due_on', 'probability', 'recurrence', 'status', 'actual_amount', 'settled_on', 'settlement_notes', 'installation_id', 'maintenance_plan_id', 'maintenance_plan_version', 'created_by', 'settled_by'];
+    protected $fillable = ['planning_scenario_request_id', 'direction', 'category', 'financial_category_id', 'description', 'amount', 'baseline_amount', 'due_on', 'baseline_due_on', 'probability', 'recurrence', 'status', 'actual_amount', 'settled_on', 'settlement_notes', 'installation_id', 'maintenance_plan_id', 'maintenance_plan_version', 'created_by', 'settled_by'];
 
     protected function casts(): array
     {

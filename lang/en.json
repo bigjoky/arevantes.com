@@ -86,5 +86,13 @@
     "Inventory changed while reserving materials. Refresh the preview.": "Inventory changed while reserving materials. Refresh the preview.",
     "Plan opportunity :code · :title": "Plan opportunity :code · :title",
     "Generated from authorized planning request :request.": "Generated from authorized planning request :request.",
-    "Authorized planning request executed once.": "Authorized planning request executed once."
+    "Authorized planning request executed once.": "Authorized planning request executed once.",
+    "Only purchase and finance drafts require native promotion.": "Only purchase and finance drafts require native promotion.",
+    "Execute the authorized request before promoting its drafts.": "Execute the authorized request before promoting its drafts.",
+    "The executed request changed after it was opened. Refresh it before promotion.": "The executed request changed after it was opened. Refresh it before promotion.",
+    "The executed request failed its integrity check.": "The executed request failed its integrity check.",
+    "Generated from authorized planning request :request. Review and send from Purchases.": "Generated from authorized planning request :request. Review and send from Purchases.",
+    "Scenario :scenario expected collections": "Scenario :scenario expected collections",
+    "Scenario :scenario expected material payments": "Scenario :scenario expected material payments",
+    "Planning drafts promoted to their native workflow.": "Planning drafts promoted to their native workflow."
 }

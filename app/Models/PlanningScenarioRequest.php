@@ -13,6 +13,7 @@ class PlanningScenarioRequest extends Model
         'materialization_status', 'materialization_preview', 'materialization_fingerprint', 'idempotency_key',
         'prepared_by', 'prepared_at', 'authorized_by', 'authorized_at', 'authorization_note',
         'execution_status', 'execution_result', 'execution_fingerprint', 'executed_by', 'executed_at',
+        'promotion_status', 'promotion_result', 'promotion_fingerprint', 'promoted_by', 'promoted_at',
     ];
 
     public function scenario(): BelongsTo
@@ -45,6 +46,11 @@ class PlanningScenarioRequest extends Model
         return $this->belongsTo(User::class, 'executed_by');
     }
 
+    public function promoter(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'promoted_by');
+    }
+
     protected function casts(): array
     {
         return [
@@ -55,6 +61,8 @@ class PlanningScenarioRequest extends Model
             'authorized_at' => 'datetime',
             'execution_result' => 'array',
             'executed_at' => 'datetime',
+            'promotion_result' => 'array',
+            'promoted_at' => 'datetime',
         ];
     }
 }

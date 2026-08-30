@@ -6,6 +6,7 @@ import {
     LockKeyhole,
     Play,
     RefreshCw,
+    SendToBack,
     ShieldCheck,
 } from 'lucide-react';
 import InputError from '@/components/input-error';
@@ -74,6 +75,24 @@ type ScenarioRequest = {
     execution_fingerprint: string | null;
     executor: { id: number; name: string } | null;
     executed_at: string | null;
+    promotion_status: 'pending' | 'promoted';
+    promotion_result: {
+        purchase_document_ids?: number[];
+        financial_forecast_item_ids?: number[];
+    } | null;
+    promoter: { id: number; name: string } | null;
+    promoted_at: string | null;
+    outcome_monitoring: {
+        total: number;
+        statuses: Record<string, number>;
+        unassigned?: number;
+        overdue?: number;
+        expired?: number;
+        quantity?: number;
+        consumed_quantity?: number;
+        amount?: number;
+        actual_amount?: number;
+    };
 };
 
 const areaLabel = (area: Area, locale: 'en' | 'es') =>
@@ -276,6 +295,9 @@ function MaterializationControl({
         fingerprint: request.materialization_fingerprint ?? '',
         idempotency_key: request.idempotency_key ?? '',
     });
+    const promotionForm = useForm({
+        fingerprint: request.execution_fingerprint ?? '',
+    });
     const prepareErrors = prepareForm.errors as Record<
         string,
         string | undefined
@@ -294,8 +316,12 @@ function MaterializationControl({
             request.execution_result?.drafts?.length ??
             0;
 
+        const requiresPromotion = ['purchases', 'finance'].includes(
+            request.area,
+        );
+
         return (
-            <div className="space-y-2 rounded-md border border-emerald-300 bg-emerald-50 p-3 text-sm dark:bg-emerald-950/20">
+            <div className="space-y-3 rounded-md border border-emerald-300 bg-emerald-50 p-3 text-sm dark:bg-emerald-950/20">
                 <p className="flex items-center gap-2 font-medium">
                     <CheckCircle2 className="size-4" />
                     {translate('Executed by', locale)} {request.executor?.name}
@@ -308,6 +334,78 @@ function MaterializationControl({
                     {translate('Idempotency key', locale)}:{' '}
                     {request.idempotency_key}
                 </code>
+                <div className="border-t pt-3">
+                    <p className="text-xs font-medium">
+                        {translate('Live outcome tracking', locale)}
+                    </p>
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                        {Object.entries(request.outcome_monitoring.statuses).map(
+                            ([status, count]) => (
+                                <Badge key={status} variant="outline">
+                                    {translate(statusLabel(status), locale)}: {count}
+                                </Badge>
+                            ),
+                        )}
+                        {request.outcome_monitoring.overdue ? (
+                            <Badge variant="destructive">
+                                {translate('Overdue', locale)}:{' '}
+                                {request.outcome_monitoring.overdue}
+                            </Badge>
+                        ) : null}
+                        {request.outcome_monitoring.expired ? (
+                            <Badge variant="destructive">
+                                {translate('Expired', locale)}:{' '}
+                                {request.outcome_monitoring.expired}
+                            </Badge>
+                        ) : null}
+                    </div>
+                </div>
+                {requiresPromotion && request.promotion_status === 'pending' && (
+                    <form
+                        className="border-t pt-3"
+                        onSubmit={(event) => {
+                            event.preventDefault();
+                            promotionForm.post(
+                                `/planning-requests/${request.id}/promotion`,
+                                { preserveScroll: true },
+                            );
+                        }}
+                    >
+                        <InputError
+                            message={
+                                (
+                                    promotionForm.errors as Record<
+                                        string,
+                                        string | undefined
+                                    >
+                                ).promotion
+                            }
+                        />
+                        <Button
+                            type="submit"
+                            disabled={promotionForm.processing}
+                        >
+                            <SendToBack />
+                            {translate('Promote to native workflow', locale)}
+                        </Button>
+                    </form>
+                )}
+                {requiresPromotion && request.promotion_status === 'promoted' && (
+                    <p className="border-t pt-3 text-xs">
+                        <CheckCircle2 className="mr-1 inline size-4" />
+                        {translate('Promoted by', locale)}{' '}
+                        {request.promoter?.name} ·{' '}
+                        {request.area === 'purchases'
+                            ? translate('Purchase RFQs', locale)
+                            : translate('Financial forecast items', locale)}
+                        :{' '}
+                        {request.promotion_result?.purchase_document_ids
+                            ?.length ??
+                            request.promotion_result
+                                ?.financial_forecast_item_ids?.length ??
+                            0}
+                    </p>
+                )}
             </div>
         );
     }
@@ -474,6 +572,13 @@ function MaterializationControl({
             )}
         </div>
     );
+}
+
+function statusLabel(status: string) {
+    return status
+        .split('_')
+        .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+        .join(' ');
 }
 
 function conflictLabel(code: string, locale: 'en' | 'es') {

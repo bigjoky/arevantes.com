@@ -12,7 +12,7 @@ class CrmActivity extends Model
 
     protected $touches = ['workOrder'];
 
-    protected $fillable = ['installation_id', 'work_order_id', 'person_id', 'opportunity_id', 'assigned_user_id', 'created_by', 'type', 'title', 'notes', 'priority', 'status', 'blocked_reason', 'starts_at', 'due_at', 'completed_at', 'completed_by', 'completion_notes'];
+    protected $fillable = ['planning_scenario_request_id', 'installation_id', 'work_order_id', 'person_id', 'opportunity_id', 'assigned_user_id', 'created_by', 'type', 'title', 'notes', 'priority', 'status', 'blocked_reason', 'starts_at', 'due_at', 'completed_at', 'completed_by', 'completion_notes'];
 
     protected function casts(): array
     {

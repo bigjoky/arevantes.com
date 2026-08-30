@@ -1106,5 +1106,13 @@
     "Inventory changed while reserving materials. Refresh the preview.": "El inventario ha cambiado mientras se reservaban materiales. Actualiza la previsualización.",
     "Plan opportunity :code · :title": "Planificar oportunidad :code · :title",
     "Generated from authorized planning request :request.": "Generada desde la solicitud de planificación autorizada :request.",
-    "Authorized planning request executed once.": "Solicitud de planificación autorizada ejecutada una sola vez."
+    "Authorized planning request executed once.": "Solicitud de planificación autorizada ejecutada una sola vez.",
+    "Only purchase and finance drafts require native promotion.": "Solo los borradores de compras y finanzas requieren promoción al circuito nativo.",
+    "Execute the authorized request before promoting its drafts.": "Ejecuta la solicitud autorizada antes de promover sus borradores.",
+    "The executed request changed after it was opened. Refresh it before promotion.": "La solicitud ejecutada ha cambiado desde que se abrió. Actualízala antes de promoverla.",
+    "The executed request failed its integrity check.": "La solicitud ejecutada no ha superado la comprobación de integridad.",
+    "Generated from authorized planning request :request. Review and send from Purchases.": "Generada desde la solicitud de planificación autorizada :request. Revísala y envíala desde Compras.",
+    "Scenario :scenario expected collections": "Cobros previstos del escenario :scenario",
+    "Scenario :scenario expected material payments": "Pagos de materiales previstos del escenario :scenario",
+    "Planning drafts promoted to their native workflow.": "Borradores de planificación promovidos a su circuito nativo."
 }

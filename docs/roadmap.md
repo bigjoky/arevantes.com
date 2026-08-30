@@ -660,17 +660,34 @@ ejecutarse una vez. Operaciones crea tareas de agenda vinculadas a cada oportuni
 almacén crea reservas únicamente con instalación, almacén y disponibilidad válidos.
 
 Compras y finanzas conservan borradores trazables dentro del resultado de ejecución,
-sin emitir pedidos ni crear previsiones contables definitivas. Cada resultado guarda
+sin emitir pedidos ni crear previsiones contables nativas. Cada resultado guarda
 responsable, fecha, huella y los identificadores creados, y emite un evento de
 seguridad. Los escenarios nuevos conservan además la asignación de materiales por
 oportunidad e instalación para que las reservas no pierdan su destino.
 
+## Corte ejecutado — Promoción nativa y seguimiento del resultado
+
+Los borradores ejecutados de compras y finanzas requieren una promoción explícita
+posterior. La operación vuelve a comprobar la huella de ejecución y es idempotente:
+compras agrupa las faltas por proveedor recomendado y crea solicitudes de oferta en
+borrador; finanzas genera cobros y pagos materiales planificados por mes. Ninguna
+promoción envía solicitudes, convierte pedidos, aprueba pagos ni liquida previsiones;
+cada documento entra en el circuito nativo de su área para continuar la revisión.
+
+Tareas, reservas, solicitudes de oferta y previsiones conservan una clave foránea
+indexada hacia la solicitud de planificación. La bandeja consulta sus estados vivos y
+muestra completadas, bloqueadas, vencidas o sin asignar, reservas activas, consumidas,
+liberadas o caducadas, y el importe y estado actual de los documentos promovidos. Así,
+la evolución operativa no reescribe el escenario aprobado y un reintento no duplica
+recursos.
+
 ## Próximo corte recomendado
 
-Promover los borradores autorizados de compras y finanzas a sus circuitos nativos de
-aprobación, manteniendo la procedencia y la clave consumida. Completar también el
-ciclo de vida de tareas y reservas generadas: asignación, vencimiento, liberación y
-seguimiento del resultado frente al escenario aprobado.
+Incorporar desde la bandeja accesos directos filtrados a las tareas, reservas,
+solicitudes de oferta y previsiones creadas, junto con alertas de excepción para
+tareas sin asignar o vencidas y reservas caducadas. Añadir después una comparación
+de resultado real frente al escenario aprobado —plazos, cantidades e importes— sin
+mezclarla con la fotografía original.
 
 ## Corrección transversal — idioma temporal de la plataforma
 

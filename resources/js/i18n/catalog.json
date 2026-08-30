@@ -4718,7 +4718,7 @@
     },
     "Expired": {
         "en": "Expired",
-        "es": "Gastos"
+        "es": "Caducadas"
     },
     "Expires soon": {
         "en": "Expires soon",
@@ -7794,7 +7794,7 @@
     },
     "Overdue": {
         "en": "Overdue",
-        "es": "Overdue"
+        "es": "Vencidas"
     },
     "Overdue payables": {
         "en": "Overdue payables",
@@ -14355,6 +14355,34 @@
     "Planning requests": {
         "en": "Planning requests",
         "es": "Solicitudes de planificación"
+    },
+    "Live outcome tracking": {
+        "en": "Live outcome tracking",
+        "es": "Seguimiento en vivo del resultado"
+    },
+    "Promote to native workflow": {
+        "en": "Promote to native workflow",
+        "es": "Promover al circuito nativo"
+    },
+    "Promoted by": {
+        "en": "Promoted by",
+        "es": "Promovida por"
+    },
+    "promoted": {
+        "en": "promoted",
+        "es": "promovida"
+    },
+    "purchases": {
+        "en": "purchases",
+        "es": "compras"
+    },
+    "Purchase RFQs": {
+        "en": "Purchase RFQs",
+        "es": "Solicitudes de oferta de compra"
+    },
+    "Financial forecast items": {
+        "en": "Financial forecast items",
+        "es": "Elementos de previsión financiera"
     },
     "Each area confirms only its preliminary request. Confirmation records responsibility but does not create operational resources.": {
         "en": "Each area confirms only its preliminary request. Confirmation records responsibility but does not create operational resources.",

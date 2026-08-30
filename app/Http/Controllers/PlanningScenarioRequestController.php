@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\PlanningScenario;
 use App\Models\PlanningScenarioRequest;
 use App\Services\Planning\PlanningScenarioMaterializationWorkflow;
+use App\Services\Planning\PlanningScenarioOutcomeMonitor;
 use App\Services\Planning\PlanningScenarioRequestWorkflow;
 use App\Services\Security\SecurityEventRecorder;
 use Illuminate\Http\RedirectResponse;
@@ -14,22 +15,28 @@ use Inertia\Response;
 
 class PlanningScenarioRequestController extends Controller
 {
-    public function index(Request $request, PlanningScenarioRequestWorkflow $workflow): Response
+    public function index(Request $request, PlanningScenarioRequestWorkflow $workflow, PlanningScenarioOutcomeMonitor $monitor): Response
     {
         $areas = $workflow->areasFor($request->user());
         abort_if($areas === [], 403);
 
+        $requests = PlanningScenarioRequest::query()
+            ->whereIn('area', $areas)
+            ->with([
+                'scenario:id,name,version,horizon_starts_on,horizon_ends_on', 'generator:id,name', 'confirmer:id,name',
+                'preparer:id,name', 'authorizer:id,name', 'executor:id,name', 'promoter:id,name',
+            ])
+            ->orderByRaw("case status when 'draft' then 0 else 1 end")
+            ->latest()
+            ->get();
+        $monitoring = $monitor->forMany($requests);
+
         return Inertia::render('planning-scenario-requests/index', [
             'areas' => $areas,
-            'requests' => PlanningScenarioRequest::query()
-                ->whereIn('area', $areas)
-                ->with([
-                    'scenario:id,name,version,horizon_starts_on,horizon_ends_on', 'generator:id,name', 'confirmer:id,name',
-                    'preparer:id,name', 'authorizer:id,name', 'executor:id,name',
-                ])
-                ->orderByRaw("case status when 'draft' then 0 else 1 end")
-                ->latest()
-                ->get(),
+            'requests' => $requests->map(fn (PlanningScenarioRequest $scenarioRequest): array => [
+                ...$scenarioRequest->toArray(),
+                'outcome_monitoring' => $monitoring[$scenarioRequest->id],
+            ]),
         ]);
     }
 
@@ -116,5 +123,20 @@ class PlanningScenarioRequestController extends Controller
         ]);
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Authorized planning request executed once.')]);
+    }
+
+    public function promote(Request $request, PlanningScenarioRequest $scenarioRequest, PlanningScenarioMaterializationWorkflow $workflow, SecurityEventRecorder $events): RedirectResponse
+    {
+        $data = $request->validate(['fingerprint' => ['required', 'string', 'size:64']]);
+        $promoted = $workflow->promote($scenarioRequest, $request->user(), $data['fingerprint']);
+        $events->record('planning_scenario_request_promoted', $request->user(), [
+            'planning_scenario_request_id' => $promoted->id,
+            'area' => $promoted->area,
+            'execution_fingerprint' => $promoted->execution_fingerprint,
+            'promotion_fingerprint' => $promoted->promotion_fingerprint,
+            'result' => $promoted->promotion_result,
+        ]);
+
+        return back()->with('toast', ['type' => 'success', 'message' => __('Planning drafts promoted to their native workflow.')]);
     }
 }
