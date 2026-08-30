@@ -12,6 +12,7 @@ class PlanningScenarioRequest extends Model
         'payload', 'generated_by', 'confirmed_by', 'confirmed_at', 'confirmation_note',
         'materialization_status', 'materialization_preview', 'materialization_fingerprint', 'idempotency_key',
         'prepared_by', 'prepared_at', 'authorized_by', 'authorized_at', 'authorization_note',
+        'execution_status', 'execution_result', 'execution_fingerprint', 'executed_by', 'executed_at',
     ];
 
     public function scenario(): BelongsTo
@@ -39,6 +40,11 @@ class PlanningScenarioRequest extends Model
         return $this->belongsTo(User::class, 'authorized_by');
     }
 
+    public function executor(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'executed_by');
+    }
+
     protected function casts(): array
     {
         return [
@@ -47,6 +53,8 @@ class PlanningScenarioRequest extends Model
             'materialization_preview' => 'array',
             'prepared_at' => 'datetime',
             'authorized_at' => 'datetime',
+            'execution_result' => 'array',
+            'executed_at' => 'datetime',
         ];
     }
 }

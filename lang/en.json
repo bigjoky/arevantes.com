@@ -76,5 +76,15 @@
     "The confirmed area request failed its integrity check.": "The confirmed area request failed its integrity check.",
     "This planning area is not supported.": "This planning area is not supported.",
     "Materialization preview prepared without creating resources.": "Materialization preview prepared without creating resources.",
-    "Materialization authorized without creating resources.": "Materialization authorized without creating resources."
+    "Materialization authorized without creating resources.": "Materialization authorized without creating resources.",
+    "The request requires its second authorization before execution.": "The request requires its second authorization before execution.",
+    "This planning request has already been executed.": "This planning request has already been executed.",
+    "The authorized execution key changed. Refresh the request before execution.": "The authorized execution key changed. Refresh the request before execution.",
+    "The authorized preview failed its integrity check.": "The authorized preview failed its integrity check.",
+    "Operational data changed after authorization. Prepare and authorize the request again.": "Operational data changed after authorization. Prepare and authorize the request again.",
+    "Resolve every blocking conflict before execution.": "Resolve every blocking conflict before execution.",
+    "Inventory changed while reserving materials. Refresh the preview.": "Inventory changed while reserving materials. Refresh the preview.",
+    "Plan opportunity :code · :title": "Plan opportunity :code · :title",
+    "Generated from authorized planning request :request.": "Generated from authorized planning request :request.",
+    "Authorized planning request executed once.": "Authorized planning request executed once."
 }

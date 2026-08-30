@@ -3,12 +3,16 @@
 namespace App\Services\Planning;
 
 use App\Models\AccountingPeriod;
+use App\Models\CrmActivity;
+use App\Models\Opportunity;
 use App\Models\PlanningScenario;
 use App\Models\PlanningScenarioRequest;
+use App\Models\Product;
 use App\Models\StockMovementLine;
 use App\Models\StockReservation;
 use App\Models\SupplierProduct;
 use App\Models\User;
+use App\Models\Warehouse;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -95,6 +99,52 @@ class PlanningScenarioMaterializationWorkflow
         });
     }
 
+    public function execute(PlanningScenarioRequest $request, User $actor, string $expectedPreviewFingerprint, string $expectedIdempotencyKey): PlanningScenarioRequest
+    {
+        $this->authorizeArea($request, $actor);
+        $currentState = $this->previewState($request);
+
+        return DB::transaction(function () use ($request, $actor, $expectedPreviewFingerprint, $expectedIdempotencyKey, $currentState): PlanningScenarioRequest {
+            $scenario = PlanningScenario::query()->lockForUpdate()->findOrFail($request->planning_scenario_id);
+            $locked = PlanningScenarioRequest::query()->lockForUpdate()->findOrFail($request->id);
+            $this->guardConfirmedRequest($locked, $scenario, $locked->request_fingerprint);
+
+            if ($locked->materialization_status !== 'authorized' || ! $locked->materialization_fingerprint || ! $locked->idempotency_key) {
+                throw ValidationException::withMessages(['execution' => __('The request requires its second authorization before execution.')]);
+            }
+            if ($locked->execution_status === 'executed') {
+                throw ValidationException::withMessages(['execution' => __('This planning request has already been executed.')]);
+            }
+            if (! hash_equals($locked->materialization_fingerprint, $expectedPreviewFingerprint) || ! hash_equals($locked->idempotency_key, $expectedIdempotencyKey)) {
+                throw ValidationException::withMessages(['execution' => __('The authorized execution key changed. Refresh the request before execution.')]);
+            }
+            $storedState = $locked->materialization_preview['state'] ?? [];
+            if (! hash_equals($locked->materialization_fingerprint, $this->previewFingerprint($locked, $locked->idempotency_key, $storedState))) {
+                throw ValidationException::withMessages(['execution' => __('The authorized preview failed its integrity check.')]);
+            }
+            if (! hash_equals($locked->materialization_fingerprint, $this->previewFingerprint($locked, $locked->idempotency_key, $currentState))) {
+                throw ValidationException::withMessages(['execution' => __('Operational data changed after authorization. Prepare and authorize the request again.')]);
+            }
+            if ((int) data_get($currentState, 'summary.blocking_conflicts', 0) > 0) {
+                throw ValidationException::withMessages(['execution' => __('Resolve every blocking conflict before execution.')]);
+            }
+
+            $result = $this->executeArea($locked, $actor, $currentState);
+            $executionFingerprint = hash('sha256', json_encode([
+                $locked->id, $locked->idempotency_key, $locked->materialization_fingerprint, $result,
+            ], JSON_THROW_ON_ERROR));
+            $locked->update([
+                'execution_status' => 'executed',
+                'execution_result' => $result,
+                'execution_fingerprint' => $executionFingerprint,
+                'executed_by' => $actor->id,
+                'executed_at' => now(),
+            ]);
+
+            return $locked->refresh();
+        });
+    }
+
     private function authorizeArea(PlanningScenarioRequest $request, User $actor): void
     {
         abort_unless(Gate::forUser($actor)->allows(PlanningScenarioRequestWorkflow::AREA_ABILITIES[$request->area] ?? ''), 403);
@@ -140,9 +190,17 @@ class PlanningScenarioMaterializationWorkflow
         $demand = (float) data_get($request->payload, 'capacity.scenario_demand_hours', 0);
         $shortage = round(max(0, $demand - $remaining), 2);
 
+        $opportunities = collect($request->payload['opportunities'] ?? []);
+        $live = Opportunity::query()->whereIn('id', $opportunities->pluck('opportunity_id'))->get(['id', 'stage'])->keyBy('id');
+        $conflicts = $opportunities->filter(fn (array $row): bool => ! $live->has($row['opportunity_id']) || in_array($live[$row['opportunity_id']]->stage, ['won', 'lost'], true))
+            ->map(fn (array $row): array => ['code' => 'opportunity_unavailable', 'subject' => $row['code']])->values()->all();
+        if ($shortage > 0) {
+            $conflicts[] = ['code' => 'capacity_shortage', 'subject' => $shortage.' h'];
+        }
+
         return $this->state(
             count($request->payload['opportunities'] ?? []),
-            $shortage > 0 ? [['code' => 'capacity_shortage', 'subject' => $shortage.' h']] : [],
+            $conflicts,
             ['remaining_hours' => $remaining, 'demand_hours' => $demand, 'shortage_hours' => $shortage],
         );
     }
@@ -154,6 +212,12 @@ class PlanningScenarioMaterializationWorkflow
         $conflicts = $rows->where('shortage_quantity', '>', 0)->map(fn (array $row): array => [
             'code' => 'stock_shortage', 'subject' => $row['name'].' · '.$row['shortage_quantity'],
         ])->values()->all();
+        $missingInstallations = $rows->flatMap(fn (array $row) => collect($row['allocations'] ?? [])->filter(fn (array $allocation): bool => empty($allocation['installation_id'])))
+            ->map(fn (array $allocation): array => ['code' => 'missing_installation', 'subject' => (string) $allocation['opportunity_id']])->values()->all();
+        $conflicts = [...$conflicts, ...$missingInstallations];
+        if ($rows->isNotEmpty() && ! $rows->first()['warehouse_id']) {
+            $conflicts[] = ['code' => 'missing_warehouse', 'subject' => 'default'];
+        }
 
         return $this->state($rows->count(), $conflicts, ['materials' => $rows->all()]);
     }
@@ -201,15 +265,73 @@ class PlanningScenarioMaterializationWorkflow
     {
         $rows = collect($materials);
         $productIds = $rows->pluck('product_id');
-        $onHand = StockMovementLine::query()->whereIn('product_id', $productIds)->groupBy('product_id')->selectRaw('product_id, sum(quantity) quantity')->pluck('quantity', 'product_id');
-        $reserved = StockReservation::query()->whereIn('product_id', $productIds)->where('status', 'active')->groupBy('product_id')
+        $warehouse = Warehouse::query()->where('is_active', true)->orderByDesc('is_default')->orderBy('id')->first(['id', 'code', 'name']);
+        $onHand = StockMovementLine::query()->where('warehouse_id', $warehouse?->id)->whereIn('product_id', $productIds)->groupBy('product_id')->selectRaw('product_id, sum(quantity) quantity')->pluck('quantity', 'product_id');
+        $reserved = StockReservation::query()->where('warehouse_id', $warehouse?->id)->whereIn('product_id', $productIds)->where('status', 'active')->groupBy('product_id')
             ->selectRaw('product_id, sum(quantity - consumed_quantity) quantity')->pluck('quantity', 'product_id');
 
-        return $rows->map(function (array $row) use ($onHand, $reserved): array {
+        return $rows->map(function (array $row) use ($onHand, $reserved, $warehouse): array {
             $free = max(0, (float) ($onHand[$row['product_id']] ?? 0) - (float) ($reserved[$row['product_id']] ?? 0));
 
-            return [...$row, 'current_free_quantity' => round($free, 3), 'shortage_quantity' => round(max(0, (float) $row['expected_quantity'] - $free), 3)];
+            return [...$row, 'warehouse_id' => $warehouse?->id, 'warehouse' => $warehouse?->code, 'current_free_quantity' => round($free, 3), 'shortage_quantity' => round(max(0, (float) $row['expected_quantity'] - $free), 3)];
         });
+    }
+
+    /** @param array<string, mixed> $state @return array<string, mixed> */
+    private function executeArea(PlanningScenarioRequest $request, User $actor, array $state): array
+    {
+        return match ($request->area) {
+            'operations' => $this->executeOperations($request, $actor),
+            'inventory' => $this->executeInventory($request, $state),
+            'purchases' => ['kind' => 'purchase_drafts', 'drafts' => data_get($state, 'live.shortages', []), 'requires_purchase_approval' => true],
+            'finance' => ['kind' => 'forecast_drafts', 'drafts' => data_get($state, 'live.cash_by_month', []), 'requires_finance_approval' => true],
+            default => throw ValidationException::withMessages(['execution' => __('This planning area is not supported.')]),
+        };
+    }
+
+    /** @return array<string, mixed> */
+    private function executeOperations(PlanningScenarioRequest $request, User $actor): array
+    {
+        $activities = collect($request->payload['opportunities'] ?? [])->map(function (array $row) use ($request, $actor): CrmActivity {
+            return CrmActivity::create([
+                'installation_id' => $row['installation_id'] ?? null,
+                'opportunity_id' => $row['opportunity_id'],
+                'created_by' => $actor->id,
+                'type' => 'task',
+                'title' => __('Plan opportunity :code · :title', ['code' => $row['code'], 'title' => $row['title']]),
+                'notes' => __('Generated from authorized planning request :request.', ['request' => $request->id]),
+                'priority' => 'normal',
+                'status' => 'pending',
+                'starts_at' => data_get($request->payload, 'horizon.from'),
+                'due_at' => $row['expected_close_on'] ?? data_get($request->payload, 'horizon.to'),
+            ]);
+        });
+
+        return ['kind' => 'operational_agenda', 'activity_ids' => $activities->pluck('id')->all()];
+    }
+
+    /** @param array<string, mixed> $state @return array<string, mixed> */
+    private function executeInventory(PlanningScenarioRequest $request, array $state): array
+    {
+        $materials = collect(data_get($state, 'live.materials', []));
+        Product::query()->whereIn('id', $materials->pluck('product_id'))->orderBy('id')->lockForUpdate()->get(['id']);
+        $freshState = $this->inventoryState($request);
+        if ((int) data_get($freshState, 'summary.blocking_conflicts', 0) > 0) {
+            throw ValidationException::withMessages(['execution' => __('Inventory changed while reserving materials. Refresh the preview.')]);
+        }
+
+        $reservations = collect(data_get($freshState, 'live.materials', []))->flatMap(function (array $row) use ($request) {
+            return collect($row['allocations'] ?? [])->filter(fn (array $allocation): bool => (float) $allocation['expected_quantity'] > 0)->map(fn (array $allocation): StockReservation => StockReservation::create([
+                'installation_id' => $allocation['installation_id'],
+                'warehouse_id' => $row['warehouse_id'],
+                'product_id' => $row['product_id'],
+                'quantity' => $allocation['expected_quantity'],
+                'status' => 'active',
+                'reserved_until' => Carbon::parse(data_get($request->payload, 'horizon.to'))->endOfDay(),
+            ]));
+        });
+
+        return ['kind' => 'inventory_reservations', 'reservation_ids' => $reservations->pluck('id')->all()];
     }
 
     /** @param array<int, array{code: string, subject: string}> $conflicts @param array<string, mixed> $live */

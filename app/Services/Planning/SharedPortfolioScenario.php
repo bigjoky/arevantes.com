@@ -211,6 +211,7 @@ class SharedPortfolioScenario
                 'title' => $opportunity->title,
                 'customer' => $opportunity->customer?->company_name ?: trim(($opportunity->customer?->first_name ?? '').' '.($opportunity->customer?->last_name ?? '')),
                 'business_line' => $opportunity->installation?->service_type,
+                'installation_id' => $opportunity->installation_id,
                 'stage' => $opportunity->stage,
                 'probability' => $probability,
                 'value' => round($value, 2),
@@ -234,12 +235,19 @@ class SharedPortfolioScenario
     {
         $materials = $rows->flatMap(fn (array $row) => collect($row['confirmed']['materials'])->map(fn (array $material): array => [
             ...$material,
+            'opportunity_id' => $row['opportunity_id'],
+            'installation_id' => $row['confirmed']['installation_id'],
             'expected_quantity' => round($material['quantity'] * ($row['confirmed']['probability'] / 100), 3),
         ]))->groupBy('product_id')->map(fn (Collection $items): array => [
             'product_id' => $items->first()['product_id'],
             'sku' => $items->first()['sku'],
             'name' => $items->first()['name'],
             'expected_quantity' => round((float) $items->sum('expected_quantity'), 3),
+            'allocations' => $items->map(fn (array $item): array => [
+                'opportunity_id' => $item['opportunity_id'],
+                'installation_id' => $item['installation_id'],
+                'expected_quantity' => $item['expected_quantity'],
+            ])->all(),
         ])->values();
         $cash = $rows->groupBy(fn (array $row) => substr($row['projected']['cash_in_on'], 0, 7))->map(fn (Collection $items, string $month): array => [
             'month' => $month,

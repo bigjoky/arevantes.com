@@ -1096,5 +1096,15 @@
     "The confirmed area request failed its integrity check.": "La solicitud del área confirmada no ha superado la comprobación de integridad.",
     "This planning area is not supported.": "Esta área de planificación no está soportada.",
     "Materialization preview prepared without creating resources.": "Previsualización de materialización preparada sin crear recursos.",
-    "Materialization authorized without creating resources.": "Materialización autorizada sin crear recursos."
+    "Materialization authorized without creating resources.": "Materialización autorizada sin crear recursos.",
+    "The request requires its second authorization before execution.": "La solicitud necesita su segunda autorización antes de ejecutarse.",
+    "This planning request has already been executed.": "Esta solicitud de planificación ya se ha ejecutado.",
+    "The authorized execution key changed. Refresh the request before execution.": "La clave de ejecución autorizada ha cambiado. Actualiza la solicitud antes de ejecutarla.",
+    "The authorized preview failed its integrity check.": "La previsualización autorizada no ha superado la comprobación de integridad.",
+    "Operational data changed after authorization. Prepare and authorize the request again.": "Los datos operativos han cambiado después de la autorización. Prepara y autoriza de nuevo la solicitud.",
+    "Resolve every blocking conflict before execution.": "Resuelve todos los conflictos bloqueantes antes de ejecutar.",
+    "Inventory changed while reserving materials. Refresh the preview.": "El inventario ha cambiado mientras se reservaban materiales. Actualiza la previsualización.",
+    "Plan opportunity :code · :title": "Planificar oportunidad :code · :title",
+    "Generated from authorized planning request :request.": "Generada desde la solicitud de planificación autorizada :request.",
+    "Authorized planning request executed once.": "Solicitud de planificación autorizada ejecutada una sola vez."
 }

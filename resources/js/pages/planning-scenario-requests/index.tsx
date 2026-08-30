@@ -4,6 +4,7 @@ import {
     ClipboardCheck,
     Eye,
     LockKeyhole,
+    Play,
     RefreshCw,
     ShieldCheck,
 } from 'lucide-react';
@@ -63,6 +64,16 @@ type ScenarioRequest = {
     authorizer: { id: number; name: string } | null;
     authorized_at: string | null;
     authorization_note: string | null;
+    execution_status: 'pending' | 'executed';
+    execution_result: {
+        kind: string;
+        activity_ids?: number[];
+        reservation_ids?: number[];
+        drafts?: unknown[];
+    } | null;
+    execution_fingerprint: string | null;
+    executor: { id: number; name: string } | null;
+    executed_at: string | null;
 };
 
 const areaLabel = (area: Area, locale: 'en' | 'es') =>
@@ -261,6 +272,10 @@ function MaterializationControl({
         fingerprint: request.materialization_fingerprint ?? '',
         authorization_note: '',
     });
+    const executionForm = useForm({
+        fingerprint: request.materialization_fingerprint ?? '',
+        idempotency_key: request.idempotency_key ?? '',
+    });
     const prepareErrors = prepareForm.errors as Record<
         string,
         string | undefined
@@ -271,6 +286,31 @@ function MaterializationControl({
     >;
     const preview = request.materialization_preview;
     const conflicts = preview?.state.conflicts ?? [];
+
+    if (request.execution_status === 'executed') {
+        const createdCount =
+            request.execution_result?.activity_ids?.length ??
+            request.execution_result?.reservation_ids?.length ??
+            request.execution_result?.drafts?.length ??
+            0;
+
+        return (
+            <div className="space-y-2 rounded-md border border-emerald-300 bg-emerald-50 p-3 text-sm dark:bg-emerald-950/20">
+                <p className="flex items-center gap-2 font-medium">
+                    <CheckCircle2 className="size-4" />
+                    {translate('Executed by', locale)} {request.executor?.name}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                    {translate('Created or prepared items', locale)}:{' '}
+                    {createdCount}
+                </p>
+                <code className="block text-[11px] break-all text-muted-foreground">
+                    {translate('Idempotency key', locale)}:{' '}
+                    {request.idempotency_key}
+                </code>
+            </div>
+        );
+    }
 
     if (request.materialization_status === 'authorized') {
         return (
@@ -287,6 +327,35 @@ function MaterializationControl({
                     {translate('Idempotency key', locale)}:{' '}
                     {request.idempotency_key}
                 </code>
+                <form
+                    className="border-t pt-3"
+                    onSubmit={(event) => {
+                        event.preventDefault();
+                        executionForm.post(
+                            `/planning-requests/${request.id}/execution`,
+                            { preserveScroll: true },
+                        );
+                    }}
+                >
+                    <InputError
+                        message={
+                            (
+                                executionForm.errors as Record<
+                                    string,
+                                    string | undefined
+                                >
+                            ).execution
+                        }
+                    />
+                    <Button
+                        type="submit"
+                        variant="destructive"
+                        disabled={executionForm.processing}
+                    >
+                        <Play />
+                        {translate('Execute authorized request', locale)}
+                    </Button>
+                </form>
             </div>
         );
     }
@@ -415,7 +484,13 @@ function conflictLabel(code: string, locale: 'en' | 'es') {
               ? 'Insufficient stock'
               : code === 'missing_supplier'
                 ? 'No active supplier'
-                : 'Closed accounting period',
+                : code === 'missing_installation'
+                  ? 'Missing installation'
+                  : code === 'missing_warehouse'
+                    ? 'Missing active warehouse'
+                    : code === 'opportunity_unavailable'
+                      ? 'Opportunity is no longer open'
+                      : 'Closed accounting period',
         locale,
     );
 }

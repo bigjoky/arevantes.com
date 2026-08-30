@@ -652,13 +652,25 @@ obsoletas, conflictos pendientes ni que el mismo usuario que confirmó conceda l
 segunda decisión. La preparación y autorización registran eventos de seguridad y
 siguen sin crear ningún recurso real.
 
+## Corte ejecutado — Ejecución final idempotente por área
+
+La ejecución consume atómicamente la clave autorizada y vuelve a comprobar huella,
+escenario, solicitud, previsualización y datos vivos. Una solicitud solo puede
+ejecutarse una vez. Operaciones crea tareas de agenda vinculadas a cada oportunidad;
+almacén crea reservas únicamente con instalación, almacén y disponibilidad válidos.
+
+Compras y finanzas conservan borradores trazables dentro del resultado de ejecución,
+sin emitir pedidos ni crear previsiones contables definitivas. Cada resultado guarda
+responsable, fecha, huella y los identificadores creados, y emite un evento de
+seguridad. Los escenarios nuevos conservan además la asignación de materiales por
+oportunidad e instalación para que las reservas no pierdan su destino.
+
 ## Próximo corte recomendado
 
-Incorporar los ejecutores finales con revalidación inmediata y consumo atómico de la
-clave de idempotencia. Operaciones y almacén materializarán primero agenda de trabajo
-y reservas controladas; compras y finanzas reutilizarán el mismo estado para crear
-borradores trazables, nunca documentos enviados, contabilizados o pagados sin sus
-aprobaciones específicas.
+Promover los borradores autorizados de compras y finanzas a sus circuitos nativos de
+aprobación, manteniendo la procedencia y la clave consumida. Completar también el
+ciclo de vida de tareas y reservas generadas: asignación, vencimiento, liberación y
+seguimiento del resultado frente al escenario aprobado.
 
 ## Corrección transversal — idioma temporal de la plataforma
 

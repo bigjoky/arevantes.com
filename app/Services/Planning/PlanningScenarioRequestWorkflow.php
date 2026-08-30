@@ -119,6 +119,8 @@ class PlanningScenarioRequestWorkflow
                     'code' => $row['confirmed']['code'],
                     'title' => $row['confirmed']['title'],
                     'business_line' => $row['confirmed']['business_line'],
+                    'installation_id' => $row['confirmed']['installation_id'] ?? null,
+                    'expected_close_on' => $row['confirmed']['expected_close_on'],
                     'capacity_hours' => $row['projected']['capacity_hours'],
                 ])->all(),
             ],

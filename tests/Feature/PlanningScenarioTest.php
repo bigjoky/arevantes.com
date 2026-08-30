@@ -212,6 +212,28 @@ class PlanningScenarioTest extends TestCase
             'type' => 'planning_scenario_materialization_authorized',
             'user_id' => $admin->id,
         ]);
+        $this->post(route('planning-scenario-requests.execution.store', $operationRequest), [
+            'fingerprint' => $operationRequest->materialization_fingerprint,
+            'idempotency_key' => '00000000-0000-4000-8000-000000000000',
+        ])->assertSessionHasErrors('execution');
+        $this->post(route('planning-scenario-requests.execution.store', $operationRequest), [
+            'fingerprint' => $operationRequest->materialization_fingerprint,
+            'idempotency_key' => $operationRequest->idempotency_key,
+        ])->assertRedirect();
+        $operationRequest->refresh();
+        $this->assertSame('executed', $operationRequest->execution_status);
+        $this->assertSame('operational_agenda', $operationRequest->execution_result['kind']);
+        $this->assertCount(2, $operationRequest->execution_result['activity_ids']);
+        $this->assertDatabaseCount('crm_activities', 2);
+        $this->assertDatabaseHas('security_events', [
+            'type' => 'planning_scenario_request_executed',
+            'user_id' => $admin->id,
+        ]);
+        $this->post(route('planning-scenario-requests.execution.store', $operationRequest), [
+            'fingerprint' => $operationRequest->materialization_fingerprint,
+            'idempotency_key' => $operationRequest->idempotency_key,
+        ])->assertSessionHasErrors('execution');
+        $this->assertDatabaseCount('crm_activities', 2);
         $this->post(route('planning-scenario-requests.materialization.store', $operationRequest), [
             'fingerprint' => $operationRequest->request_fingerprint,
         ])->assertSessionHasErrors('materialization');
@@ -225,7 +247,7 @@ class PlanningScenarioTest extends TestCase
             'fingerprint' => $inventoryRequest->request_fingerprint,
         ])->assertRedirect();
         $inventoryRequest->refresh();
-        $this->assertSame(1, $inventoryRequest->materialization_preview['state']['summary']['blocking_conflicts']);
+        $this->assertSame(2, $inventoryRequest->materialization_preview['state']['summary']['blocking_conflicts']);
         $this->post(route('planning-scenario-requests.materialization.authorization.store', $inventoryRequest), [
             'fingerprint' => $inventoryRequest->materialization_fingerprint,
             'authorization_note' => 'Cannot authorize with shortage.',

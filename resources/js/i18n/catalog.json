@@ -14483,5 +14483,29 @@
     "Closed accounting period": {
         "en": "Closed accounting period",
         "es": "Periodo contable cerrado"
+    },
+    "Executed by": {
+        "en": "Executed by",
+        "es": "Ejecutada por"
+    },
+    "Created or prepared items": {
+        "en": "Created or prepared items",
+        "es": "Elementos creados o preparados"
+    },
+    "Execute authorized request": {
+        "en": "Execute authorized request",
+        "es": "Ejecutar solicitud autorizada"
+    },
+    "Missing installation": {
+        "en": "Missing installation",
+        "es": "Falta la instalación"
+    },
+    "Missing active warehouse": {
+        "en": "Missing active warehouse",
+        "es": "Falta un almacén activo"
+    },
+    "Opportunity is no longer open": {
+        "en": "Opportunity is no longer open",
+        "es": "La oportunidad ya no está abierta"
     }
 }

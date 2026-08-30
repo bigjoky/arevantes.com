@@ -25,7 +25,7 @@ class PlanningScenarioRequestController extends Controller
                 ->whereIn('area', $areas)
                 ->with([
                     'scenario:id,name,version,horizon_starts_on,horizon_ends_on', 'generator:id,name', 'confirmer:id,name',
-                    'preparer:id,name', 'authorizer:id,name',
+                    'preparer:id,name', 'authorizer:id,name', 'executor:id,name',
                 ])
                 ->orderByRaw("case status when 'draft' then 0 else 1 end")
                 ->latest()
@@ -98,5 +98,23 @@ class PlanningScenarioRequestController extends Controller
         ]);
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Materialization authorized without creating resources.')]);
+    }
+
+    public function execute(Request $request, PlanningScenarioRequest $scenarioRequest, PlanningScenarioMaterializationWorkflow $workflow, SecurityEventRecorder $events): RedirectResponse
+    {
+        $data = $request->validate([
+            'fingerprint' => ['required', 'string', 'size:64'],
+            'idempotency_key' => ['required', 'uuid'],
+        ]);
+        $executed = $workflow->execute($scenarioRequest, $request->user(), $data['fingerprint'], $data['idempotency_key']);
+        $events->record('planning_scenario_request_executed', $request->user(), [
+            'planning_scenario_request_id' => $executed->id,
+            'area' => $executed->area,
+            'execution_fingerprint' => $executed->execution_fingerprint,
+            'idempotency_key' => $executed->idempotency_key,
+            'result' => $executed->execution_result,
+        ]);
+
+        return back()->with('toast', ['type' => 'success', 'message' => __('Authorized planning request executed once.')]);
     }
 }
