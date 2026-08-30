@@ -681,13 +681,28 @@ liberadas o caducadas, y el importe y estado actual de los documentos promovidos
 la evolución operativa no reescribe el escenario aprobado y un reintento no duplica
 recursos.
 
+## Corte ejecutado — Navegación, excepciones y resultado frente al plan
+
+Cada solicitud ejecutada enlaza ahora con una vista nativa filtrada por su propia
+procedencia. Operaciones muestra exclusivamente las tareas generadas, almacén abre
+la pestaña de reservas incluyendo su ciclo completo, compras aísla sus solicitudes
+de oferta y finanzas desplaza la vista a sus previsiones. Los cuatro módulos indican
+el filtro activo, lo conservan al refinar la vista cuando corresponde y permiten
+volver al conjunto general.
+
+La bandeja destaca tareas sin asignar o vencidas y reservas activas ya caducadas.
+También compara el resultado vivo con el aprobado mediante magnitudes equivalentes:
+tareas creadas y terminadas, unidades reservadas y consumidas, unidades e importe
+solicitados, y cobros y pagos materiales previstos. Los cálculos se obtienen de los
+recursos vinculados y no modifican la huella ni la fotografía del escenario.
+
 ## Próximo corte recomendado
 
-Incorporar desde la bandeja accesos directos filtrados a las tareas, reservas,
-solicitudes de oferta y previsiones creadas, junto con alertas de excepción para
-tareas sin asignar o vencidas y reservas caducadas. Añadir después una comparación
-de resultado real frente al escenario aprobado —plazos, cantidades e importes— sin
-mezclarla con la fotografía original.
+Convertir las excepciones del escenario en acciones gobernadas: asignación masiva de
+tareas, renovación o liberación controlada de reservas y responsables con fecha
+objetivo. Incorporar después hitos de revisión del escenario para registrar una
+explicación de desviaciones significativas y cerrar formalmente el horizonte sin
+reescribir sus datos aprobados.
 
 ## Corrección transversal — idioma temporal de la plataforma
 

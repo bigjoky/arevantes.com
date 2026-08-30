@@ -39,7 +39,11 @@ class OperationsController extends Controller
             'view' => ['nullable', Rule::in(['today', 'board', 'week', 'month'])],
             'week' => ['nullable', 'date_format:Y-m-d'],
             'focus' => ['nullable', 'integer'],
+            'planning_request' => ['nullable', 'integer', Rule::exists('planning_scenario_requests', 'id')->where('area', 'operations')],
         ]);
+        if (isset($filters['planning_request'])) {
+            $filters['planning_request'] = (int) $filters['planning_request'];
+        }
         $filters['status'] ??= 'active';
         $filters['view'] ??= 'today';
 
@@ -52,7 +56,7 @@ class OperationsController extends Controller
             ]);
         $this->scopeForUser($baseActivities, $request);
         $this->applyFilters($baseActivities, $filters);
-        if ($filters['view'] === 'today') {
+        if ($filters['view'] === 'today' && ! isset($filters['planning_request'])) {
             $baseActivities->when(
                 $filters['focus'] ?? null,
                 fn (Builder $query, int $focus) => $query->whereKey($focus),
@@ -342,7 +346,8 @@ class OperationsController extends Controller
             ->when(! in_array($filters['status'] ?? 'active', ['active', 'all'], true), fn (Builder $query) => $query->where('status', $filters['status']))
             ->when($filters['priority'] ?? null, fn (Builder $query, string $priority) => $query->where('priority', $priority))
             ->when($filters['type'] ?? null, fn (Builder $query, string $type) => $query->where('type', $type))
-            ->when($filters['owner'] ?? null, fn (Builder $query, int $owner) => $query->where('assigned_user_id', $owner));
+            ->when($filters['owner'] ?? null, fn (Builder $query, int $owner) => $query->where('assigned_user_id', $owner))
+            ->when($filters['planning_request'] ?? null, fn (Builder $query, int $planningRequest) => $query->where('planning_scenario_request_id', $planningRequest));
     }
 
     /** @param Builder<WorkOrder> $workOrdersQuery

@@ -37,7 +37,11 @@ class PurchaseController extends Controller
             'type' => ['nullable', Rule::in(['purchase_rfq', 'purchase_order', 'supplier_invoice', 'supplier_credit_note'])],
             'status' => ['nullable', 'string', 'max:30'],
             'attention' => ['nullable', Rule::in(['late', 'receiving', 'review', 'approval'])],
+            'planning_request' => ['nullable', 'integer', Rule::exists('planning_scenario_requests', 'id')->where('area', 'purchases')],
         ]);
+        if (isset($filters['planning_request'])) {
+            $filters['planning_request'] = (int) $filters['planning_request'];
+        }
         $lateOrders = fn ($query) => $query
             ->where('type', 'purchase_order')
             ->whereIn('status', ['ordered', 'partially_received'])
@@ -57,6 +61,7 @@ class PurchaseController extends Controller
                 ->orWhereHas('supplier', fn ($query) => $query->where('legal_name', 'like', "%{$search}%")->orWhere('trade_name', 'like', "%{$search}%"))))
             ->when($filters['type'] ?? null, fn ($query, $type) => $query->where('type', $type))
             ->when($filters['status'] ?? null, fn ($query, $status) => $query->where('status', $status))
+            ->when($filters['planning_request'] ?? null, fn ($query, $planningRequest) => $query->where('planning_scenario_request_id', $planningRequest))
             ->when(($filters['attention'] ?? null) === 'late', $lateOrders)
             ->when(($filters['attention'] ?? null) === 'receiving', fn ($query) => $query->where('type', 'purchase_order')->whereIn('status', ['ordered', 'partially_received']))
             ->when(($filters['attention'] ?? null) === 'review', fn ($query) => $query->where('matching_status', 'review_required'))

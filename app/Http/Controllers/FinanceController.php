@@ -55,6 +55,10 @@ class FinanceController extends Controller
         $year = $this->year($request);
         $scenario = $request->validate(['scenario' => ['nullable', Rule::in(['conservative', 'probable', 'optimistic'])]])['scenario'] ?? 'probable';
         $taxonomyId = $request->validate(['taxonomy' => ['nullable', 'integer', 'exists:financial_categories,id']])['taxonomy'] ?? null;
+        $planningRequestId = $request->validate([
+            'planning_request' => ['nullable', 'integer', Rule::exists('planning_scenario_requests', 'id')->where('area', 'finance')],
+        ])['planning_request'] ?? null;
+        $planningRequestId = $planningRequestId !== null ? (int) $planningRequestId : null;
         $customerPayments = SalesDocumentPayment::with('document:id,number,person_id,installation_id')->whereYear('paid_at', $year)->get();
         $supplierPayments = SupplierPayment::with(['expense:id,number', 'purchaseDocument:id,number'])->whereYear('paid_at', $year)->get();
         $sales = SalesDocument::whereIn('type', ['invoice', 'credit_note'])->whereNotNull('locked_at')->whereYear('issue_date', $year)->get();
@@ -65,6 +69,7 @@ class FinanceController extends Controller
             ->where(function ($query) use ($year) {
                 $query->whereYear('due_on', $year)->orWhereYear('settled_on', $year);
             })
+            ->when($planningRequestId, fn ($query, int $id) => $query->where('planning_scenario_request_id', $id))
             ->latest('due_on')
             ->limit(100)
             ->get();
@@ -225,6 +230,7 @@ class FinanceController extends Controller
             'supplyScenario' => $supplyScenarioPlanner->forecast(today(), 45),
             'treasuryForecast' => $treasuryForecast,
             'forecastItems' => $forecastItems,
+            'planningRequestId' => $planningRequestId,
             'forecastAccuracy' => $this->forecastAccuracy($forecastItems
                 ->where('status', 'settled')
                 ->filter(fn (FinancialForecastItem $item) => $item->settled_on?->year === $year)

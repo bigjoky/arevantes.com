@@ -23,15 +23,25 @@ use Inertia\Response;
 
 class InventoryController extends Controller
 {
-    public function index(StockPositionService $positions): Response
+    public function index(Request $request, StockPositionService $positions): Response
     {
+        $planningRequestId = $request->validate([
+            'planning_request' => ['nullable', 'integer', Rule::exists('planning_scenario_requests', 'id')->where('area', 'inventory')],
+        ])['planning_request'] ?? null;
+        $planningRequestId = $planningRequestId !== null ? (int) $planningRequestId : null;
+        $reservations = StockReservation::with(['workOrder:id,number', 'salesDocument:id,number', 'installation:id,project_reference,site_name', 'warehouse:id,code,name', 'product:id,sku,name'])
+            ->when($planningRequestId, fn ($query, int $id) => $query->where('planning_scenario_request_id', $id), fn ($query) => $query->where('status', 'active'))
+            ->latest()
+            ->get();
+
         return Inertia::render('inventory/index', [
             'warehouses' => Warehouse::orderByDesc('is_default')->orderBy('name')->get(),
             'products' => Product::where('track_stock', true)->where('is_active', true)->orderBy('name')->get(['id', 'sku', 'name', 'cost_price', 'track_serials']),
             'positions' => $positions->positions(),
             'movements' => StockMovement::with(['workOrder:id,number', 'lines.product:id,name,sku', 'lines.warehouse:id,code,name'])->latest('posted_at')->limit(100)->get(),
             'serials' => SerialNumber::with(['product:id,name,sku'])->where('status', 'available')->orderBy('serial_number')->get(),
-            'reservations' => StockReservation::with(['workOrder:id,number', 'salesDocument:id,number', 'installation:id,project_reference,site_name', 'warehouse:id,code,name', 'product:id,sku,name'])->where('status', 'active')->latest()->get(),
+            'reservations' => $reservations,
+            'planningRequestId' => $planningRequestId,
             'installations' => Installation::whereNotIn('status', ['completed', 'cancelled'])->orderBy('project_reference')->get(['id', 'project_reference', 'site_name']),
         ]);
     }

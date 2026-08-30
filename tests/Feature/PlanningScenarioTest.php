@@ -2,7 +2,9 @@
 
 namespace Tests\Feature;
 
+use App\Models\CrmActivity;
 use App\Models\FinancialForecastItem;
+use App\Models\Installation;
 use App\Models\Opportunity;
 use App\Models\Person;
 use App\Models\PlanningScenario;
@@ -10,6 +12,7 @@ use App\Models\PlanningScenarioRequest;
 use App\Models\Product;
 use App\Models\Quote;
 use App\Models\StockMovement;
+use App\Models\StockReservation;
 use App\Models\Supplier;
 use App\Models\SupplierProduct;
 use App\Models\TaxRate;
@@ -17,6 +20,7 @@ use App\Models\Unit;
 use App\Models\User;
 use App\Models\Warehouse;
 use App\Services\Planning\PlanningScenarioIntegrity;
+use App\Services\Planning\PlanningScenarioOutcomeMonitor;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
@@ -46,7 +50,7 @@ class PlanningScenarioTest extends TestCase
             'supplier_id' => $supplier->id, 'product_id' => $product->id, 'last_unit_price' => 90,
             'lead_time_days' => 5, 'is_preferred' => true, 'is_active' => true,
         ]);
-        Warehouse::create(['code' => 'NATIVE', 'name' => 'Native stock', 'is_default' => true, 'is_active' => true]);
+        $warehouse = Warehouse::create(['code' => 'NATIVE', 'name' => 'Native stock', 'is_default' => true, 'is_active' => true]);
         $purchaseResult = ['kind' => 'purchase_drafts', 'drafts' => [[
             'product_id' => $product->id, 'name' => $product->name, 'shortage_quantity' => 2,
             'recommended_source' => ['supplier_product_id' => $source->id, 'supplier_id' => $supplier->id, 'unit_price' => 90, 'lead_time_days' => 5],
@@ -67,6 +71,20 @@ class PlanningScenarioTest extends TestCase
             'fingerprint' => $financeRequest->execution_fingerprint,
         ])->assertRedirect();
 
+        $operationsRequest = $this->executedRequest($scenario, $admin, 'operations', ['kind' => 'operational_agenda', 'activity_ids' => []]);
+        $activity = CrmActivity::create([
+            'planning_scenario_request_id' => $operationsRequest->id, 'created_by' => $admin->id,
+            'type' => 'task', 'title' => 'Planning exception', 'status' => 'pending', 'due_at' => now()->subDay(),
+        ]);
+        CrmActivity::create(['created_by' => $admin->id, 'type' => 'task', 'title' => 'Unrelated task', 'status' => 'pending']);
+        $installation = Installation::create(['service_type' => 'security', 'status' => 'scheduled', 'project_reference' => 'PLAN-NATIVE', 'site_address_line_1' => 'Planning 1']);
+        $inventoryRequest = $this->executedRequest($scenario, $admin, 'inventory', ['kind' => 'inventory_reservations', 'reservation_ids' => []]);
+        $reservation = StockReservation::create([
+            'planning_scenario_request_id' => $inventoryRequest->id, 'installation_id' => $installation->id,
+            'warehouse_id' => $warehouse->id, 'product_id' => $product->id, 'quantity' => 2,
+            'consumed_quantity' => 0, 'status' => 'active', 'reserved_until' => now()->subDay(),
+        ]);
+
         $this->assertDatabaseCount('purchase_documents', 1);
         $this->assertDatabaseHas('purchase_documents', [
             'planning_scenario_request_id' => $purchaseRequest->id, 'supplier_id' => $supplier->id,
@@ -78,21 +96,59 @@ class PlanningScenarioTest extends TestCase
         $this->assertSame('promoted', $financeRequest->fresh()->promotion_status);
         $this->assertCount(1, $purchaseRequest->fresh()->promotion_result['purchase_document_ids']);
         $this->assertCount(2, $financeRequest->fresh()->promotion_result['financial_forecast_item_ids']);
-        $this->get(route('planning-scenario-requests.index'))->assertInertia(fn (Assert $page) => $page
-            ->where('requests.0.outcome_monitoring.total', 2)
-            ->where('requests.1.outcome_monitoring.total', 1));
+        $this->get(route('purchases.index', ['planning_request' => $purchaseRequest->id]))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('documents.total', 1)
+                ->where('documents.data.0.planning_scenario_request_id', $purchaseRequest->id)
+                ->where('filters.planning_request', $purchaseRequest->id));
+        $this->get(route('finance.index', ['planning_request' => $financeRequest->id, 'year' => 2026]))
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('forecastItems', 2)
+                ->where('forecastItems.0.planning_scenario_request_id', $financeRequest->id)
+                ->where('planningRequestId', $financeRequest->id));
+        $this->get(route('operations.index', ['planning_request' => $operationsRequest->id, 'status' => 'all', 'view' => 'today']))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('activities.total', 1)
+                ->where('activities.data.0.id', $activity->id)
+                ->where('filters.planning_request', $operationsRequest->id));
+        $this->get(route('inventory.index', ['planning_request' => $inventoryRequest->id]))
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('reservations', 1)
+                ->where('reservations.0.id', $reservation->id)
+                ->where('planningRequestId', $inventoryRequest->id));
+        $monitoring = app(PlanningScenarioOutcomeMonitor::class)->forMany(collect([$operationsRequest, $inventoryRequest, $purchaseRequest, $financeRequest]));
+        $this->assertSame('Unassigned tasks', $monitoring[$operationsRequest->id]['exceptions'][0]['label']);
+        $this->assertSame('Overdue tasks', $monitoring[$operationsRequest->id]['exceptions'][1]['label']);
+        $this->assertSame('Expired reservations', $monitoring[$inventoryRequest->id]['exceptions'][0]['label']);
+        $this->assertSame(1000.0, $monitoring[$financeRequest->id]['comparison'][0]['planned']);
+        $this->assertSame(1000.0, $monitoring[$financeRequest->id]['comparison'][0]['current']);
+        $this->assertSame(2.0, $monitoring[$purchaseRequest->id]['comparison'][0]['planned']);
+        $this->assertSame(2.0, $monitoring[$purchaseRequest->id]['comparison'][0]['current']);
+        $this->assertSame("/purchases?planning_request={$purchaseRequest->id}", $monitoring[$purchaseRequest->id]['direct_url']);
+        $this->get(route('planning-scenario-requests.index'))->assertInertia(fn (Assert $page) => $page->has('requests', 4));
     }
 
     /** @param array<string, mixed> $result */
     private function executedRequest(PlanningScenario $scenario, User $user, string $area, array $result): PlanningScenarioRequest
     {
+        $payload = ['scenario' => ['name' => $scenario->name], 'horizon' => ['from' => '2026-09-01', 'to' => '2026-12-31']];
+        $payload += match ($area) {
+            'purchases' => ['shortages' => $result['drafts']],
+            'finance' => ['cash_by_month' => $result['drafts']],
+            default => [],
+        };
         $request = PlanningScenarioRequest::create([
             'planning_scenario_id' => $scenario->id, 'area' => $area, 'status' => 'confirmed',
             'approved_fingerprint' => $scenario->approved_fingerprint, 'request_fingerprint' => str_repeat($area === 'purchases' ? 'b' : 'c', 64),
-            'payload' => ['scenario' => ['name' => $scenario->name], 'horizon' => ['from' => '2026-09-01', 'to' => '2026-12-31']],
+            'payload' => $payload,
             'generated_by' => $user->id, 'confirmed_by' => $user->id, 'confirmed_at' => now(),
             'materialization_status' => 'authorized', 'materialization_fingerprint' => str_repeat('d', 64),
-            'idempotency_key' => $area === 'purchases' ? '10000000-0000-4000-8000-000000000000' : '20000000-0000-4000-8000-000000000000',
+            'idempotency_key' => match ($area) {
+                'purchases' => '10000000-0000-4000-8000-000000000000',
+                'finance' => '20000000-0000-4000-8000-000000000000',
+                'operations' => '30000000-0000-4000-8000-000000000000',
+                'inventory' => '40000000-0000-4000-8000-000000000000',
+            },
             'execution_status' => 'executed', 'execution_result' => $result, 'executed_by' => $user->id, 'executed_at' => now(),
         ]);
         $request->update(['execution_fingerprint' => hash('sha256', json_encode([

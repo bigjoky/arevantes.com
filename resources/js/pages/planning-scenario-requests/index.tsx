@@ -1,8 +1,10 @@
-import { Head, useForm } from '@inertiajs/react';
+import { Head, Link, useForm } from '@inertiajs/react';
 import {
+    AlertTriangle,
     CheckCircle2,
     ClipboardCheck,
     Eye,
+    ExternalLink,
     LockKeyhole,
     Play,
     RefreshCw,
@@ -92,6 +94,14 @@ type ScenarioRequest = {
         consumed_quantity?: number;
         amount?: number;
         actual_amount?: number;
+        direct_url: string | null;
+        exceptions: Array<{ label: string; count: number }>;
+        comparison?: Array<{
+            label: string;
+            planned: number;
+            current: number;
+            unit: 'items' | 'units' | 'currency';
+        }>;
     };
 };
 
@@ -339,13 +349,14 @@ function MaterializationControl({
                         {translate('Live outcome tracking', locale)}
                     </p>
                     <div className="mt-2 flex flex-wrap gap-1.5">
-                        {Object.entries(request.outcome_monitoring.statuses).map(
-                            ([status, count]) => (
-                                <Badge key={status} variant="outline">
-                                    {translate(statusLabel(status), locale)}: {count}
-                                </Badge>
-                            ),
-                        )}
+                        {Object.entries(
+                            request.outcome_monitoring.statuses,
+                        ).map(([status, count]) => (
+                            <Badge key={status} variant="outline">
+                                {translate(statusLabel(status), locale)}:{' '}
+                                {count}
+                            </Badge>
+                        ))}
                         {request.outcome_monitoring.overdue ? (
                             <Badge variant="destructive">
                                 {translate('Overdue', locale)}:{' '}
@@ -360,52 +371,111 @@ function MaterializationControl({
                         ) : null}
                     </div>
                 </div>
-                {requiresPromotion && request.promotion_status === 'pending' && (
-                    <form
-                        className="border-t pt-3"
-                        onSubmit={(event) => {
-                            event.preventDefault();
-                            promotionForm.post(
-                                `/planning-requests/${request.id}/promotion`,
-                                { preserveScroll: true },
-                            );
-                        }}
-                    >
-                        <InputError
-                            message={
-                                (
-                                    promotionForm.errors as Record<
-                                        string,
-                                        string | undefined
-                                    >
-                                ).promotion
-                            }
-                        />
-                        <Button
-                            type="submit"
-                            disabled={promotionForm.processing}
+                {request.outcome_monitoring.exceptions.length > 0 && (
+                    <div className="space-y-1 border-t pt-3 text-xs text-destructive">
+                        {request.outcome_monitoring.exceptions.map(
+                            (exception) => (
+                                <p
+                                    key={exception.label}
+                                    className="flex items-center gap-1.5"
+                                >
+                                    <AlertTriangle className="size-3.5" />
+                                    {translate(exception.label, locale)}:{' '}
+                                    {exception.count}
+                                </p>
+                            ),
+                        )}
+                    </div>
+                )}
+                {(request.outcome_monitoring.comparison?.length ?? 0) > 0 && (
+                    <div className="grid grid-cols-2 gap-2 border-t pt-3 text-xs">
+                        {request.outcome_monitoring.comparison?.map((row) => (
+                            <div
+                                key={row.label}
+                                className="rounded bg-background/70 p-2"
+                            >
+                                <p className="text-muted-foreground">
+                                    {translate(row.label, locale)}
+                                </p>
+                                <p className="mt-1 font-medium">
+                                    {formatComparisonValue(
+                                        row.current,
+                                        row.unit,
+                                        locale,
+                                    )}{' '}
+                                    /{' '}
+                                    {formatComparisonValue(
+                                        row.planned,
+                                        row.unit,
+                                        locale,
+                                    )}
+                                </p>
+                                <p className="text-[10px] text-muted-foreground">
+                                    {translate('Current / approved', locale)}
+                                </p>
+                            </div>
+                        ))}
+                    </div>
+                )}
+                {request.outcome_monitoring.direct_url && (
+                    <Button variant="outline" size="sm" asChild>
+                        <Link href={request.outcome_monitoring.direct_url}>
+                            <ExternalLink />
+                            {translate('Open generated resources', locale)}
+                        </Link>
+                    </Button>
+                )}
+                {requiresPromotion &&
+                    request.promotion_status === 'pending' && (
+                        <form
+                            className="border-t pt-3"
+                            onSubmit={(event) => {
+                                event.preventDefault();
+                                promotionForm.post(
+                                    `/planning-requests/${request.id}/promotion`,
+                                    { preserveScroll: true },
+                                );
+                            }}
                         >
-                            <SendToBack />
-                            {translate('Promote to native workflow', locale)}
-                        </Button>
-                    </form>
-                )}
-                {requiresPromotion && request.promotion_status === 'promoted' && (
-                    <p className="border-t pt-3 text-xs">
-                        <CheckCircle2 className="mr-1 inline size-4" />
-                        {translate('Promoted by', locale)}{' '}
-                        {request.promoter?.name} ·{' '}
-                        {request.area === 'purchases'
-                            ? translate('Purchase RFQs', locale)
-                            : translate('Financial forecast items', locale)}
-                        :{' '}
-                        {request.promotion_result?.purchase_document_ids
-                            ?.length ??
-                            request.promotion_result
-                                ?.financial_forecast_item_ids?.length ??
-                            0}
-                    </p>
-                )}
+                            <InputError
+                                message={
+                                    (
+                                        promotionForm.errors as Record<
+                                            string,
+                                            string | undefined
+                                        >
+                                    ).promotion
+                                }
+                            />
+                            <Button
+                                type="submit"
+                                disabled={promotionForm.processing}
+                            >
+                                <SendToBack />
+                                {translate(
+                                    'Promote to native workflow',
+                                    locale,
+                                )}
+                            </Button>
+                        </form>
+                    )}
+                {requiresPromotion &&
+                    request.promotion_status === 'promoted' && (
+                        <p className="border-t pt-3 text-xs">
+                            <CheckCircle2 className="mr-1 inline size-4" />
+                            {translate('Promoted by', locale)}{' '}
+                            {request.promoter?.name} ·{' '}
+                            {request.area === 'purchases'
+                                ? translate('Purchase RFQs', locale)
+                                : translate('Financial forecast items', locale)}
+                            :{' '}
+                            {request.promotion_result?.purchase_document_ids
+                                ?.length ??
+                                request.promotion_result
+                                    ?.financial_forecast_item_ids?.length ??
+                                0}
+                        </p>
+                    )}
             </div>
         );
     }
@@ -579,6 +649,18 @@ function statusLabel(status: string) {
         .split('_')
         .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
         .join(' ');
+}
+
+function formatComparisonValue(
+    value: number,
+    unit: 'items' | 'units' | 'currency',
+    locale: 'en' | 'es',
+) {
+    return new Intl.NumberFormat(locale === 'es' ? 'es-ES' : 'en-GB', {
+        style: unit === 'currency' ? 'currency' : 'decimal',
+        currency: unit === 'currency' ? 'EUR' : undefined,
+        maximumFractionDigits: unit === 'items' ? 0 : unit === 'units' ? 3 : 2,
+    }).format(value);
 }
 
 function conflictLabel(code: string, locale: 'en' | 'es') {
