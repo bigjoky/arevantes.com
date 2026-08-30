@@ -63,12 +63,12 @@ class WorkspaceNavigationAuthorizationTest extends TestCase
             'site_address_line_1' => 'Calle Privada 1',
         ]);
         $user = $this->userWithPermissions([]);
+        $this->actingAs($user);
 
-        $this->actingAs($user)
-            ->get(route('dashboard'))
+        $this->get(route('dashboard'))
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
-                ->where('installations', [])
+                ->missing('installations')
                 ->where('peopleSummary.total', 0)
                 ->where('peopleSummary.customers', 0)
                 ->where('installationSummary.total', 0)
@@ -76,6 +76,8 @@ class WorkspaceNavigationAuthorizationTest extends TestCase
                 ->where('businessSummary.open_opportunities', 0)
                 ->where('businessSummary.outstanding_amount', 0)
                 ->where('agenda', []));
+
+        $this->getJson(route('dashboard.installation-map'))->assertForbidden();
     }
 
     /** @param array<int, string> $permissionKeys */

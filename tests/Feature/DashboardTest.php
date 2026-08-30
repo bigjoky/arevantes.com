@@ -47,8 +47,10 @@ class DashboardTest extends TestCase
         );
     }
 
-    public function test_dashboard_includes_summary_and_installation_map_data()
+    public function test_dashboard_keeps_map_data_out_of_the_initial_response_and_loads_it_on_demand()
     {
+        $mapCacheKey = 'dashboard:installation-map:v1:'.app()->getLocale();
+        Cache::forget($mapCacheKey);
         $user = User::factory()->create();
         $this->actingAs($user);
 
@@ -94,14 +96,23 @@ class DashboardTest extends TestCase
                 ->where('peopleSummary.staff', 1)
                 ->where('installationSummary.total', 1)
                 ->where('installationSummary.active', 1)
-                ->where('installations.0.project_reference', 'FV-2026-002')
-                ->where('installations.0.site_latitude', '37.8882000')
-                ->where('installations.0.site_longitude', '-4.7794000')
+                ->missing('installations')
             );
+
+        $this->assertFalse(Cache::has($mapCacheKey));
+
+        $this->getJson(route('dashboard.installation-map'))
+            ->assertOk()
+            ->assertJsonPath('installations.0.project_reference', 'FV-2026-002')
+            ->assertJsonPath('installations.0.site_latitude', '37.8882000')
+            ->assertJsonPath('installations.0.site_longitude', '-4.7794000');
+
+        $this->assertTrue(Cache::has($mapCacheKey));
     }
 
     public function test_dashboard_normalizes_deye_and_huawei_monitoring_for_the_map()
     {
+        Cache::forget('dashboard:installation-map:v1:'.app()->getLocale());
         $this->actingAs(User::factory()->create());
         $deye = Installation::create([
             'service_type' => 'solar', 'status' => 'completed', 'site_address_line_1' => 'Deye site',
@@ -118,15 +129,16 @@ class DashboardTest extends TestCase
             'huawei_status_message' => 'Inverter alarm', 'huawei_synced_at' => now(),
         ]);
 
-        $this->get(route('dashboard'))->assertInertia(fn (Assert $page) => $page
-            ->where('installations.0.monitoring.provider', 'huawei')
-            ->where('installations.0.monitoring.status', 'fault')
-            ->where('installations.0.monitoring.current_power_kw', '3.100')
-            ->where('installations.0.monitoring.message', 'Inverter alarm')
-            ->where('installations.1.monitoring.provider', 'deye')
-            ->where('installations.1.monitoring.status', 'healthy')
-            ->where('installations.1.monitoring.today_energy_kwh', '18.700')
-            ->where('installations.1.monitoring.message', 'Operating normally.'));
+        $this->getJson(route('dashboard.installation-map'))
+            ->assertOk()
+            ->assertJsonPath('installations.0.monitoring.provider', 'huawei')
+            ->assertJsonPath('installations.0.monitoring.status', 'fault')
+            ->assertJsonPath('installations.0.monitoring.current_power_kw', '3.100')
+            ->assertJsonPath('installations.0.monitoring.message', 'Inverter alarm')
+            ->assertJsonPath('installations.1.monitoring.provider', 'deye')
+            ->assertJsonPath('installations.1.monitoring.status', 'healthy')
+            ->assertJsonPath('installations.1.monitoring.today_energy_kwh', '18.700')
+            ->assertJsonPath('installations.1.monitoring.message', 'Operating normally.');
     }
 
     public function test_deye_cloud_status_is_synchronized_for_an_installation()

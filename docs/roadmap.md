@@ -69,43 +69,43 @@ derivado de permisos, con accesos recientes y favoritos. Las rutas y datos
 existentes se migrarán de forma compatible, sin renombrados masivos ni módulos
 vacíos.
 
-| # | Área                         | Código | Cobertura principal                              |
-| -: | ---------------------------- | :----: | ------------------------------------------------ |
-| 1 | Personas y Empresas          | PTY    | Clientes, proveedores y contactos                |
-| 2 | CRM                          | CRM    | Leads y oportunidades                            |
-| 3 | Ventas                       | SAL    | Propuestas, pedidos y contratos comerciales      |
-| 4 | Ingeniería                   | ENG    | Estudios, cálculos y diseños                      |
-| 5 | Proyectos                    | PRJ    | Gestión integral de instalaciones                |
-| 6 | Planificación                | PLN    | Agenda, recursos, cargas y escenarios             |
-| 7 | Operaciones / SAT            | OPS    | Órdenes de trabajo e intervención                 |
-| 8 | Compras                      | PUR    | Aprovisionamiento                                 |
-| 9 | Inventario                   | INV    | Stock y almacenes                                 |
-| 10 | Activos                     | AST    | Vehículos, herramientas y equipos                 |
-| 11 | Mantenimiento               | MNT    | Preventivo y correctivo                           |
-| 12 | Finanzas                    | FIN    | Facturación, cobros, pagos y tesorería            |
-| 13 | Contabilidad                | ACC    | PGC, impuestos y contabilidad                     |
-| 14 | Recursos Humanos            | HRM    | Personal, horarios y PRL                          |
-| 15 | Documentación               | DOC    | Expedientes y documentos                          |
-| 16 | Dirección / BI              | BI     | KPIs, planificación y rentabilidad                |
-| 17 | Calidad                     | QMS    | No conformidades, inspecciones y mejora           |
-| 18 | Atención al cliente         | CS     | Tickets, incidencias y posventa                   |
-| 19 | Contratos y Servicios       | CTR    | Recurrencia, garantías y SLA                      |
-| 20 | Administración de Plataforma | SYS  | Configuración, permisos, auditoría e integraciones |
+|   # | Área                         | Código | Cobertura principal                                |
+| --: | ---------------------------- | :----: | -------------------------------------------------- |
+|   1 | Personas y Empresas          |  PTY   | Clientes, proveedores y contactos                  |
+|   2 | CRM                          |  CRM   | Leads y oportunidades                              |
+|   3 | Ventas                       |  SAL   | Propuestas, pedidos y contratos comerciales        |
+|   4 | Ingeniería                   |  ENG   | Estudios, cálculos y diseños                       |
+|   5 | Proyectos                    |  PRJ   | Gestión integral de instalaciones                  |
+|   6 | Planificación                |  PLN   | Agenda, recursos, cargas y escenarios              |
+|   7 | Operaciones / SAT            |  OPS   | Órdenes de trabajo e intervención                  |
+|   8 | Compras                      |  PUR   | Aprovisionamiento                                  |
+|   9 | Inventario                   |  INV   | Stock y almacenes                                  |
+|  10 | Activos                      |  AST   | Vehículos, herramientas y equipos                  |
+|  11 | Mantenimiento                |  MNT   | Preventivo y correctivo                            |
+|  12 | Finanzas                     |  FIN   | Facturación, cobros, pagos y tesorería             |
+|  13 | Contabilidad                 |  ACC   | PGC, impuestos y contabilidad                      |
+|  14 | Recursos Humanos             |  HRM   | Personal, horarios y PRL                           |
+|  15 | Documentación                |  DOC   | Expedientes y documentos                           |
+|  16 | Dirección / BI               |   BI   | KPIs, planificación y rentabilidad                 |
+|  17 | Calidad                      |  QMS   | No conformidades, inspecciones y mejora            |
+|  18 | Atención al cliente          |   CS   | Tickets, incidencias y posventa                    |
+|  19 | Contratos y Servicios        |  CTR   | Recurrencia, garantías y SLA                       |
+|  20 | Administración de Plataforma |  SYS   | Configuración, permisos, auditoría e integraciones |
 
 ### Programa transversal de experiencia y rendimiento
 
 Este programa se ejecuta en cortes verticales junto al roadmap funcional y tiene
 prioridad sobre añadir pantallas que amplíen deuda de interfaz.
 
-| Prioridad | Trabajo | Estado y criterio de salida |
-| --------- | ------- | --------------------------- |
-| P0 | Direcciones editables | Primer corte completado. País, provincia, municipio y localidad guardados reconstruyen sus listas dependientes al crear y editar clientes e instalaciones; los catálogos estables se cachean durante 24 horas. |
-| P0 | Rendimiento medible | Primera instrumentación ejecutada. Cada respuesta web expone tiempos de aplicación y base de datos mediante `Server-Timing`; las rutas que superan 750 ms o 500 kB registran ruta, estado, duración, tiempo SQL, tamaño y correlación sin contenido del usuario. Pendiente recoger línea base, añadir Core Web Vitals y optimizar los puntos demostrados. |
-| P0 | Localización completa | En curso. España ya conserva `Spain` como valor canónico y se presenta como `España` en formularios españoles. Ningún otro texto visible puede quedar mezclado y los demás catálogos seguirán el mismo patrón. |
-| P0 | Adaptación móvil integral | En curso continuo. Cada ficha, tabla, diálogo y acción principal debe funcionar desde 320 px sin desbordamiento, pérdida de información ni acciones inaccesibles. |
-| P1 | Sistema único de formularios | Planificado. Unificar cabecera, secciones, espaciado, controles, ayuda, errores, estados de carga y acciones para cliente, instalación y nuevos módulos. |
-| P1 | Cliente según naturaleza | Planificado. Particular, empresa, comunidad y organismo público compartirán identidad base, pero exigirán y mostrarán únicamente denominación, representantes, identificación fiscal, facturación y contacto pertinentes. |
-| P1 | Sidebar y arquitectura de módulos | Planificado. Mapear rutas actuales a las 20 áreas, resolver solapamientos, aplicar permisos en servidor y desplegar la navegación por etapas con pruebas por rol. |
+| Prioridad | Trabajo                           | Estado y criterio de salida                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| --------- | --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| P0        | Direcciones editables             | Primer corte completado. País, provincia, municipio y localidad guardados reconstruyen sus listas dependientes al crear y editar clientes e instalaciones; los catálogos estables se cachean durante 24 horas.                                                                                                                                                                                                                                                                                                          |
+| P0        | Rendimiento medible               | Instrumentación y primera optimización ejecutadas. Cada respuesta web expone tiempos de aplicación y base de datos mediante `Server-Timing`; las rutas que superan 750 ms o 500 kB registran ruta, estado, duración, tiempo SQL, tamaño y correlación sin contenido del usuario. El panel ya excluye del arranque los datos y el código del mapa, que se solicitan bajo demanda y se cachean 30 segundos. Pendiente recoger línea base en producción, añadir Core Web Vitals y optimizar el siguiente punto demostrado. |
+| P0        | Localización completa             | En curso. España ya conserva `Spain` como valor canónico y se presenta como `España` en formularios españoles. Ningún otro texto visible puede quedar mezclado y los demás catálogos seguirán el mismo patrón.                                                                                                                                                                                                                                                                                                          |
+| P0        | Adaptación móvil integral         | En curso continuo. Cada ficha, tabla, diálogo y acción principal debe funcionar desde 320 px sin desbordamiento, pérdida de información ni acciones inaccesibles.                                                                                                                                                                                                                                                                                                                                                       |
+| P1        | Sistema único de formularios      | Planificado. Unificar cabecera, secciones, espaciado, controles, ayuda, errores, estados de carga y acciones para cliente, instalación y nuevos módulos.                                                                                                                                                                                                                                                                                                                                                                |
+| P1        | Cliente según naturaleza          | Planificado. Particular, empresa, comunidad y organismo público compartirán identidad base, pero exigirán y mostrarán únicamente denominación, representantes, identificación fiscal, facturación y contacto pertinentes.                                                                                                                                                                                                                                                                                               |
+| P1        | Sidebar y arquitectura de módulos | Planificado. Mapear rutas actuales a las 20 áreas, resolver solapamientos, aplicar permisos en servidor y desplegar la navegación por etapas con pruebas por rol.                                                                                                                                                                                                                                                                                                                                                       |
 
 La optimización se considera terminada únicamente con mediciones antes/después;
 la traducción y el responsive se validan sobre las rutas realmente autorizadas a
@@ -113,9 +113,10 @@ cada rol, no mediante una revisión visual parcial del perfil administrador.
 
 La primera línea base del build identifica tres objetivos claros: el núcleo de
 aplicación ronda 597 kB, las gráficas 352 kB y el mapa —ya separado del núcleo—
-1.042 kB antes de gzip. El siguiente corte de rendimiento medirá respuesta de
-servidor, consultas y payload de las rutas principales y decidirá con esos datos
-qué pantallas, mapas y gráficas deben cargarse bajo demanda.
+1.042 kB antes de gzip. El mapa ha dejado de descargarse y de serializar todas las
+instalaciones durante la entrada al panel; su código y payload se cargan al pedirlo.
+El siguiente corte de rendimiento recogerá tiempos, consultas y tamaño de respuesta
+en las rutas principales y decidirá con esos datos el próximo objetivo.
 
 ## Base consolidada
 
@@ -825,10 +826,26 @@ superan los presupuestos configurables registran únicamente ruta, método, esta
 duración, tiempo de base de datos, tamaño y correlación. Así se podrá priorizar con
 datos reales sin guardar payloads ni información del cliente.
 
+## Corte ejecutado — Carga progresiva del panel
+
+El panel inicial ya no consulta ni serializa el inventario completo de instalaciones
+para construir el mapa, ni descarga automáticamente su motor cartográfico de cerca
+de 1 MB. Las métricas y la agenda aparecen primero; una acción explícita obtiene los
+datos mediante un endpoint autorizado y carga el módulo visual en ese momento. La
+intención por teclado o puntero precarga únicamente el código para reducir la espera
+sin anticipar datos sensibles.
+
+El payload cartográfico se comparte durante 30 segundos para absorber aperturas y
+refrescos próximos. El sondeo periódico del resumen continúa siendo ligero y el mapa
+solo se actualiza después de que la persona lo haya abierto. La interfaz conserva
+estados bilingües de carga, error y reintento, navegación por teclado y una altura
+adaptada a móvil.
+
 ## Próximo corte recomendado
 
-Recoger la línea base de las rutas principales y optimizar primero las regresiones
-demostradas. En escenarios, agrupar varios cierres comparables por línea de negocio
+Recoger en producción la línea base de las rutas principales y optimizar primero el
+siguiente cuello demostrado, incorporando Core Web Vitals a la evidencia. En
+escenarios, agrupar varios cierres comparables por línea de negocio
 y convertir patrones repetidos en propuestas de calibración versionadas que una
 persona pueda aceptar o descartar; ninguna propuesta modificará supuestos por sí
 sola ni se emitirá con una muestra insuficiente.

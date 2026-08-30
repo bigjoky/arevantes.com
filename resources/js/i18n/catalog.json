@@ -6028,6 +6028,14 @@
         "en": "Call to review the proposal",
         "es": "Llamar para revisar la propuesta"
     },
+    "Load map": {
+        "en": "Load map",
+        "es": "Cargar mapa"
+    },
+    "Load the interactive map only when you need it to keep the dashboard fast.": {
+        "en": "Load the interactive map only when you need it to keep the dashboard fast.",
+        "es": "Carga el mapa interactivo solo cuando lo necesites para mantener el panel rápido."
+    },
     "Loading": {
         "en": "Loading",
         "es": "Cargando"
@@ -9868,6 +9876,10 @@
         "en": "Closed operational summary and technical documents appear only after their review and publication.",
         "es": "Resumen operativo cerrado; los documentos técnicos solo aparecen tras su revisión y publicación."
     },
+    "Retry": {
+        "en": "Retry",
+        "es": "Reintentar"
+    },
     "Retirar": {
         "en": "Retirar",
         "es": "Retirar"
@@ -11419,6 +11431,10 @@
     "The activity, schedule, technician and notes will become the execution order.": {
         "en": "The activity, schedule, technician and notes will become the execution order.",
         "es": "La actividad, horario, técnico y notas se convertirán en la orden de ejecución."
+    },
+    "The installation map could not be loaded.": {
+        "en": "The installation map could not be loaded.",
+        "es": "No se ha podido cargar el mapa de instalaciones."
     },
     "The available serial registry must not have changed since the audit started.": {
         "en": "The available serial registry must not have changed since the audit started.",

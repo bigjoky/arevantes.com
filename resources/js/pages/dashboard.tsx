@@ -8,17 +8,20 @@ import {
     TrendingUp,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { lazy, Suspense, useEffect } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import type { statusLabels } from '@/components/installations/installation-form';
 import { PageHeader, PageShell } from '@/components/page-shell';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { useLocale } from '@/hooks/use-locale';
+import { translate } from '@/i18n';
 import type { serviceLabels } from '@/lib/business-lines';
 import { dashboard } from '@/routes';
 
-const InstallationMap = lazy(
-    () => import('@/components/dashboard/installation-map'),
-);
+const loadInstallationMap = () =>
+    import('@/components/dashboard/installation-map');
+const InstallationMap = lazy(loadInstallationMap);
 
 export type DashboardInstallation = {
     id: number;
@@ -58,7 +61,6 @@ export type DashboardInstallation = {
 };
 
 type DashboardProps = {
-    installations: DashboardInstallation[];
     peopleSummary: {
         total: number;
         customers: number;
@@ -86,18 +88,58 @@ type DashboardProps = {
 };
 
 export default function Dashboard({
-    installations,
     peopleSummary,
     installationSummary,
     businessSummary,
     agenda,
 }: DashboardProps) {
     const { abilities } = usePage().props.auth;
+    const { locale } = useLocale();
+    const [mapInstallations, setMapInstallations] = useState<
+        DashboardInstallation[] | null
+    >(null);
+    const [mapRequested, setMapRequested] = useState(false);
+    const [mapLoading, setMapLoading] = useState(false);
+    const [mapError, setMapError] = useState(false);
     const hasOverview =
         abilities.viewInstallations ||
         abilities.manageCustomers ||
         abilities.manageOperations ||
         abilities.viewFinance;
+
+    const loadMap = useCallback(async (showLoading = true) => {
+        setMapRequested(true);
+
+        if (showLoading) {
+            void loadInstallationMap();
+            setMapLoading(true);
+            setMapError(false);
+        }
+
+        try {
+            const response = await fetch('/dashboard/installation-map', {
+                headers: { Accept: 'application/json' },
+            });
+
+            if (!response.ok) {
+                throw new Error(`Map request failed with ${response.status}`);
+            }
+
+            const payload = (await response.json()) as {
+                installations: DashboardInstallation[];
+            };
+            setMapInstallations(payload.installations);
+            setMapError(false);
+        } catch {
+            if (showLoading) {
+                setMapError(true);
+            }
+        } finally {
+            if (showLoading) {
+                setMapLoading(false);
+            }
+        }
+    }, []);
 
     useEffect(() => {
         if (!abilities.viewInstallations) {
@@ -106,12 +148,16 @@ export default function Dashboard({
 
         const interval = window.setInterval(() => {
             router.reload({
-                only: ['installations', 'installationSummary'],
+                only: ['installationSummary'],
             });
+
+            if (mapRequested) {
+                void loadMap(false);
+            }
         }, 60_000);
 
         return () => window.clearInterval(interval);
-    }, [abilities.viewInstallations]);
+    }, [abilities.viewInstallations, loadMap, mapRequested]);
 
     return (
         <>
@@ -189,18 +235,82 @@ export default function Dashboard({
                         className={`grid min-w-0 gap-6 ${abilities.viewInstallations && abilities.manageOperations ? 'xl:grid-cols-[minmax(0,1fr)_20rem]' : ''}`}
                     >
                         {abilities.viewInstallations && (
-                            <Suspense
-                                fallback={
-                                    <div className="min-h-[34rem] animate-pulse rounded-lg bg-muted" />
-                                }
-                            >
-                                <InstallationMap
-                                    installations={installations}
-                                    canManageInstallations={
-                                        abilities.manageInstallations
-                                    }
-                                />
-                            </Suspense>
+                            <>
+                                {mapInstallations ? (
+                                    <Suspense
+                                        fallback={
+                                            <div
+                                                className="min-h-[34rem] animate-pulse rounded-lg bg-muted"
+                                                role="status"
+                                                aria-label={translate(
+                                                    'Loading map...',
+                                                    locale,
+                                                )}
+                                            />
+                                        }
+                                    >
+                                        <InstallationMap
+                                            installations={mapInstallations}
+                                            canManageInstallations={
+                                                abilities.manageInstallations
+                                            }
+                                        />
+                                    </Suspense>
+                                ) : (
+                                    <Card className="grid min-h-[22rem] place-items-center p-6 text-center sm:min-h-[34rem]">
+                                        <div className="max-w-md">
+                                            <MapPinned className="mx-auto size-10 text-muted-foreground" />
+                                            <h2 className="mt-4 text-lg font-semibold">
+                                                {translate(
+                                                    'Installation map',
+                                                    locale,
+                                                )}
+                                            </h2>
+                                            <p className="mt-2 text-sm text-muted-foreground">
+                                                {translate(
+                                                    'Load the interactive map only when you need it to keep the dashboard fast.',
+                                                    locale,
+                                                )}
+                                            </p>
+                                            {mapError && (
+                                                <p
+                                                    className="mt-3 text-sm text-destructive"
+                                                    role="alert"
+                                                >
+                                                    {translate(
+                                                        'The installation map could not be loaded.',
+                                                        locale,
+                                                    )}
+                                                </p>
+                                            )}
+                                            <Button
+                                                type="button"
+                                                className="mt-5"
+                                                disabled={mapLoading}
+                                                onMouseEnter={() =>
+                                                    void loadInstallationMap()
+                                                }
+                                                onFocus={() =>
+                                                    void loadInstallationMap()
+                                                }
+                                                onClick={() => void loadMap()}
+                                            >
+                                                {mapLoading
+                                                    ? translate(
+                                                          'Loading map...',
+                                                          locale,
+                                                      )
+                                                    : translate(
+                                                          mapError
+                                                              ? 'Retry'
+                                                              : 'Load map',
+                                                          locale,
+                                                      )}
+                                            </Button>
+                                        </div>
+                                    </Card>
+                                )}
+                            </>
                         )}
 
                         {abilities.manageOperations && (
