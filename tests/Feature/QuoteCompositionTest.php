@@ -22,7 +22,7 @@ class QuoteCompositionTest extends TestCase
     public function test_custom_quote_line_components_can_be_nested_up_to_level_five(): void
     {
         $commercial = User::factory()->create(['role' => 'commercial']);
-        $customer = Person::create(['category' => 'customer', 'first_name' => 'Cliente jerarquía']);
+        $customer = Person::create(['category' => 'customer', 'first_name' => 'Cliente jerarquía', 'payment_terms_days' => 45]);
         $components = collect(range(2, 5))->map(fn (int $level): array => [
             'client_key' => "level-{$level}",
             'parent_client_key' => $level === 2 ? null : 'level-'.($level - 1),
@@ -49,6 +49,7 @@ class QuoteCompositionTest extends TestCase
 
         $quote = Quote::with('lines')->firstOrFail();
         $this->assertSame('300.00', $quote->amount);
+        $this->assertSame(45, $quote->acceptance_payment_due_days);
         $this->assertSame([2, 3, 4, 5], $quote->lines->first()->components->pluck('depth')->all());
         $this->assertSame('210.00', $quote->expected_margin_amount);
 

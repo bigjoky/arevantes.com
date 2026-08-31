@@ -15451,5 +15451,13 @@
     "Assign one or more roles to avoid duplicating the same person.": {
         "en": "Assign one or more roles to avoid duplicating the same person.",
         "es": "Asigna una o varias funciones para evitar duplicar a la misma persona."
+    },
+    "Customer payment terms": {
+        "en": "Customer payment terms",
+        "es": "Plazo de pago del cliente"
+    },
+    "The due date is suggested automatically and can still be adjusted.": {
+        "en": "The due date is suggested automatically and can still be adjusted.",
+        "es": "La fecha de vencimiento se propone automáticamente y todavía puede ajustarse."
     }
 }

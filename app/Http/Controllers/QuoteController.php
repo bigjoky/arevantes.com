@@ -320,7 +320,7 @@ class QuoteController extends Controller
         $products->each(fn (Product $product) => $product->setAttribute('resolved_components', $resolver->resolve($product)));
 
         return [
-            'customers' => Person::where('category', 'customer')->orderBy('company_name')->orderBy('first_name')->get(['id', 'first_name', 'last_name', 'company_name']),
+            'customers' => Person::where('category', 'customer')->orderBy('company_name')->orderBy('first_name')->get(['id', 'first_name', 'last_name', 'company_name', 'payment_terms_days']),
             'installations' => Installation::orderBy('project_reference')->get(['id', 'person_id', 'project_reference', 'site_name']),
             'products' => $products,
             'acceptancePaymentDefaults' => config('crm.acceptance_payment'),
@@ -460,7 +460,6 @@ class QuoteController extends Controller
         $changeNote = $data['change_note'] ?? ($quote->exists ? null : __('Initial quote created.'));
         unset($data['change_note']);
         $data['acceptance_payment_percentage'] ??= config('crm.acceptance_payment.percentage');
-        $data['acceptance_payment_due_days'] ??= config('crm.acceptance_payment.due_days');
         $data['lines'] = collect($data['lines'])->map(function (array $line): array {
             $mode = $line['selection_mode'] ?? 'included';
 
@@ -478,6 +477,7 @@ class QuoteController extends Controller
         abort_if($installation?->person_id && $installation->person_id !== (int) $data['person_id'], 422, __('The installation does not belong to the selected customer.'));
         abort_if($installation && filled($data['service_type'] ?? null) && $installation->service_type !== $data['service_type'], 422, __('The quote business line does not match the selected installation.'));
         $customer = Person::findOrFail($data['person_id']);
+        $data['acceptance_payment_due_days'] ??= $customer->payment_terms_days ?? config('crm.acceptance_payment.due_days');
         $opportunity = isset($data['opportunity_id']) ? Opportunity::find($data['opportunity_id']) : null;
         abort_if($opportunity && ((int) $opportunity->person_id !== (int) $data['person_id'] || ($opportunity->installation_id && (int) $opportunity->installation_id !== (int) ($data['installation_id'] ?? 0))), 422, __('The quote does not match the selected opportunity.'));
         $productIds = collect($data['lines'])->pluck('product_id')

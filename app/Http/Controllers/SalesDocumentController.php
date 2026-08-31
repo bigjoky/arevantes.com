@@ -21,6 +21,7 @@ use App\Services\Quotes\QuoteCalculator;
 use App\Services\Security\SecurityEventRecorder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -165,7 +166,9 @@ class SalesDocumentController extends Controller
                 'type' => $data['type'], 'quote_id' => $quote->id, 'person_id' => $quote->person_id, 'installation_id' => $quote->installation_id,
                 'document_series_id' => $series?->id, 'created_by' => $request->user()->id, 'number' => $number, 'status' => 'draft',
                 'fulfillment_status' => $data['type'] === 'order' || $data['type'] === 'delivery_note' ? 'pending' : null, 'billing_status' => $data['type'] === 'order' || $data['type'] === 'delivery_note' ? 'pending' : null, 'issue_date' => now()->toDateString(),
-                'due_date' => $data['type'] === 'invoice' ? now()->addDays(30)->toDateString() : null,
+                'due_date' => $data['type'] === 'invoice'
+                    ? Carbon::parse(now()->toDateString())->addDays((int) (data_get($quote->customer_snapshot, 'payment_terms_days') ?? 30))->toDateString()
+                    : null,
                 'billing_percentage' => $billingData['billing_percentage'] ?? null, 'billing_sequence' => $billingData['billing_sequence'] ?? null, 'billing_label' => $billingData['billing_label'] ?? null,
                 'subtotal' => $billingData['subtotal'] ?? $quote->subtotal, 'discount_amount' => $billingData['discount_amount'] ?? $quote->discount_amount,
                 'tax_amount' => $billingData['tax_amount'] ?? $quote->tax_amount, 'amount' => $billingData['amount'] ?? $quote->amount, 'customer_snapshot' => $quote->customer_snapshot, 'notes' => $quote->notes,
@@ -189,6 +192,11 @@ class SalesDocumentController extends Controller
             || $salesDocument->sourceDocument?->recurringServiceBilling()->exists();
         abort_if($isRecurring && ! $request->user()->can('manage-treasury'), 403);
         $data = $request->validate(['issue_date' => ['required', 'date'], 'due_date' => ['nullable', 'date', 'after_or_equal:issue_date']]);
+        if ($salesDocument->type === 'invoice' && blank($data['due_date'] ?? null)) {
+            $data['due_date'] = Carbon::parse($data['issue_date'])
+                ->addDays((int) (data_get($salesDocument->customer_snapshot, 'payment_terms_days') ?? 30))
+                ->toDateString();
+        }
         DB::transaction(function () use ($request, $salesDocument, $data, $accounting) {
             $issued = app(DocumentNumber::class)->next($salesDocument->type, $data['issue_date']);
             $salesDocument->update([...$data, 'document_series_id' => $issued['series']->id, 'number' => $issued['number'], 'status' => 'issued', 'issued_at' => now(), 'locked_at' => now()]);
@@ -344,7 +352,7 @@ class SalesDocumentController extends Controller
     private function formData(): array
     {
         return [
-            'customers' => Person::where('category', 'customer')->orderBy('company_name')->orderBy('first_name')->get(['id', 'first_name', 'last_name', 'company_name']),
+            'customers' => Person::where('category', 'customer')->orderBy('company_name')->orderBy('first_name')->get(['id', 'first_name', 'last_name', 'company_name', 'payment_terms_days']),
             'installations' => Installation::orderBy('project_reference')->get(['id', 'person_id', 'project_reference', 'site_name']),
             'products' => Product::with(['unit:id,symbol', 'taxRate:id,rate'])->where('is_active', true)->orderBy('name')->get(),
         ];
@@ -376,6 +384,11 @@ class SalesDocumentController extends Controller
         $installation = isset($data['installation_id']) ? Installation::find($data['installation_id']) : null;
         abort_if($installation?->person_id && $installation->person_id !== (int) $data['person_id'], 422, __('The installation does not belong to the selected customer.'));
         $customer = Person::findOrFail($data['person_id']);
+        if (! $document->exists && $data['type'] === 'invoice' && blank($data['due_date'] ?? null)) {
+            $data['due_date'] = Carbon::parse($data['issue_date'])
+                ->addDays($customer->payment_terms_days ?? 30)
+                ->toDateString();
+        }
         $totals = $calculator->calculate($data['lines']);
         unset($data['lines']);
 

@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Installation;
 use App\Models\Person;
+use App\Models\Quote;
 use App\Models\SalesDocument;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -62,6 +63,63 @@ class SalesDocumentTest extends TestCase
         $this->assertNotNull($invoice->accountingEntry);
         $this->put(route('sales-documents.update', $invoice), [])->assertUnprocessable();
         $this->delete(route('sales-documents.destroy', $invoice))->assertUnprocessable();
+    }
+
+    public function test_customer_payment_terms_default_direct_and_proposal_invoice_due_dates(): void
+    {
+        $user = User::factory()->create(['role' => 'commercial']);
+        $customer = Person::create([
+            'category' => 'customer',
+            'first_name' => 'Terms',
+            'payment_terms_days' => 45,
+        ]);
+        $this->actingAs($user)->post(route('sales-documents.store'), [
+            'type' => 'invoice',
+            'person_id' => $customer->id,
+            'issue_date' => '2026-07-13',
+            'lines' => [[
+                'description' => 'Direct service',
+                'quantity' => 1,
+                'unit_price' => 100,
+                'discount_percent' => 0,
+                'tax_percent' => 21,
+            ]],
+        ])->assertRedirect();
+
+        $directInvoice = SalesDocument::firstOrFail();
+        $this->assertSame('2026-08-27', $directInvoice->due_date->toDateString());
+
+        $quote = Quote::create([
+            'person_id' => $customer->id,
+            'created_by' => $user->id,
+            'number' => 'PRE-TERMS-1',
+            'status' => 'accepted',
+            'issue_date' => today(),
+            'subtotal' => 100,
+            'discount_amount' => 0,
+            'tax_amount' => 21,
+            'amount' => 121,
+            'customer_snapshot' => $customer->customerSnapshot(),
+        ]);
+        $quote->lines()->create([
+            'position' => 1,
+            'description' => 'Proposal service',
+            'quantity' => 1,
+            'unit_price' => 100,
+            'discount_percent' => 0,
+            'tax_percent' => 21,
+            'subtotal' => 100,
+            'discount_amount' => 0,
+            'tax_amount' => 21,
+            'total' => 121,
+            'is_selected' => true,
+        ]);
+        $customer->update(['payment_terms_days' => 10]);
+
+        $this->post(route('quotes.convert', $quote), ['type' => 'invoice'])->assertRedirect();
+
+        $proposalInvoice = SalesDocument::where('quote_id', $quote->id)->sole();
+        $this->assertSame(today()->addDays(45)->toDateString(), $proposalInvoice->due_date->toDateString());
     }
 
     public function test_a_direct_draft_can_be_deleted_and_installation_must_match_customer(): void

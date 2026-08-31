@@ -104,7 +104,7 @@ prioridad sobre añadir pantallas que amplíen deuda de interfaz.
 | P0        | Localización completa             | En curso. España ya conserva `Spain` como valor canónico y se presenta como `España` en formularios españoles. Ningún otro texto visible puede quedar mezclado y los demás catálogos seguirán el mismo patrón.                                                                                                                                                                                                                   |
 | P0        | Adaptación móvil integral         | En curso continuo. Cada ficha, tabla, diálogo y acción principal debe funcionar desde 320 px sin desbordamiento, pérdida de información ni acciones inaccesibles.                                                                                                                                                                                                                                                                |
 | P1        | Sistema único de formularios      | En curso avanzado. Cliente, instalación, propuesta y alta de gasto comparten secciones, jerarquía visual, resumen accesible de errores, estado de guardado y barra de acciones adaptable. El patrón se extenderá por cortes a los formularios operativos restantes.                                                                                                                                                                   |
-| P1        | Cliente según naturaleza          | Segundo corte completado. Particular, empresa, comunidad y organismo público adaptan la identidad solicitada. La ficha admite múltiples contactos con responsabilidades, representante firmante, contacto principal estable e identidad/dirección fiscal alternativa. Propuestas, facturas y recurrencias congelan ya esos datos efectivos. Pendiente aplicar vencimientos predeterminados y ampliar proveedores.                                                          |
+| P1        | Cliente según naturaleza          | Tercer corte completado. Particular, empresa, comunidad y organismo público adaptan identidad, contactos, representación e información fiscal. Propuestas y facturas heredan el plazo de pago y los documentos derivados respetan el valor histórico congelado. Pendiente ampliar contactos y representación a proveedores.                                                          |
 | P1        | Sidebar y arquitectura de módulos | Planificado. Mapear rutas actuales a las 20 áreas, resolver solapamientos, aplicar permisos en servidor y desplegar la navegación por etapas con pruebas por rol.                                                                                                                                                                                                                                                                |
 
 La optimización se considera terminada únicamente con mediciones antes/después;
@@ -961,14 +961,28 @@ para facturación y documento más representación legal para un firmante. Siemp
 se conserva exactamente un contacto principal mientras existan contactos, incluso
 al eliminar el vigente, y las fusiones de duplicados preservan los nuevos datos.
 
+## Corte ejecutado — Plazos de pago comerciales
+
+El plazo definido en la ficha del cliente deja de ser meramente informativo. Una
+propuesta nueva lo utiliza para el vencimiento de su anticipo; cambiar de cliente
+actualiza la sugerencia y sigue permitiendo un ajuste explícito. Las facturas
+directas calculan su vencimiento desde la fecha de emisión y recalculan la
+sugerencia al cambiar cliente o fecha.
+
+Las facturas creadas desde una propuesta aceptada toman el plazo de la instantánea
+fiscal de la propuesta, no el valor actual del cliente. Así, un cambio contractual
+posterior no altera las condiciones de una oferta ya emitida. El servidor aplica
+los mismos valores aunque un cliente API omita el vencimiento y conserva 30 días
+como respaldo para registros históricos sin plazo.
+
 ## Próximo corte recomendado
 
-Aplicar automáticamente los plazos de pago del cliente a propuestas y facturas,
-extender identidad fiscal y representantes a proveedores y continuar el sistema
-común en los formularios operativos de mayor frecuencia. En paralelo, recoger
-durante siete días una muestra suficiente de producción para que el siguiente
-trabajo de rendimiento responda a `Server-Timing` y a los percentiles p75 reales
-de LCP, INP o CLS.
+Añadir contactos y representantes múltiples a proveedores sobre sus datos fiscales
+ya existentes, congelar su identidad en pedidos y facturas de compra, y continuar
+el sistema común en los formularios operativos de mayor frecuencia. En paralelo,
+recoger durante siete días una muestra suficiente de producción para que el
+siguiente trabajo de rendimiento responda a `Server-Timing` y a los percentiles
+p75 reales de LCP, INP o CLS.
 
 ## Corrección transversal — idioma temporal de la plataforma
 

@@ -36,6 +36,7 @@ type Customer = {
     first_name: string;
     last_name: string | null;
     company_name: string | null;
+    payment_terms_days: number | null;
 };
 type Installation = {
     id: number;
@@ -146,6 +147,10 @@ export default function QuoteForm({
     const pageTitle = quote
         ? `${translate('Edit', locale)} ${quote.number}`
         : translate('Nueva propuesta', locale);
+    const initialCustomerId = quote?.person_id ?? defaultCustomerId ?? null;
+    const initialPaymentTerms =
+        customers.find((customer) => customer.id === initialCustomerId)
+            ?.payment_terms_days ?? acceptancePaymentDefaults.due_days;
     const form = useForm({
         opportunity_id: String(
             quote?.opportunity_id ?? opportunityDraft?.id ?? '',
@@ -168,8 +173,7 @@ export default function QuoteForm({
                 acceptancePaymentDefaults.percentage,
         ),
         acceptance_payment_due_days: String(
-            quote?.acceptance_payment_due_days ??
-                acceptancePaymentDefaults.due_days,
+            quote?.acceptance_payment_due_days ?? initialPaymentTerms,
         ),
         notes:
             quote?.notes ??
@@ -215,6 +219,9 @@ export default function QuoteForm({
                   ]
                 : [blankLine()]),
     });
+    const selectedCustomer = customers.find(
+        (customer) => customer.id === Number(form.data.person_id),
+    );
     const [expandedLines, setExpandedLines] = useState<Set<string>>(
         new Set(
             form.data.lines[0]?.client_key
@@ -422,10 +429,17 @@ export default function QuoteForm({
                                 label={translate('Customer', locale)}
                                 value={form.data.person_id}
                                 onChange={(value) => {
+                                    const customer = customers.find(
+                                        (item) => item.id === Number(value),
+                                    );
                                     form.setData((data) => ({
                                         ...data,
                                         person_id: value,
                                         installation_id: '',
+                                        acceptance_payment_due_days: String(
+                                            customer?.payment_terms_days ??
+                                                acceptancePaymentDefaults.due_days,
+                                        ),
                                     }));
                                 }}
                                 options={customers.map((customer) => [
@@ -529,6 +543,17 @@ export default function QuoteForm({
                                     'When the customer accepts, the platform issues this advance invoice automatically. Use 0% when no acceptance payment is required.',
                                     locale,
                                 )}
+                                {selectedCustomer?.payment_terms_days !=
+                                null ? (
+                                    <span className="mt-1 block font-medium text-foreground">
+                                        {translate(
+                                            'Customer payment terms',
+                                            locale,
+                                        )}
+                                        : {selectedCustomer.payment_terms_days}{' '}
+                                        {translate('days', locale)}.
+                                    </span>
+                                ) : null}
                             </p>
                         </div>
                     </FormSection>

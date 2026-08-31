@@ -18,6 +18,7 @@ type Customer = {
     first_name: string;
     last_name: string | null;
     company_name: string | null;
+    payment_terms_days: number | null;
 };
 type Installation = {
     id: number;
@@ -80,16 +81,23 @@ export default function SalesForm({
     defaultType?: string;
 }) {
     const { locale } = useLocale();
+    const initialCustomerId = document?.person_id ?? defaultCustomerId ?? null;
+    const initialIssueDate = document
+        ? localDate(document.issue_date)
+        : localToday();
+    const initialPaymentTerms =
+        customers.find((customer) => customer.id === initialCustomerId)
+            ?.payment_terms_days ?? 30;
     const form = useForm({
         type: document?.type ?? defaultType,
         person_id: String(document?.person_id ?? defaultCustomerId ?? ''),
         installation_id: String(
             document?.installation_id ?? defaultInstallationId ?? '',
         ),
-        issue_date: document ? localDate(document.issue_date) : localToday(),
+        issue_date: initialIssueDate,
         due_date: document?.due_date
             ? localDate(document.due_date)
-            : addDays(30),
+            : addDays(initialPaymentTerms, initialIssueDate),
         notes: document?.notes ?? '',
         lines: document?.lines.map((line) => ({
             product_id: line.product_id,
@@ -102,6 +110,9 @@ export default function SalesForm({
             tax_percent: String(line.tax_percent),
         })) ?? [blankLine()],
     });
+    const selectedCustomer = customers.find(
+        (customer) => customer.id === Number(form.data.person_id),
+    );
     const availableInstallations = installations.filter(
         (item) =>
             !form.data.person_id ||
@@ -110,10 +121,7 @@ export default function SalesForm({
     const totals = calculate(form.data.lines);
     const pageTitle = document
         ? `${translate('Edit', locale)} ${document.number}`
-        : translate(
-              `New ${typeLabels[form.data.type].toLowerCase()}`,
-              locale,
-          );
+        : translate(`New ${typeLabels[form.data.type].toLowerCase()}`, locale);
 
     const updateLine = (index: number, changes: Partial<Line>) =>
         form.setData(
@@ -146,9 +154,7 @@ export default function SalesForm({
             <div className="flex flex-1 flex-col gap-6 p-4 md:p-6">
                 <header className="flex flex-wrap items-center justify-between gap-3">
                     <div>
-                        <h1 className="text-xl font-semibold">
-                            {pageTitle}
-                        </h1>
+                        <h1 className="text-xl font-semibold">{pageTitle}</h1>
                         <p className="text-sm text-muted-foreground">
                             Create a standalone sales document using catalog
                             items or custom lines.
@@ -180,7 +186,20 @@ export default function SalesForm({
                             label="Document type"
                             value={form.data.type}
                             disabled={Boolean(document)}
-                            onChange={(value) => form.setData('type', value)}
+                            onChange={(value) =>
+                                form.setData((data) => ({
+                                    ...data,
+                                    type: value,
+                                    due_date:
+                                        value === 'invoice'
+                                            ? addDays(
+                                                  selectedCustomer?.payment_terms_days ??
+                                                      30,
+                                                  data.issue_date,
+                                              )
+                                            : data.due_date,
+                                }))
+                            }
                             options={Object.entries(typeLabels).map(
                                 ([value, label]) => [value, label],
                             )}
@@ -188,13 +207,24 @@ export default function SalesForm({
                         <SelectField
                             label="Customer"
                             value={form.data.person_id}
-                            onChange={(value) =>
+                            onChange={(value) => {
+                                const customer = customers.find(
+                                    (item) => item.id === Number(value),
+                                );
                                 form.setData((data) => ({
                                     ...data,
                                     person_id: value,
                                     installation_id: '',
-                                }))
-                            }
+                                    due_date:
+                                        data.type === 'invoice'
+                                            ? addDays(
+                                                  customer?.payment_terms_days ??
+                                                      30,
+                                                  data.issue_date,
+                                              )
+                                            : data.due_date,
+                                }));
+                            }}
                             options={customers.map((customer) => [
                                 String(customer.id),
                                 customer.company_name ||
@@ -225,7 +255,18 @@ export default function SalesForm({
                             type="date"
                             value={form.data.issue_date}
                             onChange={(value) =>
-                                form.setData('issue_date', value)
+                                form.setData((data) => ({
+                                    ...data,
+                                    issue_date: value,
+                                    due_date:
+                                        data.type === 'invoice'
+                                            ? addDays(
+                                                  selectedCustomer?.payment_terms_days ??
+                                                      30,
+                                                  value,
+                                              )
+                                            : data.due_date,
+                                }))
                             }
                         />
                         {form.data.type === 'invoice' && (
@@ -238,6 +279,18 @@ export default function SalesForm({
                                 }
                             />
                         )}
+                        {form.data.type === 'invoice' &&
+                        selectedCustomer?.payment_terms_days != null ? (
+                            <p className="text-sm text-muted-foreground xl:col-span-5">
+                                {translate('Customer payment terms', locale)}:{' '}
+                                {selectedCustomer.payment_terms_days}{' '}
+                                {translate('days', locale)}.{' '}
+                                {translate(
+                                    'The due date is suggested automatically and can still be adjusted.',
+                                    locale,
+                                )}
+                            </p>
+                        ) : null}
                     </section>
 
                     <section>
@@ -604,8 +657,8 @@ function localToday() {
         .toISOString()
         .slice(0, 10);
 }
-function addDays(days: number) {
-    const date = new Date();
+function addDays(days: number, from = localToday()) {
+    const date = new Date(`${from}T12:00:00`);
     date.setDate(date.getDate() + days);
 
     return new Date(date.getTime() - date.getTimezoneOffset() * 60000)
