@@ -40,11 +40,16 @@ createInertiaApp({
         }
     },
     strictMode: true,
-    withApp(app) {
+    withApp(app, { page }) {
         return (
             <LocalizedDocument>
                 <TooltipProvider delayDuration={0}>
-                    <WebVitalsReporter />
+                    <WebVitalsReporter
+                        initialRouteName={page.component}
+                        sampleRate={
+                            page.props.performance?.webVitalsSampleRate ?? 0
+                        }
+                    />
                     {app}
                     <Toaster />
                 </TooltipProvider>

@@ -1,4 +1,4 @@
-import { usePage } from '@inertiajs/react';
+import { router } from '@inertiajs/react';
 import { useEffect } from 'react';
 import type { Metric } from 'web-vitals';
 
@@ -6,13 +6,18 @@ let initialized = false;
 let samplingDecision: boolean | null = null;
 let currentRouteName = 'unknown';
 
-export function WebVitalsReporter() {
-    const page = usePage();
-    const sampleRate = page.props.performance.webVitalsSampleRate;
-    const routeName = page.component;
-
+export function WebVitalsReporter({
+    initialRouteName,
+    sampleRate,
+}: {
+    initialRouteName: string;
+    sampleRate: number;
+}) {
     useEffect(() => {
-        currentRouteName = routeName;
+        currentRouteName = initialRouteName;
+        const removeNavigateListener = router.on('navigate', (event) => {
+            currentRouteName = event.detail.page.component;
+        });
         samplingDecision ??= Math.random() <= sampleRate;
 
         if (
@@ -21,7 +26,7 @@ export function WebVitalsReporter() {
             !samplingDecision ||
             navigator.doNotTrack === '1'
         ) {
-            return;
+            return removeNavigateListener;
         }
 
         initialized = true;
@@ -62,7 +67,9 @@ export function WebVitalsReporter() {
                 onLCP(report);
             })
             .catch(() => undefined);
-    }, [routeName, sampleRate]);
+
+        return removeNavigateListener;
+    }, [initialRouteName, sampleRate]);
 
     return null;
 }
