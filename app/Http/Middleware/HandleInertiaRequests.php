@@ -46,6 +46,9 @@ class HandleInertiaRequests extends Middleware
                     fn (array $locale, string $code) => ['code' => $code, ...$locale],
                 )->values(),
             ],
+            'performance' => [
+                'webVitalsSampleRate' => config('performance.web_vitals_sample_rate'),
+            ],
             'auth' => [
                 'user' => $request->user(),
                 'abilities' => fn () => $request->user() ? [

@@ -1,4 +1,5 @@
 {
+    "The given data was invalid.": "The given data was invalid.",
     ":metric ha alcanzado :value (:operator :threshold).": ":metric reached :value (:operator :threshold).",
     "Abrir analítica": "Open analytics",
     "Analítica": "Analytics",

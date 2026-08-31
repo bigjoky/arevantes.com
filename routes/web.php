@@ -88,6 +88,7 @@ use App\Http\Controllers\SupplyAnalyticsController;
 use App\Http\Controllers\SupplyControlTowerController;
 use App\Http\Controllers\TaxController;
 use App\Http\Controllers\WebsiteContactController;
+use App\Http\Controllers\WebVitalController;
 use App\Http\Controllers\WorkOrderController;
 use App\Http\Controllers\WorkOrderMaterialsController;
 use App\Http\Middleware\ProtectCustomerPortalLinks;
@@ -104,6 +105,9 @@ Route::get('servicios/{service}', PublicServiceController::class)
     ->name('services.show');
 Route::get('sitemap.xml', SitemapController::class)->name('sitemap');
 Route::post('contact', WebsiteContactController::class)->middleware('throttle:5,1')->name('website.contact');
+Route::post('performance/web-vitals', [WebVitalController::class, 'store'])
+    ->middleware('throttle:20,1')
+    ->name('performance.web-vitals.store');
 Route::get('aviso-legal', [LegalController::class, 'notice'])->name('legal.notice');
 Route::get('privacidad', [LegalController::class, 'privacy'])->name('legal.privacy');
 Route::get('cookies', [LegalController::class, 'cookies'])->name('legal.cookies');

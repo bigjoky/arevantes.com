@@ -790,6 +790,7 @@
     "The fiscal year is already closed.": "El año fiscal ya está cerrado.",
     "The fiscal year is closed.": "El año fiscal está cerrado.",
     "The fiscal year is not open.": "El año fiscal no está abierto.",
+    "The given data was invalid.": "Los datos proporcionados no son válidos.",
     "The following fiscal year must be open before reversing its opening entry.": "El siguiente año fiscal debe estar abierto antes de revertir su entrada de apertura.",
     "The immutable SEPA file was generated and is ready to download.": "El archivo sepa inmutable se ha generado y está listo para descargar.",
     "The installation does not belong to the selected customer.": "La instalación no pertenece al cliente seleccionado.",

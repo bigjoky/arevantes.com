@@ -3,6 +3,7 @@ import { configureEcho } from '@laravel/echo-react';
 import { LocalizedDocument } from '@/components/localized-document';
 import { Toaster } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import { WebVitalsReporter } from '@/components/web-vitals-reporter';
 import { initializeTheme } from '@/hooks/use-appearance';
 import AppLayout from '@/layouts/app-layout';
 import AuthLayout from '@/layouts/auth-layout';
@@ -43,6 +44,7 @@ createInertiaApp({
         return (
             <LocalizedDocument>
                 <TooltipProvider delayDuration={0}>
+                    <WebVitalsReporter />
                     {app}
                     <Toaster />
                 </TooltipProvider>

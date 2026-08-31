@@ -20,6 +20,9 @@ declare module '@inertiajs/core' {
                     short: string;
                 }>;
             };
+            performance: {
+                webVitalsSampleRate: number;
+            };
             sidebarOpen: boolean;
             [key: string]: unknown;
         };
