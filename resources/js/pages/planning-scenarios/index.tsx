@@ -247,6 +247,31 @@ type CalibrationProposal = {
     auto_apply: false;
     creator: { id: number; name: string };
     decider: { id: number; name: string } | null;
+    evaluations: CalibrationEvaluation[];
+};
+
+type CalibrationEvaluation = {
+    id: number;
+    version: number;
+    status: 'pending' | 'decided';
+    recommendation: 'retain' | 'revise' | 'retire';
+    origin_delta_percent: number;
+    observed_delta_percent: number;
+    improvement_points: number;
+    evidence_snapshot: {
+        previous_value: number;
+        applied_value: number;
+        planned: number;
+        observed: number;
+        scenario_closure_fingerprint: string;
+    };
+    decision: 'retain' | 'revise' | 'retire' | null;
+    decision_note: string | null;
+    decided_at: string | null;
+    fingerprint: string;
+    scenario: { id: number; name: string; version: number };
+    creator: { id: number; name: string };
+    decider: { id: number; name: string } | null;
 };
 
 type AssumptionKey =
@@ -304,6 +329,7 @@ export default function PlanningScenarioIndex({
 }) {
     const { locale } = useLocale();
     const calibrationGeneration = useForm({});
+    const calibrationEvaluationGeneration = useForm({});
     const form = useForm({
         name: '',
         scenario_kind: 'base' as 'base' | 'risk' | 'alternative',
@@ -404,6 +430,7 @@ export default function PlanningScenarioIndex({
                     proposals={calibrationProposals}
                     locale={locale}
                     generating={calibrationGeneration.processing}
+                    evaluating={calibrationEvaluationGeneration.processing}
                     selectedBusinessLines={selectedBusinessLines}
                     currentAssumptions={{
                         capacity_hours_per_opportunity:
@@ -417,6 +444,12 @@ export default function PlanningScenarioIndex({
                     onGenerate={() =>
                         calibrationGeneration.post(
                             '/planning-scenarios/calibrations',
+                            { preserveScroll: true },
+                        )
+                    }
+                    onEvaluate={() =>
+                        calibrationEvaluationGeneration.post(
+                            '/planning-scenarios/calibration-evaluations',
                             { preserveScroll: true },
                         )
                     }
@@ -764,20 +797,24 @@ function CalibrationProposals({
     proposals,
     locale,
     generating,
+    evaluating,
     selectedBusinessLines,
     currentAssumptions,
     selectedProposalId,
     onUse,
     onGenerate,
+    onEvaluate,
 }: {
     proposals: CalibrationProposal[];
     locale: 'en' | 'es';
     generating: boolean;
+    evaluating: boolean;
     selectedBusinessLines: string[];
     currentAssumptions: Record<AssumptionKey, string>;
     selectedProposalId: string;
     onUse: (proposal: CalibrationProposal) => void;
     onGenerate: () => void;
+    onEvaluate: () => void;
 }) {
     return (
         <section className="rounded-lg border p-4">
@@ -796,17 +833,30 @@ function CalibrationProposals({
                         )}
                     </p>
                 </div>
-                <Button
-                    type="button"
-                    variant="outline"
-                    disabled={generating}
-                    onClick={onGenerate}
-                >
-                    <Sparkles />
-                    {generating
-                        ? translate('Analysing closures...', locale)
-                        : translate('Generate proposals', locale)}
-                </Button>
+                <div className="flex flex-col gap-2 sm:flex-row">
+                    <Button
+                        type="button"
+                        variant="outline"
+                        disabled={generating}
+                        onClick={onGenerate}
+                    >
+                        <Sparkles />
+                        {generating
+                            ? translate('Analysing closures...', locale)
+                            : translate('Generate proposals', locale)}
+                    </Button>
+                    <Button
+                        type="button"
+                        variant="outline"
+                        disabled={evaluating}
+                        onClick={onEvaluate}
+                    >
+                        <GitCompareArrows />
+                        {evaluating
+                            ? translate('Evaluating results...', locale)
+                            : translate('Evaluate applied references', locale)}
+                    </Button>
+                </div>
             </div>
 
             {proposals.length > 0 ? (
@@ -1098,7 +1148,154 @@ function CalibrationProposalCard({
                         )}
                 </div>
             )}
+            {proposal.evaluations.length > 0 && (
+                <CalibrationEvaluations
+                    evaluations={proposal.evaluations}
+                    locale={locale}
+                />
+            )}
         </article>
+    );
+}
+
+function CalibrationEvaluations({
+    evaluations,
+    locale,
+}: {
+    evaluations: CalibrationEvaluation[];
+    locale: 'en' | 'es';
+}) {
+    return (
+        <div className="mt-4 space-y-3 border-t pt-4">
+            <h5 className="font-medium">
+                {translate('Applied-reference evaluations', locale)}
+            </h5>
+            {evaluations.map((evaluation) => (
+                <CalibrationEvaluationCard
+                    key={evaluation.id}
+                    evaluation={evaluation}
+                    locale={locale}
+                />
+            ))}
+        </div>
+    );
+}
+
+function CalibrationEvaluationCard({
+    evaluation,
+    locale,
+}: {
+    evaluation: CalibrationEvaluation;
+    locale: 'en' | 'es';
+}) {
+    const form = useForm<{
+        decision: 'retain' | 'revise' | 'retire';
+        decision_note: string;
+        evaluation: string;
+    }>({ decision: 'retain', decision_note: '', evaluation: '' });
+    const decide = (decision: 'retain' | 'revise' | 'retire') => {
+        form.transform((data) => ({ ...data, decision }));
+        form.post(
+            `/planning-calibration-evaluations/${evaluation.id}/decision`,
+            { preserveScroll: true },
+        );
+    };
+
+    return (
+        <div className="rounded-md border bg-background p-3 text-xs">
+            <div className="flex flex-wrap items-start justify-between gap-2">
+                <div>
+                    <div className="font-medium">
+                        {evaluation.scenario.name} · v
+                        {evaluation.scenario.version}
+                    </div>
+                    <div className="text-muted-foreground">
+                        {translate('Evaluation', locale)} · v
+                        {evaluation.version}
+                    </div>
+                </div>
+                <Badge variant="outline">
+                    {translate(
+                        evaluation.status === 'decided' && evaluation.decision
+                            ? evaluation.decision
+                            : evaluation.recommendation,
+                        locale,
+                    )}
+                </Badge>
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                <span>
+                    {translate('Original variance', locale)}:{' '}
+                    {signed(evaluation.origin_delta_percent, '%')}
+                </span>
+                <span>
+                    {translate('Observed variance', locale)}:{' '}
+                    {signed(evaluation.observed_delta_percent, '%')}
+                </span>
+                <span>
+                    {translate('Improvement', locale)}:{' '}
+                    {signed(evaluation.improvement_points, ' pp')}
+                </span>
+            </div>
+            <p className="mt-2 text-muted-foreground">
+                {translate('System recommendation', locale)}:{' '}
+                {translate(evaluation.recommendation, locale)}.{' '}
+                {translate(
+                    'This recommendation does not alter the calibration or scenario.',
+                    locale,
+                )}
+            </p>
+
+            {evaluation.status === 'pending' ? (
+                <div className="mt-3 space-y-2">
+                    <Label htmlFor={`evaluation-note-${evaluation.id}`}>
+                        {translate('Evaluation decision note', locale)}
+                    </Label>
+                    <Textarea
+                        id={`evaluation-note-${evaluation.id}`}
+                        value={form.data.decision_note}
+                        onChange={(event) =>
+                            form.setData('decision_note', event.target.value)
+                        }
+                    />
+                    <InputError
+                        message={
+                            form.errors.decision_note || form.errors.evaluation
+                        }
+                    />
+                    <div className="flex flex-col gap-2 sm:flex-row">
+                        {(['retain', 'revise', 'retire'] as const).map(
+                            (decision) => (
+                                <Button
+                                    key={decision}
+                                    type="button"
+                                    size="sm"
+                                    variant={
+                                        decision === 'retire'
+                                            ? 'destructive'
+                                            : 'outline'
+                                    }
+                                    disabled={form.processing}
+                                    onClick={() => decide(decision)}
+                                >
+                                    {translate(decision, locale)}
+                                </Button>
+                            ),
+                        )}
+                    </div>
+                </div>
+            ) : (
+                <div className="mt-3 border-t pt-3">
+                    <span className="font-medium">
+                        {translate('Decided by', locale)}{' '}
+                        {evaluation.decider?.name}
+                    </span>
+                    <p className="mt-1 text-muted-foreground">
+                        {evaluation.decision_note}
+                    </p>
+                </div>
+            )}
+        </div>
     );
 }
 

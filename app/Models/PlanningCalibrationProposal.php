@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class PlanningCalibrationProposal extends Model
 {
@@ -21,6 +22,11 @@ class PlanningCalibrationProposal extends Model
     public function decider(): BelongsTo
     {
         return $this->belongsTo(User::class, 'decided_by');
+    }
+
+    public function evaluations(): HasMany
+    {
+        return $this->hasMany(PlanningCalibrationEvaluation::class)->latest('version');
     }
 
     protected function casts(): array

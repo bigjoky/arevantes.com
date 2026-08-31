@@ -7,6 +7,7 @@ use App\Models\FinancialForecastItem;
 use App\Models\Installation;
 use App\Models\Opportunity;
 use App\Models\Person;
+use App\Models\PlanningCalibrationEvaluation;
 use App\Models\PlanningCalibrationProposal;
 use App\Models\PlanningScenario;
 use App\Models\PlanningScenarioRequest;
@@ -776,6 +777,95 @@ class PlanningScenarioTest extends TestCase
         $this->assertTrue(app(PlanningScenarioIntegrity::class)->matches($calibrated));
         $freezeEvent = SecurityEvent::where('type', 'planning_scenario_frozen')->latest('id')->firstOrFail();
         $this->assertSame($proposal->id, $freezeEvent->context['planning_calibration_proposal_id']);
+
+        $calibrated->update([
+            'status' => 'closed',
+            'closure_snapshot' => [
+                'summary' => ['requests' => 1, 'executed' => 1, 'resources' => 1, 'pending_exceptions' => 0],
+                'areas' => [[
+                    'area' => 'operations',
+                    'comparison' => [[
+                        'label' => 'Tasks completed',
+                        'planned' => 10,
+                        'current' => 9,
+                        'unit' => 'items',
+                    ]],
+                ]],
+            ],
+            'closure_fingerprint' => hash('sha256', 'calibrated-closure'),
+            'closure_note' => 'Closed after applying the accepted calibration reference.',
+            'closed_by' => $admin->id,
+            'closed_at' => now(),
+        ]);
+
+        $this->actingAs($commercial)
+            ->post(route('planning-scenarios.calibration-evaluations.store'))
+            ->assertForbidden();
+        $this->actingAs($admin)
+            ->post(route('planning-scenarios.calibration-evaluations.store'))
+            ->assertRedirect();
+
+        $evaluation = PlanningCalibrationEvaluation::firstOrFail();
+        $this->assertSame($proposal->id, $evaluation->planning_calibration_proposal_id);
+        $this->assertSame($calibrated->id, $evaluation->planning_scenario_id);
+        $this->assertSame(1, $evaluation->version);
+        $this->assertSame('retain', $evaluation->recommendation);
+        $this->assertSame(-40.0, $evaluation->origin_delta_percent);
+        $this->assertSame(-10.0, $evaluation->observed_delta_percent);
+        $this->assertSame(30.0, $evaluation->improvement_points);
+        $this->assertSame($calibrated->closure_fingerprint, $evaluation->evidence_snapshot['scenario_closure_fingerprint']);
+
+        $this->post(route('planning-scenarios.calibration-evaluations.store'))->assertRedirect();
+        $this->assertDatabaseCount('planning_calibration_evaluations', 1);
+        $this->post(route('planning-calibration-evaluations.decision.store', $evaluation), [
+            'decision' => 'revise',
+            'decision_note' => 'The deviation improved, but one more comparable horizon is required.',
+        ])->assertRedirect();
+
+        $evaluation->refresh();
+        $this->assertSame('decided', $evaluation->status);
+        $this->assertSame('revise', $evaluation->decision);
+        $this->assertSame($admin->id, $evaluation->decided_by);
+        $this->assertSame('accepted', $proposal->fresh()->status);
+        $this->assertSame(55.0, $proposal->fresh()->accepted_value);
+        $this->assertSame('closed', $calibrated->fresh()->status);
+        $this->assertDatabaseHas('security_events', [
+            'type' => 'planning_calibration_evaluation_decided',
+            'user_id' => $admin->id,
+        ]);
+
+        $this->post(route('planning-calibration-evaluations.decision.store', $evaluation), [
+            'decision' => 'retire',
+            'decision_note' => 'A decided evaluation cannot be decided for a second time.',
+        ])->assertSessionHasErrors('evaluation');
+
+        $worseScenario = $calibrated->replicate();
+        $worseClosure = $calibrated->closure_snapshot;
+        $worseClosure['areas'][0]['comparison'][0]['current'] = 4;
+        $worseScenario->fill([
+            'name' => 'Calibrated worsening horizon',
+            'closure_snapshot' => $worseClosure,
+            'closure_fingerprint' => hash('sha256', 'calibrated-worsening-closure'),
+            'closure_note' => 'A later calibrated horizon performed below the original pattern.',
+            'closed_at' => now()->addSecond(),
+        ])->save();
+        $this->post(route('planning-scenarios.calibration-evaluations.store'))->assertRedirect();
+
+        $worseEvaluation = PlanningCalibrationEvaluation::latest('version')->firstOrFail();
+        $this->assertSame(2, $worseEvaluation->version);
+        $this->assertSame($worseScenario->id, $worseEvaluation->planning_scenario_id);
+        $this->assertSame('retire', $worseEvaluation->recommendation);
+        $this->assertSame(-60.0, $worseEvaluation->observed_delta_percent);
+        $this->assertSame(-20.0, $worseEvaluation->improvement_points);
+        $this->assertDatabaseCount('planning_calibration_evaluations', 2);
+
+        $this->get(route('planning-scenarios.index'))->assertInertia(fn (Assert $page) => $page
+            ->where('calibrationProposals.1.evaluations.0.id', $worseEvaluation->id)
+            ->where('calibrationProposals.1.evaluations.0.recommendation', 'retire')
+            ->where('calibrationProposals.1.evaluations.1.id', $evaluation->id)
+            ->where('calibrationProposals.1.evaluations.1.recommendation', 'retain')
+            ->where('calibrationProposals.1.evaluations.1.decision', 'revise')
+            ->where('calibrationProposals.1.evaluations.1.scenario.id', $calibrated->id));
     }
 
     private function closedCalibrationScenario(User $admin, int $sequence, float $planned, float $observed): PlanningScenario

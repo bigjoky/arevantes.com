@@ -14932,5 +14932,65 @@
     "Applied calibration reference": {
         "en": "Applied calibration reference",
         "es": "Referencia de calibración aplicada"
+    },
+    "Evaluating results...": {
+        "en": "Evaluating results...",
+        "es": "Evaluando resultados..."
+    },
+    "Evaluate applied references": {
+        "en": "Evaluate applied references",
+        "es": "Evaluar referencias aplicadas"
+    },
+    "Applied-reference evaluations": {
+        "en": "Applied-reference evaluations",
+        "es": "Evaluaciones de referencias aplicadas"
+    },
+    "Evaluation": {
+        "en": "Evaluation",
+        "es": "Evaluación"
+    },
+    "decided": {
+        "en": "decided",
+        "es": "decidida"
+    },
+    "Original variance": {
+        "en": "Original variance",
+        "es": "Desviación original"
+    },
+    "Observed variance": {
+        "en": "Observed variance",
+        "es": "Desviación observada"
+    },
+    "Improvement": {
+        "en": "Improvement",
+        "es": "Mejora"
+    },
+    "pp": {
+        "en": "pp",
+        "es": "pp"
+    },
+    "System recommendation": {
+        "en": "System recommendation",
+        "es": "Recomendación del sistema"
+    },
+    "This recommendation does not alter the calibration or scenario.": {
+        "en": "This recommendation does not alter the calibration or scenario.",
+        "es": "Esta recomendación no modifica la calibración ni el escenario."
+    },
+    "Evaluation decision note": {
+        "en": "Evaluation decision note",
+        "es": "Nota de decisión de la evaluación"
+    },
+    "retain": {
+        "en": "retain",
+        "es": "conservar"
+    },
+    "revise": {
+        "en": "revise",
+        "es": "revisar"
+    },
+    "retire": {
+        "en": "retire",
+        "es": "retirar"
     }
 }

@@ -871,14 +871,29 @@ exacta del valor; al congelar, incorpora a la fotografía la propuesta y versió
 huella de evidencia, el supuesto, el valor anterior y el aplicado. Así el efecto se
 podrá evaluar después sin alterar ni perder el origen de la decisión.
 
+## Corte ejecutado — Evaluación del efecto de las calibraciones
+
+Los escenarios cerrados que aplicaron una referencia pueden compararse ahora con el
+patrón inmutable que la originó. El sistema exige que propuesta, huella, área,
+métrica y unidad sigan coincidiendo; calcula desviación original, desviación
+observada y mejora absoluta en puntos porcentuales, y conserva los valores plan-real
+y la huella del cierre dentro de una evaluación propia.
+
+Cada horizonte genera como máximo una evaluación idempotente y cada propuesta
+mantiene su secuencia versionada. Una reducción clara recomienda conservar, un
+empeoramiento claro retirar y la zona intermedia revisar. Administración decide
+entre esas tres opciones con nota obligatoria. La recomendación y la decisión quedan
+auditadas, pero ninguna modifica la propuesta aceptada, su valor ni el escenario ya
+cerrado.
+
 ## Próximo corte recomendado
 
 Recoger en producción la línea base de las rutas principales y optimizar primero el
 siguiente cuello demostrado, incorporando Core Web Vitals a la evidencia. En
-escenarios, comparar el resultado de los horizontes que utilizaron una referencia
-con su patrón de origen, medir si redujo la desviación y proponer conservarla,
-revisarla o retirarla. Esa evaluación será una nueva decisión versionada y nunca
-reescribirá la propuesta ni el escenario que la utilizó.
+escenarios, agrupar varias evaluaciones de una misma calibración para gobernar qué
+versión permanece activa, cuál queda sustituida y cuándo la evidencia vuelve a ser
+insuficiente. Sustituir una versión no reescribirá escenarios anteriores ni activará
+la nueva referencia sin aprobación explícita.
 
 ## Corrección transversal — idioma temporal de la plataforma
 

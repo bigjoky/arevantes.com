@@ -1146,5 +1146,9 @@
     "The calibration reference value is outside the allowed range.": "El valor de referencia de la calibración está fuera del intervalo permitido.",
     "Only an accepted calibration with a reference value can be used.": "Solo se puede utilizar una calibración aceptada que tenga un valor de referencia.",
     "The calibration business line must match the complete scenario portfolio.": "La línea de negocio de la calibración debe coincidir con toda la cartera del escenario.",
-    "The submitted assumption must match the accepted calibration reference value.": "El supuesto enviado debe coincidir con el valor de referencia de la calibración aceptada."
+    "The submitted assumption must match the accepted calibration reference value.": "El supuesto enviado debe coincidir con el valor de referencia de la calibración aceptada.",
+    "Only a pending calibration evaluation can be decided.": "Solo se puede decidir una evaluación de calibración pendiente.",
+    "No new applied calibration is ready for evaluation.": "No hay ninguna calibración aplicada nueva preparada para su evaluación.",
+    "Applied calibration outcomes evaluated from immutable closures.": "Resultados de calibraciones aplicadas evaluados desde cierres inmutables.",
+    "Calibration evaluation decision recorded without altering prior evidence.": "Decisión de evaluación de calibración registrada sin alterar la evidencia anterior."
 }

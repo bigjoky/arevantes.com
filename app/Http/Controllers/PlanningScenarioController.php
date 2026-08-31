@@ -3,8 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\Opportunity;
+use App\Models\PlanningCalibrationEvaluation;
 use App\Models\PlanningCalibrationProposal;
 use App\Models\PlanningScenario;
+use App\Services\Planning\PlanningCalibrationEvaluationService;
 use App\Services\Planning\PlanningCalibrationProposalService;
 use App\Services\Planning\PlanningScenarioApproval;
 use App\Services\Planning\PlanningScenarioIntegrity;
@@ -53,12 +55,52 @@ class PlanningScenarioController extends Controller
                 ->orderBy('code')
                 ->get(['id', 'person_id', 'installation_id', 'code', 'title', 'stage', 'probability', 'estimated_value', 'expected_close_on']),
             'calibrationProposals' => PlanningCalibrationProposal::query()
-                ->with(['creator:id,name', 'decider:id,name'])
+                ->with([
+                    'creator:id,name', 'decider:id,name',
+                    'evaluations.scenario:id,name,version', 'evaluations.creator:id,name', 'evaluations.decider:id,name',
+                ])
                 ->latest('id')
                 ->limit(50)
                 ->get()
                 ->each->setAttribute('auto_apply', false),
         ]);
+    }
+
+    public function generateCalibrationEvaluations(Request $request, PlanningCalibrationEvaluationService $evaluations, SecurityEventRecorder $events): RedirectResponse
+    {
+        $created = $evaluations->generate($request->user());
+        $events->record('planning_calibration_evaluations_generated', $request->user(), [
+            'created' => $created->count(),
+            'planning_calibration_evaluation_ids' => $created->pluck('id')->all(),
+            'auto_apply' => false,
+        ]);
+
+        return back()->with('toast', [
+            'type' => 'success',
+            'message' => $created->isEmpty()
+                ? __('No new applied calibration is ready for evaluation.')
+                : __('Applied calibration outcomes evaluated from immutable closures.'),
+        ]);
+    }
+
+    public function decideCalibrationEvaluation(Request $request, PlanningCalibrationEvaluation $evaluation, PlanningCalibrationEvaluationService $evaluations, SecurityEventRecorder $events): RedirectResponse
+    {
+        $data = $request->validate([
+            'decision' => ['required', Rule::in(['retain', 'revise', 'retire'])],
+            'decision_note' => ['required', 'string', 'min:10', 'max:2000'],
+        ]);
+        $decided = $evaluations->decide($evaluation, $request->user(), $data['decision'], $data['decision_note']);
+        $events->record('planning_calibration_evaluation_decided', $request->user(), [
+            'planning_calibration_evaluation_id' => $decided->id,
+            'planning_calibration_proposal_id' => $decided->planning_calibration_proposal_id,
+            'planning_scenario_id' => $decided->planning_scenario_id,
+            'recommendation' => $decided->recommendation,
+            'decision' => $decided->decision,
+            'fingerprint' => $decided->fingerprint,
+            'auto_apply' => false,
+        ]);
+
+        return back()->with('toast', ['type' => 'success', 'message' => __('Calibration evaluation decision recorded without altering prior evidence.')]);
     }
 
     public function generateCalibrations(Request $request, PlanningCalibrationProposalService $calibrations, SecurityEventRecorder $events): RedirectResponse
