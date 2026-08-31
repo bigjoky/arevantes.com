@@ -67,19 +67,35 @@ export function FormErrorSummary({
 export function FormActions({
     processing,
     submitLabel,
+    processingLabel,
+    description,
     icon,
 }: {
     processing: boolean;
     submitLabel: ReactNode;
+    processingLabel?: ReactNode;
+    description?: ReactNode;
     icon?: ReactNode;
 }) {
     const { locale } = useLocale();
 
     return (
-        <div className="sticky bottom-2 z-10 flex items-center justify-end rounded-lg border bg-background/95 p-3 shadow-lg backdrop-blur-sm">
+        <div
+            className={cn(
+                'sticky bottom-2 z-10 flex flex-col gap-3 rounded-lg border bg-background/95 p-3 shadow-lg backdrop-blur-sm sm:flex-row sm:items-center',
+                description ? 'sm:justify-between' : 'sm:justify-end',
+            )}
+        >
+            {description && (
+                <p className="max-w-2xl text-sm text-muted-foreground">
+                    {description}
+                </p>
+            )}
             <Button className="w-full sm:w-auto" disabled={processing}>
                 {icon}
-                {processing ? translate('Saving...', locale) : submitLabel}
+                {processing
+                    ? (processingLabel ?? translate('Saving...', locale))
+                    : submitLabel}
             </Button>
         </div>
     );

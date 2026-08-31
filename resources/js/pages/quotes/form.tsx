@@ -8,7 +8,12 @@ import {
     Save,
     Trash2,
 } from 'lucide-react';
-import { Fragment, useState } from 'react';
+import { Fragment, useMemo, useState } from 'react';
+import {
+    FormActions,
+    FormErrorSummary,
+    FormSection,
+} from '@/components/forms/form-layout';
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -170,7 +175,7 @@ export default function QuoteForm({
             quote?.notes ??
             opportunityDraft?.notes ??
             (opportunityDraft
-                ? `Prepared from opportunity ${opportunityDraft.code}.`
+                ? `${translate('Prepared from opportunity', locale)} ${opportunityDraft.code}.`
                 : ''),
         change_note: '',
         lines:
@@ -217,18 +222,26 @@ export default function QuoteForm({
                 : [],
         ),
     );
-    const availableInstallations = installations.filter(
-        (item) =>
-            !form.data.person_id ||
-            item.person_id === Number(form.data.person_id),
+    const availableInstallations = useMemo(
+        () =>
+            installations.filter(
+                (item) =>
+                    !form.data.person_id ||
+                    item.person_id === Number(form.data.person_id),
+            ),
+        [form.data.person_id, installations],
     );
-    const availableProducts = products.filter(
-        (product) =>
-            !form.data.service_type ||
-            !product.business_lines?.length ||
-            product.business_lines.includes(form.data.service_type),
+    const availableProducts = useMemo(
+        () =>
+            products.filter(
+                (product) =>
+                    !form.data.service_type ||
+                    !product.business_lines?.length ||
+                    product.business_lines.includes(form.data.service_type),
+            ),
+        [form.data.service_type, products],
     );
-    const totals = calculate(form.data.lines);
+    const totals = useMemo(() => calculate(form.data.lines), [form.data.lines]);
     const updateLine = (index: number, changes: Partial<Line>) =>
         form.setData(
             'lines',
@@ -373,15 +386,18 @@ export default function QuoteForm({
                         <h1 className="text-xl font-semibold">{pageTitle}</h1>
                         <p className="text-sm text-muted-foreground">
                             {opportunityDraft
-                                ? `Prepared from ${opportunityDraft.code}. Review prices and taxes before saving.`
-                                : 'Build the commercial offer from catalog items or free-text lines.'}
+                                ? `${translate('Prepared from opportunity', locale)} ${opportunityDraft.code}. ${translate('Review prices and taxes before saving.', locale)}`
+                                : translate(
+                                      'Build the commercial offer from catalog items or free-text lines.',
+                                      locale,
+                                  )}
                         </p>
                     </div>
                     <Button variant="outline" asChild>
                         <Link
                             href={quote ? `/quotes/${quote.id}` : '/operations'}
                         >
-                            <ArrowLeft /> Back
+                            <ArrowLeft /> {translate('Back', locale)}
                         </Link>
                     </Button>
                 </header>
@@ -392,105 +408,147 @@ export default function QuoteForm({
                     }}
                     className="grid gap-8"
                 >
-                    <section className="grid gap-4 border-t pt-5 md:grid-cols-2 xl:grid-cols-5">
-                        <SelectField
-                            label="Customer"
-                            value={form.data.person_id}
-                            onChange={(value) => {
-                                form.setData((data) => ({
-                                    ...data,
-                                    person_id: value,
-                                    installation_id: '',
-                                }));
-                            }}
-                            options={customers.map((customer) => [
-                                String(customer.id),
-                                customer.company_name ||
-                                    `${customer.first_name} ${customer.last_name || ''}`.trim(),
-                            ])}
-                        />
-                        <SelectField
-                            label="Business line"
-                            value={form.data.service_type}
-                            onChange={(value) =>
-                                form.setData(
-                                    'service_type',
-                                    value as ServiceType,
-                                )
-                            }
-                            options={Object.entries(serviceLabels)}
-                        />
-                        <SelectField
-                            label="Installation (optional)"
-                            value={form.data.installation_id}
-                            onChange={(value) =>
-                                form.setData(
-                                    'installation_id',
-                                    value === 'none' ? '' : value,
-                                )
-                            }
-                            options={[
-                                ['none', 'No installation'],
-                                ...availableInstallations.map((item) => [
-                                    String(item.id),
-                                    item.project_reference ||
-                                        item.site_name ||
-                                        `#${item.id}`,
-                                ]),
-                            ]}
-                        />
-                        <Field
-                            label="Issue date"
-                            type="date"
-                            value={form.data.issue_date}
-                            onChange={(value) =>
-                                form.setData('issue_date', value)
-                            }
-                        />
-                        <Field
-                            label="Valid until"
-                            type="date"
-                            value={form.data.valid_until}
-                            onChange={(value) =>
-                                form.setData('valid_until', value)
-                            }
-                        />
-                    </section>
-                    <section className="grid gap-4 border-t pt-5 md:grid-cols-2">
-                        <Field
-                            label="Acceptance payment (%)"
-                            type="number"
-                            value={form.data.acceptance_payment_percentage}
-                            onChange={(value) =>
-                                form.setData(
-                                    'acceptance_payment_percentage',
-                                    value,
-                                )
-                            }
-                        />
-                        <Field
-                            label="Payment term after acceptance (days)"
-                            type="number"
-                            value={form.data.acceptance_payment_due_days}
-                            onChange={(value) =>
-                                form.setData(
-                                    'acceptance_payment_due_days',
-                                    value,
-                                )
-                            }
-                        />
-                        <p className="text-sm text-muted-foreground md:col-span-2">
-                            When the customer accepts, the platform issues this
-                            advance invoice automatically. Use 0% when no
-                            acceptance payment is required.
-                        </p>
-                    </section>
-                    <section>
+                    <FormErrorSummary errors={form.errors} />
+
+                    <FormSection
+                        title={translate('Proposal context', locale)}
+                        description={translate(
+                            'Choose the customer, business line, installation and validity period.',
+                            locale,
+                        )}
+                    >
+                        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+                            <SelectField
+                                label={translate('Customer', locale)}
+                                value={form.data.person_id}
+                                onChange={(value) => {
+                                    form.setData((data) => ({
+                                        ...data,
+                                        person_id: value,
+                                        installation_id: '',
+                                    }));
+                                }}
+                                options={customers.map((customer) => [
+                                    String(customer.id),
+                                    customer.company_name ||
+                                        `${customer.first_name} ${customer.last_name || ''}`.trim(),
+                                ])}
+                            />
+                            <SelectField
+                                label={translate('Business line', locale)}
+                                value={form.data.service_type}
+                                onChange={(value) =>
+                                    form.setData(
+                                        'service_type',
+                                        value as ServiceType,
+                                    )
+                                }
+                                options={Object.entries(serviceLabels)}
+                            />
+                            <SelectField
+                                label={translate(
+                                    'Installation (optional)',
+                                    locale,
+                                )}
+                                value={form.data.installation_id}
+                                onChange={(value) =>
+                                    form.setData(
+                                        'installation_id',
+                                        value === 'none' ? '' : value,
+                                    )
+                                }
+                                options={[
+                                    [
+                                        'none',
+                                        translate('No installation', locale),
+                                    ],
+                                    ...availableInstallations.map((item) => [
+                                        String(item.id),
+                                        item.project_reference ||
+                                            item.site_name ||
+                                            `#${item.id}`,
+                                    ]),
+                                ]}
+                            />
+                            <Field
+                                label={translate('Issue date', locale)}
+                                type="date"
+                                value={form.data.issue_date}
+                                onChange={(value) =>
+                                    form.setData('issue_date', value)
+                                }
+                            />
+                            <Field
+                                label={translate('Valid until', locale)}
+                                type="date"
+                                value={form.data.valid_until}
+                                onChange={(value) =>
+                                    form.setData('valid_until', value)
+                                }
+                            />
+                        </div>
+                    </FormSection>
+                    <FormSection
+                        title={translate('Acceptance and payment', locale)}
+                        description={translate(
+                            'Define the advance invoice generated when the customer accepts the proposal.',
+                            locale,
+                        )}
+                    >
+                        <div className="grid gap-4 md:grid-cols-2">
+                            <Field
+                                label={translate(
+                                    'Acceptance payment (%)',
+                                    locale,
+                                )}
+                                type="number"
+                                value={form.data.acceptance_payment_percentage}
+                                onChange={(value) =>
+                                    form.setData(
+                                        'acceptance_payment_percentage',
+                                        value,
+                                    )
+                                }
+                            />
+                            <Field
+                                label={translate(
+                                    'Payment term after acceptance (days)',
+                                    locale,
+                                )}
+                                type="number"
+                                value={form.data.acceptance_payment_due_days}
+                                onChange={(value) =>
+                                    form.setData(
+                                        'acceptance_payment_due_days',
+                                        value,
+                                    )
+                                }
+                            />
+                            <p className="text-sm text-muted-foreground md:col-span-2">
+                                {translate(
+                                    'When the customer accepts, the platform issues this advance invoice automatically. Use 0% when no acceptance payment is required.',
+                                    locale,
+                                )}
+                            </p>
+                        </div>
+                    </FormSection>
+                    <FormSection
+                        title={translate('Proposal lines', locale)}
+                        description={translate(
+                            'Build the scope with catalog items, custom lines and nested components.',
+                            locale,
+                        )}
+                    >
                         <div className="mb-3 flex items-center justify-between">
                             <div>
-                                <h2 className="font-semibold">Lines</h2>
+                                <h2 className="font-semibold">
+                                    {translate('Lines', locale)}
+                                </h2>
                                 <p className="text-sm text-muted-foreground">
-                                    Prices are before tax.
+                                    {translate(
+                                        'Prices are before tax.',
+                                        locale,
+                                    )}
                                 </p>
                             </div>
                             <Button
@@ -503,21 +561,33 @@ export default function QuoteForm({
                                     ])
                                 }
                             >
-                                <Plus /> Add line
+                                <Plus /> {translate('Add line', locale)}
                             </Button>
                         </div>
                         <div className="w-full min-w-0 [scrollbar-gutter:stable] overflow-x-auto overscroll-x-contain border-y">
                             <table className="w-full min-w-[58rem] text-sm">
                                 <thead>
                                     <tr className="border-b text-left text-muted-foreground">
-                                        <th className="py-2">Catalog item</th>
-                                        <th>Description</th>
-                                        <th className="w-24">Qty.</th>
-                                        <th className="w-32">Price</th>
-                                        <th className="w-24">Disc. %</th>
-                                        <th className="w-24">Tax %</th>
+                                        <th className="py-2">
+                                            {translate('Catalog item', locale)}
+                                        </th>
+                                        <th>
+                                            {translate('Description', locale)}
+                                        </th>
+                                        <th className="w-24">
+                                            {translate('Qty.', locale)}
+                                        </th>
+                                        <th className="w-32">
+                                            {translate('Price', locale)}
+                                        </th>
+                                        <th className="w-24">
+                                            {translate('Disc. %', locale)}
+                                        </th>
+                                        <th className="w-24">
+                                            {translate('Tax %', locale)}
+                                        </th>
                                         <th className="w-32 text-right">
-                                            Total
+                                            {translate('Total', locale)}
                                         </th>
                                         <th className="sticky right-0 z-10 w-20 bg-background" />
                                     </tr>
@@ -545,7 +615,12 @@ export default function QuoteForm({
                                                         }
                                                     >
                                                         <SelectTrigger>
-                                                            <SelectValue placeholder="Custom line" />
+                                                            <SelectValue
+                                                                placeholder={translate(
+                                                                    'Custom line',
+                                                                    locale,
+                                                                )}
+                                                            />
                                                         </SelectTrigger>
                                                         <SelectContent>
                                                             {availableProducts.map(
@@ -652,7 +727,10 @@ export default function QuoteForm({
                                                             type="button"
                                                             size="icon"
                                                             variant="ghost"
-                                                            title="Remove line"
+                                                            title={translate(
+                                                                'Remove line',
+                                                                locale,
+                                                            )}
                                                             disabled={
                                                                 form.data.lines
                                                                     .length ===
@@ -718,8 +796,10 @@ export default function QuoteForm({
                                                                         .components
                                                                         .length
                                                                 }{' '}
-                                                                componentes ·
-                                                                coste{' '}
+                                                                {translate(
+                                                                    'components · cost',
+                                                                    locale,
+                                                                )}{' '}
                                                                 {money(
                                                                     componentCost(
                                                                         line,
@@ -757,13 +837,22 @@ export default function QuoteForm({
                                                                 </SelectTrigger>
                                                                 <SelectContent>
                                                                     <SelectItem value="included">
-                                                                        Incluida
+                                                                        {translate(
+                                                                            'Included',
+                                                                            locale,
+                                                                        )}
                                                                     </SelectItem>
                                                                     <SelectItem value="optional">
-                                                                        Opcional
+                                                                        {translate(
+                                                                            'Optional',
+                                                                            locale,
+                                                                        )}
                                                                     </SelectItem>
                                                                     <SelectItem value="alternative">
-                                                                        Alternativa
+                                                                        {translate(
+                                                                            'Alternative',
+                                                                            locale,
+                                                                        )}
                                                                     </SelectItem>
                                                                 </SelectContent>
                                                             </Select>
@@ -774,7 +863,10 @@ export default function QuoteForm({
                                                                     value={
                                                                         line.option_group
                                                                     }
-                                                                    placeholder="Grupo"
+                                                                    placeholder={translate(
+                                                                        'Group',
+                                                                        locale,
+                                                                    )}
                                                                     onChange={(
                                                                         event,
                                                                     ) =>
@@ -816,11 +908,16 @@ export default function QuoteForm({
                                                                     </SelectTrigger>
                                                                     <SelectContent>
                                                                         <SelectItem value="yes">
-                                                                            Seleccionada
+                                                                            {translate(
+                                                                                'Selected',
+                                                                                locale,
+                                                                            )}
                                                                         </SelectItem>
                                                                         <SelectItem value="no">
-                                                                            No
-                                                                            incluida
+                                                                            {translate(
+                                                                                'Not included',
+                                                                                locale,
+                                                                            )}
                                                                         </SelectItem>
                                                                     </SelectContent>
                                                                 </Select>
@@ -846,8 +943,10 @@ export default function QuoteForm({
                                                                 }
                                                             >
                                                                 <PackagePlus />{' '}
-                                                                Añadir
-                                                                componente
+                                                                {translate(
+                                                                    'Add component',
+                                                                    locale,
+                                                                )}
                                                             </Button>
                                                         </div>
                                                     </div>
@@ -873,7 +972,10 @@ export default function QuoteForm({
                                                                         >
                                                                             <div className="grid min-w-0 gap-1">
                                                                                 <span className="text-[11px] font-medium text-muted-foreground">
-                                                                                    Nivel{' '}
+                                                                                    {translate(
+                                                                                        'Level',
+                                                                                        locale,
+                                                                                    )}{' '}
                                                                                     {
                                                                                         component.depth
                                                                                     }
@@ -897,7 +999,12 @@ export default function QuoteForm({
                                                                                     }
                                                                                 >
                                                                                     <SelectTrigger className="w-full min-w-0">
-                                                                                        <SelectValue placeholder="Componente personalizado" />
+                                                                                        <SelectValue
+                                                                                            placeholder={translate(
+                                                                                                'Custom component',
+                                                                                                locale,
+                                                                                            )}
+                                                                                        />
                                                                                     </SelectTrigger>
                                                                                     <SelectContent>
                                                                                         {availableProducts.map(
@@ -925,7 +1032,10 @@ export default function QuoteForm({
                                                                                 value={
                                                                                     component.description
                                                                                 }
-                                                                                placeholder="Descripción incluida"
+                                                                                placeholder={translate(
+                                                                                    'Included description',
+                                                                                    locale,
+                                                                                )}
                                                                                 onChange={(
                                                                                     event,
                                                                                 ) =>
@@ -948,7 +1058,10 @@ export default function QuoteForm({
                                                                                 value={
                                                                                     component.quantity
                                                                                 }
-                                                                                aria-label="Cantidad del componente"
+                                                                                aria-label={translate(
+                                                                                    'Component quantity',
+                                                                                    locale,
+                                                                                )}
                                                                                 onChange={(
                                                                                     event,
                                                                                 ) =>
@@ -986,20 +1099,28 @@ export default function QuoteForm({
                                                                                 </SelectTrigger>
                                                                                 <SelectContent>
                                                                                     <SelectItem value="stock">
-                                                                                        Control
-                                                                                        de
-                                                                                        stock
+                                                                                        {translate(
+                                                                                            'Stock control',
+                                                                                            locale,
+                                                                                        )}
                                                                                     </SelectItem>
                                                                                     <SelectItem value="activity">
-                                                                                        Seguimiento
-                                                                                        operativo
+                                                                                        {translate(
+                                                                                            'Operational tracking',
+                                                                                            locale,
+                                                                                        )}
                                                                                     </SelectItem>
                                                                                     <SelectItem value="recurring">
-                                                                                        Servicio
-                                                                                        recurrente
+                                                                                        {translate(
+                                                                                            'Recurring service',
+                                                                                            locale,
+                                                                                        )}
                                                                                     </SelectItem>
                                                                                     <SelectItem value="none">
-                                                                                        Informativo
+                                                                                        {translate(
+                                                                                            'Informational',
+                                                                                            locale,
+                                                                                        )}
                                                                                     </SelectItem>
                                                                                 </SelectContent>
                                                                             </Select>
@@ -1025,16 +1146,22 @@ export default function QuoteForm({
                                                                                 </SelectTrigger>
                                                                                 <SelectContent>
                                                                                     <SelectItem value="detailed">
-                                                                                        Cantidad
-                                                                                        visible
+                                                                                        {translate(
+                                                                                            'Visible quantity',
+                                                                                            locale,
+                                                                                        )}
                                                                                     </SelectItem>
                                                                                     <SelectItem value="summary">
-                                                                                        Solo
-                                                                                        descripción
+                                                                                        {translate(
+                                                                                            'Description only',
+                                                                                            locale,
+                                                                                        )}
                                                                                     </SelectItem>
                                                                                     <SelectItem value="hidden">
-                                                                                        Solo
-                                                                                        interno
+                                                                                        {translate(
+                                                                                            'Internal only',
+                                                                                            locale,
+                                                                                        )}
                                                                                     </SelectItem>
                                                                                 </SelectContent>
                                                                             </Select>
@@ -1047,8 +1174,14 @@ export default function QuoteForm({
                                                                                     value={
                                                                                         component.interval_months
                                                                                     }
-                                                                                    placeholder="Meses"
-                                                                                    aria-label="Periodicidad en meses"
+                                                                                    placeholder={translate(
+                                                                                        'Months',
+                                                                                        locale,
+                                                                                    )}
+                                                                                    aria-label={translate(
+                                                                                        'Frequency in months',
+                                                                                        locale,
+                                                                                    )}
                                                                                     onChange={(
                                                                                         event,
                                                                                     ) =>
@@ -1066,7 +1199,10 @@ export default function QuoteForm({
                                                                                 />
                                                                             ) : (
                                                                                 <div className="flex items-center px-2 text-xs text-muted-foreground">
-                                                                                    Coste{' '}
+                                                                                    {translate(
+                                                                                        'Cost',
+                                                                                        locale,
+                                                                                    )}{' '}
                                                                                     {money(
                                                                                         Number(
                                                                                             component.planned_unit_cost ||
@@ -1080,7 +1216,10 @@ export default function QuoteForm({
                                                                                     type="button"
                                                                                     size="icon"
                                                                                     variant="ghost"
-                                                                                    title="Añadir producto o subcomponente"
+                                                                                    title={translate(
+                                                                                        'Add product or subcomponent',
+                                                                                        locale,
+                                                                                    )}
                                                                                     disabled={
                                                                                         component.depth >=
                                                                                         5
@@ -1098,7 +1237,10 @@ export default function QuoteForm({
                                                                                     type="button"
                                                                                     size="icon"
                                                                                     variant="ghost"
-                                                                                    title="Eliminar componente y sus subcomponentes"
+                                                                                    title={translate(
+                                                                                        'Remove component and its subcomponents',
+                                                                                        locale,
+                                                                                    )}
                                                                                     onClick={() =>
                                                                                         removeComponent(
                                                                                             index,
@@ -1115,12 +1257,10 @@ export default function QuoteForm({
                                                             </div>
                                                         ) : (
                                                             <p className="py-2 text-xs text-muted-foreground">
-                                                                Sin desglose
-                                                                técnico. La
-                                                                partida seguirá
-                                                                funcionando como
-                                                                una línea
-                                                                tradicional.
+                                                                {translate(
+                                                                    'No technical breakdown. This item will continue to work as a traditional line.',
+                                                                    locale,
+                                                                )}
                                                             </p>
                                                         ))}
                                                 </td>
@@ -1140,73 +1280,99 @@ export default function QuoteForm({
                                     {error}
                                 </p>
                             ))}
-                    </section>
-                    <section className="grid gap-6 border-t pt-5 lg:grid-cols-[1fr_22rem]">
-                        <div className="grid gap-2">
-                            <Label htmlFor="notes">Commercial notes</Label>
-                            <textarea
-                                id="notes"
-                                className="min-h-28 rounded-md border bg-transparent p-3 text-sm"
-                                value={form.data.notes}
-                                onChange={(event) =>
-                                    form.setData('notes', event.target.value)
-                                }
-                            />
+                    </FormSection>
+                    <FormSection
+                        title={translate('Commercial summary', locale)}
+                        description={translate(
+                            'Review customer-facing notes and calculated totals before saving the draft.',
+                            locale,
+                        )}
+                    >
+                        <div className="grid gap-6 lg:grid-cols-[1fr_22rem]">
+                            <div className="grid gap-2">
+                                <Label htmlFor="notes">
+                                    {translate('Commercial notes', locale)}
+                                </Label>
+                                <textarea
+                                    id="notes"
+                                    className="min-h-28 rounded-md border bg-transparent p-3 text-sm"
+                                    value={form.data.notes}
+                                    onChange={(event) =>
+                                        form.setData(
+                                            'notes',
+                                            event.target.value,
+                                        )
+                                    }
+                                />
+                            </div>
+                            <div className="grid content-start gap-2 text-sm">
+                                <Total
+                                    label={translate('Subtotal', locale)}
+                                    value={totals.subtotal}
+                                />
+                                <Total
+                                    label={translate('Discount', locale)}
+                                    value={-totals.discount}
+                                />
+                                <Total
+                                    label={translate('Tax', locale)}
+                                    value={totals.tax}
+                                />
+                                <Total
+                                    label={translate('Total', locale)}
+                                    value={totals.total}
+                                    strong
+                                />
+                            </div>
                         </div>
-                        <div className="grid content-start gap-2 text-sm">
-                            <Total label="Subtotal" value={totals.subtotal} />
-                            <Total label="Discount" value={-totals.discount} />
-                            <Total label="Tax" value={totals.tax} />
-                            <Total label="Total" value={totals.total} strong />
-                        </div>
-                    </section>
+                    </FormSection>
                     {quote ? (
-                        <section className="grid gap-2 border-t pt-5">
-                            <Label htmlFor="change_note">
-                                Motivo de esta revisión
-                            </Label>
-                            <Textarea
-                                id="change_note"
-                                required
-                                minLength={5}
-                                value={form.data.change_note}
-                                onChange={(event) =>
-                                    form.setData(
-                                        'change_note',
-                                        event.target.value,
-                                    )
-                                }
-                                placeholder="Qué se ha modificado y por qué: alcance, precio, condiciones, petición del cliente…"
-                            />
-                            <InputError message={form.errors.change_note} />
-                        </section>
+                        <FormSection
+                            title={translate('Revision traceability', locale)}
+                            description={translate(
+                                'Explain what changed so this proposal version remains auditable.',
+                                locale,
+                            )}
+                        >
+                            <div className="grid gap-2">
+                                <Label htmlFor="change_note">
+                                    {translate(
+                                        'Reason for this revision',
+                                        locale,
+                                    )}
+                                </Label>
+                                <Textarea
+                                    id="change_note"
+                                    required
+                                    minLength={5}
+                                    value={form.data.change_note}
+                                    onChange={(event) =>
+                                        form.setData(
+                                            'change_note',
+                                            event.target.value,
+                                        )
+                                    }
+                                    placeholder={translate(
+                                        'What changed and why: scope, price, terms or customer request',
+                                        locale,
+                                    )}
+                                />
+                                <InputError message={form.errors.change_note} />
+                            </div>
+                        </FormSection>
                     ) : null}
-                    {Object.entries(form.errors)
-                        .filter(
-                            ([key]) =>
-                                !key.startsWith('lines') &&
-                                key !== 'change_note',
-                        )
-                        .map(([key, error]) => (
-                            <p key={key} className="text-sm text-destructive">
-                                {error}
-                            </p>
-                        ))}
-                    <div className="flex flex-col gap-3 border-t pt-5 sm:flex-row sm:items-center sm:justify-between">
-                        <p className="max-w-2xl text-sm text-muted-foreground">
-                            {translate(
-                                'The proposal will remain private and editable until you send it definitively from its record.',
-                                locale,
-                            )}
-                        </p>
-                        <Button disabled={form.processing}>
-                            <Save />
-                            {translate(
-                                quote ? 'Save draft changes' : 'Save as draft',
-                                locale,
-                            )}
-                        </Button>
-                    </div>
+                    <FormActions
+                        processing={form.processing}
+                        submitLabel={translate(
+                            quote ? 'Save draft changes' : 'Save as draft',
+                            locale,
+                        )}
+                        description={translate(
+                            'The proposal will remain private and editable until you send it definitively from its record.',
+                            locale,
+                        )}
+                        icon={<Save />}
+                    />
                 </form>
             </div>
         </>

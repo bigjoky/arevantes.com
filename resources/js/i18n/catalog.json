@@ -15292,5 +15292,132 @@
     "Intrusion alarm, CCTV or access control": {
         "en": "Intrusion alarm, CCTV or access control",
         "es": "Alarma de intrusión, CCTV o control de acceso"
+    },
+    "Prepared from opportunity": {
+        "en": "Prepared from opportunity",
+        "es": "Preparada desde la oportunidad"
+    },
+    "Review prices and taxes before saving.": {
+        "en": "Review prices and taxes before saving.",
+        "es": "Revisa los precios y los impuestos antes de guardar."
+    },
+    "components · cost": {
+        "en": "components · cost",
+        "es": "componentes · coste"
+    },
+    "Included": { "en": "Included", "es": "Incluida" },
+    "Optional": { "en": "Optional", "es": "Opcional" },
+    "Alternative": { "en": "Alternative", "es": "Alternativa" },
+    "Selected": { "en": "Selected", "es": "Seleccionada" },
+    "Not included": { "en": "Not included", "es": "No incluida" },
+    "Add component": {
+        "en": "Add component",
+        "es": "Añadir componente"
+    },
+    "Level": { "en": "Level", "es": "Nivel" },
+    "Stock control": {
+        "en": "Stock control",
+        "es": "Control de stock"
+    },
+    "Operational tracking": {
+        "en": "Operational tracking",
+        "es": "Seguimiento operativo"
+    },
+    "Recurring service": {
+        "en": "Recurring service",
+        "es": "Servicio recurrente"
+    },
+    "Informational": { "en": "Informational", "es": "Informativo" },
+    "Visible quantity": {
+        "en": "Visible quantity",
+        "es": "Cantidad visible"
+    },
+    "Description only": {
+        "en": "Description only",
+        "es": "Solo descripción"
+    },
+    "Internal only": {
+        "en": "Internal only",
+        "es": "Solo interno"
+    },
+    "No technical breakdown. This item will continue to work as a traditional line.": {
+        "en": "No technical breakdown. This item will continue to work as a traditional line.",
+        "es": "Sin desglose técnico. La partida seguirá funcionando como una línea tradicional."
+    },
+    "Reason for this revision": {
+        "en": "Reason for this revision",
+        "es": "Motivo de esta revisión"
+    },
+    "Proposal context": {
+        "en": "Proposal context",
+        "es": "Contexto de la propuesta"
+    },
+    "Choose the customer, business line, installation and validity period.": {
+        "en": "Choose the customer, business line, installation and validity period.",
+        "es": "Elige el cliente, la línea de negocio, la instalación y el periodo de validez."
+    },
+    "Acceptance and payment": {
+        "en": "Acceptance and payment",
+        "es": "Aceptación y pago"
+    },
+    "Define the advance invoice generated when the customer accepts the proposal.": {
+        "en": "Define the advance invoice generated when the customer accepts the proposal.",
+        "es": "Define la factura de anticipo que se generará cuando el cliente acepte la propuesta."
+    },
+    "Proposal lines": {
+        "en": "Proposal lines",
+        "es": "Partidas de la propuesta"
+    },
+    "Build the scope with catalog items, custom lines and nested components.": {
+        "en": "Build the scope with catalog items, custom lines and nested components.",
+        "es": "Construye el alcance con artículos de catálogo, líneas personalizadas y componentes anidados."
+    },
+    "Commercial summary": {
+        "en": "Commercial summary",
+        "es": "Resumen comercial"
+    },
+    "Review customer-facing notes and calculated totals before saving the draft.": {
+        "en": "Review customer-facing notes and calculated totals before saving the draft.",
+        "es": "Revisa las notas para el cliente y los totales calculados antes de guardar el borrador."
+    },
+    "Revision traceability": {
+        "en": "Revision traceability",
+        "es": "Trazabilidad de la revisión"
+    },
+    "Explain what changed so this proposal version remains auditable.": {
+        "en": "Explain what changed so this proposal version remains auditable.",
+        "es": "Explica qué ha cambiado para que esta versión de la propuesta siga siendo auditable."
+    },
+    "What changed and why: scope, price, terms or customer request": {
+        "en": "What changed and why: scope, price, terms or customer request",
+        "es": "Qué se ha modificado y por qué: alcance, precio, condiciones o petición del cliente"
+    },
+    "Document and supplier": {
+        "en": "Document and supplier",
+        "es": "Documento y proveedor"
+    },
+    "Identify the supporting document, issuer, category and related installation.": {
+        "en": "Identify the supporting document, issuer, category and related installation.",
+        "es": "Identifica el justificante, el emisor, la categoría y la instalación relacionada."
+    },
+    "Withholding and totals": {
+        "en": "Withholding and totals",
+        "es": "Retención y totales"
+    },
+    "Check the withholding and final amount before registering the expense.": {
+        "en": "Check the withholding and final amount before registering the expense.",
+        "es": "Comprueba la retención y el importe final antes de registrar el gasto."
+    },
+    "Evidence and notes": {
+        "en": "Evidence and notes",
+        "es": "Justificantes y notas"
+    },
+    "Attach the fiscal evidence and record any accounting context.": {
+        "en": "Attach the fiscal evidence and record any accounting context.",
+        "es": "Adjunta los justificantes fiscales y registra cualquier contexto contable."
+    },
+    "The expense will be posted with its fiscal breakdown and supporting evidence.": {
+        "en": "The expense will be posted with its fiscal breakdown and supporting evidence.",
+        "es": "El gasto se contabilizará con su desglose fiscal y sus justificantes."
     }
 }

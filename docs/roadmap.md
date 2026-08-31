@@ -103,7 +103,7 @@ prioridad sobre añadir pantallas que amplíen deuda de interfaz.
 | P0        | Rendimiento medible               | Instrumentación y primera optimización ejecutadas. `Server-Timing` mide aplicación y SQL; los excesos registran solo metadatos técnicos. El panel difiere datos y código del mapa. LCP, INP y CLS se muestrean ahora por pantalla y dispositivo, sin URL, usuario ni IP, con retención de 90 días e informe de percentiles. Pendiente recoger una línea base suficiente en producción y optimizar el siguiente punto demostrado. |
 | P0        | Localización completa             | En curso. España ya conserva `Spain` como valor canónico y se presenta como `España` en formularios españoles. Ningún otro texto visible puede quedar mezclado y los demás catálogos seguirán el mismo patrón.                                                                                                                                                                                                                   |
 | P0        | Adaptación móvil integral         | En curso continuo. Cada ficha, tabla, diálogo y acción principal debe funcionar desde 320 px sin desbordamiento, pérdida de información ni acciones inaccesibles.                                                                                                                                                                                                                                                                |
-| P1        | Sistema único de formularios      | En curso. Cliente e instalación comparten ya secciones, jerarquía visual, resumen accesible de errores, estado de guardado y barra de acciones adaptable. El patrón se extenderá por cortes a propuestas, gastos y formularios operativos.                                                                                                                                                                                          |
+| P1        | Sistema único de formularios      | En curso avanzado. Cliente, instalación, propuesta y alta de gasto comparten secciones, jerarquía visual, resumen accesible de errores, estado de guardado y barra de acciones adaptable. El patrón se extenderá por cortes a los formularios operativos restantes.                                                                                                                                                                   |
 | P1        | Cliente según naturaleza          | Primer corte completado. Particular, empresa, comunidad y organismo público modifican inmediatamente la identidad solicitada; las entidades jurídicas exigen denominación e identificación fiscal, conservan el contacto principal y al volver a particular eliminan la razón social obsoleta. Pendiente profundizar en representantes, facturación y contactos múltiples.                                                          |
 | P1        | Sidebar y arquitectura de módulos | Planificado. Mapear rutas actuales a las 20 áreas, resolver solapamientos, aplicar permisos en servidor y desplegar la navegación por etapas con pruebas por rol.                                                                                                                                                                                                                                                                |
 
@@ -932,14 +932,28 @@ interfaz y mantiene compatibilidad con las actualizaciones parciales antiguas. L
 textos y ayudas incorporados en cliente e instalación tienen versión completa en
 español e inglés.
 
+## Corte ejecutado — Propuestas y gastos sobre el sistema común
+
+La edición de propuestas separa ahora contexto, aceptación y pago, partidas,
+resumen comercial y trazabilidad de la revisión. Conserva las líneas de catálogo,
+los componentes personalizados de hasta cinco niveles, el cálculo de totales y el
+borrador previo al envío, pero presenta los errores de todo el documento en un
+resumen común y mantiene la acción principal accesible en móvil.
+
+El alta de gasto organiza documento y proveedor, desglose fiscal, retención y
+totales, justificantes y notas. La acción de registro permanece visible durante el
+desplazamiento y los campos fiscales conservan sus errores individuales. Los dos
+flujos, incluidos estados, ayudas y controles complejos de componentes, responden
+ahora al selector temporal de español o inglés.
+
 ## Próximo corte recomendado
 
-Extender el sistema común a propuestas y gastos, comenzando por los flujos que más
-datos y errores concentran, y completar para empresas, comunidades y organismos
-públicos los representantes, datos de facturación y contactos múltiples. En
-paralelo, recoger durante siete días una muestra suficiente de producción para que
-el siguiente trabajo de rendimiento responda a `Server-Timing` y a los percentiles
-p75 reales de LCP, INP o CLS.
+Completar para empresas, comunidades y organismos públicos los representantes,
+datos de facturación y contactos múltiples, y extender el sistema común a los
+formularios operativos con mayor frecuencia de uso. En paralelo, recoger durante
+siete días una muestra suficiente de producción para que el siguiente trabajo de
+rendimiento responda a `Server-Timing` y a los percentiles p75 reales de LCP, INP o
+CLS.
 
 ## Corrección transversal — idioma temporal de la plataforma
 

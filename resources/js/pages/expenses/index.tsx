@@ -7,6 +7,11 @@ import {
     WalletCards,
 } from 'lucide-react';
 import { useState } from 'react';
+import {
+    FormActions,
+    FormErrorSummary,
+    FormSection,
+} from '@/components/forms/form-layout';
 import InputError from '@/components/input-error';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -26,6 +31,8 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import { useLocale } from '@/hooks/use-locale';
+import { translate } from '@/i18n';
 type Category = { id: number; name: string };
 type Supplier = {
     id: number;
@@ -81,6 +88,7 @@ export default function ExpensesIndex({
         expensesThisMonth: number;
     };
 }) {
+    const { locale } = useLocale();
     const [tab, setTab] = useState<'expenses' | 'payables'>('expenses');
     const quickCreate =
         new URLSearchParams(usePage().url.split('?')[1] || '').get('create') ===
@@ -88,15 +96,18 @@ export default function ExpensesIndex({
 
     return (
         <>
-            <Head title="Expenses" />
+            <Head title={translate('Expenses', locale)} />
             <div className="flex flex-1 flex-col gap-6 p-4 md:p-6">
                 <header className="flex items-center justify-between gap-3">
                     <div>
                         <h1 className="text-xl font-semibold">
-                            Expenses & treasury
+                            {translate('Expenses & treasury', locale)}
                         </h1>
                         <p className="text-sm text-muted-foreground">
-                            Receipts, expense invoices and supplier payments.
+                            {translate(
+                                'Receipts, expense invoices and supplier payments.',
+                                locale,
+                            )}
                         </p>
                     </div>
                     {tab === 'expenses' && (
@@ -109,13 +120,16 @@ export default function ExpensesIndex({
                     )}
                 </header>
                 <section className="grid grid-cols-3 border-y">
-                    <Metric label="Outstanding" value={summary.pending} />
                     <Metric
-                        label="Paid this month"
+                        label={translate('Outstanding', locale)}
+                        value={summary.pending}
+                    />
+                    <Metric
+                        label={translate('Paid this month', locale)}
                         value={summary.paidThisMonth}
                     />
                     <Metric
-                        label="Expenses this month"
+                        label={translate('Expenses this month', locale)}
                         value={summary.expensesThisMonth}
                     />
                 </section>
@@ -125,14 +139,14 @@ export default function ExpensesIndex({
                         onClick={() => setTab('expenses')}
                         icon={<ReceiptText />}
                     >
-                        Expenses
+                        {translate('Expenses', locale)}
                     </Tab>
                     <Tab
                         active={tab === 'payables'}
                         onClick={() => setTab('payables')}
                         icon={<WalletCards />}
                     >
-                        Supplier invoices
+                        {translate('Supplier invoices', locale)}
                     </Tab>
                 </div>
                 {tab === 'expenses' ? (
@@ -140,13 +154,19 @@ export default function ExpensesIndex({
                         <table className="w-full min-w-[52rem] text-sm">
                             <thead>
                                 <tr className="border-b text-left text-muted-foreground">
-                                    <th className="py-2">Expense</th>
-                                    <th>Merchant</th>
-                                    <th>Category</th>
-                                    <th>Date</th>
-                                    <th>Status</th>
-                                    <th className="text-right">Total</th>
-                                    <th className="text-right">Outstanding</th>
+                                    <th className="py-2">
+                                        {translate('Expense', locale)}
+                                    </th>
+                                    <th>{translate('Merchant', locale)}</th>
+                                    <th>{translate('Category', locale)}</th>
+                                    <th>{translate('Date', locale)}</th>
+                                    <th>{translate('Status', locale)}</th>
+                                    <th className="text-right">
+                                        {translate('Total', locale)}
+                                    </th>
+                                    <th className="text-right">
+                                        {translate('Outstanding', locale)}
+                                    </th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -170,7 +190,10 @@ export default function ExpensesIndex({
                                         <td>{date(expense.expense_date)}</td>
                                         <td>
                                             <Badge variant="outline">
-                                                {expense.status}
+                                                {translate(
+                                                    expense.status,
+                                                    locale,
+                                                )}
                                             </Badge>
                                         </td>
                                         <td className="text-right">
@@ -191,7 +214,12 @@ export default function ExpensesIndex({
                             </tbody>
                         </table>
                         {expenses.length === 0 && (
-                            <Empty text="No expenses registered." />
+                            <Empty
+                                text={translate(
+                                    'No expenses registered.',
+                                    locale,
+                                )}
+                            />
                         )}
                     </section>
                 ) : (
@@ -199,13 +227,21 @@ export default function ExpensesIndex({
                         <table className="w-full min-w-[52rem] text-sm">
                             <thead>
                                 <tr className="border-b text-left text-muted-foreground">
-                                    <th className="py-2">Internal</th>
-                                    <th>Supplier invoice</th>
-                                    <th>Supplier</th>
-                                    <th>Due</th>
-                                    <th>Status</th>
-                                    <th className="text-right">Total</th>
-                                    <th className="text-right">Outstanding</th>
+                                    <th className="py-2">
+                                        {translate('Internal', locale)}
+                                    </th>
+                                    <th>
+                                        {translate('Supplier invoice', locale)}
+                                    </th>
+                                    <th>{translate('Supplier', locale)}</th>
+                                    <th>{translate('Due', locale)}</th>
+                                    <th>{translate('Status', locale)}</th>
+                                    <th className="text-right">
+                                        {translate('Total', locale)}
+                                    </th>
+                                    <th className="text-right">
+                                        {translate('Outstanding', locale)}
+                                    </th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -233,7 +269,10 @@ export default function ExpensesIndex({
                                         </td>
                                         <td>
                                             <Badge variant="outline">
-                                                {invoice.status}
+                                                {translate(
+                                                    invoice.status,
+                                                    locale,
+                                                )}
                                             </Badge>
                                         </td>
                                         <td className="text-right">
@@ -254,7 +293,12 @@ export default function ExpensesIndex({
                             </tbody>
                         </table>
                         {supplierInvoices.length === 0 && (
-                            <Empty text="No supplier invoices registered." />
+                            <Empty
+                                text={translate(
+                                    'No supplier invoices registered.',
+                                    locale,
+                                )}
+                            />
                         )}
                     </section>
                 )}
@@ -273,6 +317,7 @@ function ExpenseDialog({
     installations: Installation[];
     initialOpen?: boolean;
 }) {
+    const { locale } = useLocale();
     const [open, setOpen] = useState(initialOpen);
     const [taxLines, setTaxLines] = useState([
         { kind: 'vat', base: 0, rate: 21, deductible: 100 },
@@ -292,12 +337,14 @@ function ExpenseDialog({
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
                 <Button>
-                    <Plus /> New expense
+                    <Plus /> {translate('New expense', locale)}
                 </Button>
             </DialogTrigger>
             <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl">
                 <DialogHeader>
-                    <DialogTitle>Register expense</DialogTitle>
+                    <DialogTitle>
+                        {translate('Register expense', locale)}
+                    </DialogTitle>
                 </DialogHeader>
                 <Form
                     action="/expenses"
@@ -308,15 +355,7 @@ function ExpenseDialog({
                 >
                     {({ errors, processing }) => (
                         <>
-                            {Object.keys(errors).length > 0 && (
-                                <div
-                                    role="alert"
-                                    className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive"
-                                >
-                                    Revisa los campos indicados. El gasto no se
-                                    ha registrado todavía.
-                                </div>
-                            )}
+                            <FormErrorSummary errors={errors} />
                             <input
                                 name="currency_code"
                                 type="hidden"
@@ -337,134 +376,240 @@ function ExpenseDialog({
                                 type="hidden"
                                 value={withholdingAmount.toFixed(2)}
                             />
-                            <div className="grid gap-4 sm:grid-cols-2">
-                                <SelectField
-                                    label="Fiscal document type"
-                                    name="type"
-                                    error={errors.type}
-                                    options={[
-                                        ['receipt', 'Receipt / ticket'],
-                                        [
-                                            'simplified_invoice',
-                                            'Simplified invoice',
-                                        ],
-                                        ['invoice', 'Full invoice'],
-                                        ['other', 'Other supporting document'],
-                                    ]}
-                                />
-                                <SelectField
-                                    label="Category"
-                                    name="expense_category_id"
-                                    error={errors.expense_category_id}
-                                    options={categories.map((c) => [
-                                        String(c.id),
-                                        c.name,
-                                    ])}
-                                />
-                                <SelectField
-                                    label="Supplier (optional)"
-                                    name="supplier_id"
-                                    error={errors.supplier_id}
-                                    options={[
-                                        ['none', 'No linked supplier'],
-                                        ...suppliers.map((s) => [
-                                            String(s.id),
-                                            s.trade_name || s.legal_name,
-                                        ]),
-                                    ]}
-                                />
-                                <SelectField
-                                    label="Installation (optional)"
-                                    name="installation_id"
-                                    error={errors.installation_id}
-                                    options={[
-                                        ['none', 'No linked installation'],
-                                        ...installations.map((installation) => [
-                                            String(installation.id),
-                                            installation.project_reference ||
-                                                installation.site_name ||
-                                                `#${installation.id}`,
-                                        ]),
-                                    ]}
-                                />
-                                <Field
-                                    label="Issuer invoice number"
-                                    name="document_number"
-                                    error={errors.document_number}
-                                />
-                                <Field
-                                    label="Invoice series (optional)"
-                                    name="invoice_series"
-                                    error={errors.invoice_series}
-                                />
-                                <Field
-                                    label="Issuer legal name"
-                                    name="issuer_legal_name"
-                                    error={errors.issuer_legal_name}
-                                />
-                                <Field
-                                    label="Issuer tax ID / VAT number"
-                                    name="issuer_tax_id"
-                                    error={errors.issuer_tax_id}
-                                />
-                                <Field
-                                    label="Trade name (optional)"
-                                    name="merchant_name"
-                                    error={errors.merchant_name}
-                                />
-                                <Field
-                                    label="Issue date"
-                                    name="expense_date"
-                                    type="date"
-                                    value={today()}
-                                    error={errors.expense_date}
-                                />
-                                <Field
-                                    label="Operation date (if different)"
-                                    name="operation_date"
-                                    type="date"
-                                    error={errors.operation_date}
-                                />
-                                <Field
-                                    label="Due date"
-                                    name="due_date"
-                                    type="date"
-                                    error={errors.due_date}
-                                />
-                                <SelectField
-                                    label="VAT treatment"
-                                    name="tax_regime"
-                                    error={errors.tax_regime}
-                                    options={[
-                                        ['standard', 'Standard'],
-                                        ['exempt', 'Exempt'],
-                                        ['non_subject', 'Not subject to VAT'],
-                                        ['reverse_charge', 'Reverse charge'],
-                                        ['intra_community', 'Intra-Community'],
-                                        ['import', 'Import'],
-                                    ]}
-                                />
-                                <Field
-                                    label="Deductible expense (%)"
-                                    name="deductible_expense_percent"
-                                    type="number"
-                                    value="100"
-                                    step="0.01"
-                                    error={errors.deductible_expense_percent}
-                                />
-                            </div>
+                            <FormSection
+                                title={translate(
+                                    'Document and supplier',
+                                    locale,
+                                )}
+                                description={translate(
+                                    'Identify the supporting document, issuer, category and related installation.',
+                                    locale,
+                                )}
+                            >
+                                <div className="grid gap-4 sm:grid-cols-2">
+                                    <SelectField
+                                        label={translate(
+                                            'Fiscal document type',
+                                            locale,
+                                        )}
+                                        name="type"
+                                        error={errors.type}
+                                        options={[
+                                            [
+                                                'receipt',
+                                                translate(
+                                                    'Receipt / ticket',
+                                                    locale,
+                                                ),
+                                            ],
+                                            [
+                                                'simplified_invoice',
+                                                translate(
+                                                    'Simplified invoice',
+                                                    locale,
+                                                ),
+                                            ],
+                                            [
+                                                'invoice',
+                                                translate(
+                                                    'Full invoice',
+                                                    locale,
+                                                ),
+                                            ],
+                                            [
+                                                'other',
+                                                translate(
+                                                    'Other supporting document',
+                                                    locale,
+                                                ),
+                                            ],
+                                        ]}
+                                    />
+                                    <SelectField
+                                        label={translate('Category', locale)}
+                                        name="expense_category_id"
+                                        error={errors.expense_category_id}
+                                        options={categories.map((c) => [
+                                            String(c.id),
+                                            c.name,
+                                        ])}
+                                    />
+                                    <SelectField
+                                        label={translate(
+                                            'Supplier (optional)',
+                                            locale,
+                                        )}
+                                        name="supplier_id"
+                                        error={errors.supplier_id}
+                                        options={[
+                                            [
+                                                'none',
+                                                translate(
+                                                    'No linked supplier',
+                                                    locale,
+                                                ),
+                                            ],
+                                            ...suppliers.map((s) => [
+                                                String(s.id),
+                                                s.trade_name || s.legal_name,
+                                            ]),
+                                        ]}
+                                    />
+                                    <SelectField
+                                        label={translate(
+                                            'Installation (optional)',
+                                            locale,
+                                        )}
+                                        name="installation_id"
+                                        error={errors.installation_id}
+                                        options={[
+                                            [
+                                                'none',
+                                                translate(
+                                                    'No linked installation',
+                                                    locale,
+                                                ),
+                                            ],
+                                            ...installations.map(
+                                                (installation) => [
+                                                    String(installation.id),
+                                                    installation.project_reference ||
+                                                        installation.site_name ||
+                                                        `#${installation.id}`,
+                                                ],
+                                            ),
+                                        ]}
+                                    />
+                                    <Field
+                                        label={translate(
+                                            'Issuer invoice number',
+                                            locale,
+                                        )}
+                                        name="document_number"
+                                        error={errors.document_number}
+                                    />
+                                    <Field
+                                        label={translate(
+                                            'Invoice series (optional)',
+                                            locale,
+                                        )}
+                                        name="invoice_series"
+                                        error={errors.invoice_series}
+                                    />
+                                    <Field
+                                        label={translate(
+                                            'Issuer legal name',
+                                            locale,
+                                        )}
+                                        name="issuer_legal_name"
+                                        error={errors.issuer_legal_name}
+                                    />
+                                    <Field
+                                        label={translate(
+                                            'Issuer tax ID / VAT number',
+                                            locale,
+                                        )}
+                                        name="issuer_tax_id"
+                                        error={errors.issuer_tax_id}
+                                    />
+                                    <Field
+                                        label={translate(
+                                            'Trade name (optional)',
+                                            locale,
+                                        )}
+                                        name="merchant_name"
+                                        error={errors.merchant_name}
+                                    />
+                                    <Field
+                                        label={translate('Issue date', locale)}
+                                        name="expense_date"
+                                        type="date"
+                                        value={today()}
+                                        error={errors.expense_date}
+                                    />
+                                    <Field
+                                        label={translate(
+                                            'Operation date (if different)',
+                                            locale,
+                                        )}
+                                        name="operation_date"
+                                        type="date"
+                                        error={errors.operation_date}
+                                    />
+                                    <Field
+                                        label={translate('Due date', locale)}
+                                        name="due_date"
+                                        type="date"
+                                        error={errors.due_date}
+                                    />
+                                    <SelectField
+                                        label={translate(
+                                            'VAT treatment',
+                                            locale,
+                                        )}
+                                        name="tax_regime"
+                                        error={errors.tax_regime}
+                                        options={[
+                                            [
+                                                'standard',
+                                                translate('Standard', locale),
+                                            ],
+                                            [
+                                                'exempt',
+                                                translate('Exempt', locale),
+                                            ],
+                                            [
+                                                'non_subject',
+                                                translate(
+                                                    'Not subject to VAT',
+                                                    locale,
+                                                ),
+                                            ],
+                                            [
+                                                'reverse_charge',
+                                                translate(
+                                                    'Reverse charge',
+                                                    locale,
+                                                ),
+                                            ],
+                                            [
+                                                'intra_community',
+                                                translate(
+                                                    'Intra-Community',
+                                                    locale,
+                                                ),
+                                            ],
+                                            [
+                                                'import',
+                                                translate('Import', locale),
+                                            ],
+                                        ]}
+                                    />
+                                    <Field
+                                        label={translate(
+                                            'Deductible expense (%)',
+                                            locale,
+                                        )}
+                                        name="deductible_expense_percent"
+                                        type="number"
+                                        value="100"
+                                        step="0.01"
+                                        error={
+                                            errors.deductible_expense_percent
+                                        }
+                                    />
+                                </div>
+                            </FormSection>
 
-                            <section className="grid gap-3 rounded-lg border p-4">
+                            <FormSection
+                                title={translate('Tax breakdown', locale)}
+                                description={translate(
+                                    'Add one row for each VAT rate shown on the document.',
+                                    locale,
+                                )}
+                            >
                                 <div className="flex items-center justify-between gap-3">
-                                    <div>
-                                        <h3 className="font-medium">
-                                            Tax breakdown
-                                        </h3>
-                                        <p className="text-xs text-muted-foreground">
-                                            Add one row for each VAT rate shown
-                                            on the document.
-                                        </p>
-                                    </div>
+                                    <span aria-hidden="true" />
                                     <Button
                                         type="button"
                                         variant="outline"
@@ -481,7 +626,8 @@ function ExpenseDialog({
                                             ])
                                         }
                                     >
-                                        <Plus /> Add tax rate
+                                        <Plus />
+                                        {translate('Add tax rate', locale)}
                                     </Button>
                                 </div>
                                 {taxLines.map((line, index) => {
@@ -493,7 +639,7 @@ function ExpenseDialog({
                                             className="grid gap-3 border-t pt-3 sm:grid-cols-[1.2fr_1fr_1fr_1fr_1fr_auto] sm:items-end"
                                         >
                                             <SelectField
-                                                label="Tax"
+                                                label={translate('Tax', locale)}
                                                 name={`tax_lines[${index}][kind]`}
                                                 onValueChange={(value) =>
                                                     setTaxLines((lines) =>
@@ -518,15 +664,27 @@ function ExpenseDialog({
                                                     )
                                                 }
                                                 options={[
-                                                    ['vat', 'VAT'],
+                                                    [
+                                                        'vat',
+                                                        translate(
+                                                            'VAT',
+                                                            locale,
+                                                        ),
+                                                    ],
                                                     [
                                                         'equivalence_surcharge',
-                                                        'Equivalence surcharge',
+                                                        translate(
+                                                            'Equivalence surcharge',
+                                                            locale,
+                                                        ),
                                                     ],
                                                 ]}
                                             />
                                             <FiscalNumber
-                                                label="Taxable base"
+                                                label={translate(
+                                                    'Taxable base',
+                                                    locale,
+                                                )}
                                                 name={`tax_lines[${index}][taxable_base]`}
                                                 value={line.base}
                                                 onChange={(value) =>
@@ -553,7 +711,10 @@ function ExpenseDialog({
                                                 }
                                             />
                                             <FiscalNumber
-                                                label="Rate (%)"
+                                                label={translate(
+                                                    'Rate (%)',
+                                                    locale,
+                                                )}
                                                 name={`tax_lines[${index}][tax_rate]`}
                                                 value={line.rate}
                                                 onChange={(value) =>
@@ -580,7 +741,12 @@ function ExpenseDialog({
                                                 }
                                             />
                                             <div className="grid gap-2">
-                                                <Label>Tax amount</Label>
+                                                <Label>
+                                                    {translate(
+                                                        'Tax amount',
+                                                        locale,
+                                                    )}
+                                                </Label>
                                                 <Input
                                                     readOnly
                                                     value={quota.toFixed(2)}
@@ -592,7 +758,10 @@ function ExpenseDialog({
                                                 />
                                             </div>
                                             <FiscalNumber
-                                                label="Deductible (%)"
+                                                label={translate(
+                                                    'Deductible (%)',
+                                                    locale,
+                                                )}
                                                 name={`tax_lines[${index}][deductible_percent]`}
                                                 value={line.deductible}
                                                 onChange={(value) =>
@@ -639,37 +808,70 @@ function ExpenseDialog({
                                         </div>
                                     );
                                 })}
-                            </section>
+                            </FormSection>
 
-                            <section className="grid gap-4 rounded-lg border p-4 sm:grid-cols-3">
-                                <FiscalNumber
-                                    label="Withholding (%)"
-                                    name="withholding_rate"
-                                    value={withholdingRate}
-                                    onChange={setWithholdingRate}
-                                    error={errors.withholding_rate}
-                                />
-                                <div className="grid gap-2 text-sm">
-                                    <span className="text-muted-foreground">
-                                        Withholding amount
-                                    </span>
-                                    <strong>
-                                        {money(withholdingAmount.toFixed(2))}
-                                    </strong>
+                            <FormSection
+                                title={translate(
+                                    'Withholding and totals',
+                                    locale,
+                                )}
+                                description={translate(
+                                    'Check the withholding and final amount before registering the expense.',
+                                    locale,
+                                )}
+                            >
+                                <div className="grid gap-4 sm:grid-cols-3">
+                                    <FiscalNumber
+                                        label={translate(
+                                            'Withholding (%)',
+                                            locale,
+                                        )}
+                                        name="withholding_rate"
+                                        value={withholdingRate}
+                                        onChange={setWithholdingRate}
+                                        error={errors.withholding_rate}
+                                    />
+                                    <div className="grid gap-2 text-sm">
+                                        <span className="text-muted-foreground">
+                                            {translate(
+                                                'Withholding amount',
+                                                locale,
+                                            )}
+                                        </span>
+                                        <strong>
+                                            {money(
+                                                withholdingAmount.toFixed(2),
+                                            )}
+                                        </strong>
+                                    </div>
+                                    <div className="grid gap-2 text-sm">
+                                        <span className="text-muted-foreground">
+                                            {translate(
+                                                'Document total',
+                                                locale,
+                                            )}
+                                        </span>
+                                        <strong className="text-lg">
+                                            {money(total.toFixed(2))}
+                                        </strong>
+                                    </div>
                                 </div>
-                                <div className="grid gap-2 text-sm">
-                                    <span className="text-muted-foreground">
-                                        Document total
-                                    </span>
-                                    <strong className="text-lg">
-                                        {money(total.toFixed(2))}
-                                    </strong>
-                                </div>
-                            </section>
+                            </FormSection>
 
-                            <div className="grid gap-4 sm:grid-cols-2">
-                                <div className="grid gap-2 sm:col-span-2">
-                                    <Label>Receipts or invoices</Label>
+                            <FormSection
+                                title={translate('Evidence and notes', locale)}
+                                description={translate(
+                                    'Attach the fiscal evidence and record any accounting context.',
+                                    locale,
+                                )}
+                            >
+                                <div className="grid gap-2">
+                                    <Label>
+                                        {translate(
+                                            'Receipts or invoices',
+                                            locale,
+                                        )}
+                                    </Label>
                                     <Input
                                         name="attachments[]"
                                         type="file"
@@ -683,22 +885,32 @@ function ExpenseDialog({
                                         }
                                     />
                                 </div>
-                            </div>
-                            <div className="grid gap-2">
-                                <Label>Notes</Label>
-                                <textarea
-                                    name="notes"
-                                    className="min-h-20 rounded-md border bg-transparent p-3 text-sm"
-                                />
-                                <InputError message={errors.notes} />
-                                <InputError message={errors.accounting} />
-                            </div>
-                            <Button disabled={processing}>
-                                <FilePlus2 />
-                                {processing
-                                    ? 'Registering expense…'
-                                    : 'Register expense'}
-                            </Button>
+                                <div className="grid gap-2">
+                                    <Label>{translate('Notes', locale)}</Label>
+                                    <textarea
+                                        name="notes"
+                                        className="min-h-20 rounded-md border bg-transparent p-3 text-sm"
+                                    />
+                                    <InputError message={errors.notes} />
+                                    <InputError message={errors.accounting} />
+                                </div>
+                            </FormSection>
+                            <FormActions
+                                processing={processing}
+                                submitLabel={translate(
+                                    'Register expense',
+                                    locale,
+                                )}
+                                processingLabel={translate(
+                                    'Registering expense…',
+                                    locale,
+                                )}
+                                description={translate(
+                                    'The expense will be posted with its fiscal breakdown and supporting evidence.',
+                                    locale,
+                                )}
+                                icon={<FilePlus2 />}
+                            />
                         </>
                     )}
                 </Form>
