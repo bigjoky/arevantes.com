@@ -1,6 +1,11 @@
 import { Form } from '@inertiajs/react';
 import { Check, Loader2, MapPin, PlugZap, RefreshCw } from 'lucide-react';
 import { useState } from 'react';
+import {
+    FormActions,
+    FormErrorSummary,
+    FormSection,
+} from '@/components/forms/form-layout';
 import InputError from '@/components/input-error';
 import LocationFields from '@/components/locations/location-fields';
 import { Button } from '@/components/ui/button';
@@ -14,6 +19,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { useLocale } from '@/hooks/use-locale';
+import { translate } from '@/i18n';
 import type { ServiceType } from '@/lib/business-lines';
 
 export type CustomerOption = {
@@ -144,7 +150,7 @@ export default function InstallationForm({
     method = 'post',
     submitLabel = 'Add installation',
 }: InstallationFormProps) {
-    const { t } = useLocale();
+    const { locale, t } = useLocale();
     const [serviceType, setServiceType] = useState<ServiceType>(
         installation?.service_type ?? 'solar',
     );
@@ -183,286 +189,373 @@ export default function InstallationForm({
         >
             {({ processing, errors }) => (
                 <>
-                    <div className={fieldClassName}>
-                        <Label htmlFor="person_id">{t.customer}</Label>
-                        <Select
-                            value={customerId}
-                            onValueChange={setCustomerId}
-                        >
-                            <SelectTrigger id="person_id" className="w-full">
-                                <SelectValue placeholder={t.selectCustomer} />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="unassigned">
-                                    {t.unassignedCustomer}
-                                </SelectItem>
-                                {customers.map((customer) => (
-                                    <SelectItem
-                                        key={customer.id}
-                                        value={customer.id.toString()}
-                                    >
-                                        {customer.company_name || customer.name}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                        <input
-                            type="hidden"
-                            name="person_id"
-                            value={
-                                customerId === 'unassigned' ? '' : customerId
-                            }
-                        />
-                        <InputError message={errors.person_id} />
-                    </div>
+                    <FormErrorSummary errors={errors} />
 
-                    <div className="grid gap-4 md:grid-cols-2">
+                    <FormSection
+                        title={translate('Installation overview', locale)}
+                        description={translate(
+                            'Identify the customer, service, workflow status and site reference.',
+                            locale,
+                        )}
+                    >
                         <div className={fieldClassName}>
-                            <Label htmlFor="service_type">
-                                {t.serviceType}
-                            </Label>
+                            <Label htmlFor="person_id">{t.customer}</Label>
                             <Select
-                                name="service_type"
-                                defaultValue={serviceType}
-                                onValueChange={(value) =>
-                                    setServiceType(value as ServiceType)
-                                }
+                                value={customerId}
+                                onValueChange={setCustomerId}
                             >
                                 <SelectTrigger
-                                    id="service_type"
+                                    id="person_id"
                                     className="w-full"
                                 >
                                     <SelectValue
-                                        placeholder={t.selectService}
+                                        placeholder={t.selectCustomer}
                                     />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {Object.entries(localizedServiceLabels).map(
-                                        ([value, label]) => (
+                                    <SelectItem value="unassigned">
+                                        {t.unassignedCustomer}
+                                    </SelectItem>
+                                    {customers.map((customer) => (
+                                        <SelectItem
+                                            key={customer.id}
+                                            value={customer.id.toString()}
+                                        >
+                                            {customer.company_name ||
+                                                customer.name}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            <input
+                                type="hidden"
+                                name="person_id"
+                                value={
+                                    customerId === 'unassigned'
+                                        ? ''
+                                        : customerId
+                                }
+                            />
+                            <InputError message={errors.person_id} />
+                        </div>
+
+                        <div className="grid gap-4 md:grid-cols-2">
+                            <div className={fieldClassName}>
+                                <Label htmlFor="service_type">
+                                    {t.serviceType}
+                                </Label>
+                                <Select
+                                    name="service_type"
+                                    defaultValue={serviceType}
+                                    onValueChange={(value) =>
+                                        setServiceType(value as ServiceType)
+                                    }
+                                >
+                                    <SelectTrigger
+                                        id="service_type"
+                                        className="w-full"
+                                    >
+                                        <SelectValue
+                                            placeholder={t.selectService}
+                                        />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {Object.entries(
+                                            localizedServiceLabels,
+                                        ).map(([value, label]) => (
                                             <SelectItem
                                                 key={value}
                                                 value={value}
                                             >
                                                 {label}
                                             </SelectItem>
-                                        ),
-                                    )}
-                                </SelectContent>
-                            </Select>
-                            <InputError message={errors.service_type} />
-                        </div>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                <InputError message={errors.service_type} />
+                            </div>
 
-                        <div className={fieldClassName}>
-                            <Label htmlFor="status">{t.status}</Label>
-                            <Select
-                                name="status"
-                                defaultValue={installation?.status ?? 'lead'}
-                            >
-                                <SelectTrigger id="status" className="w-full">
-                                    <SelectValue placeholder={t.selectStatus} />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {Object.entries(localizedStatusLabels).map(
-                                        ([value, label]) => (
+                            <div className={fieldClassName}>
+                                <Label htmlFor="status">{t.status}</Label>
+                                <Select
+                                    name="status"
+                                    defaultValue={
+                                        installation?.status ?? 'lead'
+                                    }
+                                >
+                                    <SelectTrigger
+                                        id="status"
+                                        className="w-full"
+                                    >
+                                        <SelectValue
+                                            placeholder={t.selectStatus}
+                                        />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {Object.entries(
+                                            localizedStatusLabels,
+                                        ).map(([value, label]) => (
                                             <SelectItem
                                                 key={value}
                                                 value={value}
                                             >
                                                 {label}
                                             </SelectItem>
-                                        ),
-                                    )}
-                                </SelectContent>
-                            </Select>
-                            <InputError message={errors.status} />
-                        </div>
-
-                        <Field
-                            id="project_reference"
-                            label={t.projectReference}
-                            placeholder="FV-2026-001"
-                            defaultValue={installation?.project_reference}
-                            error={errors.project_reference}
-                        />
-                        <Field
-                            id="site_name"
-                            label={t.siteName}
-                            placeholder="Home, warehouse, community garage..."
-                            defaultValue={installation?.site_name}
-                            error={errors.site_name}
-                        />
-                    </div>
-
-                    <div className="grid gap-4 md:grid-cols-2">
-                        <div className={fieldClassName}>
-                            <Label htmlFor="commercial_user_id">
-                                Commercial owner
-                            </Label>
-                            <Select
-                                name="commercial_user_id"
-                                defaultValue={installation?.commercial_user_id?.toString()}
-                            >
-                                <SelectTrigger
-                                    id="commercial_user_id"
-                                    className="w-full"
-                                >
-                                    <SelectValue placeholder="Assign commercial" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {assignees
-                                        .filter(
-                                            (user) =>
-                                                user.role === 'commercial',
-                                        )
-                                        .map((user) => (
-                                            <SelectItem
-                                                key={user.id}
-                                                value={user.id.toString()}
-                                            >
-                                                {user.name}
-                                            </SelectItem>
                                         ))}
-                                </SelectContent>
-                            </Select>
-                            <InputError message={errors.commercial_user_id} />
+                                    </SelectContent>
+                                </Select>
+                                <InputError message={errors.status} />
+                            </div>
+
+                            <Field
+                                id="project_reference"
+                                label={t.projectReference}
+                                placeholder="FV-2026-001"
+                                defaultValue={installation?.project_reference}
+                                error={errors.project_reference}
+                            />
+                            <Field
+                                id="site_name"
+                                label={t.siteName}
+                                placeholder={translate(
+                                    'Home, warehouse or community garage',
+                                    locale,
+                                )}
+                                defaultValue={installation?.site_name}
+                                error={errors.site_name}
+                            />
                         </div>
-                        <div className={fieldClassName}>
-                            <Label htmlFor="technician_user_id">
-                                Technical owner
-                            </Label>
-                            <Select
-                                name="technician_user_id"
-                                defaultValue={installation?.technician_user_id?.toString()}
-                            >
-                                <SelectTrigger
-                                    id="technician_user_id"
-                                    className="w-full"
+                    </FormSection>
+
+                    <FormSection
+                        title={translate('Responsible team', locale)}
+                        description={translate(
+                            'Assign commercial and technical ownership without changing access permissions.',
+                            locale,
+                        )}
+                    >
+                        <div className="grid gap-4 md:grid-cols-2">
+                            <div className={fieldClassName}>
+                                <Label htmlFor="commercial_user_id">
+                                    {translate('Commercial owner', locale)}
+                                </Label>
+                                <Select
+                                    name="commercial_user_id"
+                                    defaultValue={installation?.commercial_user_id?.toString()}
                                 >
-                                    <SelectValue placeholder="Assign technician" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {assignees
-                                        .filter(
-                                            (user) =>
-                                                user.role === 'technician',
-                                        )
-                                        .map((user) => (
-                                            <SelectItem
-                                                key={user.id}
-                                                value={user.id.toString()}
-                                            >
-                                                {user.name}
-                                            </SelectItem>
-                                        ))}
-                                </SelectContent>
-                            </Select>
-                            <InputError message={errors.technician_user_id} />
+                                    <SelectTrigger
+                                        id="commercial_user_id"
+                                        className="w-full"
+                                    >
+                                        <SelectValue
+                                            placeholder={translate(
+                                                'Assign commercial',
+                                                locale,
+                                            )}
+                                        />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {assignees
+                                            .filter(
+                                                (user) =>
+                                                    user.role === 'commercial',
+                                            )
+                                            .map((user) => (
+                                                <SelectItem
+                                                    key={user.id}
+                                                    value={user.id.toString()}
+                                                >
+                                                    {user.name}
+                                                </SelectItem>
+                                            ))}
+                                    </SelectContent>
+                                </Select>
+                                <InputError
+                                    message={errors.commercial_user_id}
+                                />
+                            </div>
+                            <div className={fieldClassName}>
+                                <Label htmlFor="technician_user_id">
+                                    {translate('Technical owner', locale)}
+                                </Label>
+                                <Select
+                                    name="technician_user_id"
+                                    defaultValue={installation?.technician_user_id?.toString()}
+                                >
+                                    <SelectTrigger
+                                        id="technician_user_id"
+                                        className="w-full"
+                                    >
+                                        <SelectValue
+                                            placeholder={translate(
+                                                'Assign technician',
+                                                locale,
+                                            )}
+                                        />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {assignees
+                                            .filter(
+                                                (user) =>
+                                                    user.role === 'technician',
+                                            )
+                                            .map((user) => (
+                                                <SelectItem
+                                                    key={user.id}
+                                                    value={user.id.toString()}
+                                                >
+                                                    {user.name}
+                                                </SelectItem>
+                                            ))}
+                                    </SelectContent>
+                                </Select>
+                                <InputError
+                                    message={errors.technician_user_id}
+                                />
+                            </div>
                         </div>
-                    </div>
+                    </FormSection>
 
-                    <div className="grid gap-4 md:grid-cols-[minmax(0,2fr)_minmax(8rem,0.5fr)_minmax(0,1fr)]">
-                        <Field
-                            id="site_address_line_1"
-                            label={t.street}
-                            placeholder="Street name"
-                            defaultValue={installation?.site_address_line_1}
-                            error={errors.site_address_line_1}
-                            required
-                        />
-                        <Field
-                            id="site_street_number"
-                            label={t.streetNumber}
-                            placeholder="10, 10B..."
-                            defaultValue={installation?.site_street_number}
-                            error={errors.site_street_number}
-                        />
-                        <Field
-                            id="site_address_line_2"
-                            label={t.address2}
-                            placeholder="Garage, roof access, floor..."
-                            defaultValue={installation?.site_address_line_2}
-                            error={errors.site_address_line_2}
-                        />
-                    </div>
+                    <FormSection
+                        title={translate('Site and geolocation', locale)}
+                        description={translate(
+                            'Enter the postal address first, then confirm the map coordinates.',
+                            locale,
+                        )}
+                    >
+                        <div className="grid gap-4 md:grid-cols-[minmax(0,2fr)_minmax(8rem,0.5fr)_minmax(0,1fr)]">
+                            <Field
+                                id="site_address_line_1"
+                                label={t.street}
+                                placeholder={translate('Street name', locale)}
+                                defaultValue={installation?.site_address_line_1}
+                                error={errors.site_address_line_1}
+                                required
+                            />
+                            <Field
+                                id="site_street_number"
+                                label={t.streetNumber}
+                                placeholder="10, 10B..."
+                                defaultValue={installation?.site_street_number}
+                                error={errors.site_street_number}
+                            />
+                            <Field
+                                id="site_address_line_2"
+                                label={t.address2}
+                                placeholder={translate(
+                                    'Garage, roof access or floor',
+                                    locale,
+                                )}
+                                defaultValue={installation?.site_address_line_2}
+                                error={errors.site_address_line_2}
+                            />
+                        </div>
 
-                    <LocationFields
-                        prefix="site_"
-                        errors={errors}
-                        defaults={{
-                            country: installation?.site_country,
-                            province: installation?.site_province_state,
-                            municipality: installation?.site_city,
-                            locality: installation?.site_locality,
-                            postalCode: installation?.site_postal_code,
-                        }}
+                        <LocationFields
+                            prefix="site_"
+                            errors={errors}
+                            defaults={{
+                                country: installation?.site_country,
+                                province: installation?.site_province_state,
+                                municipality: installation?.site_city,
+                                locality: installation?.site_locality,
+                                postalCode: installation?.site_postal_code,
+                            }}
+                        />
+
+                        <GeocodingFields
+                            installation={installation}
+                            errors={errors}
+                        />
+                    </FormSection>
+
+                    <FormSection
+                        title={translate(
+                            'Planning and technical scope',
+                            locale,
+                        )}
+                        description={translate(
+                            'Schedule the work and complete only the technical fields for the selected service.',
+                            locale,
+                        )}
+                    >
+                        <div className="grid gap-4 md:grid-cols-4">
+                            <Field
+                                id="survey_date"
+                                label={t.surveyDate}
+                                type="date"
+                                defaultValue={installation?.survey_date}
+                                error={errors.survey_date}
+                            />
+                            <Field
+                                id="scheduled_date"
+                                label={t.scheduledDate}
+                                type="date"
+                                defaultValue={installation?.scheduled_date}
+                                error={errors.scheduled_date}
+                            />
+                            <Field
+                                id="completed_date"
+                                label={t.completedDate}
+                                type="date"
+                                defaultValue={installation?.completed_date}
+                                error={errors.completed_date}
+                            />
+                            <Field
+                                id="estimated_budget"
+                                label={t.budgetEstimate}
+                                type="number"
+                                step="0.01"
+                                placeholder="0.00"
+                                defaultValue={installation?.estimated_budget}
+                                error={errors.estimated_budget}
+                            />
+                        </div>
+
+                        <ServiceSpecificFields
+                            serviceType={serviceType}
+                            installation={installation}
+                            remoteStations={remoteStations}
+                            errors={errors}
+                        />
+                    </FormSection>
+
+                    <FormSection
+                        title={translate('Operational notes', locale)}
+                        description={translate(
+                            'Keep access information separate from technical observations.',
+                            locale,
+                        )}
+                    >
+                        <div className="grid gap-4 md:grid-cols-2">
+                            <TextareaField
+                                id="site_notes"
+                                label={t.siteNotes}
+                                placeholder={translate(
+                                    'Roof access, garage level or machinery room',
+                                    locale,
+                                )}
+                                defaultValue={installation?.site_notes}
+                                error={errors.site_notes}
+                            />
+                            <TextareaField
+                                id="technical_notes"
+                                label={t.technicalNotes}
+                                placeholder={translate(
+                                    'Meter location, protections or cable route',
+                                    locale,
+                                )}
+                                defaultValue={installation?.technical_notes}
+                                error={errors.technical_notes}
+                            />
+                        </div>
+                    </FormSection>
+
+                    <FormActions
+                        processing={processing}
+                        submitLabel={finalSubmitLabel}
+                        icon={<PlugZap />}
                     />
-
-                    <GeocodingFields
-                        installation={installation}
-                        errors={errors}
-                    />
-
-                    <div className="grid gap-4 md:grid-cols-4">
-                        <Field
-                            id="survey_date"
-                            label={t.surveyDate}
-                            type="date"
-                            defaultValue={installation?.survey_date}
-                            error={errors.survey_date}
-                        />
-                        <Field
-                            id="scheduled_date"
-                            label={t.scheduledDate}
-                            type="date"
-                            defaultValue={installation?.scheduled_date}
-                            error={errors.scheduled_date}
-                        />
-                        <Field
-                            id="completed_date"
-                            label={t.completedDate}
-                            type="date"
-                            defaultValue={installation?.completed_date}
-                            error={errors.completed_date}
-                        />
-                        <Field
-                            id="estimated_budget"
-                            label={t.budgetEstimate}
-                            type="number"
-                            step="0.01"
-                            placeholder="0.00"
-                            defaultValue={installation?.estimated_budget}
-                            error={errors.estimated_budget}
-                        />
-                    </div>
-
-                    <ServiceSpecificFields
-                        serviceType={serviceType}
-                        installation={installation}
-                        remoteStations={remoteStations}
-                        errors={errors}
-                    />
-
-                    <div className="grid gap-4 md:grid-cols-2">
-                        <TextareaField
-                            id="site_notes"
-                            label={t.siteNotes}
-                            placeholder="Roof access, garage level, machinery room..."
-                            defaultValue={installation?.site_notes}
-                            error={errors.site_notes}
-                        />
-                        <TextareaField
-                            id="technical_notes"
-                            label={t.technicalNotes}
-                            placeholder="Meter location, protections, cable route..."
-                            defaultValue={installation?.technical_notes}
-                            error={errors.technical_notes}
-                        />
-                    </div>
-
-                    <Button disabled={processing}>
-                        <PlugZap />
-                        {finalSubmitLabel}
-                    </Button>
                 </>
             )}
         </Form>
@@ -764,7 +857,7 @@ function ServiceSpecificFields({
     remoteStations: RemoteStationOption[];
     errors: Record<string, string | undefined>;
 }) {
-    const { t } = useLocale();
+    const { locale, t } = useLocale();
     const [monitoringProvider, setMonitoringProvider] = useState(
         installation?.monitoring_provider ?? 'none',
     );
@@ -808,7 +901,10 @@ function ServiceSpecificFields({
             };
 
             if (!response.ok || !data.stations) {
-                throw new Error(data.message || 'Unable to refresh stations.');
+                throw new Error(
+                    data.message ||
+                        translate('Unable to refresh stations.', locale),
+                );
             }
 
             setStationOptions((current) => [
@@ -817,12 +913,14 @@ function ServiceSpecificFields({
                 ),
                 ...data.stations!,
             ]);
-            setStationsMessage(`${data.stations.length} stations available.`);
+            setStationsMessage(
+                `${data.stations.length} ${translate('stations available.', locale)}`,
+            );
         } catch (error) {
             setStationsMessage(
                 error instanceof Error
                     ? error.message
-                    : 'Unable to refresh stations.',
+                    : translate('Unable to refresh stations.', locale),
             );
         } finally {
             setStationsRefreshing(false);
@@ -880,7 +978,10 @@ function ServiceSpecificFields({
                             size="icon"
                             variant="ghost"
                             className="size-7"
-                            title="Refresh available stations"
+                            title={translate(
+                                'Refresh available stations',
+                                locale,
+                            )}
                             disabled={
                                 monitoringProvider === 'none' ||
                                 stationsRefreshing
@@ -929,7 +1030,10 @@ function ServiceSpecificFields({
                     <InputError message={errors.remote_station_id} />
                     <p className="text-xs text-muted-foreground">
                         {stationsMessage ||
-                            'Available stations update automatically every 5 minutes.'}
+                            translate(
+                                'Available stations update automatically every 5 minutes.',
+                                locale,
+                            )}
                     </p>
                 </div>
                 <Field
@@ -985,7 +1089,7 @@ function ServiceSpecificFields({
                 <Field
                     id="charger_connector_type"
                     label={t.chargerConnector}
-                    placeholder="Type 2, CCS..."
+                    placeholder={translate('Type 2 or CCS', locale)}
                     defaultValue={installation?.charger_connector_type}
                     error={errors.charger_connector_type}
                 />
@@ -998,7 +1102,7 @@ function ServiceSpecificFields({
             <Field
                 id="hvac_system_type"
                 label={t.climaSystem}
-                placeholder="Split, ducted, aerothermal..."
+                placeholder={translate('Split, ducted or aerothermal', locale)}
                 defaultValue={installation?.hvac_system_type}
                 error={errors.hvac_system_type}
             />
@@ -1011,7 +1115,10 @@ function ServiceSpecificFields({
                 <Field
                     id="electrical_scope"
                     label={t.electricalScope}
-                    placeholder="Panel upgrade, wiring, certification..."
+                    placeholder={translate(
+                        'Panel upgrade, wiring or certification',
+                        locale,
+                    )}
                     defaultValue={installation?.electrical_scope}
                     error={errors.electrical_scope}
                 />
@@ -1070,7 +1177,10 @@ function ServiceSpecificFields({
             <Field
                 id="security_system_type"
                 label={t.securitySystemType}
-                placeholder="Intrusion alarm, CCTV, access control..."
+                placeholder={translate(
+                    'Intrusion alarm, CCTV or access control',
+                    locale,
+                )}
                 defaultValue={installation?.security_system_type}
                 error={errors.security_system_type}
             />

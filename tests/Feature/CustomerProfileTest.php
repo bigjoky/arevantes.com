@@ -18,6 +18,64 @@ class CustomerProfileTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_legal_customer_profiles_require_fiscal_identity(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)->post(route('people.store'), [
+            'customer_type' => 'business',
+            'first_name' => 'Ana',
+        ])->assertSessionHasErrors(['company_name', 'tax_id']);
+
+        $this->assertDatabaseCount('people', 0);
+    }
+
+    public function test_legal_customer_profile_can_be_created_with_its_primary_contact(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)->post(route('people.store'), [
+            'customer_type' => 'community',
+            'first_name' => 'Ana',
+            'last_name' => 'López',
+            'company_name' => 'Comunidad Jardines del Sur',
+            'tax_id' => 'H12345678',
+        ])->assertRedirect();
+
+        $this->assertDatabaseHas('people', [
+            'category' => 'customer',
+            'customer_type' => 'community',
+            'company_name' => 'Comunidad Jardines del Sur',
+            'tax_id' => 'H12345678',
+            'first_name' => 'Ana',
+        ]);
+    }
+
+    public function test_changing_a_legal_customer_to_residential_removes_the_legal_name(): void
+    {
+        $user = User::factory()->create();
+        $customer = Person::create([
+            'category' => 'customer',
+            'customer_type' => 'business',
+            'first_name' => 'Ana',
+            'company_name' => 'Solar Sur SL',
+            'tax_id' => 'B12345678',
+        ]);
+
+        $this->actingAs($user)->patch(route('people.update', $customer), [
+            'customer_type' => 'residential',
+            'first_name' => 'Ana',
+            'tax_id' => '12345678Z',
+        ])->assertRedirect(route('people.show', $customer));
+
+        $this->assertDatabaseHas('people', [
+            'id' => $customer->id,
+            'customer_type' => 'residential',
+            'company_name' => null,
+            'tax_id' => '12345678Z',
+        ]);
+    }
+
     public function test_customer_profile_combines_commercial_and_operational_history(): void
     {
         $user = User::factory()->create(['role' => 'commercial']);

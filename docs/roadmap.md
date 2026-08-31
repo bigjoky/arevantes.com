@@ -103,8 +103,8 @@ prioridad sobre añadir pantallas que amplíen deuda de interfaz.
 | P0        | Rendimiento medible               | Instrumentación y primera optimización ejecutadas. `Server-Timing` mide aplicación y SQL; los excesos registran solo metadatos técnicos. El panel difiere datos y código del mapa. LCP, INP y CLS se muestrean ahora por pantalla y dispositivo, sin URL, usuario ni IP, con retención de 90 días e informe de percentiles. Pendiente recoger una línea base suficiente en producción y optimizar el siguiente punto demostrado. |
 | P0        | Localización completa             | En curso. España ya conserva `Spain` como valor canónico y se presenta como `España` en formularios españoles. Ningún otro texto visible puede quedar mezclado y los demás catálogos seguirán el mismo patrón.                                                                                                                                                                                                                   |
 | P0        | Adaptación móvil integral         | En curso continuo. Cada ficha, tabla, diálogo y acción principal debe funcionar desde 320 px sin desbordamiento, pérdida de información ni acciones inaccesibles.                                                                                                                                                                                                                                                                |
-| P1        | Sistema único de formularios      | Planificado. Unificar cabecera, secciones, espaciado, controles, ayuda, errores, estados de carga y acciones para cliente, instalación y nuevos módulos.                                                                                                                                                                                                                                                                         |
-| P1        | Cliente según naturaleza          | Planificado. Particular, empresa, comunidad y organismo público compartirán identidad base, pero exigirán y mostrarán únicamente denominación, representantes, identificación fiscal, facturación y contacto pertinentes.                                                                                                                                                                                                        |
+| P1        | Sistema único de formularios      | En curso. Cliente e instalación comparten ya secciones, jerarquía visual, resumen accesible de errores, estado de guardado y barra de acciones adaptable. El patrón se extenderá por cortes a propuestas, gastos y formularios operativos.                                                                                                                                                                                          |
+| P1        | Cliente según naturaleza          | Primer corte completado. Particular, empresa, comunidad y organismo público modifican inmediatamente la identidad solicitada; las entidades jurídicas exigen denominación e identificación fiscal, conservan el contacto principal y al volver a particular eliminan la razón social obsoleta. Pendiente profundizar en representantes, facturación y contactos múltiples.                                                          |
 | P1        | Sidebar y arquitectura de módulos | Planificado. Mapear rutas actuales a las 20 áreas, resolver solapamientos, aplicar permisos en servidor y desplegar la navegación por etapas con pruebas por rol.                                                                                                                                                                                                                                                                |
 
 La optimización se considera terminada únicamente con mediciones antes/después;
@@ -916,14 +916,30 @@ escenarios nuevos y conserva el vínculo con la sucesora. Ninguna recomendación
 aplica sola ni modifica escenarios congelados o cerrados, cuyos valores, versiones
 y huellas permanecen intactos.
 
+## Corte ejecutado — Formularios base y naturaleza del cliente
+
+Clientes e instalaciones comparten ahora un armazón de formulario reutilizable:
+secciones con título y ayuda, resumen accesible de validación, espaciado coherente,
+estado de procesamiento y acciones persistentes que ocupan todo el ancho en móvil.
+La nueva base reduce diferencias de interacción sin acoplar la lógica propia de
+cada módulo.
+
+El formulario de cliente reacciona al elegir particular, empresa, comunidad u
+organismo público. Las entidades jurídicas muestran y exigen razón social e
+identificación fiscal junto a la persona de contacto principal; un particular no
+arrastra una razón social anterior. El servidor aplica las mismas reglas que la
+interfaz y mantiene compatibilidad con las actualizaciones parciales antiguas. Los
+textos y ayudas incorporados en cliente e instalación tienen versión completa en
+español e inglés.
+
 ## Próximo corte recomendado
 
-Recoger durante siete días en producción una muestra suficiente de las rutas
-principales y optimizar primero el siguiente cuello demostrado por `Server-Timing`
-y los percentiles p75 de LCP, INP o CLS. En experiencia transversal, iniciar el
-sistema único de formularios con cliente e instalación y adaptar la identidad del
-cliente a particular, empresa, comunidad u organismo público sin ampliar deuda
-responsive ni de traducción.
+Extender el sistema común a propuestas y gastos, comenzando por los flujos que más
+datos y errores concentran, y completar para empresas, comunidades y organismos
+públicos los representantes, datos de facturación y contactos múltiples. En
+paralelo, recoger durante siete días una muestra suficiente de producción para que
+el siguiente trabajo de rendimiento responda a `Server-Timing` y a los percentiles
+p75 reales de LCP, INP o CLS.
 
 ## Corrección transversal — idioma temporal de la plataforma
 

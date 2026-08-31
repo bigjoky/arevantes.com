@@ -57,13 +57,16 @@ trait ManagesPersonProfiles
      */
     protected function validatedPersonData(Request $request, string $category): array
     {
+        $requiresLegalIdentity = $category === 'customer'
+            && in_array($request->input('customer_type'), ['business', 'community', 'public_sector'], true);
+
         $validated = $request->validate([
             'customer_type' => ['nullable', Rule::in(['residential', 'business', 'community', 'public_sector'])],
             'lifecycle_status' => ['nullable', Rule::in(['lead', 'active', 'inactive', 'former'])],
             'first_name' => ['required', 'string', 'max:255'],
             'last_name' => ['nullable', 'string', 'max:255'],
-            'company_name' => ['nullable', 'string', 'max:255'],
-            'tax_id' => ['nullable', 'string', 'max:255'],
+            'company_name' => [Rule::requiredIf($requiresLegalIdentity), 'nullable', 'string', 'max:255'],
+            'tax_id' => [Rule::requiredIf($requiresLegalIdentity), 'nullable', 'string', 'max:255'],
             'staff_role' => ['nullable', 'string', 'max:255'],
             'document_type' => ['nullable', Rule::in(['passport', 'nif', 'nie', 'other'])],
             'document_number' => ['nullable', 'string', 'max:255'],
@@ -98,6 +101,10 @@ trait ManagesPersonProfiles
 
         if ($category === 'customer') {
             $validated['staff_role'] = null;
+
+            if (($validated['customer_type'] ?? null) === 'residential') {
+                $validated['company_name'] = null;
+            }
         }
 
         if ($category === 'staff') {

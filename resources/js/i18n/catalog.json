@@ -15080,5 +15080,217 @@
     "Available reference": {
         "en": "Available reference",
         "es": "Referencia disponible"
+    },
+    "Review the highlighted fields": {
+        "en": "Review the highlighted fields",
+        "es": "Revisa los campos señalados"
+    },
+    "Saving...": {
+        "en": "Saving...",
+        "es": "Guardando..."
+    },
+    "Profile classification": {
+        "en": "Profile classification",
+        "es": "Clasificación del perfil"
+    },
+    "Choose the profile nature so the form only requests relevant identity and billing information.": {
+        "en": "Choose the profile nature so the form only requests relevant identity and billing information.",
+        "es": "Elige la naturaleza del perfil para que el formulario solicite únicamente la información de identidad y facturación pertinente."
+    },
+    "Identity and tax details": {
+        "en": "Identity and tax details",
+        "es": "Identidad y datos fiscales"
+    },
+    "Record the legal entity and its primary contact person.": {
+        "en": "Record the legal entity and its primary contact person.",
+        "es": "Registra la entidad jurídica y su persona de contacto principal."
+    },
+    "Record the person exactly as shown on their identification.": {
+        "en": "Record the person exactly as shown on their identification.",
+        "es": "Registra a la persona exactamente como aparece en su identificación."
+    },
+    "Primary contact first name": {
+        "en": "Primary contact first name",
+        "es": "Nombre del contacto principal"
+    },
+    "Primary contact last name": {
+        "en": "Primary contact last name",
+        "es": "Apellidos del contacto principal"
+    },
+    "Community name": {
+        "en": "Community name",
+        "es": "Nombre de la comunidad"
+    },
+    "Public body name": {
+        "en": "Public body name",
+        "es": "Nombre del organismo público"
+    },
+    "Legal name": {
+        "en": "Legal name",
+        "es": "Razón social"
+    },
+    "Registered legal name": {
+        "en": "Registered legal name",
+        "es": "Denominación legal registrada"
+    },
+    "Contact preferences": {
+        "en": "Contact preferences",
+        "es": "Preferencias de contacto"
+    },
+    "Keep operational, billing and commercial contact choices together.": {
+        "en": "Keep operational, billing and commercial contact choices together.",
+        "es": "Mantén juntas las opciones de contacto operativo, de facturación y comercial."
+    },
+    "Postal address": {
+        "en": "Postal address",
+        "es": "Dirección postal"
+    },
+    "Select country, province, municipality and locality in order.": {
+        "en": "Select country, province, municipality and locality in order.",
+        "es": "Selecciona por orden el país, la provincia, el municipio y la localidad."
+    },
+    "Additional information": {
+        "en": "Additional information",
+        "es": "Información adicional"
+    },
+    "Add service context, internal notes and an emergency contact when applicable.": {
+        "en": "Add service context, internal notes and an emergency contact when applicable.",
+        "es": "Añade el contexto del servicio, notas internas y un contacto de emergencia cuando corresponda."
+    },
+    "Installation overview": {
+        "en": "Installation overview",
+        "es": "Información general de la instalación"
+    },
+    "Identify the customer, service, workflow status and site reference.": {
+        "en": "Identify the customer, service, workflow status and site reference.",
+        "es": "Identifica el cliente, el servicio, el estado del flujo y la referencia del emplazamiento."
+    },
+    "Responsible team": {
+        "en": "Responsible team",
+        "es": "Equipo responsable"
+    },
+    "Assign commercial and technical ownership without changing access permissions.": {
+        "en": "Assign commercial and technical ownership without changing access permissions.",
+        "es": "Asigna responsables comerciales y técnicos sin modificar los permisos de acceso."
+    },
+    "Site and geolocation": {
+        "en": "Site and geolocation",
+        "es": "Emplazamiento y geolocalización"
+    },
+    "Enter the postal address first, then confirm the map coordinates.": {
+        "en": "Enter the postal address first, then confirm the map coordinates.",
+        "es": "Introduce primero la dirección postal y después confirma las coordenadas del mapa."
+    },
+    "Planning and technical scope": {
+        "en": "Planning and technical scope",
+        "es": "Planificación y alcance técnico"
+    },
+    "Schedule the work and complete only the technical fields for the selected service.": {
+        "en": "Schedule the work and complete only the technical fields for the selected service.",
+        "es": "Programa el trabajo y completa únicamente los campos técnicos del servicio seleccionado."
+    },
+    "Operational notes": {
+        "en": "Operational notes",
+        "es": "Notas operativas"
+    },
+    "Keep access information separate from technical observations.": {
+        "en": "Keep access information separate from technical observations.",
+        "es": "Mantén la información de acceso separada de las observaciones técnicas."
+    },
+    "Customer status": {
+        "en": "Customer status",
+        "es": "Estado del cliente"
+    },
+    "Former customer": {
+        "en": "Former customer",
+        "es": "Antiguo cliente"
+    },
+    "CIF, VAT or tax reference": {
+        "en": "CIF, VAT or tax reference",
+        "es": "CIF, NIF o referencia fiscal"
+    },
+    "Data source": {
+        "en": "Data source",
+        "es": "Origen del dato"
+    },
+    "Web form, event or import": {
+        "en": "Web form, event or import",
+        "es": "Formulario web, evento o importación"
+    },
+    "Preferred contact channel": {
+        "en": "Preferred contact channel",
+        "es": "Canal de contacto preferido"
+    },
+    "No preference": {
+        "en": "No preference",
+        "es": "Sin preferencia"
+    },
+    "Do not contact commercially": {
+        "en": "Do not contact commercially",
+        "es": "No contactar comercialmente"
+    },
+    "Apartment or floor": {
+        "en": "Apartment or floor",
+        "es": "Apartamento o planta"
+    },
+    "Preferences, access needs or invoice notes": {
+        "en": "Preferences, access needs or invoice notes",
+        "es": "Preferencias, necesidades de acceso o notas de facturación"
+    },
+    "Installer, sales or administration": {
+        "en": "Installer, sales or administration",
+        "es": "Instalación, comercial o administración"
+    },
+    "Passport, NIF or NIE": {
+        "en": "Passport, NIF or NIE",
+        "es": "Pasaporte, NIF o NIE"
+    },
+    "Referral, website or Google": {
+        "en": "Referral, website or Google",
+        "es": "Recomendación, web o Google"
+    },
+    "Solar panels\nElectrical installation\nAlarm and security system": {
+        "en": "Solar panels\nElectrical installation\nAlarm and security system",
+        "es": "Paneles solares\nInstalación eléctrica\nAlarma y sistema de seguridad"
+    },
+    "Home, warehouse or community garage": {
+        "en": "Home, warehouse or community garage",
+        "es": "Vivienda, nave o garaje comunitario"
+    },
+    "Garage, roof access or floor": {
+        "en": "Garage, roof access or floor",
+        "es": "Garaje, acceso a cubierta o planta"
+    },
+    "Roof access, garage level or machinery room": {
+        "en": "Roof access, garage level or machinery room",
+        "es": "Acceso a cubierta, planta de garaje o sala de máquinas"
+    },
+    "Meter location, protections or cable route": {
+        "en": "Meter location, protections or cable route",
+        "es": "Ubicación del contador, protecciones o recorrido del cable"
+    },
+    "Unable to refresh stations.": {
+        "en": "Unable to refresh stations.",
+        "es": "No se han podido actualizar las estaciones."
+    },
+    "stations available.": {
+        "en": "stations available.",
+        "es": "estaciones disponibles."
+    },
+    "Type 2 or CCS": {
+        "en": "Type 2 or CCS",
+        "es": "Tipo 2 o CCS"
+    },
+    "Split, ducted or aerothermal": {
+        "en": "Split, ducted or aerothermal",
+        "es": "Split, conductos o aerotermia"
+    },
+    "Panel upgrade, wiring or certification": {
+        "en": "Panel upgrade, wiring or certification",
+        "es": "Reforma de cuadro, cableado o certificación"
+    },
+    "Intrusion alarm, CCTV or access control": {
+        "en": "Intrusion alarm, CCTV or access control",
+        "es": "Alarma de intrusión, CCTV o control de acceso"
     }
 }
