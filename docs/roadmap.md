@@ -901,15 +901,29 @@ percentiles p50, p75 y p95 y el porcentaje saludable, con ventana y muestra mín
 configurables. La siguiente optimización se elegirá cuando producción aporte una
 muestra suficiente, evitando conclusiones basadas en visitas aisladas.
 
+## Corte ejecutado — Gobierno agregado de versiones de calibración
+
+Las calibraciones aceptadas agregan ahora sus evaluaciones humanas decididas en
+revisiones inmutables y versionadas. Cada revisión exige al menos tres resultados,
+conserva sus huellas y decisiones, calcula la distribución entre mantener, revisar
+y retirar, y solo recomienda una dirección cuando alcanza un 75 % de consistencia;
+los patrones mixtos se declaran como evidencia insuficiente.
+
+Administración decide expresamente si mantiene activa la referencia, la sustituye
+por una versión aceptada más reciente de la misma serie o la bloquea por evidencia
+insuficiente. La sustitución marca las versiones anteriores como no utilizables en
+escenarios nuevos y conserva el vínculo con la sucesora. Ninguna recomendación se
+aplica sola ni modifica escenarios congelados o cerrados, cuyos valores, versiones
+y huellas permanecen intactos.
+
 ## Próximo corte recomendado
 
 Recoger durante siete días en producción una muestra suficiente de las rutas
 principales y optimizar primero el siguiente cuello demostrado por `Server-Timing`
-y los percentiles p75 de LCP, INP o CLS. En
-escenarios, agrupar varias evaluaciones de una misma calibración para gobernar qué
-versión permanece activa, cuál queda sustituida y cuándo la evidencia vuelve a ser
-insuficiente. Sustituir una versión no reescribirá escenarios anteriores ni activará
-la nueva referencia sin aprobación explícita.
+y los percentiles p75 de LCP, INP o CLS. En experiencia transversal, iniciar el
+sistema único de formularios con cliente e instalación y adaptar la identidad del
+cliente a particular, empresa, comunidad u organismo público sin ampliar deuda
+responsive ni de traducción.
 
 ## Corrección transversal — idioma temporal de la plataforma
 

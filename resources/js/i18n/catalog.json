@@ -14992,5 +14992,93 @@
     "retire": {
         "en": "retire",
         "es": "retirar"
+    },
+    "Reviewing versions...": {
+        "en": "Reviewing versions...",
+        "es": "Revisando versiones..."
+    },
+    "Govern versions": {
+        "en": "Govern versions",
+        "es": "Gobernar versiones"
+    },
+    "insufficient": {
+        "en": "insufficient evidence",
+        "es": "evidencia insuficiente"
+    },
+    "This governed reference is no longer available for new scenarios.": {
+        "en": "This governed reference is no longer available for new scenarios.",
+        "es": "Esta referencia gobernada ya no está disponible para escenarios nuevos."
+    },
+    "Version governance": {
+        "en": "Version governance",
+        "es": "Gobierno de versiones"
+    },
+    "Governance review": {
+        "en": "Governance review",
+        "es": "Revisión de gobierno"
+    },
+    "Decided evaluations": {
+        "en": "Decided evaluations",
+        "es": "Evaluaciones decididas"
+    },
+    "Retain": {
+        "en": "Retain",
+        "es": "Mantener"
+    },
+    "Revise": {
+        "en": "Revise",
+        "es": "Revisar"
+    },
+    "Retire": {
+        "en": "Retire",
+        "es": "Retirar"
+    },
+    "Consistency": {
+        "en": "Consistency",
+        "es": "Consistencia"
+    },
+    "Aggregated recommendation": {
+        "en": "Aggregated recommendation",
+        "es": "Recomendación agregada"
+    },
+    "No version changes until an administrator records a decision.": {
+        "en": "No version changes until an administrator records a decision.",
+        "es": "Ninguna versión cambia hasta que un administrador registra una decisión."
+    },
+    "Replacement version": {
+        "en": "Replacement version",
+        "es": "Versión sustituta"
+    },
+    "Governance decision note": {
+        "en": "Governance decision note",
+        "es": "Nota de la decisión de gobierno"
+    },
+    "Keep active": {
+        "en": "Keep active",
+        "es": "Mantener activa"
+    },
+    "Supersede with selected": {
+        "en": "Supersede with selected",
+        "es": "Sustituir por la seleccionada"
+    },
+    "Mark evidence insufficient": {
+        "en": "Mark evidence insufficient",
+        "es": "Marcar evidencia insuficiente"
+    },
+    "Active reference": {
+        "en": "Active reference",
+        "es": "Referencia activa"
+    },
+    "Superseded reference": {
+        "en": "Superseded reference",
+        "es": "Referencia sustituida"
+    },
+    "Insufficient evidence": {
+        "en": "Insufficient evidence",
+        "es": "Evidencia insuficiente"
+    },
+    "Available reference": {
+        "en": "Available reference",
+        "es": "Referencia disponible"
     }
 }

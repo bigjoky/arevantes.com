@@ -9,9 +9,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class PlanningCalibrationProposal extends Model
 {
     protected $fillable = [
-        'business_line', 'area', 'metric_label', 'metric_key', 'unit', 'version', 'status', 'direction',
+        'business_line', 'area', 'metric_label', 'metric_key', 'unit', 'version', 'status', 'governance_state', 'direction',
         'sample_size', 'evidence_snapshot', 'source_fingerprint', 'recommendation', 'created_by',
-        'assumption_key', 'accepted_value', 'decided_by', 'decided_at', 'decision_note',
+        'assumption_key', 'accepted_value', 'decided_by', 'decided_at', 'decision_note', 'superseded_by_id',
     ];
 
     public function creator(): BelongsTo
@@ -27,6 +27,16 @@ class PlanningCalibrationProposal extends Model
     public function evaluations(): HasMany
     {
         return $this->hasMany(PlanningCalibrationEvaluation::class)->latest('version');
+    }
+
+    public function governanceReviews(): HasMany
+    {
+        return $this->hasMany(PlanningCalibrationGovernanceReview::class)->latest('version');
+    }
+
+    public function supersededBy(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'superseded_by_id');
     }
 
     protected function casts(): array

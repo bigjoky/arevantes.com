@@ -221,6 +221,7 @@ type CalibrationProposal = {
     unit: string;
     version: number;
     status: 'pending' | 'accepted' | 'rejected';
+    governance_state: 'available' | 'active' | 'superseded' | 'insufficient';
     direction: 'higher' | 'lower';
     sample_size: number;
     evidence_snapshot: {
@@ -247,7 +248,27 @@ type CalibrationProposal = {
     auto_apply: false;
     creator: { id: number; name: string };
     decider: { id: number; name: string } | null;
+    superseded_by: { id: number; version: number } | null;
     evaluations: CalibrationEvaluation[];
+    governance_reviews: CalibrationGovernanceReview[];
+};
+
+type CalibrationGovernanceReview = {
+    id: number;
+    version: number;
+    status: 'pending' | 'decided';
+    recommendation: 'retain' | 'retire' | 'insufficient';
+    sample_size: number;
+    retain_count: number;
+    revise_count: number;
+    retire_count: number;
+    consistency: number;
+    decision: 'retain' | 'supersede' | 'insufficient' | null;
+    replacement_proposal_id: number | null;
+    replacement_proposal: { id: number; version: number } | null;
+    decision_note: string | null;
+    decided_at: string | null;
+    decider: { id: number; name: string } | null;
 };
 
 type CalibrationEvaluation = {
@@ -301,6 +322,17 @@ const scenarioKindLabel = (
 const signed = (value: number, suffix = '') =>
     `${value > 0 ? '+' : ''}${value}${suffix}`;
 
+const governanceStateLabel = (
+    state: CalibrationProposal['governance_state'],
+) =>
+    state === 'active'
+        ? 'Active reference'
+        : state === 'superseded'
+          ? 'Superseded reference'
+          : state === 'insufficient'
+            ? 'Insufficient evidence'
+            : 'Available reference';
+
 const learningSeverityLabel = (
     severity: ScenarioLearning['metrics'][number]['severity'],
 ) =>
@@ -330,6 +362,7 @@ export default function PlanningScenarioIndex({
     const { locale } = useLocale();
     const calibrationGeneration = useForm({});
     const calibrationEvaluationGeneration = useForm({});
+    const calibrationGovernanceGeneration = useForm({});
     const form = useForm({
         name: '',
         scenario_kind: 'base' as 'base' | 'risk' | 'alternative',
@@ -431,6 +464,7 @@ export default function PlanningScenarioIndex({
                     locale={locale}
                     generating={calibrationGeneration.processing}
                     evaluating={calibrationEvaluationGeneration.processing}
+                    governing={calibrationGovernanceGeneration.processing}
                     selectedBusinessLines={selectedBusinessLines}
                     currentAssumptions={{
                         capacity_hours_per_opportunity:
@@ -450,6 +484,12 @@ export default function PlanningScenarioIndex({
                     onEvaluate={() =>
                         calibrationEvaluationGeneration.post(
                             '/planning-scenarios/calibration-evaluations',
+                            { preserveScroll: true },
+                        )
+                    }
+                    onGovern={() =>
+                        calibrationGovernanceGeneration.post(
+                            '/planning-scenarios/calibration-governance',
                             { preserveScroll: true },
                         )
                     }
@@ -798,23 +838,27 @@ function CalibrationProposals({
     locale,
     generating,
     evaluating,
+    governing,
     selectedBusinessLines,
     currentAssumptions,
     selectedProposalId,
     onUse,
     onGenerate,
     onEvaluate,
+    onGovern,
 }: {
     proposals: CalibrationProposal[];
     locale: 'en' | 'es';
     generating: boolean;
     evaluating: boolean;
+    governing: boolean;
     selectedBusinessLines: string[];
     currentAssumptions: Record<AssumptionKey, string>;
     selectedProposalId: string;
     onUse: (proposal: CalibrationProposal) => void;
     onGenerate: () => void;
     onEvaluate: () => void;
+    onGovern: () => void;
 }) {
     return (
         <section className="rounded-lg border p-4">
@@ -848,6 +892,17 @@ function CalibrationProposals({
                     <Button
                         type="button"
                         variant="outline"
+                        disabled={governing}
+                        onClick={onGovern}
+                    >
+                        <ShieldCheck />
+                        {governing
+                            ? translate('Reviewing versions...', locale)
+                            : translate('Govern versions', locale)}
+                    </Button>
+                    <Button
+                        type="button"
+                        variant="outline"
                         disabled={evaluating}
                         onClick={onEvaluate}
                     >
@@ -876,12 +931,26 @@ function CalibrationProposals({
                             canUse={
                                 selectedBusinessLines.length === 1 &&
                                 selectedBusinessLines[0] ===
-                                    proposal.business_line
+                                    proposal.business_line &&
+                                !['superseded', 'insufficient'].includes(
+                                    proposal.governance_state,
+                                )
                             }
                             selected={
                                 selectedProposalId === String(proposal.id)
                             }
                             onUse={() => onUse(proposal)}
+                            replacements={proposals.filter(
+                                (candidate) =>
+                                    candidate.id !== proposal.id &&
+                                    candidate.status === 'accepted' &&
+                                    candidate.business_line ===
+                                        proposal.business_line &&
+                                    candidate.version > proposal.version &&
+                                    !['superseded', 'insufficient'].includes(
+                                        candidate.governance_state,
+                                    ),
+                            )}
                         />
                     ))}
                 </div>
@@ -904,6 +973,7 @@ function CalibrationProposalCard({
     canUse,
     selected,
     onUse,
+    replacements,
 }: {
     proposal: CalibrationProposal;
     locale: 'en' | 'es';
@@ -911,6 +981,7 @@ function CalibrationProposalCard({
     canUse: boolean;
     selected: boolean;
     onUse: () => void;
+    replacements: CalibrationProposal[];
 }) {
     const decisionForm = useForm<{
         decision: 'accepted' | 'rejected';
@@ -959,6 +1030,14 @@ function CalibrationProposalCard({
                         locale,
                     )}
                 </Badge>
+                {proposal.status === 'accepted' && (
+                    <Badge variant="secondary">
+                        {translate(
+                            governanceStateLabel(proposal.governance_state),
+                            locale,
+                        )}
+                    </Badge>
+                )}
             </div>
             <div className="mt-3 grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
                 <span>
@@ -1139,7 +1218,14 @@ function CalibrationProposalCard({
                                 {!canUse && !selected && (
                                     <p className="mt-2 text-muted-foreground">
                                         {translate(
-                                            'Select opportunities from this business line only to use the reference.',
+                                            [
+                                                'superseded',
+                                                'insufficient',
+                                            ].includes(
+                                                proposal.governance_state,
+                                            )
+                                                ? 'This governed reference is no longer available for new scenarios.'
+                                                : 'Select opportunities from this business line only to use the reference.',
                                             locale,
                                         )}
                                     </p>
@@ -1151,6 +1237,13 @@ function CalibrationProposalCard({
             {proposal.evaluations.length > 0 && (
                 <CalibrationEvaluations
                     evaluations={proposal.evaluations}
+                    locale={locale}
+                />
+            )}
+            {proposal.governance_reviews.length > 0 && (
+                <CalibrationGovernanceReviews
+                    reviews={proposal.governance_reviews}
+                    replacements={replacements}
                     locale={locale}
                 />
             )}
@@ -1292,6 +1385,219 @@ function CalibrationEvaluationCard({
                     </span>
                     <p className="mt-1 text-muted-foreground">
                         {evaluation.decision_note}
+                    </p>
+                </div>
+            )}
+        </div>
+    );
+}
+
+function CalibrationGovernanceReviews({
+    reviews,
+    replacements,
+    locale,
+}: {
+    reviews: CalibrationGovernanceReview[];
+    replacements: CalibrationProposal[];
+    locale: 'en' | 'es';
+}) {
+    return (
+        <div className="mt-4 space-y-3 border-t pt-4">
+            <h5 className="font-medium">
+                {translate('Version governance', locale)}
+            </h5>
+            {reviews.map((review) => (
+                <CalibrationGovernanceReviewCard
+                    key={review.id}
+                    review={review}
+                    replacements={replacements}
+                    locale={locale}
+                />
+            ))}
+        </div>
+    );
+}
+
+function CalibrationGovernanceReviewCard({
+    review,
+    replacements,
+    locale,
+}: {
+    review: CalibrationGovernanceReview;
+    replacements: CalibrationProposal[];
+    locale: 'en' | 'es';
+}) {
+    const form = useForm<{
+        decision: 'retain' | 'supersede' | 'insufficient';
+        replacement_proposal_id: string;
+        decision_note: string;
+        governance: string;
+    }>({
+        decision: 'retain',
+        replacement_proposal_id: '',
+        decision_note: '',
+        governance: '',
+    });
+    const decide = (decision: 'retain' | 'supersede' | 'insufficient') => {
+        form.transform((data) => ({ ...data, decision }));
+        form.post(`/planning-calibration-governance/${review.id}/decision`, {
+            preserveScroll: true,
+        });
+    };
+
+    return (
+        <div className="rounded-md border bg-background p-3 text-xs">
+            <div className="flex flex-wrap items-start justify-between gap-2">
+                <div>
+                    <div className="font-medium">
+                        {translate('Governance review', locale)} · v
+                        {review.version}
+                    </div>
+                    <div className="text-muted-foreground">
+                        {translate('Decided evaluations', locale)}:{' '}
+                        {review.sample_size}
+                    </div>
+                </div>
+                <Badge variant="outline">
+                    {translate(
+                        review.status === 'decided' && review.decision
+                            ? review.decision
+                            : review.recommendation,
+                        locale,
+                    )}
+                </Badge>
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                <span>
+                    {translate('Retain', locale)}: {review.retain_count}
+                </span>
+                <span>
+                    {translate('Revise', locale)}: {review.revise_count}
+                </span>
+                <span>
+                    {translate('Retire', locale)}: {review.retire_count}
+                </span>
+                <span>
+                    {translate('Consistency', locale)}:{' '}
+                    {Math.round(review.consistency * 100)}%
+                </span>
+            </div>
+            <p className="mt-2 text-muted-foreground">
+                {translate('Aggregated recommendation', locale)}:{' '}
+                {translate(review.recommendation, locale)}.{' '}
+                {translate(
+                    'No version changes until an administrator records a decision.',
+                    locale,
+                )}
+            </p>
+
+            {review.status === 'pending' ? (
+                <div className="mt-3 space-y-2">
+                    {replacements.length > 0 && (
+                        <div>
+                            <Label
+                                htmlFor={`governance-replacement-${review.id}`}
+                            >
+                                {translate('Replacement version', locale)}
+                            </Label>
+                            <Select
+                                value={form.data.replacement_proposal_id}
+                                onValueChange={(value) =>
+                                    form.setData(
+                                        'replacement_proposal_id',
+                                        value,
+                                    )
+                                }
+                            >
+                                <SelectTrigger
+                                    id={`governance-replacement-${review.id}`}
+                                >
+                                    <SelectValue
+                                        placeholder={translate(
+                                            'Select a newer accepted version',
+                                            locale,
+                                        )}
+                                    />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {replacements.map((replacement) => (
+                                        <SelectItem
+                                            key={replacement.id}
+                                            value={String(replacement.id)}
+                                        >
+                                            v{replacement.version} ·{' '}
+                                            {replacement.accepted_value}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            <InputError
+                                message={form.errors.replacement_proposal_id}
+                            />
+                        </div>
+                    )}
+                    <Label htmlFor={`governance-note-${review.id}`}>
+                        {translate('Governance decision note', locale)}
+                    </Label>
+                    <Textarea
+                        id={`governance-note-${review.id}`}
+                        value={form.data.decision_note}
+                        onChange={(event) =>
+                            form.setData('decision_note', event.target.value)
+                        }
+                    />
+                    <InputError
+                        message={
+                            form.errors.decision_note || form.errors.governance
+                        }
+                    />
+                    <div className="flex flex-col gap-2 sm:flex-row">
+                        <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            disabled={form.processing}
+                            onClick={() => decide('retain')}
+                        >
+                            {translate('Keep active', locale)}
+                        </Button>
+                        <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            disabled={
+                                form.processing ||
+                                replacements.length === 0 ||
+                                form.data.replacement_proposal_id === ''
+                            }
+                            onClick={() => decide('supersede')}
+                        >
+                            {translate('Supersede with selected', locale)}
+                        </Button>
+                        <Button
+                            type="button"
+                            size="sm"
+                            variant="destructive"
+                            disabled={form.processing}
+                            onClick={() => decide('insufficient')}
+                        >
+                            {translate('Mark evidence insufficient', locale)}
+                        </Button>
+                    </div>
+                </div>
+            ) : (
+                <div className="mt-3 border-t pt-3">
+                    <span className="font-medium">
+                        {translate('Decided by', locale)} {review.decider?.name}
+                    </span>
+                    {review.replacement_proposal && (
+                        <span className="ml-2">
+                            · {translate('Replacement', locale)} v
+                            {review.replacement_proposal.version}
+                        </span>
+                    )}
+                    <p className="mt-1 text-muted-foreground">
+                        {review.decision_note}
                     </p>
                 </div>
             )}

@@ -8,6 +8,7 @@ use App\Models\Installation;
 use App\Models\Opportunity;
 use App\Models\Person;
 use App\Models\PlanningCalibrationEvaluation;
+use App\Models\PlanningCalibrationGovernanceReview;
 use App\Models\PlanningCalibrationProposal;
 use App\Models\PlanningScenario;
 use App\Models\PlanningScenarioRequest;
@@ -866,6 +867,210 @@ class PlanningScenarioTest extends TestCase
             ->where('calibrationProposals.1.evaluations.1.recommendation', 'retain')
             ->where('calibrationProposals.1.evaluations.1.decision', 'revise')
             ->where('calibrationProposals.1.evaluations.1.scenario.id', $calibrated->id));
+    }
+
+    public function test_decided_evaluations_govern_active_and_superseded_calibration_versions(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $commercial = User::factory()->create(['role' => 'commercial']);
+        $proposal = PlanningCalibrationProposal::create([
+            'business_line' => 'solar',
+            'area' => 'operations',
+            'metric_label' => 'Tasks completed',
+            'metric_key' => hash('sha256', 'operations-tasks-items'),
+            'unit' => 'items',
+            'version' => 1,
+            'status' => 'accepted',
+            'direction' => 'lower',
+            'sample_size' => 3,
+            'evidence_snapshot' => ['average_delta_percent' => -40],
+            'source_fingerprint' => hash('sha256', 'calibration-v1'),
+            'recommendation' => 'Review operational capacity.',
+            'assumption_key' => 'capacity_hours_per_opportunity',
+            'accepted_value' => 55,
+            'created_by' => $admin->id,
+            'decided_by' => $admin->id,
+            'decided_at' => now(),
+            'decision_note' => 'Accepted for governed evaluation.',
+        ]);
+
+        foreach (range(1, 3) as $sequence) {
+            $scenario = $this->closedCalibrationScenario($admin, 20 + $sequence, 10, 9);
+            PlanningCalibrationEvaluation::create([
+                'planning_calibration_proposal_id' => $proposal->id,
+                'planning_scenario_id' => $scenario->id,
+                'version' => $sequence,
+                'status' => 'decided',
+                'recommendation' => 'retain',
+                'origin_delta_percent' => -40,
+                'observed_delta_percent' => -10,
+                'improvement_points' => 30,
+                'evidence_snapshot' => ['scenario_closure_fingerprint' => $scenario->closure_fingerprint],
+                'fingerprint' => hash('sha256', "evaluation-{$sequence}"),
+                'created_by' => $admin->id,
+                'decision' => 'retain',
+                'decided_by' => $admin->id,
+                'decided_at' => now(),
+                'decision_note' => 'The calibrated outcome remained within the expected tolerance.',
+            ]);
+        }
+
+        $this->actingAs($commercial)
+            ->post(route('planning-scenarios.calibration-governance.store'))
+            ->assertForbidden();
+        $this->actingAs($admin)
+            ->post(route('planning-scenarios.calibration-governance.store'))
+            ->assertRedirect();
+
+        $review = PlanningCalibrationGovernanceReview::firstOrFail();
+        $this->assertSame(1, $review->version);
+        $this->assertSame(3, $review->sample_size);
+        $this->assertSame(3, $review->retain_count);
+        $this->assertSame('retain', $review->recommendation);
+        $this->assertEquals(1.0, $review->consistency);
+
+        $this->post(route('planning-scenarios.calibration-governance.store'))->assertRedirect();
+        $this->assertDatabaseCount('planning_calibration_governance_reviews', 1);
+        $this->post(route('planning-calibration-governance.decision.store', $review), [
+            'decision' => 'retain',
+            'decision_note' => 'Three consistent horizons support retaining this reference as active.',
+        ])->assertRedirect();
+        $this->assertSame('active', $proposal->fresh()->governance_state);
+
+        $replacement = $proposal->replicate();
+        $replacement->fill([
+            'version' => 2,
+            'governance_state' => 'available',
+            'accepted_value' => 52,
+            'source_fingerprint' => hash('sha256', 'calibration-v2'),
+            'decision_note' => 'A newer accepted reference awaits explicit governance.',
+        ])->save();
+
+        $fourthScenario = $this->closedCalibrationScenario($admin, 24, 10, 5);
+        PlanningCalibrationEvaluation::create([
+            'planning_calibration_proposal_id' => $proposal->id,
+            'planning_scenario_id' => $fourthScenario->id,
+            'version' => 4,
+            'status' => 'decided',
+            'recommendation' => 'retire',
+            'origin_delta_percent' => -40,
+            'observed_delta_percent' => -50,
+            'improvement_points' => -10,
+            'evidence_snapshot' => ['scenario_closure_fingerprint' => $fourthScenario->closure_fingerprint],
+            'fingerprint' => hash('sha256', 'evaluation-4'),
+            'created_by' => $admin->id,
+            'decision' => 'retire',
+            'decided_by' => $admin->id,
+            'decided_at' => now(),
+            'decision_note' => 'The latest horizon no longer supports the original reference.',
+        ]);
+        $this->post(route('planning-scenarios.calibration-governance.store'))->assertRedirect();
+        $secondReview = PlanningCalibrationGovernanceReview::latest('version')->firstOrFail();
+        $this->assertSame(2, $secondReview->version);
+        $this->assertSame('retain', $secondReview->recommendation);
+        $this->assertEquals(0.75, $secondReview->consistency);
+
+        $this->post(route('planning-calibration-governance.decision.store', $secondReview), [
+            'decision' => 'supersede',
+            'replacement_proposal_id' => $replacement->id,
+            'decision_note' => 'Promote the newer accepted version while preserving all prior scenario evidence.',
+        ])->assertRedirect();
+
+        $this->assertSame('superseded', $proposal->fresh()->governance_state);
+        $this->assertSame($replacement->id, $proposal->fresh()->superseded_by_id);
+        $this->assertSame('active', $replacement->fresh()->governance_state);
+        $this->assertDatabaseHas('security_events', [
+            'type' => 'planning_calibration_governance_decided',
+            'user_id' => $admin->id,
+        ]);
+        $this->assertTrue(PlanningScenario::query()->whereKey($fourthScenario->id)->where('status', 'closed')->exists());
+
+        $customer = Person::create(['category' => 'customer', 'first_name' => 'Governed']);
+        $installation = Installation::create([
+            'person_id' => $customer->id,
+            'service_type' => 'solar',
+            'status' => 'lead',
+            'site_address_line_1' => 'Governed calibration site',
+        ]);
+        $opportunity = Opportunity::create([
+            'person_id' => $customer->id,
+            'installation_id' => $installation->id,
+            'code' => 'OPP-GOVERNED-CALIBRATION',
+            'title' => 'Governed calibration portfolio',
+            'stage' => 'qualified',
+            'probability' => 50,
+            'estimated_value' => 5000,
+            'expected_close_on' => today()->addMonth(),
+        ]);
+        $payload = [
+            'name' => 'Governed reference scenario',
+            'scenario_kind' => 'base',
+            'horizon_starts_on' => today()->toDateString(),
+            'horizon_ends_on' => today()->addMonths(3)->toDateString(),
+            'opportunity_ids' => [$opportunity->id],
+            'capacity_hours_per_opportunity' => 55,
+            'material_cost_percent_without_quote' => 35,
+            'collection_delay_days' => 30,
+            'calibration_proposal_id' => $proposal->id,
+            'calibration_previous_value' => 40,
+        ];
+        $this->post(route('planning-scenarios.store'), $payload)
+            ->assertSessionHasErrors('calibration_proposal_id');
+        $this->post(route('planning-scenarios.store'), [
+            ...$payload,
+            'capacity_hours_per_opportunity' => 52,
+            'calibration_proposal_id' => $replacement->id,
+        ])->assertRedirect();
+        $this->assertSame(
+            $replacement->id,
+            PlanningScenario::where('name', 'Governed reference scenario')->firstOrFail()
+                ->assumptions['calibration_reference']['proposal_id'],
+        );
+
+        foreach (['retain', 'revise', 'retire'] as $index => $decision) {
+            $scenario = $this->closedCalibrationScenario($admin, 30 + $index, 10, 8);
+            PlanningCalibrationEvaluation::create([
+                'planning_calibration_proposal_id' => $replacement->id,
+                'planning_scenario_id' => $scenario->id,
+                'version' => $index + 1,
+                'status' => 'decided',
+                'recommendation' => $decision,
+                'origin_delta_percent' => -40,
+                'observed_delta_percent' => -20,
+                'improvement_points' => 20,
+                'evidence_snapshot' => ['scenario_closure_fingerprint' => $scenario->closure_fingerprint],
+                'fingerprint' => hash('sha256', "replacement-evaluation-{$index}"),
+                'created_by' => $admin->id,
+                'decision' => $decision,
+                'decided_by' => $admin->id,
+                'decided_at' => now(),
+                'decision_note' => 'A deliberately mixed result for insufficient aggregate evidence.',
+            ]);
+        }
+        $this->post(route('planning-scenarios.calibration-governance.store'))->assertRedirect();
+        $insufficientReview = PlanningCalibrationGovernanceReview::query()
+            ->where('planning_calibration_proposal_id', $replacement->id)
+            ->firstOrFail();
+        $this->assertSame('insufficient', $insufficientReview->recommendation);
+        $this->assertEquals(0.333, $insufficientReview->consistency);
+        $this->post(route('planning-calibration-governance.decision.store', $insufficientReview), [
+            'decision' => 'insufficient',
+            'decision_note' => 'The mixed outcomes do not support continued use in new planning horizons.',
+        ])->assertRedirect();
+        $this->assertSame('insufficient', $replacement->fresh()->governance_state);
+
+        $this->get(route('planning-scenarios.index'))->assertInertia(fn (Assert $page) => $page
+            ->where('calibrationProposals.0.id', $replacement->id)
+            ->where('calibrationProposals.0.governance_state', 'insufficient')
+            ->where('calibrationProposals.0.governance_reviews.0.recommendation', 'insufficient')
+            ->where('calibrationProposals.1.id', $proposal->id)
+            ->where('calibrationProposals.1.governance_state', 'superseded')
+            ->where('calibrationProposals.1.superseded_by.id', $replacement->id));
+
+        $this->post(route('planning-calibration-governance.decision.store', $secondReview), [
+            'decision' => 'insufficient',
+            'decision_note' => 'A decided governance review cannot be decided again.',
+        ])->assertSessionHasErrors('governance');
     }
 
     private function closedCalibrationScenario(User $admin, int $sequence, float $planned, float $observed): PlanningScenario

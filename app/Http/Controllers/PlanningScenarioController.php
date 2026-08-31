@@ -4,9 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Models\Opportunity;
 use App\Models\PlanningCalibrationEvaluation;
+use App\Models\PlanningCalibrationGovernanceReview;
 use App\Models\PlanningCalibrationProposal;
 use App\Models\PlanningScenario;
 use App\Services\Planning\PlanningCalibrationEvaluationService;
+use App\Services\Planning\PlanningCalibrationGovernanceService;
 use App\Services\Planning\PlanningCalibrationProposalService;
 use App\Services\Planning\PlanningScenarioApproval;
 use App\Services\Planning\PlanningScenarioIntegrity;
@@ -58,12 +60,59 @@ class PlanningScenarioController extends Controller
                 ->with([
                     'creator:id,name', 'decider:id,name',
                     'evaluations.scenario:id,name,version', 'evaluations.creator:id,name', 'evaluations.decider:id,name',
+                    'governanceReviews.creator:id,name', 'governanceReviews.decider:id,name',
+                    'governanceReviews.replacementProposal:id,version', 'supersededBy:id,version',
                 ])
                 ->latest('id')
                 ->limit(50)
                 ->get()
                 ->each->setAttribute('auto_apply', false),
         ]);
+    }
+
+    public function generateCalibrationGovernance(Request $request, PlanningCalibrationGovernanceService $governance, SecurityEventRecorder $events): RedirectResponse
+    {
+        $created = $governance->generate($request->user());
+        $events->record('planning_calibration_governance_generated', $request->user(), [
+            'created' => $created->count(),
+            'planning_calibration_governance_review_ids' => $created->pluck('id')->all(),
+            'minimum_sample_size' => PlanningCalibrationGovernanceService::MINIMUM_SAMPLE_SIZE,
+            'auto_apply' => false,
+        ]);
+
+        return back()->with('toast', [
+            'type' => 'success',
+            'message' => $created->isEmpty()
+                ? __('No calibration series has enough new decided evaluations.')
+                : __('Calibration governance reviews generated from decided evaluations.'),
+        ]);
+    }
+
+    public function decideCalibrationGovernance(Request $request, PlanningCalibrationGovernanceReview $review, PlanningCalibrationGovernanceService $governance, SecurityEventRecorder $events): RedirectResponse
+    {
+        $data = $request->validate([
+            'decision' => ['required', Rule::in(['retain', 'supersede', 'insufficient'])],
+            'replacement_proposal_id' => ['nullable', 'required_if:decision,supersede', 'integer', 'exists:planning_calibration_proposals,id'],
+            'decision_note' => ['required', 'string', 'min:10', 'max:2000'],
+        ]);
+        $decided = $governance->decide(
+            $review,
+            $request->user(),
+            $data['decision'],
+            $data['decision_note'],
+            isset($data['replacement_proposal_id']) ? (int) $data['replacement_proposal_id'] : null,
+        );
+        $events->record('planning_calibration_governance_decided', $request->user(), [
+            'planning_calibration_governance_review_id' => $decided->id,
+            'planning_calibration_proposal_id' => $decided->planning_calibration_proposal_id,
+            'recommendation' => $decided->recommendation,
+            'decision' => $decided->decision,
+            'replacement_proposal_id' => $decided->replacement_proposal_id,
+            'fingerprint' => $decided->fingerprint,
+            'auto_apply' => false,
+        ]);
+
+        return back()->with('toast', ['type' => 'success', 'message' => __('Calibration version governance recorded without altering historical scenarios.')]);
     }
 
     public function generateCalibrationEvaluations(Request $request, PlanningCalibrationEvaluationService $evaluations, SecurityEventRecorder $events): RedirectResponse

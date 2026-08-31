@@ -84,7 +84,11 @@ class SharedPortfolioScenario
         }
 
         $proposal = PlanningCalibrationProposal::query()->find($data['calibration_proposal_id']);
-        if (! $proposal || $proposal->status !== 'accepted' || $proposal->accepted_value === null || $proposal->assumption_key === null) {
+        if (! $proposal
+            || $proposal->status !== 'accepted'
+            || in_array($proposal->governance_state, ['superseded', 'insufficient'], true)
+            || $proposal->accepted_value === null
+            || $proposal->assumption_key === null) {
             throw ValidationException::withMessages(['calibration_proposal_id' => __('Only an accepted calibration with a reference value can be used.')]);
         }
 
