@@ -14888,5 +14888,49 @@
     "Observed outcomes repeatedly remained below the plan; review the related assumptions in the next scenario.": {
         "en": "Observed outcomes repeatedly remained below the plan; review the related assumptions in the next scenario.",
         "es": "Los resultados observados quedaron repetidamente por debajo del plan; revisa los supuestos relacionados en el próximo escenario."
+    },
+    "Accepted calibration reference selected": {
+        "en": "Accepted calibration reference selected",
+        "es": "Referencia de calibración aceptada seleccionada"
+    },
+    "The proposal, version, source fingerprint, previous value and applied value will be frozen with this scenario.": {
+        "en": "The proposal, version, source fingerprint, previous value and applied value will be frozen with this scenario.",
+        "es": "La propuesta, versión, huella de origen, valor anterior y valor aplicado quedarán congelados con este escenario."
+    },
+    "Accepted reference value": {
+        "en": "Accepted reference value",
+        "es": "Valor de referencia aceptado"
+    },
+    "Unlinked metric": {
+        "en": "Unlinked metric",
+        "es": "Métrica sin vincular"
+    },
+    "Set the optional value that an administrator may later copy into a matching scenario.": {
+        "en": "Set the optional value that an administrator may later copy into a matching scenario.",
+        "es": "Define el valor opcional que un administrador podrá copiar después en un escenario compatible."
+    },
+    "Current value": {
+        "en": "Current value",
+        "es": "Valor actual"
+    },
+    "Reference value": {
+        "en": "Reference value",
+        "es": "Valor de referencia"
+    },
+    "Reference selected": {
+        "en": "Reference selected",
+        "es": "Referencia seleccionada"
+    },
+    "Use reference in scenario": {
+        "en": "Use reference in scenario",
+        "es": "Usar referencia en el escenario"
+    },
+    "Select opportunities from this business line only to use the reference.": {
+        "en": "Select opportunities from this business line only to use the reference.",
+        "es": "Selecciona únicamente oportunidades de esta línea de negocio para utilizar la referencia."
+    },
+    "Applied calibration reference": {
+        "en": "Applied calibration reference",
+        "es": "Referencia de calibración aplicada"
     }
 }

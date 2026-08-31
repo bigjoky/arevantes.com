@@ -84,14 +84,17 @@ class PlanningScenarioController extends Controller
         $data = $request->validate([
             'decision' => ['required', Rule::in(['accepted', 'rejected'])],
             'decision_note' => ['required', 'string', 'min:10', 'max:2000'],
+            'accepted_value' => ['nullable', 'required_if:decision,accepted', 'numeric', 'min:0', 'max:1000'],
         ]);
-        $decided = $calibrations->decide($calibration, $request->user(), $data['decision'], $data['decision_note']);
+        $decided = $calibrations->decide($calibration, $request->user(), $data['decision'], $data['decision_note'], $data['accepted_value'] ?? null);
         $events->record('planning_calibration_decided', $request->user(), [
             'planning_calibration_proposal_id' => $decided->id,
             'status' => $decided->status,
             'version' => $decided->version,
             'business_line' => $decided->business_line,
             'source_fingerprint' => $decided->source_fingerprint,
+            'assumption_key' => $decided->assumption_key,
+            'accepted_value' => $decided->accepted_value,
             'auto_apply' => false,
         ]);
 
@@ -111,12 +114,15 @@ class PlanningScenarioController extends Controller
             'capacity_hours_per_opportunity' => ['required', 'numeric', 'min:0', 'max:1000'],
             'material_cost_percent_without_quote' => ['required', 'numeric', 'min:0', 'max:100'],
             'collection_delay_days' => ['required', 'integer', 'min:0', 'max:365'],
+            'calibration_proposal_id' => ['nullable', 'integer', 'exists:planning_calibration_proposals,id'],
+            'calibration_previous_value' => ['nullable', 'required_with:calibration_proposal_id', 'numeric', 'min:0', 'max:1000'],
         ]);
         $scenario = $planner->freeze($data, $request->user());
         $events->record('planning_scenario_frozen', $request->user(), [
             'planning_scenario_id' => $scenario->id,
             'fingerprint' => $scenario->fingerprint,
             'opportunities' => $scenario->result_snapshot['summary']['opportunities'],
+            'planning_calibration_proposal_id' => data_get($scenario->assumptions, 'calibration_reference.proposal_id'),
         ]);
 
         return redirect()->route('planning-scenarios.index', ['scenario' => $scenario->id])

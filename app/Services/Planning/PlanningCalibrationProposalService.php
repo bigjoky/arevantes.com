@@ -35,16 +35,18 @@ class PlanningCalibrationProposalService
             ->values();
     }
 
-    public function decide(PlanningCalibrationProposal $proposal, User $actor, string $decision, string $note): PlanningCalibrationProposal
+    public function decide(PlanningCalibrationProposal $proposal, User $actor, string $decision, string $note, mixed $acceptedValue = null): PlanningCalibrationProposal
     {
-        return DB::transaction(function () use ($proposal, $actor, $decision, $note): PlanningCalibrationProposal {
+        return DB::transaction(function () use ($proposal, $actor, $decision, $note, $acceptedValue): PlanningCalibrationProposal {
             $locked = PlanningCalibrationProposal::query()->lockForUpdate()->findOrFail($proposal->id);
             if ($locked->status !== 'pending') {
                 throw ValidationException::withMessages(['calibration' => __('Only a pending calibration proposal can be decided.')]);
             }
+            $referenceValue = $decision === 'accepted' ? $this->acceptedValue($locked, $acceptedValue) : null;
 
             $locked->update([
                 'status' => $decision,
+                'accepted_value' => $referenceValue,
                 'decided_by' => $actor->id,
                 'decided_at' => now(),
                 'decision_note' => $note,
@@ -149,9 +151,40 @@ class PlanningCalibrationProposalService
                 ],
                 'source_fingerprint' => $sourceFingerprint,
                 'recommendation' => $this->recommendation($first['area'], $direction),
+                'assumption_key' => $this->assumptionKey($first['area']),
                 'created_by' => $actor->id,
             ]);
         });
+    }
+
+    private function acceptedValue(PlanningCalibrationProposal $proposal, mixed $value): float|int
+    {
+        if ($proposal->assumption_key === null || ! is_numeric($value)) {
+            throw ValidationException::withMessages(['accepted_value' => __('Accepted calibration proposals require a valid reference value.')]);
+        }
+
+        $numeric = (float) $value;
+        [$maximum, $integer] = match ($proposal->assumption_key) {
+            'capacity_hours_per_opportunity' => [1000, false],
+            'material_cost_percent_without_quote' => [100, false],
+            'collection_delay_days' => [365, true],
+            default => throw ValidationException::withMessages(['accepted_value' => __('This calibration metric is not linked to an editable scenario assumption.')]),
+        };
+        if ($numeric < 0 || $numeric > $maximum || ($integer && floor($numeric) !== $numeric)) {
+            throw ValidationException::withMessages(['accepted_value' => __('The calibration reference value is outside the allowed range.')]);
+        }
+
+        return $integer ? (int) $numeric : round($numeric, 3);
+    }
+
+    private function assumptionKey(string $area): ?string
+    {
+        return match ($area) {
+            'operations' => 'capacity_hours_per_opportunity',
+            'inventory', 'purchases' => 'material_cost_percent_without_quote',
+            'finance' => 'collection_delay_days',
+            default => null,
+        };
     }
 
     private function recommendation(string $area, string $direction): string

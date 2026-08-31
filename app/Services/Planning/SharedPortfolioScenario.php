@@ -3,6 +3,7 @@
 namespace App\Services\Planning;
 
 use App\Models\Opportunity;
+use App\Models\PlanningCalibrationProposal;
 use App\Models\PlanningScenario;
 use App\Models\StockMovementLine;
 use App\Models\StockReservation;
@@ -44,6 +45,9 @@ class SharedPortfolioScenario
             'material_cost_percent_without_quote' => round((float) $data['material_cost_percent_without_quote'], 2),
             'collection_delay_days' => (int) $data['collection_delay_days'],
         ];
+        if ($calibrationReference = $this->calibrationReference($data, $opportunities, $assumptions)) {
+            $assumptions['calibration_reference'] = $calibrationReference;
+        }
         $horizonEnd = Carbon::parse($data['horizon_ends_on']);
         $rows = $ids->map(fn (int $id) => $this->snapshotOpportunity($opportunities[$id], $assumptions, $horizonEnd));
         $results = $this->results($rows);
@@ -70,6 +74,42 @@ class SharedPortfolioScenario
             'fingerprint' => $fingerprint,
             'created_by' => $actor->id,
         ]));
+    }
+
+    /** @param array<string, mixed> $data @param Collection<int, Opportunity> $opportunities @param array<string, mixed> $assumptions @return array<string, mixed>|null */
+    private function calibrationReference(array $data, Collection $opportunities, array $assumptions): ?array
+    {
+        if (empty($data['calibration_proposal_id'])) {
+            return null;
+        }
+
+        $proposal = PlanningCalibrationProposal::query()->find($data['calibration_proposal_id']);
+        if (! $proposal || $proposal->status !== 'accepted' || $proposal->accepted_value === null || $proposal->assumption_key === null) {
+            throw ValidationException::withMessages(['calibration_proposal_id' => __('Only an accepted calibration with a reference value can be used.')]);
+        }
+
+        $businessLines = $opportunities->pluck('installation.service_type');
+        if ($businessLines->contains(null) || $businessLines->unique()->count() !== 1 || $businessLines->first() !== $proposal->business_line) {
+            throw ValidationException::withMessages(['calibration_proposal_id' => __('The calibration business line must match the complete scenario portfolio.')]);
+        }
+
+        if (! array_key_exists($proposal->assumption_key, $assumptions)
+            || abs((float) $assumptions[$proposal->assumption_key] - (float) $proposal->accepted_value) > 0.0001) {
+            throw ValidationException::withMessages(['calibration_proposal_id' => __('The submitted assumption must match the accepted calibration reference value.')]);
+        }
+
+        return [
+            'proposal_id' => $proposal->id,
+            'proposal_version' => $proposal->version,
+            'business_line' => $proposal->business_line,
+            'area' => $proposal->area,
+            'metric_label' => $proposal->metric_label,
+            'assumption_key' => $proposal->assumption_key,
+            'previous_value' => round((float) $data['calibration_previous_value'], 3),
+            'applied_value' => (float) $proposal->accepted_value,
+            'source_fingerprint' => $proposal->source_fingerprint,
+            'decided_at' => $proposal->decided_at?->toIso8601String(),
+        ];
     }
 
     /** @param array<string, mixed> $data */

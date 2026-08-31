@@ -57,6 +57,17 @@ type Scenario = {
         capacity_hours_per_opportunity: number;
         material_cost_percent_without_quote: number;
         collection_delay_days: number;
+        calibration_reference?: {
+            proposal_id: number;
+            proposal_version: number;
+            business_line: string;
+            area: string;
+            metric_label: string;
+            assumption_key: AssumptionKey;
+            previous_value: number;
+            applied_value: number;
+            source_fingerprint: string;
+        };
     };
     result_snapshot: {
         summary: {
@@ -229,12 +240,19 @@ type CalibrationProposal = {
     };
     source_fingerprint: string;
     recommendation: string;
+    assumption_key: AssumptionKey | null;
+    accepted_value: number | null;
     decision_note: string | null;
     decided_at: string | null;
     auto_apply: false;
     creator: { id: number; name: string };
     decider: { id: number; name: string } | null;
 };
+
+type AssumptionKey =
+    | 'capacity_hours_per_opportunity'
+    | 'material_cost_percent_without_quote'
+    | 'collection_delay_days';
 
 const money = (value: number, locale: 'en' | 'es') =>
     new Intl.NumberFormat(locale === 'es' ? 'es-ES' : 'en-GB', {
@@ -296,18 +314,55 @@ export default function PlanningScenarioIndex({
         capacity_hours_per_opportunity: '40',
         material_cost_percent_without_quote: '35',
         collection_delay_days: '30',
+        calibration_proposal_id: '',
+        calibration_previous_value: '',
     });
     const baselineScenarios = scenarios.filter(
         (scenario) => scenario.scenario_kind === 'base',
     );
     const isComparisonScenario = form.data.scenario_kind !== 'base';
-    const toggle = (id: number) =>
-        form.setData(
-            'opportunity_ids',
-            form.data.opportunity_ids.includes(id)
-                ? form.data.opportunity_ids.filter((value) => value !== id)
-                : [...form.data.opportunity_ids, id],
-        );
+    const selectedBusinessLines = opportunities
+        .filter((opportunity) =>
+            form.data.opportunity_ids.includes(opportunity.id),
+        )
+        .map(
+            (opportunity) =>
+                opportunity.installation?.service_type ?? '__unassigned__',
+        )
+        .filter((line, index, lines) => lines.indexOf(line) === index);
+    const toggle = (id: number) => {
+        const opportunityIds = form.data.opportunity_ids.includes(id)
+            ? form.data.opportunity_ids.filter((value) => value !== id)
+            : [...form.data.opportunity_ids, id];
+        form.setData({
+            ...form.data,
+            opportunity_ids: opportunityIds,
+            calibration_proposal_id: '',
+            calibration_previous_value: '',
+        });
+    };
+    const updateAssumption = (key: AssumptionKey, value: string) =>
+        form.setData({
+            ...form.data,
+            [key]: value,
+            calibration_proposal_id: '',
+            calibration_previous_value: '',
+        });
+    const applyCalibration = (proposal: CalibrationProposal) => {
+        if (
+            proposal.assumption_key === null ||
+            proposal.accepted_value === null
+        ) {
+            return;
+        }
+
+        form.setData({
+            ...form.data,
+            [proposal.assumption_key]: String(proposal.accepted_value),
+            calibration_proposal_id: String(proposal.id),
+            calibration_previous_value: form.data[proposal.assumption_key],
+        });
+    };
 
     return (
         <>
@@ -349,6 +404,16 @@ export default function PlanningScenarioIndex({
                     proposals={calibrationProposals}
                     locale={locale}
                     generating={calibrationGeneration.processing}
+                    selectedBusinessLines={selectedBusinessLines}
+                    currentAssumptions={{
+                        capacity_hours_per_opportunity:
+                            form.data.capacity_hours_per_opportunity,
+                        material_cost_percent_without_quote:
+                            form.data.material_cost_percent_without_quote,
+                        collection_delay_days: form.data.collection_delay_days,
+                    }}
+                    selectedProposalId={form.data.calibration_proposal_id}
+                    onUse={applyCalibration}
                     onGenerate={() =>
                         calibrationGeneration.post(
                             '/planning-scenarios/calibrations',
@@ -506,7 +571,10 @@ export default function PlanningScenarioIndex({
                                 type="number"
                                 value={form.data.collection_delay_days}
                                 onChange={(value) =>
-                                    form.setData('collection_delay_days', value)
+                                    updateAssumption(
+                                        'collection_delay_days',
+                                        value,
+                                    )
                                 }
                             />
                             <Field
@@ -517,7 +585,7 @@ export default function PlanningScenarioIndex({
                                 type="number"
                                 value={form.data.capacity_hours_per_opportunity}
                                 onChange={(value) =>
-                                    form.setData(
+                                    updateAssumption(
                                         'capacity_hours_per_opportunity',
                                         value,
                                     )
@@ -534,13 +602,32 @@ export default function PlanningScenarioIndex({
                                         .material_cost_percent_without_quote
                                 }
                                 onChange={(value) =>
-                                    form.setData(
+                                    updateAssumption(
                                         'material_cost_percent_without_quote',
                                         value,
                                     )
                                 }
                             />
                         </div>
+                        {form.data.calibration_proposal_id && (
+                            <div className="rounded-md border border-violet-300 bg-violet-50/50 p-3 text-sm dark:bg-violet-950/20">
+                                <div className="font-medium">
+                                    {translate(
+                                        'Accepted calibration reference selected',
+                                        locale,
+                                    )}
+                                </div>
+                                <p className="mt-1 text-xs text-muted-foreground">
+                                    {translate(
+                                        'The proposal, version, source fingerprint, previous value and applied value will be frozen with this scenario.',
+                                        locale,
+                                    )}
+                                </p>
+                            </div>
+                        )}
+                        <InputError
+                            message={form.errors.calibration_proposal_id}
+                        />
 
                         <div>
                             <Label>
@@ -677,11 +764,19 @@ function CalibrationProposals({
     proposals,
     locale,
     generating,
+    selectedBusinessLines,
+    currentAssumptions,
+    selectedProposalId,
+    onUse,
     onGenerate,
 }: {
     proposals: CalibrationProposal[];
     locale: 'en' | 'es';
     generating: boolean;
+    selectedBusinessLines: string[];
+    currentAssumptions: Record<AssumptionKey, string>;
+    selectedProposalId: string;
+    onUse: (proposal: CalibrationProposal) => void;
     onGenerate: () => void;
 }) {
     return (
@@ -721,6 +816,22 @@ function CalibrationProposals({
                             key={proposal.id}
                             proposal={proposal}
                             locale={locale}
+                            currentValue={
+                                proposal.assumption_key
+                                    ? currentAssumptions[
+                                          proposal.assumption_key
+                                      ]
+                                    : null
+                            }
+                            canUse={
+                                selectedBusinessLines.length === 1 &&
+                                selectedBusinessLines[0] ===
+                                    proposal.business_line
+                            }
+                            selected={
+                                selectedProposalId === String(proposal.id)
+                            }
+                            onUse={() => onUse(proposal)}
                         />
                     ))}
                 </div>
@@ -739,17 +850,27 @@ function CalibrationProposals({
 function CalibrationProposalCard({
     proposal,
     locale,
+    currentValue,
+    canUse,
+    selected,
+    onUse,
 }: {
     proposal: CalibrationProposal;
     locale: 'en' | 'es';
+    currentValue: string | null;
+    canUse: boolean;
+    selected: boolean;
+    onUse: () => void;
 }) {
     const decisionForm = useForm<{
         decision: 'accepted' | 'rejected';
         decision_note: string;
+        accepted_value: string;
         calibration: string;
     }>({
         decision: 'accepted',
         decision_note: '',
+        accepted_value: '',
         calibration: '',
     });
     const decide = (decision: 'accepted' | 'rejected') => {
@@ -824,6 +945,53 @@ function CalibrationProposalCard({
 
             {proposal.status === 'pending' ? (
                 <div className="mt-4 space-y-2">
+                    <div>
+                        <Label htmlFor={`calibration-value-${proposal.id}`}>
+                            {translate('Accepted reference value', locale)} ·{' '}
+                            {proposal.assumption_key
+                                ? assumptionLabel(
+                                      proposal.assumption_key,
+                                      locale,
+                                  )
+                                : translate('Unlinked metric', locale)}
+                        </Label>
+                        <Input
+                            id={`calibration-value-${proposal.id}`}
+                            type="number"
+                            min={0}
+                            max={
+                                proposal.assumption_key ===
+                                'material_cost_percent_without_quote'
+                                    ? 100
+                                    : proposal.assumption_key ===
+                                        'collection_delay_days'
+                                      ? 365
+                                      : 1000
+                            }
+                            step={
+                                proposal.assumption_key ===
+                                'collection_delay_days'
+                                    ? 1
+                                    : 0.1
+                            }
+                            value={decisionForm.data.accepted_value}
+                            onChange={(event) =>
+                                decisionForm.setData(
+                                    'accepted_value',
+                                    event.target.value,
+                                )
+                            }
+                        />
+                        <p className="mt-1 text-xs text-muted-foreground">
+                            {translate(
+                                'Set the optional value that an administrator may later copy into a matching scenario.',
+                                locale,
+                            )}
+                        </p>
+                        <InputError
+                            message={decisionForm.errors.accepted_value}
+                        />
+                    </div>
                     <Label htmlFor={`calibration-note-${proposal.id}`}>
                         {translate('Decision note', locale)}
                     </Label>
@@ -868,7 +1036,7 @@ function CalibrationProposalCard({
                     </div>
                 </div>
             ) : (
-                <div className="mt-3 rounded-md bg-background/70 p-3 text-xs">
+                <div className="mt-3 space-y-3 rounded-md bg-background/70 p-3 text-xs">
                     <div className="font-medium">
                         {translate('Decided by', locale)}{' '}
                         {proposal.decider?.name}
@@ -876,9 +1044,72 @@ function CalibrationProposalCard({
                     <p className="mt-1 text-muted-foreground">
                         {proposal.decision_note}
                     </p>
+                    {proposal.status === 'accepted' &&
+                        proposal.assumption_key &&
+                        proposal.accepted_value !== null && (
+                            <div className="border-t pt-3">
+                                <div className="grid gap-1 sm:grid-cols-3">
+                                    <span>
+                                        {translate('Current value', locale)}:{' '}
+                                        {currentValue}
+                                    </span>
+                                    <span>
+                                        {translate('Reference value', locale)}:{' '}
+                                        {proposal.accepted_value}
+                                    </span>
+                                    <span>
+                                        {translate('Difference', locale)}:{' '}
+                                        {currentValue !== null
+                                            ? signed(
+                                                  proposal.accepted_value -
+                                                      Number(currentValue),
+                                              )
+                                            : '—'}
+                                    </span>
+                                </div>
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    className="mt-3"
+                                    variant={selected ? 'secondary' : 'outline'}
+                                    disabled={!canUse || selected}
+                                    onClick={onUse}
+                                >
+                                    <CheckCircle2 />
+                                    {selected
+                                        ? translate(
+                                              'Reference selected',
+                                              locale,
+                                          )
+                                        : translate(
+                                              'Use reference in scenario',
+                                              locale,
+                                          )}
+                                </Button>
+                                {!canUse && !selected && (
+                                    <p className="mt-2 text-muted-foreground">
+                                        {translate(
+                                            'Select opportunities from this business line only to use the reference.',
+                                            locale,
+                                        )}
+                                    </p>
+                                )}
+                            </div>
+                        )}
                 </div>
             )}
         </article>
+    );
+}
+
+function assumptionLabel(key: AssumptionKey, locale: 'en' | 'es') {
+    return translate(
+        key === 'capacity_hours_per_opportunity'
+            ? 'Hours per opportunity'
+            : key === 'material_cost_percent_without_quote'
+              ? 'Material cost without quote (%)'
+              : 'Collection delay (days)',
+        locale,
     );
 }
 
@@ -1193,6 +1424,41 @@ function ScenarioResult({
                     {scenario.assumptions.collection_delay_days}{' '}
                     {translate('collection days', locale)}
                 </p>
+                {scenario.assumptions.calibration_reference && (
+                    <div className="mt-2 border-t pt-2 text-violet-700 dark:text-violet-300">
+                        <div className="font-medium">
+                            {translate('Applied calibration reference', locale)}{' '}
+                            · v
+                            {
+                                scenario.assumptions.calibration_reference
+                                    .proposal_version
+                            }
+                        </div>
+                        <p>
+                            {assumptionLabel(
+                                scenario.assumptions.calibration_reference
+                                    .assumption_key,
+                                locale,
+                            )}
+                            :{' '}
+                            {
+                                scenario.assumptions.calibration_reference
+                                    .previous_value
+                            }{' '}
+                            →{' '}
+                            {
+                                scenario.assumptions.calibration_reference
+                                    .applied_value
+                            }
+                        </p>
+                        <p className="mt-1 font-mono text-[10px] break-all text-muted-foreground">
+                            {
+                                scenario.assumptions.calibration_reference
+                                    .source_fingerprint
+                            }
+                        </p>
+                    </div>
+                )}
             </div>
             {scenario.status === 'frozen' &&
                 scenario.approval_eligibility.can_approve && (

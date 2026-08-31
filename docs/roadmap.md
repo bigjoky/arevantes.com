@@ -856,14 +856,29 @@ anteriores. Administración puede aceptarla o descartarla con una nota obligator
 la decisión, el responsable y la evidencia quedan auditados. Incluso aceptada, la
 propuesta nunca modifica supuestos, recursos ni datos maestros automáticamente.
 
+## Corte ejecutado — Referencias de calibración aplicadas por una persona
+
+Aceptar una propuesta exige ahora fijar un valor de referencia válido para el
+supuesto relacionado: horas por oportunidad, porcentaje de material sin propuesta
+confirmada o días de cobro. La aceptación sigue sin cambiar ningún escenario. En el
+formulario de uno nuevo, Administración ve el valor actual, la referencia y su
+diferencia, y debe elegir expresamente «usar referencia».
+
+La referencia solo puede utilizarse si toda la cartera seleccionada pertenece a su
+misma línea de negocio. Cambiar las oportunidades o editar manualmente el supuesto
+la deselecciona. El servidor vuelve a verificar estado aceptado, rama y coincidencia
+exacta del valor; al congelar, incorpora a la fotografía la propuesta y versión, la
+huella de evidencia, el supuesto, el valor anterior y el aplicado. Así el efecto se
+podrá evaluar después sin alterar ni perder el origen de la decisión.
+
 ## Próximo corte recomendado
 
 Recoger en producción la línea base de las rutas principales y optimizar primero el
 siguiente cuello demostrado, incorporando Core Web Vitals a la evidencia. En
-escenarios, presentar las calibraciones aceptadas como referencias opcionales al
-crear una nueva versión, mostrando siempre valor actual, evidencia y diferencia;
-aplicar cualquier valor seguirá requiriendo una acción humana explícita y quedará
-registrado en la fotografía del nuevo escenario.
+escenarios, comparar el resultado de los horizontes que utilizaron una referencia
+con su patrón de origen, medir si redujo la desviación y proponer conservarla,
+revisarla o retirarla. Esa evaluación será una nueva decisión versionada y nunca
+reescribirá la propuesta ni el escenario que la utilizó.
 
 ## Corrección transversal — idioma temporal de la plataforma
 

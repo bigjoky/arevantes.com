@@ -1140,5 +1140,11 @@
     "Only a pending calibration proposal can be decided.": "Solo se puede decidir una propuesta de calibración pendiente.",
     "No new calibration pattern meets the minimum evidence threshold.": "Ningún patrón nuevo de calibración alcanza el umbral mínimo de evidencia.",
     "Calibration proposals generated from comparable closed scenarios.": "Propuestas de calibración generadas a partir de escenarios cerrados comparables.",
-    "Calibration decision recorded without changing scenario assumptions.": "Decisión de calibración registrada sin cambiar los supuestos del escenario."
+    "Calibration decision recorded without changing scenario assumptions.": "Decisión de calibración registrada sin cambiar los supuestos del escenario.",
+    "Accepted calibration proposals require a valid reference value.": "Las propuestas de calibración aceptadas requieren un valor de referencia válido.",
+    "This calibration metric is not linked to an editable scenario assumption.": "Esta métrica de calibración no está vinculada a un supuesto editable del escenario.",
+    "The calibration reference value is outside the allowed range.": "El valor de referencia de la calibración está fuera del intervalo permitido.",
+    "Only an accepted calibration with a reference value can be used.": "Solo se puede utilizar una calibración aceptada que tenga un valor de referencia.",
+    "The calibration business line must match the complete scenario portfolio.": "La línea de negocio de la calibración debe coincidir con toda la cartera del escenario.",
+    "The submitted assumption must match the accepted calibration reference value.": "El supuesto enviado debe coincidir con el valor de referencia de la calibración aceptada."
 }

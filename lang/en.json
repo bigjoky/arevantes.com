@@ -104,5 +104,11 @@
     "Only a pending calibration proposal can be decided.": "Only a pending calibration proposal can be decided.",
     "No new calibration pattern meets the minimum evidence threshold.": "No new calibration pattern meets the minimum evidence threshold.",
     "Calibration proposals generated from comparable closed scenarios.": "Calibration proposals generated from comparable closed scenarios.",
-    "Calibration decision recorded without changing scenario assumptions.": "Calibration decision recorded without changing scenario assumptions."
+    "Calibration decision recorded without changing scenario assumptions.": "Calibration decision recorded without changing scenario assumptions.",
+    "Accepted calibration proposals require a valid reference value.": "Accepted calibration proposals require a valid reference value.",
+    "This calibration metric is not linked to an editable scenario assumption.": "This calibration metric is not linked to an editable scenario assumption.",
+    "The calibration reference value is outside the allowed range.": "The calibration reference value is outside the allowed range.",
+    "Only an accepted calibration with a reference value can be used.": "Only an accepted calibration with a reference value can be used.",
+    "The calibration business line must match the complete scenario portfolio.": "The calibration business line must match the complete scenario portfolio.",
+    "The submitted assumption must match the accepted calibration reference value.": "The submitted assumption must match the accepted calibration reference value."
 }

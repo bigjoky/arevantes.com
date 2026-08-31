@@ -12,6 +12,7 @@ use App\Models\PlanningScenario;
 use App\Models\PlanningScenarioRequest;
 use App\Models\Product;
 use App\Models\Quote;
+use App\Models\SecurityEvent;
 use App\Models\StockMovement;
 use App\Models\StockReservation;
 use App\Models\Supplier;
@@ -648,6 +649,7 @@ class PlanningScenarioTest extends TestCase
         $proposal = PlanningCalibrationProposal::firstOrFail();
         $this->assertSame('solar', $proposal->business_line);
         $this->assertSame('operations', $proposal->area);
+        $this->assertSame('capacity_hours_per_opportunity', $proposal->assumption_key);
         $this->assertSame('Tasks completed', $proposal->metric_label);
         $this->assertSame(1, $proposal->version);
         $this->assertSame('pending', $proposal->status);
@@ -662,11 +664,19 @@ class PlanningScenarioTest extends TestCase
 
         $this->post(route('planning-calibrations.decision.store', $proposal), [
             'decision' => 'accepted',
+            'decision_note' => 'A reference value is required before accepting this proposal.',
+        ])->assertSessionHasErrors('accepted_value');
+        $this->assertSame('pending', $proposal->fresh()->status);
+
+        $this->post(route('planning-calibrations.decision.store', $proposal), [
+            'decision' => 'accepted',
+            'accepted_value' => 55,
             'decision_note' => 'Use this evidence when reviewing the next solar planning horizon.',
         ])->assertRedirect();
 
         $proposal->refresh();
         $this->assertSame('accepted', $proposal->status);
+        $this->assertSame(55.0, $proposal->accepted_value);
         $this->assertSame($admin->id, $proposal->decided_by);
         $this->assertNotNull($proposal->decided_at);
         $this->assertTrue(PlanningScenario::query()->get()->every(
@@ -694,7 +704,78 @@ class PlanningScenarioTest extends TestCase
             ->where('calibrationProposals.0.id', $latest->id)
             ->where('calibrationProposals.0.auto_apply', false)
             ->where('calibrationProposals.1.status', 'accepted')
+            ->where('calibrationProposals.1.accepted_value', 55)
             ->where('calibrationProposals.1.decider.id', $admin->id));
+
+        $customer = Person::create(['category' => 'customer', 'first_name' => 'Calibrated']);
+        $installation = Installation::create([
+            'person_id' => $customer->id,
+            'service_type' => 'solar',
+            'status' => 'lead',
+            'site_address_line_1' => 'Calibration site',
+        ]);
+        $opportunity = Opportunity::create([
+            'person_id' => $customer->id,
+            'installation_id' => $installation->id,
+            'code' => 'OPP-CALIBRATED',
+            'title' => 'Calibrated solar portfolio',
+            'stage' => 'qualified',
+            'probability' => 50,
+            'estimated_value' => 5000,
+            'expected_close_on' => today()->addMonth(),
+        ]);
+        $scenarioPayload = [
+            'name' => 'Calibrated next horizon',
+            'scenario_kind' => 'base',
+            'horizon_starts_on' => today()->toDateString(),
+            'horizon_ends_on' => today()->addMonths(3)->toDateString(),
+            'opportunity_ids' => [$opportunity->id],
+            'capacity_hours_per_opportunity' => 40,
+            'material_cost_percent_without_quote' => 35,
+            'collection_delay_days' => 30,
+            'calibration_proposal_id' => $proposal->id,
+            'calibration_previous_value' => 40,
+        ];
+
+        $electricalInstallation = Installation::create([
+            'person_id' => $customer->id,
+            'service_type' => 'electrical',
+            'status' => 'lead',
+            'site_address_line_1' => 'Electrical calibration site',
+        ]);
+        $electricalOpportunity = Opportunity::create([
+            'person_id' => $customer->id,
+            'installation_id' => $electricalInstallation->id,
+            'code' => 'OPP-WRONG-LINE',
+            'title' => 'Electrical portfolio',
+            'stage' => 'qualified',
+            'probability' => 50,
+            'estimated_value' => 3000,
+            'expected_close_on' => today()->addMonth(),
+        ]);
+
+        $this->post(route('planning-scenarios.store'), $scenarioPayload)
+            ->assertSessionHasErrors('calibration_proposal_id');
+        $this->post(route('planning-scenarios.store'), [
+            ...$scenarioPayload,
+            'opportunity_ids' => [$electricalOpportunity->id],
+            'capacity_hours_per_opportunity' => 55,
+        ])->assertSessionHasErrors('calibration_proposal_id');
+        $this->post(route('planning-scenarios.store'), [
+            ...$scenarioPayload,
+            'capacity_hours_per_opportunity' => 55,
+        ])->assertRedirect();
+
+        $calibrated = PlanningScenario::where('name', 'Calibrated next horizon')->firstOrFail();
+        $this->assertSame(55.0, (float) $calibrated->assumptions['capacity_hours_per_opportunity']);
+        $this->assertSame($proposal->id, $calibrated->assumptions['calibration_reference']['proposal_id']);
+        $this->assertSame(1, $calibrated->assumptions['calibration_reference']['proposal_version']);
+        $this->assertSame(40.0, (float) $calibrated->assumptions['calibration_reference']['previous_value']);
+        $this->assertSame(55.0, (float) $calibrated->assumptions['calibration_reference']['applied_value']);
+        $this->assertSame($proposal->source_fingerprint, $calibrated->assumptions['calibration_reference']['source_fingerprint']);
+        $this->assertTrue(app(PlanningScenarioIntegrity::class)->matches($calibrated));
+        $freezeEvent = SecurityEvent::where('type', 'planning_scenario_frozen')->latest('id')->firstOrFail();
+        $this->assertSame($proposal->id, $freezeEvent->context['planning_calibration_proposal_id']);
     }
 
     private function closedCalibrationScenario(User $admin, int $sequence, float $planned, float $observed): PlanningScenario

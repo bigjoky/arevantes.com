@@ -10,7 +10,7 @@ class PlanningCalibrationProposal extends Model
     protected $fillable = [
         'business_line', 'area', 'metric_label', 'metric_key', 'unit', 'version', 'status', 'direction',
         'sample_size', 'evidence_snapshot', 'source_fingerprint', 'recommendation', 'created_by',
-        'decided_by', 'decided_at', 'decision_note',
+        'assumption_key', 'accepted_value', 'decided_by', 'decided_at', 'decision_note',
     ];
 
     public function creator(): BelongsTo
@@ -27,6 +27,7 @@ class PlanningCalibrationProposal extends Model
     {
         return [
             'evidence_snapshot' => 'array',
+            'accepted_value' => 'float',
             'decided_at' => 'datetime',
         ];
     }
