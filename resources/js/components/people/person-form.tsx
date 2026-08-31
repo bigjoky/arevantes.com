@@ -35,6 +35,16 @@ export type PersonFormValue = {
     phone?: string | null;
     email?: string | null;
     billing_email?: string | null;
+    billing_name?: string | null;
+    billing_tax_id?: string | null;
+    billing_address_line_1?: string | null;
+    billing_address_line_2?: string | null;
+    billing_city?: string | null;
+    billing_locality?: string | null;
+    billing_province_state?: string | null;
+    billing_postal_code?: string | null;
+    billing_country?: string | null;
+    payment_terms_days?: number | null;
     address_line_1?: string | null;
     address_line_2?: string | null;
     city?: string | null;
@@ -412,16 +422,6 @@ export default function PersonForm({
                                 defaultValue={person?.email}
                                 error={errors.email}
                             />
-                            {isCustomer && (
-                                <Field
-                                    id="billing_email"
-                                    label={t.billingEmail}
-                                    type="email"
-                                    placeholder="billing@example.com"
-                                    defaultValue={person?.billing_email}
-                                    error={errors.billing_email}
-                                />
-                            )}
                         </div>
 
                         {isCustomer && (
@@ -531,6 +531,99 @@ export default function PersonForm({
                             }}
                         />
                     </FormSection>
+
+                    {isCustomer && (
+                        <FormSection
+                            title={translate('Billing details', locale)}
+                            description={translate(
+                                'Only complete values that differ from the legal identity or postal address. Empty fields inherit the customer details.',
+                                locale,
+                            )}
+                        >
+                            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                                <Field
+                                    id="billing_name"
+                                    label={translate('Billing name', locale)}
+                                    placeholder={
+                                        person?.company_name ||
+                                        translate(
+                                            'Legal or personal name',
+                                            locale,
+                                        )
+                                    }
+                                    defaultValue={person?.billing_name}
+                                    error={errors.billing_name}
+                                />
+                                <Field
+                                    id="billing_tax_id"
+                                    label={translate('Billing tax ID', locale)}
+                                    placeholder={person?.tax_id || 'NIF / CIF'}
+                                    defaultValue={person?.billing_tax_id}
+                                    error={errors.billing_tax_id}
+                                />
+                                <Field
+                                    id="billing_email"
+                                    label={t.billingEmail}
+                                    type="email"
+                                    placeholder="billing@example.com"
+                                    defaultValue={person?.billing_email}
+                                    error={errors.billing_email}
+                                />
+                                <Field
+                                    id="payment_terms_days"
+                                    label={translate(
+                                        'Payment terms (days)',
+                                        locale,
+                                    )}
+                                    type="number"
+                                    placeholder="30"
+                                    defaultValue={
+                                        person?.payment_terms_days == null
+                                            ? undefined
+                                            : String(person.payment_terms_days)
+                                    }
+                                    error={errors.payment_terms_days}
+                                />
+                            </div>
+                            <div className="grid gap-4 md:grid-cols-2">
+                                <Field
+                                    id="billing_address_line_1"
+                                    label={translate('Billing address', locale)}
+                                    placeholder={translate(
+                                        'Street and number',
+                                        locale,
+                                    )}
+                                    defaultValue={
+                                        person?.billing_address_line_1
+                                    }
+                                    error={errors.billing_address_line_1}
+                                />
+                                <Field
+                                    id="billing_address_line_2"
+                                    label={t.address2}
+                                    placeholder={translate(
+                                        'Apartment or floor',
+                                        locale,
+                                    )}
+                                    defaultValue={
+                                        person?.billing_address_line_2
+                                    }
+                                    error={errors.billing_address_line_2}
+                                />
+                            </div>
+                            <LocationFields
+                                prefix="billing_"
+                                errors={errors}
+                                defaults={{
+                                    country: person?.billing_country,
+                                    province: person?.billing_province_state,
+                                    municipality: person?.billing_city,
+                                    locality: person?.billing_locality,
+                                    postalCode: person?.billing_postal_code,
+                                }}
+                            />
+                        </FormSection>
+                    )}
 
                     <FormSection
                         title={translate('Additional information', locale)}

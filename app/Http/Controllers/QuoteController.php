@@ -522,7 +522,7 @@ class QuoteController extends Controller
             || $maxDiscount >= $approval['discount_threshold']
             || $approvalMarginPercent < $approval['margin_threshold'];
         unset($data['lines']);
-        $quote->fill([...$data, ...$extra, ...array_diff_key($totals, ['lines' => true]), 'expected_margin_amount' => $margin, 'approval_status' => $requiresApproval ? 'pending' : 'not_required', 'approved_by' => null, 'approved_at' => null, 'approval_notes' => null, 'customer_snapshot' => $customer->only(['first_name', 'last_name', 'company_name', 'tax_id', 'document_number', 'billing_email', 'email', 'address_line_1', 'address_line_2', 'postal_code', 'city', 'province_state', 'country'])])->save();
+        $quote->fill([...$data, ...$extra, ...array_diff_key($totals, ['lines' => true]), 'expected_margin_amount' => $margin, 'approval_status' => $requiresApproval ? 'pending' : 'not_required', 'approved_by' => null, 'approved_at' => null, 'approval_notes' => null, 'customer_snapshot' => $customer->customerSnapshot()])->save();
         $quote->lines()->delete();
         foreach ($totals['lines'] as $lineData) {
             $components = $lineData['components'] ?? [];

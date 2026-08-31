@@ -1175,5 +1175,6 @@
     "Calibration version governance recorded without altering historical scenarios.": "Gobierno de versiones de calibración registrado sin alterar escenarios históricos.",
     "Only a pending calibration governance review can be decided.": "Solo se puede decidir una revisión de gobierno de calibración pendiente.",
     "Select a newer accepted calibration version from the same evidence series.": "Selecciona una versión de calibración aceptada más reciente de la misma serie de evidencia.",
-    "This governance review is stale because the calibration version is no longer available.": "Esta revisión de gobierno está obsoleta porque la versión de calibración ya no está disponible."
+    "This governance review is stale because the calibration version is no longer available.": "Esta revisión de gobierno está obsoleta porque la versión de calibración ya no está disponible.",
+    "An authorized signatory must have the legal representative role.": "Un firmante autorizado debe tener la función de representante legal."
 }

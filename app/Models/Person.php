@@ -56,6 +56,16 @@ class Person extends Model
         'lead_source',
         'data_source',
         'billing_email',
+        'billing_name',
+        'billing_tax_id',
+        'billing_address_line_1',
+        'billing_address_line_2',
+        'billing_city',
+        'billing_locality',
+        'billing_province_state',
+        'billing_postal_code',
+        'billing_country',
+        'payment_terms_days',
         'emergency_contact_name',
         'emergency_contact_phone',
         'notes',
@@ -142,6 +152,42 @@ class Person extends Model
         return $this->hasMany(CustomerContact::class)->orderByDesc('is_primary')->orderBy('first_name');
     }
 
+    /**
+     * Freeze the effective fiscal identity used by proposals and sales documents.
+     *
+     * @return array<string, mixed>
+     */
+    public function customerSnapshot(): array
+    {
+        $billingContact = $this->contacts()
+            ->whereJsonContains('roles', 'billing')
+            ->orderByDesc('is_primary')
+            ->first();
+
+        return [
+            'first_name' => $this->first_name,
+            'last_name' => $this->last_name,
+            'company_name' => $this->billing_name ?: $this->company_name,
+            'tax_id' => $this->billing_tax_id ?: $this->tax_id,
+            'document_number' => $this->document_number,
+            'billing_email' => $this->billing_email ?: $billingContact?->email,
+            'email' => $this->email,
+            'address_line_1' => $this->billing_address_line_1 ?: $this->address_line_1,
+            'address_line_2' => $this->billing_address_line_2 ?: $this->address_line_2,
+            'postal_code' => $this->billing_postal_code ?: $this->postal_code,
+            'city' => $this->billing_city ?: $this->city,
+            'locality' => $this->billing_locality ?: $this->locality,
+            'province_state' => $this->billing_province_state ?: $this->province_state,
+            'country' => $this->billing_country ?: $this->country,
+            'payment_terms_days' => $this->payment_terms_days,
+            'billing_contact' => $billingContact ? [
+                'name' => trim($billingContact->first_name.' '.($billingContact->last_name ?? '')),
+                'email' => $billingContact->email,
+                'phone' => $billingContact->phone,
+            ] : null,
+        ];
+    }
+
     public function tags(): BelongsToMany
     {
         return $this->belongsToMany(CrmTag::class, 'crm_tag_person')->withTimestamps();
@@ -169,6 +215,7 @@ class Person extends Model
             'service_interests' => 'array',
             'extra_details' => 'array',
             'do_not_contact' => 'boolean',
+            'payment_terms_days' => 'integer',
         ];
     }
 }

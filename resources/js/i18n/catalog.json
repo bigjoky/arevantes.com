@@ -15419,5 +15419,37 @@
     "The expense will be posted with its fiscal breakdown and supporting evidence.": {
         "en": "The expense will be posted with its fiscal breakdown and supporting evidence.",
         "es": "El gasto se contabilizará con su desglose fiscal y sus justificantes."
+    },
+    "Responsibilities": {
+        "en": "Responsibilities",
+        "es": "Responsabilidades"
+    },
+    "ID type": {
+        "en": "ID type",
+        "es": "Tipo de identificación"
+    },
+    "ID number": {
+        "en": "ID number",
+        "es": "Número de identificación"
+    },
+    "Authorized signatory": {
+        "en": "Authorized signatory",
+        "es": "Firmante autorizado"
+    },
+    "Customer contacts": {
+        "en": "Customer contacts",
+        "es": "Contactos del cliente"
+    },
+    "Representatives and operational contacts with explicit responsibilities.": {
+        "en": "Representatives and operational contacts with explicit responsibilities.",
+        "es": "Representantes y contactos operativos con responsabilidades explícitas."
+    },
+    "Save contact": {
+        "en": "Save contact",
+        "es": "Guardar contacto"
+    },
+    "Assign one or more roles to avoid duplicating the same person.": {
+        "en": "Assign one or more roles to avoid duplicating the same person.",
+        "es": "Asigna una o varias funciones para evitar duplicar a la misma persona."
     }
 }

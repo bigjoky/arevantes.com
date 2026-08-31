@@ -69,7 +69,7 @@ class RecurringServiceBillingWorkflow
                 'tax_amount' => $taxAmount,
                 'amount' => $gross,
                 'paid_amount' => 0,
-                'customer_snapshot' => $customer->only(['first_name', 'last_name', 'company_name', 'tax_id', 'document_number', 'billing_email', 'email', 'address_line_1', 'address_line_2', 'postal_code', 'city', 'province_state', 'country']),
+                'customer_snapshot' => $customer->customerSnapshot(),
                 'notes' => $generationNote,
             ]);
             $document->lines()->create([

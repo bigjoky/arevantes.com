@@ -45,6 +45,95 @@ class CustomerCrmEvolutionTest extends TestCase
         $this->assertSame('Luis', CustomerContact::where('person_id', $customer->id)->where('is_primary', true)->sole()->first_name);
     }
 
+    public function test_first_contact_is_primary_and_deleting_it_promotes_the_next_contact(): void
+    {
+        $user = User::factory()->create(['role' => 'commercial']);
+        $customer = Person::create(['category' => 'customer', 'first_name' => 'Comunidad Centro']);
+
+        $this->actingAs($user)->post(route('people.contacts.store', $customer), [
+            'first_name' => 'Ana',
+            'roles' => ['property_manager'],
+            'is_primary' => false,
+        ])->assertRedirect();
+        $this->post(route('people.contacts.store', $customer), [
+            'first_name' => 'Luis',
+            'roles' => ['technical'],
+            'is_primary' => false,
+        ])->assertRedirect();
+
+        $ana = CustomerContact::where('person_id', $customer->id)->where('first_name', 'Ana')->sole();
+        $this->assertTrue($ana->is_primary);
+
+        $this->delete(route('people.contacts.destroy', [$customer, $ana]))->assertRedirect();
+
+        $this->assertTrue(CustomerContact::where('person_id', $customer->id)->where('first_name', 'Luis')->sole()->is_primary);
+    }
+
+    public function test_contact_responsibilities_enforce_billing_and_signatory_requirements(): void
+    {
+        $user = User::factory()->create(['role' => 'commercial']);
+        $customer = Person::create(['category' => 'customer', 'first_name' => 'Empresa Norte']);
+
+        $this->actingAs($user)->post(route('people.contacts.store', $customer), [
+            'first_name' => 'Ana',
+            'roles' => ['billing'],
+            'is_primary' => false,
+        ])->assertSessionHasErrors('email');
+
+        $this->post(route('people.contacts.store', $customer), [
+            'first_name' => 'Luis',
+            'roles' => ['technical'],
+            'is_authorized_signatory' => true,
+            'document_number' => '12345678Z',
+            'is_primary' => false,
+        ])->assertSessionHasErrors('is_authorized_signatory');
+
+        $this->post(route('people.contacts.store', $customer), [
+            'first_name' => 'Marta',
+            'roles' => ['legal_representative', 'billing'],
+            'is_authorized_signatory' => true,
+            'document_type' => 'nif',
+            'document_number' => '87654321X',
+            'email' => 'facturacion@example.test',
+            'is_primary' => true,
+        ])->assertRedirect();
+
+        $contact = CustomerContact::where('person_id', $customer->id)->sole();
+        $this->assertSame(['legal_representative', 'billing'], $contact->roles);
+        $this->assertTrue($contact->is_authorized_signatory);
+    }
+
+    public function test_customer_snapshot_uses_billing_identity_and_responsible_contact(): void
+    {
+        $customer = Person::create([
+            'category' => 'customer',
+            'first_name' => 'Ana',
+            'company_name' => 'Empresa Operativa SL',
+            'tax_id' => 'B11111111',
+            'address_line_1' => 'Calle Operativa 1',
+            'billing_name' => 'Grupo Fiscal SL',
+            'billing_tax_id' => 'B22222222',
+            'billing_address_line_1' => 'Calle Fiscal 2',
+            'payment_terms_days' => 30,
+        ]);
+        CustomerContact::create([
+            'person_id' => $customer->id,
+            'first_name' => 'Marta',
+            'roles' => ['billing'],
+            'email' => 'facturacion@example.test',
+            'is_primary' => true,
+        ]);
+
+        $snapshot = $customer->customerSnapshot();
+
+        $this->assertSame('Grupo Fiscal SL', $snapshot['company_name']);
+        $this->assertSame('B22222222', $snapshot['tax_id']);
+        $this->assertSame('Calle Fiscal 2', $snapshot['address_line_1']);
+        $this->assertSame('facturacion@example.test', $snapshot['billing_email']);
+        $this->assertSame('Marta', $snapshot['billing_contact']['name']);
+        $this->assertSame(30, $snapshot['payment_terms_days']);
+    }
+
     public function test_customer_segmentation_consent_and_saved_filters_are_traceable(): void
     {
         $user = User::factory()->create(['role' => 'commercial']);

@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useState } from 'react';
+import { FormErrorSummary } from '@/components/forms/form-layout';
 import { statusLabels } from '@/components/installations/installation-form';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -41,7 +42,25 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import { useLocale } from '@/hooks/use-locale';
+import { translate } from '@/i18n';
 import { serviceLabels } from '@/lib/business-lines';
+
+type CustomerContact = {
+    id: number;
+    first_name: string;
+    last_name: string | null;
+    position: string | null;
+    roles: string[] | null;
+    document_type: string | null;
+    document_number: string | null;
+    email: string | null;
+    phone: string | null;
+    preferred_channel: string | null;
+    is_primary: boolean;
+    is_authorized_signatory: boolean;
+    notes: string | null;
+};
 
 type Installation = {
     id: number;
@@ -71,6 +90,16 @@ type Person = {
     phone: string | null;
     email: string | null;
     billing_email: string | null;
+    billing_name: string | null;
+    billing_tax_id: string | null;
+    billing_address_line_1: string | null;
+    billing_address_line_2: string | null;
+    billing_city: string | null;
+    billing_locality: string | null;
+    billing_province_state: string | null;
+    billing_postal_code: string | null;
+    billing_country: string | null;
+    payment_terms_days: number | null;
     address_line_1: string | null;
     address_line_2: string | null;
     city: string | null;
@@ -85,16 +114,7 @@ type Person = {
     do_not_contact: boolean;
     data_source: string | null;
     notes: string | null;
-    contacts: Array<{
-        id: number;
-        first_name: string;
-        last_name: string | null;
-        position: string | null;
-        email: string | null;
-        phone: string | null;
-        preferred_channel: string | null;
-        is_primary: boolean;
-    }>;
+    contacts: CustomerContact[];
     tags: Array<{ id: number; name: string; color: string }>;
     consents: Array<{
         id: number;
@@ -246,7 +266,7 @@ export default function PeopleShow({
                             </Button>
                         </div>
                     </CardHeader>
-                    <CardContent className="grid gap-6 lg:grid-cols-3">
+                    <CardContent className="grid gap-6 lg:grid-cols-2 xl:grid-cols-4">
                         <InfoBlock
                             title="Contact"
                             items={[
@@ -290,6 +310,34 @@ export default function PeopleShow({
                                 ['Country', person.country],
                             ]}
                         />
+                        {!isStaff && (
+                            <InfoBlock
+                                title="Billing"
+                                items={[
+                                    [
+                                        'Name',
+                                        person.billing_name ||
+                                            person.company_name,
+                                    ],
+                                    [
+                                        'Tax ID',
+                                        person.billing_tax_id || person.tax_id,
+                                    ],
+                                    ['Email', person.billing_email],
+                                    ['Address', person.billing_address_line_1],
+                                    ['Municipality', person.billing_city],
+                                    ['Province', person.billing_province_state],
+                                    ['Postal code', person.billing_postal_code],
+                                    ['Country', person.billing_country],
+                                    [
+                                        'Payment terms',
+                                        person.payment_terms_days === null
+                                            ? null
+                                            : `${person.payment_terms_days} days`,
+                                    ],
+                                ]}
+                            />
+                        )}
                     </CardContent>
                 </Card>
 
@@ -964,6 +1012,216 @@ export default function PeopleShow({
     );
 }
 
+const contactRoleLabels: Record<string, string> = {
+    legal_representative: 'Legal representative',
+    billing: 'Billing',
+    commercial: 'Commercial',
+    technical: 'Technical',
+    property_manager: 'Property manager',
+    other: 'Other',
+};
+
+function ContactFormFields({
+    contact,
+    locale,
+    prefix,
+}: {
+    contact?: CustomerContact;
+    locale: 'en' | 'es';
+    prefix: string;
+}) {
+    return (
+        <>
+            <div className="grid gap-3 sm:grid-cols-2">
+                <div className="grid gap-2">
+                    <Label htmlFor={`${prefix}-first-name`}>
+                        {translate('First name', locale)}
+                    </Label>
+                    <Input
+                        id={`${prefix}-first-name`}
+                        name="first_name"
+                        defaultValue={contact?.first_name}
+                        required
+                    />
+                </div>
+                <div className="grid gap-2">
+                    <Label htmlFor={`${prefix}-last-name`}>
+                        {translate('Last name', locale)}
+                    </Label>
+                    <Input
+                        id={`${prefix}-last-name`}
+                        name="last_name"
+                        defaultValue={contact?.last_name ?? ''}
+                    />
+                </div>
+                <div className="grid gap-2">
+                    <Label htmlFor={`${prefix}-position`}>
+                        {translate('Position', locale)}
+                    </Label>
+                    <Input
+                        id={`${prefix}-position`}
+                        name="position"
+                        defaultValue={contact?.position ?? ''}
+                    />
+                </div>
+                <div className="grid gap-2">
+                    <Label htmlFor={`${prefix}-channel`}>
+                        {translate('Preferred contact channel', locale)}
+                    </Label>
+                    <Select
+                        name="preferred_channel"
+                        defaultValue={contact?.preferred_channel ?? ''}
+                    >
+                        <SelectTrigger
+                            id={`${prefix}-channel`}
+                            className="w-full"
+                        >
+                            <SelectValue
+                                placeholder={translate('No preference', locale)}
+                            />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="email">Email</SelectItem>
+                            <SelectItem value="phone">
+                                {translate('Phone', locale)}
+                            </SelectItem>
+                            <SelectItem value="whatsapp">WhatsApp</SelectItem>
+                            <SelectItem value="sms">SMS</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+                <div className="grid gap-2">
+                    <Label htmlFor={`${prefix}-email`}>Email</Label>
+                    <Input
+                        id={`${prefix}-email`}
+                        name="email"
+                        type="email"
+                        defaultValue={contact?.email ?? ''}
+                    />
+                </div>
+                <div className="grid gap-2">
+                    <Label htmlFor={`${prefix}-phone`}>
+                        {translate('Phone', locale)}
+                    </Label>
+                    <Input
+                        id={`${prefix}-phone`}
+                        name="phone"
+                        type="tel"
+                        defaultValue={contact?.phone ?? ''}
+                    />
+                </div>
+            </div>
+            <fieldset className="grid gap-2">
+                <legend className="text-sm font-medium">
+                    {translate('Responsibilities', locale)}
+                </legend>
+                <div className="grid gap-2 sm:grid-cols-2">
+                    {Object.entries(contactRoleLabels).map(([role, label]) => (
+                        <label
+                            key={role}
+                            className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm"
+                        >
+                            <input
+                                type="checkbox"
+                                name="roles[]"
+                                value={role}
+                                defaultChecked={
+                                    contact
+                                        ? (contact.roles ?? []).includes(role)
+                                        : role === 'commercial'
+                                }
+                            />
+                            {translate(label, locale)}
+                        </label>
+                    ))}
+                </div>
+            </fieldset>
+            <div className="grid gap-3 sm:grid-cols-2">
+                <div className="grid gap-2">
+                    <Label htmlFor={`${prefix}-document-type`}>
+                        {translate('ID type', locale)}
+                    </Label>
+                    <Select
+                        name="document_type"
+                        defaultValue={contact?.document_type ?? ''}
+                    >
+                        <SelectTrigger
+                            id={`${prefix}-document-type`}
+                            className="w-full"
+                        >
+                            <SelectValue
+                                placeholder={translate(
+                                    'Choose ID type',
+                                    locale,
+                                )}
+                            />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="passport">
+                                {translate('Passport', locale)}
+                            </SelectItem>
+                            <SelectItem value="nif">NIF</SelectItem>
+                            <SelectItem value="nie">NIE</SelectItem>
+                            <SelectItem value="other">
+                                {translate('Other', locale)}
+                            </SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+                <div className="grid gap-2">
+                    <Label htmlFor={`${prefix}-document-number`}>
+                        {translate('ID number', locale)}
+                    </Label>
+                    <Input
+                        id={`${prefix}-document-number`}
+                        name="document_number"
+                        defaultValue={contact?.document_number ?? ''}
+                    />
+                </div>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2">
+                <label className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm">
+                    <input type="hidden" name="is_primary" value="0" />
+                    <input
+                        type="checkbox"
+                        name="is_primary"
+                        value="1"
+                        defaultChecked={contact?.is_primary ?? false}
+                    />
+                    {translate('Primary contact', locale)}
+                </label>
+                <label className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm">
+                    <input
+                        type="hidden"
+                        name="is_authorized_signatory"
+                        value="0"
+                    />
+                    <input
+                        type="checkbox"
+                        name="is_authorized_signatory"
+                        value="1"
+                        defaultChecked={
+                            contact?.is_authorized_signatory ?? false
+                        }
+                    />
+                    {translate('Authorized signatory', locale)}
+                </label>
+            </div>
+            <div className="grid gap-2">
+                <Label htmlFor={`${prefix}-notes`}>
+                    {translate('Notes', locale)}
+                </Label>
+                <textarea
+                    id={`${prefix}-notes`}
+                    name="notes"
+                    defaultValue={contact?.notes ?? ''}
+                    className="min-h-20 rounded-md border border-input bg-transparent px-3 py-2 text-sm"
+                />
+            </div>
+        </>
+    );
+}
+
 function CustomerCrmDetails({
     person,
     availableTags,
@@ -971,6 +1229,7 @@ function CustomerCrmDetails({
     person: Person;
     availableTags: Array<{ id: number; name: string; color: string }>;
 }) {
+    const { locale } = useLocale();
     const unassignedTags = availableTags.filter(
         (tag) => !person.tags.some((assigned) => assigned.id === tag.id),
     );
@@ -1055,40 +1314,104 @@ function CustomerCrmDetails({
 
             <Card className="rounded-lg">
                 <CardHeader>
-                    <CardTitle>Company contacts</CardTitle>
+                    <CardTitle>
+                        {translate('Customer contacts', locale)}
+                    </CardTitle>
                     <CardDescription>
-                        Multiple contacts with one designated as primary.
+                        {translate(
+                            'Representatives and operational contacts with explicit responsibilities.',
+                            locale,
+                        )}
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                     <div className="divide-y border-y">
                         {person.contacts.map((contact) => (
-                            <div
-                                key={contact.id}
-                                className="flex items-start justify-between gap-3 py-3"
-                            >
-                                <div className="text-sm">
-                                    <div className="font-medium">
-                                        {contact.first_name} {contact.last_name}
-                                        {contact.is_primary && (
-                                            <Badge className="ml-2">
-                                                Primary
-                                            </Badge>
-                                        )}
+                            <details key={contact.id} className="py-3">
+                                <summary className="flex cursor-pointer list-none items-start justify-between gap-3">
+                                    <div className="min-w-0 text-sm">
+                                        <div className="flex flex-wrap items-center gap-2 font-medium">
+                                            <span>
+                                                {contact.first_name}{' '}
+                                                {contact.last_name}
+                                            </span>
+                                            {contact.is_primary && (
+                                                <Badge>
+                                                    {translate(
+                                                        'Primary',
+                                                        locale,
+                                                    )}
+                                                </Badge>
+                                            )}
+                                            {contact.is_authorized_signatory && (
+                                                <Badge variant="secondary">
+                                                    {translate(
+                                                        'Authorized signatory',
+                                                        locale,
+                                                    )}
+                                                </Badge>
+                                            )}
+                                        </div>
+                                        <div className="text-muted-foreground">
+                                            {[
+                                                contact.position,
+                                                contact.email,
+                                                contact.phone,
+                                            ]
+                                                .filter(Boolean)
+                                                .join(' · ')}
+                                        </div>
+                                        <div className="mt-2 flex flex-wrap gap-1">
+                                            {(contact.roles ?? []).map(
+                                                (role) => (
+                                                    <Badge
+                                                        key={role}
+                                                        variant="outline"
+                                                    >
+                                                        {translate(
+                                                            contactRoleLabels[
+                                                                role
+                                                            ] ?? role,
+                                                            locale,
+                                                        )}
+                                                    </Badge>
+                                                ),
+                                            )}
+                                        </div>
                                     </div>
-                                    <div className="text-muted-foreground">
-                                        {[
-                                            contact.position,
-                                            contact.email,
-                                            contact.phone,
-                                        ]
-                                            .filter(Boolean)
-                                            .join(' · ')}
-                                    </div>
-                                </div>
+                                    <span className="text-xs text-muted-foreground">
+                                        {translate('Edit', locale)}
+                                    </span>
+                                </summary>
+                                <Form
+                                    action={`/people/${person.id}/contacts/${contact.id}`}
+                                    method="patch"
+                                    options={{ preserveScroll: true }}
+                                    className="mt-4 grid gap-4 rounded-md bg-muted/30 p-4"
+                                >
+                                    {({ processing, errors }) => (
+                                        <>
+                                            <FormErrorSummary errors={errors} />
+                                            <ContactFormFields
+                                                contact={contact}
+                                                locale={locale}
+                                                prefix={`contact-${contact.id}`}
+                                            />
+                                            <div className="flex flex-wrap justify-end gap-2">
+                                                <Button disabled={processing}>
+                                                    {translate(
+                                                        'Save contact',
+                                                        locale,
+                                                    )}
+                                                </Button>
+                                            </div>
+                                        </>
+                                    )}
+                                </Form>
                                 <Form
                                     action={`/people/${person.id}/contacts/${contact.id}`}
                                     method="delete"
+                                    className="mt-2 flex justify-end"
                                 >
                                     {({ processing }) => (
                                         <Button
@@ -1096,54 +1419,40 @@ function CustomerCrmDetails({
                                             variant="ghost"
                                             disabled={processing}
                                         >
-                                            Remove
+                                            {translate('Remove', locale)}
                                         </Button>
                                     )}
                                 </Form>
-                            </div>
+                            </details>
                         ))}
                     </div>
                     <Form
                         action={`/people/${person.id}/contacts`}
                         method="post"
-                        className="grid gap-2 sm:grid-cols-2"
+                        options={{ preserveScroll: true }}
+                        resetOnSuccess
+                        className="grid gap-4 rounded-md border p-4"
                     >
-                        {({ processing }) => (
+                        {({ processing, errors }) => (
                             <>
-                                <Input
-                                    name="first_name"
-                                    placeholder="First name"
-                                    required
+                                <div>
+                                    <div className="font-medium">
+                                        {translate('Add contact', locale)}
+                                    </div>
+                                    <div className="text-sm text-muted-foreground">
+                                        {translate(
+                                            'Assign one or more roles to avoid duplicating the same person.',
+                                            locale,
+                                        )}
+                                    </div>
+                                </div>
+                                <FormErrorSummary errors={errors} />
+                                <ContactFormFields
+                                    locale={locale}
+                                    prefix="new-contact"
                                 />
-                                <Input
-                                    name="last_name"
-                                    placeholder="Last name"
-                                />
-                                <Input name="position" placeholder="Position" />
-                                <Input
-                                    name="email"
-                                    type="email"
-                                    placeholder="Email"
-                                />
-                                <Input name="phone" placeholder="Phone" />
-                                <label className="flex items-center gap-2 text-sm">
-                                    <input
-                                        type="hidden"
-                                        name="is_primary"
-                                        value="0"
-                                    />
-                                    <input
-                                        type="checkbox"
-                                        name="is_primary"
-                                        value="1"
-                                    />
-                                    Primary contact
-                                </label>
-                                <Button
-                                    className="sm:col-span-2"
-                                    disabled={processing}
-                                >
-                                    Add contact
+                                <Button disabled={processing}>
+                                    {translate('Add contact', locale)}
                                 </Button>
                             </>
                         )}

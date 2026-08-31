@@ -104,7 +104,7 @@ prioridad sobre añadir pantallas que amplíen deuda de interfaz.
 | P0        | Localización completa             | En curso. España ya conserva `Spain` como valor canónico y se presenta como `España` en formularios españoles. Ningún otro texto visible puede quedar mezclado y los demás catálogos seguirán el mismo patrón.                                                                                                                                                                                                                   |
 | P0        | Adaptación móvil integral         | En curso continuo. Cada ficha, tabla, diálogo y acción principal debe funcionar desde 320 px sin desbordamiento, pérdida de información ni acciones inaccesibles.                                                                                                                                                                                                                                                                |
 | P1        | Sistema único de formularios      | En curso avanzado. Cliente, instalación, propuesta y alta de gasto comparten secciones, jerarquía visual, resumen accesible de errores, estado de guardado y barra de acciones adaptable. El patrón se extenderá por cortes a los formularios operativos restantes.                                                                                                                                                                   |
-| P1        | Cliente según naturaleza          | Primer corte completado. Particular, empresa, comunidad y organismo público modifican inmediatamente la identidad solicitada; las entidades jurídicas exigen denominación e identificación fiscal, conservan el contacto principal y al volver a particular eliminan la razón social obsoleta. Pendiente profundizar en representantes, facturación y contactos múltiples.                                                          |
+| P1        | Cliente según naturaleza          | Segundo corte completado. Particular, empresa, comunidad y organismo público adaptan la identidad solicitada. La ficha admite múltiples contactos con responsabilidades, representante firmante, contacto principal estable e identidad/dirección fiscal alternativa. Propuestas, facturas y recurrencias congelan ya esos datos efectivos. Pendiente aplicar vencimientos predeterminados y ampliar proveedores.                                                          |
 | P1        | Sidebar y arquitectura de módulos | Planificado. Mapear rutas actuales a las 20 áreas, resolver solapamientos, aplicar permisos en servidor y desplegar la navegación por etapas con pruebas por rol.                                                                                                                                                                                                                                                                |
 
 La optimización se considera terminada únicamente con mediciones antes/después;
@@ -946,14 +946,29 @@ desplazamiento y los campos fiscales conservan sus errores individuales. Los dos
 flujos, incluidos estados, ayudas y controles complejos de componentes, responden
 ahora al selector temporal de español o inglés.
 
+## Corte ejecutado — Identidad fiscal, representantes y contactos
+
+La ficha del cliente distingue ahora identidad operativa e identidad de
+facturación sin obligar a duplicar datos: los campos fiscales vacíos heredan los
+datos generales. También registra plazo de pago, dirección fiscal independiente
+y un contacto de facturación que queda congelado junto a cada nueva propuesta,
+documento de venta o factura recurrente.
+
+Los contactos pueden asumir varias responsabilidades —representación legal,
+facturación, comercial, técnica o administración de fincas—, identificarse como
+firmantes autorizados y editarse desde la propia ficha. El servidor exige correo
+para facturación y documento más representación legal para un firmante. Siempre
+se conserva exactamente un contacto principal mientras existan contactos, incluso
+al eliminar el vigente, y las fusiones de duplicados preservan los nuevos datos.
+
 ## Próximo corte recomendado
 
-Completar para empresas, comunidades y organismos públicos los representantes,
-datos de facturación y contactos múltiples, y extender el sistema común a los
-formularios operativos con mayor frecuencia de uso. En paralelo, recoger durante
-siete días una muestra suficiente de producción para que el siguiente trabajo de
-rendimiento responda a `Server-Timing` y a los percentiles p75 reales de LCP, INP o
-CLS.
+Aplicar automáticamente los plazos de pago del cliente a propuestas y facturas,
+extender identidad fiscal y representantes a proveedores y continuar el sistema
+común en los formularios operativos de mayor frecuencia. En paralelo, recoger
+durante siete días una muestra suficiente de producción para que el siguiente
+trabajo de rendimiento responda a `Server-Timing` y a los percentiles p75 reales
+de LCP, INP o CLS.
 
 ## Corrección transversal — idioma temporal de la plataforma
 

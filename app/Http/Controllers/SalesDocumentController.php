@@ -392,7 +392,7 @@ class SalesDocumentController extends Controller
         $document->fill([
             ...$data,
             ...array_diff_key($totals, ['lines' => true]),
-            'customer_snapshot' => $customer->only(['first_name', 'last_name', 'company_name', 'tax_id', 'document_number', 'billing_email', 'email', 'address_line_1', 'address_line_2', 'postal_code', 'city', 'province_state', 'country']),
+            'customer_snapshot' => $customer->customerSnapshot(),
         ])->save();
         $document->lines()->delete();
         $document->lines()->createMany($totals['lines']);

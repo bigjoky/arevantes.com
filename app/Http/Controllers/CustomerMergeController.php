@@ -49,6 +49,16 @@ class CustomerMergeController extends Controller
                 'phone' => $person->phone ?: $duplicate->phone,
                 'tax_id' => $person->tax_id ?: $duplicate->tax_id,
                 'billing_email' => $person->billing_email ?: $duplicate->billing_email,
+                'billing_name' => $person->billing_name ?: $duplicate->billing_name,
+                'billing_tax_id' => $person->billing_tax_id ?: $duplicate->billing_tax_id,
+                'billing_address_line_1' => $person->billing_address_line_1 ?: $duplicate->billing_address_line_1,
+                'billing_address_line_2' => $person->billing_address_line_2 ?: $duplicate->billing_address_line_2,
+                'billing_city' => $person->billing_city ?: $duplicate->billing_city,
+                'billing_locality' => $person->billing_locality ?: $duplicate->billing_locality,
+                'billing_province_state' => $person->billing_province_state ?: $duplicate->billing_province_state,
+                'billing_postal_code' => $person->billing_postal_code ?: $duplicate->billing_postal_code,
+                'billing_country' => $person->billing_country ?: $duplicate->billing_country,
+                'payment_terms_days' => $person->payment_terms_days ?? $duplicate->payment_terms_days,
                 'notes' => collect([$person->notes, $duplicate->notes])->filter()->unique()->implode("\n\n"),
             ]);
             $duplicate->delete();
