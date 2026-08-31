@@ -7,6 +7,7 @@ use App\Models\FinancialForecastItem;
 use App\Models\Installation;
 use App\Models\Opportunity;
 use App\Models\Person;
+use App\Models\PlanningCalibrationProposal;
 use App\Models\PlanningScenario;
 use App\Models\PlanningScenarioRequest;
 use App\Models\Product;
@@ -621,5 +622,118 @@ class PlanningScenarioTest extends TestCase
                 ->where('selectedScenario.learning_summary.summary.aligned', 1)
                 ->where('selectedScenario.learning_summary.summary.significant', 1)
                 ->where('selectedScenario.learning_summary.recommendations.0.area', 'operations'));
+    }
+
+    public function test_repeated_closed_scenarios_create_versioned_calibration_proposals_with_governed_decisions(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $commercial = User::factory()->create(['role' => 'commercial']);
+
+        foreach (range(1, 2) as $sequence) {
+            $this->closedCalibrationScenario($admin, $sequence, 10, 6);
+        }
+
+        $this->actingAs($commercial)
+            ->post(route('planning-scenarios.calibrations.store'))
+            ->assertForbidden();
+
+        $this->actingAs($admin)
+            ->post(route('planning-scenarios.calibrations.store'))
+            ->assertRedirect();
+        $this->assertDatabaseCount('planning_calibration_proposals', 0);
+
+        $this->closedCalibrationScenario($admin, 3, 10, 6);
+        $this->post(route('planning-scenarios.calibrations.store'))->assertRedirect();
+
+        $proposal = PlanningCalibrationProposal::firstOrFail();
+        $this->assertSame('solar', $proposal->business_line);
+        $this->assertSame('operations', $proposal->area);
+        $this->assertSame('Tasks completed', $proposal->metric_label);
+        $this->assertSame(1, $proposal->version);
+        $this->assertSame('pending', $proposal->status);
+        $this->assertSame('lower', $proposal->direction);
+        $this->assertSame(3, $proposal->sample_size);
+        $this->assertSame(3, $proposal->evidence_snapshot['consistent_samples']);
+        $this->assertEquals(1.0, $proposal->evidence_snapshot['direction_consistency']);
+        $this->assertEquals(-40.0, $proposal->evidence_snapshot['average_delta_percent']);
+
+        $this->post(route('planning-scenarios.calibrations.store'))->assertRedirect();
+        $this->assertDatabaseCount('planning_calibration_proposals', 1);
+
+        $this->post(route('planning-calibrations.decision.store', $proposal), [
+            'decision' => 'accepted',
+            'decision_note' => 'Use this evidence when reviewing the next solar planning horizon.',
+        ])->assertRedirect();
+
+        $proposal->refresh();
+        $this->assertSame('accepted', $proposal->status);
+        $this->assertSame($admin->id, $proposal->decided_by);
+        $this->assertNotNull($proposal->decided_at);
+        $this->assertTrue(PlanningScenario::query()->get()->every(
+            fn (PlanningScenario $scenario): bool => $scenario->assumptions['capacity_hours_per_opportunity'] === 40,
+        ));
+        $this->assertDatabaseHas('security_events', [
+            'type' => 'planning_calibration_decided',
+            'user_id' => $admin->id,
+        ]);
+
+        $this->post(route('planning-calibrations.decision.store', $proposal), [
+            'decision' => 'rejected',
+            'decision_note' => 'A decided proposal cannot be decided for a second time.',
+        ])->assertSessionHasErrors('calibration');
+
+        $this->closedCalibrationScenario($admin, 4, 10, 5);
+        $this->post(route('planning-scenarios.calibrations.store'))->assertRedirect();
+        $this->assertDatabaseCount('planning_calibration_proposals', 2);
+        $latest = PlanningCalibrationProposal::latest('version')->firstOrFail();
+        $this->assertSame(2, $latest->version);
+        $this->assertSame(4, $latest->sample_size);
+        $this->assertNotSame($proposal->source_fingerprint, $latest->source_fingerprint);
+
+        $this->get(route('planning-scenarios.index'))->assertInertia(fn (Assert $page) => $page
+            ->where('calibrationProposals.0.id', $latest->id)
+            ->where('calibrationProposals.0.auto_apply', false)
+            ->where('calibrationProposals.1.status', 'accepted')
+            ->where('calibrationProposals.1.decider.id', $admin->id));
+    }
+
+    private function closedCalibrationScenario(User $admin, int $sequence, float $planned, float $observed): PlanningScenario
+    {
+        return PlanningScenario::create([
+            'name' => "Solar closure {$sequence}",
+            'version' => 1,
+            'status' => 'closed',
+            'scenario_kind' => 'base',
+            'horizon_starts_on' => '2026-01-01',
+            'horizon_ends_on' => '2026-03-31',
+            'assumptions' => [
+                'capacity_hours_per_opportunity' => 40,
+                'material_cost_percent_without_quote' => 35,
+                'collection_delay_days' => 30,
+            ],
+            'opportunity_snapshot' => ['opportunities' => [[
+                'opportunity_id' => $sequence,
+                'confirmed' => ['business_line' => 'solar'],
+            ]]],
+            'result_snapshot' => ['summary' => [], 'materials' => [], 'cash_by_month' => [], 'non_committing' => true],
+            'fingerprint' => hash('sha256', "scenario-{$sequence}"),
+            'closure_snapshot' => [
+                'summary' => ['requests' => 1, 'executed' => 1, 'resources' => 1, 'pending_exceptions' => 0],
+                'areas' => [[
+                    'area' => 'operations',
+                    'comparison' => [[
+                        'label' => 'Tasks completed',
+                        'planned' => $planned,
+                        'current' => $observed,
+                        'unit' => 'items',
+                    ]],
+                ]],
+            ],
+            'closure_fingerprint' => hash('sha256', "closure-{$sequence}"),
+            'closure_note' => 'Closed calibration evidence.',
+            'created_by' => $admin->id,
+            'closed_by' => $admin->id,
+            'closed_at' => now()->addSeconds($sequence),
+        ]);
     }
 }

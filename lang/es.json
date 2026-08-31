@@ -1136,5 +1136,9 @@
     "Review material quantities and consumption assumptions before the next scenario.": "Revisa las cantidades de material y los supuestos de consumo antes del siguiente escenario.",
     "Review shortage quantities, supplier prices and purchasing assumptions before the next scenario.": "Revisa las cantidades en falta, los precios de proveedor y los supuestos de compra antes del siguiente escenario.",
     "Review collection timing and material-payment assumptions before the next scenario.": "Revisa los plazos de cobro y los supuestos de pago de materiales antes del siguiente escenario.",
-    "Review this variance before preparing the next scenario.": "Revisa esta desviación antes de preparar el siguiente escenario."
+    "Review this variance before preparing the next scenario.": "Revisa esta desviación antes de preparar el siguiente escenario.",
+    "Only a pending calibration proposal can be decided.": "Solo se puede decidir una propuesta de calibración pendiente.",
+    "No new calibration pattern meets the minimum evidence threshold.": "Ningún patrón nuevo de calibración alcanza el umbral mínimo de evidencia.",
+    "Calibration proposals generated from comparable closed scenarios.": "Propuestas de calibración generadas a partir de escenarios cerrados comparables.",
+    "Calibration decision recorded without changing scenario assumptions.": "Decisión de calibración registrada sin cambiar los supuestos del escenario."
 }

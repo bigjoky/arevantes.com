@@ -3,7 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\Opportunity;
+use App\Models\PlanningCalibrationProposal;
 use App\Models\PlanningScenario;
+use App\Services\Planning\PlanningCalibrationProposalService;
 use App\Services\Planning\PlanningScenarioApproval;
 use App\Services\Planning\PlanningScenarioIntegrity;
 use App\Services\Planning\PlanningScenarioLearning;
@@ -50,7 +52,50 @@ class PlanningScenarioController extends Controller
                 ->orderBy('expected_close_on')
                 ->orderBy('code')
                 ->get(['id', 'person_id', 'installation_id', 'code', 'title', 'stage', 'probability', 'estimated_value', 'expected_close_on']),
+            'calibrationProposals' => PlanningCalibrationProposal::query()
+                ->with(['creator:id,name', 'decider:id,name'])
+                ->latest('id')
+                ->limit(50)
+                ->get()
+                ->each->setAttribute('auto_apply', false),
         ]);
+    }
+
+    public function generateCalibrations(Request $request, PlanningCalibrationProposalService $calibrations, SecurityEventRecorder $events): RedirectResponse
+    {
+        $created = $calibrations->generate($request->user());
+        $events->record('planning_calibrations_generated', $request->user(), [
+            'created' => $created->count(),
+            'planning_calibration_proposal_ids' => $created->pluck('id')->all(),
+            'minimum_sample_size' => PlanningCalibrationProposalService::MINIMUM_SAMPLE_SIZE,
+            'auto_apply' => false,
+        ]);
+
+        return back()->with('toast', [
+            'type' => 'success',
+            'message' => $created->isEmpty()
+                ? __('No new calibration pattern meets the minimum evidence threshold.')
+                : __('Calibration proposals generated from comparable closed scenarios.'),
+        ]);
+    }
+
+    public function decideCalibration(Request $request, PlanningCalibrationProposal $calibration, PlanningCalibrationProposalService $calibrations, SecurityEventRecorder $events): RedirectResponse
+    {
+        $data = $request->validate([
+            'decision' => ['required', Rule::in(['accepted', 'rejected'])],
+            'decision_note' => ['required', 'string', 'min:10', 'max:2000'],
+        ]);
+        $decided = $calibrations->decide($calibration, $request->user(), $data['decision'], $data['decision_note']);
+        $events->record('planning_calibration_decided', $request->user(), [
+            'planning_calibration_proposal_id' => $decided->id,
+            'status' => $decided->status,
+            'version' => $decided->version,
+            'business_line' => $decided->business_line,
+            'source_fingerprint' => $decided->source_fingerprint,
+            'auto_apply' => false,
+        ]);
+
+        return back()->with('toast', ['type' => 'success', 'message' => __('Calibration decision recorded without changing scenario assumptions.')]);
     }
 
     public function store(Request $request, SharedPortfolioScenario $planner, SecurityEventRecorder $events): RedirectResponse

@@ -841,14 +841,29 @@ solo se actualiza después de que la persona lo haya abierto. La interfaz conser
 estados bilingües de carga, error y reintento, navegación por teclado y una altura
 adaptada a móvil.
 
+## Corte ejecutado — Calibración versionada entre escenarios
+
+Los cierres inmutables ya pueden analizarse de forma agregada por línea de negocio,
+área y métrica. El sistema exige al menos tres escenarios monorrama comparables,
+una desviación mínima del 10 % y una dirección coincidente en el 75 % de la muestra;
+los escenarios mixtos, las métricas sin base porcentual y los patrones insuficientes
+no generan propuestas.
+
+Cada patrón válido crea una propuesta persistente e idempotente con versión, tamaño
+de muestra, consistencia, desviación media, totales plan-real y huellas de todos los
+cierres de origen. Una nueva evidencia produce una nueva versión sin reescribir las
+anteriores. Administración puede aceptarla o descartarla con una nota obligatoria;
+la decisión, el responsable y la evidencia quedan auditados. Incluso aceptada, la
+propuesta nunca modifica supuestos, recursos ni datos maestros automáticamente.
+
 ## Próximo corte recomendado
 
 Recoger en producción la línea base de las rutas principales y optimizar primero el
 siguiente cuello demostrado, incorporando Core Web Vitals a la evidencia. En
-escenarios, agrupar varios cierres comparables por línea de negocio
-y convertir patrones repetidos en propuestas de calibración versionadas que una
-persona pueda aceptar o descartar; ninguna propuesta modificará supuestos por sí
-sola ni se emitirá con una muestra insuficiente.
+escenarios, presentar las calibraciones aceptadas como referencias opcionales al
+crear una nueva versión, mostrando siempre valor actual, evidencia y diferencia;
+aplicar cualquier valor seguirá requiriendo una acción humana explícita y quedará
+registrado en la fotografía del nuevo escenario.
 
 ## Corrección transversal — idioma temporal de la plataforma
 

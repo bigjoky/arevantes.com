@@ -5,7 +5,9 @@ import {
     Clock3,
     GitCompareArrows,
     LockKeyhole,
+    Sparkles,
     ShieldCheck,
+    XCircle,
 } from 'lucide-react';
 import InputError from '@/components/input-error';
 import { Badge } from '@/components/ui/badge';
@@ -200,6 +202,40 @@ type ScenarioLearning = {
     }>;
 };
 
+type CalibrationProposal = {
+    id: number;
+    business_line: string;
+    area: string;
+    metric_label: string;
+    unit: string;
+    version: number;
+    status: 'pending' | 'accepted' | 'rejected';
+    direction: 'higher' | 'lower';
+    sample_size: number;
+    evidence_snapshot: {
+        minimum_sample_size: number;
+        consistent_samples: number;
+        direction_consistency: number;
+        average_delta_percent: number;
+        planned_total: number;
+        observed_total: number;
+        sources: Array<{
+            scenario_id: number;
+            scenario_name: string;
+            scenario_version: number;
+            closure_fingerprint: string;
+            delta_percent: number;
+        }>;
+    };
+    source_fingerprint: string;
+    recommendation: string;
+    decision_note: string | null;
+    decided_at: string | null;
+    auto_apply: false;
+    creator: { id: number; name: string };
+    decider: { id: number; name: string } | null;
+};
+
 const money = (value: number, locale: 'en' | 'es') =>
     new Intl.NumberFormat(locale === 'es' ? 'es-ES' : 'en-GB', {
         style: 'currency',
@@ -240,13 +276,16 @@ export default function PlanningScenarioIndex({
     selectedScenario,
     opportunities,
     defaults,
+    calibrationProposals,
 }: {
     scenarios: Scenario[];
     selectedScenario: Scenario | null;
     opportunities: Opportunity[];
     defaults: { horizon_starts_on: string; horizon_ends_on: string };
+    calibrationProposals: CalibrationProposal[];
 }) {
     const { locale } = useLocale();
+    const calibrationGeneration = useForm({});
     const form = useForm({
         name: '',
         scenario_kind: 'base' as 'base' | 'risk' | 'alternative',
@@ -305,6 +344,18 @@ export default function PlanningScenarioIndex({
                         </div>
                     </div>
                 </section>
+
+                <CalibrationProposals
+                    proposals={calibrationProposals}
+                    locale={locale}
+                    generating={calibrationGeneration.processing}
+                    onGenerate={() =>
+                        calibrationGeneration.post(
+                            '/planning-scenarios/calibrations',
+                            { preserveScroll: true },
+                        )
+                    }
+                />
 
                 <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(24rem,0.8fr)]">
                     <form
@@ -619,6 +670,215 @@ export default function PlanningScenarioIndex({
                 </div>
             </div>
         </>
+    );
+}
+
+function CalibrationProposals({
+    proposals,
+    locale,
+    generating,
+    onGenerate,
+}: {
+    proposals: CalibrationProposal[];
+    locale: 'en' | 'es';
+    generating: boolean;
+    onGenerate: () => void;
+}) {
+    return (
+        <section className="rounded-lg border p-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                    <div className="flex items-center gap-2">
+                        <Sparkles className="size-5 text-violet-600" />
+                        <h2 className="font-semibold">
+                            {translate('Calibration proposals', locale)}
+                        </h2>
+                    </div>
+                    <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
+                        {translate(
+                            'Detect repeated deviations across comparable closed scenarios. At least three immutable closures from one business line are required.',
+                            locale,
+                        )}
+                    </p>
+                </div>
+                <Button
+                    type="button"
+                    variant="outline"
+                    disabled={generating}
+                    onClick={onGenerate}
+                >
+                    <Sparkles />
+                    {generating
+                        ? translate('Analysing closures...', locale)
+                        : translate('Generate proposals', locale)}
+                </Button>
+            </div>
+
+            {proposals.length > 0 ? (
+                <div className="mt-4 grid gap-3 xl:grid-cols-2">
+                    {proposals.map((proposal) => (
+                        <CalibrationProposalCard
+                            key={proposal.id}
+                            proposal={proposal}
+                            locale={locale}
+                        />
+                    ))}
+                </div>
+            ) : (
+                <p className="mt-4 rounded-md bg-muted/50 p-4 text-sm text-muted-foreground">
+                    {translate(
+                        'No calibration proposal has been generated yet.',
+                        locale,
+                    )}
+                </p>
+            )}
+        </section>
+    );
+}
+
+function CalibrationProposalCard({
+    proposal,
+    locale,
+}: {
+    proposal: CalibrationProposal;
+    locale: 'en' | 'es';
+}) {
+    const decisionForm = useForm<{
+        decision: 'accepted' | 'rejected';
+        decision_note: string;
+        calibration: string;
+    }>({
+        decision: 'accepted',
+        decision_note: '',
+        calibration: '',
+    });
+    const decide = (decision: 'accepted' | 'rejected') => {
+        decisionForm.transform((data) => ({ ...data, decision }));
+        decisionForm.post(`/planning-calibrations/${proposal.id}/decision`, {
+            preserveScroll: true,
+        });
+    };
+
+    return (
+        <article className="min-w-0 rounded-md border bg-muted/20 p-4">
+            <div className="flex flex-wrap items-start justify-between gap-2">
+                <div>
+                    <div className="font-medium">
+                        {translate(proposal.metric_label, locale)} · v
+                        {proposal.version}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                        {translate(proposal.business_line, locale)} ·{' '}
+                        {translate(proposal.area, locale)}
+                    </div>
+                </div>
+                <Badge
+                    variant={
+                        proposal.status === 'rejected'
+                            ? 'destructive'
+                            : 'outline'
+                    }
+                >
+                    {translate(
+                        proposal.status === 'accepted'
+                            ? 'Accepted'
+                            : proposal.status === 'rejected'
+                              ? 'Rejected'
+                              : 'Pending decision',
+                        locale,
+                    )}
+                </Badge>
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
+                <span>
+                    {translate('Sample', locale)}: {proposal.sample_size}
+                </span>
+                <span>
+                    {translate('Consistent', locale)}:{' '}
+                    {Math.round(
+                        proposal.evidence_snapshot.direction_consistency * 100,
+                    )}
+                    %
+                </span>
+                <span>
+                    {translate('Average variance', locale)}:{' '}
+                    {signed(
+                        proposal.evidence_snapshot.average_delta_percent,
+                        '%',
+                    )}
+                </span>
+                <span>
+                    {translate('Direction', locale)}:{' '}
+                    {translate(proposal.direction, locale)}
+                </span>
+            </div>
+            <p className="mt-3 text-sm">
+                {translate(proposal.recommendation, locale)}
+            </p>
+            <p className="mt-2 text-xs text-muted-foreground">
+                {translate(
+                    'Accepting this proposal records a planning decision but never changes assumptions automatically.',
+                    locale,
+                )}
+            </p>
+
+            {proposal.status === 'pending' ? (
+                <div className="mt-4 space-y-2">
+                    <Label htmlFor={`calibration-note-${proposal.id}`}>
+                        {translate('Decision note', locale)}
+                    </Label>
+                    <Textarea
+                        id={`calibration-note-${proposal.id}`}
+                        value={decisionForm.data.decision_note}
+                        onChange={(event) =>
+                            decisionForm.setData(
+                                'decision_note',
+                                event.target.value,
+                            )
+                        }
+                        placeholder={translate(
+                            'Explain why this pattern should or should not guide the next scenario.',
+                            locale,
+                        )}
+                    />
+                    <InputError
+                        message={
+                            decisionForm.errors.decision_note ||
+                            decisionForm.errors.calibration
+                        }
+                    />
+                    <div className="flex flex-col gap-2 sm:flex-row">
+                        <Button
+                            type="button"
+                            disabled={decisionForm.processing}
+                            onClick={() => decide('accepted')}
+                        >
+                            <CheckCircle2 />
+                            {translate('Accept proposal', locale)}
+                        </Button>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            disabled={decisionForm.processing}
+                            onClick={() => decide('rejected')}
+                        >
+                            <XCircle />
+                            {translate('Reject proposal', locale)}
+                        </Button>
+                    </div>
+                </div>
+            ) : (
+                <div className="mt-3 rounded-md bg-background/70 p-3 text-xs">
+                    <div className="font-medium">
+                        {translate('Decided by', locale)}{' '}
+                        {proposal.decider?.name}
+                    </div>
+                    <p className="mt-1 text-muted-foreground">
+                        {proposal.decision_note}
+                    </p>
+                </div>
+            )}
+        </article>
     );
 }
 

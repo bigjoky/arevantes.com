@@ -14788,5 +14788,105 @@
     "Pending exceptions": {
         "en": "Pending exceptions",
         "es": "Excepciones pendientes"
+    },
+    "Calibration proposals": {
+        "en": "Calibration proposals",
+        "es": "Propuestas de calibración"
+    },
+    "Detect repeated deviations across comparable closed scenarios. At least three immutable closures from one business line are required.": {
+        "en": "Detect repeated deviations across comparable closed scenarios. At least three immutable closures from one business line are required.",
+        "es": "Detecta desviaciones repetidas entre escenarios cerrados comparables. Se requieren al menos tres cierres inmutables de una misma línea de negocio."
+    },
+    "Analysing closures...": {
+        "en": "Analysing closures...",
+        "es": "Analizando cierres..."
+    },
+    "Generate proposals": {
+        "en": "Generate proposals",
+        "es": "Generar propuestas"
+    },
+    "No calibration proposal has been generated yet.": {
+        "en": "No calibration proposal has been generated yet.",
+        "es": "Todavía no se ha generado ninguna propuesta de calibración."
+    },
+    "Accepted": {
+        "en": "Accepted",
+        "es": "Aceptada"
+    },
+    "Sample": {
+        "en": "Sample",
+        "es": "Muestra"
+    },
+    "Consistent": {
+        "en": "Consistent",
+        "es": "Consistencia"
+    },
+    "Average variance": {
+        "en": "Average variance",
+        "es": "Desviación media"
+    },
+    "Accepting this proposal records a planning decision but never changes assumptions automatically.": {
+        "en": "Accepting this proposal records a planning decision but never changes assumptions automatically.",
+        "es": "Aceptar esta propuesta registra una decisión de planificación, pero nunca cambia supuestos automáticamente."
+    },
+    "Accept proposal": {
+        "en": "Accept proposal",
+        "es": "Aceptar propuesta"
+    },
+    "Reject proposal": {
+        "en": "Reject proposal",
+        "es": "Descartar propuesta"
+    },
+    "Decided by": {
+        "en": "Decided by",
+        "es": "Decidida por"
+    },
+    "higher": {
+        "en": "higher",
+        "es": "superior al plan"
+    },
+    "lower": {
+        "en": "lower",
+        "es": "inferior al plan"
+    },
+    "Operational outcomes repeatedly exceeded the plan; review capacity and task assumptions in the next scenario.": {
+        "en": "Operational outcomes repeatedly exceeded the plan; review capacity and task assumptions in the next scenario.",
+        "es": "Los resultados operativos superaron repetidamente el plan; revisa los supuestos de capacidad y tareas en el próximo escenario."
+    },
+    "Operational outcomes repeatedly remained below the plan; review capacity and task assumptions in the next scenario.": {
+        "en": "Operational outcomes repeatedly remained below the plan; review capacity and task assumptions in the next scenario.",
+        "es": "Los resultados operativos quedaron repetidamente por debajo del plan; revisa los supuestos de capacidad y tareas en el próximo escenario."
+    },
+    "Material outcomes repeatedly exceeded the plan; review quantity and consumption assumptions in the next scenario.": {
+        "en": "Material outcomes repeatedly exceeded the plan; review quantity and consumption assumptions in the next scenario.",
+        "es": "Los resultados de materiales superaron repetidamente el plan; revisa los supuestos de cantidades y consumo en el próximo escenario."
+    },
+    "Material outcomes repeatedly remained below the plan; review quantity and consumption assumptions in the next scenario.": {
+        "en": "Material outcomes repeatedly remained below the plan; review quantity and consumption assumptions in the next scenario.",
+        "es": "Los resultados de materiales quedaron repetidamente por debajo del plan; revisa los supuestos de cantidades y consumo en el próximo escenario."
+    },
+    "Purchasing outcomes repeatedly exceeded the plan; review shortage, price and supplier assumptions in the next scenario.": {
+        "en": "Purchasing outcomes repeatedly exceeded the plan; review shortage, price and supplier assumptions in the next scenario.",
+        "es": "Los resultados de compras superaron repetidamente el plan; revisa los supuestos de faltas, precios y proveedores en el próximo escenario."
+    },
+    "Purchasing outcomes repeatedly remained below the plan; review shortage, price and supplier assumptions in the next scenario.": {
+        "en": "Purchasing outcomes repeatedly remained below the plan; review shortage, price and supplier assumptions in the next scenario.",
+        "es": "Los resultados de compras quedaron repetidamente por debajo del plan; revisa los supuestos de faltas, precios y proveedores en el próximo escenario."
+    },
+    "Financial outcomes repeatedly exceeded the plan; review collection and payment assumptions in the next scenario.": {
+        "en": "Financial outcomes repeatedly exceeded the plan; review collection and payment assumptions in the next scenario.",
+        "es": "Los resultados financieros superaron repetidamente el plan; revisa los supuestos de cobros y pagos en el próximo escenario."
+    },
+    "Financial outcomes repeatedly remained below the plan; review collection and payment assumptions in the next scenario.": {
+        "en": "Financial outcomes repeatedly remained below the plan; review collection and payment assumptions in the next scenario.",
+        "es": "Los resultados financieros quedaron repetidamente por debajo del plan; revisa los supuestos de cobros y pagos en el próximo escenario."
+    },
+    "Observed outcomes repeatedly exceeded the plan; review the related assumptions in the next scenario.": {
+        "en": "Observed outcomes repeatedly exceeded the plan; review the related assumptions in the next scenario.",
+        "es": "Los resultados observados superaron repetidamente el plan; revisa los supuestos relacionados en el próximo escenario."
+    },
+    "Observed outcomes repeatedly remained below the plan; review the related assumptions in the next scenario.": {
+        "en": "Observed outcomes repeatedly remained below the plan; review the related assumptions in the next scenario.",
+        "es": "Los resultados observados quedaron repetidamente por debajo del plan; revisa los supuestos relacionados en el próximo escenario."
     }
 }

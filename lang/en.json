@@ -100,5 +100,9 @@
     "Only an executed request with matching generated resources can govern exceptions.": "Only an executed request with matching generated resources can govern exceptions.",
     "Open planning tasks assigned with a target date.": "Open planning tasks assigned with a target date.",
     "Expired planning reservations renewed.": "Expired planning reservations renewed.",
-    "Expired planning reservations released.": "Expired planning reservations released."
+    "Expired planning reservations released.": "Expired planning reservations released.",
+    "Only a pending calibration proposal can be decided.": "Only a pending calibration proposal can be decided.",
+    "No new calibration pattern meets the minimum evidence threshold.": "No new calibration pattern meets the minimum evidence threshold.",
+    "Calibration proposals generated from comparable closed scenarios.": "Calibration proposals generated from comparable closed scenarios.",
+    "Calibration decision recorded without changing scenario assumptions.": "Calibration decision recorded without changing scenario assumptions."
 }

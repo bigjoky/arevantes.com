@@ -454,6 +454,8 @@ Route::middleware(['auth'])->group(function () {
     Route::get('quotes', [QuoteController::class, 'index'])->middleware('can:manage-quotes')->name('quotes.index');
     Route::get('planning-scenarios', [PlanningScenarioController::class, 'index'])->middleware('can:manage-admin')->name('planning-scenarios.index');
     Route::post('planning-scenarios', [PlanningScenarioController::class, 'store'])->middleware('can:manage-admin')->name('planning-scenarios.store');
+    Route::post('planning-scenarios/calibrations', [PlanningScenarioController::class, 'generateCalibrations'])->middleware('can:manage-admin')->name('planning-scenarios.calibrations.store');
+    Route::post('planning-calibrations/{calibration}/decision', [PlanningScenarioController::class, 'decideCalibration'])->middleware('can:manage-admin')->name('planning-calibrations.decision.store');
     Route::post('planning-scenarios/{scenario}/approval', [PlanningScenarioController::class, 'approve'])->middleware('can:manage-admin')->name('planning-scenarios.approval.store');
     Route::post('planning-scenarios/{scenario}/reviews', [PlanningScenarioController::class, 'review'])->middleware('can:manage-admin')->name('planning-scenarios.reviews.store');
     Route::post('planning-scenarios/{scenario}/closure', [PlanningScenarioController::class, 'close'])->middleware('can:manage-admin')->name('planning-scenarios.closure.store');
