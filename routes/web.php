@@ -22,6 +22,7 @@ use App\Http\Controllers\CustomerPortalController;
 use App\Http\Controllers\CustomerTagController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DocumentDeliveryController;
+use App\Http\Controllers\EngineeringDossierController;
 use App\Http\Controllers\ExpenseController;
 use App\Http\Controllers\FieldServiceSettingsController;
 use App\Http\Controllers\FinanceController;
@@ -192,6 +193,10 @@ Route::middleware(['auth'])->group(function () {
         ->middleware('can:manage-customers')
         ->name('opportunities.restore');
     Route::resource('opportunities', OpportunityController::class)->only(['index', 'show', 'store', 'update', 'destroy'])->middleware('can:manage-customers');
+    Route::get('engineering', [EngineeringDossierController::class, 'index'])->middleware('can:view-installations')->name('engineering.index');
+    Route::post('engineering', [EngineeringDossierController::class, 'store'])->middleware('can:manage-installations')->name('engineering.store');
+    Route::patch('engineering/{engineeringDossier}', [EngineeringDossierController::class, 'update'])->middleware('can:manage-installations')->name('engineering.update');
+    Route::patch('engineering/{engineeringDossier}/transition', [EngineeringDossierController::class, 'transition'])->middleware('can:manage-installations')->name('engineering.transition');
     Route::post('people/{person}/portal', [CustomerPortalController::class, 'invite'])->middleware('can:manage-customers')->name('people.portal.invite');
     Route::delete('people/{person}/portal/{access}', [CustomerPortalController::class, 'revoke'])->middleware('can:manage-customers')->name('people.portal.revoke');
     Route::delete('document-deliveries/{delivery}', [DocumentDeliveryController::class, 'revoke'])->middleware('can:manage-installations')->name('document-deliveries.revoke');

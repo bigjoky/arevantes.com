@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\EngineeringDossier;
 use App\Models\Installation;
 use App\Models\Opportunity;
 use App\Models\Person;
@@ -28,6 +29,7 @@ class GlobalSearchController extends Controller
 
         if (Gate::forUser($request->user())->allows('view-installations')) {
             Installation::with('customer:id,first_name,last_name,company_name')->where(fn ($q) => $q->where('project_reference', 'like', "%{$term}%")->orWhere('site_name', 'like', "%{$term}%")->orWhere('site_address_line_1', 'like', "%{$term}%")->orWhere('site_city', 'like', "%{$term}%")->orWhere('site_postal_code', 'like', "%{$term}%"))->limit(5)->get()->each(fn ($item) => $results->push(['group' => 'Installations', 'title' => $item->project_reference ?: $item->site_name ?: __('Installation #:id', ['id' => $item->id]), 'subtitle' => collect([$item->service_type, $item->status, $item->site_city])->filter()->implode(' · '), 'href' => route('installations.show', $item, false)]));
+            EngineeringDossier::where(fn ($q) => $q->where('code', 'like', "%{$term}%")->orWhere('title', 'like', "%{$term}%")->orWhere('scope', 'like', "%{$term}%")->orWhere('proposed_solution', 'like', "%{$term}%")->orWhere('standards', 'like', "%{$term}%"))->limit(5)->get()->each(fn ($item) => $results->push(['group' => 'Engineering', 'title' => $item->code.' · '.$item->title, 'subtitle' => collect([$item->business_line, $item->kind, $item->status, 'v'.$item->current_version])->implode(' · '), 'href' => route('engineering.index', absolute: false).'#dossier-'.$item->id]));
         }
 
         if (Gate::forUser($request->user())->allows('manage-operations')) {

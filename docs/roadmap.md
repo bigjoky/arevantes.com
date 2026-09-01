@@ -97,15 +97,15 @@ vacíos.
 Este programa se ejecuta en cortes verticales junto al roadmap funcional y tiene
 prioridad sobre añadir pantallas que amplíen deuda de interfaz.
 
-| Prioridad | Trabajo                           | Estado y criterio de salida                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| --------- | --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| P0        | Direcciones editables             | Primer corte completado. País, provincia, municipio y localidad guardados reconstruyen sus listas dependientes al crear y editar clientes e instalaciones; los catálogos estables se cachean durante 24 horas.                                                                                                                                                                                                                               |
-| P0        | Rendimiento medible               | Instrumentación y primera optimización ejecutadas. `Server-Timing` mide aplicación y SQL; los excesos registran solo metadatos técnicos. El panel difiere datos y código del mapa. LCP, INP y CLS se muestrean ahora por pantalla y dispositivo, sin URL, usuario ni IP, con retención de 90 días e informe de percentiles. Pendiente recoger una línea base suficiente en producción y optimizar el siguiente punto demostrado.             |
-| P0        | Localización completa             | En curso. España ya conserva `Spain` como valor canónico y se presenta como `España` en formularios españoles. Ningún otro texto visible puede quedar mezclado y los demás catálogos seguirán el mismo patrón.                                                                                                                                                                                                                               |
-| P0        | Adaptación móvil integral         | En curso continuo. Cada ficha, tabla, diálogo y acción principal debe funcionar desde 320 px sin desbordamiento, pérdida de información ni acciones inaccesibles.                                                                                                                                                                                                                                                                            |
-| P1        | Sistema único de formularios      | En curso avanzado. Cliente, instalación, propuesta y alta de gasto comparten secciones, jerarquía visual, resumen accesible de errores, estado de guardado y barra de acciones adaptable. El patrón se extenderá por cortes a los formularios operativos restantes.                                                                                                                                                                          |
-| P1        | Terceros según naturaleza         | Cuarto corte completado. Particular, empresa, comunidad y organismo público adaptan identidad, contactos, representación e información fiscal. Clientes y proveedores disponen de contactos por responsabilidad y firmantes autorizados; ventas y compras congelan la identidad histórica en sus documentos derivados.                                                                                                                       |
-| P1        | Sidebar y arquitectura de módulos | Segundo corte completado. Además de Personas, CRM, Ventas, Proyectos, Compras e Inventario, Activos, Mantenimiento y Contratos/Servicios disponen de accesos y cargas semánticas propias sobre el dominio recurrente existente. El servidor sigue eliminando cualquier sección no autorizada e Ingeniería permanece oculta hasta disponer de expediente técnico propio. Pendientes recientes, favoritos y el límite funcional de Ingeniería. |
+| Prioridad | Trabajo                           | Estado y criterio de salida                                                                                                                                                                                                                                                                                                                                                                                                      |
+| --------- | --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| P0        | Direcciones editables             | Primer corte completado. País, provincia, municipio y localidad guardados reconstruyen sus listas dependientes al crear y editar clientes e instalaciones; los catálogos estables se cachean durante 24 horas.                                                                                                                                                                                                                   |
+| P0        | Rendimiento medible               | Instrumentación y primera optimización ejecutadas. `Server-Timing` mide aplicación y SQL; los excesos registran solo metadatos técnicos. El panel difiere datos y código del mapa. LCP, INP y CLS se muestrean ahora por pantalla y dispositivo, sin URL, usuario ni IP, con retención de 90 días e informe de percentiles. Pendiente recoger una línea base suficiente en producción y optimizar el siguiente punto demostrado. |
+| P0        | Localización completa             | En curso. España ya conserva `Spain` como valor canónico y se presenta como `España` en formularios españoles. Ningún otro texto visible puede quedar mezclado y los demás catálogos seguirán el mismo patrón.                                                                                                                                                                                                                   |
+| P0        | Adaptación móvil integral         | En curso continuo. Cada ficha, tabla, diálogo y acción principal debe funcionar desde 320 px sin desbordamiento, pérdida de información ni acciones inaccesibles.                                                                                                                                                                                                                                                                |
+| P1        | Sistema único de formularios      | En curso avanzado. Cliente, instalación, propuesta y alta de gasto comparten secciones, jerarquía visual, resumen accesible de errores, estado de guardado y barra de acciones adaptable. El patrón se extenderá por cortes a los formularios operativos restantes.                                                                                                                                                              |
+| P1        | Terceros según naturaleza         | Cuarto corte completado. Particular, empresa, comunidad y organismo público adaptan identidad, contactos, representación e información fiscal. Clientes y proveedores disponen de contactos por responsabilidad y firmantes autorizados; ventas y compras congelan la identidad histórica en sus documentos derivados.                                                                                                           |
+| P1        | Sidebar y arquitectura de módulos | Tercer corte completado. Ingeniería incorpora un expediente técnico versionado y gobernado; Activos, Mantenimiento y Contratos/Servicios mantienen accesos y cargas semánticas propias, y el servidor elimina cualquier sección no autorizada. Las áreas objetivo con flujo real quedan alineadas sin módulos de escaparate. Pendientes accesos recientes y favoritos persistidos por usuario.                                   |
 
 La optimización se considera terminada únicamente con mediciones antes/después;
 la traducción y el responsive se validan sobre las rutas realmente autorizadas a
@@ -977,12 +977,36 @@ como respaldo para registros históricos sin plazo.
 
 ## Próximo corte recomendado
 
-Definir el expediente técnico gobernado de Ingeniería para estudios, cálculos y
-diseños vinculados a una oportunidad o proyecto, con versiones, autoría y paso
-explícito a ejecución. Añadir después accesos recientes y favoritos derivados de
-permisos y persistidos por usuario. En paralelo, comparar en producción el tiempo
-y tamaño de las cuatro cargas semánticas de servicio para confirmar la mejora y
-elegir el siguiente cuello de botella mediante `Server-Timing` y percentiles p75.
+Añadir accesos recientes y favoritos persistidos por usuario sobre la navegación
+autorizada, con limpieza automática si cambia el perfil y una presentación móvil
+compacta. Después, conectar el expediente técnico aprobado con la planificación
+del proyecto mediante una solicitud revisable, sin crear órdenes, compras ni
+reservas de forma implícita. En paralelo, comparar en producción tiempos y tamaño
+de las cargas semánticas mediante `Server-Timing` y percentiles p75.
+
+## Corte ejecutado — Expediente técnico gobernado de Ingeniería
+
+Ingeniería deja de depender de notas libres dentro de la instalación. Cada
+estudio, cálculo, diseño o informe técnico dispone de código ENG, línea de
+negocio, alcance, condiciones del emplazamiento, cálculos, solución propuesta,
+riesgos, normativa y conclusiones. Puede vincularse a una oportunidad, a un
+proyecto o a ambos, y el servidor impide asociar una oportunidad a un proyecto
+distinto.
+
+El ciclo separa borrador, revisión, aprobación y entrega a ejecución. Cada cambio
+del borrador crea una versión inmutable con autor, motivo y huella SHA-256; la
+aprobación y la entrega comprueban la versión y huella abiertas para evitar
+decisiones sobre contenido obsoleto. La entrega exige un proyecto y solo registra
+el hito gobernado: no cambia el estado de la instalación ni crea órdenes de
+trabajo, compras o reservas.
+
+La ficha muestra el contenido técnico, versiones y trazabilidad completa de
+eventos y responsables. El formulario usa el sistema visual común, los diálogos
+se adaptan a móvil y las fichas largas aplican renderizado diferido. Los perfiles
+con consulta de instalaciones pueden leer ENG; solo quienes gestionan
+instalaciones pueden editar o decidir. Los expedientes se incorporan también a
+la búsqueda global y sus resultados enlazan directamente a la ficha resaltada.
+Todo el flujo está cubierto en español e inglés.
 
 ## Corte ejecutado — Dominios de servicio y carga contextual
 

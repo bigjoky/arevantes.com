@@ -1,4 +1,124 @@
 {
+    "Engineering": {
+        "en": "Engineering",
+        "es": "Ingeniería"
+    },
+    "Versioned studies, calculations and designs with an explicit governed handover to project execution.": {
+        "en": "Versioned studies, calculations and designs with an explicit governed handover to project execution.",
+        "es": "Estudios, cálculos y diseños versionados con una entrega gobernada y explícita a la ejecución del proyecto."
+    },
+    "Drafts": {
+        "en": "Drafts",
+        "es": "Borradores"
+    },
+    "Handed over": {
+        "en": "Handed over",
+        "es": "Entregados"
+    },
+    "No technical dossiers yet.": {
+        "en": "No technical dossiers yet.",
+        "es": "Todavía no hay expedientes técnicos."
+    },
+    "Site conditions": {
+        "en": "Site conditions",
+        "es": "Condiciones del emplazamiento"
+    },
+    "Calculations": {
+        "en": "Calculations",
+        "es": "Cálculos"
+    },
+    "Proposed solution": {
+        "en": "Proposed solution",
+        "es": "Solución propuesta"
+    },
+    "Standards": {
+        "en": "Standards",
+        "es": "Normativa"
+    },
+    "Conclusions": {
+        "en": "Conclusions",
+        "es": "Conclusiones"
+    },
+    "Audit trail (": {
+        "en": "Audit trail (",
+        "es": "Trazabilidad ("
+    },
+    "Handed to project execution by": {
+        "en": "Handed to project execution by",
+        "es": "Entregado a ejecución por"
+    },
+    "Submit for review": {
+        "en": "Submit for review",
+        "es": "Enviar a revisión"
+    },
+    "Return to draft": {
+        "en": "Return to draft",
+        "es": "Devolver a borrador"
+    },
+    "Approve version": {
+        "en": "Approve version",
+        "es": "Aprobar versión"
+    },
+    "Hand over to execution": {
+        "en": "Hand over to execution",
+        "es": "Entregar a ejecución"
+    },
+    "Record the technical review and decision evidence.": {
+        "en": "Record the technical review and decision evidence.",
+        "es": "Registra la revisión técnica y la evidencia de la decisión."
+    },
+    "handover": {
+        "en": "handover",
+        "es": "entrega"
+    },
+    "Link this dossier to a project before handover.": {
+        "en": "Link this dossier to a project before handover.",
+        "es": "Vincula este expediente a un proyecto antes de entregarlo."
+    },
+    "Edit draft": {
+        "en": "Edit draft",
+        "es": "Editar borrador"
+    },
+    "New technical dossier": {
+        "en": "New technical dossier",
+        "es": "Nuevo expediente técnico"
+    },
+    "Revise technical dossier": {
+        "en": "Revise technical dossier",
+        "es": "Revisar expediente técnico"
+    },
+    "Identity and scope": {
+        "en": "Identity and scope",
+        "es": "Identidad y alcance"
+    },
+    "Link the study to its commercial or project context without committing execution resources.": {
+        "en": "Link the study to its commercial or project context without committing execution resources.",
+        "es": "Vincula el estudio a su contexto comercial o de proyecto sin comprometer recursos de ejecución."
+    },
+    "Document kind": {
+        "en": "Document kind",
+        "es": "Tipo de documento"
+    },
+    "Project": {
+        "en": "Project",
+        "es": "Proyecto"
+    },
+    "Technical evidence": {
+        "en": "Technical evidence",
+        "es": "Evidencia técnica"
+    },
+    "Record enough evidence for another professional to reproduce the reasoning.": {
+        "en": "Record enough evidence for another professional to reproduce the reasoning.",
+        "es": "Registra evidencia suficiente para que otro profesional pueda reproducir el razonamiento."
+    },
+    "Explain what changed and why this version is needed.": {
+        "en": "Explain what changed and why this version is needed.",
+        "es": "Explica qué ha cambiado y por qué es necesaria esta versión."
+    },
+    "Draft content remains editable; review and approved versions are locked.": {
+        "en": "Draft content remains editable; review and approved versions are locked.",
+        "es": "El contenido en borrador sigue siendo editable; las versiones en revisión y aprobadas quedan bloqueadas."
+    },
     "Assets": {
         "en": "Assets",
         "es": "Activos"

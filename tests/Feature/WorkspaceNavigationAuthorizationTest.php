@@ -31,7 +31,9 @@ class WorkspaceNavigationAuthorizationTest extends TestCase
                 ->where('auth.navigation', function (Collection $navigation): bool {
                     $items = $navigation->keyBy('title');
 
-                    return $items->keys()->all() === ['Dashboard', 'My HR', 'Projects']
+                    return $items->keys()->all() === ['Dashboard', 'My HR', 'Engineering', 'Projects']
+                        && $items['Engineering']['code'] === 'ENG'
+                        && collect($items['Engineering']['children'])->pluck('title')->all() === ['Technical dossiers']
                         && $items['Projects']['code'] === 'PRJ'
                         && collect($items['Projects']['children'])->pluck('title')->all() === ['Installations'];
                 }));
@@ -54,7 +56,7 @@ class WorkspaceNavigationAuthorizationTest extends TestCase
                 ->where('auth.navigation', function (Collection $navigation): bool {
                     $areas = $navigation->filter(fn (mixed $item): bool => isset($item['code']))->keyBy('code');
 
-                    return $areas->keys()->all() === ['PTY', 'CRM', 'SAL', 'PRJ', 'PLN', 'INV', 'BI']
+                    return $areas->keys()->all() === ['PTY', 'CRM', 'SAL', 'ENG', 'PRJ', 'PLN', 'INV', 'BI']
                         && collect($areas['PTY']['children'])->pluck('title')->all() === ['Customers', 'Suppliers']
                         && collect($areas['SAL']['children'])->pluck('title')->all() === ['Proposals', 'Sales documents']
                         && collect($areas['PRJ']['children'])->pluck('title')->all() === ['Installations']
@@ -69,6 +71,7 @@ class WorkspaceNavigationAuthorizationTest extends TestCase
         $this->actingAs($user);
 
         $this->get(route('installations.index'))->assertOk();
+        $this->get(route('engineering.index'))->assertOk();
         $this->get(route('people.index'))->assertForbidden();
         $this->get(route('purchases.index'))->assertForbidden();
         $this->get(route('finance.index'))->assertForbidden();

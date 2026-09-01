@@ -148,6 +148,11 @@ class Installation extends Model
         return $this->hasMany(MaintenancePlan::class);
     }
 
+    public function engineeringDossiers(): HasMany
+    {
+        return $this->hasMany(EngineeringDossier::class);
+    }
+
     public function serviceTickets(): HasMany
     {
         return $this->hasMany(ServiceTicket::class);

@@ -24,6 +24,9 @@ class WorkspaceNavigation
                 $this->when($user, 'manage-quotes', fn () => $this->item('Proposals', route('quotes.index', absolute: false))),
                 $this->when($user, 'manage-installations', fn () => $this->item('Sales documents', route('sales.index', absolute: false))),
             ]),
+            $this->section('ENG', 'Engineering', 'scale', [
+                $this->when($user, 'view-installations', fn () => $this->item('Technical dossiers', route('engineering.index', absolute: false))),
+            ]),
             $this->section('PRJ', 'Projects', 'building-2', [
                 $this->when($user, 'view-installations', fn () => $this->item('Installations', route('installations.index', absolute: false))),
             ]),

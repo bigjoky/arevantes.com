@@ -110,6 +110,11 @@ class Opportunity extends Model
         return $this->hasMany(OpportunityEvent::class)->latest('occurred_at');
     }
 
+    public function engineeringDossiers(): HasMany
+    {
+        return $this->hasMany(EngineeringDossier::class);
+    }
+
     protected function casts(): array
     {
         return [
