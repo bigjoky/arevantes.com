@@ -23,7 +23,7 @@
 </header>
 <table class="parties"><tr>
     <td><div class="label">Comprador</div><div class="strong">{{ $company['legal_name'] }}</div><div>{{ $company['tax_id'] ?? '' }}</div><div>{{ collect([$company['address'] ?? null, $company['postal_code'] ?? null, $company['city'] ?? null])->filter()->join(', ') }}</div><div>{{ $company['email'] ?? '' }}</div></td>
-    <td><div class="label">Proveedor</div><div class="strong">{{ $supplierIdentity['legal_name'] ?? '' }}</div><div>{{ $supplierIdentity['tax_id'] ?? '' }}</div><div>{{ collect([$supplierIdentity['address_line_1'] ?? null, $supplierIdentity['address_line_2'] ?? null, $supplierIdentity['postal_code'] ?? null, $supplierIdentity['city'] ?? null, $supplierIdentity['province'] ?? null, $supplierIdentity['country'] ?? null])->filter()->join(', ') }}</div><div>{{ data_get($supplierIdentity, 'purchasing_contact.email') ?: ($supplierIdentity['email'] ?? '') }}</div></td>
+    <td><div class="label">Proveedor</div><div class="strong">{{ $supplierIdentity['legal_name'] ?? '' }}</div><div>{{ $supplierIdentity['tax_id'] ?? '' }}</div><div>{{ collect([$supplierIdentity['address_line_1'] ?? null, $supplierIdentity['address_line_2'] ?? null, $supplierIdentity['postal_code'] ?? null, $supplierIdentity['locality'] ?? null, $supplierIdentity['city'] ?? null, $supplierIdentity['province'] ?? null, $supplierIdentity['country'] ?? null])->filter()->join(', ') }}</div><div>{{ data_get($supplierIdentity, 'purchasing_contact.email') ?: ($supplierIdentity['email'] ?? '') }}</div></td>
 </tr></table>
 <table class="meta"><tr>
     <td><div class="label">Número</div><strong>{{ $document->number }}</strong></td>

@@ -15483,5 +15483,29 @@
     "Supplier tax ID": {
         "en": "Supplier tax ID",
         "es": "NIF del proveedor"
+    },
+    "No tax ID": {
+        "en": "No tax ID",
+        "es": "Sin NIF"
+    },
+    "Fiscal identity": {
+        "en": "Fiscal identity",
+        "es": "Identidad fiscal"
+    },
+    "Legal and operational data used in purchasing documents.": {
+        "en": "Legal and operational data used in purchasing documents.",
+        "es": "Datos legales y operativos utilizados en los documentos de compra."
+    },
+    "Payment and management": {
+        "en": "Payment and management",
+        "es": "Pago y gestión"
+    },
+    "Default payment conditions and internal notes.": {
+        "en": "Default payment conditions and internal notes.",
+        "es": "Condiciones de pago predeterminadas y notas internas."
+    },
+    "The saved identity will be frozen when a new purchase document is created.": {
+        "en": "The saved identity will be frozen when a new purchase document is created.",
+        "es": "La identidad guardada quedará congelada al crear un nuevo documento de compra."
     }
 }

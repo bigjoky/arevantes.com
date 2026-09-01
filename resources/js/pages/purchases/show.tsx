@@ -30,6 +30,7 @@ type SupplierIdentity = {
     address_line_1?: string | null;
     address_line_2?: string | null;
     postal_code?: string | null;
+    locality?: string | null;
     city?: string | null;
     province?: string | null;
     country?: string | null;

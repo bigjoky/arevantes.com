@@ -8,7 +8,13 @@ import {
     Trash2,
 } from 'lucide-react';
 import { useState } from 'react';
+import {
+    FormActions,
+    FormErrorSummary,
+    FormSection,
+} from '@/components/forms/form-layout';
 import InputError from '@/components/input-error';
+import LocationFields from '@/components/locations/location-fields';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -80,6 +86,7 @@ type Supplier = {
     address_line_2: string | null;
     postal_code: string | null;
     city: string | null;
+    locality: string | null;
     province: string | null;
     country: string;
     iban: string | null;
@@ -301,7 +308,75 @@ export default function CatalogIndex({
                             </div>
                             <SupplierDialog />
                         </div>
-                        <div className="overflow-x-auto border-y">
+                        <div className="grid gap-3 md:hidden">
+                            {suppliers.map((supplier) => (
+                                <article
+                                    key={supplier.id}
+                                    className="grid gap-3 rounded-lg border p-4"
+                                >
+                                    <div className="flex items-start justify-between gap-3">
+                                        <div className="min-w-0">
+                                            <h3 className="truncate font-medium">
+                                                {supplier.legal_name}
+                                            </h3>
+                                            <p className="text-xs text-muted-foreground">
+                                                {supplier.trade_name ||
+                                                    supplier.tax_id ||
+                                                    'No tax ID'}
+                                            </p>
+                                        </div>
+                                        {!supplier.is_active && (
+                                            <Badge variant="outline">
+                                                Inactive
+                                            </Badge>
+                                        )}
+                                    </div>
+                                    <dl className="grid grid-cols-2 gap-3 text-sm">
+                                        <div>
+                                            <dt className="text-xs text-muted-foreground">
+                                                Contact
+                                            </dt>
+                                            <dd className="break-words">
+                                                {supplier.email ||
+                                                    supplier.phone ||
+                                                    '—'}
+                                            </dd>
+                                        </div>
+                                        <div>
+                                            <dt className="text-xs text-muted-foreground">
+                                                Payment
+                                            </dt>
+                                            <dd>
+                                                {supplier.payment_terms_days}{' '}
+                                                days
+                                            </dd>
+                                        </div>
+                                        <div className="col-span-2">
+                                            <dt className="text-xs text-muted-foreground">
+                                                Location
+                                            </dt>
+                                            <dd>
+                                                {[
+                                                    supplier.locality,
+                                                    supplier.city,
+                                                    supplier.province,
+                                                ]
+                                                    .filter(Boolean)
+                                                    .join(', ') || '—'}
+                                            </dd>
+                                        </div>
+                                    </dl>
+                                    <div className="flex justify-end gap-1 border-t pt-2">
+                                        <SupplierDialog supplier={supplier} />
+                                        <DeleteButton
+                                            action={`/catalog/suppliers/${supplier.id}`}
+                                            label={supplier.legal_name}
+                                        />
+                                    </div>
+                                </article>
+                            ))}
+                        </div>
+                        <div className="hidden overflow-x-auto border-y md:block">
                             <table className="w-full min-w-[48rem] text-sm">
                                 <thead>
                                     <tr className="border-b text-left text-muted-foreground">
@@ -341,6 +416,7 @@ export default function CatalogIndex({
                                             </td>
                                             <td>
                                                 {[
+                                                    supplier.locality,
                                                     supplier.city,
                                                     supplier.province,
                                                 ]
@@ -368,10 +444,10 @@ export default function CatalogIndex({
                                     ))}
                                 </tbody>
                             </table>
-                            {suppliers.length === 0 && (
-                                <Empty text="No suppliers yet." />
-                            )}
                         </div>
+                        {suppliers.length === 0 && (
+                            <Empty text="No suppliers yet." />
+                        )}
                     </section>
                 )}
 
@@ -464,7 +540,7 @@ function ProductDialog({
                     )}
                 </Button>
             </DialogTrigger>
-            <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+            <DialogContent className="max-h-[92dvh] w-[calc(100%-1rem)] overflow-y-auto sm:max-w-3xl">
                 <DialogHeader>
                     <DialogTitle>
                         {product ? 'Edit item' : 'New product or service'}
@@ -951,7 +1027,7 @@ function SupplierDialog({ supplier }: { supplier?: Supplier }) {
                     )}
                 </Button>
             </DialogTrigger>
-            <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+            <DialogContent className="max-h-[92dvh] w-[calc(100%-1rem)] overflow-y-auto sm:max-w-3xl">
                 <DialogHeader>
                     <DialogTitle>
                         {supplier ? 'Edit supplier' : 'New supplier'}
@@ -969,101 +1045,124 @@ function SupplierDialog({ supplier }: { supplier?: Supplier }) {
                 >
                     {({ errors, processing }) => (
                         <>
-                            <div className="grid gap-4 sm:grid-cols-2">
-                                <Field
-                                    label="Legal name"
-                                    name="legal_name"
-                                    value={supplier?.legal_name}
-                                    error={errors.legal_name}
+                            <FormErrorSummary errors={errors} />
+                            <FormSection
+                                title="Fiscal identity"
+                                description="Legal and operational data used in purchasing documents."
+                            >
+                                <div className="grid gap-4 sm:grid-cols-2">
+                                    <Field
+                                        label="Legal name"
+                                        name="legal_name"
+                                        value={supplier?.legal_name}
+                                        error={errors.legal_name}
+                                    />
+                                    <Field
+                                        label="Trade name"
+                                        name="trade_name"
+                                        value={supplier?.trade_name}
+                                    />
+                                    <Field
+                                        label="Tax ID"
+                                        name="tax_id"
+                                        value={supplier?.tax_id}
+                                        error={errors.tax_id}
+                                    />
+                                    <Field
+                                        label="Email"
+                                        name="email"
+                                        type="email"
+                                        value={supplier?.email}
+                                        error={errors.email}
+                                    />
+                                    <Field
+                                        label="Phone"
+                                        name="phone"
+                                        value={supplier?.phone}
+                                    />
+                                </div>
+                            </FormSection>
+                            <FormSection
+                                title="Postal address"
+                                description="Select country, province, municipality and locality in order."
+                            >
+                                <div className="grid gap-4 sm:grid-cols-2">
+                                    <Field
+                                        label="Address"
+                                        name="address_line_1"
+                                        value={supplier?.address_line_1}
+                                        className="sm:col-span-2"
+                                    />
+                                    <Field
+                                        label="Address details"
+                                        name="address_line_2"
+                                        value={supplier?.address_line_2}
+                                        className="sm:col-span-2"
+                                    />
+                                </div>
+                                <LocationFields
+                                    errors={errors}
+                                    provinceField="province"
+                                    countryValue="code"
+                                    defaults={{
+                                        country: supplier?.country,
+                                        province: supplier?.province,
+                                        municipality: supplier?.city,
+                                        locality: supplier?.locality,
+                                        postalCode: supplier?.postal_code,
+                                    }}
                                 />
-                                <Field
-                                    label="Trade name"
-                                    name="trade_name"
-                                    value={supplier?.trade_name}
+                            </FormSection>
+                            <FormSection
+                                title="Payment and management"
+                                description="Default payment conditions and internal notes."
+                            >
+                                <div className="grid gap-4 sm:grid-cols-2">
+                                    <Field
+                                        label="Payment terms (days)"
+                                        name="payment_terms_days"
+                                        type="number"
+                                        min="0"
+                                        max="365"
+                                        value={String(
+                                            supplier?.payment_terms_days ?? 30,
+                                        )}
+                                        error={errors.payment_terms_days}
+                                    />
+                                    <Field
+                                        label="IBAN"
+                                        name="iban"
+                                        value={supplier?.iban}
+                                        error={errors.iban}
+                                    />
+                                    <Field
+                                        label="BIC"
+                                        name="bic"
+                                        value={supplier?.bic}
+                                        error={errors.bic}
+                                    />
+                                    <Field
+                                        label="Notes"
+                                        name="notes"
+                                        value={supplier?.notes}
+                                        className="sm:col-span-2"
+                                    />
+                                </div>
+                                <BooleanField
+                                    name="is_active"
+                                    label="Active supplier"
+                                    checked={supplier?.is_active ?? true}
                                 />
-                                <Field
-                                    label="Tax ID"
-                                    name="tax_id"
-                                    value={supplier?.tax_id}
-                                    error={errors.tax_id}
-                                />
-                                <Field
-                                    label="Email"
-                                    name="email"
-                                    type="email"
-                                    value={supplier?.email}
-                                    error={errors.email}
-                                />
-                                <Field
-                                    label="Phone"
-                                    name="phone"
-                                    value={supplier?.phone}
-                                />
-                                <Field
-                                    label="Payment terms (days)"
-                                    name="payment_terms_days"
-                                    type="number"
-                                    value={String(
-                                        supplier?.payment_terms_days ?? 30,
-                                    )}
-                                />
-                                <Field
-                                    label="IBAN"
-                                    name="iban"
-                                    value={supplier?.iban}
-                                />
-                                <Field
-                                    label="BIC"
-                                    name="bic"
-                                    value={supplier?.bic}
-                                />
-                                <Field
-                                    label="Address"
-                                    name="address_line_1"
-                                    value={supplier?.address_line_1}
-                                    className="sm:col-span-2"
-                                />
-                                <Field
-                                    label="Address details"
-                                    name="address_line_2"
-                                    value={supplier?.address_line_2}
-                                    className="sm:col-span-2"
-                                />
-                                <Field
-                                    label="Postal code"
-                                    name="postal_code"
-                                    value={supplier?.postal_code}
-                                />
-                                <Field
-                                    label="City"
-                                    name="city"
-                                    value={supplier?.city}
-                                />
-                                <Field
-                                    label="Province"
-                                    name="province"
-                                    value={supplier?.province}
-                                />
-                                <Field
-                                    label="Country code"
-                                    name="country"
-                                    value={supplier?.country ?? 'ES'}
-                                />
-                                <Field
-                                    label="Notes"
-                                    name="notes"
-                                    value={supplier?.notes}
-                                    className="sm:col-span-2"
-                                />
-                            </div>
-                            <BooleanField
-                                name="is_active"
-                                label="Active supplier"
-                                checked={supplier?.is_active ?? true}
+                            </FormSection>
+                            <FormActions
+                                processing={processing}
+                                submitLabel={
+                                    supplier
+                                        ? 'Save changes'
+                                        : 'Create supplier'
+                                }
+                                description="The saved identity will be frozen when a new purchase document is created."
                             />
-                            <Button disabled={processing}>
-                                {supplier ? 'Save changes' : 'Create supplier'}
-                            </Button>
                         </>
                     )}
                 </Form>

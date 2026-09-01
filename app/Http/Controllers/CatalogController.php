@@ -184,6 +184,7 @@ class CatalogController extends Controller
             'address_line_2' => ['nullable', 'string', 'max:255'],
             'postal_code' => ['nullable', 'string', 'max:20'],
             'city' => ['nullable', 'string', 'max:255'],
+            'locality' => ['nullable', 'string', 'max:255'],
             'province' => ['nullable', 'string', 'max:255'],
             'country' => ['required', 'string', 'size:2'],
             'iban' => ['nullable', 'string', 'max:34'],

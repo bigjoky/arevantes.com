@@ -28,6 +28,8 @@ type PostalCodeMatch = {
 
 type LocationFieldsProps = {
     prefix?: string;
+    provinceField?: string;
+    countryValue?: 'name' | 'code';
     defaults?: {
         country?: string | null;
         province?: string | null;
@@ -76,6 +78,8 @@ async function fetchLocations<T>(
 
 export default function LocationFields({
     prefix = '',
+    provinceField = 'province_state',
+    countryValue = 'name',
     defaults,
     errors,
 }: LocationFieldsProps) {
@@ -85,7 +89,9 @@ export default function LocationFields({
     const [municipalities, setMunicipalities] = useState<LocationRecord[]>([]);
     const [localities, setLocalities] = useState<LocationRecord[]>([]);
     const [postalMatches, setPostalMatches] = useState<PostalCodeMatch[]>([]);
-    const [country, setCountry] = useState(defaults?.country ?? 'Spain');
+    const [country, setCountry] = useState(
+        defaults?.country ?? (countryValue === 'code' ? 'ES' : 'Spain'),
+    );
     const [province, setProvince] = useState(defaults?.province ?? '');
     const [municipality, setMunicipality] = useState(
         defaults?.municipality ?? '',
@@ -93,10 +99,16 @@ export default function LocationFields({
     const [locality, setLocality] = useState(defaults?.locality ?? '');
     const [postalCode, setPostalCode] = useState(defaults?.postalCode ?? '');
 
-    const name = (field: string) => `${prefix}${field}`;
+    const name = (field: string) =>
+        `${prefix}${field === 'province_state' ? provinceField : field}`;
+    const submittedCountry =
+        countryValue === 'code'
+            ? (countries.find((item) => item.name === country)?.code ?? country)
+            : country;
 
     useEffect(() => {
-        const initialCountry = defaults?.country ?? 'Spain';
+        const initialCountry =
+            defaults?.country ?? (countryValue === 'code' ? 'ES' : 'Spain');
         const controller = new AbortController();
 
         async function hydrateSavedLocation() {
@@ -177,6 +189,7 @@ export default function LocationFields({
         defaults?.locality,
         defaults?.municipality,
         defaults?.province,
+        countryValue,
     ]);
 
     async function loadProvinces(countryId: number) {
@@ -264,7 +277,11 @@ export default function LocationFields({
                         ))}
                     </SelectContent>
                 </Select>
-                <input type="hidden" name={name('country')} value={country} />
+                <input
+                    type="hidden"
+                    name={name('country')}
+                    value={submittedCountry}
+                />
                 <InputError message={errors[name('country')]} />
             </div>
 

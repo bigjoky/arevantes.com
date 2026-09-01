@@ -93,10 +93,14 @@ class CatalogTest extends TestCase
         $user = User::factory()->create(['role' => 'commercial']);
         $this->actingAs($user)->post(route('catalog.suppliers.store'), [
             'legal_name' => 'Solar Supply SL', 'tax_id' => 'B12345678', 'email' => 'sales@example.com',
-            'country' => 'ES', 'payment_terms_days' => 30, 'is_active' => true,
+            'country' => 'ES', 'province' => 'Córdoba', 'city' => 'Lucena', 'locality' => 'Las Navas del Selpillar',
+            'postal_code' => '14900', 'payment_terms_days' => 30, 'is_active' => true,
         ])->assertRedirect();
 
         $supplier = Supplier::where('tax_id', 'B12345678')->firstOrFail();
+        $this->assertSame('Las Navas del Selpillar', $supplier->locality);
+        $this->assertSame('ES', $supplier->purchaseSnapshot()['country']);
+        $this->assertSame('Las Navas del Selpillar', $supplier->purchaseSnapshot()['locality']);
         $this->actingAs($user)->delete(route('catalog.suppliers.destroy', $supplier))->assertRedirect();
         $this->assertDatabaseMissing('suppliers', ['id' => $supplier->id]);
     }

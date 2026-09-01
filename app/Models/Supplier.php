@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Supplier extends Model
 {
-    protected $fillable = ['legal_name', 'trade_name', 'tax_id', 'payable_account_code', 'email', 'phone', 'address_line_1', 'address_line_2', 'postal_code', 'city', 'province', 'country', 'iban', 'bic', 'payment_terms_days', 'notes', 'is_active'];
+    protected $fillable = ['legal_name', 'trade_name', 'tax_id', 'payable_account_code', 'email', 'phone', 'address_line_1', 'address_line_2', 'postal_code', 'city', 'locality', 'province', 'country', 'iban', 'bic', 'payment_terms_days', 'notes', 'is_active'];
 
     protected function casts(): array
     {
@@ -39,7 +39,7 @@ class Supplier extends Model
         return [
             'legal_name' => $this->legal_name, 'trade_name' => $this->trade_name, 'tax_id' => $this->tax_id,
             'email' => $this->email, 'phone' => $this->phone, 'address_line_1' => $this->address_line_1,
-            'address_line_2' => $this->address_line_2, 'postal_code' => $this->postal_code, 'city' => $this->city,
+            'address_line_2' => $this->address_line_2, 'postal_code' => $this->postal_code, 'city' => $this->city, 'locality' => $this->locality,
             'province' => $this->province, 'country' => $this->country, 'iban' => $this->iban, 'bic' => $this->bic,
             'payment_terms_days' => $this->payment_terms_days,
             'billing_contact' => $this->contactSnapshot($billingContact),

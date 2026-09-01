@@ -977,11 +977,25 @@ como respaldo para registros históricos sin plazo.
 
 ## Próximo corte recomendado
 
-Extender el sistema común a los formularios operativos de compras y catálogo,
-incluyendo dirección jerárquica de proveedor, errores accesibles y acciones
-móviles consistentes. En paralelo, recoger durante siete días una muestra
-suficiente de producción para que el siguiente trabajo de rendimiento responda a
-`Server-Timing` y a los percentiles p75 reales de LCP, INP o CLS.
+Completar la unificación del alta de productos y de documentos de compra,
+dividiendo sus formularios extensos en secciones coherentes y haciendo que sus
+acciones principales permanezcan accesibles en móvil. En paralelo, recoger
+durante siete días una muestra suficiente de producción para que el siguiente
+trabajo de rendimiento responda a `Server-Timing` y a los percentiles p75 reales
+de LCP, INP o CLS.
+
+## Corte ejecutado — Formulario y dirección de proveedores
+
+El alta y la edición del proveedor ya usan el mismo sistema visual que clientes,
+instalaciones, propuestas y gastos: secciones de identidad, dirección y pago,
+resumen accesible de errores y acción principal persistente. País, provincia,
+municipio, localidad y código postal reutilizan el catálogo geográfico común y
+reconstruyen correctamente sus listas al volver a editar.
+
+El selector mantiene el código ISO que exige el maestro de proveedores sin
+mostrarlo como una etiqueta técnica, y la localidad se incorpora tanto a la ficha
+como a la instantánea histórica de compras. En móvil, el listado deja de depender
+de una tabla ancha y presenta fichas completas con las mismas acciones autorizadas.
 
 ## Corte ejecutado — Contactos e identidad histórica de proveedores
 
