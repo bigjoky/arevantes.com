@@ -2,7 +2,6 @@ import { Form, Head, Link } from '@inertiajs/react';
 import {
     CalendarClock,
     CircleDollarSign,
-    HeartPulse,
     History,
     PackageSearch,
     PenLine,
@@ -10,7 +9,7 @@ import {
     ShieldCheck,
     Wrench,
 } from 'lucide-react';
-import { Fragment, useState } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 import { AfterSalesSectionNav } from '@/components/after-sales/section-nav';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -43,7 +42,19 @@ type Installation = {
     } | null;
     assets?: Asset[];
 };
-type Asset = { id: number; asset_tag: string; name: string; category: string };
+type Asset = {
+    id: number;
+    asset_tag: string;
+    name: string;
+    category: string;
+    status?: string;
+    manufacturer?: string | null;
+    model?: string | null;
+    serial_number?: string | null;
+    last_serviced_at?: string | null;
+    service_count?: number;
+    warranty_ends_on?: string | null;
+};
 type StockProduct = {
     id: number;
     sku: string | null;
@@ -262,8 +273,32 @@ type ServiceEconomics = {
     }[];
     definition: string;
 };
-type Tab = 'tickets' | 'maintenance' | 'warranties';
+type Section = 'tickets' | 'maintenance' | 'assets' | 'contracts';
+
+const sectionCopy: Record<Section, { title: string; description: string }> = {
+    tickets: {
+        title: 'After-sales',
+        description: 'Incidents, response commitments and customer support.',
+    },
+    maintenance: {
+        title: 'Maintenance',
+        description:
+            'Preventive and corrective plans, capacity and upcoming visits.',
+    },
+    assets: {
+        title: 'Assets',
+        description:
+            'Installed equipment, service history and warranty coverage.',
+    },
+    contracts: {
+        title: 'Contracts & services',
+        description:
+            'Recurring coverage, renewals, billing commitments and service economics.',
+    },
+};
+
 export default function AfterSalesIndex({
+    initialSection,
     tickets,
     plans,
     installations,
@@ -280,6 +315,7 @@ export default function AfterSalesIndex({
     canViewFinancials,
     canManageBilling,
 }: {
+    initialSection: Section;
     tickets: Ticket[];
     plans: Plan[];
     installations: Installation[];
@@ -295,32 +331,59 @@ export default function AfterSalesIndex({
         satisfaction: number;
         annual_recurring_value: number | null;
         renewals_due: number;
+        installed_assets: number;
+        warranties_expiring: number;
     };
     slaPolicies: SlaPolicy[];
     templates: WorkTemplate[];
     stockProducts: StockProduct[];
     canManage: boolean;
     canManageCustomers: boolean;
-    serviceCapacity: ServiceCapacity;
-    serviceEconomics: ServiceEconomics;
+    serviceCapacity: ServiceCapacity | null;
+    serviceEconomics: ServiceEconomics | null;
     canViewFinancials: boolean;
     canManageBilling: boolean;
 }) {
-    const [tab, setTab] = useState<Tab>('tickets');
+    const copy = sectionCopy[initialSection];
+    const showsPlans =
+        initialSection === 'maintenance' || initialSection === 'contracts';
+    const installedAssets = useMemo(
+        () =>
+            initialSection === 'assets'
+                ? installations.flatMap((installation) =>
+                      (installation.assets || []).map((asset) => ({
+                          asset,
+                          installation,
+                      })),
+                  )
+                : [],
+        [initialSection, installations],
+    );
+    const installationsById = useMemo(
+        () =>
+            initialSection === 'assets'
+                ? new Map(
+                      installations.map((installation) => [
+                          installation.id,
+                          installation,
+                      ]),
+                  )
+                : new Map<number, Installation>(),
+        [initialSection, installations],
+    );
 
     return (
         <>
-            <Head title="After-sales" />
+            <Head title={copy.title} />
             <div className="flex flex-1 flex-col gap-6 p-4 md:p-6">
                 <header className="flex flex-wrap items-center justify-between gap-3">
                     <div>
-                        <h1 className="text-xl font-semibold">After-sales</h1>
+                        <h1 className="text-xl font-semibold">{copy.title}</h1>
                         <p className="text-sm text-muted-foreground">
-                            Incidents, preventive maintenance and installed
-                            equipment warranties.
+                            {copy.description}
                         </p>
                     </div>
-                    {tab === 'tickets' ? (
+                    {initialSection === 'tickets' ? (
                         <div className="flex gap-2">
                             {canManage && <SlaDialog policies={slaPolicies} />}
                             <TicketDialog
@@ -328,7 +391,7 @@ export default function AfterSalesIndex({
                                 users={users}
                             />
                         </div>
-                    ) : tab === 'maintenance' && canManage ? (
+                    ) : showsPlans && canManage ? (
                         <PlanDialog
                             installations={installations}
                             users={users}
@@ -337,93 +400,86 @@ export default function AfterSalesIndex({
                     ) : null}
                 </header>
                 <AfterSalesSectionNav />
-                <section className="grid grid-cols-2 border-y md:grid-cols-4 xl:grid-cols-7">
-                    <Metric label="Open tickets" value={metrics.open} />
-                    <Metric
-                        label="Response breaches"
-                        value={metrics.response_breaches}
-                    />
-                    <Metric
-                        label="Resolution breaches"
-                        value={metrics.resolution_breaches}
-                    />
-                    <Metric
-                        label="Avg response"
-                        value={`${metrics.average_first_response_minutes} min`}
-                    />
-                    <Metric
-                        label="Avg resolution"
-                        value={`${metrics.average_resolution_minutes} min`}
-                    />
-                    <Metric label="Recurrences" value={metrics.recurrences} />
-                    <Metric
-                        label="Satisfaction"
-                        value={`${metrics.satisfaction}/5`}
-                    />
-                </section>
-                <section className="grid grid-cols-2 border-y">
-                    <Metric
-                        label="Maintenance due"
-                        value={
-                            plans.filter(
-                                (p) =>
-                                    p.is_active &&
-                                    new Date(p.next_due_on) <= new Date(),
-                            ).length
-                        }
-                    />
-                    <Metric
-                        label="Warranties expiring"
-                        value={
-                            warranties.filter(
-                                (w) =>
-                                    w.warranty_ends_on &&
-                                    daysUntil(w.warranty_ends_on) <= 90 &&
-                                    daysUntil(w.warranty_ends_on) >= 0,
-                            ).length
-                        }
-                    />
-                    {canViewFinancials ? (
+                {initialSection === 'tickets' ? (
+                    <section className="grid grid-cols-2 border-y md:grid-cols-4 xl:grid-cols-7">
+                        <Metric label="Open tickets" value={metrics.open} />
                         <Metric
-                            label="Annual recurring value"
-                            value={currency(
-                                metrics.annual_recurring_value || 0,
-                            )}
+                            label="Response breaches"
+                            value={metrics.response_breaches}
                         />
-                    ) : null}
-                    <Metric
-                        label="Renewals to prepare"
-                        value={metrics.renewals_due}
-                    />
-                </section>
-                <ServiceCapacityPanel capacity={serviceCapacity} />
-                {canViewFinancials ? (
+                        <Metric
+                            label="Resolution breaches"
+                            value={metrics.resolution_breaches}
+                        />
+                        <Metric
+                            label="Avg response"
+                            value={`${metrics.average_first_response_minutes} min`}
+                        />
+                        <Metric
+                            label="Avg resolution"
+                            value={`${metrics.average_resolution_minutes} min`}
+                        />
+                        <Metric
+                            label="Recurrences"
+                            value={metrics.recurrences}
+                        />
+                        <Metric
+                            label="Satisfaction"
+                            value={`${metrics.satisfaction}/5`}
+                        />
+                    </section>
+                ) : null}
+                {initialSection === 'maintenance' ? (
+                    <section className="grid grid-cols-2 border-y">
+                        <Metric
+                            label="Maintenance due"
+                            value={
+                                plans.filter(
+                                    (plan) =>
+                                        plan.is_active &&
+                                        new Date(plan.next_due_on) <=
+                                            new Date(),
+                                ).length
+                            }
+                        />
+                        <Metric label="Active plans" value={plans.length} />
+                    </section>
+                ) : null}
+                {initialSection === 'contracts' ? (
+                    <section className="grid grid-cols-2 border-y">
+                        {canViewFinancials ? (
+                            <Metric
+                                label="Annual recurring value"
+                                value={currency(
+                                    metrics.annual_recurring_value || 0,
+                                )}
+                            />
+                        ) : null}
+                        <Metric
+                            label="Renewals to prepare"
+                            value={metrics.renewals_due}
+                        />
+                    </section>
+                ) : null}
+                {initialSection === 'assets' ? (
+                    <section className="grid grid-cols-2 border-y">
+                        <Metric
+                            label="Installed assets"
+                            value={metrics.installed_assets}
+                        />
+                        <Metric
+                            label="Warranties expiring"
+                            value={metrics.warranties_expiring}
+                        />
+                    </section>
+                ) : null}
+                {serviceCapacity ? (
+                    <ServiceCapacityPanel capacity={serviceCapacity} />
+                ) : null}
+                {serviceEconomics && canViewFinancials ? (
                     <ServiceEconomicsPanel economics={serviceEconomics} />
                 ) : null}
-                <div className="flex gap-1 border-b">
-                    <TabButton
-                        active={tab === 'tickets'}
-                        onClick={() => setTab('tickets')}
-                        icon={<HeartPulse />}
-                    >
-                        Tickets
-                    </TabButton>
-                    <TabButton
-                        active={tab === 'maintenance'}
-                        onClick={() => setTab('maintenance')}
-                        icon={<CalendarClock />}
-                    >
-                        Maintenance
-                    </TabButton>
-                    <TabButton
-                        active={tab === 'warranties'}
-                        onClick={() => setTab('warranties')}
-                        icon={<ShieldCheck />}
-                    >
-                        Warranties
-                    </TabButton>
-                </div>
-                {tab === 'tickets' && (
+                {initialSection === 'tickets' && (
                     <section className="grid gap-4">
                         {tickets.map((ticket) => (
                             <div
@@ -563,7 +619,7 @@ export default function AfterSalesIndex({
                         )}
                     </section>
                 )}
-                {tab === 'maintenance' && (
+                {showsPlans && (
                     <section className="overflow-x-auto">
                         <table className="w-full min-w-[50rem] text-sm">
                             <thead>
@@ -806,54 +862,137 @@ export default function AfterSalesIndex({
                         )}
                     </section>
                 )}
-                {tab === 'warranties' && (
-                    <section className="overflow-x-auto">
-                        <table className="w-full min-w-[54rem] text-sm">
-                            <thead>
-                                <tr className="border-b text-left text-muted-foreground">
-                                    <th className="py-2">Equipment</th>
-                                    <th>Serial</th>
-                                    <th>Installation</th>
-                                    <th>Starts</th>
-                                    <th>Ends</th>
-                                    <th>Status</th>
-                                    <th className="w-64" />
-                                </tr>
-                            </thead>
-                            <tbody>
+                {initialSection === 'assets' ? (
+                    <div className="grid gap-8">
+                        <section className="grid gap-3">
+                            <div>
+                                <h2 className="font-semibold">
+                                    Installed equipment
+                                </h2>
+                                <p className="text-sm text-muted-foreground">
+                                    Operational status and service continuity by
+                                    installation.
+                                </p>
+                            </div>
+                            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                                {installedAssets.map(
+                                    ({ asset, installation }) => (
+                                        <article
+                                            key={asset.id}
+                                            className="grid gap-3 rounded-lg border p-4"
+                                        >
+                                            <div className="flex items-start justify-between gap-3">
+                                                <div>
+                                                    <div className="font-medium">
+                                                        {asset.name}
+                                                    </div>
+                                                    <div className="font-mono text-xs text-muted-foreground">
+                                                        {asset.asset_tag}
+                                                    </div>
+                                                </div>
+                                                <Badge variant="outline">
+                                                    {asset.status || 'active'}
+                                                </Badge>
+                                            </div>
+                                            <dl className="grid grid-cols-2 gap-2 text-sm">
+                                                <AssetDetail
+                                                    label="Category"
+                                                    value={label(
+                                                        asset.category,
+                                                    )}
+                                                />
+                                                <AssetDetail
+                                                    label="Model"
+                                                    value={
+                                                        [
+                                                            asset.manufacturer,
+                                                            asset.model,
+                                                        ]
+                                                            .filter(Boolean)
+                                                            .join(' ') || '—'
+                                                    }
+                                                />
+                                                <AssetDetail
+                                                    label="Serial"
+                                                    value={
+                                                        asset.serial_number ||
+                                                        '—'
+                                                    }
+                                                />
+                                                <AssetDetail
+                                                    label="Services"
+                                                    value={String(
+                                                        asset.service_count ||
+                                                            0,
+                                                    )}
+                                                />
+                                                <AssetDetail
+                                                    label="Last service"
+                                                    value={
+                                                        asset.last_serviced_at
+                                                            ? date(
+                                                                  asset.last_serviced_at,
+                                                              )
+                                                            : '—'
+                                                    }
+                                                />
+                                                <AssetDetail
+                                                    label="Warranty until"
+                                                    value={
+                                                        asset.warranty_ends_on
+                                                            ? date(
+                                                                  asset.warranty_ends_on,
+                                                              )
+                                                            : '—'
+                                                    }
+                                                />
+                                            </dl>
+                                            <Link
+                                                href={`/installations/${installation.id}`}
+                                                className="text-sm font-medium underline underline-offset-4"
+                                            >
+                                                {installation.project_reference ||
+                                                    installation.site_name ||
+                                                    `#${installation.id}`}
+                                            </Link>
+                                        </article>
+                                    ),
+                                )}
+                            </div>
+                            {installedAssets.length === 0 ? (
+                                <Empty text="No installed assets registered." />
+                            ) : null}
+                        </section>
+                        <section className="grid gap-3">
+                            <div>
+                                <h2 className="font-semibold">
+                                    Serialized warranties
+                                </h2>
+                                <p className="text-sm text-muted-foreground">
+                                    Coverage dates for traceable installed
+                                    products.
+                                </p>
+                            </div>
+                            <div className="grid gap-3 md:grid-cols-2">
                                 {warranties.map((item) => {
-                                    const installation = installations.find(
-                                        (i) => i.id === item.installation_id,
+                                    const installation = installationsById.get(
+                                        item.installation_id,
                                     );
 
                                     return (
-                                        <tr key={item.id} className="border-b">
-                                            <td className="py-3 font-medium">
-                                                {item.product.name}
-                                            </td>
-                                            <td className="font-mono text-xs">
-                                                {item.serial_number}
-                                            </td>
-                                            <td>
-                                                {installation?.project_reference ||
-                                                    installation?.site_name ||
-                                                    `#${item.installation_id}`}
-                                            </td>
-                                            <td>
-                                                {item.warranty_starts_on
-                                                    ? date(
-                                                          item.warranty_starts_on,
-                                                      )
-                                                    : '—'}
-                                            </td>
-                                            <td>
-                                                {item.warranty_ends_on
-                                                    ? date(
-                                                          item.warranty_ends_on,
-                                                      )
-                                                    : '—'}
-                                            </td>
-                                            <td>
+                                        <article
+                                            key={item.id}
+                                            className="grid gap-3 rounded-lg border p-4"
+                                        >
+                                            <div className="flex items-start justify-between gap-3">
+                                                <div>
+                                                    <div className="font-medium">
+                                                        {item.product.name}
+                                                    </div>
+                                                    <div className="font-mono text-xs text-muted-foreground">
+                                                        {item.serial_number}
+                                                    </div>
+                                                </div>
                                                 <Badge variant="outline">
                                                     {item.warranty_ends_on &&
                                                     daysUntil(
@@ -862,48 +1001,65 @@ export default function AfterSalesIndex({
                                                         ? 'expired'
                                                         : 'active'}
                                                 </Badge>
-                                            </td>
-                                            <td>
-                                                {canManage && (
-                                                    <Form
-                                                        action={`/after-sales/warranties/${item.id}`}
-                                                        method="patch"
-                                                        className="flex items-end gap-2"
-                                                    >
-                                                        <Field
-                                                            label="Starts"
-                                                            name="warranty_starts_on"
-                                                            type="date"
-                                                            value={item.warranty_starts_on?.slice(
-                                                                0,
-                                                                10,
-                                                            )}
-                                                        />
-                                                        <Field
-                                                            label="Ends"
-                                                            name="warranty_ends_on"
-                                                            type="date"
-                                                            value={item.warranty_ends_on?.slice(
-                                                                0,
-                                                                10,
-                                                            )}
-                                                        />
-                                                        <Button size="sm">
-                                                            Save
-                                                        </Button>
-                                                    </Form>
-                                                )}
-                                            </td>
-                                        </tr>
+                                            </div>
+                                            <div className="text-sm text-muted-foreground">
+                                                {installation?.project_reference ||
+                                                    installation?.site_name ||
+                                                    `#${item.installation_id}`}
+                                            </div>
+                                            {canManage ? (
+                                                <Form
+                                                    action={`/after-sales/warranties/${item.id}`}
+                                                    method="patch"
+                                                    className="grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end"
+                                                >
+                                                    <Field
+                                                        label="Starts"
+                                                        name="warranty_starts_on"
+                                                        type="date"
+                                                        value={item.warranty_starts_on?.slice(
+                                                            0,
+                                                            10,
+                                                        )}
+                                                    />
+                                                    <Field
+                                                        label="Ends"
+                                                        name="warranty_ends_on"
+                                                        type="date"
+                                                        value={item.warranty_ends_on?.slice(
+                                                            0,
+                                                            10,
+                                                        )}
+                                                    />
+                                                    <Button size="sm">
+                                                        Save
+                                                    </Button>
+                                                </Form>
+                                            ) : (
+                                                <div className="text-sm">
+                                                    {item.warranty_starts_on
+                                                        ? date(
+                                                              item.warranty_starts_on,
+                                                          )
+                                                        : '—'}{' '}
+                                                    →{' '}
+                                                    {item.warranty_ends_on
+                                                        ? date(
+                                                              item.warranty_ends_on,
+                                                          )
+                                                        : '—'}
+                                                </div>
+                                            )}
+                                        </article>
                                     );
                                 })}
-                            </tbody>
-                        </table>
-                        {warranties.length === 0 && (
-                            <Empty text="No installed serialized equipment." />
-                        )}
-                    </section>
-                )}
+                            </div>
+                            {warranties.length === 0 ? (
+                                <Empty text="No installed serialized equipment." />
+                            ) : null}
+                        </section>
+                    </div>
+                ) : null}
             </div>
         </>
     );
@@ -2034,26 +2190,12 @@ function Metric({ label, value }: { label: string; value: number | string }) {
         </div>
     );
 }
-function TabButton({
-    active,
-    onClick,
-    icon,
-    children,
-}: {
-    active: boolean;
-    onClick: () => void;
-    icon: React.ReactNode;
-    children: React.ReactNode;
-}) {
+function AssetDetail({ label, value }: { label: string; value: string }) {
     return (
-        <button
-            type="button"
-            onClick={onClick}
-            className={`flex items-center gap-2 border-b-2 px-3 py-2 text-sm [&_svg]:size-4 ${active ? 'border-primary font-medium' : 'border-transparent text-muted-foreground'}`}
-        >
-            {icon}
-            {children}
-        </button>
+        <div>
+            <dt className="text-xs text-muted-foreground">{label}</dt>
+            <dd>{value}</dd>
+        </div>
     );
 }
 function SelectField({

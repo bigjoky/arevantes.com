@@ -1,4 +1,64 @@
 {
+    "Assets": {
+        "en": "Assets",
+        "es": "Activos"
+    },
+    "Contracts & services": {
+        "en": "Contracts & services",
+        "es": "Contratos y servicios"
+    },
+    "Coverage dates for traceable installed products.": {
+        "en": "Coverage dates for traceable installed products.",
+        "es": "Fechas de cobertura de los productos instalados trazables."
+    },
+    "Customer service": {
+        "en": "Customer service",
+        "es": "Atención al cliente"
+    },
+    "Incidents, response commitments and customer support.": {
+        "en": "Incidents, response commitments and customer support.",
+        "es": "Incidencias, compromisos de respuesta y atención al cliente."
+    },
+    "Installed equipment": {
+        "en": "Installed equipment",
+        "es": "Equipos instalados"
+    },
+    "Installed equipment, service history and warranty coverage.": {
+        "en": "Installed equipment, service history and warranty coverage.",
+        "es": "Equipos instalados, historial de servicio y cobertura de garantía."
+    },
+    "Last service": {
+        "en": "Last service",
+        "es": "Último servicio"
+    },
+    "Operational status and service continuity by installation.": {
+        "en": "Operational status and service continuity by installation.",
+        "es": "Estado operativo y continuidad del servicio por instalación."
+    },
+    "Preventive and corrective plans, capacity and upcoming visits.": {
+        "en": "Preventive and corrective plans, capacity and upcoming visits.",
+        "es": "Planes preventivos y correctivos, capacidad y próximas visitas."
+    },
+    "Recurring coverage, renewals, billing commitments and service economics.": {
+        "en": "Recurring coverage, renewals, billing commitments and service economics.",
+        "es": "Coberturas recurrentes, renovaciones, compromisos de facturación y economía del servicio."
+    },
+    "Serialized warranties": {
+        "en": "Serialized warranties",
+        "es": "Garantías serializadas"
+    },
+    "Services": {
+        "en": "Services",
+        "es": "Servicios"
+    },
+    "Warranty until": {
+        "en": "Warranty until",
+        "es": "Garantía hasta"
+    },
+    "contracts": {
+        "en": "contracts",
+        "es": "contratos"
+    },
     "Work order template": {
         "en": "Work order template",
         "es": "Plantilla de orden de trabajo"

@@ -44,10 +44,11 @@ class RecurringServiceBillingTest extends TestCase
         $this->assertSame(1, $billing->invoice->lines->count());
         $this->assertSame(1, SalesDocument::where('type', 'invoice')->count());
         $this->get(route('sales-documents.edit', $invoice))->assertUnprocessable();
-        $this->actingAs($technician)->get(route('after-sales.index'))->assertOk()
+        $this->actingAs($technician)->get(route('contracts-services.index'))->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->missing('plans.0.cycle_commitments.0.billing')
-                ->missing('plans.0.cycle_commitments.0.communications'));
+                ->missing('plans.0.cycle_commitments.0.communications')
+                ->where('serviceEconomics', null));
         $this->actingAs($admin);
 
         $this->post(route('sales-documents.issue', $invoice), ['issue_date' => today()->toDateString(), 'due_date' => today()->addDays(30)->toDateString()])

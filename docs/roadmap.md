@@ -97,15 +97,15 @@ vacíos.
 Este programa se ejecuta en cortes verticales junto al roadmap funcional y tiene
 prioridad sobre añadir pantallas que amplíen deuda de interfaz.
 
-| Prioridad | Trabajo                           | Estado y criterio de salida                                                                                                                                                                                                                                                                                                                                                                                                      |
-| --------- | --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| P0        | Direcciones editables             | Primer corte completado. País, provincia, municipio y localidad guardados reconstruyen sus listas dependientes al crear y editar clientes e instalaciones; los catálogos estables se cachean durante 24 horas.                                                                                                                                                                                                                   |
-| P0        | Rendimiento medible               | Instrumentación y primera optimización ejecutadas. `Server-Timing` mide aplicación y SQL; los excesos registran solo metadatos técnicos. El panel difiere datos y código del mapa. LCP, INP y CLS se muestrean ahora por pantalla y dispositivo, sin URL, usuario ni IP, con retención de 90 días e informe de percentiles. Pendiente recoger una línea base suficiente en producción y optimizar el siguiente punto demostrado. |
-| P0        | Localización completa             | En curso. España ya conserva `Spain` como valor canónico y se presenta como `España` en formularios españoles. Ningún otro texto visible puede quedar mezclado y los demás catálogos seguirán el mismo patrón.                                                                                                                                                                                                                   |
-| P0        | Adaptación móvil integral         | En curso continuo. Cada ficha, tabla, diálogo y acción principal debe funcionar desde 320 px sin desbordamiento, pérdida de información ni acciones inaccesibles.                                                                                                                                                                                                                                                                |
-| P1        | Sistema único de formularios      | En curso avanzado. Cliente, instalación, propuesta y alta de gasto comparten secciones, jerarquía visual, resumen accesible de errores, estado de guardado y barra de acciones adaptable. El patrón se extenderá por cortes a los formularios operativos restantes.                                                                                                                                                              |
-| P1        | Terceros según naturaleza         | Cuarto corte completado. Particular, empresa, comunidad y organismo público adaptan identidad, contactos, representación e información fiscal. Clientes y proveedores disponen de contactos por responsabilidad y firmantes autorizados; ventas y compras congelan la identidad histórica en sus documentos derivados.                                                                                                           |
-| P1        | Sidebar y arquitectura de módulos | Primer corte completado. El sidebar agrupa las rutas existentes bajo los códigos y límites de las áreas objetivo, separa Personas, CRM, Ventas, Proyectos, Compras e Inventario, y sigue ocultando en servidor cualquier sección no autorizada. Las áreas todavía sin flujo propio no se muestran como módulos vacíos. Pendiente crear sus límites funcionales y añadir accesos recientes y favoritos.                           |
+| Prioridad | Trabajo                           | Estado y criterio de salida                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| --------- | --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| P0        | Direcciones editables             | Primer corte completado. País, provincia, municipio y localidad guardados reconstruyen sus listas dependientes al crear y editar clientes e instalaciones; los catálogos estables se cachean durante 24 horas.                                                                                                                                                                                                                               |
+| P0        | Rendimiento medible               | Instrumentación y primera optimización ejecutadas. `Server-Timing` mide aplicación y SQL; los excesos registran solo metadatos técnicos. El panel difiere datos y código del mapa. LCP, INP y CLS se muestrean ahora por pantalla y dispositivo, sin URL, usuario ni IP, con retención de 90 días e informe de percentiles. Pendiente recoger una línea base suficiente en producción y optimizar el siguiente punto demostrado.             |
+| P0        | Localización completa             | En curso. España ya conserva `Spain` como valor canónico y se presenta como `España` en formularios españoles. Ningún otro texto visible puede quedar mezclado y los demás catálogos seguirán el mismo patrón.                                                                                                                                                                                                                               |
+| P0        | Adaptación móvil integral         | En curso continuo. Cada ficha, tabla, diálogo y acción principal debe funcionar desde 320 px sin desbordamiento, pérdida de información ni acciones inaccesibles.                                                                                                                                                                                                                                                                            |
+| P1        | Sistema único de formularios      | En curso avanzado. Cliente, instalación, propuesta y alta de gasto comparten secciones, jerarquía visual, resumen accesible de errores, estado de guardado y barra de acciones adaptable. El patrón se extenderá por cortes a los formularios operativos restantes.                                                                                                                                                                          |
+| P1        | Terceros según naturaleza         | Cuarto corte completado. Particular, empresa, comunidad y organismo público adaptan identidad, contactos, representación e información fiscal. Clientes y proveedores disponen de contactos por responsabilidad y firmantes autorizados; ventas y compras congelan la identidad histórica en sus documentos derivados.                                                                                                                       |
+| P1        | Sidebar y arquitectura de módulos | Segundo corte completado. Además de Personas, CRM, Ventas, Proyectos, Compras e Inventario, Activos, Mantenimiento y Contratos/Servicios disponen de accesos y cargas semánticas propias sobre el dominio recurrente existente. El servidor sigue eliminando cualquier sección no autorizada e Ingeniería permanece oculta hasta disponer de expediente técnico propio. Pendientes recientes, favoritos y el límite funcional de Ingeniería. |
 
 La optimización se considera terminada únicamente con mediciones antes/después;
 la traducción y el responsive se validan sobre las rutas realmente autorizadas a
@@ -977,13 +977,36 @@ como respaldo para registros históricos sin plazo.
 
 ## Próximo corte recomendado
 
-Ejecutar el segundo corte de la arquitectura de 20 áreas: definir límites y
-accesos semánticos para Ingeniería, Activos, Mantenimiento y Contratos y
-Servicios sin crear módulos vacíos; añadir recientes y favoritos derivados de
-permisos y validar la jerarquía en móvil por perfil. En paralelo, recoger durante
-siete días una muestra suficiente de producción para que el siguiente trabajo
-de rendimiento responda a `Server-Timing` y a los percentiles p75 reales de LCP,
-INP o CLS.
+Definir el expediente técnico gobernado de Ingeniería para estudios, cálculos y
+diseños vinculados a una oportunidad o proyecto, con versiones, autoría y paso
+explícito a ejecución. Añadir después accesos recientes y favoritos derivados de
+permisos y persistidos por usuario. En paralelo, comparar en producción el tiempo
+y tamaño de las cuatro cargas semánticas de servicio para confirmar la mejora y
+elegir el siguiente cuello de botella mediante `Server-Timing` y percentiles p75.
+
+## Corte ejecutado — Dominios de servicio y carga contextual
+
+La antigua pantalla única de posventa se divide en cuatro accesos estables sin
+duplicar registros ni reglas: Atención al cliente abre tickets y SLA;
+Mantenimiento abre planes preventivos y correctivos con capacidad; Activos abre
+el parque instalado y sus garantías; Contratos y Servicios abre cobertura,
+renovaciones, facturación recurrente y economía del servicio. AST, MNT y CTR se
+incorporan así al mismo nivel que el resto de áreas objetivo.
+
+Cada URL solicita únicamente su contexto. La entrada de tickets ya no serializa
+planes, garantías, previsión de capacidad ni economía; Activos tampoco carga el
+histórico contractual, y los cálculos de capacidad y rentabilidad se ejecutan
+solo en Mantenimiento y Contratos respectivamente. Los formularios y acciones
+siguen utilizando el mismo ciclo de vida gobernado, por lo que no aparecen copias
+divergentes de un contrato o plan.
+
+Activos presenta además un inventario responsive de los equipos instalados con
+estado, modelo, serie, intervenciones, último servicio y garantía, enlazado con la
+ficha de instalación. Las garantías serializadas abandonan la tabla rígida y se
+editan mediante fichas adaptables. Las nuevas rutas heredan el permiso operativo,
+se prueban también por acceso directo y conservan traducción completa en español
+e inglés. Ingeniería no se publica todavía: sus notas técnicas actuales no
+constituyen el expediente versionado y auditable que exige esa área.
 
 ## Corte ejecutado — Primera migración del sidebar a las 20 áreas
 

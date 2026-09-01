@@ -231,6 +231,10 @@ Route::middleware(['auth'])->group(function () {
     Route::get('operations', [OperationsController::class, 'index'])->middleware('can:manage-operations')->name('operations.index');
     Route::get('work-orders', [WorkOrderController::class, 'index'])->middleware('can:manage-operations')->name('work-orders.index');
     Route::get('after-sales', [AfterSalesController::class, 'index'])->middleware('can:manage-operations')->name('after-sales.index');
+    Route::get('maintenance', [AfterSalesController::class, 'maintenance'])->middleware('can:manage-operations')->name('maintenance.index');
+    Route::get('assets', [AfterSalesController::class, 'assets'])->middleware('can:manage-operations')->name('assets.index');
+    Route::get('contracts-services', [AfterSalesController::class, 'contracts'])->middleware('can:manage-operations')->name('contracts-services.index');
+    Route::get('quality/service', [RecurringServiceQualityController::class, 'index'])->middleware('can:manage-operations')->name('service-quality.index');
     Route::get('after-sales/quality', [RecurringServiceQualityController::class, 'index'])->middleware('can:manage-operations')->name('after-sales.quality.index');
     Route::get('improvement-decisions', RecurringServiceImprovementController::class)->name('improvement-decisions.index');
     Route::post('after-sales/quality/analyse', [RecurringServiceQualityController::class, 'analyse'])->middleware('can:manage-operations')->name('after-sales.quality.analyse');

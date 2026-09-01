@@ -35,13 +35,6 @@ class WorkspaceNavigation
                 $this->when($user, 'manage-operations', fn () => $this->item('Planning', route('operations.index', absolute: false))),
                 $this->when($user, 'manage-operations', fn () => $this->item('Work orders', route('work-orders.index', absolute: false))),
             ]),
-            $this->section('CS', 'Customer service', 'headphones', [
-                $this->when($user, 'manage-operations', fn () => $this->item('After-sales', route('after-sales.index', absolute: false))),
-            ]),
-            $this->section('QMS', 'Quality', 'shield-check', [
-                $this->when($user, 'manage-operations', fn () => $this->item('Service quality', route('after-sales.quality.index', absolute: false))),
-                $this->when($user, 'view-purchases', fn () => $this->item('Quality claims', route('supplier-quality.index', absolute: false))),
-            ]),
             $this->section('PUR', 'Purchases', 'shopping-cart', [
                 $this->when($user, 'manage-purchases', fn () => $this->item('Document inbox', route('purchase-inbox.index', absolute: false))),
                 $this->when($user, 'view-purchases', fn () => $this->item('Purchases', route('purchases.index', absolute: false))),
@@ -55,6 +48,12 @@ class WorkspaceNavigation
                 $this->when($user, 'manage-catalog', fn () => $this->item('Inventory', route('inventory.index', absolute: false))),
                 $this->when($user, 'view-purchases', fn () => $this->item('Serial traceability', route('inventory.serials.index', absolute: false))),
                 $this->when($user, 'manage-catalog', fn () => $this->item('Stock counts', route('stock-counts.index', absolute: false))),
+            ]),
+            $this->section('AST', 'Assets', 'boxes', [
+                $this->when($user, 'manage-operations', fn () => $this->item('Installed equipment', route('assets.index', absolute: false))),
+            ]),
+            $this->section('MNT', 'Maintenance', 'calendar-clock', [
+                $this->when($user, 'manage-operations', fn () => $this->item('Preventive & corrective', route('maintenance.index', absolute: false))),
             ]),
             $this->section('FIN', 'Finance', 'wallet-cards', [
                 $this->when($user, 'view-finance', fn () => $this->item('Expenses', route('expenses.index', absolute: false))),
@@ -82,6 +81,16 @@ class WorkspaceNavigation
             $this->section('BI', 'Management / BI', 'chart-spline', [
                 $this->when($user, 'view-analytics', fn () => $this->item('Analytics', route('analytics.index', absolute: false))),
                 $this->whenAny($user, ['manage-operations', 'manage-purchases', 'manage-customers'], fn () => $this->item('Improvement decisions', route('improvement-decisions.index', absolute: false))),
+            ]),
+            $this->section('QMS', 'Quality', 'shield-check', [
+                $this->when($user, 'manage-operations', fn () => $this->item('Service quality', route('service-quality.index', absolute: false))),
+                $this->when($user, 'view-purchases', fn () => $this->item('Quality claims', route('supplier-quality.index', absolute: false))),
+            ]),
+            $this->section('CS', 'Customer service', 'headphones', [
+                $this->when($user, 'manage-operations', fn () => $this->item('After-sales', route('after-sales.index', absolute: false))),
+            ]),
+            $this->section('CTR', 'Contracts & services', 'briefcase-business', [
+                $this->when($user, 'manage-operations', fn () => $this->item('Recurring services', route('contracts-services.index', absolute: false))),
             ]),
             $this->section('SYS', 'Platform administration', 'settings-2', [
                 $this->when($user, 'manage-admin', fn () => $this->item('Web y proyectos', route('website.projects.index', absolute: false))),

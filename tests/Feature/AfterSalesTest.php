@@ -21,11 +21,50 @@ use App\Services\AfterSales\MaintenancePlanLifecycle;
 use App\Services\AfterSales\SlaManager;
 use App\Services\Supply\PreventiveDemandForecast;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
 class AfterSalesTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_each_service_workspace_loads_only_its_contextual_dataset(): void
+    {
+        $commercial = User::factory()->create(['role' => 'commercial']);
+        $this->actingAs($commercial);
+
+        $this->get(route('after-sales.index'))->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->component('after-sales/index')
+            ->where('initialSection', 'tickets')
+            ->where('plans', [])
+            ->where('warranties', [])
+            ->where('serviceCapacity', null)
+            ->where('serviceEconomics', null));
+
+        $this->get(route('maintenance.index'))->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->component('after-sales/index')
+            ->where('initialSection', 'maintenance')
+            ->where('tickets', [])
+            ->where('warranties', [])
+            ->has('serviceCapacity')
+            ->where('serviceEconomics', null));
+
+        $this->get(route('contracts-services.index'))->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->component('after-sales/index')
+            ->where('initialSection', 'contracts')
+            ->where('tickets', [])
+            ->where('warranties', [])
+            ->where('serviceCapacity', null)
+            ->has('serviceEconomics'));
+
+        $this->get(route('assets.index'))->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->component('after-sales/index')
+            ->where('initialSection', 'assets')
+            ->where('tickets', [])
+            ->where('plans', [])
+            ->where('serviceCapacity', null)
+            ->where('serviceEconomics', null));
+    }
 
     public function test_a_commercial_can_define_an_sla_policy(): void
     {

@@ -81,7 +81,7 @@ class RecurringServiceIntelligenceTest extends TestCase
         $this->assertStringContainsString('[GOV-SVC-1]', $context);
         $this->assertStringContainsString('has not reserved stock or created purchase documents', $context);
         $this->assertSame(0, WorkOrder::count());
-        $this->actingAs($admin)->get(route('after-sales.index'))->assertOk()
+        $this->actingAs($admin)->get(route('maintenance.index'))->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->where('serviceCapacity.summary.due_plans', 1)
                 ->where('serviceCapacity.summary.critical_unassigned', 1));

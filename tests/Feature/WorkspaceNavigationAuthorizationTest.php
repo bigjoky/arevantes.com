@@ -73,7 +73,30 @@ class WorkspaceNavigationAuthorizationTest extends TestCase
         $this->get(route('purchases.index'))->assertForbidden();
         $this->get(route('finance.index'))->assertForbidden();
         $this->get(route('knowledge.index'))->assertForbidden();
+        $this->get(route('assets.index'))->assertForbidden();
+        $this->get(route('maintenance.index'))->assertForbidden();
+        $this->get(route('contracts-services.index'))->assertForbidden();
+        $this->get(route('service-quality.index'))->assertForbidden();
         $this->post(route('geocoding.search'), ['query' => 'Madrid'])->assertForbidden();
+    }
+
+    public function test_operations_permissions_expose_each_service_domain_at_the_target_level(): void
+    {
+        $user = $this->userWithPermissions(['manage-operations']);
+
+        $this->actingAs($user)
+            ->get(route('dashboard'))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('auth.navigation', function (Collection $navigation): bool {
+                    $areas = $navigation->filter(fn (mixed $item): bool => isset($item['code']))->keyBy('code');
+
+                    return $areas->keys()->all() === ['PLN', 'OPS', 'AST', 'MNT', 'BI', 'QMS', 'CS', 'CTR']
+                        && collect($areas['AST']['children'])->pluck('title')->all() === ['Installed equipment']
+                        && collect($areas['MNT']['children'])->pluck('title')->all() === ['Preventive & corrective']
+                        && $areas['QMS']['children'][0]['href'] === '/quality/service'
+                        && collect($areas['CTR']['children'])->pluck('title')->all() === ['Recurring services'];
+                }));
     }
 
     public function test_dashboard_does_not_expose_data_from_unauthorized_sections(): void

@@ -1,19 +1,43 @@
 import { Link, usePage } from '@inertiajs/react';
-import { HeartPulse, ShieldCheck } from 'lucide-react';
+import {
+    Boxes,
+    BriefcaseBusiness,
+    CalendarClock,
+    HeartPulse,
+    ShieldCheck,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const sections = [
     {
         href: '/after-sales',
-        label: 'Operations',
+        label: 'Customer service',
         icon: HeartPulse,
         exact: true,
     },
     {
-        href: '/after-sales/quality',
+        href: '/maintenance',
+        label: 'Maintenance',
+        icon: CalendarClock,
+        exact: true,
+    },
+    {
+        href: '/assets',
+        label: 'Assets',
+        icon: Boxes,
+        exact: true,
+    },
+    {
+        href: '/contracts-services',
+        label: 'Contracts & services',
+        icon: BriefcaseBusiness,
+        exact: true,
+    },
+    {
+        href: '/quality/service',
         label: 'Service quality',
         icon: ShieldCheck,
-        exact: false,
+        exact: true,
     },
 ];
 

@@ -67,13 +67,13 @@ class RecurringServiceCommitmentTest extends TestCase
         $this->assertSame(0, WorkOrder::count());
         $this->assertSame(0, StockReservation::count());
         $this->assertSame(0, app(RecurringServiceCapacityForecast::class)->forecast(today(), 6, $admin)['summary']['due_plans']);
-        $this->actingAs($technician)->get(route('after-sales.index'))->assertOk()
+        $this->actingAs($technician)->get(route('maintenance.index'))->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->where('plans.0.cycle_commitments.0.status', 'approved')
                 ->missing('plans.0.billing_amount')
                 ->missing('plans.0.cycle_commitments.0.planned_revenue')
                 ->where('metrics.annual_recurring_value', null)
-                ->where('serviceEconomics.summary', null));
+                ->where('serviceEconomics', null));
 
         $forecast = FinancialForecastItem::where('maintenance_plan_id', $plan->id)->where('maintenance_plan_version', 1)->sole();
         $forecast->update(['status' => 'settled', 'actual_amount' => 300, 'settled_on' => $plan->next_due_on]);

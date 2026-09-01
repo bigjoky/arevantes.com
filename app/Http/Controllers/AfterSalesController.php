@@ -30,24 +30,58 @@ class AfterSalesController extends Controller
 {
     public function index(Request $request, RecurringServiceCapacityForecast $capacity, RecurringServiceEconomics $economics): Response
     {
-        $tickets = ServiceTicket::with(['installation:id,project_reference,site_name,service_type', 'assignedUser:id,name', 'workOrder:id,number,status'])->when($request->user()->hasRole('technician'), fn ($query) => $query->where(fn ($query) => $query->where('assigned_user_id', $request->user()->id)->orWhereNull('assigned_user_id')))->orderByRaw("case priority when 'urgent' then 0 when 'high' then 1 when 'normal' then 2 else 3 end")->orderByRaw("case when status in ('resolved','closed') then 1 else 0 end")->latest()->get();
-        $plans = MaintenancePlan::with([
-            'installation:id,project_reference,site_name', 'assignedUser:id,name', 'template:id,name,kind',
-            'coveredAssets:id,installation_id,asset_tag,name,category', 'preventiveMaterials.product:id,sku,name,supply_criticality',
-            'versions' => fn ($query) => $query->select(['id', 'maintenance_plan_id', 'version', 'change_note', 'created_by', 'created_at']),
-            'versions.creator:id,name', 'cycleCommitments.approver:id,name',
-            'cycleCommitments.completer:id,name',
-            'cycleCommitments.billing.invoice:id,number,status,amount,paid_amount,due_date',
-            'cycleCommitments.billing.preparer:id,name',
-            'cycleCommitments.communications.confirmer:id,name',
-            'cycleCommitments.communications.sender:id,name',
-            'cycleCommitments.serviceTicket:id,number,status',
-            'cycleCommitments.workOrder:id,number,status,scheduled_start,scheduled_end',
-            'cycleCommitments.scheduleRevisions',
-            'renewalOpportunity:id,code,title,stage',
-        ])
-            ->when($request->user()->hasRole('technician'), fn ($query) => $query->where(fn ($scope) => $scope->where('assigned_user_id', $request->user()->id)->orWhereNull('assigned_user_id')))
-            ->orderBy('next_due_on')->get();
+        return $this->renderWorkspace($request, $capacity, $economics, 'tickets');
+    }
+
+    public function maintenance(Request $request, RecurringServiceCapacityForecast $capacity, RecurringServiceEconomics $economics): Response
+    {
+        return $this->renderWorkspace($request, $capacity, $economics, 'maintenance');
+    }
+
+    public function assets(Request $request, RecurringServiceCapacityForecast $capacity, RecurringServiceEconomics $economics): Response
+    {
+        return $this->renderWorkspace($request, $capacity, $economics, 'assets');
+    }
+
+    public function contracts(Request $request, RecurringServiceCapacityForecast $capacity, RecurringServiceEconomics $economics): Response
+    {
+        return $this->renderWorkspace($request, $capacity, $economics, 'contracts');
+    }
+
+    private function renderWorkspace(Request $request, RecurringServiceCapacityForecast $capacity, RecurringServiceEconomics $economics, string $section): Response
+    {
+        $showsTickets = $section === 'tickets';
+        $showsPlans = in_array($section, ['maintenance', 'contracts'], true);
+        $showsAssets = $section === 'assets';
+
+        $tickets = $showsTickets
+            ? ServiceTicket::with(['installation:id,project_reference,site_name,service_type', 'assignedUser:id,name', 'workOrder:id,number,status'])
+                ->when($request->user()->hasRole('technician'), fn ($query) => $query->where(fn ($query) => $query->where('assigned_user_id', $request->user()->id)->orWhereNull('assigned_user_id')))
+                ->orderByRaw("case priority when 'urgent' then 0 when 'high' then 1 when 'normal' then 2 else 3 end")
+                ->orderByRaw("case when status in ('resolved','closed') then 1 else 0 end")
+                ->latest()
+                ->get()
+            : collect();
+        $plans = $showsPlans
+            ? MaintenancePlan::with([
+                'installation:id,project_reference,site_name', 'assignedUser:id,name', 'template:id,name,kind',
+                'coveredAssets:id,installation_id,asset_tag,name,category', 'preventiveMaterials.product:id,sku,name,supply_criticality',
+                'versions' => fn ($query) => $query->select(['id', 'maintenance_plan_id', 'version', 'change_note', 'created_by', 'created_at']),
+                'versions.creator:id,name', 'cycleCommitments.approver:id,name',
+                'cycleCommitments.completer:id,name',
+                'cycleCommitments.billing.invoice:id,number,status,amount,paid_amount,due_date',
+                'cycleCommitments.billing.preparer:id,name',
+                'cycleCommitments.communications.confirmer:id,name',
+                'cycleCommitments.communications.sender:id,name',
+                'cycleCommitments.serviceTicket:id,number,status',
+                'cycleCommitments.workOrder:id,number,status,scheduled_start,scheduled_end',
+                'cycleCommitments.scheduleRevisions',
+                'renewalOpportunity:id,code,title,stage',
+            ])
+                ->when($request->user()->hasRole('technician'), fn ($query) => $query->where(fn ($scope) => $scope->where('assigned_user_id', $request->user()->id)->orWhereNull('assigned_user_id')))
+                ->orderBy('next_due_on')
+                ->get()
+            : collect();
         $plans->each(fn (MaintenancePlan $plan) => $plan->cycleCommitments->each(function ($commitment): void {
             $snapshot = $commitment->completion_snapshot;
             $commitment->setAttribute('completion_summary', $snapshot ? [
@@ -76,15 +110,27 @@ class AfterSalesController extends Controller
             ));
         }
 
+        $installations = Installation::query()
+            ->with(['customer:id,first_name,last_name,company_name'])
+            ->when($showsPlans || $showsAssets, fn ($query) => $query->with([
+                'assets:id,installation_id,asset_tag,name,category,status,manufacturer,model,serial_number,last_serviced_at,service_count,warranty_ends_on',
+            ]))
+            ->orderBy('project_reference')
+            ->get(['id', 'person_id', 'project_reference', 'site_name', 'service_type', 'status']);
+        $warranties = $showsAssets
+            ? SerialNumber::with(['product:id,name,sku'])->whereNotNull('installation_id')->orderBy('warranty_ends_on')->get()
+            : collect();
+
         return Inertia::render('after-sales/index', [
+            'initialSection' => $section,
             'tickets' => $tickets,
             'plans' => $plans,
-            'installations' => Installation::with(['customer:id,first_name,last_name,company_name', 'assets:id,installation_id,asset_tag,name,category,status'])->orderBy('project_reference')->get(['id', 'person_id', 'project_reference', 'site_name', 'service_type', 'status']),
-            'users' => User::whereIn('role', ['technician', 'admin'])->orderBy('name')->get(['id', 'name']),
-            'warranties' => SerialNumber::with(['product:id,name,sku'])->whereNotNull('installation_id')->orderBy('warranty_ends_on')->get(),
-            'slaPolicies' => ServiceSlaPolicy::where('is_active', true)->orderBy('priority')->get(),
-            'templates' => WorkOrderTemplate::where('is_active', true)->whereIn('kind', ['maintenance', 'repair'])->orderBy('name')->get(),
-            'stockProducts' => $request->user()->can('manage-installations')
+            'installations' => $installations,
+            'users' => ($showsTickets || $showsPlans) ? User::whereIn('role', ['technician', 'admin'])->orderBy('name')->get(['id', 'name']) : [],
+            'warranties' => $warranties,
+            'slaPolicies' => $showsTickets ? ServiceSlaPolicy::where('is_active', true)->orderBy('priority')->get() : [],
+            'templates' => $showsPlans ? WorkOrderTemplate::where('is_active', true)->whereIn('kind', ['maintenance', 'repair'])->orderBy('name')->get() : [],
+            'stockProducts' => $showsPlans && $request->user()->can('manage-installations')
                 ? Product::where('is_active', true)->where('track_stock', true)->orderBy('name')->get(['id', 'sku', 'name', 'supply_criticality'])
                 : [],
             'metrics' => [
@@ -95,15 +141,17 @@ class AfterSalesController extends Controller
                 'average_resolution_minutes' => round($tickets->filter(fn (ServiceTicket $ticket) => $ticket->resolved_at)->avg(fn (ServiceTicket $ticket) => $ticket->created_at->diffInMinutes($ticket->resolved_at)) ?? 0),
                 'recurrences' => $tickets->sum('reopened_count'),
                 'satisfaction' => round($tickets->whereNotNull('satisfaction_rating')->avg('satisfaction_rating') ?? 0, 1),
-                'annual_recurring_value' => $request->user()->can('view-finance')
+                'annual_recurring_value' => $showsPlans && $request->user()->can('view-finance')
                     ? round((float) $plans->where('is_active', true)->sum(fn (MaintenancePlan $plan) => (float) ($plan->billing_amount ?: 0) * (12 / max(1, (int) ($plan->billing_frequency_months ?: 12)))), 2)
                     : null,
                 'renewals_due' => $plans->where('is_active', true)->whereNull('renewal_opportunity_id')->filter(fn (MaintenancePlan $plan) => $plan->contract_ends_on?->lessThanOrEqualTo(today()->addDays($plan->renewal_notice_days)))->count(),
+                'installed_assets' => $showsAssets ? $installations->sum(fn (Installation $installation) => $installation->assets->count()) : 0,
+                'warranties_expiring' => $warranties->filter(fn (SerialNumber $serial) => $serial->warranty_ends_on?->between(today(), today()->addDays(90)))->count(),
             ],
             'canManage' => $request->user()->can('manage-installations'),
             'canManageCustomers' => $request->user()->can('manage-customers'),
-            'serviceCapacity' => $capacity->forecast(today(), 6, $request->user()),
-            'serviceEconomics' => $economics->build($request->user()->can('view-finance')),
+            'serviceCapacity' => $section === 'maintenance' ? $capacity->forecast(today(), 6, $request->user()) : null,
+            'serviceEconomics' => $section === 'contracts' && $request->user()->can('view-finance') ? $economics->build(true) : null,
             'canViewFinancials' => $request->user()->can('view-finance'),
             'canManageBilling' => $request->user()->can('manage-treasury'),
         ]);
