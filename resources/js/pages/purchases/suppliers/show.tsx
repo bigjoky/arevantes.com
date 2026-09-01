@@ -1,8 +1,10 @@
 import { Form, Head, Link } from '@inertiajs/react';
 import { ArrowLeft, Plus, Star, Trash2 } from 'lucide-react';
+import { FormErrorSummary } from '@/components/forms/form-layout';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 type Product = { id: number; sku: string | null; name: string };
 type Price = {
@@ -39,7 +41,23 @@ type Supplier = {
     legal_name: string;
     trade_name: string | null;
     email: string | null;
+    contacts: SupplierContact[];
     products: CatalogItem[];
+};
+type SupplierContact = {
+    id: number;
+    first_name: string;
+    last_name: string | null;
+    position: string | null;
+    roles: string[] | null;
+    document_type: string | null;
+    document_number: string | null;
+    email: string | null;
+    phone: string | null;
+    preferred_channel: string | null;
+    is_primary: boolean;
+    is_authorized_signatory: boolean;
+    notes: string | null;
 };
 type Scorecard = {
     overall_score: number | null;
@@ -117,6 +135,119 @@ export default function SupplierIntelligenceShow({
                         label="12-month spend"
                         value={money(scorecard.annual_spend)}
                     />
+                </section>
+                <section className="grid gap-4 border-y py-5 lg:grid-cols-[1.2fr_1fr]">
+                    <div className="space-y-3">
+                        <div>
+                            <h2 className="font-semibold">Supplier contacts</h2>
+                            <p className="text-sm text-muted-foreground">
+                                Purchasing, billing, logistics and authorized
+                                representatives.
+                            </p>
+                        </div>
+                        <div className="divide-y border-y">
+                            {supplier.contacts.map((contact) => (
+                                <details key={contact.id} className="py-3">
+                                    <summary className="cursor-pointer list-none">
+                                        <div className="flex flex-wrap items-center gap-2 font-medium">
+                                            {contact.first_name}{' '}
+                                            {contact.last_name}
+                                            {contact.is_primary ? (
+                                                <Badge>Primary</Badge>
+                                            ) : null}
+                                            {contact.is_authorized_signatory ? (
+                                                <Badge variant="secondary">
+                                                    Authorized signatory
+                                                </Badge>
+                                            ) : null}
+                                        </div>
+                                        <div className="text-sm text-muted-foreground">
+                                            {[
+                                                contact.position,
+                                                contact.email,
+                                                contact.phone,
+                                            ]
+                                                .filter(Boolean)
+                                                .join(' · ')}
+                                        </div>
+                                        <div className="mt-2 flex flex-wrap gap-1">
+                                            {(contact.roles ?? []).map(
+                                                (role) => (
+                                                    <Badge
+                                                        key={role}
+                                                        variant="outline"
+                                                    >
+                                                        {supplierRoleLabels[
+                                                            role
+                                                        ] ?? role}
+                                                    </Badge>
+                                                ),
+                                            )}
+                                        </div>
+                                    </summary>
+                                    <Form
+                                        action={`/supplier-intelligence/${supplier.id}/contacts/${contact.id}`}
+                                        method="patch"
+                                        className="mt-4 grid gap-4 bg-muted/30 p-4"
+                                    >
+                                        {({ processing, errors }) => (
+                                            <>
+                                                <FormErrorSummary
+                                                    errors={errors}
+                                                />
+                                                <SupplierContactFields
+                                                    contact={contact}
+                                                    prefix={`supplier-contact-${contact.id}`}
+                                                />
+                                                <Button disabled={processing}>
+                                                    Save contact
+                                                </Button>
+                                            </>
+                                        )}
+                                    </Form>
+                                    <Form
+                                        action={`/supplier-intelligence/${supplier.id}/contacts/${contact.id}`}
+                                        method="delete"
+                                        className="mt-2 flex justify-end"
+                                    >
+                                        {({ processing }) => (
+                                            <Button
+                                                size="sm"
+                                                variant="ghost"
+                                                disabled={processing}
+                                            >
+                                                Remove
+                                            </Button>
+                                        )}
+                                    </Form>
+                                </details>
+                            ))}
+                            {supplier.contacts.length === 0 ? (
+                                <p className="py-5 text-sm text-muted-foreground">
+                                    No supplier contacts yet.
+                                </p>
+                            ) : null}
+                        </div>
+                    </div>
+                    <Form
+                        action={`/supplier-intelligence/${supplier.id}/contacts`}
+                        method="post"
+                        resetOnSuccess
+                        className="grid gap-4 border p-4"
+                    >
+                        {({ processing, errors }) => (
+                            <>
+                                <h3 className="font-medium">
+                                    Add supplier contact
+                                </h3>
+                                <FormErrorSummary errors={errors} />
+                                <SupplierContactFields prefix="new-supplier-contact" />
+                                <Button disabled={processing}>
+                                    Add contact
+                                </Button>
+                            </>
+                        )}
+                    </Form>
                 </section>
                 {availableProducts.length > 0 && (
                     <details className="border p-4">
@@ -312,6 +443,189 @@ export default function SupplierIntelligenceShow({
                 </section>
             </div>
         </>
+    );
+}
+
+const supplierRoleLabels: Record<string, string> = {
+    legal_representative: 'Legal representative',
+    billing: 'Billing',
+    purchasing: 'Purchasing',
+    technical: 'Technical',
+    quality: 'Quality',
+    logistics: 'Logistics',
+    other: 'Other',
+};
+
+function SupplierContactFields({
+    contact,
+    prefix,
+}: {
+    contact?: SupplierContact;
+    prefix: string;
+}) {
+    return (
+        <>
+            <div className="grid gap-3 sm:grid-cols-2">
+                <ContactInput
+                    id={`${prefix}-first`}
+                    name="first_name"
+                    label="First name"
+                    value={contact?.first_name}
+                    required
+                />
+                <ContactInput
+                    id={`${prefix}-last`}
+                    name="last_name"
+                    label="Last name"
+                    value={contact?.last_name}
+                />
+                <ContactInput
+                    id={`${prefix}-position`}
+                    name="position"
+                    label="Position"
+                    value={contact?.position}
+                />
+                <ContactInput
+                    id={`${prefix}-email`}
+                    name="email"
+                    label="Email"
+                    type="email"
+                    value={contact?.email}
+                />
+                <ContactInput
+                    id={`${prefix}-phone`}
+                    name="phone"
+                    label="Phone"
+                    value={contact?.phone}
+                />
+                <label className="grid gap-2 text-sm font-medium">
+                    Preferred channel
+                    <select
+                        name="preferred_channel"
+                        defaultValue={contact?.preferred_channel ?? ''}
+                        className="h-9 rounded-md border bg-transparent px-3 text-sm"
+                    >
+                        <option value="">No preference</option>
+                        <option value="email">Email</option>
+                        <option value="phone">Phone</option>
+                        <option value="whatsapp">WhatsApp</option>
+                        <option value="sms">SMS</option>
+                    </select>
+                </label>
+            </div>
+            <fieldset className="grid gap-2">
+                <legend className="text-sm font-medium">
+                    Responsibilities
+                </legend>
+                <div className="grid gap-2 sm:grid-cols-2">
+                    {Object.entries(supplierRoleLabels).map(([role, label]) => (
+                        <label
+                            key={role}
+                            className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm"
+                        >
+                            <input
+                                type="checkbox"
+                                name="roles[]"
+                                value={role}
+                                defaultChecked={
+                                    contact
+                                        ? (contact.roles ?? []).includes(role)
+                                        : role === 'purchasing'
+                                }
+                            />{' '}
+                            {label}
+                        </label>
+                    ))}
+                </div>
+            </fieldset>
+            <div className="grid gap-3 sm:grid-cols-2">
+                <label className="grid gap-2 text-sm font-medium">
+                    ID type
+                    <select
+                        name="document_type"
+                        defaultValue={contact?.document_type ?? ''}
+                        className="h-9 rounded-md border bg-transparent px-3 text-sm"
+                    >
+                        <option value="">None</option>
+                        <option value="passport">Passport</option>
+                        <option value="nif">NIF</option>
+                        <option value="nie">NIE</option>
+                        <option value="other">Other</option>
+                    </select>
+                </label>
+                <ContactInput
+                    id={`${prefix}-document`}
+                    name="document_number"
+                    label="ID number"
+                    value={contact?.document_number}
+                />
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2">
+                <label className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm">
+                    <input type="hidden" name="is_primary" value="0" />
+                    <input
+                        type="checkbox"
+                        name="is_primary"
+                        value="1"
+                        defaultChecked={contact?.is_primary ?? false}
+                    />{' '}
+                    Primary contact
+                </label>
+                <label className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm">
+                    <input
+                        type="hidden"
+                        name="is_authorized_signatory"
+                        value="0"
+                    />
+                    <input
+                        type="checkbox"
+                        name="is_authorized_signatory"
+                        value="1"
+                        defaultChecked={
+                            contact?.is_authorized_signatory ?? false
+                        }
+                    />{' '}
+                    Authorized signatory
+                </label>
+            </div>
+            <label className="grid gap-2 text-sm font-medium">
+                Notes
+                <textarea
+                    name="notes"
+                    defaultValue={contact?.notes ?? ''}
+                    className="min-h-20 rounded-md border bg-transparent px-3 py-2 text-sm"
+                />
+            </label>
+        </>
+    );
+}
+
+function ContactInput({
+    id,
+    name,
+    label,
+    value,
+    type = 'text',
+    required = false,
+}: {
+    id: string;
+    name: string;
+    label: string;
+    value?: string | null;
+    type?: string;
+    required?: boolean;
+}) {
+    return (
+        <div className="grid gap-2">
+            <Label htmlFor={id}>{label}</Label>
+            <Input
+                id={id}
+                name={name}
+                type={type}
+                defaultValue={value ?? ''}
+                required={required}
+            />
+        </div>
     );
 }
 

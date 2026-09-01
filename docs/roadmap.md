@@ -103,8 +103,8 @@ prioridad sobre añadir pantallas que amplíen deuda de interfaz.
 | P0        | Rendimiento medible               | Instrumentación y primera optimización ejecutadas. `Server-Timing` mide aplicación y SQL; los excesos registran solo metadatos técnicos. El panel difiere datos y código del mapa. LCP, INP y CLS se muestrean ahora por pantalla y dispositivo, sin URL, usuario ni IP, con retención de 90 días e informe de percentiles. Pendiente recoger una línea base suficiente en producción y optimizar el siguiente punto demostrado. |
 | P0        | Localización completa             | En curso. España ya conserva `Spain` como valor canónico y se presenta como `España` en formularios españoles. Ningún otro texto visible puede quedar mezclado y los demás catálogos seguirán el mismo patrón.                                                                                                                                                                                                                   |
 | P0        | Adaptación móvil integral         | En curso continuo. Cada ficha, tabla, diálogo y acción principal debe funcionar desde 320 px sin desbordamiento, pérdida de información ni acciones inaccesibles.                                                                                                                                                                                                                                                                |
-| P1        | Sistema único de formularios      | En curso avanzado. Cliente, instalación, propuesta y alta de gasto comparten secciones, jerarquía visual, resumen accesible de errores, estado de guardado y barra de acciones adaptable. El patrón se extenderá por cortes a los formularios operativos restantes.                                                                                                                                                                   |
-| P1        | Cliente según naturaleza          | Tercer corte completado. Particular, empresa, comunidad y organismo público adaptan identidad, contactos, representación e información fiscal. Propuestas y facturas heredan el plazo de pago y los documentos derivados respetan el valor histórico congelado. Pendiente ampliar contactos y representación a proveedores.                                                          |
+| P1        | Sistema único de formularios      | En curso avanzado. Cliente, instalación, propuesta y alta de gasto comparten secciones, jerarquía visual, resumen accesible de errores, estado de guardado y barra de acciones adaptable. El patrón se extenderá por cortes a los formularios operativos restantes.                                                                                                                                                              |
+| P1        | Terceros según naturaleza         | Cuarto corte completado. Particular, empresa, comunidad y organismo público adaptan identidad, contactos, representación e información fiscal. Clientes y proveedores disponen de contactos por responsabilidad y firmantes autorizados; ventas y compras congelan la identidad histórica en sus documentos derivados.                                                                                                           |
 | P1        | Sidebar y arquitectura de módulos | Planificado. Mapear rutas actuales a las 20 áreas, resolver solapamientos, aplicar permisos en servidor y desplegar la navegación por etapas con pruebas por rol.                                                                                                                                                                                                                                                                |
 
 La optimización se considera terminada únicamente con mediciones antes/después;
@@ -977,12 +977,25 @@ como respaldo para registros históricos sin plazo.
 
 ## Próximo corte recomendado
 
-Añadir contactos y representantes múltiples a proveedores sobre sus datos fiscales
-ya existentes, congelar su identidad en pedidos y facturas de compra, y continuar
-el sistema común en los formularios operativos de mayor frecuencia. En paralelo,
-recoger durante siete días una muestra suficiente de producción para que el
-siguiente trabajo de rendimiento responda a `Server-Timing` y a los percentiles
-p75 reales de LCP, INP o CLS.
+Extender el sistema común a los formularios operativos de compras y catálogo,
+incluyendo dirección jerárquica de proveedor, errores accesibles y acciones
+móviles consistentes. En paralelo, recoger durante siete días una muestra
+suficiente de producción para que el siguiente trabajo de rendimiento responda a
+`Server-Timing` y a los percentiles p75 reales de LCP, INP o CLS.
+
+## Corte ejecutado — Contactos e identidad histórica de proveedores
+
+La ficha de inteligencia de proveedor admite múltiples contactos con
+responsabilidades explícitas de compras, facturación, logística, calidad,
+soporte técnico o representación legal. Puede señalarse un contacto principal y
+un firmante autorizado; el servidor valida sus datos y promociona otro contacto
+si se elimina el principal.
+
+Cada solicitud de oferta, pedido, factura o rectificativa de compra conserva una
+instantánea de razón social, NIF, dirección, condiciones de pago, cuentas
+bancarias y contactos relevantes. Los documentos derivados heredan la instantánea
+de su origen, y tanto la ficha como el PDF utilizan esa identidad histórica aunque
+la ficha maestra del proveedor cambie posteriormente.
 
 ## Corrección transversal — idioma temporal de la plataforma
 

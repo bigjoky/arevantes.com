@@ -23,6 +23,7 @@ class SupplierIntelligenceController extends Controller
     public function show(Supplier $supplier, SupplierScorecards $scorecards): Response
     {
         $supplier->load([
+            'contacts',
             'products' => fn ($query) => $query->with([
                 'product:id,sku,name',
                 'prices' => fn ($query) => $query->limit(12)->with('purchaseDocumentLine.document:id,number,type,issue_date'),

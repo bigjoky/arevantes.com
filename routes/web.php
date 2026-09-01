@@ -81,6 +81,7 @@ use App\Http\Controllers\SitemapController;
 use App\Http\Controllers\StaffAccessController;
 use App\Http\Controllers\StaffController;
 use App\Http\Controllers\StockCountController;
+use App\Http\Controllers\SupplierContactController;
 use App\Http\Controllers\SupplierIntelligenceController;
 use App\Http\Controllers\SupplierInvoiceDocumentController;
 use App\Http\Controllers\SupplierQualityController;
@@ -413,6 +414,9 @@ Route::middleware(['auth'])->group(function () {
     Route::post('supplier-intelligence/{supplier}/products', [SupplierIntelligenceController::class, 'storeProduct'])->middleware('can:manage-purchases')->name('supplier-intelligence.products.store');
     Route::patch('supplier-products/{supplierProduct}', [SupplierIntelligenceController::class, 'updateProduct'])->middleware('can:manage-purchases')->name('supplier-intelligence.products.update');
     Route::delete('supplier-products/{supplierProduct}', [SupplierIntelligenceController::class, 'destroyProduct'])->middleware('can:manage-purchases')->name('supplier-intelligence.products.destroy');
+    Route::post('supplier-intelligence/{supplier}/contacts', [SupplierContactController::class, 'store'])->middleware('can:manage-purchases')->name('supplier-intelligence.contacts.store');
+    Route::patch('supplier-intelligence/{supplier}/contacts/{contact}', [SupplierContactController::class, 'update'])->middleware('can:manage-purchases')->name('supplier-intelligence.contacts.update');
+    Route::delete('supplier-intelligence/{supplier}/contacts/{contact}', [SupplierContactController::class, 'destroy'])->middleware('can:manage-purchases')->name('supplier-intelligence.contacts.destroy');
     Route::get('replenishment', [ReplenishmentController::class, 'index'])->middleware('can:manage-purchases')->name('replenishment.index');
     Route::post('replenishment/policies', [ReplenishmentController::class, 'store'])->middleware('can:manage-purchases')->name('replenishment.policies.store');
     Route::patch('replenishment/policies/{policy}', [ReplenishmentController::class, 'update'])->middleware('can:manage-purchases')->name('replenishment.policies.update');

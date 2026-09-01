@@ -92,6 +92,7 @@ class PurchaseController extends Controller
 
         return Inertia::render('purchases/show', [
             'document' => $purchaseDocument,
+            'supplierIdentity' => $purchaseDocument->supplierIdentity(),
             'matchDetails' => $purchaseDocument->type === 'supplier_invoice' ? $matcher->details($purchaseDocument) : [],
             'orderSummary' => $orderSummary,
             'creditSummary' => $purchaseDocument->type === 'supplier_invoice' ? $matcher->creditable($purchaseDocument) : [],

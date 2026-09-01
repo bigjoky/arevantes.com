@@ -21,6 +21,25 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 type Warehouse = { id: number; code: string; name: string };
+type SupplierIdentity = {
+    legal_name?: string | null;
+    trade_name?: string | null;
+    tax_id?: string | null;
+    email?: string | null;
+    phone?: string | null;
+    address_line_1?: string | null;
+    address_line_2?: string | null;
+    postal_code?: string | null;
+    city?: string | null;
+    province?: string | null;
+    country?: string | null;
+    purchasing_contact?: {
+        name?: string | null;
+        position?: string | null;
+        email?: string | null;
+        phone?: string | null;
+    } | null;
+};
 type Line = {
     id: number;
     description: string;
@@ -206,6 +225,7 @@ type ExtractionComparison = {
 };
 export default function PurchaseShow({
     document,
+    supplierIdentity,
     warehouses,
     matchDetails,
     orderSummary,
@@ -216,6 +236,7 @@ export default function PurchaseShow({
     paymentSources,
 }: {
     document: Document;
+    supplierIdentity: SupplierIdentity;
     warehouses: Warehouse[];
     matchDetails: MatchDetail[];
     orderSummary: {
@@ -294,7 +315,9 @@ export default function PurchaseShow({
                         </div>
                         <p className="text-sm text-muted-foreground capitalize">
                             {document.type.replaceAll('_', ' ')} ·{' '}
-                            {document.supplier.trade_name ||
+                            {supplierIdentity.trade_name ||
+                                supplierIdentity.legal_name ||
+                                document.supplier.trade_name ||
                                 document.supplier.legal_name}
                         </p>
                     </div>
@@ -402,7 +425,14 @@ export default function PurchaseShow({
                 <section className="grid gap-4 border-y py-4 text-sm sm:grid-cols-2 lg:grid-cols-6">
                     <Info
                         label="Supplier"
-                        value={document.supplier.legal_name}
+                        value={
+                            supplierIdentity.legal_name ||
+                            document.supplier.legal_name
+                        }
+                    />
+                    <Info
+                        label="Supplier tax ID"
+                        value={supplierIdentity.tax_id || '—'}
                     />
                     {document.type === 'purchase_order' && (
                         <Info

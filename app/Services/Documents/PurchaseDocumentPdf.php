@@ -13,6 +13,7 @@ class PurchaseDocumentPdf
     public function render(PurchaseDocument $document): string
     {
         $document->loadMissing(['supplier', 'destinationWarehouse', 'lines']);
+        $supplierIdentity = $document->supplierIdentity();
         $profile = CompanyProfile::first();
         $company = $profile?->toArray() ?? config('company');
         $company['logo_data'] = null;
@@ -25,7 +26,7 @@ class PurchaseDocumentPdf
         $options->set('defaultFont', 'DejaVu Sans');
         $options->set('isRemoteEnabled', false);
         $pdf = new Dompdf($options);
-        $pdf->loadHtml(view('pdf.purchase-document', compact('document', 'company'))->render());
+        $pdf->loadHtml(view('pdf.purchase-document', compact('document', 'company', 'supplierIdentity'))->render());
         $pdf->setPaper('A4');
         $pdf->render();
 

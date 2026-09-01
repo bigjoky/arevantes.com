@@ -140,5 +140,8 @@
     "Only a pending calibration governance review can be decided.": "Only a pending calibration governance review can be decided.",
     "Select a newer accepted calibration version from the same evidence series.": "Select a newer accepted calibration version from the same evidence series.",
     "This governance review is stale because the calibration version is no longer available.": "This governance review is stale because the calibration version is no longer available.",
-    "An authorized signatory must have the legal representative role.": "An authorized signatory must have the legal representative role."
+    "An authorized signatory must have the legal representative role.": "An authorized signatory must have the legal representative role.",
+    "Supplier contact added.": "Supplier contact added.",
+    "Supplier contact updated.": "Supplier contact updated.",
+    "Supplier contact removed.": "Supplier contact removed."
 }

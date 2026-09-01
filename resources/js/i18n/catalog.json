@@ -15459,5 +15459,29 @@
     "The due date is suggested automatically and can still be adjusted.": {
         "en": "The due date is suggested automatically and can still be adjusted.",
         "es": "La fecha de vencimiento se propone automáticamente y todavía puede ajustarse."
+    },
+    "Supplier contacts": {
+        "en": "Supplier contacts",
+        "es": "Contactos del proveedor"
+    },
+    "Purchasing, billing, logistics and authorized representatives.": {
+        "en": "Purchasing, billing, logistics and authorized representatives.",
+        "es": "Compras, facturación, logística y representantes autorizados."
+    },
+    "No supplier contacts yet.": {
+        "en": "No supplier contacts yet.",
+        "es": "Todavía no hay contactos del proveedor."
+    },
+    "Add supplier contact": {
+        "en": "Add supplier contact",
+        "es": "Añadir contacto del proveedor"
+    },
+    "Preferred channel": {
+        "en": "Preferred channel",
+        "es": "Canal preferido"
+    },
+    "Supplier tax ID": {
+        "en": "Supplier tax ID",
+        "es": "NIF del proveedor"
     }
 }
