@@ -977,12 +977,25 @@ como respaldo para registros históricos sin plazo.
 
 ## Próximo corte recomendado
 
-Completar la unificación del alta de productos y de documentos de compra,
-dividiendo sus formularios extensos en secciones coherentes y haciendo que sus
-acciones principales permanezcan accesibles en móvil. En paralelo, recoger
-durante siete días una muestra suficiente de producción para que el siguiente
-trabajo de rendimiento responda a `Server-Timing` y a los percentiles p75 reales
-de LCP, INP o CLS.
+Iniciar el despliegue gradual de la arquitectura de 20 áreas: crear el mapa único
+de rutas, permisos y navegación, resolver primero los solapamientos de Personas,
+CRM, Ventas, Compras e Inventario y conservar accesos directos a los flujos
+frecuentes. En paralelo, recoger durante siete días una muestra suficiente de
+producción para que el siguiente trabajo de rendimiento responda a
+`Server-Timing` y a los percentiles p75 reales de LCP, INP o CLS.
+
+## Corte ejecutado — Productos y documentos de compra unificados
+
+El maestro de productos y servicios separa identidad, precios y planificación,
+ramas de negocio, composición reutilizable e inventario. Los errores de campos y
+componentes aparecen en un resumen común, la acción de guardado permanece
+accesible y el diálogo se adapta a la altura y anchura real del dispositivo.
+
+El alta de solicitudes de oferta y pedidos comparte el mismo patrón con bloques
+de cabecera, líneas y notas. Las líneas abandonan la tabla rígida de 60 rem y se
+editan como fichas sin duplicar campos entre móvil y escritorio; muestran el total
+calculado, permiten añadir o retirar partidas y mantienen visibles todos sus
+errores. El total estimado y la cantidad de líneas acompañan a la acción final.
 
 ## Corte ejecutado — Formulario y dirección de proveedores
 

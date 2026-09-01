@@ -15507,5 +15507,81 @@
     "The saved identity will be frozen when a new purchase document is created.": {
         "en": "The saved identity will be frozen when a new purchase document is created.",
         "es": "La identidad guardada quedará congelada al crear un nuevo documento de compra."
+    },
+    "Item identity": {
+        "en": "Item identity",
+        "es": "Identidad del artículo"
+    },
+    "Core catalog, unit and tax information.": {
+        "en": "Core catalog, unit and tax information.",
+        "es": "Información principal de catálogo, unidad e impuestos."
+    },
+    "Prices and planning": {
+        "en": "Prices and planning",
+        "es": "Precios y planificación"
+    },
+    "Commercial values, accounting allocation and supply expectations.": {
+        "en": "Commercial values, accounting allocation and supply expectations.",
+        "es": "Valores comerciales, asignación contable y previsiones de suministro."
+    },
+    "Reusable composition": {
+        "en": "Reusable composition",
+        "es": "Composición reutilizable"
+    },
+    "Add products or services that will be copied to the technical breakdown of the proposal.": {
+        "en": "Add products or services that will be copied to the technical breakdown of the proposal.",
+        "es": "Añade productos o servicios que se copiarán al desglose técnico de la propuesta."
+    },
+    "Descriptive only": {
+        "en": "Descriptive only",
+        "es": "Solo descriptivo"
+    },
+    "Remove component": {
+        "en": "Remove component",
+        "es": "Eliminar componente"
+    },
+    "Inventory and availability": {
+        "en": "Inventory and availability",
+        "es": "Inventario y disponibilidad"
+    },
+    "Control stock, serial traceability and catalog visibility.": {
+        "en": "Control stock, serial traceability and catalog visibility.",
+        "es": "Controla el stock, la trazabilidad por serie y la visibilidad en catálogo."
+    },
+    "The item will be available to proposals, purchases and operational planning.": {
+        "en": "The item will be available to proposals, purchases and operational planning.",
+        "es": "El artículo estará disponible para propuestas, compras y planificación operativa."
+    },
+    "Purchase details": {
+        "en": "Purchase details",
+        "es": "Datos de la compra"
+    },
+    "Document type, supplier, dates and transport conditions.": {
+        "en": "Document type, supplier, dates and transport conditions.",
+        "es": "Tipo de documento, proveedor, fechas y condiciones de transporte."
+    },
+    "Purchase lines": {
+        "en": "Purchase lines",
+        "es": "Partidas de compra"
+    },
+    "Select catalog products and adjust the quantities, costs, discounts and taxes for this document.": {
+        "en": "Select catalog products and adjust the quantities, costs, discounts and taxes for this document.",
+        "es": "Selecciona productos del catálogo y ajusta cantidades, costes, descuentos e impuestos para este documento."
+    },
+    "Line": {
+        "en": "Line",
+        "es": "Partida"
+    },
+    "Discount %": {
+        "en": "Discount %",
+        "es": "Descuento %"
+    },
+    "Notes and instructions": {
+        "en": "Notes and instructions",
+        "es": "Notas e instrucciones"
+    },
+    "Add delivery, purchasing or supplier instructions that should accompany the document.": {
+        "en": "Add delivery, purchasing or supplier instructions that should accompany the document.",
+        "es": "Añade instrucciones de entrega, compra o proveedor que deban acompañar al documento."
     }
 }

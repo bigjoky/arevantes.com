@@ -522,9 +522,24 @@ function ProductDialog({
     );
     const defaultTax =
         product?.tax_rate_id ?? taxRates.find((tax) => tax.is_default)?.id;
+    const updateComponent = (index: number, data: Partial<ProductComponent>) =>
+        setComponents((current) =>
+            current.map((item, position) =>
+                position === index ? { ...item, ...data } : item,
+            ),
+        );
 
     return (
-        <Dialog open={open} onOpenChange={setOpen}>
+        <Dialog
+            open={open}
+            onOpenChange={(nextOpen) => {
+                setOpen(nextOpen);
+
+                if (nextOpen) {
+                    setComponents(product?.components ?? []);
+                }
+            }}
+        >
             <DialogTrigger asChild>
                 <Button
                     size={product ? 'icon' : 'default'}
@@ -558,145 +573,155 @@ function ProductDialog({
                 >
                     {({ errors, processing }) => (
                         <>
-                            <div className="grid gap-4 sm:grid-cols-2">
-                                <SelectField
-                                    label="Type"
-                                    name="type"
-                                    value={product?.type ?? 'product'}
-                                    options={[
-                                        ['product', 'Product'],
-                                        ['service', 'Service'],
-                                    ]}
-                                />
-                                <Field
-                                    label="SKU / code"
-                                    name="sku"
-                                    value={product?.sku}
-                                    error={errors.sku}
-                                />
-                                <Field
-                                    label="Name"
-                                    name="name"
-                                    value={product?.name}
-                                    error={errors.name}
-                                    className="sm:col-span-2"
-                                />
-                                <Field
-                                    label="Description"
-                                    name="description"
-                                    value={product?.description}
-                                    className="sm:col-span-2"
-                                />
-                                <SelectField
-                                    label="Unit"
-                                    name="unit_id"
-                                    value={String(
-                                        product?.unit_id ?? units[0]?.id,
-                                    )}
-                                    options={units.map((unit) => [
-                                        String(unit.id),
-                                        `${unit.name} (${unit.symbol})`,
-                                    ])}
-                                />
-                                <SelectField
-                                    label="Tax"
-                                    name="tax_rate_id"
-                                    value={String(defaultTax ?? '')}
-                                    options={taxRates.map((tax) => [
-                                        String(tax.id),
-                                        `${tax.name} · ${tax.rate}%`,
-                                    ])}
-                                />
-                                <Field
-                                    label="Cost price"
-                                    name="cost_price"
-                                    value={product?.cost_price ?? '0'}
-                                    type="number"
-                                    step="0.01"
-                                    error={errors.cost_price}
-                                />
-                                <Field
-                                    label="Sale price"
-                                    name="sale_price"
-                                    value={product?.sale_price ?? '0'}
-                                    type="number"
-                                    step="0.01"
-                                    error={errors.sale_price}
-                                />
-                                <SelectField
-                                    label="Sales account"
-                                    name="sale_account_code"
-                                    value={
-                                        product?.sale_account_code ??
-                                        (product?.type === 'service'
-                                            ? '705'
-                                            : '700')
-                                    }
-                                    options={accountingAccounts
-                                        .filter(
-                                            (account) =>
-                                                account.type === 'income',
-                                        )
-                                        .map((account) => [
-                                            account.code,
-                                            `${account.code} · ${account.name}`,
+                            <FormErrorSummary errors={errors} />
+                            <FormSection
+                                title="Item identity"
+                                description="Core catalog, unit and tax information."
+                            >
+                                <div className="grid gap-4 sm:grid-cols-2">
+                                    <SelectField
+                                        label="Type"
+                                        name="type"
+                                        value={product?.type ?? 'product'}
+                                        options={[
+                                            ['product', 'Product'],
+                                            ['service', 'Service'],
+                                        ]}
+                                    />
+                                    <Field
+                                        label="SKU / code"
+                                        name="sku"
+                                        value={product?.sku}
+                                        error={errors.sku}
+                                    />
+                                    <Field
+                                        label="Name"
+                                        name="name"
+                                        value={product?.name}
+                                        error={errors.name}
+                                        className="sm:col-span-2"
+                                    />
+                                    <Field
+                                        label="Description"
+                                        name="description"
+                                        value={product?.description}
+                                        className="sm:col-span-2"
+                                    />
+                                    <SelectField
+                                        label="Unit"
+                                        name="unit_id"
+                                        value={String(
+                                            product?.unit_id ?? units[0]?.id,
+                                        )}
+                                        options={units.map((unit) => [
+                                            String(unit.id),
+                                            `${unit.name} (${unit.symbol})`,
                                         ])}
-                                />
-                                <SelectField
-                                    label="Purchase account"
-                                    name="purchase_account_code"
-                                    value={
-                                        product?.purchase_account_code ?? '600'
-                                    }
-                                    options={accountingAccounts
-                                        .filter(
-                                            (account) =>
-                                                account.type === 'expense',
-                                        )
-                                        .map((account) => [
-                                            account.code,
-                                            `${account.code} · ${account.name}`,
+                                    />
+                                    <SelectField
+                                        label="Tax"
+                                        name="tax_rate_id"
+                                        value={String(defaultTax ?? '')}
+                                        options={taxRates.map((tax) => [
+                                            String(tax.id),
+                                            `${tax.name} · ${tax.rate}%`,
                                         ])}
-                                />
-                                <SelectField
-                                    label="Supply criticality"
-                                    name="supply_criticality"
-                                    value={
-                                        product?.supply_criticality ??
-                                        'standard'
-                                    }
-                                    options={[
-                                        ['low', 'Low'],
-                                        ['standard', 'Standard'],
-                                        ['critical', 'Critical spare'],
-                                    ]}
-                                />
-                                <Field
-                                    label="Preferred lead time (days)"
-                                    name="preferred_lead_time_days"
-                                    value={String(
-                                        product?.preferred_lead_time_days ?? 7,
-                                    )}
-                                    type="number"
-                                    min="0"
-                                    max="365"
-                                    error={errors.preferred_lead_time_days}
-                                />
-                            </div>
-                            <fieldset className="grid gap-2 rounded-md border p-3">
+                                    />
+                                </div>
+                            </FormSection>
+                            <FormSection
+                                title="Prices and planning"
+                                description="Commercial values, accounting allocation and supply expectations."
+                            >
+                                <div className="grid gap-4 sm:grid-cols-2">
+                                    <Field
+                                        label="Cost price"
+                                        name="cost_price"
+                                        value={product?.cost_price ?? '0'}
+                                        type="number"
+                                        step="0.01"
+                                        error={errors.cost_price}
+                                    />
+                                    <Field
+                                        label="Sale price"
+                                        name="sale_price"
+                                        value={product?.sale_price ?? '0'}
+                                        type="number"
+                                        step="0.01"
+                                        error={errors.sale_price}
+                                    />
+                                    <SelectField
+                                        label="Sales account"
+                                        name="sale_account_code"
+                                        value={
+                                            product?.sale_account_code ??
+                                            (product?.type === 'service'
+                                                ? '705'
+                                                : '700')
+                                        }
+                                        options={accountingAccounts
+                                            .filter(
+                                                (account) =>
+                                                    account.type === 'income',
+                                            )
+                                            .map((account) => [
+                                                account.code,
+                                                `${account.code} · ${account.name}`,
+                                            ])}
+                                    />
+                                    <SelectField
+                                        label="Purchase account"
+                                        name="purchase_account_code"
+                                        value={
+                                            product?.purchase_account_code ??
+                                            '600'
+                                        }
+                                        options={accountingAccounts
+                                            .filter(
+                                                (account) =>
+                                                    account.type === 'expense',
+                                            )
+                                            .map((account) => [
+                                                account.code,
+                                                `${account.code} · ${account.name}`,
+                                            ])}
+                                    />
+                                    <SelectField
+                                        label="Supply criticality"
+                                        name="supply_criticality"
+                                        value={
+                                            product?.supply_criticality ??
+                                            'standard'
+                                        }
+                                        options={[
+                                            ['low', 'Low'],
+                                            ['standard', 'Standard'],
+                                            ['critical', 'Critical spare'],
+                                        ]}
+                                    />
+                                    <Field
+                                        label="Preferred lead time (days)"
+                                        name="preferred_lead_time_days"
+                                        value={String(
+                                            product?.preferred_lead_time_days ??
+                                                7,
+                                        )}
+                                        type="number"
+                                        min="0"
+                                        max="365"
+                                        error={errors.preferred_lead_time_days}
+                                    />
+                                </div>
+                            </FormSection>
+                            <FormSection
+                                title="Business lines"
+                                description="Classify this material or service so quotes and supply planning can reuse it by activity."
+                            >
                                 <input
                                     type="hidden"
                                     name="business_lines_submitted"
                                     value="1"
                                 />
-                                <legend className="px-1 text-sm font-medium">
-                                    Business lines
-                                </legend>
-                                <p className="text-xs text-muted-foreground">
-                                    Classify this material or service so quotes
-                                    and supply planning can reuse it by
-                                    activity.
-                                </p>
                                 <div className="grid gap-2 sm:grid-cols-2">
                                     {Object.entries(serviceLabels).map(
                                         ([line, label]) => (
@@ -718,287 +743,275 @@ function ProductDialog({
                                         ),
                                     )}
                                 </div>
-                            </fieldset>
-                            <div className="grid min-w-0 gap-3 border-t pt-4">
-                                <div className="flex flex-wrap items-start justify-between gap-3">
-                                    <div className="min-w-0 flex-1">
-                                        <h3 className="font-medium">
-                                            Composición reutilizable
-                                        </h3>
-                                        <p className="text-xs text-muted-foreground">
-                                            Añade productos o servicios que se
-                                            copiarán al desglose técnico de la
-                                            oferta.
-                                        </p>
-                                    </div>
-                                    <Button
-                                        type="button"
-                                        size="sm"
-                                        variant="outline"
-                                        disabled={
-                                            catalogProducts.filter(
-                                                (item) =>
-                                                    item.id !== product?.id,
-                                            ).length === 0
-                                        }
-                                        onClick={() => {
-                                            const first = catalogProducts.find(
-                                                (item) =>
-                                                    item.id !== product?.id &&
-                                                    !components.some(
-                                                        (component) =>
-                                                            component.component_product_id ===
-                                                            item.id,
-                                                    ),
-                                            );
-
-                                            if (!first) {
-                                                return;
-                                            }
-
-                                            setComponents([
-                                                ...components,
-                                                {
-                                                    component_product_id:
-                                                        first.id,
-                                                    quantity: '1',
-                                                    fulfillment_kind:
-                                                        first.track_stock
-                                                            ? 'stock'
-                                                            : first.type ===
-                                                                'service'
-                                                              ? 'activity'
-                                                              : 'none',
-                                                    visibility: 'detailed',
-                                                    interval_months: null,
-                                                    product: first,
-                                                },
-                                            ]);
-                                        }}
-                                    >
-                                        <Plus /> Añadir componente
-                                    </Button>
-                                </div>
-                                {components.map((component, index) => (
-                                    <div
-                                        key={`${component.component_product_id}-${index}`}
-                                        className="grid min-w-0 gap-2 rounded-md border p-2 sm:grid-cols-2"
-                                    >
-                                        <input
-                                            type="hidden"
-                                            name={`components[${index}][component_product_id]`}
-                                            value={
-                                                component.component_product_id
-                                            }
-                                        />
-                                        <input
-                                            type="hidden"
-                                            name={`components[${index}][fulfillment_kind]`}
-                                            value={component.fulfillment_kind}
-                                        />
-                                        <input
-                                            type="hidden"
-                                            name={`components[${index}][visibility]`}
-                                            value={component.visibility}
-                                        />
-                                        <select
-                                            className="h-9 min-w-0 rounded-md border bg-background px-3 text-sm"
-                                            value={
-                                                component.component_product_id
-                                            }
-                                            onChange={(event) => {
-                                                const selected =
-                                                    catalogProducts.find(
-                                                        (item) =>
-                                                            item.id ===
-                                                            Number(
-                                                                event.target
-                                                                    .value,
-                                                            ),
-                                                    );
-
-                                                if (!selected) {
-                                                    return;
-                                                }
-
-                                                setComponents(
-                                                    components.map(
-                                                        (item, position) =>
-                                                            position === index
-                                                                ? {
-                                                                      ...item,
-                                                                      component_product_id:
-                                                                          selected.id,
-                                                                      product:
-                                                                          selected,
-                                                                  }
-                                                                : item,
-                                                    ),
-                                                );
-                                            }}
-                                        >
-                                            {catalogProducts
-                                                .filter(
+                            </FormSection>
+                            <FormSection
+                                title="Reusable composition"
+                                description="Add products or services that will be copied to the technical breakdown of the proposal."
+                            >
+                                <div className="grid min-w-0 gap-3">
+                                    <div className="flex flex-wrap items-start justify-between gap-3">
+                                        <div className="min-w-0 flex-1" />
+                                        <Button
+                                            type="button"
+                                            size="sm"
+                                            variant="outline"
+                                            disabled={
+                                                !catalogProducts.some(
                                                     (item) =>
                                                         item.id !== product?.id,
                                                 )
-                                                .map((item) => (
-                                                    <option
-                                                        key={item.id}
-                                                        value={item.id}
-                                                    >
-                                                        {item.sku
-                                                            ? `${item.sku} · `
-                                                            : ''}
-                                                        {item.name}
-                                                    </option>
-                                                ))}
-                                        </select>
-                                        <Input
-                                            type="number"
-                                            min="0.001"
-                                            step="0.001"
-                                            name={`components[${index}][quantity]`}
-                                            value={component.quantity}
-                                            aria-label="Cantidad"
-                                            onChange={(event) =>
-                                                setComponents(
-                                                    components.map(
-                                                        (item, position) =>
-                                                            position === index
-                                                                ? {
-                                                                      ...item,
-                                                                      quantity:
-                                                                          event
-                                                                              .target
-                                                                              .value,
-                                                                  }
-                                                                : item,
-                                                    ),
-                                                )
                                             }
-                                        />
-                                        <select
-                                            className="h-9 min-w-0 rounded-md border bg-background px-3 text-sm"
-                                            value={component.fulfillment_kind}
-                                            onChange={(event) =>
-                                                setComponents(
-                                                    components.map(
-                                                        (item, position) =>
-                                                            position === index
-                                                                ? {
-                                                                      ...item,
-                                                                      fulfillment_kind:
-                                                                          event
-                                                                              .target
-                                                                              .value as ProductComponent['fulfillment_kind'],
-                                                                  }
-                                                                : item,
-                                                    ),
-                                                )
-                                            }
+                                            onClick={() => {
+                                                setComponents((current) => {
+                                                    const first =
+                                                        catalogProducts.find(
+                                                            (item) =>
+                                                                item.id !==
+                                                                    product?.id &&
+                                                                !current.some(
+                                                                    (
+                                                                        component,
+                                                                    ) =>
+                                                                        component.component_product_id ===
+                                                                        item.id,
+                                                                ),
+                                                        );
+
+                                                    if (!first) {
+                                                        return current;
+                                                    }
+
+                                                    return [
+                                                        ...current,
+                                                        {
+                                                            component_product_id:
+                                                                first.id,
+                                                            quantity: '1',
+                                                            fulfillment_kind:
+                                                                first.track_stock
+                                                                    ? 'stock'
+                                                                    : first.type ===
+                                                                        'service'
+                                                                      ? 'activity'
+                                                                      : 'none',
+                                                            visibility:
+                                                                'detailed',
+                                                            interval_months:
+                                                                null,
+                                                            product: first,
+                                                        },
+                                                    ];
+                                                });
+                                            }}
                                         >
-                                            <option value="stock">
-                                                Control de stock
-                                            </option>
-                                            <option value="activity">
-                                                Seguimiento operativo
-                                            </option>
-                                            <option value="recurring">
-                                                Servicio recurrente
-                                            </option>
-                                            <option value="none">
-                                                Solo descriptivo
-                                            </option>
-                                        </select>
-                                        <div className="flex min-w-0 gap-2">
-                                            <select
-                                                className="h-9 min-w-0 flex-1 rounded-md border bg-background px-3 text-sm"
+                                            <Plus /> Add component
+                                        </Button>
+                                    </div>
+                                    {components.map((component, index) => (
+                                        <div
+                                            key={`${component.component_product_id}-${index}`}
+                                            className="grid min-w-0 gap-2 rounded-md border p-2 sm:grid-cols-2"
+                                        >
+                                            <input
+                                                type="hidden"
+                                                name={`components[${index}][component_product_id]`}
+                                                value={
+                                                    component.component_product_id
+                                                }
+                                            />
+                                            <input
+                                                type="hidden"
+                                                name={`components[${index}][fulfillment_kind]`}
+                                                value={
+                                                    component.fulfillment_kind
+                                                }
+                                            />
+                                            <input
+                                                type="hidden"
+                                                name={`components[${index}][visibility]`}
                                                 value={component.visibility}
-                                                onChange={(event) =>
-                                                    setComponents(
-                                                        components.map(
-                                                            (item, position) =>
-                                                                position ===
-                                                                index
-                                                                    ? {
-                                                                          ...item,
-                                                                          visibility:
-                                                                              event
-                                                                                  .target
-                                                                                  .value as ProductComponent['visibility'],
-                                                                      }
-                                                                    : item,
-                                                        ),
+                                            />
+                                            <select
+                                                className="h-9 min-w-0 rounded-md border bg-background px-3 text-sm"
+                                                value={
+                                                    component.component_product_id
+                                                }
+                                                onChange={(event) => {
+                                                    const selected =
+                                                        catalogProducts.find(
+                                                            (item) =>
+                                                                item.id ===
+                                                                Number(
+                                                                    event.target
+                                                                        .value,
+                                                                ),
+                                                        );
+
+                                                    if (!selected) {
+                                                        return;
+                                                    }
+
+                                                    updateComponent(index, {
+                                                        component_product_id:
+                                                            selected.id,
+                                                        product: selected,
+                                                    });
+                                                }}
+                                            >
+                                                {catalogProducts
+                                                    .filter(
+                                                        (item) =>
+                                                            item.id !==
+                                                            product?.id,
                                                     )
+                                                    .map((item) => (
+                                                        <option
+                                                            key={item.id}
+                                                            value={item.id}
+                                                        >
+                                                            {item.sku
+                                                                ? `${item.sku} · `
+                                                                : ''}
+                                                            {item.name}
+                                                        </option>
+                                                    ))}
+                                            </select>
+                                            <Input
+                                                type="number"
+                                                min="0.001"
+                                                step="0.001"
+                                                name={`components[${index}][quantity]`}
+                                                value={component.quantity}
+                                                aria-label="Cantidad"
+                                                onChange={(event) =>
+                                                    updateComponent(index, {
+                                                        quantity:
+                                                            event.target.value,
+                                                    })
+                                                }
+                                            />
+                                            <select
+                                                className="h-9 min-w-0 rounded-md border bg-background px-3 text-sm"
+                                                value={
+                                                    component.fulfillment_kind
+                                                }
+                                                onChange={(event) =>
+                                                    updateComponent(index, {
+                                                        fulfillment_kind: event
+                                                            .target
+                                                            .value as ProductComponent['fulfillment_kind'],
+                                                    })
                                                 }
                                             >
-                                                <option value="detailed">
-                                                    Cantidad visible
+                                                <option value="stock">
+                                                    Stock control
                                                 </option>
-                                                <option value="summary">
-                                                    Solo descripción
+                                                <option value="activity">
+                                                    Operational tracking
                                                 </option>
-                                                <option value="hidden">
-                                                    Solo interno
+                                                <option value="recurring">
+                                                    Recurring service
+                                                </option>
+                                                <option value="none">
+                                                    Descriptive only
                                                 </option>
                                             </select>
-                                            <Button
-                                                type="button"
-                                                size="icon"
-                                                variant="ghost"
-                                                title="Eliminar componente"
-                                                onClick={() =>
-                                                    setComponents(
-                                                        components.filter(
-                                                            (_, position) =>
-                                                                position !==
-                                                                index,
-                                                        ),
-                                                    )
-                                                }
-                                            >
-                                                <Trash2 />
-                                            </Button>
+                                            <div className="flex min-w-0 gap-2">
+                                                <select
+                                                    className="h-9 min-w-0 flex-1 rounded-md border bg-background px-3 text-sm"
+                                                    value={component.visibility}
+                                                    onChange={(event) =>
+                                                        updateComponent(index, {
+                                                            visibility: event
+                                                                .target
+                                                                .value as ProductComponent['visibility'],
+                                                        })
+                                                    }
+                                                >
+                                                    <option value="detailed">
+                                                        Visible quantity
+                                                    </option>
+                                                    <option value="summary">
+                                                        Description only
+                                                    </option>
+                                                    <option value="hidden">
+                                                        Internal only
+                                                    </option>
+                                                </select>
+                                                <Button
+                                                    type="button"
+                                                    size="icon"
+                                                    variant="ghost"
+                                                    title="Remove component"
+                                                    onClick={() =>
+                                                        setComponents(
+                                                            (current) =>
+                                                                current.filter(
+                                                                    (
+                                                                        _,
+                                                                        position,
+                                                                    ) =>
+                                                                        position !==
+                                                                        index,
+                                                                ),
+                                                        )
+                                                    }
+                                                >
+                                                    <Trash2 />
+                                                </Button>
+                                            </div>
+                                            {component.fulfillment_kind ===
+                                                'recurring' && (
+                                                <Field
+                                                    label="Frequency (months)"
+                                                    name={`components[${index}][interval_months]`}
+                                                    value={String(
+                                                        component.interval_months ??
+                                                            12,
+                                                    )}
+                                                    type="number"
+                                                />
+                                            )}
                                         </div>
-                                        {component.fulfillment_kind ===
-                                            'recurring' && (
-                                            <Field
-                                                label="Periodicidad (meses)"
-                                                name={`components[${index}][interval_months]`}
-                                                value={String(
-                                                    component.interval_months ??
-                                                        12,
-                                                )}
-                                                type="number"
-                                            />
-                                        )}
-                                    </div>
-                                ))}
-                                {errors.components && (
-                                    <InputError message={errors.components} />
-                                )}
-                            </div>
-                            <div className="grid gap-3 border-t pt-4 sm:grid-cols-3">
-                                <BooleanField
-                                    name="track_stock"
-                                    label="Track stock"
-                                    checked={product?.track_stock ?? false}
-                                />
-                                <BooleanField
-                                    name="track_serials"
-                                    label="Track serial numbers"
-                                    checked={product?.track_serials ?? false}
-                                />
-                                <BooleanField
-                                    name="is_active"
-                                    label="Active"
-                                    checked={product?.is_active ?? true}
-                                />
-                            </div>
-                            <Button disabled={processing}>
-                                {product ? 'Save changes' : 'Create item'}
-                            </Button>
+                                    ))}
+                                    {errors.components && (
+                                        <InputError
+                                            message={errors.components}
+                                        />
+                                    )}
+                                </div>
+                            </FormSection>
+                            <FormSection
+                                title="Inventory and availability"
+                                description="Control stock, serial traceability and catalog visibility."
+                            >
+                                <div className="grid gap-3 sm:grid-cols-3">
+                                    <BooleanField
+                                        name="track_stock"
+                                        label="Track stock"
+                                        checked={product?.track_stock ?? false}
+                                    />
+                                    <BooleanField
+                                        name="track_serials"
+                                        label="Track serial numbers"
+                                        checked={
+                                            product?.track_serials ?? false
+                                        }
+                                    />
+                                    <BooleanField
+                                        name="is_active"
+                                        label="Active"
+                                        checked={product?.is_active ?? true}
+                                    />
+                                </div>
+                            </FormSection>
+                            <FormActions
+                                processing={processing}
+                                submitLabel={
+                                    product ? 'Save changes' : 'Create item'
+                                }
+                                description="The item will be available to proposals, purchases and operational planning."
+                            />
                         </>
                     )}
                 </Form>

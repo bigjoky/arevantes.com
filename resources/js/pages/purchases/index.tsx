@@ -1,6 +1,11 @@
 import { Form, Head, Link, usePage } from '@inertiajs/react';
 import { Plus, ShoppingCart, Trash2 } from 'lucide-react';
 import { useState } from 'react';
+import {
+    FormActions,
+    FormErrorSummary,
+    FormSection,
+} from '@/components/forms/form-layout';
 import InputError from '@/components/input-error';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -549,22 +554,30 @@ function PurchaseDialog({
     products: Product[];
     initialOpen?: boolean;
 }) {
-    const { errors } = usePage().props;
     const [open, setOpen] = useState(initialOpen);
     const [lines, setLines] = useState<Line[]>([blank()]);
     const update = (i: number, data: Partial<Line>) =>
-        setLines(
-            lines.map((line, p) => (p === i ? { ...line, ...data } : line)),
+        setLines((current) =>
+            current.map((line, p) => (p === i ? { ...line, ...data } : line)),
         );
 
     return (
-        <Dialog open={open} onOpenChange={setOpen}>
+        <Dialog
+            open={open}
+            onOpenChange={(nextOpen) => {
+                setOpen(nextOpen);
+
+                if (nextOpen) {
+                    setLines([blank()]);
+                }
+            }}
+        >
             <DialogTrigger asChild>
                 <Button>
                     <Plus /> New purchase
                 </Button>
             </DialogTrigger>
-            <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl">
+            <DialogContent className="max-h-[92dvh] w-[calc(100%-1rem)] overflow-y-auto sm:max-w-5xl">
                 <DialogHeader>
                     <DialogTitle>New purchase document</DialogTitle>
                 </DialogHeader>
@@ -574,237 +587,323 @@ function PurchaseDialog({
                     onSuccess={() => setOpen(false)}
                     className="grid gap-5"
                 >
-                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                        <SelectField
-                            label="Document"
-                            name="type"
-                            error={errors.type}
-                            options={[
-                                ['purchase_rfq', 'Request for quotation'],
-                                ['purchase_order', 'Purchase order'],
-                            ]}
-                        />
-                        <SelectField
-                            label="Supplier"
-                            name="supplier_id"
-                            error={errors.supplier_id}
-                            options={suppliers.map((s) => [
-                                String(s.id),
-                                s.trade_name || s.legal_name,
-                            ])}
-                        />
-                        <Field
-                            label="Issue date"
-                            name="issue_date"
-                            type="date"
-                            value={today()}
-                            error={errors.issue_date}
-                        />
-                        <Field
-                            label="Expected delivery"
-                            name="expected_delivery_date"
-                            type="date"
-                            error={errors.expected_delivery_date}
-                        />
-                        <Field
-                            label="Transport cost (before tax)"
-                            name="shipping_cost"
-                            type="number"
-                            value="0"
-                            error={errors.shipping_cost}
-                        />
-                    </div>
-                    <div className="overflow-x-auto border-y">
-                        <table className="w-full min-w-[60rem] text-sm">
-                            <thead>
-                                <tr className="border-b text-left text-muted-foreground">
-                                    <th className="py-2">Product</th>
-                                    <th>Description</th>
-                                    <th className="w-24">Qty.</th>
-                                    <th className="w-28">Cost</th>
-                                    <th className="w-24">Disc. %</th>
-                                    <th className="w-24">Tax %</th>
-                                    <th className="w-12" />
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {lines.map((line, i) => (
-                                    <tr
-                                        key={i}
-                                        className="border-b last:border-0"
-                                    >
-                                        <td className="py-2 pr-2">
-                                            <Select
-                                                name={`lines[${i}][product_id]`}
-                                                value={line.product_id}
-                                                onValueChange={(value) => {
-                                                    const p = products.find(
-                                                        (x) =>
-                                                            x.id ===
-                                                            Number(value),
-                                                    );
-
-                                                    if (p) {
-                                                        update(i, {
-                                                            product_id: value,
-                                                            description:
-                                                                p.description ||
-                                                                p.name,
-                                                            unit_price:
-                                                                p.cost_price,
-                                                            tax_percent:
-                                                                p.tax_rate.rate,
-                                                        });
+                    {({ errors, processing }) => (
+                        <>
+                            <FormErrorSummary errors={errors} />
+                            <FormSection
+                                title="Purchase details"
+                                description="Document type, supplier, dates and transport conditions."
+                            >
+                                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                                    <SelectField
+                                        label="Document"
+                                        name="type"
+                                        error={errors.type}
+                                        options={[
+                                            [
+                                                'purchase_rfq',
+                                                'Request for quotation',
+                                            ],
+                                            [
+                                                'purchase_order',
+                                                'Purchase order',
+                                            ],
+                                        ]}
+                                    />
+                                    <SelectField
+                                        label="Supplier"
+                                        name="supplier_id"
+                                        error={errors.supplier_id}
+                                        options={suppliers.map((s) => [
+                                            String(s.id),
+                                            s.trade_name || s.legal_name,
+                                        ])}
+                                    />
+                                    <Field
+                                        label="Issue date"
+                                        name="issue_date"
+                                        type="date"
+                                        value={today()}
+                                        error={errors.issue_date}
+                                    />
+                                    <Field
+                                        label="Expected delivery"
+                                        name="expected_delivery_date"
+                                        type="date"
+                                        error={errors.expected_delivery_date}
+                                    />
+                                    <Field
+                                        label="Transport cost (before tax)"
+                                        name="shipping_cost"
+                                        type="number"
+                                        value="0"
+                                        error={errors.shipping_cost}
+                                    />
+                                </div>
+                            </FormSection>
+                            <FormSection
+                                title="Purchase lines"
+                                description="Select catalog products and adjust the quantities, costs, discounts and taxes for this document."
+                            >
+                                <div className="grid gap-3">
+                                    {lines.map((line, i) => (
+                                        <article
+                                            key={i}
+                                            className="grid gap-4 rounded-md border p-3"
+                                        >
+                                            <div className="flex items-center justify-between gap-3">
+                                                <h3 className="text-sm font-medium">
+                                                    Line {i + 1}
+                                                </h3>
+                                                <div className="flex items-center gap-2">
+                                                    <Badge variant="secondary">
+                                                        {money(
+                                                            String(
+                                                                lineTotal(line),
+                                                            ),
+                                                        )}
+                                                    </Badge>
+                                                    <Button
+                                                        type="button"
+                                                        size="icon"
+                                                        variant="ghost"
+                                                        aria-label="Remove line"
+                                                        disabled={
+                                                            lines.length === 1
+                                                        }
+                                                        onClick={() =>
+                                                            setLines(
+                                                                (current) =>
+                                                                    current.filter(
+                                                                        (
+                                                                            _,
+                                                                            position,
+                                                                        ) =>
+                                                                            position !==
+                                                                            i,
+                                                                    ),
+                                                            )
+                                                        }
+                                                    >
+                                                        <Trash2 />
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                            <div className="grid gap-2">
+                                                <Label>Product</Label>
+                                                <ProductSelect
+                                                    name={`lines[${i}][product_id]`}
+                                                    value={line.product_id}
+                                                    products={products}
+                                                    error={
+                                                        errors[
+                                                            `lines.${i}.product_id`
+                                                        ]
                                                     }
-                                                }}
-                                            >
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder="Select product" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {products.map((p) => (
-                                                        <SelectItem
-                                                            key={p.id}
-                                                            value={String(p.id)}
-                                                        >
-                                                            {p.name}
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                            <InputError
-                                                message={
+                                                    onChange={(product) =>
+                                                        update(
+                                                            i,
+                                                            productLine(
+                                                                product,
+                                                            ),
+                                                        )
+                                                    }
+                                                />
+                                            </div>
+                                            <PurchaseLineField
+                                                label="Description"
+                                                name={`lines[${i}][description]`}
+                                                value={line.description}
+                                                onChange={(value) =>
+                                                    update(i, {
+                                                        description: value,
+                                                    })
+                                                }
+                                                error={
                                                     errors[
-                                                        `lines.${i}.product_id`
+                                                        `lines.${i}.description`
                                                     ]
                                                 }
                                             />
-                                        </td>
-                                        <Cell
-                                            name={`lines[${i}][description]`}
-                                            value={line.description}
-                                            onChange={(v) =>
-                                                update(i, { description: v })
-                                            }
-                                            error={
-                                                errors[`lines.${i}.description`]
-                                            }
-                                        />
-                                        <Cell
-                                            name={`lines[${i}][quantity]`}
-                                            type="number"
-                                            value={line.quantity}
-                                            onChange={(v) =>
-                                                update(i, { quantity: v })
-                                            }
-                                            error={
-                                                errors[`lines.${i}.quantity`]
-                                            }
-                                        />
-                                        <Cell
-                                            name={`lines[${i}][unit_price]`}
-                                            type="number"
-                                            value={line.unit_price}
-                                            onChange={(v) =>
-                                                update(i, { unit_price: v })
-                                            }
-                                            error={
-                                                errors[`lines.${i}.unit_price`]
-                                            }
-                                        />
-                                        <Cell
-                                            name={`lines[${i}][discount_percent]`}
-                                            type="number"
-                                            value={line.discount_percent}
-                                            onChange={(v) =>
-                                                update(i, {
-                                                    discount_percent: v,
-                                                })
-                                            }
-                                            error={
-                                                errors[
-                                                    `lines.${i}.discount_percent`
-                                                ]
-                                            }
-                                        />
-                                        <Cell
-                                            name={`lines[${i}][tax_percent]`}
-                                            type="number"
-                                            value={line.tax_percent}
-                                            onChange={(v) =>
-                                                update(i, { tax_percent: v })
-                                            }
-                                            error={
-                                                errors[`lines.${i}.tax_percent`]
-                                            }
-                                        />
-                                        <td className="p-2">
-                                            <Button
-                                                type="button"
-                                                size="icon"
-                                                variant="ghost"
-                                                disabled={lines.length === 1}
-                                                onClick={() =>
-                                                    setLines(
-                                                        lines.filter(
-                                                            (_, p) => p !== i,
-                                                        ),
-                                                    )
-                                                }
-                                            >
-                                                <Trash2 />
-                                            </Button>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                    <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => setLines([...lines, blank()])}
-                    >
-                        <Plus /> Add line
-                    </Button>
-                    <div className="grid gap-2">
-                        <Label>Notes</Label>
-                        <textarea
-                            name="notes"
-                            className="min-h-20 rounded-md border bg-transparent p-3 text-sm"
-                        />
-                    </div>
-                    <InputError message={errors.lines || errors.notes} />
-                    <Button>Create document</Button>
+                                            <div className="grid grid-cols-2 gap-3">
+                                                <PurchaseLineField
+                                                    label="Quantity"
+                                                    name={`lines[${i}][quantity]`}
+                                                    type="number"
+                                                    value={line.quantity}
+                                                    onChange={(value) =>
+                                                        update(i, {
+                                                            quantity: value,
+                                                        })
+                                                    }
+                                                    error={
+                                                        errors[
+                                                            `lines.${i}.quantity`
+                                                        ]
+                                                    }
+                                                />
+                                                <PurchaseLineField
+                                                    label="Unit cost"
+                                                    name={`lines[${i}][unit_price]`}
+                                                    type="number"
+                                                    value={line.unit_price}
+                                                    onChange={(value) =>
+                                                        update(i, {
+                                                            unit_price: value,
+                                                        })
+                                                    }
+                                                    error={
+                                                        errors[
+                                                            `lines.${i}.unit_price`
+                                                        ]
+                                                    }
+                                                />
+                                                <PurchaseLineField
+                                                    label="Discount %"
+                                                    name={`lines[${i}][discount_percent]`}
+                                                    type="number"
+                                                    value={
+                                                        line.discount_percent
+                                                    }
+                                                    onChange={(value) =>
+                                                        update(i, {
+                                                            discount_percent:
+                                                                value,
+                                                        })
+                                                    }
+                                                    error={
+                                                        errors[
+                                                            `lines.${i}.discount_percent`
+                                                        ]
+                                                    }
+                                                />
+                                                <PurchaseLineField
+                                                    label="Tax %"
+                                                    name={`lines[${i}][tax_percent]`}
+                                                    type="number"
+                                                    value={line.tax_percent}
+                                                    onChange={(value) =>
+                                                        update(i, {
+                                                            tax_percent: value,
+                                                        })
+                                                    }
+                                                    error={
+                                                        errors[
+                                                            `lines.${i}.tax_percent`
+                                                        ]
+                                                    }
+                                                />
+                                            </div>
+                                        </article>
+                                    ))}
+                                </div>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={() =>
+                                        setLines((current) => [
+                                            ...current,
+                                            blank(),
+                                        ])
+                                    }
+                                >
+                                    <Plus /> Add line
+                                </Button>
+                                <InputError message={errors.lines} />
+                            </FormSection>
+                            <FormSection
+                                title="Notes and instructions"
+                                description="Add delivery, purchasing or supplier instructions that should accompany the document."
+                            >
+                                <div className="grid gap-2">
+                                    <Label>Notes</Label>
+                                    <textarea
+                                        name="notes"
+                                        className="min-h-24 rounded-md border bg-transparent p-3 text-sm"
+                                    />
+                                    <InputError message={errors.notes} />
+                                </div>
+                            </FormSection>
+                            <FormActions
+                                processing={processing}
+                                submitLabel="Create document"
+                                description={`${lines.length} ${lines.length === 1 ? 'line' : 'lines'} · ${money(String(lines.reduce((total, line) => total + lineTotal(line), 0)))}`}
+                            />
+                        </>
+                    )}
                 </Form>
             </DialogContent>
         </Dialog>
     );
 }
-function Cell({
+function ProductSelect({
     name,
     value,
-    onChange,
+    products,
     error,
-    type = 'text',
+    onChange,
 }: {
     name: string;
     value: string;
-    onChange: (v: string) => void;
+    products: Product[];
+    error?: string;
+    onChange: (product: Product) => void;
+}) {
+    return (
+        <>
+            <Select
+                name={name}
+                value={value}
+                onValueChange={(selectedId) => {
+                    const product = products.find(
+                        (item) => item.id === Number(selectedId),
+                    );
+
+                    if (product) {
+                        onChange(product);
+                    }
+                }}
+            >
+                <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select product" />
+                </SelectTrigger>
+                <SelectContent>
+                    {products.map((product) => (
+                        <SelectItem key={product.id} value={String(product.id)}>
+                            {product.sku
+                                ? `${product.sku} · ${product.name}`
+                                : product.name}
+                        </SelectItem>
+                    ))}
+                </SelectContent>
+            </Select>
+            <InputError message={error} />
+        </>
+    );
+}
+function PurchaseLineField({
+    label,
+    ...props
+}: {
+    label: string;
+    name: string;
+    value: string;
+    onChange: (value: string) => void;
     error?: string;
     type?: string;
 }) {
     return (
-        <td className="p-2">
+        <div className="grid gap-2">
+            <Label>{label}</Label>
             <Input
-                name={name}
-                type={type}
-                step={type === 'number' ? '0.01' : undefined}
-                value={value}
-                onChange={(e) => onChange(e.target.value)}
+                name={props.name}
+                type={props.type ?? 'text'}
+                step={props.type === 'number' ? '0.01' : undefined}
+                value={props.value}
+                onChange={(event) => props.onChange(event.target.value)}
             />
-            <InputError message={error} />
-        </td>
+            <InputError message={props.error} />
+        </div>
     );
 }
 function Field({
@@ -872,6 +971,20 @@ const blank = (): Line => ({
     discount_percent: '0',
     tax_percent: '21',
 });
+const productLine = (product: Product): Partial<Line> => ({
+    product_id: String(product.id),
+    description: product.description || product.name,
+    unit_price: product.cost_price,
+    tax_percent: product.tax_rate.rate,
+});
+const lineTotal = (line: Line) => {
+    const net =
+        Number(line.quantity) *
+        Number(line.unit_price) *
+        (1 - Number(line.discount_percent) / 100);
+
+    return net * (1 + Number(line.tax_percent) / 100);
+};
 const today = () => new Date().toISOString().slice(0, 10);
 const money = (v: string) =>
     new Intl.NumberFormat(undefined, {
