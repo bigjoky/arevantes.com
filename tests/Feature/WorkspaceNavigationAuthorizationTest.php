@@ -31,8 +31,35 @@ class WorkspaceNavigationAuthorizationTest extends TestCase
                 ->where('auth.navigation', function (Collection $navigation): bool {
                     $items = $navigation->keyBy('title');
 
-                    return $items->keys()->all() === ['Dashboard', 'My HR', 'CRM']
-                        && collect($items['CRM']['children'])->pluck('title')->all() === ['Installations'];
+                    return $items->keys()->all() === ['Dashboard', 'My HR', 'Projects']
+                        && $items['Projects']['code'] === 'PRJ'
+                        && collect($items['Projects']['children'])->pluck('title')->all() === ['Installations'];
+                }));
+    }
+
+    public function test_navigation_separates_people_sales_projects_and_inventory_by_business_area(): void
+    {
+        $user = $this->userWithPermissions([
+            'manage-customers',
+            'manage-catalog',
+            'manage-quotes',
+            'manage-installations',
+            'view-installations',
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('dashboard'))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('auth.navigation', function (Collection $navigation): bool {
+                    $areas = $navigation->filter(fn (mixed $item): bool => isset($item['code']))->keyBy('code');
+
+                    return $areas->keys()->all() === ['PTY', 'CRM', 'SAL', 'PRJ', 'PLN', 'INV', 'BI']
+                        && collect($areas['PTY']['children'])->pluck('title')->all() === ['Customers', 'Suppliers']
+                        && collect($areas['SAL']['children'])->pluck('title')->all() === ['Proposals', 'Sales documents']
+                        && collect($areas['PRJ']['children'])->pluck('title')->all() === ['Installations']
+                        && collect($areas['PLN']['children'])->pluck('title')->all() === ['Planning requests']
+                        && collect($areas['INV']['children'])->pluck('title')->all() === ['Products & services', 'Inventory', 'Stock counts'];
                 }));
     }
 

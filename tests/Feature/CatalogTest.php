@@ -26,9 +26,14 @@ class CatalogTest extends TestCase
 
         $this->actingAs($user)->get(route('catalog.index'))->assertOk()->assertInertia(fn (Assert $page) => $page
             ->component('catalog/index')
+            ->where('initialTab', 'items')
             ->has('units', 5)
             ->has('taxRates', 4)
             ->has('documentSeries', 14));
+
+        $this->actingAs($user)->get(route('suppliers.index'))->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->component('catalog/index')
+            ->where('initialTab', 'suppliers'));
     }
 
     public function test_a_product_can_be_created_and_updated(): void
@@ -109,6 +114,7 @@ class CatalogTest extends TestCase
     {
         $user = User::factory()->create(['role' => 'technician']);
         $this->actingAs($user)->get(route('catalog.index'))->assertForbidden();
+        $this->actingAs($user)->get(route('suppliers.index'))->assertForbidden();
     }
 
     public function test_a_quote_calculates_lines_and_uses_the_document_series(): void

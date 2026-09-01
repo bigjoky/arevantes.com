@@ -282,6 +282,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('work-orders/{workOrder}/signature', [WorkOrderController::class, 'sign'])->middleware('can:manage-operations')->name('work-orders.signature.store');
     Route::get('work-orders/{workOrder}/signature', [WorkOrderController::class, 'signature'])->middleware('can:manage-operations')->name('work-orders.signature.show');
     Route::get('catalog', [CatalogController::class, 'index'])->middleware('can:manage-catalog')->name('catalog.index');
+    Route::get('suppliers', [CatalogController::class, 'suppliers'])->middleware('can:manage-catalog')->name('suppliers.index');
     Route::get('inventory', [InventoryController::class, 'index'])->middleware('can:manage-catalog')->name('inventory.index');
     Route::get('inventory/serials', [SerialTraceabilityController::class, 'index'])->middleware('can:view-purchases')->name('inventory.serials.index');
     Route::get('inventory/counts', [StockCountController::class, 'index'])->middleware('can:manage-catalog')->name('stock-counts.index');

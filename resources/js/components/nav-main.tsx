@@ -37,6 +37,9 @@ export function NavMain({
                         item.children?.some((child) =>
                             isCurrentOrParentUrl(child.href),
                         );
+                    const tooltip = item.code
+                        ? `${item.code} · ${item.title}`
+                        : item.title;
 
                     if (!item.children?.length) {
                         return (
@@ -44,7 +47,7 @@ export function NavMain({
                                 <SidebarMenuButton
                                     asChild
                                     isActive={isCurrentUrl(item.href)}
-                                    tooltip={{ children: item.title }}
+                                    tooltip={{ children: tooltip }}
                                 >
                                     <Link href={item.href} prefetch>
                                         {item.icon && <item.icon />}
@@ -66,9 +69,14 @@ export function NavMain({
                                 <CollapsibleTrigger asChild>
                                     <SidebarMenuButton
                                         isActive={active}
-                                        tooltip={{ children: item.title }}
+                                        tooltip={{ children: tooltip }}
                                     >
                                         {item.icon && <item.icon />}
+                                        {item.code ? (
+                                            <span className="w-7 shrink-0 text-[10px] font-semibold tracking-wide text-sidebar-foreground/60">
+                                                {item.code}
+                                            </span>
+                                        ) : null}
                                         <span>{item.title}</span>
                                         <ChevronRight className="ml-auto transition-transform group-data-[state=open]/collapsible:rotate-90" />
                                     </SidebarMenuButton>

@@ -105,7 +105,7 @@ prioridad sobre añadir pantallas que amplíen deuda de interfaz.
 | P0        | Adaptación móvil integral         | En curso continuo. Cada ficha, tabla, diálogo y acción principal debe funcionar desde 320 px sin desbordamiento, pérdida de información ni acciones inaccesibles.                                                                                                                                                                                                                                                                |
 | P1        | Sistema único de formularios      | En curso avanzado. Cliente, instalación, propuesta y alta de gasto comparten secciones, jerarquía visual, resumen accesible de errores, estado de guardado y barra de acciones adaptable. El patrón se extenderá por cortes a los formularios operativos restantes.                                                                                                                                                              |
 | P1        | Terceros según naturaleza         | Cuarto corte completado. Particular, empresa, comunidad y organismo público adaptan identidad, contactos, representación e información fiscal. Clientes y proveedores disponen de contactos por responsabilidad y firmantes autorizados; ventas y compras congelan la identidad histórica en sus documentos derivados.                                                                                                           |
-| P1        | Sidebar y arquitectura de módulos | Planificado. Mapear rutas actuales a las 20 áreas, resolver solapamientos, aplicar permisos en servidor y desplegar la navegación por etapas con pruebas por rol.                                                                                                                                                                                                                                                                |
+| P1        | Sidebar y arquitectura de módulos | Primer corte completado. El sidebar agrupa las rutas existentes bajo los códigos y límites de las áreas objetivo, separa Personas, CRM, Ventas, Proyectos, Compras e Inventario, y sigue ocultando en servidor cualquier sección no autorizada. Las áreas todavía sin flujo propio no se muestran como módulos vacíos. Pendiente crear sus límites funcionales y añadir accesos recientes y favoritos.                           |
 
 La optimización se considera terminada únicamente con mediciones antes/después;
 la traducción y el responsive se validan sobre las rutas realmente autorizadas a
@@ -977,12 +977,34 @@ como respaldo para registros históricos sin plazo.
 
 ## Próximo corte recomendado
 
-Iniciar el despliegue gradual de la arquitectura de 20 áreas: crear el mapa único
-de rutas, permisos y navegación, resolver primero los solapamientos de Personas,
-CRM, Ventas, Compras e Inventario y conservar accesos directos a los flujos
-frecuentes. En paralelo, recoger durante siete días una muestra suficiente de
-producción para que el siguiente trabajo de rendimiento responda a
-`Server-Timing` y a los percentiles p75 reales de LCP, INP o CLS.
+Ejecutar el segundo corte de la arquitectura de 20 áreas: definir límites y
+accesos semánticos para Ingeniería, Activos, Mantenimiento y Contratos y
+Servicios sin crear módulos vacíos; añadir recientes y favoritos derivados de
+permisos y validar la jerarquía en móvil por perfil. En paralelo, recoger durante
+siete días una muestra suficiente de producción para que el siguiente trabajo
+de rendimiento responda a `Server-Timing` y a los percentiles p75 reales de LCP,
+INP o CLS.
+
+## Corte ejecutado — Primera migración del sidebar a las 20 áreas
+
+La navegación deja de concentrar clientes, oportunidades, propuestas,
+instalaciones, catálogo y compras en tres bloques genéricos. Cada flujo existente
+se presenta ahora dentro de su área funcional y con su código estable: PTY, CRM,
+SAL, PRJ, PLN, OPS, PUR, INV, FIN, ACC, HRM, DOC, BI, QMS, CS y SYS. Los grupos
+vacíos se eliminan después de aplicar permisos, por lo que ningún perfil descubre
+un área o una URL que no pueda visitar.
+
+Proveedores dispone de un acceso semántico propio dentro de Personas y Empresas,
+aunque conserva el formulario y controlador común del catálogo para evitar
+duplicación. Productos y servicios permanece en Inventario. Este patrón permite
+migrar progresivamente rutas antiguas sin romper marcadores ni enlaces internos.
+Los códigos se transportan desde el servidor hasta el sidebar, se muestran en la
+jerarquía expandida y también contextualizan los tooltips del modo compacto.
+
+Las pruebas cubren tanto la composición exacta de las áreas según permisos como
+la denegación por URL directa y las dos entradas semánticas del catálogo. La
+traducción incorpora todos los títulos nuevos para mantener íntegramente español
+e inglés durante la transición.
 
 ## Corte ejecutado — Productos y documentos de compra unificados
 

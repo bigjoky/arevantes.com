@@ -49,6 +49,7 @@ export type AuthAbilities = {
 
 export type WorkspaceNavItem = {
     title: string;
+    code?: string;
     href: string;
     icon?: string;
     children?: WorkspaceNavItem[];

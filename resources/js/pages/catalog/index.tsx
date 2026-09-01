@@ -106,6 +106,7 @@ type Series = {
 type Tab = 'items' | 'suppliers' | 'settings';
 
 export default function CatalogIndex({
+    initialTab,
     products,
     suppliers,
     units,
@@ -113,6 +114,7 @@ export default function CatalogIndex({
     documentSeries,
     accountingAccounts,
 }: {
+    initialTab: Tab;
     products: Product[];
     suppliers: Supplier[];
     units: Unit[];
@@ -120,7 +122,7 @@ export default function CatalogIndex({
     documentSeries: Series[];
     accountingAccounts: AccountingAccount[];
 }) {
-    const [tab, setTab] = useState<Tab>('items');
+    const [tab, setTab] = useState<Tab>(initialTab);
 
     return (
         <>

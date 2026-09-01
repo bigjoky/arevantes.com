@@ -21,7 +21,18 @@ class CatalogController extends Controller
 {
     public function index(): Response
     {
+        return $this->renderCatalog('items');
+    }
+
+    public function suppliers(): Response
+    {
+        return $this->renderCatalog('suppliers');
+    }
+
+    private function renderCatalog(string $initialTab): Response
+    {
         return Inertia::render('catalog/index', [
+            'initialTab' => $initialTab,
             'products' => Product::with(['unit:id,name,symbol', 'taxRate:id,name,rate', 'components.product.unit:id,name,symbol'])->orderBy('name')->get(),
             'suppliers' => Supplier::orderBy('legal_name')->get(),
             'units' => Unit::where('is_active', true)->orderBy('name')->get(),
