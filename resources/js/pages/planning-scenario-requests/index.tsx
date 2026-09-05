@@ -13,6 +13,8 @@ import {
 } from 'lucide-react';
 import InputError from '@/components/input-error';
 import { PageHeader, PageShell } from '@/components/page-shell';
+import { TechnicalPlanningPanel } from '@/components/technical-planning-request';
+import type { TechnicalPlanningRequest } from '@/components/technical-planning-request';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -128,10 +130,23 @@ export default function PlanningScenarioRequests({
     requests,
     areas,
     governance,
+    technicalRequests,
 }: {
     requests: ScenarioRequest[];
     areas: Area[];
     governance: Governance;
+    technicalRequests: (TechnicalPlanningRequest & {
+        code: string;
+        title: string;
+        scope: string;
+        proposed_solution: string | null;
+        risks: string | null;
+        standards: string | null;
+        installation: {
+            project_reference: string | null;
+            site_name: string | null;
+        } | null;
+    })[];
 }) {
     const { locale } = useLocale();
 
@@ -154,6 +169,39 @@ export default function PlanningScenarioRequests({
                     ))}
                 </div>
                 <section className="grid gap-4 xl:grid-cols-2">
+                    {technicalRequests.map((dossier) => (
+                        <article
+                            key={`technical-${dossier.id}`}
+                            className="min-w-0 space-y-3 rounded-lg border p-4"
+                        >
+                            <h2 className="font-semibold">
+                                {dossier.code} · {dossier.title}
+                            </h2>
+                            <p className="text-sm">
+                                {dossier.installation?.project_reference} ·{' '}
+                                {dossier.installation?.site_name}
+                            </p>
+                            <details className="text-sm">
+                                <summary className="cursor-pointer">
+                                    Approved technical scope
+                                </summary>
+                                <dl className="space-y-2 py-3 break-words whitespace-pre-wrap">
+                                    <dt>Scope</dt>
+                                    <dd>{dossier.scope}</dd>
+                                    <dt>Proposed solution</dt>
+                                    <dd>{dossier.proposed_solution}</dd>
+                                    <dt>Risks</dt>
+                                    <dd>{dossier.risks}</dd>
+                                    <dt>Applicable standards</dt>
+                                    <dd>{dossier.standards}</dd>
+                                </dl>
+                            </details>
+                            <TechnicalPlanningPanel
+                                dossier={dossier}
+                                canReview
+                            />
+                        </article>
+                    ))}
                     {requests.map((request) => (
                         <RequestCard
                             key={request.id}
@@ -162,14 +210,15 @@ export default function PlanningScenarioRequests({
                             governance={governance}
                         />
                     ))}
-                    {requests.length === 0 && (
-                        <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground xl:col-span-2">
-                            {translate(
-                                'There are no planning requests for your areas.',
-                                locale,
-                            )}
-                        </div>
-                    )}
+                    {requests.length === 0 &&
+                        technicalRequests.length === 0 && (
+                            <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground xl:col-span-2">
+                                {translate(
+                                    'There are no planning requests for your areas.',
+                                    locale,
+                                )}
+                            </div>
+                        )}
                 </section>
             </PageShell>
         </>
@@ -710,7 +759,8 @@ function ExceptionGovernance({
                 }}
             >
                 <p className="text-xs font-medium">
-                    {translate('Govern unassigned tasks', locale)} · {unassigned}
+                    {translate('Govern unassigned tasks', locale)} ·{' '}
+                    {unassigned}
                 </p>
                 <div className="grid gap-2 sm:grid-cols-2">
                     <select
@@ -746,10 +796,7 @@ function ExceptionGovernance({
                 <Textarea
                     value={taskForm.data.governance_note}
                     onChange={(event) =>
-                        taskForm.setData(
-                            'governance_note',
-                            event.target.value,
-                        )
+                        taskForm.setData('governance_note', event.target.value)
                     }
                     placeholder={translate('Governance note', locale)}
                     minLength={3}
@@ -799,15 +846,14 @@ function ExceptionGovernance({
                     }
                 >
                     <option value="renew">{translate('Renew', locale)}</option>
-                    <option value="release">{translate('Release', locale)}</option>
+                    <option value="release">
+                        {translate('Release', locale)}
+                    </option>
                 </select>
                 {reservationForm.data.action === 'renew' && (
                     <Input
                         type="date"
-                        aria-label={translate(
-                            'New reservation expiry',
-                            locale,
-                        )}
+                        aria-label={translate('New reservation expiry', locale)}
                         value={reservationForm.data.reserved_until}
                         onChange={(event) =>
                             reservationForm.setData(

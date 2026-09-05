@@ -14,6 +14,8 @@ import {
     FormErrorSummary,
     FormSection,
 } from '@/components/forms/form-layout';
+import { TechnicalPlanningPanel } from '@/components/technical-planning-request';
+import type { TechnicalPlanningRequest } from '@/components/technical-planning-request';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -60,7 +62,7 @@ type Event = {
     occurred_at: string;
     actor: User;
 };
-type Dossier = {
+type Dossier = TechnicalPlanningRequest & {
     id: number;
     code: string;
     title: string;
@@ -183,6 +185,10 @@ function DossierCard({
     installations: Installation[];
     canManage: boolean;
 }) {
+    const showPlanning =
+        ['approved', 'handed_over'].includes(dossier.status) ||
+        Boolean(dossier.planning_status);
+
     return (
         <article
             id={`dossier-${dossier.id}`}
@@ -259,6 +265,13 @@ function DossierCard({
             </div>
 
             {canManage ? <WorkflowActions dossier={dossier} /> : null}
+            {showPlanning && (
+                <TechnicalPlanningPanel
+                    dossier={dossier}
+                    fingerprint={dossier.current_fingerprint}
+                    canRequest={canManage && Boolean(dossier.installation_id)}
+                />
+            )}
 
             <div className="grid gap-3 lg:grid-cols-2">
                 <details className="rounded-md border p-3 text-sm">

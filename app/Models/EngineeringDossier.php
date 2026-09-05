@@ -12,6 +12,8 @@ class EngineeringDossier extends Model
         'opportunity_id', 'installation_id', 'code', 'title', 'business_line', 'kind', 'status', 'current_version',
         'scope', 'site_conditions', 'calculations', 'proposed_solution', 'risks', 'standards', 'conclusions',
         'created_by', 'updated_by', 'approved_by', 'approved_at', 'handed_over_by', 'handed_over_at',
+        'planning_status', 'planning_fingerprint', 'planning_note', 'planning_requested_by', 'planning_requested_at',
+        'planning_review_note', 'planning_reviewed_by', 'planning_reviewed_at',
     ];
 
     protected function casts(): array
@@ -20,12 +22,24 @@ class EngineeringDossier extends Model
             'current_version' => 'integer',
             'approved_at' => 'datetime',
             'handed_over_at' => 'datetime',
+            'planning_requested_at' => 'datetime',
+            'planning_reviewed_at' => 'datetime',
         ];
     }
 
     public function opportunity(): BelongsTo
     {
         return $this->belongsTo(Opportunity::class)->withTrashed();
+    }
+
+    public function planningRequester(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'planning_requested_by');
+    }
+
+    public function planningReviewer(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'planning_reviewed_by');
     }
 
     public function installation(): BelongsTo

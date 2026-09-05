@@ -199,6 +199,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('engineering', [EngineeringDossierController::class, 'store'])->middleware('can:manage-installations')->name('engineering.store');
     Route::patch('engineering/{engineeringDossier}', [EngineeringDossierController::class, 'update'])->middleware('can:manage-installations')->name('engineering.update');
     Route::patch('engineering/{engineeringDossier}/transition', [EngineeringDossierController::class, 'transition'])->middleware('can:manage-installations')->name('engineering.transition');
+    Route::patch('engineering/{engineeringDossier}/planning', [EngineeringDossierController::class, 'planning'])->name('engineering.planning');
     Route::post('people/{person}/portal', [CustomerPortalController::class, 'invite'])->middleware('can:manage-customers')->name('people.portal.invite');
     Route::delete('people/{person}/portal/{access}', [CustomerPortalController::class, 'revoke'])->middleware('can:manage-customers')->name('people.portal.revoke');
     Route::delete('document-deliveries/{delivery}', [DocumentDeliveryController::class, 'revoke'])->middleware('can:manage-installations')->name('document-deliveries.revoke');
