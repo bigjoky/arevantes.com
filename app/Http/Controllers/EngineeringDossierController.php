@@ -25,6 +25,7 @@ class EngineeringDossierController extends Controller
                 'versions' => fn ($query) => $query->select(['id', 'engineering_dossier_id', 'version', 'fingerprint', 'change_note', 'created_by', 'created_at']),
                 'versions.creator:id,name',
                 'events.actor:id,name',
+                'planningRequester:id,name', 'planningReviewer:id,name',
             ])
             ->latest()
             ->limit(100)
@@ -106,6 +107,19 @@ class EngineeringDossierController extends Controller
             'standards' => ['nullable', 'string', 'max:10000'],
             'conclusions' => ['nullable', 'string', 'max:20000'],
         ]);
+    }
+
+    public function planning(Request $request, EngineeringDossier $engineeringDossier, EngineeringDossierWorkflow $workflow): RedirectResponse
+    {
+        $data = $request->validate([
+            'action' => ['required', Rule::in(['request', 'accept', 'decline'])],
+            'expected_version' => ['required', 'integer', 'min:1'],
+            'fingerprint' => ['required', 'string', 'size:64'],
+            'note' => ['required', 'string', 'min:10', 'max:1000'],
+        ]);
+        $workflow->planning($engineeringDossier, $data['action'], $data['expected_version'], $data['fingerprint'], $data['note'], $request->user());
+
+        return back()->with('toast', ['type' => 'success', 'message' => __('Technical planning request updated.')]);
     }
 
     private function normaliseTargets(Request $request): void

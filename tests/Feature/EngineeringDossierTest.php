@@ -5,8 +5,11 @@ namespace Tests\Feature;
 use App\Models\EngineeringDossier;
 use App\Models\Installation;
 use App\Models\Opportunity;
+use App\Models\Permission;
+use App\Models\PermissionProfile;
 use App\Models\User;
 use App\Models\WorkOrder;
+use App\Services\Engineering\EngineeringDossierWorkflow;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
@@ -14,6 +17,59 @@ use Tests\TestCase;
 class EngineeringDossierTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_approved_engineering_can_request_planning_and_receive_an_audited_decision(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $installation = Installation::create(['service_type' => 'electrical', 'status' => 'survey_booked', 'site_address_line_1' => 'Technical site']);
+        $workflow = app(EngineeringDossierWorkflow::class);
+        $dossier = $workflow->create($this->payload(null, $installation, ['proposed_solution' => 'Approved installation design.']), $admin);
+        $fingerprint = $dossier->versions()->firstOrFail()->fingerprint;
+        $data = ['action' => 'request', 'expected_version' => 1, 'fingerprint' => $fingerprint, 'note' => 'Please review capacity for this approved design.'];
+        $this->actingAs($admin)->patch(route('engineering.planning', $dossier), $data)->assertSessionHasErrors('planning');
+        $workflow->transition($dossier, 'submit', 1, null, 'Ready for technical review.', $admin);
+        $workflow->transition($dossier, 'approve', 1, $fingerprint, 'Technical design approved.', $admin);
+
+        $this->patch(route('engineering.planning', $dossier), $data)->assertSessionHasNoErrors()->assertRedirect();
+        $this->patch(route('engineering.planning', $dossier), $data)->assertSessionHasErrors('planning');
+        $this->assertSame('pending', $dossier->fresh()->planning_status);
+        $this->get(route('planning-scenario-requests.index'))->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->has('technicalRequests', 1)->where('technicalRequests.0.id', $dossier->id));
+
+        $this->patch(route('engineering.planning', $dossier), [...$data, 'action' => 'accept', 'fingerprint' => str_repeat('0', 64)])->assertSessionHasErrors('expected_fingerprint');
+        $dossier->update(['scope' => 'Unexpected out-of-band change']);
+        $this->patch(route('engineering.planning', $dossier), [...$data, 'action' => 'accept'])->assertSessionHasErrors('expected_fingerprint');
+        $dossier->update(['scope' => $this->payload(null, $installation)['scope']]);
+        $this->patch(route('engineering.planning', $dossier), [...$data, 'action' => 'accept'])->assertSessionHasNoErrors();
+        $this->patch(route('engineering.planning', $dossier), [...$data, 'action' => 'decline'])->assertSessionHasErrors('planning');
+        $this->assertSame('accepted', $dossier->fresh()->planning_status);
+        $this->assertSame($admin->id, $dossier->fresh()->planning_reviewed_by);
+        $this->assertSame(2, $dossier->events()->whereIn('type', ['planning_request', 'planning_accept'])->count());
+        $this->assertSame('approved', $dossier->fresh()->status);
+        $this->assertSame('survey_booked', $installation->fresh()->status);
+        $this->assertSame(0, WorkOrder::count());
+    }
+
+    public function test_planning_intake_enforces_permissions_and_records_declines(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $profile = PermissionProfile::create(['name' => 'Engineering only', 'slug' => 'engineering-only']);
+        $permission = Permission::firstOrCreate(['key' => 'manage-installations'], ['name' => 'Manage installations']);
+        $profile->permissions()->attach($permission->id);
+        $engineer = User::factory()->create(['role' => 'commercial', 'permission_profile_id' => $profile->id]);
+        $installation = Installation::create(['service_type' => 'electrical', 'status' => 'survey_booked', 'site_address_line_1' => 'Technical site']);
+        $workflow = app(EngineeringDossierWorkflow::class);
+        $dossier = $workflow->create($this->payload(null, $installation, ['proposed_solution' => 'Technical design.']), $admin);
+        $fingerprint = $dossier->versions()->firstOrFail()->fingerprint;
+        $workflow->transition($dossier, 'submit', 1, null, 'Ready for technical review.', $admin);
+        $workflow->transition($dossier, 'approve', 1, $fingerprint, 'Technical design approved.', $admin);
+        $data = ['action' => 'request', 'expected_version' => 1, 'fingerprint' => $fingerprint, 'note' => 'Review this technical scope for scheduling.'];
+        $this->actingAs($engineer)->patch(route('engineering.planning', $dossier), $data)->assertSessionHasNoErrors();
+        $this->patch(route('engineering.planning', $dossier), [...$data, 'action' => 'accept'])->assertForbidden();
+        $this->actingAs($admin)->patch(route('engineering.planning', $dossier), [...$data, 'action' => 'decline'])->assertSessionHasNoErrors();
+        $this->assertSame('declined', $dossier->fresh()->planning_status);
+        $this->assertNotNull($dossier->fresh()->planning_reviewed_at);
+    }
 
     public function test_a_technical_dossier_is_versioned_approved_and_handed_over_without_committing_execution(): void
     {

@@ -1,4 +1,44 @@
 {
+    "Applicable standards": {
+        "en": "Applicable standards",
+        "es": "Normativa aplicable"
+    },
+    "Technical planning request": {
+        "en": "Technical planning request",
+        "es": "Solicitud técnica de planificación"
+    },
+    "Operations reviews the approved technical scope before scheduling resources.": {
+        "en": "Operations reviews the approved technical scope before scheduling resources.",
+        "es": "Operaciones revisa el alcance técnico aprobado antes de programar los recursos."
+    },
+    "Awaiting planning review": {
+        "en": "Awaiting planning review",
+        "es": "Pendiente de revisión de planificación"
+    },
+    "Accepted for planning": {
+        "en": "Accepted for planning",
+        "es": "Aceptada para planificación"
+    },
+    "Declined for planning": {
+        "en": "Declined for planning",
+        "es": "Rechazada para planificación"
+    },
+    "Request planning": {
+        "en": "Request planning",
+        "es": "Solicitar planificación"
+    },
+    "Accept for planning": {
+        "en": "Accept for planning",
+        "es": "Aceptar para planificación"
+    },
+    "Decline planning request": {
+        "en": "Decline planning request",
+        "es": "Rechazar solicitud de planificación"
+    },
+    "Approved technical scope": {
+        "en": "Approved technical scope",
+        "es": "Alcance técnico aprobado"
+    },
     "Favorites": { "en": "Favorites", "es": "Favoritos" },
     "Recently visited": {
         "en": "Recently visited",
