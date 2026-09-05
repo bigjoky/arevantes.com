@@ -105,7 +105,7 @@ prioridad sobre añadir pantallas que amplíen deuda de interfaz.
 | P0        | Adaptación móvil integral         | En curso continuo. Cada ficha, tabla, diálogo y acción principal debe funcionar desde 320 px sin desbordamiento, pérdida de información ni acciones inaccesibles.                                                                                                                                                                                                                                                                |
 | P1        | Sistema único de formularios      | En curso avanzado. Cliente, instalación, propuesta y alta de gasto comparten secciones, jerarquía visual, resumen accesible de errores, estado de guardado y barra de acciones adaptable. El patrón se extenderá por cortes a los formularios operativos restantes.                                                                                                                                                              |
 | P1        | Terceros según naturaleza         | Cuarto corte completado. Particular, empresa, comunidad y organismo público adaptan identidad, contactos, representación e información fiscal. Clientes y proveedores disponen de contactos por responsabilidad y firmantes autorizados; ventas y compras congelan la identidad histórica en sus documentos derivados.                                                                                                           |
-| P1        | Sidebar y arquitectura de módulos | Tercer corte completado. Ingeniería incorpora un expediente técnico versionado y gobernado; Activos, Mantenimiento y Contratos/Servicios mantienen accesos y cargas semánticas propias, y el servidor elimina cualquier sección no autorizada. Las áreas objetivo con flujo real quedan alineadas sin módulos de escaparate. Pendientes accesos recientes y favoritos persistidos por usuario.                                   |
+| P1        | Sidebar y arquitectura de módulos | Cuarto corte completado. Las 20 áreas con flujo real conservan accesos autorizados. Favoritos y cinco accesos recientes se guardan por usuario, se depuran cuando cambian los permisos y comparten presentación móvil y escritorio. Continúa pendiente la conexión revisable entre Ingeniería y Planificación. |
 
 La optimización se considera terminada únicamente con mediciones antes/después;
 la traducción y el responsive se validan sobre las rutas realmente autorizadas a
@@ -977,12 +977,26 @@ como respaldo para registros históricos sin plazo.
 
 ## Próximo corte recomendado
 
-Añadir accesos recientes y favoritos persistidos por usuario sobre la navegación
-autorizada, con limpieza automática si cambia el perfil y una presentación móvil
-compacta. Después, conectar el expediente técnico aprobado con la planificación
+Completados los accesos recientes y favoritos persistidos por usuario, conectar el expediente técnico aprobado con la planificación
 del proyecto mediante una solicitud revisable, sin crear órdenes, compras ni
 reservas de forma implícita. En paralelo, comparar en producción tiempos y tamaño
 de las cargas semánticas mediante `Server-Timing` y percentiles p75.
+
+## Corte ejecutado — Favoritos y accesos recientes personales
+
+El sidebar permite añadir y quitar la sección actual de favoritos y recuperar las
+cinco últimas secciones visitadas. La selección se guarda por usuario en servidor
+para conservarla entre sesiones y dispositivos, con presentación común en móvil
+y escritorio y etiquetas en español e inglés.
+
+Solo se aceptan destinos presentes en la navegación autorizada. Los accesos que
+pierden autorización se eliminan al volver a cargar el área privada, y los datos
+brutos no se exponen en el objeto de usuario. Las precargas no registran visitas;
+las recargas de la misma sección no generan escrituras. La modificación de
+favoritos es idempotente y las actualizaciones concurrentes se serializan.
+
+La conexión revisable entre Ingeniería y Planificación continúa pendiente como
+siguiente incremento funcional; se conserva el seguimiento de rendimiento.
 
 ## Corte ejecutado — Expediente técnico gobernado de Ingeniería
 

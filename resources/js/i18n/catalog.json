@@ -1,4 +1,17 @@
 {
+    "Favorites": { "en": "Favorites", "es": "Favoritos" },
+    "Recently visited": {
+        "en": "Recently visited",
+        "es": "Visitados recientemente"
+    },
+    "Add to favorites": {
+        "en": "Add to favorites",
+        "es": "Añadir a favoritos"
+    },
+    "Remove from favorites": {
+        "en": "Remove from favorites",
+        "es": "Quitar de favoritos"
+    },
     "Engineering": {
         "en": "Engineering",
         "es": "Ingeniería"
