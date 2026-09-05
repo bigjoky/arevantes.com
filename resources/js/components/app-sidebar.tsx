@@ -1,4 +1,4 @@
-import { Link, usePage } from '@inertiajs/react';
+import { Link, router, usePage } from '@inertiajs/react';
 import {
     BadgeEuro,
     BookOpenText,
@@ -15,6 +15,7 @@ import {
     Settings2,
     ShieldCheck,
     ShoppingCart,
+    Star,
     UserCog,
     UsersRound,
     WalletCards,
@@ -67,7 +68,14 @@ const toNavItem = (item: WorkspaceNavItem): NavItem => ({
 });
 
 export function AppSidebar() {
-    const navigation = usePage().props.auth.navigation.map(toNavItem);
+    const page = usePage();
+    const navigation = page.props.auth.navigation.map(toNavItem);
+    const shortcuts = page.props.auth.shortcuts;
+    const path = page.url.split('?')[0].split('#')[0];
+    const current = page.props.auth.navigation
+        .flatMap((item) => item.children ?? [item])
+        .find((item) => item.href === path);
+    const favorite = shortcuts.favorites.some((item) => item.href === path);
 
     return (
         <Sidebar collapsible="icon" variant="inset">
@@ -83,6 +91,51 @@ export function AppSidebar() {
                 </SidebarMenu>
             </SidebarHeader>
             <SidebarContent>
+                {current && (
+                    <SidebarMenu className="px-2">
+                        <SidebarMenuItem>
+                            <SidebarMenuButton
+                                onClick={() =>
+                                    router.patch(
+                                        '/workspace/favorite',
+                                        {
+                                            href: current.href,
+                                            enabled: !favorite,
+                                        },
+                                        { preserveScroll: true },
+                                    )
+                                }
+                                aria-pressed={favorite}
+                                tooltip={
+                                    favorite
+                                        ? 'Remove from favorites'
+                                        : 'Add to favorites'
+                                }
+                            >
+                                <Star
+                                    className={favorite ? 'fill-current' : ''}
+                                />
+                                <span>
+                                    {favorite
+                                        ? 'Remove from favorites'
+                                        : 'Add to favorites'}
+                                </span>
+                            </SidebarMenuButton>
+                        </SidebarMenuItem>
+                    </SidebarMenu>
+                )}
+                {shortcuts.favorites.length > 0 && (
+                    <NavMain
+                        label="Favorites"
+                        items={shortcuts.favorites.map(toNavItem)}
+                    />
+                )}
+                {shortcuts.recent.length > 0 && (
+                    <NavMain
+                        label="Recently visited"
+                        items={shortcuts.recent.map(toNavItem)}
+                    />
+                )}
                 <NavMain items={navigation} />
             </SidebarContent>
             <SidebarFooter>

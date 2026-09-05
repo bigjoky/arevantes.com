@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Support\WorkspaceNavigation;
+use App\Support\WorkspaceShortcuts;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Middleware;
@@ -51,6 +52,13 @@ class HandleInertiaRequests extends Middleware
             ],
             'auth' => [
                 'user' => $request->user(),
+                'shortcuts' => fn () => $request->user()
+                    ? app(WorkspaceShortcuts::class)->for(
+                        $request->user(),
+                        $request->isMethod('GET') && ! $request->headers->has('X-Inertia-Prefetch') && ! str_contains(strtolower($request->header('Purpose', '')), 'prefetch')
+                            ? $request->getPathInfo() : null,
+                    )
+                    : ['favorites' => [], 'recent' => []],
                 'abilities' => fn () => $request->user() ? [
                     'manageAdmin' => Gate::allows('manage-admin'),
                     'manageAccess' => Gate::allows('manage-access'),

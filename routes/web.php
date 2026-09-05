@@ -93,6 +93,7 @@ use App\Http\Controllers\WebsiteContactController;
 use App\Http\Controllers\WebVitalController;
 use App\Http\Controllers\WorkOrderController;
 use App\Http\Controllers\WorkOrderMaterialsController;
+use App\Http\Controllers\WorkspaceShortcutController;
 use App\Http\Middleware\ProtectCustomerPortalLinks;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -127,6 +128,7 @@ Route::middleware(ProtectCustomerPortalLinks::class)->group(function (): void {
 });
 
 Route::middleware(['auth'])->group(function () {
+    Route::patch('/workspace/favorite', [WorkspaceShortcutController::class, 'update'])->name('workspace.favorite');
     Route::get('dashboard', DashboardController::class)->name('dashboard');
     Route::get('dashboard/installation-map', [DashboardController::class, 'installationMap'])
         ->middleware('can:view-installations')
