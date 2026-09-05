@@ -7,6 +7,7 @@ use App\Models\Permission;
 use App\Models\PermissionProfile;
 use App\Models\Person;
 use App\Models\User;
+use App\Support\WorkspaceShortcuts;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Collection;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -15,6 +16,38 @@ use Tests\TestCase;
 class WorkspaceNavigationAuthorizationTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_shortcuts_are_personal_authorized_and_cleaned_when_permissions_change(): void
+    {
+        $user = $this->userWithPermissions(['view-installations']);
+        $other = $this->userWithPermissions([]);
+        $href = route('engineering.index', absolute: false);
+        $this->actingAs($user)->patch(route('workspace.favorite'), ['href' => $href, 'enabled' => true])->assertRedirect();
+        $this->actingAs($user)->patch(route('workspace.favorite'), ['href' => $href, 'enabled' => true])->assertRedirect();
+        $this->assertSame([$href], $user->fresh()->workspace_shortcuts['favorites']);
+        $this->actingAs($other)->patch(route('workspace.favorite'), ['href' => $href, 'enabled' => true])->assertForbidden();
+        $this->actingAs($other)->patch(route('workspace.favorite'), ['href' => 'https://example.com', 'enabled' => true])->assertForbidden();
+        $this->assertNull($other->fresh()->workspace_shortcuts);
+
+        $user->forceFill(['permission_profile_id' => $other->permission_profile_id])->save();
+        $shortcuts = app(WorkspaceShortcuts::class)->for($user->fresh());
+        $this->assertSame([], $shortcuts['favorites']);
+        $this->assertSame([], $user->fresh()->workspace_shortcuts['favorites']);
+    }
+
+    public function test_recent_shortcuts_ignore_prefetch_and_favorites_can_be_removed(): void
+    {
+        $user = $this->userWithPermissions(['view-installations']);
+        $href = route('engineering.index', absolute: false);
+        $this->actingAs($user)->get($href, ['Purpose' => 'prefetch'])->assertOk();
+        $this->assertSame([], $user->fresh()->workspace_shortcuts['recent']);
+        $this->actingAs($user)->get($href)->assertOk()
+            ->assertInertia(fn (Assert $page) => $page->where('auth.shortcuts.recent.0.href', $href));
+        $this->actingAs($user)->patch(route('workspace.favorite'), ['href' => $href, 'enabled' => true])->assertRedirect();
+        $this->actingAs($user)->patch(route('workspace.favorite'), ['href' => $href, 'enabled' => false])->assertRedirect();
+        $this->assertSame([], $user->fresh()->workspace_shortcuts['favorites']);
+        $this->assertSame([$href], $user->fresh()->workspace_shortcuts['recent']);
+    }
 
     public function test_navigation_only_contains_sections_allowed_by_the_permission_profile(): void
     {

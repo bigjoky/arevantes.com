@@ -1,4 +1,8 @@
 {
+    "Planning requires an approved technical dossier linked to a project.": "La planificación requiere un expediente técnico aprobado vinculado a un proyecto.",
+    "This technical dossier already has a planning request.": "Este expediente técnico ya tiene una solicitud de planificación.",
+    "Only pending technical planning requests can be reviewed.": "Solo se pueden revisar solicitudes técnicas de planificación pendientes.",
+    "Technical planning request updated.": "Solicitud técnica de planificación actualizada.",
     "Engineering": "Ingeniería",
     "Technical dossiers": "Expedientes técnicos",
     "Initial technical dossier created.": "Expediente técnico inicial creado.",

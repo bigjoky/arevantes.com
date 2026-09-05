@@ -93,6 +93,7 @@ use App\Http\Controllers\WebsiteContactController;
 use App\Http\Controllers\WebVitalController;
 use App\Http\Controllers\WorkOrderController;
 use App\Http\Controllers\WorkOrderMaterialsController;
+use App\Http\Controllers\WorkspaceShortcutController;
 use App\Http\Middleware\ProtectCustomerPortalLinks;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -127,6 +128,7 @@ Route::middleware(ProtectCustomerPortalLinks::class)->group(function (): void {
 });
 
 Route::middleware(['auth'])->group(function () {
+    Route::patch('/workspace/favorite', [WorkspaceShortcutController::class, 'update'])->name('workspace.favorite');
     Route::get('dashboard', DashboardController::class)->name('dashboard');
     Route::get('dashboard/installation-map', [DashboardController::class, 'installationMap'])
         ->middleware('can:view-installations')
@@ -197,6 +199,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('engineering', [EngineeringDossierController::class, 'store'])->middleware('can:manage-installations')->name('engineering.store');
     Route::patch('engineering/{engineeringDossier}', [EngineeringDossierController::class, 'update'])->middleware('can:manage-installations')->name('engineering.update');
     Route::patch('engineering/{engineeringDossier}/transition', [EngineeringDossierController::class, 'transition'])->middleware('can:manage-installations')->name('engineering.transition');
+    Route::patch('engineering/{engineeringDossier}/planning', [EngineeringDossierController::class, 'planning'])->name('engineering.planning');
     Route::post('people/{person}/portal', [CustomerPortalController::class, 'invite'])->middleware('can:manage-customers')->name('people.portal.invite');
     Route::delete('people/{person}/portal/{access}', [CustomerPortalController::class, 'revoke'])->middleware('can:manage-customers')->name('people.portal.revoke');
     Route::delete('document-deliveries/{delivery}', [DocumentDeliveryController::class, 'revoke'])->middleware('can:manage-installations')->name('document-deliveries.revoke');

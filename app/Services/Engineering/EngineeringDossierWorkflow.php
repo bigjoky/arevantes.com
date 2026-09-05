@@ -103,6 +103,41 @@ class EngineeringDossierWorkflow
         }
     }
 
+    public function planning(EngineeringDossier $dossier, string $action, int $expectedVersion, string $fingerprint, string $note, User $actor): EngineeringDossier
+    {
+        abort_unless($actor->can($action === 'request' ? 'manage-installations' : 'manage-operations'), 403);
+
+        return DB::transaction(function () use ($dossier, $action, $expectedVersion, $fingerprint, $note, $actor) {
+            $locked = EngineeringDossier::query()->lockForUpdate()->findOrFail($dossier->id);
+            $this->assertVersion($locked, $expectedVersion);
+            $this->assertIntegrity($locked, $fingerprint);
+            if (! in_array($locked->status, ['approved', 'handed_over'], true) || ! $locked->installation()->exists()) {
+                throw ValidationException::withMessages(['planning' => __('Planning requires an approved technical dossier linked to a project.')]);
+            }
+            if ($action === 'request') {
+                if ($locked->planning_status !== null) {
+                    throw ValidationException::withMessages(['planning' => __('This technical dossier already has a planning request.')]);
+                }
+                $locked->update([
+                    'planning_status' => 'pending', 'planning_fingerprint' => $fingerprint,
+                    'planning_note' => $note, 'planning_requested_by' => $actor->id, 'planning_requested_at' => now(),
+                ]);
+            } else {
+                if (! in_array($action, ['accept', 'decline'], true) || $locked->planning_status !== 'pending'
+                    || ! hash_equals($locked->planning_fingerprint ?? '', $fingerprint)) {
+                    throw ValidationException::withMessages(['planning' => __('Only pending technical planning requests can be reviewed.')]);
+                }
+                $locked->update([
+                    'planning_status' => $action === 'accept' ? 'accepted' : 'declined',
+                    'planning_review_note' => $note, 'planning_reviewed_by' => $actor->id, 'planning_reviewed_at' => now(),
+                ]);
+            }
+            $this->recordEvent($locked, 'planning_'.$action, $locked->status, $locked->status, $note, $actor);
+
+            return $locked;
+        });
+    }
+
     private function assertVersion(EngineeringDossier $dossier, int $expectedVersion): void
     {
         if ($dossier->current_version !== $expectedVersion) {

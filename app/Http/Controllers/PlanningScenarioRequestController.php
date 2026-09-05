@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\EngineeringDossier;
 use App\Models\PlanningScenario;
 use App\Models\PlanningScenarioRequest;
 use App\Models\User;
@@ -36,6 +37,12 @@ class PlanningScenarioRequestController extends Controller
         $monitoring = $monitor->forMany($requests);
 
         return Inertia::render('planning-scenario-requests/index', [
+            'technicalRequests' => $request->user()->can('manage-operations')
+                ? EngineeringDossier::query()->whereNotNull('planning_status')
+                    ->with(['planningRequester:id,name', 'planningReviewer:id,name', 'installation:id,project_reference,site_name'])
+                    ->orderByRaw("case planning_status when 'pending' then 0 else 1 end")->latest('planning_requested_at')
+                    ->get(['id', 'code', 'title', 'installation_id', 'current_version', 'scope', 'proposed_solution', 'risks', 'standards', 'planning_status', 'planning_fingerprint', 'planning_note', 'planning_requested_by', 'planning_requested_at', 'planning_review_note', 'planning_reviewed_by', 'planning_reviewed_at'])
+                : [],
             'areas' => $areas,
             'requests' => $requests->map(fn (PlanningScenarioRequest $scenarioRequest): array => [
                 ...$scenarioRequest->toArray(),

@@ -15,6 +15,7 @@ export type Auth = {
     user: User;
     abilities: AuthAbilities;
     navigation: WorkspaceNavItem[];
+    shortcuts: { favorites: WorkspaceNavItem[]; recent: WorkspaceNavItem[] };
 };
 
 export type AuthAbilities = {
