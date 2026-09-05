@@ -1,5 +1,7 @@
 import { Form } from '@inertiajs/react';
 import { FormErrorSummary } from '@/components/forms/form-layout';
+import { TechnicalSchedulePanel } from '@/components/technical-schedule-panel';
+import type { ScheduleProposal } from '@/components/technical-schedule-panel';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -15,6 +17,7 @@ export type TechnicalPlanningRequest = {
     planning_reviewer: { name: string } | null;
     planning_requested_at: string | null;
     planning_reviewed_at: string | null;
+    schedule_proposals: ScheduleProposal[];
 };
 
 export function TechnicalPlanningPanel({
@@ -22,11 +25,13 @@ export function TechnicalPlanningPanel({
     fingerprint,
     canRequest = false,
     canReview = false,
+    assignees = [],
 }: {
     dossier: TechnicalPlanningRequest;
     fingerprint?: string;
     canRequest?: boolean;
     canReview?: boolean;
+    assignees?: { id: number; name: string }[];
 }) {
     const actionable =
         (!dossier.planning_status && canRequest) ||
@@ -133,6 +138,18 @@ export function TechnicalPlanningPanel({
                         </div>
                     )}
                 </Form>
+            )}
+            {dossier.planning_status === 'accepted' && (
+                <TechnicalSchedulePanel
+                    dossierId={dossier.id}
+                    version={dossier.current_version}
+                    fingerprint={
+                        fingerprint ?? dossier.planning_fingerprint ?? ''
+                    }
+                    proposals={dossier.schedule_proposals}
+                    assignees={assignees}
+                    canManage={canReview}
+                />
             )}
         </section>
     );

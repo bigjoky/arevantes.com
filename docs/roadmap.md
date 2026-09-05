@@ -977,8 +977,8 @@ como respaldo para registros históricos sin plazo.
 
 ## Próximo corte recomendado
 
-Tras la aceptación de solicitudes técnicas, incorporar una propuesta revisable
-de fecha, responsable y capacidad antes de programar trabajo operativo.
+Tras la aprobación de propuestas de fecha, responsable y horas, contrastar
+disponibilidad, ausencias y solapes antes de generar una orden operativa revisable.
 En paralelo, comparar en producción tiempos y tamaño
 de las cargas semánticas mediante `Server-Timing` y percentiles p75.
 
@@ -1011,8 +1011,25 @@ genera órdenes, compras o reservas. Las solicitudes rechazadas conservan su
 decisión final; la reapertura con revisiones será un incremento explícito.
 
 La interfaz bilingüe reutiliza un componente adaptable entre ambas áreas.
-El siguiente paso es proponer fecha, responsable y capacidad sobre las solicitudes
+El siguiente corte incorpora fecha, responsable y horas sobre las solicitudes
 aceptadas, manteniendo el seguimiento de rendimiento y el resto del roadmap.
+
+## Corte ejecutado — Propuestas de programación técnica
+
+Operaciones propone fecha, responsable y horas estimadas sobre una solicitud
+técnica aceptada. La propuesta se somete a aprobación o rechazo con nota; cada
+alternativa posterior a un rechazo crea un registro nuevo y conserva las
+decisiones anteriores. Ingeniería puede consultar este historial en su expediente.
+
+El servidor controla permisos, versión técnica, propuesta abierta e integridad
+de los datos antes de aprobar; rechaza fechas pasadas y esfuerzos fuera del
+intervalo de 0,25 a 24 horas en incrementos de 15 minutos. Las decisiones se
+registran con autor y fecha y se reflejan en el historial del expediente.
+
+La fecha aprobada representa una intención de programación: todavía no bloquea
+agenda ni comprueba disponibilidad. El siguiente incremento contrastará ausencias
+y solapes antes de crear una orden revisable. La interfaz comparte formularios
+adaptables y traducción completa entre Ingeniería y Planificación.
 
 ## Corte ejecutado — Expediente técnico gobernado de Ingeniería
 

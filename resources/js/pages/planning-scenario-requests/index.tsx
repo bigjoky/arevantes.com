@@ -131,10 +131,12 @@ export default function PlanningScenarioRequests({
     areas,
     governance,
     technicalRequests,
+    technicalAssignees,
 }: {
     requests: ScenarioRequest[];
     areas: Area[];
     governance: Governance;
+    technicalAssignees: { id: number; name: string }[];
     technicalRequests: (TechnicalPlanningRequest & {
         code: string;
         title: string;
@@ -198,6 +200,7 @@ export default function PlanningScenarioRequests({
                             </details>
                             <TechnicalPlanningPanel
                                 dossier={dossier}
+                                assignees={technicalAssignees}
                                 canReview
                             />
                         </article>

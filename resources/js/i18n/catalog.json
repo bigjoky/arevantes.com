@@ -1,4 +1,33 @@
 {
+    "Scheduling proposal": {
+        "en": "Scheduling proposal",
+        "es": "Propuesta de programación"
+    },
+    "Approval records the proposed date and effort. Resource availability is not reserved yet.": {
+        "en": "Approval records the proposed date and effort. Resource availability is not reserved yet.",
+        "es": "La aprobación registra la fecha y el esfuerzo propuestos. La disponibilidad de recursos todavía no está reservada."
+    },
+    "Pending review": { "en": "Pending review", "es": "Pendiente de revisión" },
+    "Declined": { "en": "Declined", "es": "Rechazada" },
+    "Proposed date": { "en": "Proposed date", "es": "Fecha propuesta" },
+    "Responsible person": { "en": "Responsible person", "es": "Responsable" },
+    "Select a person": {
+        "en": "Select a person",
+        "es": "Selecciona una persona"
+    },
+    "Estimated hours": { "en": "Estimated hours", "es": "Horas estimadas" },
+    "Submit scheduling proposal": {
+        "en": "Submit scheduling proposal",
+        "es": "Enviar propuesta de programación"
+    },
+    "Approve scheduling proposal": {
+        "en": "Approve scheduling proposal",
+        "es": "Aprobar propuesta de programación"
+    },
+    "Decline scheduling proposal": {
+        "en": "Decline scheduling proposal",
+        "es": "Rechazar propuesta de programación"
+    },
     "Applicable standards": {
         "en": "Applicable standards",
         "es": "Normativa aplicable"

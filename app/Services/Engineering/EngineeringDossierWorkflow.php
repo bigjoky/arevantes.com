@@ -145,6 +145,48 @@ class EngineeringDossierWorkflow
         }
     }
 
+    public function schedule(EngineeringDossier $dossier, array $data, User $actor): void
+    {
+        abort_unless($actor->can('manage-operations'), 403);
+        DB::transaction(function () use ($dossier, $data, $actor): void {
+            $locked = EngineeringDossier::query()->lockForUpdate()->findOrFail($dossier->id);
+            $this->assertVersion($locked, $data['expected_version']);
+            $this->assertIntegrity($locked, $data['fingerprint']);
+            if ($locked->planning_status !== 'accepted' || ! in_array($locked->status, ['approved', 'handed_over'], true)
+                || ! hash_equals($locked->planning_fingerprint ?? '', $data['fingerprint']) || ! $locked->installation()->exists()) {
+                throw ValidationException::withMessages(['schedule' => __('Only accepted technical requests can propose scheduling.')]);
+            }
+            $latest = $locked->scheduleProposals()->first();
+            if (($latest?->id ?? 0) !== (int) $data['expected_proposal_id']) {
+                throw ValidationException::withMessages(['schedule' => __('The scheduling proposal changed. Refresh before continuing.')]);
+            }
+            if ($data['action'] === 'propose') {
+                if ($latest && $latest->status !== 'declined') {
+                    throw ValidationException::withMessages(['schedule' => __('Review the current scheduling proposal before proposing another.')]);
+                }
+                $proposal = $locked->scheduleProposals()->create([
+                    'dossier_version' => $locked->current_version, 'proposed_on' => $data['proposed_on'],
+                    'assignee_id' => $data['assignee_id'], 'estimated_hours' => $data['estimated_hours'],
+                    'status' => 'pending', 'note' => $data['note'], 'created_by' => $actor->id, 'fingerprint' => '',
+                ]);
+                $proposal->refresh();
+                $proposal->update(['fingerprint' => $proposal->contentFingerprint()]);
+            } else {
+                if (! $latest || $latest->status !== 'pending' || ! in_array($data['action'], ['approve', 'decline'], true)
+                    || ! hash_equals($latest->fingerprint, $data['proposal_fingerprint'] ?? '')
+                    || ! hash_equals($latest->fingerprint, $latest->contentFingerprint())) {
+                    throw ValidationException::withMessages(['schedule' => __('The scheduling proposal cannot be reviewed or failed its integrity check.')]);
+                }
+                if ($data['action'] === 'approve' && $latest->proposed_on->isBefore(today())) {
+                    throw ValidationException::withMessages(['schedule' => __('The proposed date has passed. Decline and submit a new proposal.')]);
+                }
+                $latest->update(['status' => $data['action'] === 'approve' ? 'approved' : 'declined', 'reviewed_by' => $actor->id, 'review_note' => $data['note'], 'reviewed_at' => now()]);
+                $proposal = $latest;
+            }
+            $this->recordEvent($locked, 'schedule_'.$data['action'], $locked->status, $locked->status, '#'.$proposal->id.' · '.$data['note'], $actor);
+        });
+    }
+
     private function assertIntegrity(EngineeringDossier $dossier, ?string $expectedFingerprint): void
     {
         $version = $dossier->versions()->where('version', $dossier->current_version)->firstOrFail();
