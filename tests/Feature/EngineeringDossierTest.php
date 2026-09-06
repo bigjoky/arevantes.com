@@ -54,6 +54,9 @@ class EngineeringDossierTest extends TestCase
         $this->patch(route('engineering.schedule', $dossier), [...$review, 'expected_proposal_id' => $latest->id, 'proposal_fingerprint' => $latest->fingerprint])->assertSessionHasNoErrors();
         $this->assertSame('approved', $latest->fresh()->status);
         $this->assertSame($admin->id, $latest->fresh()->reviewed_by);
+        $availability = ['expected_version' => 1, 'fingerprint' => $fingerprint, 'expected_proposal_id' => $latest->id, 'proposal_fingerprint' => $latest->fingerprint, 'start_time' => '09:00'];
+        $this->getJson(route('engineering.availability', ['engineeringDossier' => $dossier, ...$availability]))->assertOk()->assertJsonPath('status', 'blocked');
+        $this->getJson(route('engineering.availability', ['engineeringDossier' => $dossier, ...$availability, 'proposal_fingerprint' => str_repeat('0', 64)]))->assertUnprocessable();
         $this->patch(route('engineering.schedule', $dossier), [...$data, 'expected_proposal_id' => $latest->id])->assertSessionHasErrors('schedule');
         $this->assertSame(2, $dossier->scheduleProposals()->count());
         $this->assertSame(4, $dossier->events()->where('type', 'like', 'schedule_%')->count());
@@ -63,6 +66,7 @@ class EngineeringDossierTest extends TestCase
         $restrictedProfile = PermissionProfile::create(['name' => 'No scheduling access', 'slug' => 'no-scheduling']);
         $restricted = User::factory()->create(['role' => 'commercial', 'permission_profile_id' => $restrictedProfile->id]);
         $this->actingAs($restricted)->patch(route('engineering.schedule', $dossier), $data)->assertForbidden();
+        $this->getJson(route('engineering.availability', ['engineeringDossier' => $dossier, ...$availability]))->assertForbidden();
     }
 
     public function test_approved_engineering_can_request_planning_and_receive_an_audited_decision(): void

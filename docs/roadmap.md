@@ -105,7 +105,7 @@ prioridad sobre añadir pantallas que amplíen deuda de interfaz.
 | P0        | Adaptación móvil integral         | En curso continuo. Cada ficha, tabla, diálogo y acción principal debe funcionar desde 320 px sin desbordamiento, pérdida de información ni acciones inaccesibles.                                                                                                                                                                                                                                                                |
 | P1        | Sistema único de formularios      | En curso avanzado. Cliente, instalación, propuesta y alta de gasto comparten secciones, jerarquía visual, resumen accesible de errores, estado de guardado y barra de acciones adaptable. El patrón se extenderá por cortes a los formularios operativos restantes.                                                                                                                                                              |
 | P1        | Terceros según naturaleza         | Cuarto corte completado. Particular, empresa, comunidad y organismo público adaptan identidad, contactos, representación e información fiscal. Clientes y proveedores disponen de contactos por responsabilidad y firmantes autorizados; ventas y compras congelan la identidad histórica en sus documentos derivados.                                                                                                           |
-| P1        | Sidebar y arquitectura de módulos | Cuarto corte completado. Las 20 áreas con flujo real conservan accesos autorizados. Favoritos y accesos recientes se guardan por usuario. Ingeniería se conecta con Planificación mediante solicitudes y propuestas revisables de fecha, responsable y horas. Pendiente contrastar disponibilidad antes de generar trabajo operativo. |
+| P1        | Sidebar y arquitectura de módulos | Cuarto corte completado. Las 20 áreas con flujo real conservan accesos autorizados. Ingeniería se conecta con Planificación mediante solicitudes y propuestas revisables, con comprobación orientativa de disponibilidad. Pendiente crear trabajo operativo con revalidación transaccional de agenda. |
 
 La optimización se considera terminada únicamente con mediciones antes/después;
 la traducción y el responsive se validan sobre las rutas realmente autorizadas a
@@ -977,8 +977,8 @@ como respaldo para registros históricos sin plazo.
 
 ## Próximo corte recomendado
 
-Tras la aprobación de propuestas de fecha, responsable y horas, contrastar
-disponibilidad, ausencias y solapes antes de generar una orden operativa revisable.
+Tras la comprobación orientativa de disponibilidad, generar una orden operativa
+revisable con revalidación transaccional de agenda y una clave que evite duplicados.
 En paralelo, comparar en producción tiempos y tamaño
 de las cargas semánticas mediante `Server-Timing` y percentiles p75.
 
@@ -1027,9 +1027,23 @@ intervalo de 0,25 a 24 horas en incrementos de 15 minutos. Las decisiones se
 registran con autor y fecha y se reflejan en el historial del expediente.
 
 La fecha aprobada representa una intención de programación: todavía no bloquea
-agenda ni comprueba disponibilidad. El siguiente incremento contrastará ausencias
-y solapes antes de crear una orden revisable. La interfaz comparte formularios
+agenda. El siguiente corte comprueba ausencias y solapes antes de crear una orden
+revisable. La interfaz comparte formularios
 adaptables y traducción completa entre Ingeniería y Planificación.
+
+## Corte ejecutado — Disponibilidad por franja horaria
+
+Una propuesta aprobada permite comprobar una hora de inicio usando sus horas
+estimadas. Se contrastan disponibilidad del perfil de servicio, capacidad diaria,
+órdenes existentes, ausencias y vigencia laboral cuando existe ficha de empleo.
+La carga incluye los tramos de órdenes que comienzan la jornada anterior.
+Los horarios incompletos y la falta de capacidad configurada bloquean el resultado.
+
+Las ausencias aprobadas bloquean y las pendientes avisan, sin exponer sus motivos.
+La consulta valida permisos, versión y huella de la propuesta, no reserva recursos
+y presenta hora de comprobación y zona horaria. Cambiar la hora limpia el resultado.
+La siguiente entrega deberá repetir la comprobación dentro de la transacción que
+cree la orden; un resultado favorable no constituye una reserva ni autorización.
 
 ## Corte ejecutado — Expediente técnico gobernado de Ingeniería
 

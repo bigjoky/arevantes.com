@@ -1,5 +1,6 @@
 import { Form } from '@inertiajs/react';
 import { FormErrorSummary } from '@/components/forms/form-layout';
+import { TechnicalAvailabilityCheck } from '@/components/technical-availability-check';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -200,6 +201,16 @@ export function TechnicalSchedulePanel({
                         </div>
                     )}
                 </Form>
+            )}
+            {canManage && latest?.status === 'approved' && (
+                <TechnicalAvailabilityCheck
+                    key={`${latest.id}-${latest.fingerprint}-${fingerprint}`}
+                    dossierId={dossierId}
+                    version={version}
+                    fingerprint={fingerprint}
+                    proposalId={latest.id}
+                    proposalFingerprint={latest.fingerprint}
+                />
             )}
         </section>
     );

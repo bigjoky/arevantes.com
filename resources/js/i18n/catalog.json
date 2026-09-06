@@ -1,4 +1,33 @@
 {
+    "Check resource availability": {
+        "en": "Check resource availability",
+        "es": "Comprobar disponibilidad de recursos"
+    },
+    "This check does not reserve time. Availability must be checked again when work is created.": {
+        "en": "This check does not reserve time. Availability must be checked again when work is created.",
+        "es": "Esta comprobación no reserva tiempo. La disponibilidad debe comprobarse de nuevo al crear el trabajo."
+    },
+    "Start time": { "en": "Start time", "es": "Hora de inicio" },
+    "Check availability": {
+        "en": "Check availability",
+        "es": "Comprobar disponibilidad"
+    },
+    "Availability blocked": {
+        "en": "Availability blocked",
+        "es": "Disponibilidad bloqueada"
+    },
+    "Review availability warnings": {
+        "en": "Review availability warnings",
+        "es": "Revisar avisos de disponibilidad"
+    },
+    "No availability conflicts found": {
+        "en": "No availability conflicts found",
+        "es": "No se han encontrado conflictos de disponibilidad"
+    },
+    "Availability could not be checked.": {
+        "en": "Availability could not be checked.",
+        "es": "No se ha podido comprobar la disponibilidad."
+    },
     "Scheduling proposal": {
         "en": "Scheduling proposal",
         "es": "Propuesta de programación"
