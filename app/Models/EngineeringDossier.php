@@ -72,6 +72,11 @@ class EngineeringDossier extends Model
         return $this->hasMany(EngineeringDossierVersion::class)->latest('version');
     }
 
+    public function scheduleProposals(): HasMany
+    {
+        return $this->hasMany(EngineeringScheduleProposal::class)->latest('id');
+    }
+
     public function events(): HasMany
     {
         return $this->hasMany(EngineeringDossierEvent::class)->latest('occurred_at');

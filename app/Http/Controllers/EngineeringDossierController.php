@@ -26,6 +26,7 @@ class EngineeringDossierController extends Controller
                 'versions.creator:id,name',
                 'events.actor:id,name',
                 'planningRequester:id,name', 'planningReviewer:id,name',
+                'scheduleProposals.assignee:id,name', 'scheduleProposals.creator:id,name', 'scheduleProposals.reviewer:id,name',
             ])
             ->latest()
             ->limit(100)
@@ -120,6 +121,24 @@ class EngineeringDossierController extends Controller
         $workflow->planning($engineeringDossier, $data['action'], $data['expected_version'], $data['fingerprint'], $data['note'], $request->user());
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Technical planning request updated.')]);
+    }
+
+    public function schedule(Request $request, EngineeringDossier $engineeringDossier, EngineeringDossierWorkflow $workflow): RedirectResponse
+    {
+        $data = $request->validate([
+            'action' => ['required', Rule::in(['propose', 'approve', 'decline'])],
+            'expected_version' => ['required', 'integer', 'min:1'],
+            'expected_proposal_id' => ['required', 'integer', 'min:0'],
+            'fingerprint' => ['required', 'string', 'size:64'],
+            'proposal_fingerprint' => ['nullable', 'string', 'size:64'],
+            'proposed_on' => ['exclude_unless:action,propose', 'required', 'date_format:Y-m-d', 'after_or_equal:today'],
+            'assignee_id' => ['exclude_unless:action,propose', 'required', 'integer', Rule::exists('users', 'id')->whereIn('role', ['admin', 'commercial', 'technician'])],
+            'estimated_hours' => ['exclude_unless:action,propose', 'required', 'numeric', 'min:0.25', 'max:24', 'multiple_of:0.25'],
+            'note' => ['required', 'string', 'min:10', 'max:1000'],
+        ]);
+        $workflow->schedule($engineeringDossier, $data, $request->user());
+
+        return back()->with('toast', ['type' => 'success', 'message' => __('Scheduling proposal updated.')]);
     }
 
     private function normaliseTargets(Request $request): void

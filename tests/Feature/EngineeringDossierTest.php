@@ -18,6 +18,53 @@ class EngineeringDossierTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_scheduling_proposals_preserve_rejected_versions_and_require_fresh_approval(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $technician = User::factory()->create(['role' => 'technician']);
+        $installation = Installation::create(['service_type' => 'electrical', 'status' => 'survey_booked', 'site_address_line_1' => 'Technical site']);
+        $workflow = app(EngineeringDossierWorkflow::class);
+        $dossier = $workflow->create($this->payload(null, $installation, ['proposed_solution' => 'Technical design.']), $admin);
+        $fingerprint = $dossier->versions()->firstOrFail()->fingerprint;
+        $workflow->transition($dossier, 'submit', 1, null, 'Ready for technical review.', $admin);
+        $workflow->transition($dossier, 'approve', 1, $fingerprint, 'Technical design approved.', $admin);
+        $data = ['action' => 'propose', 'expected_version' => 1, 'fingerprint' => $fingerprint, 'expected_proposal_id' => 0,
+            'proposed_on' => today()->addDays(2)->toDateString(), 'assignee_id' => $technician->id, 'estimated_hours' => 6.5, 'note' => 'Proposed work date and effort for review.'];
+        $this->actingAs($admin)->patch(route('engineering.schedule', $dossier), $data)->assertSessionHasErrors('schedule');
+        $workflow->planning($dossier, 'request', 1, $fingerprint, 'Please plan this project.', $admin);
+        $workflow->planning($dossier, 'accept', 1, $fingerprint, 'Accepted scope for planning.', $admin);
+        $this->patch(route('engineering.schedule', $dossier), [...$data, 'estimated_hours' => 0])->assertSessionHasErrors('estimated_hours');
+        $this->patch(route('engineering.schedule', $dossier), [...$data, 'proposed_on' => today()->subDay()->toDateString()])->assertSessionHasErrors('proposed_on');
+        $this->patch(route('engineering.schedule', $dossier), $data)->assertSessionHasNoErrors();
+        $first = $dossier->scheduleProposals()->firstOrFail();
+        $this->patch(route('engineering.schedule', $dossier), $data)->assertSessionHasErrors('schedule');
+        $review = [...$data, 'action' => 'approve', 'expected_proposal_id' => $first->id, 'proposal_fingerprint' => $first->fingerprint];
+        $this->travel(3)->days();
+        $this->patch(route('engineering.schedule', $dossier), $review)->assertSessionHasErrors('schedule');
+        $this->travelBack();
+        $first->update(['estimated_hours' => 9]);
+        $this->patch(route('engineering.schedule', $dossier), $review)->assertSessionHasErrors('schedule');
+        $first->update(['estimated_hours' => 6.5]);
+        $this->patch(route('engineering.schedule', $dossier), [...$review, 'action' => 'decline'])->assertSessionHasNoErrors();
+        $this->patch(route('engineering.schedule', $dossier), [...$data, 'expected_proposal_id' => $first->id, 'estimated_hours' => 8])->assertSessionHasNoErrors();
+        $latest = $dossier->scheduleProposals()->firstOrFail();
+        $this->assertNotSame($first->id, $latest->id);
+        $this->assertSame('declined', $first->fresh()->status);
+        $this->patch(route('engineering.schedule', $dossier), $review)->assertSessionHasErrors('schedule');
+        $this->patch(route('engineering.schedule', $dossier), [...$review, 'expected_proposal_id' => $latest->id, 'proposal_fingerprint' => $latest->fingerprint])->assertSessionHasNoErrors();
+        $this->assertSame('approved', $latest->fresh()->status);
+        $this->assertSame($admin->id, $latest->fresh()->reviewed_by);
+        $this->patch(route('engineering.schedule', $dossier), [...$data, 'expected_proposal_id' => $latest->id])->assertSessionHasErrors('schedule');
+        $this->assertSame(2, $dossier->scheduleProposals()->count());
+        $this->assertSame(4, $dossier->events()->where('type', 'like', 'schedule_%')->count());
+        $this->assertSame(0, WorkOrder::count());
+        $this->assertSame('survey_booked', $installation->fresh()->status);
+        $this->get(route('planning-scenario-requests.index'))->assertOk()->assertInertia(fn (Assert $page) => $page->has('technicalRequests.0.schedule_proposals', 2));
+        $restrictedProfile = PermissionProfile::create(['name' => 'No scheduling access', 'slug' => 'no-scheduling']);
+        $restricted = User::factory()->create(['role' => 'commercial', 'permission_profile_id' => $restrictedProfile->id]);
+        $this->actingAs($restricted)->patch(route('engineering.schedule', $dossier), $data)->assertForbidden();
+    }
+
     public function test_approved_engineering_can_request_planning_and_receive_an_audited_decision(): void
     {
         $admin = User::factory()->create(['role' => 'admin']);

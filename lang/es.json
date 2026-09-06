@@ -1,4 +1,10 @@
 {
+    "Only accepted technical requests can propose scheduling.": "Solo las solicitudes técnicas aceptadas pueden proponer programación.",
+    "The scheduling proposal changed. Refresh before continuing.": "La propuesta de programación ha cambiado. Actualiza antes de continuar.",
+    "Review the current scheduling proposal before proposing another.": "Revisa la propuesta de programación actual antes de presentar otra.",
+    "The scheduling proposal cannot be reviewed or failed its integrity check.": "La propuesta no admite revisión o ha fallado la comprobación de integridad.",
+    "The proposed date has passed. Decline and submit a new proposal.": "La fecha propuesta ya ha pasado. Rechaza la propuesta y presenta una nueva.",
+    "Scheduling proposal updated.": "Propuesta de programación actualizada.",
     "Planning requires an approved technical dossier linked to a project.": "La planificación requiere un expediente técnico aprobado vinculado a un proyecto.",
     "This technical dossier already has a planning request.": "Este expediente técnico ya tiene una solicitud de planificación.",
     "Only pending technical planning requests can be reviewed.": "Solo se pueden revisar solicitudes técnicas de planificación pendientes.",
