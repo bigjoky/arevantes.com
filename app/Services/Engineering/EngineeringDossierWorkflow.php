@@ -145,6 +145,25 @@ class EngineeringDossierWorkflow
         }
     }
 
+    public function availability(EngineeringDossier $dossier, array $data, User $actor): array
+    {
+        abort_unless($actor->can('manage-operations'), 403);
+        $dossier->refresh();
+        $this->assertVersion($dossier, $data['expected_version']);
+        $this->assertIntegrity($dossier, $data['fingerprint']);
+        $proposal = $dossier->scheduleProposals()->first();
+        if ($dossier->planning_status !== 'accepted' || ! in_array($dossier->status, ['approved', 'handed_over'], true)
+            || ! hash_equals($dossier->planning_fingerprint ?? '', $data['fingerprint'])
+            || ! $dossier->installation()->exists()
+            || ! $proposal || $proposal->id !== (int) $data['expected_proposal_id'] || $proposal->status !== 'approved' || $proposal->dossier_version !== $dossier->current_version
+            || ! hash_equals($proposal->fingerprint, $data['proposal_fingerprint'])
+            || ! hash_equals($proposal->fingerprint, $proposal->contentFingerprint())) {
+            throw ValidationException::withMessages(['availability' => __('Refresh the approved scheduling proposal before checking availability.')]);
+        }
+
+        return app(TechnicalScheduleAvailability::class)->check($proposal, $data['start_time']);
+    }
+
     public function schedule(EngineeringDossier $dossier, array $data, User $actor): void
     {
         abort_unless($actor->can('manage-operations'), 403);

@@ -7,6 +7,7 @@ use App\Models\Installation;
 use App\Models\Opportunity;
 use App\Services\Engineering\EngineeringDossierWorkflow;
 use App\Support\BusinessLineCatalog;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -139,6 +140,19 @@ class EngineeringDossierController extends Controller
         $workflow->schedule($engineeringDossier, $data, $request->user());
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Scheduling proposal updated.')]);
+    }
+
+    public function availability(Request $request, EngineeringDossier $engineeringDossier, EngineeringDossierWorkflow $workflow): JsonResponse
+    {
+        $data = $request->validate([
+            'expected_version' => ['required', 'integer', 'min:1'],
+            'expected_proposal_id' => ['required', 'integer', 'min:1'],
+            'fingerprint' => ['required', 'string', 'size:64'],
+            'proposal_fingerprint' => ['required', 'string', 'size:64'],
+            'start_time' => ['required', 'date_format:H:i'],
+        ]);
+
+        return response()->json($workflow->availability($engineeringDossier, $data, $request->user()))->header('Cache-Control', 'no-store');
     }
 
     private function normaliseTargets(Request $request): void

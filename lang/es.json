@@ -1,4 +1,12 @@
 {
+    "The proposed time has already passed.": "La hora propuesta ya ha pasado.",
+    "The proposed work must fit within one calendar day.": "El trabajo propuesto debe caber en un mismo día.",
+    "Configure field-service capacity before confirming availability.": "Configura la capacidad de servicio antes de confirmar disponibilidad.",
+    "The responsible person has no active employment for this date.": "La persona responsable no tiene una relación laboral activa para esta fecha.",
+    "The responsible person has an approved absence during this period.": "La persona responsable tiene una ausencia aprobada durante este periodo.",
+    "A pending absence request may affect this period.": "Una solicitud de ausencia pendiente puede afectar a este periodo.",
+    "An existing assignment has no end time. Complete its schedule first.": "Una asignación existente no tiene hora de fin. Completa primero su horario.",
+    "Refresh the approved scheduling proposal before checking availability.": "Actualiza la propuesta de programación aprobada antes de comprobar disponibilidad.",
     "Only accepted technical requests can propose scheduling.": "Solo las solicitudes técnicas aceptadas pueden proponer programación.",
     "The scheduling proposal changed. Refresh before continuing.": "La propuesta de programación ha cambiado. Actualiza antes de continuar.",
     "Review the current scheduling proposal before proposing another.": "Revisa la propuesta de programación actual antes de presentar otra.",
