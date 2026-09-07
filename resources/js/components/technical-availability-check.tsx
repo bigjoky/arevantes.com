@@ -1,7 +1,10 @@
+import { Form } from '@inertiajs/react';
 import { useState } from 'react';
+import { FormErrorSummary } from '@/components/forms/form-layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 
 type Availability = {
     status: string;
@@ -76,6 +79,7 @@ export function TechnicalAvailabilityCheck({
             : result?.status === 'warning'
               ? 'Review availability warnings'
               : 'No availability conflicts found';
+    const canCreate = result?.status === 'clear';
 
     return (
         <section className="space-y-3 rounded-md border p-3">
@@ -131,6 +135,65 @@ export function TechnicalAvailabilityCheck({
                     </>
                 )}
             </div>
+            {canCreate && (
+                <Form
+                    action={`/engineering/${dossierId}/work-order`}
+                    method="post"
+                    options={{ preserveScroll: true }}
+                >
+                    {({ errors: creationErrors, processing }) => (
+                        <div className="space-y-3 border-t pt-3">
+                            <h4 className="font-medium">
+                                Create planned work order
+                            </h4>
+                            <p className="text-sm text-muted-foreground">
+                                This creates an assigned order, updates the
+                                project schedule and applies the normal material
+                                reservation and notification rules.
+                            </p>
+                            <FormErrorSummary errors={creationErrors} />
+                            <input
+                                type="hidden"
+                                name="expected_version"
+                                value={version}
+                            />
+                            <input
+                                type="hidden"
+                                name="expected_proposal_id"
+                                value={proposalId}
+                            />
+                            <input
+                                type="hidden"
+                                name="fingerprint"
+                                value={fingerprint}
+                            />
+                            <input
+                                type="hidden"
+                                name="proposal_fingerprint"
+                                value={proposalFingerprint}
+                            />
+                            <input
+                                type="hidden"
+                                name="start_time"
+                                value={time}
+                            />
+                            <Label htmlFor={`execution-note-${proposalId}`}>
+                                Planning note
+                            </Label>
+                            <Textarea
+                                id={`execution-note-${proposalId}`}
+                                name="note"
+                                required
+                                minLength={10}
+                                maxLength={1000}
+                            />
+                            <Button disabled={processing || busy}>
+                                Create planned work order
+                            </Button>
+                        </div>
+                    )}
+                </Form>
+            )}
         </section>
     );
 }

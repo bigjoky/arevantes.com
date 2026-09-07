@@ -1,4 +1,4 @@
-import { Form } from '@inertiajs/react';
+import { Form, Link } from '@inertiajs/react';
 import { FormErrorSummary } from '@/components/forms/form-layout';
 import { TechnicalAvailabilityCheck } from '@/components/technical-availability-check';
 import { Button } from '@/components/ui/button';
@@ -18,6 +18,8 @@ export type ScheduleProposal = {
     reviewer: Actor | null;
     note: string;
     review_note: string | null;
+    work_order_id: number | null;
+    executed_at: string | null;
 };
 
 export function TechnicalSchedulePanel({
@@ -67,6 +69,21 @@ export function TechnicalSchedulePanel({
                     {proposal.review_note && (
                         <p className="break-words whitespace-pre-wrap">
                             {proposal.reviewer?.name} · {proposal.review_note}
+                        </p>
+                    )}
+                    {proposal.work_order_id && (
+                        <p>
+                            {canManage ? (
+                                <Link
+                                    className="underline"
+                                    href={`/work-orders?work_order=${proposal.work_order_id}`}
+                                >
+                                    View work order
+                                </Link>
+                            ) : (
+                                'Work order created.'
+                            )}{' '}
+                            · {proposal.executed_at}
                         </p>
                     )}
                 </div>
@@ -202,16 +219,18 @@ export function TechnicalSchedulePanel({
                     )}
                 </Form>
             )}
-            {canManage && latest?.status === 'approved' && (
-                <TechnicalAvailabilityCheck
-                    key={`${latest.id}-${latest.fingerprint}-${fingerprint}`}
-                    dossierId={dossierId}
-                    version={version}
-                    fingerprint={fingerprint}
-                    proposalId={latest.id}
-                    proposalFingerprint={latest.fingerprint}
-                />
-            )}
+            {canManage &&
+                latest?.status === 'approved' &&
+                !latest.work_order_id && (
+                    <TechnicalAvailabilityCheck
+                        key={`${latest.id}-${latest.fingerprint}-${fingerprint}`}
+                        dossierId={dossierId}
+                        version={version}
+                        fingerprint={fingerprint}
+                        proposalId={latest.id}
+                        proposalFingerprint={latest.fingerprint}
+                    />
+                )}
         </section>
     );
 }

@@ -105,7 +105,7 @@ prioridad sobre añadir pantallas que amplíen deuda de interfaz.
 | P0        | Adaptación móvil integral         | En curso continuo. Cada ficha, tabla, diálogo y acción principal debe funcionar desde 320 px sin desbordamiento, pérdida de información ni acciones inaccesibles.                                                                                                                                                                                                                                                                |
 | P1        | Sistema único de formularios      | En curso avanzado. Cliente, instalación, propuesta y alta de gasto comparten secciones, jerarquía visual, resumen accesible de errores, estado de guardado y barra de acciones adaptable. El patrón se extenderá por cortes a los formularios operativos restantes.                                                                                                                                                              |
 | P1        | Terceros según naturaleza         | Cuarto corte completado. Particular, empresa, comunidad y organismo público adaptan identidad, contactos, representación e información fiscal. Clientes y proveedores disponen de contactos por responsabilidad y firmantes autorizados; ventas y compras congelan la identidad histórica en sus documentos derivados.                                                                                                           |
-| P1        | Sidebar y arquitectura de módulos | Cuarto corte completado. Las 20 áreas con flujo real conservan accesos autorizados. Ingeniería se conecta con Planificación mediante solicitudes y propuestas revisables, con comprobación orientativa de disponibilidad. Pendiente crear trabajo operativo con revalidación transaccional de agenda. |
+| P1        | Sidebar y arquitectura de módulos | Cuarto corte completado. Ingeniería y Planificación completan el recorrido hasta la orden operativa, con revisión, disponibilidad e idempotencia. Pendiente extender el historial técnico a reprogramaciones y cancelaciones de la orden. |
 
 La optimización se considera terminada únicamente con mediciones antes/después;
 la traducción y el responsive se validan sobre las rutas realmente autorizadas a
@@ -977,8 +977,9 @@ como respaldo para registros históricos sin plazo.
 
 ## Próximo corte recomendado
 
-Tras la comprobación orientativa de disponibilidad, generar una orden operativa
-revisable con revalidación transaccional de agenda y una clave que evite duplicados.
+Tras la creación de órdenes desde Ingeniería, extender la trazabilidad a sus
+reprogramaciones y cancelaciones y definir cómo proponer una sustitución
+explícita cuando una orden se cancela.
 En paralelo, comparar en producción tiempos y tamaño
 de las cargas semánticas mediante `Server-Timing` y percentiles p75.
 
@@ -1042,8 +1043,27 @@ Los horarios incompletos y la falta de capacidad configurada bloquean el resulta
 Las ausencias aprobadas bloquean y las pendientes avisan, sin exponer sus motivos.
 La consulta valida permisos, versión y huella de la propuesta, no reserva recursos
 y presenta hora de comprobación y zona horaria. Cambiar la hora limpia el resultado.
-La siguiente entrega deberá repetir la comprobación dentro de la transacción que
-cree la orden; un resultado favorable no constituye una reserva ni autorización.
+La creación de la orden repite la comprobación dentro de su transacción;
+un resultado favorable por sí solo no constituye una reserva ni autorización.
+
+## Corte ejecutado — Orden operativa desde Ingeniería
+
+Una propuesta aprobada con disponibilidad favorable permite crear explícitamente
+una orden planificada. La transacción bloquea propuesta, responsable y referencias
+laborales, revalida agenda y ausencias y aplica habilidades, zona y controles
+financieros mediante el circuito nativo de órdenes. Las ausencias pendientes
+deben resolverse antes de crear trabajo, aunque la consulta previa solo avise.
+
+La orden conserva el alcance técnico, checklist y condiciones de su plantilla;
+actualiza la planificación del proyecto, genera su actividad y aplica las reservas
+y notificaciones habituales. La pantalla informa de estos efectos antes de crearla.
+La propuesta guarda orden, actor, fecha y hora inicial, y el expediente registra
+el evento. Los reintentos devuelven la misma orden y una hora distinta se rechaza.
+Una cancelación posterior no permite recrearla implícitamente.
+
+Se completa así el recorrido de aprobación técnica, solicitud, propuesta,
+disponibilidad y creación operativa. El siguiente incremento enlazará también
+reprogramaciones y cancelaciones con el expediente de origen.
 
 ## Corte ejecutado — Expediente técnico gobernado de Ingeniería
 
