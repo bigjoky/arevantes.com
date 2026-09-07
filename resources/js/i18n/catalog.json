@@ -1,4 +1,20 @@
 {
+    "Create planned work order": {
+        "en": "Create planned work order",
+        "es": "Crear orden planificada"
+    },
+    "This creates an assigned order, updates the project schedule and applies the normal material reservation and notification rules.": {
+        "en": "This creates an assigned order, updates the project schedule and applies the normal material reservation and notification rules.",
+        "es": "Se creará una orden asignada, se actualizará la planificación del proyecto y se aplicarán las reglas habituales de reserva de materiales y notificaciones."
+    },
+    "View work order": {
+        "en": "View work order",
+        "es": "Ver orden de trabajo"
+    },
+    "Work order created.": {
+        "en": "Work order created.",
+        "es": "Orden de trabajo creada."
+    },
     "Check resource availability": {
         "en": "Check resource availability",
         "es": "Comprobar disponibilidad de recursos"

@@ -155,6 +155,21 @@ class EngineeringDossierController extends Controller
         return response()->json($workflow->availability($engineeringDossier, $data, $request->user()))->header('Cache-Control', 'no-store');
     }
 
+    public function createWorkOrder(Request $request, EngineeringDossier $engineeringDossier, EngineeringDossierWorkflow $workflow): RedirectResponse
+    {
+        $data = $request->validate([
+            'expected_version' => ['required', 'integer', 'min:1'],
+            'expected_proposal_id' => ['required', 'integer', 'min:1'],
+            'fingerprint' => ['required', 'string', 'size:64'],
+            'proposal_fingerprint' => ['required', 'string', 'size:64'],
+            'start_time' => ['required', 'date_format:H:i'],
+            'note' => ['required', 'string', 'min:10', 'max:1000'],
+        ]);
+        $order = $workflow->createWorkOrder($engineeringDossier, $data, $request->user());
+
+        return to_route('work-orders.index', ['work_order' => $order->id])->with('toast', ['type' => 'success', 'message' => __('Work order created.')]);
+    }
+
     private function normaliseTargets(Request $request): void
     {
         $request->merge([

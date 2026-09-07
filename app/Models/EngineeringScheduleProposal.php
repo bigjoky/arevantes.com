@@ -11,7 +11,7 @@ class EngineeringScheduleProposal extends Model
 
     protected function casts(): array
     {
-        return ['dossier_version' => 'integer', 'estimated_hours' => 'decimal:2', 'proposed_on' => 'date:Y-m-d', 'reviewed_at' => 'datetime'];
+        return ['dossier_version' => 'integer', 'estimated_hours' => 'decimal:2', 'proposed_on' => 'date:Y-m-d', 'reviewed_at' => 'datetime', 'executed_at' => 'datetime'];
     }
 
     public function assignee(): BelongsTo

@@ -4,8 +4,17 @@ namespace App\Services\Engineering;
 
 use App\Models\EngineeringDossier;
 use App\Models\EngineeringDossierVersion;
+use App\Models\FieldServiceProfile;
+use App\Models\HrEmploymentProfile;
+use App\Models\HrLeaveRequest;
+use App\Models\Installation;
 use App\Models\Opportunity;
+use App\Models\Person;
 use App\Models\User;
+use App\Models\WorkOrder;
+use App\Services\Work\InstallationWorkOrderSynchronizer;
+use App\Services\Work\TechnicianSchedule;
+use App\Services\Work\WorkOrderFactory;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -204,6 +213,66 @@ class EngineeringDossierWorkflow
             }
             $this->recordEvent($locked, 'schedule_'.$data['action'], $locked->status, $locked->status, '#'.$proposal->id.' · '.$data['note'], $actor);
         });
+    }
+
+    public function createWorkOrder(EngineeringDossier $dossier, array $data, User $actor): WorkOrder
+    {
+        abort_unless($actor->can('manage-operations'), 403);
+
+        return DB::transaction(function () use ($dossier, $data, $actor) {
+            $locked = EngineeringDossier::query()->lockForUpdate()->findOrFail($dossier->id);
+            $this->assertVersion($locked, $data['expected_version']);
+            $this->assertIntegrity($locked, $data['fingerprint']);
+            $proposal = $locked->scheduleProposals()->lockForUpdate()->first();
+            if (! $proposal || $proposal->id !== (int) $data['expected_proposal_id'] || $proposal->status !== 'approved'
+                || ! hash_equals($proposal->fingerprint, $data['proposal_fingerprint'])
+                || ! hash_equals($proposal->fingerprint, $proposal->contentFingerprint())) {
+                throw ValidationException::withMessages(['execution' => __('Refresh the approved scheduling proposal before checking availability.')]);
+            }
+            if ($proposal->work_order_id) {
+                if ($proposal->execution_start_time !== $data['start_time']) {
+                    throw ValidationException::withMessages(['execution' => __('This proposal already created a work order with a different start time.')]);
+                }
+
+                return WorkOrder::findOrFail($proposal->work_order_id);
+            }
+            $assignee = User::findOrFail($proposal->assignee_id);
+            if ($assignee->person_id) {
+                Person::whereKey($assignee->person_id)->lockForUpdate()->firstOrFail();
+                HrLeaveRequest::where('person_id', $assignee->person_id)->orderBy('id')->lockForUpdate()->get(['id']);
+                HrEmploymentProfile::where('person_id', $assignee->person_id)->lockForUpdate()->get(['id']);
+            }
+            $schedule = app(TechnicianSchedule::class);
+            $schedule->lockTechnicians([$proposal->assignee_id]);
+            if (User::findOrFail($proposal->assignee_id)->person_id !== $assignee->person_id) {
+                throw ValidationException::withMessages(['execution' => __('Refresh the approved scheduling proposal before checking availability.')]);
+            }
+            FieldServiceProfile::where('user_id', $proposal->assignee_id)->lockForUpdate()->get(['id']);
+            $installation = Installation::whereKey($locked->installation_id)->lockForUpdate()->firstOrFail();
+            if (in_array($installation->status, ['cancelled', 'completed'], true)) {
+                throw ValidationException::withMessages(['execution' => __('Reopen the project before creating a new execution order.')]);
+            }
+            $availability = $this->availability($locked, $data, $actor);
+            if ($availability['status'] !== 'clear') {
+                throw ValidationException::withMessages(['execution' => [...$availability['issues'], ...$availability['warnings']]]);
+            }
+            $factory = app(WorkOrderFactory::class);
+            $orderData = $factory->prepare([
+                'installation_id' => $installation->id, 'assigned_user_id' => $proposal->assignee_id,
+                'kind' => 'installation', 'title' => $locked->code.' · '.$locked->title,
+                'scheduled_start' => $availability['start'], 'scheduled_end' => $availability['end'],
+                'estimated_duration_minutes' => (int) round((float) $proposal->estimated_hours * 60),
+                'instructions' => $locked->scope."\n\n".$locked->proposed_solution."\n\n".$locked->risks."\n\n".$locked->standards,
+                'service_zone' => $installation->site_postal_code,
+            ]);
+            $schedule->assertAvailable($proposal->assignee_id, $orderData['scheduled_start'], $orderData['scheduled_end'], null, $orderData['required_skills'] ?? [], $orderData['service_zone']);
+            $order = $factory->create([...$orderData, 'frozen_technical_contract' => true], $actor->id);
+            app(InstallationWorkOrderSynchronizer::class)->sync($order);
+            $proposal->update(['work_order_id' => $order->id, 'execution_start_time' => $data['start_time'], 'executed_by' => $actor->id, 'executed_at' => now()]);
+            $this->recordEvent($locked, 'work_order_created', $locked->status, $locked->status, $order->number.' · '.$data['note'], $actor);
+
+            return $order;
+        }, 3);
     }
 
     private function assertIntegrity(EngineeringDossier $dossier, ?string $expectedFingerprint): void

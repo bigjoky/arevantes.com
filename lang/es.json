@@ -1,4 +1,6 @@
 {
+    "This proposal already created a work order with a different start time.": "Esta propuesta ya creó una orden con una hora de inicio distinta.",
+    "Reopen the project before creating a new execution order.": "Reabre el proyecto antes de crear una nueva orden de ejecución.",
     "The proposed time has already passed.": "La hora propuesta ya ha pasado.",
     "The proposed work must fit within one calendar day.": "El trabajo propuesto debe caber en un mismo día.",
     "Configure field-service capacity before confirming availability.": "Configura la capacidad de servicio antes de confirmar disponibilidad.",
