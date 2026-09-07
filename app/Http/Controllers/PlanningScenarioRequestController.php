@@ -39,11 +39,12 @@ class PlanningScenarioRequestController extends Controller
         return Inertia::render('planning-scenario-requests/index', [
             'technicalRequests' => $request->user()->can('manage-operations')
                 ? EngineeringDossier::query()->whereNotNull('planning_status')
-                    ->with(['planningRequester:id,name', 'planningReviewer:id,name', 'installation:id,project_reference,site_name'])
+                    ->with(['planningRequester:id,name', 'planningReviewer:id,name', 'installation:id,project_reference,site_name', 'scheduleProposals.assignee:id,name', 'scheduleProposals.creator:id,name', 'scheduleProposals.reviewer:id,name'])
                     ->orderByRaw("case planning_status when 'pending' then 0 else 1 end")->latest('planning_requested_at')
                     ->get(['id', 'code', 'title', 'installation_id', 'current_version', 'scope', 'proposed_solution', 'risks', 'standards', 'planning_status', 'planning_fingerprint', 'planning_note', 'planning_requested_by', 'planning_requested_at', 'planning_review_note', 'planning_reviewed_by', 'planning_reviewed_at'])
                 : [],
             'areas' => $areas,
+            'technicalAssignees' => $request->user()->can('manage-operations') ? User::query()->whereIn('role', ['admin', 'commercial', 'technician'])->orderBy('name')->get(['id', 'name']) : [],
             'requests' => $requests->map(fn (PlanningScenarioRequest $scenarioRequest): array => [
                 ...$scenarioRequest->toArray(),
                 'outcome_monitoring' => $monitoring[$scenarioRequest->id],

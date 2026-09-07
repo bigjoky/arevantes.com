@@ -1,4 +1,78 @@
 {
+    "Create planned work order": {
+        "en": "Create planned work order",
+        "es": "Crear orden planificada"
+    },
+    "This creates an assigned order, updates the project schedule and applies the normal material reservation and notification rules.": {
+        "en": "This creates an assigned order, updates the project schedule and applies the normal material reservation and notification rules.",
+        "es": "Se creará una orden asignada, se actualizará la planificación del proyecto y se aplicarán las reglas habituales de reserva de materiales y notificaciones."
+    },
+    "View work order": {
+        "en": "View work order",
+        "es": "Ver orden de trabajo"
+    },
+    "Work order created.": {
+        "en": "Work order created.",
+        "es": "Orden de trabajo creada."
+    },
+    "Check resource availability": {
+        "en": "Check resource availability",
+        "es": "Comprobar disponibilidad de recursos"
+    },
+    "This check does not reserve time. Availability must be checked again when work is created.": {
+        "en": "This check does not reserve time. Availability must be checked again when work is created.",
+        "es": "Esta comprobación no reserva tiempo. La disponibilidad debe comprobarse de nuevo al crear el trabajo."
+    },
+    "Start time": { "en": "Start time", "es": "Hora de inicio" },
+    "Check availability": {
+        "en": "Check availability",
+        "es": "Comprobar disponibilidad"
+    },
+    "Availability blocked": {
+        "en": "Availability blocked",
+        "es": "Disponibilidad bloqueada"
+    },
+    "Review availability warnings": {
+        "en": "Review availability warnings",
+        "es": "Revisar avisos de disponibilidad"
+    },
+    "No availability conflicts found": {
+        "en": "No availability conflicts found",
+        "es": "No se han encontrado conflictos de disponibilidad"
+    },
+    "Availability could not be checked.": {
+        "en": "Availability could not be checked.",
+        "es": "No se ha podido comprobar la disponibilidad."
+    },
+    "Scheduling proposal": {
+        "en": "Scheduling proposal",
+        "es": "Propuesta de programación"
+    },
+    "Approval records the proposed date and effort. Resource availability is not reserved yet.": {
+        "en": "Approval records the proposed date and effort. Resource availability is not reserved yet.",
+        "es": "La aprobación registra la fecha y el esfuerzo propuestos. La disponibilidad de recursos todavía no está reservada."
+    },
+    "Pending review": { "en": "Pending review", "es": "Pendiente de revisión" },
+    "Declined": { "en": "Declined", "es": "Rechazada" },
+    "Proposed date": { "en": "Proposed date", "es": "Fecha propuesta" },
+    "Responsible person": { "en": "Responsible person", "es": "Responsable" },
+    "Select a person": {
+        "en": "Select a person",
+        "es": "Selecciona una persona"
+    },
+    "Estimated hours": { "en": "Estimated hours", "es": "Horas estimadas" },
+    "Submit scheduling proposal": {
+        "en": "Submit scheduling proposal",
+        "es": "Enviar propuesta de programación"
+    },
+    "Approve scheduling proposal": {
+        "en": "Approve scheduling proposal",
+        "es": "Aprobar propuesta de programación"
+    },
+    "Decline scheduling proposal": {
+        "en": "Decline scheduling proposal",
+        "es": "Rechazar propuesta de programación"
+    },
     "Applicable standards": {
         "en": "Applicable standards",
         "es": "Normativa aplicable"
