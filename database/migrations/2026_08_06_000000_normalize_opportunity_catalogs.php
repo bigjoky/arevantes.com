@@ -9,12 +9,29 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('opportunities', function (Blueprint $table) {
-            $table->string('source_detail')->nullable()->after('source');
-            $table->text('lost_reason_detail')->nullable()->after('lost_reason');
-            $table->index('source');
-            $table->index('lost_reason');
-        });
+        if (! Schema::hasColumn('opportunities', 'source_detail')) {
+            Schema::table('opportunities', function (Blueprint $table): void {
+                $table->string('source_detail')->nullable()->after('source');
+            });
+        }
+
+        if (! Schema::hasColumn('opportunities', 'lost_reason_detail')) {
+            Schema::table('opportunities', function (Blueprint $table): void {
+                $table->text('lost_reason_detail')->nullable()->after('lost_reason');
+            });
+        }
+
+        if (! Schema::hasIndex('opportunities', ['source'])) {
+            Schema::table('opportunities', function (Blueprint $table): void {
+                $table->index('source');
+            });
+        }
+
+        if (! Schema::hasIndex('opportunities', ['lost_reason'])) {
+            Schema::table('opportunities', function (Blueprint $table): void {
+                $table->index('lost_reason');
+            });
+        }
 
         $sourceAliases = [
             'website' => 'website',
