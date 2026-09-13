@@ -28,9 +28,15 @@ return new class extends Migration
         }
 
         if (! Schema::hasIndex('opportunities', ['lost_reason'])) {
-            Schema::table('opportunities', function (Blueprint $table): void {
-                $table->index('lost_reason');
-            });
+            if (DB::connection()->getDriverName() === 'mysql') {
+                DB::statement(
+                    'CREATE INDEX opportunities_lost_reason_index ON opportunities (lost_reason(191))'
+                );
+            } else {
+                Schema::table('opportunities', function (Blueprint $table): void {
+                    $table->index('lost_reason');
+                });
+            }
         }
 
         $sourceAliases = [
