@@ -7,18 +7,31 @@ use Illuminate\Support\Facades\Schema;
 
 class PermissionResolver
 {
+    private ?bool $permissionsTableExists = null;
+
     public function allows(User $user, string $permission): bool
     {
-        if (! Schema::hasTable('permissions') || ! $user->permission_profile_id) {
+        if (! $this->permissionsTableExists() || ! $user->permission_profile_id) {
             return $this->legacyAllows($user, $permission);
         }
 
-        $override = $user->permissionOverrides()->where('key', $permission)->first()?->pivot?->allowed;
+        $user->loadMissing(['permissionOverrides', 'permissionProfile.permissions']);
+
+        $override = $user->permissionOverrides
+            ->firstWhere('key', $permission)
+            ?->pivot
+            ?->allowed;
+
         if ($override !== null) {
             return (bool) $override;
         }
 
-        return $user->permissionProfile?->permissions()->where('key', $permission)->exists() ?? false;
+        return $user->permissionProfile?->permissions->contains('key', $permission) ?? false;
+    }
+
+    private function permissionsTableExists(): bool
+    {
+        return $this->permissionsTableExists ??= Schema::hasTable('permissions');
     }
 
     private function legacyAllows(User $user, string $permission): bool
