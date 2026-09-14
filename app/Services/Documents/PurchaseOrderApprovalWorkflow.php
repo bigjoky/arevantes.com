@@ -15,7 +15,11 @@ class PurchaseOrderApprovalWorkflow
     /** @return Collection<int, PurchaseApprovalRule|null> */
     public function requirements(PurchaseDocument $order): Collection
     {
-        $productTypes = $order->lines()->join('products', 'products.id', '=', 'purchase_document_lines.product_id')->distinct()->pluck('products.type');
+        $productTypes = $order->lines()
+            ->reorder()
+            ->join('products', 'products.id', '=', 'purchase_document_lines.product_id')
+            ->distinct()
+            ->pluck('products.type');
         $rules = PurchaseApprovalRule::query()
             ->active()
             ->where('min_amount', '<=', $order->amount)
