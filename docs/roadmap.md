@@ -1,5 +1,23 @@
 # Roadmap unificado de Arevantes
 
+## Preparación de publicación acumulada — 19/09/2026
+
+Integrados los cambios locales de navegación, favoritos, separación de secciones,
+libros de IVA, protección de emisión/edición/pagos e identidad fiscal histórica.
+La rama de publicación incorpora también las correcciones de main hasta ae096d9,
+incluida PUR-500 (PR #115): eliminación de la ordenación heredada en DISTINCT.
+La nota de diagnóstico anterior se conserva como historial, no como estado actual.
+
+Producción comprobada: PostgreSQL, main, Push to Deploy activo. Las dos migraciones
+nuevas son aditivas: issuer_snapshot nullable y permisos de emisión/rectificación
+copiados de los accesos anteriores. No se modifican facturas históricas ni se
+introducen cambios de credenciales. Archivos privados de conexión quedan excluidos.
+
+ARCH-01 y ENG-ENERGY se publican como planificación; no como funciones terminadas.
+FIN-01 conserva pendientes el ensayo de concurrencia con conexiones independientes
+y la idempotencia de pagos parciales. La publicación solo se dará por completada
+tras CI, despliegue y comprobaciones del entorno de producción.
+
 ## Arquitectura maquetada y diagnóstico de Compras — 19/09/2026
 
 ### ARCH-01 — implementar la nueva arquitectura maquetada
