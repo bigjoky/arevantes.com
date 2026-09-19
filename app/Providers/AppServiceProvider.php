@@ -108,6 +108,7 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->bind(PurchaseMailboxClient::class, NativeImapPurchaseMailboxClient::class);
+        $this->app->singleton(PermissionResolver::class);
     }
 
     /**

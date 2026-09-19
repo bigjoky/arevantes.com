@@ -10,6 +10,8 @@ use App\Models\User;
 use App\Support\WorkspaceShortcuts;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
@@ -72,6 +74,36 @@ class WorkspaceNavigationAuthorizationTest extends TestCase
                         && $items['Projects']['code'] === 'PRJ'
                         && collect($items['Projects']['children'])->pluck('title')->all() === ['Installations'];
                 }));
+    }
+
+    public function test_repeated_permission_checks_eager_load_the_profile_once(): void
+    {
+        $user = $this->userWithPermissions(['view-installations']);
+        $queries = 0;
+        DB::listen(function () use (&$queries): void {
+            $queries++;
+        });
+
+        foreach (['view-installations', 'manage-customers', 'manage-quotes', 'view-installations'] as $ability) {
+            Gate::forUser($user)->allows($ability);
+        }
+
+        $this->assertLessThanOrEqual(4, $queries);
+    }
+
+    public function test_public_homepage_does_not_build_workspace_navigation_for_an_authenticated_user(): void
+    {
+        $user = $this->userWithPermissions(['view-installations']);
+
+        $this->actingAs($user)
+            ->get(route('home'))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('auth.user.id', $user->id)
+                ->where('auth.abilities', [])
+                ->where('auth.navigation', [])
+                ->where('auth.shortcuts', ['favorites' => [], 'recent' => []])
+                ->where('auth.notifications', []));
     }
 
     public function test_navigation_separates_people_sales_projects_and_inventory_by_business_area(): void

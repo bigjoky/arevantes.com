@@ -38,6 +38,15 @@ class HandleInertiaRequests extends Middleware
      */
     public function share(Request $request): array
     {
+        $user = $request->user();
+        $sharesWorkspace = $user !== null && ! $request->routeIs(
+            'home',
+            'projects.*',
+            'project-images.show',
+            'services.show',
+            'legal.*',
+        );
+
         return [
             ...parent::share($request),
             'name' => config('app.name'),
@@ -51,11 +60,11 @@ class HandleInertiaRequests extends Middleware
                 'webVitalsSampleRate' => config('performance.web_vitals_sample_rate'),
             ],
             'auth' => [
-                'user' => $request->user(),
-                'shortcuts' => fn () => $request->user()
-                    ? app(WorkspaceShortcuts::class)->for($request->user())
+                'user' => $user,
+                'shortcuts' => fn () => $sharesWorkspace
+                    ? app(WorkspaceShortcuts::class)->for($user)
                     : ['favorites' => [], 'recent' => []],
-                'abilities' => fn () => $request->user() ? [
+                'abilities' => fn () => $sharesWorkspace ? [
                     'manageAdmin' => Gate::allows('manage-admin'),
                     'manageAccess' => Gate::allows('manage-access'),
                     'exportAudit' => Gate::allows('export-audit'),
@@ -84,14 +93,14 @@ class HandleInertiaRequests extends Middleware
                     'managePurchasePayments' => Gate::allows('manage-purchase-payments'),
                     'managePurchaseSettings' => Gate::allows('manage-staff'),
                 ] : [],
-                'navigation' => fn () => $request->user()
-                    ? app(WorkspaceNavigation::class)->for($request->user())
+                'navigation' => fn () => $sharesWorkspace
+                    ? app(WorkspaceNavigation::class)->for($user)
                     : [],
-                'notifications' => fn () => $request->user()?->unreadNotifications()->latest()->limit(5)->get()->map(fn ($notification) => [
+                'notifications' => fn () => $sharesWorkspace ? $user->unreadNotifications()->latest()->limit(5)->get()->map(fn ($notification) => [
                     'id' => $notification->id,
                     'message' => $notification->data['message'] ?? __('New notification'),
                     'url' => $notification->data['url'] ?? route('dashboard'),
-                ]) ?? [],
+                ]) : [],
             ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
         ];
