@@ -3,6 +3,7 @@
 namespace App\Services\Documents;
 
 use App\Models\CompanyProfile;
+use App\Models\SalesDocument;
 use Dompdf\Dompdf;
 use Dompdf\Options;
 use Illuminate\Support\Facades\Storage;
@@ -19,7 +20,9 @@ class DocumentPdf
         $options->set('isRemoteEnabled', false);
         $pdf = new Dompdf($options);
         $profile = CompanyProfile::first();
-        $company = $profile?->toArray() ?? config('company');
+        $company = $document instanceof SalesDocument
+            ? $document->issuerIdentity()
+            : ($profile?->toArray() ?? config('company'));
         $company['logo_data'] = null;
         $company['logo_is_fallback'] = false;
         if ($profile?->logo_path && Storage::disk(config('filesystems.private'))->exists($profile->logo_path)) {

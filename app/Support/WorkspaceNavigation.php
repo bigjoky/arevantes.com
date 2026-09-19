@@ -48,7 +48,11 @@ class WorkspaceNavigation
             ]),
             $this->section('INV', 'Inventory', 'boxes', [
                 $this->when($user, 'manage-catalog', fn () => $this->item('Products & services', route('catalog.index', absolute: false))),
-                $this->when($user, 'manage-catalog', fn () => $this->item('Inventory', route('inventory.index', absolute: false))),
+                $this->when($user, 'manage-catalog', fn () => $this->item('Stock', route('inventory.index', absolute: false))),
+                $this->when($user, 'manage-catalog', fn () => $this->item('Reservations', route('inventory.reservations.index', absolute: false))),
+                $this->when($user, 'manage-catalog', fn () => $this->item('Movements', route('inventory.movements.index', absolute: false))),
+                $this->when($user, 'manage-catalog', fn () => $this->item('Warehouses', route('inventory.warehouses.index', absolute: false))),
+                $this->when($user, 'manage-catalog', fn () => $this->item('Configuration', route('catalog.settings', absolute: false))),
                 $this->when($user, 'view-purchases', fn () => $this->item('Serial traceability', route('inventory.serials.index', absolute: false))),
                 $this->when($user, 'manage-catalog', fn () => $this->item('Stock counts', route('stock-counts.index', absolute: false))),
             ]),
@@ -68,6 +72,8 @@ class WorkspaceNavigation
                 $this->when($user, 'view-finance', fn () => $this->item('Chart of accounts', route('accounting.accounts.index', absolute: false))),
                 $this->when($user, 'view-finance', fn () => $this->item('Entry templates', route('accounting.templates.index', absolute: false))),
                 $this->when($user, 'view-finance', fn () => $this->item('VAT', route('tax.index', absolute: false))),
+                $this->when($user, 'view-finance', fn () => $this->item('Issued invoice register', route('tax.issued', absolute: false))),
+                $this->when($user, 'view-finance', fn () => $this->item('Received invoice register', route('tax.received', absolute: false))),
                 $this->when($user, 'view-finance', fn () => $this->item('Corporate tax', route('corporate-tax.index', absolute: false))),
             ]),
             $this->section('HRM', 'Human resources', 'user-cog', [

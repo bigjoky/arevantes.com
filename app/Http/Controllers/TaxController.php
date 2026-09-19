@@ -23,7 +23,16 @@ class TaxController extends Controller
     {
         [$year, $quarter] = $this->period($request);
 
-        return Inertia::render('tax/index', [...$report->make($year, $quarter), 'taxReturn' => $quarter ? TaxReturn::with(['journalEntry:id,number', 'payments:id,tax_return_id,paid_on,amount,method,reference'])->where(['tax_type' => 'vat', 'year' => $year, 'quarter' => $quarter])->first() : null]);
+        return Inertia::render('tax/index', [
+            ...$report->make($year, $quarter),
+            'initialSection' => match ($request->route()->getName()) {
+                'tax.issued' => 'issued',
+                'tax.received' => 'received',
+                default => 'summary',
+            },
+            'canManageTax' => $request->user()->can('manage-tax'),
+            'taxReturn' => $quarter ? TaxReturn::with(['journalEntry:id,number', 'payments:id,tax_return_id,paid_on,amount,method,reference'])->where(['tax_type' => 'vat', 'year' => $year, 'quarter' => $quarter])->first() : null,
+        ]);
     }
 
     public function prepare(Request $request, VatSettlement $settlement): RedirectResponse
@@ -87,6 +96,13 @@ class TaxController extends Controller
         $data = $request->validate(['paid_on' => ['required', 'date'], 'amount' => ['required', 'numeric', 'gt:0', 'max:'.$outstanding], 'method' => ['required', Rule::in(['bank_transfer', 'direct_debit', 'cash'])], 'reference' => ['nullable', 'string', 'max:255'], 'notes' => ['nullable', 'string', 'max:1000']]);
 
         DB::transaction(function () use ($request, $taxReturn, $poster, $data) {
+            // Route binding may precede another payment; revalidate under the row lock.
+            $taxReturn = TaxReturn::query()->lockForUpdate()->findOrFail($taxReturn->id);
+            $cashMovement = (float) $taxReturn->result > 0 || ((float) $taxReturn->result < 0 && $taxReturn->result_option === 'refund');
+            abort_unless($taxReturn->status === 'filed' && $cashMovement, 422);
+            $outstanding = round(abs((float) $taxReturn->result) - (float) $taxReturn->paid_amount, 2);
+            $request->validate(['amount' => ['required', 'numeric', 'gt:0', 'max:'.$outstanding]]);
+
             $payment = TaxReturnPayment::create([...$data, 'tax_return_id' => $taxReturn->id, 'created_by' => $request->user()->id]);
             $bank = $data['method'] === 'cash' ? '570' : '572';
             $payable = (float) $taxReturn->result > 0;

@@ -1,14 +1,6 @@
 import { Form, Head, Link } from '@inertiajs/react';
-import {
-    ArrowRightLeft,
-    BookmarkCheck,
-    Boxes,
-    Plus,
-    Trash2,
-    Warehouse as WarehouseIcon,
-} from 'lucide-react';
+import { Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
-import { PageTabs } from '@/components/page-shell';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -120,7 +112,9 @@ export default function InventoryIndex({
     reservations,
     installations,
     planningRequestId,
+    initialSection,
 }: {
+    initialSection: Tab;
     warehouses: Warehouse[];
     products: Product[];
     positions: StockPosition[];
@@ -131,17 +125,23 @@ export default function InventoryIndex({
     planningRequestId: number | null;
 }) {
     const { locale } = useLocale();
-    const [tab, setTab] = useState<Tab>(
-        planningRequestId ? 'reservations' : 'stock',
-    );
+    const tab = initialSection;
+    const title = {
+        stock: 'Stock',
+        reservations: 'Reservations',
+        movements: 'Movements',
+        warehouses: 'Warehouses',
+    }[tab];
 
     return (
         <>
-            <Head title="Inventory" />
+            <Head title={translate(title, locale)} />
             <div className="flex flex-1 flex-col gap-6 p-4 md:p-6">
                 <header className="flex flex-wrap items-center justify-between gap-3">
                     <div>
-                        <h1 className="text-xl font-semibold">Inventory</h1>
+                        <h1 className="text-xl font-semibold">
+                            {translate(title, locale)}
+                        </h1>
                         <p className="text-sm text-muted-foreground">
                             Warehouse stock, serial numbers and immutable
                             movements.
@@ -172,42 +172,12 @@ export default function InventoryIndex({
                             #{planningRequestId}
                         </span>
                         <Button variant="ghost" size="sm" asChild>
-                            <Link href="/inventory">
+                            <Link href="/inventory/reservations">
                                 {translate('Clear planning filter', locale)}
                             </Link>
                         </Button>
                     </div>
                 )}
-                <PageTabs aria-label="Inventory views">
-                    <TabButton
-                        active={tab === 'reservations'}
-                        onClick={() => setTab('reservations')}
-                        icon={<BookmarkCheck />}
-                    >
-                        Reservations
-                    </TabButton>
-                    <TabButton
-                        active={tab === 'stock'}
-                        onClick={() => setTab('stock')}
-                        icon={<Boxes />}
-                    >
-                        Stock
-                    </TabButton>
-                    <TabButton
-                        active={tab === 'movements'}
-                        onClick={() => setTab('movements')}
-                        icon={<ArrowRightLeft />}
-                    >
-                        Movements
-                    </TabButton>
-                    <TabButton
-                        active={tab === 'warehouses'}
-                        onClick={() => setTab('warehouses')}
-                        icon={<WarehouseIcon />}
-                    >
-                        Warehouses
-                    </TabButton>
-                </PageTabs>
                 {tab === 'stock' && (
                     <>
                         <section className="overflow-x-auto">
@@ -929,28 +899,6 @@ function WarehouseDialog({ warehouse }: { warehouse?: Warehouse }) {
         </Dialog>
     );
 }
-function TabButton({
-    active,
-    onClick,
-    icon,
-    children,
-}: {
-    active: boolean;
-    onClick: () => void;
-    icon: React.ReactNode;
-    children: React.ReactNode;
-}) {
-    return (
-        <button
-            type="button"
-            onClick={onClick}
-            className={`flex items-center gap-2 border-b-2 px-3 py-2 text-sm [&_svg]:size-4 ${active ? 'border-primary font-medium' : 'border-transparent text-muted-foreground'}`}
-        >
-            {icon}
-            {children}
-        </button>
-    );
-}
 function SelectField({
     label,
     name,
@@ -1050,6 +998,16 @@ const calendarDate = (value: string) =>
     new Intl.DateTimeFormat(undefined, { dateStyle: 'short' }).format(
         new Date(`${value}T00:00:00`),
     );
-InventoryIndex.layout = {
-    breadcrumbs: [{ title: 'Inventory', href: '/inventory' }],
+InventoryIndex.layout = (props: { initialSection: Tab }) => {
+    const section = {
+        stock: { title: 'Stock', href: '/inventory' },
+        reservations: {
+            title: 'Reservations',
+            href: '/inventory/reservations',
+        },
+        movements: { title: 'Movements', href: '/inventory/movements' },
+        warehouses: { title: 'Warehouses', href: '/inventory/warehouses' },
+    }[props.initialSection];
+
+    return { breadcrumbs: [section] };
 };

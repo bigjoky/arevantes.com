@@ -42,7 +42,7 @@ class AfterSalesTest extends TestCase
             ->where('serviceEconomics', null));
 
         $this->get(route('maintenance.index'))->assertOk()->assertInertia(fn (Assert $page) => $page
-            ->component('after-sales/index')
+            ->component('maintenance/index')
             ->where('initialSection', 'maintenance')
             ->where('tickets', [])
             ->where('warranties', [])
@@ -50,7 +50,7 @@ class AfterSalesTest extends TestCase
             ->where('serviceEconomics', null));
 
         $this->get(route('contracts-services.index'))->assertOk()->assertInertia(fn (Assert $page) => $page
-            ->component('after-sales/index')
+            ->component('contracts-services/index')
             ->where('initialSection', 'contracts')
             ->where('tickets', [])
             ->where('warranties', [])
@@ -58,7 +58,7 @@ class AfterSalesTest extends TestCase
             ->has('serviceEconomics'));
 
         $this->get(route('assets.index'))->assertOk()->assertInertia(fn (Assert $page) => $page
-            ->component('after-sales/index')
+            ->component('assets/index')
             ->where('initialSection', 'assets')
             ->where('tickets', [])
             ->where('plans', [])

@@ -1,12 +1,5 @@
 import { Form, Head } from '@inertiajs/react';
-import {
-    Boxes,
-    Building2,
-    Pencil,
-    Plus,
-    Settings2,
-    Trash2,
-} from 'lucide-react';
+import { Pencil, Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import {
     FormActions,
@@ -34,6 +27,8 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import { useLocale } from '@/hooks/use-locale';
+import { translate } from '@/i18n';
 import { serviceLabels } from '@/lib/business-lines';
 import type { ServiceType } from '@/lib/business-lines';
 
@@ -122,42 +117,27 @@ export default function CatalogIndex({
     documentSeries: Series[];
     accountingAccounts: AccountingAccount[];
 }) {
-    const [tab, setTab] = useState<Tab>(initialTab);
+    const tab = initialTab;
+    const { locale } = useLocale();
+    const title = {
+        items: 'Products & services',
+        suppliers: 'Suppliers',
+        settings: 'Configuration',
+    }[tab];
 
     return (
         <>
-            <Head title="Catalog" />
+            <Head title={translate(title, locale)} />
             <div className="flex flex-1 flex-col gap-6 p-4 md:p-6">
                 <header>
-                    <h1 className="text-xl font-semibold">Catalog</h1>
+                    <h1 className="text-xl font-semibold">
+                        {translate(title, locale)}
+                    </h1>
                     <p className="text-sm text-muted-foreground">
                         Products, services, suppliers and document
                         configuration.
                     </p>
                 </header>
-                <div className="flex gap-1 border-b" role="tablist">
-                    <TabButton
-                        active={tab === 'items'}
-                        onClick={() => setTab('items')}
-                        icon={<Boxes />}
-                    >
-                        Products & services
-                    </TabButton>
-                    <TabButton
-                        active={tab === 'suppliers'}
-                        onClick={() => setTab('suppliers')}
-                        icon={<Building2 />}
-                    >
-                        Suppliers
-                    </TabButton>
-                    <TabButton
-                        active={tab === 'settings'}
-                        onClick={() => setTab('settings')}
-                        icon={<Settings2 />}
-                    >
-                        Configuration
-                    </TabButton>
-                </div>
 
                 {tab === 'items' && (
                     <section>
@@ -477,31 +457,6 @@ export default function CatalogIndex({
                 )}
             </div>
         </>
-    );
-}
-
-function TabButton({
-    active,
-    onClick,
-    icon,
-    children,
-}: {
-    active: boolean;
-    onClick: () => void;
-    icon: React.ReactNode;
-    children: React.ReactNode;
-}) {
-    return (
-        <button
-            type="button"
-            role="tab"
-            aria-selected={active}
-            onClick={onClick}
-            className={`flex items-center gap-2 border-b-2 px-3 py-2 text-sm ${active ? 'border-primary font-medium text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'} [&_svg]:size-4`}
-        >
-            {icon}
-            {children}
-        </button>
     );
 }
 
@@ -1322,4 +1277,12 @@ function money(value: string) {
     }).format(Number(value));
 }
 
-CatalogIndex.layout = { breadcrumbs: [{ title: 'Catalog', href: '/catalog' }] };
+CatalogIndex.layout = (props: { initialTab: Tab }) => {
+    const section = {
+        items: { title: 'Products & services', href: '/catalog' },
+        suppliers: { title: 'Suppliers', href: '/suppliers' },
+        settings: { title: 'Configuration', href: '/catalog/settings' },
+    }[props.initialTab];
+
+    return { breadcrumbs: [section] };
+};

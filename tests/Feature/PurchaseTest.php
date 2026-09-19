@@ -15,6 +15,7 @@ use App\Models\Unit;
 use App\Models\User;
 use App\Models\Warehouse;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Tests\TestCase;
 
@@ -54,6 +55,12 @@ class PurchaseTest extends TestCase
     public function test_a_high_value_order_requires_independent_approval_before_execution(): void
     {
         Mail::fake();
+        $productTypeQuery = null;
+        DB::listen(function ($query) use (&$productTypeQuery): void {
+            if (str_contains(strtolower($query->sql), 'select distinct') && str_contains($query->sql, 'products')) {
+                $productTypeQuery = $query->sql;
+            }
+        });
         $creator = User::factory()->create(['role' => 'commercial']);
         $approver = User::factory()->create(['role' => 'commercial']);
         $supplier = Supplier::create(['legal_name' => 'Strategic Supply SL', 'country' => 'ES']);
@@ -85,6 +92,8 @@ class PurchaseTest extends TestCase
         ])->assertRedirect();
 
         $order = PurchaseDocument::where('type', 'purchase_order')->firstOrFail();
+        $this->assertNotNull($productTypeQuery);
+        $this->assertStringNotContainsString('order by', strtolower($productTypeQuery));
         $this->assertSame('pending_approval', $order->status);
         $this->assertNull($order->locked_at);
         $this->assertDatabaseHas('purchase_document_events', [

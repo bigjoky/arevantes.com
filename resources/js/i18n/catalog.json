@@ -1,4 +1,29 @@
 {
+    "Emitir facturas": { "en": "Issue invoices", "es": "Emitir facturas" },
+    "Preparar rectificativas": {
+        "en": "Prepare credit notes",
+        "es": "Preparar rectificativas"
+    },
+    "No service tickets.": {
+        "en": "No service tickets.",
+        "es": "No hay incidencias de servicio."
+    },
+    "No service contracts.": {
+        "en": "No service contracts.",
+        "es": "No hay contratos de servicio."
+    },
+    "New service contract": {
+        "en": "New service contract",
+        "es": "Nuevo contrato de servicio"
+    },
+    "No maintenance plans.": {
+        "en": "No maintenance plans.",
+        "es": "No hay planes de mantenimiento."
+    },
+    "No installed serialized equipment.": {
+        "en": "No installed serialized equipment.",
+        "es": "No hay equipos instalados con número de serie."
+    },
     "Create planned work order": {
         "en": "Create planned work order",
         "es": "Crear orden planificada"
@@ -2049,11 +2074,11 @@
     },
     "Avg resolution": {
         "en": "Avg resolution",
-        "es": "Resolución de Avg"
+        "es": "Tiempo medio de resolución"
     },
     "Avg response": {
         "en": "Avg response",
-        "es": "Respuesta de Avg"
+        "es": "Tiempo medio de respuesta"
     },
     "Aviso legal": {
         "en": "Legal notice",
@@ -6073,7 +6098,7 @@
     },
     "Issued invoice register": {
         "en": "Issued invoice register",
-        "es": "Registro de facturas emitido"
+        "es": "Libro de facturas emitidas"
     },
     "Item": {
         "en": "Item",
@@ -7069,7 +7094,7 @@
     },
     "New ticket": {
         "en": "New ticket",
-        "es": "Nuevo billete"
+        "es": "Nueva incidencia"
     },
     "New warehouse": {
         "en": "New warehouse",
@@ -7841,7 +7866,7 @@
     },
     "Open tickets": {
         "en": "Open tickets",
-        "es": "Entradas abiertas"
+        "es": "Incidencias abiertas"
     },
     "Open work order": {
         "en": "Open work order",
@@ -9449,7 +9474,7 @@
     },
     "Received invoice register": {
         "en": "Received invoice register",
-        "es": "Registro de facturas recibido"
+        "es": "Libro de facturas recibidas"
     },
     "Receiving progress": {
         "en": "Receiving progress",
@@ -9609,7 +9634,7 @@
     },
     "Recurring fee": {
         "en": "Recurring fee",
-        "es": "Tasa de repetición"
+        "es": "Cuota recurrente"
     },
     "Recurring schedule": {
         "en": "Recurring schedule",
@@ -10073,7 +10098,7 @@
     },
     "Resolution breaches": {
         "en": "Resolution breaches",
-        "es": "Violaciones de la resolución"
+        "es": "Plazos de resolución incumplidos"
     },
     "Resolution min": {
         "en": "Resolution min",
@@ -10117,7 +10142,7 @@
     },
     "Response breaches": {
         "en": "Response breaches",
-        "es": "Violaciones de la respuesta"
+        "es": "Plazos de respuesta incumplidos"
     },
     "Response commitment (minutes)": {
         "en": "Response commitment (minutes)",
@@ -10385,7 +10410,7 @@
     },
     "SLA policies": {
         "en": "SLA policies",
-        "es": "SLA policies"
+        "es": "Políticas de nivel de servicio"
     },
     "SLA resolución": {
         "en": "SLA resolution",
@@ -12589,7 +12614,7 @@
     },
     "Warranties expiring": {
         "en": "Warranties expiring",
-        "es": "Warranties expiring"
+        "es": "Garantías próximas a vencer"
     },
     "Warranty / RMA": {
         "en": "Warranty / RMA",
@@ -12761,7 +12786,7 @@
     },
     "activos": {
         "en": "Assets",
-        "es": "activos"
+        "es": "Activos"
     },
     "admin": {
         "en": "admin",

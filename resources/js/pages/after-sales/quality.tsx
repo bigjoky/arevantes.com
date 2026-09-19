@@ -11,7 +11,6 @@ import {
 import { useState } from 'react';
 import { CorrectivePlanBoard } from '@/components/after-sales/corrective-plan-board';
 import type { CorrectivePlan } from '@/components/after-sales/corrective-plan-board';
-import { AfterSalesSectionNav } from '@/components/after-sales/section-nav';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -125,8 +124,8 @@ export default function RecurringServiceQuality({
     return (
         <>
             <Head title={translate('Recurring service quality', locale)} />
-            <div className="flex flex-1 flex-col gap-6 p-4 md:p-6">
-                <header className="flex flex-wrap items-start justify-between gap-3">
+            <div className="flex min-w-0 flex-1 flex-col gap-6 p-4 md:p-6">
+                <header className="flex flex-wrap items-start justify-between gap-4 rounded-xl border bg-card p-5 md:p-6">
                     <div>
                         <h1 className="text-xl font-semibold">
                             Recurring service quality
@@ -143,15 +142,16 @@ export default function RecurringServiceQuality({
                                 Review improvement decisions
                             </Link>
                         </Button>
-                        <Form action="/after-sales/quality/analyse" method="post">
+                        <Form
+                            action="/after-sales/quality/analyse"
+                            method="post"
+                        >
                             <Button variant="outline">
                                 <RefreshCw /> Analyse completed cycles
                             </Button>
                         </Form>
                     </div>
                 </header>
-
-                <AfterSalesSectionNav />
 
                 <section className="grid grid-cols-2 border-y md:grid-cols-4 xl:grid-cols-10">
                     <Metric
@@ -203,7 +203,9 @@ export default function RecurringServiceQuality({
                     <Metric
                         label="Conflicting proposals"
                         value={summary.conflicting_improvement_proposals}
-                        attention={summary.conflicting_improvement_proposals > 0}
+                        attention={
+                            summary.conflicting_improvement_proposals > 0
+                        }
                     />
                 </section>
 
@@ -252,7 +254,7 @@ export default function RecurringServiceQuality({
                         <div className="flex items-end gap-2">
                             <Button>Apply filters</Button>
                             <Button asChild variant="ghost">
-                                <Link href="/after-sales/quality">Clear</Link>
+                                <Link href="/quality/service">Clear</Link>
                             </Button>
                         </div>
                     </Form>
@@ -680,8 +682,5 @@ const measurement = (
 };
 
 RecurringServiceQuality.layout = {
-    breadcrumbs: [
-        { title: 'After-sales', href: '/after-sales' },
-        { title: 'Service quality', href: '/after-sales/quality' },
-    ],
+    breadcrumbs: [{ title: 'Service quality', href: '/quality/service' }],
 };

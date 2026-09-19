@@ -29,6 +29,11 @@ class CatalogController extends Controller
         return $this->renderCatalog('suppliers');
     }
 
+    public function settings(): Response
+    {
+        return $this->renderCatalog('settings');
+    }
+
     private function renderCatalog(string $initialTab): Response
     {
         return Inertia::render('catalog/index', [

@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Mail\DocumentSharedMail;
 use App\Models\BankAccount;
+use App\Models\CompanyProfile;
 use App\Models\Installation;
 use App\Models\Person;
 use App\Models\Quote;
@@ -64,6 +65,7 @@ class AcceptancePaymentWorkflowTest extends TestCase
 
         $invoice = SalesDocument::where('is_acceptance_invoice', true)->firstOrFail();
         $this->assertSame('issued', $invoice->status);
+        $this->assertSame(CompanyProfile::firstOrFail()->documentSnapshot(), $invoice->issuer_snapshot);
         $this->assertSame('30.00', $invoice->billing_percentage);
         $this->assertSame('363.00', $invoice->amount);
         $this->assertSame(today()->addDays(5)->toDateString(), $invoice->due_date->toDateString());

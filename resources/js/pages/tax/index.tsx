@@ -1,4 +1,4 @@
-import { Form, Head, Link, router, usePage } from '@inertiajs/react';
+import { Form, Head, Link, router } from '@inertiajs/react';
 import {
     ArrowLeft,
     CreditCard,
@@ -6,8 +6,6 @@ import {
     FileCheck2,
     Scale,
 } from 'lucide-react';
-import { useState } from 'react';
-import { PageTabs } from '@/components/page-shell';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -26,6 +24,8 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import { useLocale } from '@/hooks/use-locale';
+import { translate } from '@/i18n';
 
 type VatRow = {
     date: string;
@@ -80,7 +80,16 @@ type TaxReturn = {
     }[];
 };
 
+type TaxSection = 'summary' | 'issued' | 'received';
+const taxSections = {
+    summary: { title: 'VAT', href: '/tax' },
+    issued: { title: 'Issued invoice register', href: '/tax/issued' },
+    received: { title: 'Received invoice register', href: '/tax/received' },
+};
+
 export default function TaxIndex({
+    initialSection,
+    canManageTax,
     period,
     issued,
     received,
@@ -89,6 +98,8 @@ export default function TaxIndex({
     accountingCheck,
     taxReturn,
 }: {
+    initialSection: TaxSection;
+    canManageTax: boolean;
     period: { year: number; quarter: number | null; from: string; to: string };
     issued: VatRow[];
     received: VatRow[];
@@ -97,15 +108,12 @@ export default function TaxIndex({
     accountingCheck: Check;
     taxReturn: TaxReturn | null;
 }) {
-    const [tab, setTab] = useState<'summary' | 'issued' | 'received'>(
-        'summary',
-    );
-    const isAdmin =
-        usePage<{ auth: { user: { role: string } } }>().props.auth.user.role ===
-        'admin';
+    const tab = initialSection;
+    const { locale } = useLocale();
+    const section = taxSections[tab];
     const navigate = (year: number, quarter: string) =>
         router.get(
-            '/tax',
+            section.href,
             { year, ...(quarter !== 'annual' ? { quarter } : {}) },
             { preserveState: true },
         );
@@ -113,11 +121,13 @@ export default function TaxIndex({
 
     return (
         <>
-            <Head title="VAT" />
+            <Head title={translate(section.title, locale)} />
             <div className="flex flex-1 flex-col gap-6 p-4 md:p-6">
                 <header className="flex flex-wrap items-center justify-between gap-3">
                     <div>
-                        <h1 className="text-xl font-semibold">VAT</h1>
+                        <h1 className="text-xl font-semibold">
+                            {translate(section.title, locale)}
+                        </h1>
                         <p className="text-sm text-muted-foreground">
                             Issued and received invoice registers and quarterly
                             settlement preview.
@@ -204,35 +214,17 @@ export default function TaxIndex({
                         value={accountingCheck.matches ? 'Matched' : 'Review'}
                     />
                 </section>
-                {period.quarter && (
+                {tab === 'summary' && period.quarter && (
                     <ReturnStatus
                         taxReturn={taxReturn}
                         period={{ year: period.year, quarter: period.quarter }}
-                        isAdmin={isAdmin}
+                        canManageTax={canManageTax}
                         canPrepare={
                             accountingCheck.matches &&
                             (issued.length > 0 || received.length > 0)
                         }
                     />
                 )}
-                <PageTabs aria-label="VAT views">
-                    {(
-                        [
-                            ['summary', 'Settlement'],
-                            ['issued', `Issued (${issued.length})`],
-                            ['received', `Received (${received.length})`],
-                        ] as const
-                    ).map(([key, label]) => (
-                        <button
-                            key={key}
-                            type="button"
-                            onClick={() => setTab(key)}
-                            className={`border-b-2 px-3 py-2 text-sm font-medium ${tab === key ? 'border-primary' : 'border-transparent text-muted-foreground'}`}
-                        >
-                            {label}
-                        </button>
-                    ))}
-                </PageTabs>
                 {tab === 'summary' && (
                     <SummaryView
                         summary={summary}
@@ -263,12 +255,12 @@ export default function TaxIndex({
 function ReturnStatus({
     taxReturn,
     period,
-    isAdmin,
+    canManageTax,
     canPrepare,
 }: {
     taxReturn: TaxReturn | null;
     period: { year: number; quarter: number };
-    isAdmin: boolean;
+    canManageTax: boolean;
     canPrepare: boolean;
 }) {
     if (!taxReturn) {
@@ -281,7 +273,7 @@ function ReturnStatus({
                         locking the settlement.
                     </p>
                 </div>
-                {isAdmin && (
+                {canManageTax && (
                     <Form action="/tax/returns" method="post">
                         <input type="hidden" name="year" value={period.year} />
                         <input
@@ -327,15 +319,17 @@ function ReturnStatus({
                 </div>
             </div>
             <div className="flex flex-wrap gap-2">
-                {taxReturn.status === 'prepared' && isAdmin && (
+                {taxReturn.status === 'prepared' && canManageTax && (
                     <FilingDialog taxReturn={taxReturn} />
                 )}
-                {taxReturn.status === 'filed' && isAdmin && outstanding > 0 && (
-                    <PaymentDialog
-                        taxReturn={taxReturn}
-                        outstanding={outstanding}
-                    />
-                )}
+                {taxReturn.status === 'filed' &&
+                    canManageTax &&
+                    outstanding > 0 && (
+                        <PaymentDialog
+                            taxReturn={taxReturn}
+                            outstanding={outstanding}
+                        />
+                    )}
                 {taxReturn.status === 'filed' && (
                     <Button variant="outline" asChild>
                         <a href={`/tax/returns/${taxReturn.id}/receipt`}>
@@ -710,10 +704,6 @@ function date(value: string) {
         new Date(`${value.slice(0, 10)}T00:00:00`),
     );
 }
-TaxIndex.layout = {
-    breadcrumbs: [
-        { title: 'Finance', href: '/finance' },
-        { title: 'Accounting', href: '/accounting' },
-        { title: 'VAT', href: '/tax' },
-    ],
-};
+TaxIndex.layout = (props: { initialSection: TaxSection }) => ({
+    breadcrumbs: [taxSections[props.initialSection]],
+});

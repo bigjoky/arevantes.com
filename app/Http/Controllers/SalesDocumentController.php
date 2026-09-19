@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\CompanyProfile;
 use App\Models\Installation;
 use App\Models\Person;
 use App\Models\Product;
@@ -76,8 +77,14 @@ class SalesDocumentController extends Controller
         ]);
     }
 
-    public function show(SalesDocument $salesDocument, SalesDocumentConversion $conversion): Response
+    public function show(Request $request, SalesDocument $salesDocument, SalesDocumentConversion $conversion): Response
     {
+        $isRecurring = $salesDocument->recurringServiceBilling()->exists()
+            || $salesDocument->sourceDocument?->recurringServiceBilling()->exists();
+        $salesDocument->setAttribute('can_issue_invoice', $request->user()->can('issue-invoices')
+            && (! $isRecurring || $request->user()->can('manage-treasury')));
+        $salesDocument->setAttribute('can_prepare_credit_note', $request->user()->can('prepare-credit-notes'));
+
         return Inertia::render('sales/show', ['document' => $salesDocument->load(['customer', 'installation', 'quote:id,number', 'sourceDocument:id,number,type', 'lines.product:id,name,track_stock,track_serials', 'accountingEntry:id,source_type,source_id,number,status', 'payments.accountingEntry:id,source_type,source_id,number,status', 'deliveries:id,sales_document_id,recipient_email,status,sent_at,first_viewed_at,responded_at,revoked_at', 'recurringServiceBilling.serviceCycleCommitment.maintenancePlan:id,name']), 'conversion' => $conversion->summary($salesDocument), 'warehouses' => Warehouse::where('is_active', true)->orderByDesc('is_default')->orderBy('name')->get(['id', 'code', 'name'])]);
     }
 
@@ -104,7 +111,12 @@ class SalesDocumentController extends Controller
         abort_unless($salesDocument->status === 'draft' && ! $salesDocument->locked_at && ! $salesDocument->quote_id && ! $salesDocument->source_document_id && ! $salesDocument->recurringServiceBilling()->exists() && in_array($salesDocument->type, ['order', 'delivery_note', 'invoice'], true), 422, __('Only direct draft documents can be edited.'));
         $data = $this->validateDirectDocument($request);
         abort_unless($data['type'] === $salesDocument->type, 422, __('The document type cannot be changed after creation.'));
-        DB::transaction(fn () => $this->persistDirectDocument($salesDocument, $data, $request, $calculator));
+        DB::transaction(function () use ($salesDocument, $data, $request, $calculator) {
+            $document = SalesDocument::query()->lockForUpdate()->findOrFail($salesDocument->id);
+            abort_unless($document->status === 'draft' && ! $document->locked_at && ! $document->quote_id && ! $document->source_document_id && ! $document->recurringServiceBilling()->exists() && in_array($document->type, ['order', 'delivery_note', 'invoice'], true), 422, __('Only direct draft documents can be edited.'));
+            abort_unless($data['type'] === $document->type, 422, __('The document type cannot be changed after creation.'));
+            $this->persistDirectDocument($document, $data, $request, $calculator);
+        });
 
         return to_route('sales-documents.show', $salesDocument)->with('toast', ['type' => 'success', 'message' => __('Sales document updated.')]);
     }
@@ -192,13 +204,19 @@ class SalesDocumentController extends Controller
             || $salesDocument->sourceDocument?->recurringServiceBilling()->exists();
         abort_if($isRecurring && ! $request->user()->can('manage-treasury'), 403);
         $data = $request->validate(['issue_date' => ['required', 'date'], 'due_date' => ['nullable', 'date', 'after_or_equal:issue_date']]);
-        if ($salesDocument->type === 'invoice' && blank($data['due_date'] ?? null)) {
-            $data['due_date'] = Carbon::parse($data['issue_date'])
-                ->addDays((int) (data_get($salesDocument->customer_snapshot, 'payment_terms_days') ?? 30))
-                ->toDateString();
-        }
         DB::transaction(function () use ($request, $salesDocument, $data, $accounting) {
+            $salesDocument = SalesDocument::query()->lockForUpdate()->findOrFail($salesDocument->id);
+            abort_unless(in_array($salesDocument->type, ['invoice', 'credit_note'], true) && $salesDocument->status === 'draft' && $salesDocument->locked_at === null, 422, __('Only draft invoices can be issued.'));
+            $isRecurring = $salesDocument->recurringServiceBilling()->exists()
+                || $salesDocument->sourceDocument?->recurringServiceBilling()->exists();
+            abort_if($isRecurring && ! $request->user()->can('manage-treasury'), 403);
+            if ($salesDocument->type === 'invoice' && blank($data['due_date'] ?? null)) {
+                $data['due_date'] = Carbon::parse($data['issue_date'])
+                    ->addDays((int) (data_get($salesDocument->customer_snapshot, 'payment_terms_days') ?? 30))
+                    ->toDateString();
+            }
             $issued = app(DocumentNumber::class)->next($salesDocument->type, $data['issue_date']);
+            $salesDocument->issuer_snapshot = CompanyProfile::firstOrFail()->documentSnapshot();
             $salesDocument->update([...$data, 'document_series_id' => $issued['series']->id, 'number' => $issued['number'], 'status' => 'issued', 'issued_at' => now(), 'locked_at' => now()]);
             $accounting->syncSalesDocument($salesDocument->refresh(), $request->user()->id);
             if ($salesDocument->type === 'invoice') {
@@ -260,13 +278,18 @@ class SalesDocumentController extends Controller
 
     public function destroy(SalesDocument $salesDocument, SalesDocumentConversion $conversion): RedirectResponse
     {
-        abort_unless($salesDocument->status === 'draft' && ! $salesDocument->accountingEntry()->exists() && ! $salesDocument->payments()->exists() && ! $salesDocument->childDocuments()->exists(), 422, __('Only unposted draft documents without derived documents can be deleted.'));
-        $quote = $salesDocument->quote;
-        $source = $salesDocument->sourceDocument;
-        $salesDocument->delete();
-        if ($source) {
-            $conversion->refresh($source->fresh());
-        }
+        $quote = DB::transaction(function () use ($salesDocument, $conversion) {
+            $document = SalesDocument::query()->lockForUpdate()->findOrFail($salesDocument->id);
+            abort_unless($document->status === 'draft' && ! $document->locked_at && ! $document->accountingEntry()->exists() && ! $document->payments()->exists() && ! $document->childDocuments()->exists(), 422, __('Only unposted draft documents without derived documents can be deleted.'));
+            $quote = $document->quote;
+            $source = $document->sourceDocument;
+            $document->delete();
+            if ($source) {
+                $conversion->refresh($source->fresh());
+            }
+
+            return $quote;
+        });
 
         return $quote
             ? to_route('quotes.show', $quote)->with('toast', ['type' => 'success', 'message' => __('Draft document deleted and its billing percentage released.')])

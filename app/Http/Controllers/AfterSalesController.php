@@ -121,7 +121,14 @@ class AfterSalesController extends Controller
             ? SerialNumber::with(['product:id,name,sku'])->whereNotNull('installation_id')->orderBy('warranty_ends_on')->get()
             : collect();
 
-        return Inertia::render('after-sales/index', [
+        $page = match ($section) {
+            'maintenance' => 'maintenance/index',
+            'assets' => 'assets/index',
+            'contracts' => 'contracts-services/index',
+            default => 'after-sales/index',
+        };
+
+        return Inertia::render($page, [
             'initialSection' => $section,
             'tickets' => $tickets,
             'plans' => $plans,

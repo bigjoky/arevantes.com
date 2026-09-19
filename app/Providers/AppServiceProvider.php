@@ -108,6 +108,7 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->bind(PurchaseMailboxClient::class, NativeImapPurchaseMailboxClient::class);
+        $this->app->singleton(PermissionResolver::class);
     }
 
     /**
@@ -227,7 +228,7 @@ class AppServiceProvider extends ServiceProvider
             'manage-admin', 'manage-access', 'export-audit', 'view-system-health',
             'manage-customers', 'manage-quotes', 'approve-quotes', 'view-installations', 'manage-installations', 'sync-installations', 'publish-customer-documents',
             'use-ai', 'manage-operations', 'manage-catalog', 'view-finance', 'manage-treasury',
-            'manage-accounting', 'approve-payments', 'approve-budgets', 'manage-tax',
+            'manage-accounting', 'approve-payments', 'approve-budgets', 'manage-tax', 'issue-invoices', 'prepare-credit-notes',
             'view-purchases', 'manage-purchases', 'receive-purchases', 'approve-purchase-invoices',
             'approve-purchase-orders', 'manage-purchase-payments', 'manage-staff', 'view-sensitive-hr', 'manage-sensitive-hr',
             'view-analytics', 'view-analytics-executive', 'view-analytics-sales',

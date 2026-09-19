@@ -3,26 +3,74 @@
 namespace App\Services\Security;
 
 use App\Models\User;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
 
 class PermissionResolver
 {
+    private ?bool $permissionsTableExists = null;
+
+    private ?Request $request = null;
+
+    /** @var array<int|string, array<string, bool>> */
+    private array $overridesByUser = [];
+
+    /** @var array<int|string, array<string, true>> */
+    private array $profilePermissionsByUser = [];
+
     public function allows(User $user, string $permission): bool
     {
-        if (! Schema::hasTable('permissions') || ! $user->permission_profile_id) {
+        if (! $this->permissionsTableExists() || ! $user->permission_profile_id) {
             return $this->legacyAllows($user, $permission);
         }
 
-        $override = $user->permissionOverrides()->where('key', $permission)->first()?->pivot?->allowed;
-        if ($override !== null) {
-            return (bool) $override;
+        $this->resetForNewRequest();
+        $userKey = $user->getKey();
+
+        if (! array_key_exists($userKey, $this->overridesByUser)) {
+            $user->load(['permissionOverrides', 'permissionProfile.permissions']);
+
+            $this->overridesByUser[$userKey] = $user->permissionOverrides
+                ->mapWithKeys(fn ($override) => [$override->key => (bool) $override->pivot->allowed])
+                ->all();
+            $this->profilePermissionsByUser[$userKey] = $user->permissionProfile?->permissions
+                ->mapWithKeys(fn ($profilePermission) => [$profilePermission->key => true])
+                ->all() ?? [];
         }
 
-        return $user->permissionProfile?->permissions()->where('key', $permission)->exists() ?? false;
+        if (array_key_exists($permission, $this->overridesByUser[$userKey])) {
+            return $this->overridesByUser[$userKey][$permission];
+        }
+
+        return isset($this->profilePermissionsByUser[$userKey][$permission]);
+    }
+
+    private function permissionsTableExists(): bool
+    {
+        return $this->permissionsTableExists ??= Schema::hasTable('permissions');
+    }
+
+    private function resetForNewRequest(): void
+    {
+        if (! app()->bound('request')) {
+            return;
+        }
+
+        $request = app('request');
+        if ($this->request === $request) {
+            return;
+        }
+
+        $this->request = $request;
+        $this->overridesByUser = [];
+        $this->profilePermissionsByUser = [];
     }
 
     private function legacyAllows(User $user, string $permission): bool
     {
+        if (in_array($permission, ['issue-invoices', 'prepare-credit-notes'], true)) {
+            $permission = 'manage-installations';
+        }
         if ($user->hasRole('admin')) {
             return true;
         }

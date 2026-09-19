@@ -20,7 +20,7 @@ import type { NavItem } from '@/types';
 
 export function NavMain({
     items = [],
-    label = 'Workspace',
+    label,
 }: {
     items: NavItem[];
     label?: string;
@@ -29,7 +29,7 @@ export function NavMain({
 
     return (
         <SidebarGroup className="px-2 py-0">
-            <SidebarGroupLabel>{label}</SidebarGroupLabel>
+            {label && <SidebarGroupLabel>{label}</SidebarGroupLabel>}
             <SidebarMenu>
                 {items.map((item) => {
                     const active =
@@ -89,9 +89,23 @@ export function NavMain({
                                             >
                                                 <SidebarMenuSubButton
                                                     asChild
-                                                    isActive={isCurrentOrParentUrl(
-                                                        child.href,
-                                                    )}
+                                                    isActive={
+                                                        isCurrentOrParentUrl(
+                                                            child.href,
+                                                        ) &&
+                                                        !item.children?.some(
+                                                            (other) =>
+                                                                String(
+                                                                    other.href,
+                                                                ).length >
+                                                                    String(
+                                                                        child.href,
+                                                                    ).length &&
+                                                                isCurrentOrParentUrl(
+                                                                    other.href,
+                                                                ),
+                                                        )
+                                                    }
                                                 >
                                                     <Link
                                                         href={child.href}
