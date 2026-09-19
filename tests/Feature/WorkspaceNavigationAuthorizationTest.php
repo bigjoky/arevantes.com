@@ -37,18 +37,20 @@ class WorkspaceNavigationAuthorizationTest extends TestCase
         $this->assertSame([], $user->fresh()->workspace_shortcuts['favorites']);
     }
 
-    public function test_recent_shortcuts_ignore_prefetch_and_favorites_can_be_removed(): void
+    public function test_recent_shortcuts_are_never_recorded_and_legacy_history_is_cleared(): void
     {
         $user = $this->userWithPermissions(['view-installations']);
         $href = route('engineering.index', absolute: false);
+        $user->forceFill(['workspace_shortcuts' => ['favorites' => [$href], 'recent' => [$href]]])->save();
         $this->actingAs($user)->get($href, ['Purpose' => 'prefetch'])->assertOk();
         $this->assertSame([], $user->fresh()->workspace_shortcuts['recent']);
+        $this->assertSame([$href], $user->fresh()->workspace_shortcuts['favorites']);
         $this->actingAs($user)->get($href)->assertOk()
-            ->assertInertia(fn (Assert $page) => $page->where('auth.shortcuts.recent.0.href', $href));
+            ->assertInertia(fn (Assert $page) => $page->where('auth.shortcuts.recent', []));
         $this->actingAs($user)->patch(route('workspace.favorite'), ['href' => $href, 'enabled' => true])->assertRedirect();
         $this->actingAs($user)->patch(route('workspace.favorite'), ['href' => $href, 'enabled' => false])->assertRedirect();
         $this->assertSame([], $user->fresh()->workspace_shortcuts['favorites']);
-        $this->assertSame([$href], $user->fresh()->workspace_shortcuts['recent']);
+        $this->assertSame([], $user->fresh()->workspace_shortcuts['recent']);
     }
 
     public function test_navigation_only_contains_sections_allowed_by_the_permission_profile(): void
@@ -126,7 +128,7 @@ class WorkspaceNavigationAuthorizationTest extends TestCase
                         && collect($areas['SAL']['children'])->pluck('title')->all() === ['Proposals', 'Sales documents']
                         && collect($areas['PRJ']['children'])->pluck('title')->all() === ['Installations']
                         && collect($areas['PLN']['children'])->pluck('title')->all() === ['Planning requests']
-                        && collect($areas['INV']['children'])->pluck('title')->all() === ['Products & services', 'Inventory', 'Stock counts'];
+                        && collect($areas['INV']['children'])->pluck('title')->all() === ['Products & services', 'Stock', 'Reservations', 'Movements', 'Warehouses', 'Configuration', 'Stock counts'];
                 }));
     }
 

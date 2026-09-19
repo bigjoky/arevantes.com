@@ -68,6 +68,9 @@ class PermissionResolver
 
     private function legacyAllows(User $user, string $permission): bool
     {
+        if (in_array($permission, ['issue-invoices', 'prepare-credit-notes'], true)) {
+            $permission = 'manage-installations';
+        }
         if ($user->hasRole('admin')) {
             return true;
         }

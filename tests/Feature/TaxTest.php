@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Http\Controllers\TaxController;
 use App\Models\BankAccount;
 use App\Models\BankReconciliation;
 use App\Models\Expense;
@@ -16,16 +17,97 @@ use App\Models\TaxReturn;
 use App\Models\Unit;
 use App\Models\User;
 use App\Services\Accounting\AccountingSynchronizer;
+use App\Services\Accounting\JournalPoster;
 use App\Services\Tax\VatReport;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
 class TaxTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_stale_tax_payment_rechecks_remaining_balance_without_creating_entries(): void
+    {
+        $user = User::factory()->create(['role' => 'admin']);
+        foreach ([100, -100] as $index => $result) {
+            $stale = TaxReturn::create([
+                'year' => 2026, 'quarter' => $index + 1, 'period_from' => '2026-01-01', 'period_to' => '2026-03-31',
+                'status' => 'filed', 'result' => $result, 'result_option' => $result > 0 ? 'payable' : 'refund',
+                'output_vat' => 100, 'input_vat' => 0, 'snapshot' => [], 'prepared_at' => now(), 'paid_amount' => 0,
+            ]);
+            TaxReturn::whereKey($stale->id)->update(['paid_amount' => 80, 'settlement_status' => 'partial']);
+            $before = $stale->fresh()->getAttributes();
+            $entries = JournalEntry::count();
+            $request = Request::create('/', 'POST', ['paid_on' => '2026-04-20', 'amount' => 30, 'method' => 'bank_transfer']);
+            $request->setUserResolver(fn () => $user);
+            try {
+                app(TaxController::class)->pay($request, $stale, app(JournalPoster::class));
+                $this->fail('A stale payment must not exceed the remaining balance.');
+            } catch (ValidationException $exception) {
+                $this->assertArrayHasKey('amount', $exception->errors());
+            }
+            $this->assertSame($before, $stale->fresh()->getAttributes());
+            $this->assertSame(0, $stale->payments()->count());
+            $this->assertSame($entries, JournalEntry::count());
+        }
+    }
+
+    public function test_vat_books_have_independent_routes_and_preserve_the_requested_period(): void
+    {
+        $user = User::factory()->create(['role' => 'commercial']);
+        foreach (['summary' => '/tax', 'issued' => '/tax/issued', 'received' => '/tax/received'] as $section => $url) {
+            $this->actingAs($user)->get($url.'?year=2025&quarter=2')->assertOk()
+                ->assertInertia(fn (Assert $page) => $page->component('tax/index')
+                    ->where('initialSection', $section)->where('period.year', 2025)->where('period.quarter', 2)
+                    ->where('canManageTax', false));
+            $this->actingAs(User::factory()->create(['role' => 'technician']))->get($url)->assertForbidden();
+        }
+    }
+
+    public function test_tax_action_capability_is_resolved_by_the_permission_gate(): void
+    {
+        $user = User::factory()->create(['role' => 'commercial']);
+        Gate::define('manage-tax', fn (User $actor) => $actor->id === $user->id);
+        $this->actingAs($user)->get('/tax?year=2026&quarter=1')->assertOk()
+            ->assertInertia(fn (Assert $page) => $page->where('canManageTax', true));
+    }
+
+    public function test_purchase_vat_rows_preserve_supplier_identity_including_shipping_and_unallocated_amounts(): void
+    {
+        $supplier = Supplier::create(['legal_name' => 'Original supplier', 'tax_id' => 'B12345678', 'country' => 'ES']);
+        $document = PurchaseDocument::create([
+            'type' => 'supplier_invoice', 'supplier_id' => $supplier->id,
+            'number' => 'HISTORICAL-TAX', 'status' => 'registered', 'issue_date' => '2026-07-13',
+            'subtotal' => 130, 'shipping_cost' => 20, 'tax_amount' => 17.30, 'amount' => 147.30,
+        ]);
+        $product = Product::create(['type' => 'product', 'sku' => 'HISTORICAL-TAX', 'name' => 'Equipment', 'unit_id' => Unit::firstOrFail()->id, 'tax_rate_id' => TaxRate::firstOrFail()->id, 'sale_price' => 150, 'cost_price' => 100, 'is_active' => true]);
+        $document->lines()->create([
+            'product_id' => $product->id, 'position' => 1, 'description' => 'Equipment', 'quantity' => 1, 'unit_price' => 100,
+            'discount_percent' => 0, 'tax_percent' => 10, 'subtotal' => 100, 'tax_amount' => 10, 'total' => 110,
+        ]);
+        $supplier->update(['legal_name' => 'Changed supplier', 'tax_id' => 'B87654321']);
+
+        $rows = app(VatReport::class)->make(2026, 3)['received'];
+        $this->assertCount(3, $rows);
+        foreach ($rows as $row) {
+            $this->assertSame('Original supplier', $row['party']);
+            $this->assertSame('B12345678', $row['tax_id']);
+        }
+
+        $document->update(['supplier_snapshot' => ['legal_name' => 'Historical without NIF', 'tax_id' => null]]);
+        $this->assertNull(app(VatReport::class)->make(2026, 3)['received']->first()['tax_id']);
+
+        $document->update(['supplier_snapshot' => null]);
+        $legacyRow = app(VatReport::class)->make(2026, 3)['received']->first();
+        $this->assertSame('Changed supplier', $legacyRow['party']);
+        $this->assertSame('B87654321', $legacyRow['tax_id']);
+    }
 
     public function test_sales_credit_note_reduces_vat_and_posts_a_balanced_entry(): void
     {

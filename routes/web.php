@@ -297,6 +297,10 @@ Route::middleware(['auth'])->group(function () {
     Route::post('work-orders/{workOrder}/signature', [WorkOrderController::class, 'sign'])->middleware('can:manage-operations')->name('work-orders.signature.store');
     Route::get('work-orders/{workOrder}/signature', [WorkOrderController::class, 'signature'])->middleware('can:manage-operations')->name('work-orders.signature.show');
     Route::get('catalog', [CatalogController::class, 'index'])->middleware('can:manage-catalog')->name('catalog.index');
+    Route::get('catalog/settings', [CatalogController::class, 'settings'])->middleware('can:manage-catalog')->name('catalog.settings');
+    Route::get('inventory/reservations', [InventoryController::class, 'index'])->middleware('can:manage-catalog')->name('inventory.reservations.index');
+    Route::get('inventory/movements', [InventoryController::class, 'index'])->middleware('can:manage-catalog')->name('inventory.movements.index');
+    Route::get('inventory/warehouses', [InventoryController::class, 'index'])->middleware('can:manage-catalog')->name('inventory.warehouses.index');
     Route::get('suppliers', [CatalogController::class, 'suppliers'])->middleware('can:manage-catalog')->name('suppliers.index');
     Route::get('inventory', [InventoryController::class, 'index'])->middleware('can:manage-catalog')->name('inventory.index');
     Route::get('inventory/serials', [SerialTraceabilityController::class, 'index'])->middleware('can:view-purchases')->name('inventory.serials.index');
@@ -366,6 +370,8 @@ Route::middleware(['auth'])->group(function () {
     Route::post('corporate-tax/returns/{corporateTaxReturn}/file', [CorporateTaxController::class, 'file'])->middleware('can:manage-tax')->name('corporate-tax.file');
     Route::get('corporate-tax/returns/{corporateTaxReturn}/receipt', [CorporateTaxController::class, 'receipt'])->middleware('can:view-finance')->name('corporate-tax.receipt');
     Route::get('tax', [TaxController::class, 'index'])->middleware('can:view-finance')->name('tax.index');
+    Route::get('tax/issued', [TaxController::class, 'index'])->middleware('can:view-finance')->name('tax.issued');
+    Route::get('tax/received', [TaxController::class, 'index'])->middleware('can:view-finance')->name('tax.received');
     Route::get('tax/export', [TaxController::class, 'export'])->middleware('can:view-finance')->name('tax.export');
     Route::post('tax/returns', [TaxController::class, 'prepare'])->middleware('can:manage-tax')->name('tax.returns.prepare');
     Route::post('tax/returns/{taxReturn}/file', [TaxController::class, 'file'])->middleware('can:manage-tax')->name('tax.returns.file');
@@ -521,11 +527,11 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('sales/{salesDocument}', [SalesDocumentController::class, 'destroy'])->middleware('can:manage-installations')->name('sales-documents.destroy');
     Route::get('sales/{salesDocument}/pdf', [SalesDocumentController::class, 'pdf'])->middleware('can:manage-installations')->name('sales-documents.pdf');
     Route::post('sales/{salesDocument}/send', [DocumentDeliveryController::class, 'sendSalesDocument'])->middleware('can:manage-installations')->name('sales-documents.send');
-    Route::post('sales/{salesDocument}/issue', [SalesDocumentController::class, 'issue'])->middleware('can:manage-installations')->name('sales-documents.issue');
+    Route::post('sales/{salesDocument}/issue', [SalesDocumentController::class, 'issue'])->middleware('can:issue-invoices')->name('sales-documents.issue');
     Route::post('sales/{salesDocument}/convert', [SalesDocumentController::class, 'convertDocument'])->middleware('can:manage-installations')->name('sales-documents.convert');
     Route::post('sales/{salesDocument}/payments', [SalesDocumentController::class, 'storePayment'])->middleware('can:manage-installations')->name('sales-documents.payments.store');
     Route::delete('sales/{salesDocument}/payments/{payment}', [SalesDocumentController::class, 'destroyPayment'])->middleware('can:manage-installations')->name('sales-documents.payments.destroy');
-    Route::post('sales/{salesDocument}/credit-note', [SalesDocumentController::class, 'creditNote'])->middleware('can:manage-installations')->name('sales-documents.credit-note');
+    Route::post('sales/{salesDocument}/credit-note', [SalesDocumentController::class, 'creditNote'])->middleware('can:prepare-credit-notes')->name('sales-documents.credit-note');
     Route::post('sales/{salesDocument}/dispatch', [SalesDocumentController::class, 'dispatch'])->middleware('can:manage-installations')->name('sales-documents.dispatch');
     Route::get('admin', [AdminController::class, 'index'])->middleware('can:manage-admin')->name('admin.index');
     Route::get('admin/users', [AdminController::class, 'users'])->middleware('can:manage-access')->name('admin.users.index');

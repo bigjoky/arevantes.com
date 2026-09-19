@@ -23,6 +23,8 @@ type Payment = {
     accounting_entry: { number: string; status: string } | null;
 };
 type Document = {
+    can_issue_invoice: boolean;
+    can_prepare_credit_note: boolean;
     id: number;
     type: string;
     number: string;
@@ -120,8 +122,10 @@ export default function SalesShow({
         `${document.customer_snapshot.first_name || ''} ${document.customer_snapshot.last_name || ''}`.trim();
     const isInvoice = document.type === 'invoice';
     const canIssue =
+        document.can_issue_invoice &&
         ['invoice', 'credit_note'].includes(document.type) &&
-        document.status === 'draft';
+        document.status === 'draft' &&
+        !document.locked_at;
     const hasStockLines = document.lines.some(
         (line) => line.product?.track_stock,
     );
@@ -487,140 +491,145 @@ export default function SalesShow({
                         </section>
                     )}
 
-                {isInvoice && document.locked_at && (
-                    <section className="grid gap-8 border-t pt-5 xl:grid-cols-[minmax(20rem,.7fr)_minmax(0,1.3fr)]">
-                        <div>
-                            <h2 className="font-semibold">Register payment</h2>
-                            <p className="mb-3 text-sm text-muted-foreground">
-                                Outstanding balance:{' '}
-                                {money(String(outstanding))}
-                            </p>
-                            {outstanding > 0 ? (
-                                <Form
-                                    action={`/sales/${document.id}/payments`}
-                                    method="post"
-                                    resetOnSuccess
-                                    className="grid gap-4"
-                                >
-                                    <div className="grid gap-4 sm:grid-cols-2">
-                                        <Field
-                                            label="Payment date"
-                                            name="paid_at"
-                                            type="date"
-                                            value={today()}
-                                        />
-                                        <Field
-                                            label="Amount"
-                                            name="amount"
-                                            type="number"
-                                            value={String(outstanding)}
-                                            step="0.01"
-                                        />
-                                        <div className="grid gap-2">
-                                            <label className="text-sm font-medium">
-                                                Method
-                                            </label>
-                                            <select
-                                                name="method"
-                                                defaultValue="bank_transfer"
-                                                className="h-9 rounded-md border bg-background px-3 text-sm"
-                                            >
-                                                <option value="bank_transfer">
-                                                    Bank transfer
-                                                </option>
-                                                <option value="card">
-                                                    Card
-                                                </option>
-                                                <option value="cash">
-                                                    Cash
-                                                </option>
-                                                <option value="direct_debit">
-                                                    Direct debit
-                                                </option>
-                                                <option value="other">
-                                                    Other
-                                                </option>
-                                            </select>
-                                        </div>
-                                        <Field
-                                            label="Reference"
-                                            name="reference"
-                                        />
-                                    </div>
-                                    <Button>
-                                        <CreditCard /> Register payment
-                                    </Button>
-                                </Form>
-                            ) : (
-                                <p className="text-sm font-medium text-green-700 dark:text-green-400">
-                                    Invoice paid in full.
+                {document.can_prepare_credit_note &&
+                    isInvoice &&
+                    document.locked_at && (
+                        <section className="grid gap-8 border-t pt-5 xl:grid-cols-[minmax(20rem,.7fr)_minmax(0,1.3fr)]">
+                            <div>
+                                <h2 className="font-semibold">
+                                    Register payment
+                                </h2>
+                                <p className="mb-3 text-sm text-muted-foreground">
+                                    Outstanding balance:{' '}
+                                    {money(String(outstanding))}
                                 </p>
-                            )}
-                        </div>
-                        <div>
-                            <h2 className="mb-3 font-semibold">
-                                Payment history
-                            </h2>
-                            <div className="border-y">
-                                {document.payments.map((payment) => (
-                                    <div
-                                        key={payment.id}
-                                        className="flex items-center justify-between gap-4 border-b py-3 text-sm last:border-0"
+                                {outstanding > 0 ? (
+                                    <Form
+                                        action={`/sales/${document.id}/payments`}
+                                        method="post"
+                                        resetOnSuccess
+                                        className="grid gap-4"
                                     >
-                                        <div>
-                                            <div className="font-medium">
-                                                {money(payment.amount)} ·{' '}
-                                                {payment.method.replaceAll(
-                                                    '_',
-                                                    ' ',
-                                                )}
-                                            </div>
-                                            <div className="text-xs text-muted-foreground">
-                                                {date(payment.paid_at)}
-                                                {payment.reference
-                                                    ? ` · ${payment.reference}`
-                                                    : ''}
-                                            </div>
-                                            {payment.accounting_entry && (
-                                                <div className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
-                                                    <BookCheck className="size-3" />
-                                                    {
-                                                        payment.accounting_entry
-                                                            .number
-                                                    }
-                                                </div>
-                                            )}
-                                        </div>
-                                        {!payment.accounting_entry && (
-                                            <Form
-                                                action={`/sales/${document.id}/payments/${payment.id}`}
-                                                method="delete"
-                                                onBefore={() =>
-                                                    confirm(
-                                                        'Remove this payment?',
-                                                    )
-                                                }
-                                            >
-                                                <Button
-                                                    size="icon"
-                                                    variant="ghost"
-                                                    title="Remove payment"
+                                        <div className="grid gap-4 sm:grid-cols-2">
+                                            <Field
+                                                label="Payment date"
+                                                name="paid_at"
+                                                type="date"
+                                                value={today()}
+                                            />
+                                            <Field
+                                                label="Amount"
+                                                name="amount"
+                                                type="number"
+                                                value={String(outstanding)}
+                                                step="0.01"
+                                            />
+                                            <div className="grid gap-2">
+                                                <label className="text-sm font-medium">
+                                                    Method
+                                                </label>
+                                                <select
+                                                    name="method"
+                                                    defaultValue="bank_transfer"
+                                                    className="h-9 rounded-md border bg-background px-3 text-sm"
                                                 >
-                                                    <Trash2 />
-                                                </Button>
-                                            </Form>
-                                        )}
-                                    </div>
-                                ))}
-                                {document.payments.length === 0 && (
-                                    <div className="py-8 text-center text-sm text-muted-foreground">
-                                        No payments registered.
-                                    </div>
+                                                    <option value="bank_transfer">
+                                                        Bank transfer
+                                                    </option>
+                                                    <option value="card">
+                                                        Card
+                                                    </option>
+                                                    <option value="cash">
+                                                        Cash
+                                                    </option>
+                                                    <option value="direct_debit">
+                                                        Direct debit
+                                                    </option>
+                                                    <option value="other">
+                                                        Other
+                                                    </option>
+                                                </select>
+                                            </div>
+                                            <Field
+                                                label="Reference"
+                                                name="reference"
+                                            />
+                                        </div>
+                                        <Button>
+                                            <CreditCard /> Register payment
+                                        </Button>
+                                    </Form>
+                                ) : (
+                                    <p className="text-sm font-medium text-green-700 dark:text-green-400">
+                                        Invoice paid in full.
+                                    </p>
                                 )}
                             </div>
-                        </div>
-                    </section>
-                )}
+                            <div>
+                                <h2 className="mb-3 font-semibold">
+                                    Payment history
+                                </h2>
+                                <div className="border-y">
+                                    {document.payments.map((payment) => (
+                                        <div
+                                            key={payment.id}
+                                            className="flex items-center justify-between gap-4 border-b py-3 text-sm last:border-0"
+                                        >
+                                            <div>
+                                                <div className="font-medium">
+                                                    {money(payment.amount)} ·{' '}
+                                                    {payment.method.replaceAll(
+                                                        '_',
+                                                        ' ',
+                                                    )}
+                                                </div>
+                                                <div className="text-xs text-muted-foreground">
+                                                    {date(payment.paid_at)}
+                                                    {payment.reference
+                                                        ? ` · ${payment.reference}`
+                                                        : ''}
+                                                </div>
+                                                {payment.accounting_entry && (
+                                                    <div className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
+                                                        <BookCheck className="size-3" />
+                                                        {
+                                                            payment
+                                                                .accounting_entry
+                                                                .number
+                                                        }
+                                                    </div>
+                                                )}
+                                            </div>
+                                            {!payment.accounting_entry && (
+                                                <Form
+                                                    action={`/sales/${document.id}/payments/${payment.id}`}
+                                                    method="delete"
+                                                    onBefore={() =>
+                                                        confirm(
+                                                            'Remove this payment?',
+                                                        )
+                                                    }
+                                                >
+                                                    <Button
+                                                        size="icon"
+                                                        variant="ghost"
+                                                        title="Remove payment"
+                                                    >
+                                                        <Trash2 />
+                                                    </Button>
+                                                </Form>
+                                            )}
+                                        </div>
+                                    ))}
+                                    {document.payments.length === 0 && (
+                                        <div className="py-8 text-center text-sm text-muted-foreground">
+                                            No payments registered.
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </section>
+                    )}
                 {document.status === 'draft' &&
                     !conversion?.children.length && (
                         <section className="flex justify-end border-t pt-5">

@@ -35,6 +35,12 @@ class InventoryController extends Controller
             ->get();
 
         return Inertia::render('inventory/index', [
+            'initialSection' => match ($request->route()->getName()) {
+                'inventory.reservations.index' => 'reservations',
+                'inventory.movements.index' => 'movements',
+                'inventory.warehouses.index' => 'warehouses',
+                default => $planningRequestId ? 'reservations' : 'stock',
+            },
             'warehouses' => Warehouse::orderByDesc('is_default')->orderBy('name')->get(),
             'products' => Product::where('track_stock', true)->where('is_active', true)->orderBy('name')->get(['id', 'sku', 'name', 'cost_price', 'track_serials']),
             'positions' => $positions->positions(),

@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\DB;
 
 class WorkspaceShortcuts
 {
-    public function for(User $user, ?string $visited = null, ?string $favorite = null, bool $enabled = false): array
+    public function for(User $user, ?string $favorite = null, bool $enabled = false): array
     {
         $items = collect(app(WorkspaceNavigation::class)->for($user))
             ->flatMap(fn (array $item) => $item['children'] ?? [$item])
@@ -18,28 +18,26 @@ class WorkspaceShortcuts
         }
 
         $stored = $user->workspace_shortcuts ?? [];
-        $paths = [...($stored['favorites'] ?? []), ...($stored['recent'] ?? [])];
+        $paths = $stored['favorites'] ?? [];
         if ($favorite === null && $stored !== [] && array_diff($paths, $items->keys()->all()) === []
-            && ($visited === null || ! $items->has($visited) || ($stored['recent'][0] ?? null) === $visited)) {
+            && ($stored['recent'] ?? []) === []) {
             return [
                 'favorites' => array_map(fn (string $href) => $items[$href], $stored['favorites']),
-                'recent' => array_map(fn (string $href) => $items[$href], $stored['recent']),
+                'recent' => [],
             ];
         }
 
-        return DB::transaction(function () use ($user, $items, $visited, $favorite, $enabled): array {
+        return DB::transaction(function () use ($user, $items, $favorite, $enabled): array {
             $locked = User::query()->lockForUpdate()->findOrFail($user->id);
             $stored = $locked->workspace_shortcuts ?? [];
             $favorites = array_values(array_intersect($stored['favorites'] ?? [], $items->keys()->all()));
-            $recent = array_values(array_intersect($stored['recent'] ?? [], $items->keys()->all()));
+            // Recent navigation is deliberately disabled; discard legacy history.
+            $recent = [];
             if ($favorite !== null) {
                 $favorites = array_values(array_diff($favorites, [$favorite]));
                 if ($enabled) {
                     $favorites[] = $favorite;
                 }
-            }
-            if ($visited !== null && $items->has($visited)) {
-                $recent = array_slice(array_values(array_unique([$visited, ...$recent])), 0, 5);
             }
             $state = ['favorites' => $favorites, 'recent' => $recent];
             if ($stored !== $state) {

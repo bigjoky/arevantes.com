@@ -62,11 +62,7 @@ class HandleInertiaRequests extends Middleware
             'auth' => [
                 'user' => $user,
                 'shortcuts' => fn () => $sharesWorkspace
-                    ? app(WorkspaceShortcuts::class)->for(
-                        $user,
-                        $request->isMethod('GET') && ! $request->headers->has('X-Inertia-Prefetch') && ! str_contains(strtolower($request->header('Purpose', '')), 'prefetch')
-                            ? $request->getPathInfo() : null,
-                    )
+                    ? app(WorkspaceShortcuts::class)->for($user)
                     : ['favorites' => [], 'recent' => []],
                 'abilities' => fn () => $sharesWorkspace ? [
                     'manageAdmin' => Gate::allows('manage-admin'),
