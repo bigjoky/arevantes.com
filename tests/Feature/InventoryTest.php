@@ -29,6 +29,16 @@ class InventoryTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_inventory_sections_have_independent_authorized_destinations(): void
+    {
+        $user = User::factory()->create(['role' => 'commercial']);
+        foreach (['stock' => '/inventory', 'reservations' => '/inventory/reservations', 'movements' => '/inventory/movements', 'warehouses' => '/inventory/warehouses'] as $section => $url) {
+            $this->actingAs($user)->get($url)->assertOk()->assertInertia(fn (Assert $page) => $page
+                ->component('inventory/index')->where('initialSection', $section));
+            $this->actingAs(User::factory()->create(['role' => 'technician']))->get($url)->assertForbidden();
+        }
+    }
+
     public function test_serialized_stock_can_be_received_transferred_and_issued(): void
     {
         $user = User::factory()->create(['role' => 'commercial']);

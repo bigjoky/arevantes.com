@@ -2,6 +2,7 @@
 
 namespace App\Services\Finance;
 
+use App\Models\CompanyProfile;
 use App\Models\Quote;
 use App\Models\SalesDocument;
 use App\Services\Accounting\AccountingSynchronizer;
@@ -76,6 +77,8 @@ class AcceptancePaymentManager
                     'reference' => $issued['number'],
                 ]),
             ]);
+            $document->issuer_snapshot = CompanyProfile::firstOrFail()->documentSnapshot();
+            $document->save();
             $document->lines()->createMany($installment['lines']);
             $this->accounting->syncSalesDocument($document->refresh(), $quote->created_by);
             $this->setStatus($quote, 'pending');

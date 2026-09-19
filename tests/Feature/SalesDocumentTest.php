@@ -2,18 +2,83 @@
 
 namespace Tests\Feature;
 
+use App\Http\Controllers\SalesDocumentController;
+use App\Models\CompanyProfile;
 use App\Models\Installation;
+use App\Models\Permission;
+use App\Models\PermissionProfile;
 use App\Models\Person;
 use App\Models\Quote;
 use App\Models\SalesDocument;
 use App\Models\User;
+use App\Services\Accounting\AccountingSynchronizer;
+use App\Services\Documents\SalesDocumentConversion;
+use App\Services\Quotes\QuoteCalculator;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Request;
 use Inertia\Testing\AssertableInertia as Assert;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 use Tests\TestCase;
 
 class SalesDocumentTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_read_only_financial_profile_cannot_mutate_sales_documents(): void
+    {
+        $profile = PermissionProfile::create(['name' => 'Financial reader', 'slug' => 'financial-reader']);
+        $profile->permissions()->attach(Permission::where('key', 'view-finance')->firstOrFail());
+        $reader = User::factory()->create(['role' => 'commercial', 'permission_profile_id' => $profile->id]);
+        $document = SalesDocument::create(['type' => 'invoice', 'number' => 'READ-ONLY', 'status' => 'draft', 'issue_date' => '2026-07-14', 'subtotal' => 0, 'tax_amount' => 0, 'amount' => 0, 'customer_snapshot' => []]);
+        $before = $document->fresh()->getAttributes();
+        $this->actingAs($reader);
+        $this->post(route('sales-documents.store'), [])->assertForbidden();
+        $this->put(route('sales-documents.update', $document), [])->assertForbidden();
+        $this->post(route('sales-documents.issue', $document), [])->assertForbidden();
+        $this->post(route('sales-documents.credit-note', $document), [])->assertForbidden();
+        $this->delete(route('sales-documents.destroy', $document))->assertForbidden();
+        $this->assertSame($before, $document->fresh()->getAttributes());
+    }
+
+    public function test_stale_edit_cannot_change_an_invoice_after_it_has_been_issued(): void
+    {
+        $user = User::factory()->create(['role' => 'admin']);
+        $customer = Person::create(['category' => 'customer', 'first_name' => 'Concurrent']);
+        $data = ['type' => 'invoice', 'person_id' => $customer->id, 'issue_date' => '2026-07-14',
+            'lines' => [['description' => 'Original', 'quantity' => 1, 'unit_price' => 100, 'discount_percent' => 0, 'tax_percent' => 21]]];
+        $this->actingAs($user)->post(route('sales-documents.store'), $data)->assertRedirect();
+        $stale = SalesDocument::firstOrFail();
+        $this->post(route('sales-documents.issue', $stale), ['issue_date' => '2026-07-14'])->assertRedirect();
+        $before = $stale->fresh()->getAttributes();
+        $lines = $stale->lines()->get()->toArray();
+        $data['lines'][0]['unit_price'] = 999;
+        $request = Request::create('/', 'PUT', $data);
+        $request->setUserResolver(fn () => $user);
+
+        try {
+            app(SalesDocumentController::class)->update($request, $stale, app(QuoteCalculator::class));
+            $this->fail('A stale edit must not change an issued invoice.');
+        } catch (HttpException $exception) {
+            $this->assertSame(422, $exception->getStatusCode());
+        }
+        $this->assertSame($before, $stale->fresh()->getAttributes());
+        $this->assertSame($lines, $stale->lines()->get()->toArray());
+    }
+
+    public function test_stale_delete_rechecks_status_and_lock_even_without_accounting_links(): void
+    {
+        foreach (['issued', 'draft'] as $status) {
+            $stale = SalesDocument::create(['type' => 'invoice', 'number' => 'LOCKED-'.$status, 'status' => 'draft', 'issue_date' => '2026-07-14', 'subtotal' => 0, 'tax_amount' => 0, 'amount' => 0, 'customer_snapshot' => []]);
+            SalesDocument::whereKey($stale->id)->update(['status' => $status, 'locked_at' => now()]);
+            try {
+                app(SalesDocumentController::class)->destroy($stale, app(SalesDocumentConversion::class));
+                $this->fail('A stale delete must preserve a locked document.');
+            } catch (HttpException $exception) {
+                $this->assertSame(422, $exception->getStatusCode());
+            }
+            $this->assertNotNull($stale->fresh());
+        }
+    }
 
     public function test_a_direct_invoice_can_be_created_edited_issued_and_accounted(): void
     {
@@ -58,9 +123,28 @@ class SalesDocumentTest extends TestCase
         $this->assertSame('605.00', $invoice->refresh()->amount);
         $this->assertSame('Electrical work and certification', $invoice->lines()->firstOrFail()->description);
 
+        $staleInvoice = SalesDocument::findOrFail($invoice->id);
         $this->post(route('sales-documents.issue', $invoice), ['issue_date' => '2026-07-14', 'due_date' => '2026-08-13'])->assertRedirect();
         $this->assertSame('issued', $invoice->refresh()->status);
         $this->assertNotNull($invoice->accountingEntry);
+        $issuer = CompanyProfile::firstOrFail();
+        $identity = $issuer->documentSnapshot();
+        $this->assertSame($identity, $invoice->issuer_snapshot);
+        $issuer->update(['legal_name' => 'Changed issuer', 'tax_id' => 'B87654321', 'iban' => null]);
+        $this->assertSame($identity, $invoice->fresh()->issuerIdentity());
+        $this->assertArrayNotHasKey('issuer_snapshot', $invoice->toArray());
+        $legacy = new SalesDocument;
+        $this->assertSame('Changed issuer', $legacy->issuerIdentity()['legal_name']);
+        $number = $invoice->number;
+        $request = Request::create('/', 'POST', ['issue_date' => '2026-07-14']);
+        $request->setUserResolver(fn () => $user);
+        try {
+            app(SalesDocumentController::class)->issue($request, $staleInvoice, app(AccountingSynchronizer::class));
+            $this->fail('A stale draft must not issue an already issued invoice again.');
+        } catch (HttpException $exception) {
+            $this->assertSame(422, $exception->getStatusCode());
+        }
+        $this->assertSame($number, $invoice->refresh()->number);
         $this->put(route('sales-documents.update', $invoice), [])->assertUnprocessable();
         $this->delete(route('sales-documents.destroy', $invoice))->assertUnprocessable();
     }

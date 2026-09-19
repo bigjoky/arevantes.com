@@ -20,6 +20,13 @@ class CatalogTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_catalog_configuration_has_an_independent_authorized_destination(): void
+    {
+        $this->actingAs(User::factory()->create(['role' => 'commercial']))->get('/catalog/settings')
+            ->assertOk()->assertInertia(fn (Assert $page) => $page->component('catalog/index')->where('initialTab', 'settings'));
+        $this->actingAs(User::factory()->create(['role' => 'technician']))->get('/catalog/settings')->assertForbidden();
+    }
+
     public function test_commercial_users_can_view_the_catalog(): void
     {
         $user = User::factory()->create(['role' => 'commercial']);

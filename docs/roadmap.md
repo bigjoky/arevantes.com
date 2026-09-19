@@ -1,5 +1,83 @@
 # Roadmap unificado de Arevantes
 
+## Arquitectura maquetada y diagnóstico de Compras — 19/09/2026
+
+### ARCH-01 — implementar la nueva arquitectura maquetada
+
+Solicitud incorporada, pendiente de identificar el archivo/enlace y versión
+de la maqueta. No se presupone que sea idéntica al mapa anterior de veinte áreas.
+Hasta contrastarla, ese mapa sigue siendo la referencia funcional vigente.
+
+1. Inventariar pantallas y recorridos de la maqueta y mapearlos a rutas, permisos,
+   entidades y funcionalidades actuales; registrar diferencias y dependencias.
+2. Definir componentes comunes de sección, listado, ficha y formulario, con
+   variantes móvil, estados vacíos/error/carga y traducciones ES/EN.
+3. Migrar por recorridos completos: Compras y documentos; Finanzas, Contabilidad
+   y Fiscalidad; después el resto de áreas. Conservar URLs compatibles, filtros,
+   historial, permisos y datos; no realizar una sustitución global de golpe.
+4. Validar cada corte con pruebas de autorización y negocio, comprobación visual
+   escritorio/móvil, accesibilidad y medición de carga antes/después.
+5. Publicar por incrementos verificados y con reversión definida. Mantener el
+   programa fiscal 2027 y ENG-ENERGY, sin reiniciar ni sustituir sus pendientes.
+
+Decisiones invariables: sin «Visitados recientemente», sin rótulo «Espacio de
+trabajo» y favoritos únicamente en la barra superior.
+
+### PUR-500 — conversión de solicitud/propuesta a pedido
+
+Diagnóstico: PurchaseOrderApprovalWorkflow::requirements obtiene tipos de
+producto con DISTINCT desde la relación lines(), que añade ORDER BY position.
+PostgreSQL rechaza esa consulta porque position no está en la selección.
+Reproducido el 19/09/2026 en PostgreSQL local mediante una transacción de solo
+lectura y un ID inexistente, sin leer documentos de clientes ni crear pedidos.
+La misma consulta sin esa ordenación se ejecuta correctamente.
+
+Corrección propuesta: eliminar la ordenación heredada únicamente en la consulta
+de tipos (reorder()), conservando el orden de las líneas del documento y las
+reglas de aprobación. Añadir regresión PostgreSQL para conversión, reglas de
+producto/servicio, umbral de aprobación y ausencia de efectos parciales.
+Estado: fallo técnico reproducido, corrección todavía no implementada en este
+diagnóstico. Para vincularlo al incidente concreto faltan entorno y número de
+propuesta o traza. No consta revisión de logs de producción ni despliegue.
+
+## Protección del saldo en liquidaciones de IVA — 13/09/2026
+
+Continuación fiscal: el registro de pago/devolución recarga y bloquea la
+liquidación antes de comprobar su estado y saldo pendiente. Se rechaza una
+petición obsoleta que exceda el saldo sin crear movimiento ni asiento.
+La guía PostgreSQL orienta una transacción corta, sin llamadas externas,
+que mantiene pago, asiento y actualización del saldo como una sola operación.
+Prueba de regresión para IVA a pagar y devolución. No equivale a un ensayo
+simultáneo con conexiones PostgreSQL independientes ni añade idempotencia
+de reintentos parciales; ambos controles siguen pendientes en FIN-01.
+Se conserva la prioridad fiscal 2027 y el diseño ENG-ENERGY ya incorporado.
+
+## Incremento de interfaz y fiscalidad — 13/09/2026
+
+- Favoritos trasladados a una barra superior horizontal con alta/baja y accesos;
+  eliminados los favoritos y el rótulo «Espacio de trabajo» del sidebar.
+  No se recupera «Visitados recientemente» ni su registro.
+- IVA: liquidación, libro de emitidas y libro de recibidas tienen destinos
+  independientes en el sidebar. Cambiar ejercicio/trimestre conserva el libro
+  actual. Preparar, registrar presentación y pagar se muestran según manage-tax,
+  el mismo permiso que protege las rutas; no según el rol nominal administrador.
+  No se ha añadido presentación telemática ni certificación fiscal.
+- Próximo tramo fiscal: continuar FIN-01 (concurrencia PostgreSQL y separación
+  restante de permisos), después controles de liquidación/modelos y VERI*FACTU.
+  Contabilidad y Gastos conservan pendiente su separación de vistas.
+- Incorporado [ENG-ENERGY: suministros CUPS y estudio energético](energy-supply-roadmap.md).
+  Secuencia: ficha y evidencias → curvas y calidad → escenarios técnicos →
+  conector autorizado → móvil. Diseño, no integración disponible todavía.
+  Se intercala tras estabilizar FIN-01 sin desplazar el objetivo fiscal 2027.
+
+## Corrección transversal de navegación — 13/09/2026
+
+- Decisión permanente del usuario: eliminar «Visitados recientemente» y dejar de registrar visitas. No reintroducir esta función sin una nueva petición explícita. Se conservan los favoritos y se limpia el historial antiguo al cargar los accesos.
+- Inventario: Stock, Reservas, Movimientos y Almacenes disponen de URL y acceso propio en el sidebar, sin pestañas internas que los mezclen. Los enlaces anteriores de planificación siguen admitidos.
+- Catálogo: Productos y servicios, Proveedores y Configuración pasan a destinos independientes; proveedores permanece en Personas y Empresas y la configuración del catálogo en Inventario. Se reutilizan los formularios existentes y se conserva la autorización en servidor.
+- Auditoría de navegación: quedan por separar las vistas de Contabilidad (diario, balances, mayor, terceros y mapeos), Fiscalidad (resumen y libros) y Gastos (gastos y pendientes de pago). El portal tiene navegación propia de cliente (resumen, documentos, soporte, actividad y preferencias); no debe trasladarse al sidebar interno ni ampliar permisos.
+- Siguiente incremento: separar esos destinos financieros preservando filtros, cierres y acciones; después reducir los datos cargados por pantalla y verificar móvil con datos reales. Esta corrección complementa el programa fiscal 2027; no sustituye ni cierra el roadmap anterior.
+
 Este documento ordena la evolución del ERP web, sus APIs y los consumidores
 móviles. `develop` es la línea común de integración del desarrollo web. La app
 móvil mantiene su repositorio y ciclo de compilación independientes, pero debe
@@ -8,6 +86,11 @@ respetar los mismos contratos API, permisos y estados de negocio.
 El roadmap se organiza por horizontes de capacidad, no por módulos aislados ni
 por fechas artificiales. Ningún área debe avanzar al horizonte siguiente si las
 dependencias que comparte con las demás siguen incompletas.
+
+Excepción de calendario acordada el 12/09/2026: finanzas, contabilidad,
+facturación, modelos fiscales aplicables y VERI*FACTU tienen como objetivo
+operativo el **01/01/2027**. El programa prioritario siguiente ordena sus
+dependencias sin eliminar los horizontes ni los trabajos pendientes anteriores.
 
 ## Alcance de negocio común
 
@@ -60,12 +143,52 @@ completada solo por existir código: requiere validación proporcional, publicac
 y trazabilidad en el roadmap. Las propuestas futuras permanecen visibles aunque
 un corte posterior cambie su orden o alcance.
 
+## Prioridad vigente — Preparación fiscal al 01/01/2027
+
+Estado a 12/09/2026: revisión inicial realizada y primer incremento FIN-01
+implementado localmente; pendiente de integración/publicación y del resto de
+criterios del corte. No hay remisión AEAT habilitada.
+El diagnóstico y los criterios verificables están en
+[la revisión fiscal](fiscal-readiness-2027.md), anexo de este roadmap, no una
+secuencia independiente. No se considera que un cálculo interno o un CSV de
+libros sea un modelo oficial ni que una huella documental sea VERI*FACTU.
+
+| Corte | Fecha objetivo interna | Entrega y criterio de salida | Estado |
+| --- | --- | --- | --- |
+| FIN-01 | 25/09/2026 | Integridad de emisión, identidad histórica de emisor/proveedor, concurrencia y permisos. Regresiones que prueben documentos estables y ausencia de doble emisión. | Tres incrementos locales: integridad, datos históricos y permisos manuales de emisión/rectificación; pendientes concurrencia PostgreSQL, resto de accesos y publicación |
+| FIN-02 | 09/10/2026 | Perfil fiscal versionado y libros conciliados: cuotas soportadas/deducibles separadas, operaciones tipificadas, retenciones, compensaciones y pagos tributarios contra cuenta concreta. Casos incompatibles bloqueados, sin supuestos fiscales silenciosos. | Pendiente; depende de FIN-01 y confirmación censal |
+| FIN-03 | 30/10/2026 | Expediente de modelos: borradores trazables por casilla, revisión, versiones, validación y salida oficial cuando exista diseño publicado. Prioridad 303; 111/115 según obligaciones. Contraste con gestoría y casos de referencia. | Pendiente; depende de FIN-02 |
+| FIN-04 | 13/11/2026 | VERI*FACTU en pruebas: registro inmutable de alta/anulación, encadenamiento y huella oficial, XML/XSD, QR, cola transaccional, autenticación y respuestas AEAT. Reintentos sin duplicar registros; ninguna remisión real. | Pendiente; diseño tras FIN-01, aceptación tras FIN-02 |
+| FIN-05 | 27/11/2026 | Modelos restantes aplicables: 190/180, 347/349/390 y 200/202; conciliaciones cruzadas y revisión fiscal. Distinguir preparación de datos de exportadores aún pendientes de diseños oficiales. | Pendiente; alcance condicionado al perfil censal |
+| FIN-06 | 11/12/2026 | Ensayo integral web/API, cierre/apertura 2026–2027, carga, recuperación, certificados, permisos, ES/EN y móvil web. Declaración responsable por versión y manual operativo revisados. | Pendiente; depende de FIN-03/04/05 |
+| FIN-07 | 18/12/2026 | Puesta en marcha controlada y decisión documentada de activación real; monitorización de colas, rechazos y caducidad del certificado. Contingencia ensayada sin borrar ni reiniciar cadenas. | Pendiente; solo si FIN-06 supera aceptación |
+| Reserva | 19–31/12/2026 | Estabilización y correcciones; sin ampliaciones no esenciales. Disponibilidad operativa objetivo el 01/01/2027. | Planificado |
+
+Las fechas son objetivos de ejecución, no garantía de conformidad ni calendario
+tributario. El alcance depende de confirmar entidad, territorio, obligaciones,
+SII/REDEME y regímenes especiales. Los diseños y calendarios oficiales de cada
+ejercicio se revalidarán al publicarse. No se fabricarán exportaciones oficiales
+con formatos todavía no publicados. La preparación/revisión de declaraciones
+permanece separada de su presentación y de los pagos reales.
+
+La modalidad objetivo es VERI*FACTU con remisión, sujeta a aplicabilidad y
+validación técnica. La emisión desde cualquier origen comercial converge en un
+único servicio; la app móvil no emitirá facturas fiscales offline por una vía
+paralela. No se habilitan envíos reales por desplegar código ni se transforma el
+histórico en emisiones nuevas.
+
+Se conservan pendientes las reprogramaciones/cancelaciones desde Ingeniería,
+la medición de rendimiento p75 y los horizontes 1–4. Los bloqueos operativos y
+regresiones mantienen prioridad inmediata; traducción, responsive, rendimiento
+y permisos se ejecutan dentro de cada corte fiscal. La ampliación funcional
+no esencial retorna a la secuencia previa después del hito fiscal.
+
 ## Arquitectura funcional objetivo — 20 áreas
 
 La navegación, los permisos, la búsqueda y los futuros límites de dominio se
 alinearán sobre estas veinte áreas. Esta taxonomía no obliga a mostrar veinte
 entradas abiertas a todos los usuarios: el sidebar será jerárquico, plegable y
-derivado de permisos, con accesos recientes y favoritos. Las rutas y datos
+derivado de permisos, sin accesos recientes y con favoritos en la barra superior. Las rutas y datos
 existentes se migrarán de forma compatible, sin renombrados masivos ni módulos
 vacíos.
 
@@ -977,11 +1100,52 @@ como respaldo para registros históricos sin plazo.
 
 ## Próximo corte recomendado
 
-Tras la creación de órdenes desde Ingeniería, extender la trazabilidad a sus
-reprogramaciones y cancelaciones y definir cómo proponer una sustitución
-explícita cuando una orden se cancela.
-En paralelo, comparar en producción tiempos y tamaño
-de las cargas semánticas mediante `Server-Timing` y percentiles p75.
+### Corrección transversal — pantallas por área y entorno local (12/09/2026)
+
+Se incorpora la petición de separar las pantallas interiores, conservando el
+sidebar actual y el programa fiscal. Primer corte local: Atención al cliente,
+Mantenimiento, Activos y Contratos y servicios tienen componentes de página y
+breadcrumbs propios. Calidad del servicio elimina la dependencia visual de
+posventa. Se retira la barra transversal que agrupaba las cinco áreas.
+
+Los formularios y tipos compartidos se reutilizan sin duplicar entidades:
+mantenimiento prioriza visitas/materiales y contratos muestra vencimientos,
+cuotas y renovaciones; los indicadores ya se solicitan por contexto. Pendiente
+ampliar esta separación al resto de áreas, separar los formularios largos por
+responsabilidad y validar los flujos con datos y a tamaños móviles estrechos.
+
+PostgreSQL local responde desde Laravel y el contenedor, con volumen persistente.
+Se corrige `APP_URL` al puerto local 8000. La documentación operativa está en
+[PostgreSQL local](postgresql-local.md), sin contraseñas versionadas.
+No hay publicación a producción en este corte ni cambios al calendario fiscal.
+
+Validación: 535 pruebas / 7.107 aserciones, TypeScript, catálogo bilingüe y build
+correctos. Revisión visual en la sesión local de Safari de las áreas separadas
+con los datos disponibles (sin registros de planes/activos); no sustituye el
+ensayo pendiente con registros reales y pantallas móviles. Las guías React y
+PostgreSQL orientaron la reutilización de componentes y la comprobación del
+entorno sin recrear ni borrar la base.
+
+### Siguiente corte fiscal
+
+**FIN-01 — Integridad de facturación**, conforme a la prioridad fiscal acordada
+el 12/09/2026: reproducir y cubrir las emisiones concurrentes, congelar el emisor
+fiscal al emitir y utilizar la identidad histórica del proveedor en los libros.
+Tres incrementos implementados: revalidación bajo bloqueo al emitir, editar y
+borrar; snapshot del emisor en emisión directa/rectificativa y anticipo; identidad
+histórica del proveedor en los libros. Las regresiones cubren peticiones obsoletas
+y la denegación de mutaciones al perfil de consulta financiera. Pendiente:
+pruebas concurrentes con conexiones PostgreSQL independientes. Emitir y preparar
+rectificativas ya tienen permisos propios con migración compatible de perfiles
+y excepciones (13/09/2026); quedan consulta, cobros, borradores y revisión del
+circuito automático de anticipos. No activar todavía remisiones a AEAT ni cambiar documentos
+emitidos históricos.
+
+Se conserva a continuación del programa fiscal el corte anterior: extender la
+trazabilidad de órdenes de Ingeniería a reprogramaciones/cancelaciones y a la
+sustitución explícita de órdenes canceladas. Mantener las mediciones en
+producción con `Server-Timing` y percentiles p75, aplicadas ahora también a
+facturación, libros y conciliación.
 
 ## Corte ejecutado — Favoritos y accesos recientes personales
 
