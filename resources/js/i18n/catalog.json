@@ -1,4 +1,22 @@
 {
+    "dates_corrected": { "en": "Dates corrected", "es": "Fechas corregidas" },
+    "Correct purchase order dates": {
+        "en": "Correct purchase order dates",
+        "es": "Corregir fechas del pedido de compra"
+    },
+    "Correct a saved order before receipts, invoices or payments. Changing fiscal year assigns a new number and keeps the previous one in the history.": {
+        "en": "Correct a saved order before receipts, invoices or payments. Changing fiscal year assigns a new number and keeps the previous one in the history.",
+        "es": "Corrige un pedido guardado antes de registrar recepciones, facturas o pagos. Cambiar de ejercicio asigna un nuevo número y conserva el anterior en el historial."
+    },
+    "Correction reason": {
+        "en": "Correction reason",
+        "es": "Motivo de la corrección"
+    },
+    "Save corrected dates": {
+        "en": "Save corrected dates",
+        "es": "Guardar fechas corregidas"
+    },
+    "Dates corrected": { "en": "Dates corrected", "es": "Fechas corregidas" },
     "Installer": { "en": "Installer", "es": "Instalador" },
     "Technical lead": { "en": "Technical lead", "es": "Responsable técnico" },
     "Quick outcome": { "en": "Quick outcome", "es": "Resultado rápido" },

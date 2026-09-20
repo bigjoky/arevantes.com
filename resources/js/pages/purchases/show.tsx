@@ -15,12 +15,15 @@ import {
     Upload,
     WalletCards,
 } from 'lucide-react';
+import { FormErrorSummary } from '@/components/forms/form-layout';
 import HistoricalDocumentDate from '@/components/historical-document-date';
 import { PaymentSourceFields } from '@/components/payment-source-fields';
 import type { PaymentSources } from '@/components/payment-source-fields';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { useLocale } from '@/hooks/use-locale';
+import { translate } from '@/i18n';
 type Warehouse = { id: number; code: string; name: string };
 type SupplierIdentity = {
     legal_name?: string | null;
@@ -264,6 +267,7 @@ export default function PurchaseShow({
             };
         };
     }>().props.auth;
+    const { locale } = useLocale();
     const canReceive =
         document.type === 'purchase_order' &&
         ['ordered', 'partially_received'].includes(document.status) &&
@@ -498,6 +502,90 @@ export default function PurchaseShow({
                         }
                     />
                 </section>
+                {abilities.managePurchases &&
+                    user.role === 'admin' &&
+                    document.type === 'purchase_order' && (
+                        <details className="rounded-md border p-4">
+                            <summary className="cursor-pointer font-semibold">
+                                {translate(
+                                    'Correct purchase order dates',
+                                    locale,
+                                )}
+                            </summary>
+                            <p className="mt-3 text-sm text-muted-foreground">
+                                {translate(
+                                    'Correct a saved order before receipts, invoices or payments. Changing fiscal year assigns a new number and keeps the previous one in the history.',
+                                    locale,
+                                )}
+                            </p>
+                            <Form
+                                action={`/purchases/${document.id}/dates`}
+                                method="patch"
+                                className="mt-4 grid gap-4"
+                            >
+                                {({ errors, processing }) => (
+                                    <>
+                                        <FormErrorSummary errors={errors} />
+                                        <div className="grid gap-4 sm:grid-cols-2">
+                                            <label className="grid gap-2 text-sm font-medium">
+                                                {translate(
+                                                    'Issue date',
+                                                    locale,
+                                                )}
+                                                <Input
+                                                    name="issue_date"
+                                                    type="date"
+                                                    defaultValue={document.issue_date.slice(
+                                                        0,
+                                                        10,
+                                                    )}
+                                                    required
+                                                />
+                                            </label>
+                                            <label className="grid gap-2 text-sm font-medium">
+                                                {translate(
+                                                    'Expected delivery',
+                                                    locale,
+                                                )}
+                                                <Input
+                                                    name="expected_delivery_date"
+                                                    type="date"
+                                                    defaultValue={
+                                                        document.expected_delivery_date?.slice(
+                                                            0,
+                                                            10,
+                                                        ) ?? ''
+                                                    }
+                                                />
+                                            </label>
+                                        </div>
+                                        <label className="grid gap-2 text-sm font-medium">
+                                            {translate(
+                                                'Correction reason',
+                                                locale,
+                                            )}
+                                            <textarea
+                                                name="reason"
+                                                required
+                                                maxLength={2000}
+                                                rows={2}
+                                                className="rounded-md border bg-background p-3"
+                                            />
+                                        </label>
+                                        <Button
+                                            className="w-fit"
+                                            disabled={processing}
+                                        >
+                                            {translate(
+                                                'Save corrected dates',
+                                                locale,
+                                            )}
+                                        </Button>
+                                    </>
+                                )}
+                            </Form>
+                        </details>
+                    )}
                 {abilities.managePurchases &&
                     ['purchase_rfq', 'purchase_order'].includes(
                         document.type,
@@ -1538,7 +1626,15 @@ export default function PurchaseShow({
                                 >
                                     <div>
                                         <div className="font-medium capitalize">
-                                            {event.event.replaceAll('_', ' ')}
+                                            {event.event === 'dates_corrected'
+                                                ? translate(
+                                                      'Dates corrected',
+                                                      locale,
+                                                  )
+                                                : event.event.replaceAll(
+                                                      '_',
+                                                      ' ',
+                                                  )}
                                         </div>
                                         <div className="text-muted-foreground">
                                             {event.user?.name || 'System'}
@@ -1549,6 +1645,65 @@ export default function PurchaseShow({
                                                 ? ` · ${event.from_status} → ${event.to_status}`
                                                 : ''}
                                         </div>
+                                        {event.event === 'dates_corrected' &&
+                                            event.metadata && (
+                                                <div className="mt-2 grid gap-1 break-words text-muted-foreground">
+                                                    <p>
+                                                        {translate(
+                                                            'Issue date',
+                                                            locale,
+                                                        )}
+                                                        :{' '}
+                                                        {
+                                                            event.metadata
+                                                                .previous_issue_date
+                                                        }{' '}
+                                                        →{' '}
+                                                        {
+                                                            event.metadata
+                                                                .issue_date
+                                                        }
+                                                    </p>
+                                                    <p>
+                                                        {translate(
+                                                            'Expected delivery',
+                                                            locale,
+                                                        )}
+                                                        :{' '}
+                                                        {event.metadata
+                                                            .previous_expected_delivery_date ||
+                                                            '—'}{' '}
+                                                        →{' '}
+                                                        {event.metadata
+                                                            .expected_delivery_date ||
+                                                            '—'}
+                                                    </p>
+                                                    {event.metadata
+                                                        .previous_number !==
+                                                        event.metadata
+                                                            .number && (
+                                                        <p>
+                                                            {
+                                                                event.metadata
+                                                                    .previous_number
+                                                            }{' '}
+                                                            →{' '}
+                                                            {
+                                                                event.metadata
+                                                                    .number
+                                                            }
+                                                        </p>
+                                                    )}
+                                                    <p>
+                                                        {translate(
+                                                            'Correction reason',
+                                                            locale,
+                                                        )}
+                                                        :{' '}
+                                                        {event.metadata.reason}
+                                                    </p>
+                                                </div>
+                                            )}
                                     </div>
                                     <span className="text-xs whitespace-nowrap text-muted-foreground">
                                         {new Intl.DateTimeFormat(undefined, {

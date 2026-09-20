@@ -2,6 +2,7 @@
 
 namespace App\Services\Documents;
 
+use App\Models\FiscalYear;
 use App\Models\PurchaseDocument;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
@@ -9,6 +10,56 @@ use Illuminate\Validation\ValidationException;
 
 class PurchaseWorkflow
 {
+    public function correctOrderDates(PurchaseDocument $document, User $user, array $data): void
+    {
+        abort_unless($user->hasRole('admin'), 403);
+
+        DB::transaction(function () use ($document, $user, $data): void {
+            $document = PurchaseDocument::lockForUpdate()->findOrFail($document->id);
+            abort_unless($document->type === 'purchase_order', 422);
+            if (! in_array($document->status, ['ordered', 'pending_approval'], true)
+                || $document->receipts()->exists() || $document->returns()->exists()
+                || $document->derivedDocuments()->exists() || $document->payments()->exists()) {
+                throw ValidationException::withMessages(['issue_date' => __('Only purchase orders without receipts, invoices or payments can have their dates corrected.')]);
+            }
+
+            $before = ['issue_date' => $document->issue_date->toDateString(), 'expected_delivery_date' => $document->expected_delivery_date?->toDateString(), 'number' => $document->number];
+            $after = ['issue_date' => $data['issue_date'], 'expected_delivery_date' => $data['expected_delivery_date'] ?? null];
+            if ($before['issue_date'] === $after['issue_date'] && $before['expected_delivery_date'] === $after['expected_delivery_date']) {
+                return;
+            }
+
+            $years = FiscalYear::query()->where(function ($query) use ($before, $after): void {
+                foreach ([$before['issue_date'], $after['issue_date']] as $date) {
+                    $query->orWhere(fn ($period) => $period->whereDate('starts_on', '<=', $date)->whereDate('ends_on', '>=', $date));
+                }
+            })->orderBy('id')->lockForUpdate()->get();
+            $originalYear = $years->first(fn ($year) => $year->starts_on->toDateString() <= $before['issue_date'] && $year->ends_on->toDateString() >= $before['issue_date']);
+            $targetYear = $years->first(fn ($year) => $year->starts_on->toDateString() <= $after['issue_date'] && $year->ends_on->toDateString() >= $after['issue_date']);
+            if (! $originalYear || ! $targetYear) {
+                throw ValidationException::withMessages(['issue_date' => __('No fiscal year exists for this date.')]);
+            }
+            if ($originalYear->status !== 'open' || $targetYear->status !== 'open') {
+                throw ValidationException::withMessages(['issue_date' => __('The fiscal year is closed.')]);
+            }
+            if ($originalYear->id !== $targetYear->id) {
+                if ($document->sent_at) {
+                    throw ValidationException::withMessages(['issue_date' => __('A sent purchase order cannot be moved to another fiscal year.')]);
+                }
+                $issued = app(DocumentNumber::class)->next('purchase_order', $after['issue_date']);
+                $after['number'] = $issued['number'];
+                $after['document_series_id'] = $issued['series']->id;
+            }
+            $document->update($after);
+            $this->record($document, 'dates_corrected', $user->id, $document->status, $document->status, [
+                'reason' => $data['reason'],
+                'previous_issue_date' => $before['issue_date'], 'issue_date' => $document->issue_date->toDateString(),
+                'previous_expected_delivery_date' => $before['expected_delivery_date'], 'expected_delivery_date' => $document->expected_delivery_date?->toDateString(),
+                'previous_number' => $before['number'], 'number' => $document->number,
+            ]);
+        });
+    }
+
     public function record(PurchaseDocument $document, string $event, ?int $userId, ?string $fromStatus = null, ?string $toStatus = null, array $metadata = []): void
     {
         $document->events()->create([
