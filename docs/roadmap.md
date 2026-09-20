@@ -1,5 +1,21 @@
 # Roadmap unificado de Arevantes
 
+## Compras — corregir fechas de pedidos guardados — 20/09/2026
+
+- Corrección del hueco posterior a la publicación 2026.09.20.1: la conversión
+  admitía fecha, pero la ficha del pedido guardado no permitía rectificarla.
+- Implementación local: sección administrativa «Corregir fechas del pedido de
+  compra», fecha documental, entrega prevista y motivo obligatorio. Registro
+  transaccional del actor, momento real, fechas y números anterior/nuevo.
+- Mantiene importes, líneas, creación técnica y bloqueo operativo. En cambio de
+  ejercicio asigna número de la serie destino y conserva referencia anterior.
+- Requiere ejercicios abiertos; no corrige pedidos cerrados ni con recepciones,
+  devoluciones, facturas o pagos. Un pedido enviado no se renumera entre ejercicios.
+  No modifica facturas de proveedor ni asientos contables asociados.
+- Validación local: 554 pruebas PHP (7385 aserciones), build, TypeScript, ESLint
+  y catálogo bilingüe aprobados. Publicación preparada, pendiente de CI y Cloud;
+  los demás frentes del roadmap fiscal, CRM y arquitectura siguen vigentes.
+
 ## Publicación 2026.09.20.1 — preparada
 
 - Alcance: niveles de interés y seguimiento rápido CRM, selector de puestos RRHH

@@ -416,6 +416,7 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('supplier-payments/{payment}', [ExpenseController::class, 'destroyPayment'])->middleware('can:manage-purchase-payments')->name('supplier-payments.destroy');
     Route::post('purchases', [PurchaseController::class, 'store'])->middleware('can:manage-purchases')->name('purchases.store');
     Route::get('purchases/{purchaseDocument}', [PurchaseController::class, 'show'])->middleware('can:view-purchases')->name('purchases.show');
+    Route::patch('purchases/{purchaseDocument}/dates', [PurchaseController::class, 'correctDates'])->middleware('can:manage-purchases')->name('purchases.dates.update');
     Route::post('purchases/{purchaseDocument}/convert', [PurchaseController::class, 'convert'])->middleware('can:manage-purchases')->name('purchases.convert');
     Route::post('purchases/{purchaseDocument}/receive', [PurchaseController::class, 'receive'])->middleware('can:receive-purchases')->name('purchases.receive');
     Route::post('purchases/{purchaseDocument}/approve', [PurchaseController::class, 'approveOrder'])->middleware('can:approve-purchase-orders')->name('purchases.approve');

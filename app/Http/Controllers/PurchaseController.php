@@ -133,6 +133,19 @@ class PurchaseController extends Controller
         return to_route('purchases.show', $order)->with('toast', ['type' => 'success', 'message' => __('Purchase order created.')]);
     }
 
+    public function correctDates(Request $request, PurchaseDocument $purchaseDocument, PurchaseWorkflow $workflow): RedirectResponse
+    {
+        abort_unless($request->user()->hasRole('admin'), 403);
+        $data = $request->validate([
+            'issue_date' => ['required', 'date_format:Y-m-d'],
+            'expected_delivery_date' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:issue_date'],
+            'reason' => ['required', 'string', 'max:2000'],
+        ]);
+        $workflow->correctOrderDates($purchaseDocument, $request->user(), $data);
+
+        return back()->with('toast', ['type' => 'success', 'message' => __('Purchase order dates updated.')]);
+    }
+
     public function receive(Request $request, PurchaseDocument $purchaseDocument, StockLedger $ledger, ProjectMaterialAllocator $allocator): RedirectResponse
     {
         abort_unless($purchaseDocument->type === 'purchase_order' && in_array($purchaseDocument->status, ['ordered', 'partially_received'], true), 422);

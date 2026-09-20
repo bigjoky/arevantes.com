@@ -1,4 +1,7 @@
 {
+    "Only purchase orders without receipts, invoices or payments can have their dates corrected.": "Solo se pueden corregir las fechas de pedidos abiertos sin recepciones, facturas ni pagos.",
+    "A sent purchase order cannot be moved to another fiscal year.": "Un pedido enviado al proveedor no puede trasladarse a otro ejercicio.",
+    "Purchase order dates updated.": "Fechas del pedido de compra actualizadas.",
     "This proposal already created a work order with a different start time.": "Esta propuesta ya creó una orden con una hora de inicio distinta.",
     "Reopen the project before creating a new execution order.": "Reabre el proyecto antes de crear una nueva orden de ejecución.",
     "The proposed time has already passed.": "La hora propuesta ya ha pasado.",
