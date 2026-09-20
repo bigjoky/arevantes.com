@@ -15,6 +15,7 @@ import {
     Upload,
     WalletCards,
 } from 'lucide-react';
+import HistoricalDocumentDate from '@/components/historical-document-date';
 import { PaymentSourceFields } from '@/components/payment-source-fields';
 import type { PaymentSources } from '@/components/payment-source-fields';
 import { Badge } from '@/components/ui/badge';
@@ -747,7 +748,9 @@ export default function PurchaseShow({
                             <Form
                                 action={`/purchases/${document.id}/convert`}
                                 method="post"
+                                className="grid gap-3"
                             >
+                                <HistoricalDocumentDate />
                                 <Button>
                                     <RefreshCw /> Convert to purchase order
                                 </Button>

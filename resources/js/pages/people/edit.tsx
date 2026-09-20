@@ -12,10 +12,12 @@ type PeopleEditProps = {
     editTitle?: string;
     editDescription?: string;
     submitLabel?: string;
+    staffRoles?: string[];
 };
 
 export default function PeopleEdit({
     person,
+    staffRoles,
     category = 'customer',
     basePath = '/people',
     editTitle = 'Edit customer',
@@ -45,6 +47,7 @@ export default function PeopleEdit({
                             method="patch"
                             person={person}
                             forcedCategory={category}
+                            staffRoles={staffRoles}
                             submitLabel={submitLabel}
                         />
                     </CardContent>

@@ -9,10 +9,12 @@ type PeopleCreateProps = {
     basePath?: string;
     createTitle?: string;
     createDescription?: string;
+    staffRoles?: string[];
 };
 
 export default function PeopleCreate({
     category,
+    staffRoles,
     basePath = '/people',
     createTitle = 'Add customer',
     createDescription = 'Create a customer profile for solar, EV charging, climate, electrical or security work.',
@@ -36,6 +38,7 @@ export default function PeopleCreate({
                         <PersonForm
                             action={basePath}
                             forcedCategory={category}
+                            staffRoles={staffRoles}
                             submitLabel={createTitle}
                         />
                     </CardContent>

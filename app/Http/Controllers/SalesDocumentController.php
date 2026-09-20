@@ -20,6 +20,7 @@ use App\Services\Inventory\StockLedger;
 use App\Services\Operations\FinancialClearanceGuard;
 use App\Services\Quotes\QuoteCalculator;
 use App\Services\Security\SecurityEventRecorder;
+use App\Support\HistoricalDocumentDate;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -123,6 +124,7 @@ class SalesDocumentController extends Controller
 
     public function convert(Request $request, Quote $quote, QuoteBillingPlan $billing): RedirectResponse
     {
+        $issueDate = HistoricalDocumentDate::fromRequest($request);
         $data = $request->validate([
             'type' => ['required', Rule::in(['order', 'delivery_note', 'invoice'])],
             'billing_percentage' => ['nullable', 'numeric', 'between:0.01,100'],
@@ -131,7 +133,7 @@ class SalesDocumentController extends Controller
         ]);
         abort_unless($quote->status === 'accepted', 422, __('Only accepted quotes can be converted.'));
 
-        [$document, $created] = DB::transaction(function () use ($request, $quote, $billing, $data): array {
+        [$document, $created] = DB::transaction(function () use ($request, $quote, $billing, $data, $issueDate): array {
             $quote = Quote::lockForUpdate()->with('lines')->findOrFail($quote->id);
             if ($data['type'] !== 'invoice') {
                 $existing = SalesDocument::where('quote_id', $quote->id)->where('type', $data['type'])->first();
@@ -171,15 +173,15 @@ class SalesDocumentController extends Controller
                 ];
             }
 
-            $issued = $data['type'] === 'invoice' ? null : app(DocumentNumber::class)->next($data['type'], now());
+            $issued = $data['type'] === 'invoice' ? null : app(DocumentNumber::class)->next($data['type'], $issueDate);
             $series = $issued['series'] ?? null;
             $number = $issued['number'] ?? 'DRAFT-INV-'.Str::upper(Str::random(8));
             $document = SalesDocument::create([
                 'type' => $data['type'], 'quote_id' => $quote->id, 'person_id' => $quote->person_id, 'installation_id' => $quote->installation_id,
                 'document_series_id' => $series?->id, 'created_by' => $request->user()->id, 'number' => $number, 'status' => 'draft',
-                'fulfillment_status' => $data['type'] === 'order' || $data['type'] === 'delivery_note' ? 'pending' : null, 'billing_status' => $data['type'] === 'order' || $data['type'] === 'delivery_note' ? 'pending' : null, 'issue_date' => now()->toDateString(),
+                'fulfillment_status' => $data['type'] === 'order' || $data['type'] === 'delivery_note' ? 'pending' : null, 'billing_status' => $data['type'] === 'order' || $data['type'] === 'delivery_note' ? 'pending' : null, 'issue_date' => $issueDate,
                 'due_date' => $data['type'] === 'invoice'
-                    ? Carbon::parse(now()->toDateString())->addDays((int) (data_get($quote->customer_snapshot, 'payment_terms_days') ?? 30))->toDateString()
+                    ? Carbon::parse($issueDate)->addDays((int) (data_get($quote->customer_snapshot, 'payment_terms_days') ?? 30))->toDateString()
                     : null,
                 'billing_percentage' => $billingData['billing_percentage'] ?? null, 'billing_sequence' => $billingData['billing_sequence'] ?? null, 'billing_label' => $billingData['billing_label'] ?? null,
                 'subtotal' => $billingData['subtotal'] ?? $quote->subtotal, 'discount_amount' => $billingData['discount_amount'] ?? $quote->discount_amount,
@@ -298,12 +300,13 @@ class SalesDocumentController extends Controller
 
     public function convertDocument(Request $request, SalesDocument $salesDocument, SalesDocumentConversion $conversion): RedirectResponse
     {
+        $issueDate = HistoricalDocumentDate::fromRequest($request);
         $data = $request->validate([
             'type' => ['required', Rule::in(['delivery_note', 'invoice'])],
             'quantities' => ['required', 'array'],
             'quantities.*' => ['nullable', 'numeric', 'min:0'],
         ]);
-        $document = $conversion->convert($salesDocument, $data['type'], $data['quantities'], $request->user()->id);
+        $document = $conversion->convert($salesDocument, $data['type'], $data['quantities'], $request->user()->id, $issueDate);
 
         return to_route('sales-documents.show', $document)->with('toast', ['type' => 'success', 'message' => __('Derived document created.')]);
     }

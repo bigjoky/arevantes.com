@@ -41,15 +41,20 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import {
+    interestLabel,
+    interestOptions,
+    probabilityAfterStageChange,
+} from '@/lib/opportunity-interest';
 
 const stages = [
-    { value: 'new', label: 'Nuevo', probability: 10 },
-    { value: 'qualified', label: 'Cualificado', probability: 25 },
-    { value: 'survey', label: 'Visita técnica', probability: 40 },
-    { value: 'proposal', label: 'Propuesta', probability: 60 },
-    { value: 'negotiation', label: 'Negociación', probability: 80 },
-    { value: 'won', label: 'Ganada', probability: 100 },
-    { value: 'lost', label: 'Perdida', probability: 0 },
+    { value: 'new', label: 'Nuevo' },
+    { value: 'qualified', label: 'Cualificado' },
+    { value: 'survey', label: 'Visita técnica' },
+    { value: 'proposal', label: 'Propuesta' },
+    { value: 'negotiation', label: 'Negociación' },
+    { value: 'won', label: 'Ganada' },
+    { value: 'lost', label: 'Perdida' },
 ] as const;
 
 const contactChannelOptions = [
@@ -514,9 +519,11 @@ export default function OpportunitiesIndex({
     }
 
     function changeStage(item: Opportunity, stage: string) {
-        const probability =
-            stages.find((candidate) => candidate.value === stage)
-                ?.probability ?? item.probability;
+        const probability = probabilityAfterStageChange(
+            item.probability,
+            item.stage,
+            stage,
+        );
 
         if (stage === 'lost') {
             openEditor({ ...item, stage, probability });
@@ -1096,10 +1103,11 @@ export default function OpportunitiesIndex({
                                                                         )}
                                                                     </div>
                                                                     <div className="text-xs text-muted-foreground">
-                                                                        {
-                                                                            item.probability
-                                                                        }
-                                                                        % ·{' '}
+                                                                        {interestLabel(
+                                                                            item.probability,
+                                                                            item.stage,
+                                                                        )}{' '}
+                                                                        ·{' '}
                                                                         {date(
                                                                             item.expected_close_on,
                                                                         )}
@@ -1710,15 +1718,17 @@ export default function OpportunitiesIndex({
                                 value={form.data.stage}
                                 error={form.errors.stage}
                                 onChange={(value) => {
-                                    form.setData('stage', value);
                                     form.setData(
                                         'probability',
                                         String(
-                                            stages.find(
-                                                (item) => item.value === value,
-                                            )?.probability ?? 0,
+                                            probabilityAfterStageChange(
+                                                Number(form.data.probability),
+                                                form.data.stage,
+                                                value,
+                                            ),
                                         ),
                                     );
+                                    form.setData('stage', value);
                                 }}
                                 options={stages
                                     .filter(
@@ -1765,23 +1775,32 @@ export default function OpportunitiesIndex({
                                     }
                                 />
                             </Field>
-                            <Field
-                                label="Probability (%)"
+                            <SelectField
+                                label="Interest level"
                                 error={form.errors.probability}
-                            >
-                                <Input
-                                    type="number"
-                                    min="0"
-                                    max="100"
-                                    value={form.data.probability}
-                                    onChange={(event) =>
-                                        form.setData(
-                                            'probability',
-                                            event.target.value,
-                                        )
-                                    }
-                                />
-                            </Field>
+                                value={form.data.probability}
+                                disabled={['won', 'lost'].includes(
+                                    form.data.stage,
+                                )}
+                                onChange={(value) =>
+                                    form.setData('probability', value)
+                                }
+                                options={
+                                    ['won', 'lost'].includes(form.data.stage)
+                                        ? [
+                                              [
+                                                  form.data.probability,
+                                                  interestLabel(
+                                                      Number(
+                                                          form.data.probability,
+                                                      ),
+                                                      form.data.stage,
+                                                  ),
+                                              ],
+                                          ]
+                                        : interestOptions(form.data.probability)
+                                }
+                            />
                             <Field
                                 label="Expected close"
                                 error={form.errors.expected_close_on}
@@ -2730,17 +2749,19 @@ function SelectField({
     error,
     onChange,
     options,
+    disabled = false,
 }: {
     label: string;
     value: string;
     error?: string;
     onChange: (value: string) => void;
     options: string[][];
+    disabled?: boolean;
 }) {
     return (
         <Field label={label} error={error}>
-            <Select value={value} onValueChange={onChange}>
-                <SelectTrigger>
+            <Select value={value} onValueChange={onChange} disabled={disabled}>
+                <SelectTrigger aria-label={label}>
                     <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
