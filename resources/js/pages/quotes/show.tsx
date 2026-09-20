@@ -10,6 +10,7 @@ import {
     Wrench,
 } from 'lucide-react';
 import { useState } from 'react';
+import HistoricalDocumentDate from '@/components/historical-document-date';
 import InputError from '@/components/input-error';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -940,7 +941,9 @@ export default function QuoteShow({
                                         key={type}
                                         action={`/quotes/${quote.id}/convert`}
                                         method="post"
+                                        className="grid gap-3"
                                     >
+                                        <HistoricalDocumentDate />
                                         <input
                                             type="hidden"
                                             name="type"
@@ -1209,6 +1212,7 @@ export default function QuoteShow({
                                     name="type"
                                     value="invoice"
                                 />
+                                <HistoricalDocumentDate />
                                 <div className="grid grid-cols-3 gap-2">
                                     <Button
                                         type="button"

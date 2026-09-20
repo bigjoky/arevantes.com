@@ -10,6 +10,7 @@ import {
     Send,
     Trash2,
 } from 'lucide-react';
+import HistoricalDocumentDate from '@/components/historical-document-date';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -401,7 +402,7 @@ export default function SalesShow({
                                 label="Issue date"
                                 name="issue_date"
                                 type="date"
-                                value={today()}
+                                value={document.issue_date.slice(0, 10)}
                             />
                             {isInvoice && (
                                 <Field
@@ -750,6 +751,7 @@ function ConversionProgress({
                             className="grid content-start gap-3 border-t pt-4"
                         >
                             <input type="hidden" name="type" value={target} />
+                            <HistoricalDocumentDate />
                             <div>
                                 <h3 className="font-medium">
                                     {isDelivery

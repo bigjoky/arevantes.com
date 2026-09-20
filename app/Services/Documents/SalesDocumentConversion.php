@@ -5,6 +5,7 @@ namespace App\Services\Documents;
 use App\Models\SalesDocument;
 use App\Models\SalesDocumentLine;
 use App\Services\Quotes\QuoteCalculator;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -48,9 +49,11 @@ class SalesDocumentConversion
         ];
     }
 
-    public function convert(SalesDocument $source, string $targetType, array $quantities, int $userId): SalesDocument
+    public function convert(SalesDocument $source, string $targetType, array $quantities, int $userId, ?string $issueDate = null): SalesDocument
     {
-        return DB::transaction(function () use ($source, $targetType, $quantities, $userId): SalesDocument {
+        $issueDate ??= now()->toDateString();
+
+        return DB::transaction(function () use ($source, $targetType, $quantities, $userId, $issueDate): SalesDocument {
             $source = SalesDocument::lockForUpdate()->with('lines')->findOrFail($source->id);
             $allowed = match ($source->type) {
                 'order' => ['delivery_note', 'invoice'],
@@ -87,7 +90,7 @@ class SalesDocumentConversion
             }
 
             $totals = $this->calculator->calculate($lines);
-            $issued = $targetType === 'invoice' ? null : $this->numbers->next($targetType, now());
+            $issued = $targetType === 'invoice' ? null : $this->numbers->next($targetType, $issueDate);
             $document = SalesDocument::create([
                 'type' => $targetType,
                 'source_document_id' => $source->id,
@@ -99,8 +102,8 @@ class SalesDocumentConversion
                 'status' => 'draft',
                 'fulfillment_status' => $targetType === 'delivery_note' ? 'pending' : null,
                 'billing_status' => $targetType === 'delivery_note' ? 'pending' : null,
-                'issue_date' => now()->toDateString(),
-                'due_date' => $targetType === 'invoice' ? now()->addDays(30)->toDateString() : null,
+                'issue_date' => $issueDate,
+                'due_date' => $targetType === 'invoice' ? Carbon::parse($issueDate)->addDays(30)->toDateString() : null,
                 ...array_diff_key($totals, ['lines' => true]),
                 'customer_snapshot' => $source->customer_snapshot,
                 'notes' => __('Converted from :number.', ['number' => $source->number]),
