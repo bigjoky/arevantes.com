@@ -1,4 +1,40 @@
 {
+    "Installer": { "en": "Installer", "es": "Instalador" },
+    "Technical lead": { "en": "Technical lead", "es": "Responsable técnico" },
+    "Quick outcome": { "en": "Quick outcome", "es": "Resultado rápido" },
+    "No response received.": {
+        "en": "No response received.",
+        "es": "No se ha obtenido respuesta."
+    },
+    "Information requested.": {
+        "en": "Information requested.",
+        "es": "Solicita información."
+    },
+    "Customer will review the proposal.": {
+        "en": "Customer will review the proposal.",
+        "es": "El cliente revisará la propuesta."
+    },
+    "Tomorrow at 09:00": {
+        "en": "Tomorrow at 09:00",
+        "es": "Mañana a las 09:00"
+    },
+    "In one week at 09:00": {
+        "en": "In one week at 09:00",
+        "es": "En una semana a las 09:00"
+    },
+    "Interest level": { "en": "Interest level", "es": "Nivel de interés" },
+    "Not assessed": { "en": "Not assessed", "es": "Sin valorar" },
+    "Slightly interested": {
+        "en": "Slightly interested",
+        "es": "Poco interesado"
+    },
+    "Interested": { "en": "Interested", "es": "Interesado" },
+    "Very interested": { "en": "Very interested", "es": "Muy interesado" },
+    "Ready to decide": { "en": "Ready to decide", "es": "Listo para decidir" },
+    "Previous assessment": {
+        "en": "Previous assessment",
+        "es": "Valoración anterior (sin modificar)"
+    },
     "Emitir facturas": { "en": "Issue invoices", "es": "Emitir facturas" },
     "Preparar rectificativas": {
         "en": "Prepare credit notes",

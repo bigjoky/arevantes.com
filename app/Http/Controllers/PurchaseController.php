@@ -21,6 +21,7 @@ use App\Services\Documents\PurchaseWorkflow;
 use App\Services\Documents\SupplierInvoiceExtraction;
 use App\Services\Inventory\ProjectMaterialAllocator;
 use App\Services\Inventory\StockLedger;
+use App\Support\HistoricalDocumentDate;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -126,7 +127,8 @@ class PurchaseController extends Controller
 
     public function convert(PurchaseDocument $purchaseDocument, PurchaseOrderConversion $conversion): RedirectResponse
     {
-        $order = $conversion->convert($purchaseDocument, request()->user()->id);
+        $date = HistoricalDocumentDate::fromRequest(request());
+        $order = $conversion->convert($purchaseDocument, request()->user()->id, issueDate: $date);
 
         return to_route('purchases.show', $order)->with('toast', ['type' => 'success', 'message' => __('Purchase order created.')]);
     }

@@ -19,12 +19,13 @@ trait ManagesPersonProfiles
     /**
      * Build the shared page props for the customer and staff sections.
      *
-     * @return array<string, string>
+     * @return array<string, mixed>
      */
     protected function sectionProps(string $category): array
     {
         if ($category === 'staff') {
             return [
+                'staffRoles' => config('staff.roles'),
                 'basePath' => '/staff',
                 'title' => 'Staff',
                 'description' => 'Team members, roles, contact details, and internal notes.',
@@ -67,7 +68,11 @@ trait ManagesPersonProfiles
             'last_name' => ['nullable', 'string', 'max:255'],
             'company_name' => [Rule::requiredIf($requiresLegalIdentity), 'nullable', 'string', 'max:255'],
             'tax_id' => [Rule::requiredIf($requiresLegalIdentity), 'nullable', 'string', 'max:255'],
-            'staff_role' => ['nullable', 'string', 'max:255'],
+            'staff_role' => ['nullable', 'string', 'max:255', ...($category === 'staff' ? [Rule::in(array_filter([
+                ...config('staff.roles'),
+                // Preserve this employee's legacy value, but reject new arbitrary roles.
+                $request->route('staff') instanceof Person ? $request->route('staff')->staff_role : null,
+            ]))] : [])],
             'document_type' => ['nullable', Rule::in(['passport', 'nif', 'nie', 'other'])],
             'document_number' => ['nullable', 'string', 'max:255'],
             'phone' => ['nullable', 'string', 'max:255'],

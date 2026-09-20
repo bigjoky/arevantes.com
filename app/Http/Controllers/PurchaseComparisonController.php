@@ -7,6 +7,7 @@ use App\Models\PurchaseSetting;
 use App\Services\Documents\PurchaseOrderConversion;
 use App\Services\Documents\PurchaseWorkflow;
 use App\Services\Supply\SupplierCatalogRecorder;
+use App\Support\HistoricalDocumentDate;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -81,7 +82,8 @@ class PurchaseComparisonController extends Controller
     public function select(PurchaseDocument $purchaseDocument, PurchaseOrderConversion $conversion): RedirectResponse
     {
         abort_unless($purchaseDocument->procurement_batch_id, 422);
-        $order = $conversion->convert($purchaseDocument, request()->user()->id, true);
+        $date = HistoricalDocumentDate::fromRequest(request());
+        $order = $conversion->convert($purchaseDocument, request()->user()->id, true, $date);
 
         return to_route('purchases.show', $order)->with('toast', ['type' => 'success', 'message' => __('Offer selected and purchase order created.')]);
     }

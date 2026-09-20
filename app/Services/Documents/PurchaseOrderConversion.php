@@ -9,9 +9,11 @@ class PurchaseOrderConversion
 {
     public function __construct(private DocumentNumber $numbers, private PurchaseOrderApprovalWorkflow $approvals) {}
 
-    public function convert(PurchaseDocument $request, int $userId, bool $requireQuote = false): PurchaseDocument
+    public function convert(PurchaseDocument $request, int $userId, bool $requireQuote = false, ?string $issueDate = null): PurchaseDocument
     {
-        return DB::transaction(function () use ($request, $userId, $requireQuote): PurchaseDocument {
+        $issueDate ??= now()->toDateString();
+
+        return DB::transaction(function () use ($request, $userId, $requireQuote, $issueDate): PurchaseDocument {
             $request = PurchaseDocument::lockForUpdate()->with('lines')->findOrFail($request->id);
             abort_unless($request->type === 'purchase_rfq' && in_array($request->status, ['draft', 'sent', 'quoted'], true), 422);
             abort_if($requireQuote && $request->status !== 'quoted', 422, __('Register the supplier quote before selecting it.'));
@@ -21,7 +23,7 @@ class PurchaseOrderConversion
             }
             $fromStatus = $request->status;
 
-            $issued = $this->numbers->next('purchase_order', now());
+            $issued = $this->numbers->next('purchase_order', $issueDate);
             $order = PurchaseDocument::create([
                 'type' => 'purchase_order',
                 'source_document_id' => $request->id,
@@ -38,7 +40,7 @@ class PurchaseOrderConversion
                 'assigned_at' => now(),
                 'number' => $issued['number'],
                 'status' => 'ordered',
-                'issue_date' => now()->toDateString(),
+                'issue_date' => $issueDate,
                 'delivery_days' => $request->delivery_days,
                 'expected_delivery_date' => $request->expected_delivery_date,
                 'subtotal' => $request->subtotal,

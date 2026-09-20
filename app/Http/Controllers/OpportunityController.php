@@ -357,7 +357,7 @@ class OpportunityController extends Controller
             'next_action_type' => ['nullable', Rule::requiredIf($request->boolean('schedule_next')), Rule::in(['task', 'visit', 'reminder', 'call', 'email', 'meeting'])],
             'next_action_title' => ['nullable', Rule::requiredIf($request->boolean('schedule_next')), 'string', 'max:255'],
             'next_action_priority' => ['nullable', Rule::requiredIf($request->boolean('schedule_next')), Rule::in(['low', 'normal', 'high'])],
-            'next_action_due_at' => ['nullable', Rule::requiredIf($request->boolean('schedule_next')), 'date', 'after:now'],
+            'next_action_due_at' => ['nullable', Rule::requiredIf($request->boolean('schedule_next')), 'date', ...($request->user()->hasRole('admin') ? [] : ['after:now'])],
             'next_action_assigned_user_id' => ['nullable', Rule::exists('users', 'id')->where(fn ($query) => $query->whereIn('role', ['admin', 'commercial']))],
             'next_action_notes' => ['nullable', 'string', 'max:5000'],
         ]);
@@ -543,7 +543,7 @@ class OpportunityController extends Controller
             'next_action_type' => ['nullable', Rule::in(['task', 'visit', 'reminder', 'call', 'email', 'meeting'])],
             'next_action_title' => ['nullable', 'string', 'max:255'],
             'next_action_priority' => ['nullable', Rule::in(['low', 'normal', 'high'])],
-            'next_action_due_at' => ['nullable', 'date', 'after:now'],
+            'next_action_due_at' => ['nullable', 'date', ...($request->user()->hasRole('admin') ? [] : ['after:now'])],
         ]);
         $dueAt = now()->addDay();
         while ($dueAt->isWeekend()) {

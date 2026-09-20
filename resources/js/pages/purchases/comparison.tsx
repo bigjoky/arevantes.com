@@ -1,5 +1,6 @@
 import { Form, Head, Link } from '@inertiajs/react';
 import { ArrowLeft, Check, Clock3, Scale, ShoppingCart } from 'lucide-react';
+import HistoricalDocumentDate from '@/components/historical-document-date';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -181,7 +182,9 @@ export default function PurchaseComparison({
                                         <Form
                                             action={`/purchase-comparisons/requests/${request.id}/select`}
                                             method="post"
+                                            className="grid gap-3"
                                         >
+                                            <HistoricalDocumentDate />
                                             <Button>
                                                 <Check /> Select offer
                                             </Button>

@@ -1,5 +1,73 @@
 # Roadmap unificado de Arevantes
 
+## Publicación 2026.09.20.1 — preparada
+
+- Alcance: niveles de interés y seguimiento rápido CRM, selector de puestos RRHH
+  y primera entrega de fechas históricas para administradores descrita abajo.
+- Sin migraciones nuevas ni modificación de datos existentes. Se conservan los
+  cierres fiscales, permisos, auditoría y bloqueo de documentos emitidos.
+- Validación previa: 549 pruebas PHP y 5 pruebas de helpers CRM; TypeScript,
+  ESLint, catálogo bilingüe y compilación verificados. La publicación requiere
+  CI, integración develop → main, éxito de Cloud y comprobación HTTP posterior.
+- No amplía el alcance a todas las fechas: las limitaciones y siguientes tareas
+  de documentación histórica siguen registradas en el apartado correspondiente.
+
+## RRHH y documentación histórica — 20/09/2026
+
+- Implementado localmente: puesto de RRHH seleccionable desde catálogo central
+  `config/staff.php`, validado en servidor. No concede permisos de acceso. Se
+  permite conservar el puesto antiguo del propio empleado, pero no crear texto
+  arbitrario. Pendiente: gestión del catálogo desde Administración de Plataforma.
+- Implementado localmente: administrador puede elegir fecha en conversiones de
+  solicitud/oferta de proveedor a pedido, propuesta a pedido/albarán/factura y
+  pedido/albarán a documento derivado. Numeración según ejercicio de la fecha;
+  facturas derivadas siguen en borrador. Emitir una factura propone su fecha
+  documental existente en vez de sustituirla por hoy.
+- Seguimientos de oportunidades: administrador puede introducir una fecha
+  vencida; comerciales mantienen la restricción futura en la siguiente acción.
+- Las altas directas de propuestas, pedidos, facturas y facturas de proveedor
+  ya aceptan fecha documental anterior: no se elimina la coherencia entre fecha
+  de emisión y vencimiento ni la validación de ejercicio/serie abiertos.
+- No se reescriben `created_at`, auditorías, documentos emitidos ni cierres.
+  **Pendiente, no cubierto aún:** fecha comercial de origen de oportunidad
+  independiente de `created_at`; corrección auditada de fechas de documentos
+  ya registrados; inventario completo del resto de flujos (abonos, proyectos,
+  operaciones, recurrencias). No considerar esta entrega habilitación universal.
+- Verificación: pruebas de catálogo/legado, rol administrador frente a comercial,
+  ejercicio histórico y cierre, numeración, vencimiento relativo y auditoría.
+  Mantiene prioridad fiscal y todas las tareas CRM/arquitectura anteriores.
+
+## CRM — agilidad del equipo comercial — 20/09/2026
+
+Objetivo: cerrar cada gestión con resultado y próximo paso, sin volver a editar
+toda la oportunidad. Complementa los niveles de interés y no desplaza fiscalidad.
+
+- Primer incremento local: resultados frecuentes editables al completar una
+  actividad, que se añaden sin borrar notas; accesos de seguimiento mañana/en
+  una semana a las 09:00 locales, manteniendo fecha y hora manuales. No envían
+  mensajes, cambian etapas ni guardan hasta confirmar. Los días son naturales.
+- Próximo: vista «Mi jornada» con vencidas, hoy y oportunidades sin próxima
+  acción; filtros por responsable y permisos existentes, sin exponer carteras.
+- Después: contacto desde la ficha, captura móvil breve de notas de visita,
+  seguimiento de propuestas pendientes y alertas de oportunidades estancadas.
+- Criterios transversales: no duplicar actividades por reintentos, conservar
+  historial y permisos, comprobar móvil y medir pasos/tiempo de registro antes
+  de afirmar una mejora de rendimiento. No sustituir el trabajo por automatismos
+  que contacten clientes o cambien valoraciones sin confirmación.
+
+## CRM — valoración comercial por niveles — 20/09/2026
+
+Formulario de oportunidades: sustituido el porcentaje manual por Sin valorar
+(10), Poco interesado (25), Interesado (40), Muy interesado (60) y Listo para
+decidir (80). Son pesos internos orientativos, no probabilidades calibradas.
+Ficha y tarjetas muestran el nivel; los informes mantienen el contrato numérico.
+Cambiar entre etapas abiertas conserva la valoración; Ganada/Perdida mantienen
+100/0 y no permiten modificar el nivel. Valores históricos fuera de la escala
+se muestran como valoración anterior y no se redondean al guardar otros cambios.
+Sin migración ni recalculo del histórico. Siguiente mejora: criterios observables
+de cualificación y calibración de pesos con cierres reales, sin confundir interés
+con aceptación de propuesta ni alterar el programa fiscal prioritario.
+
 ## Preparación de publicación acumulada — 19/09/2026
 
 Integrados los cambios locales de navegación, favoritos, separación de secciones,

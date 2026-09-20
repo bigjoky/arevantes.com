@@ -1,4 +1,4 @@
-import { Form, Head, Link } from '@inertiajs/react';
+import { Form, Head, Link, usePage } from '@inertiajs/react';
 import {
     ArrowLeft,
     CalendarClock,
@@ -35,6 +35,10 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { useLocale } from '@/hooks/use-locale';
+import { translate } from '@/i18n';
+import { appendOutcome, followUpDateTime } from '@/lib/commercial-follow-up';
+import { interestLabel } from '@/lib/opportunity-interest';
 
 type User = { id: number; name: string };
 type TimelineItem = {
@@ -235,8 +239,11 @@ export default function OpportunityShow({
                     />
                     <Metric
                         icon={Target}
-                        label="Probabilidad"
-                        value={`${opportunity.probability}%`}
+                        label="Interest level"
+                        value={interestLabel(
+                            opportunity.probability,
+                            opportunity.stage,
+                        )}
                         detail={`Score ${opportunity.commercial_score}/100`}
                     />
                     <Metric
@@ -574,6 +581,12 @@ function CompleteActivityDialog({
 }) {
     const [open, setOpen] = useState(false);
     const [scheduleNext, setScheduleNext] = useState(false);
+    const [completionNotes, setCompletionNotes] = useState('');
+    const [nextDueAt, setNextDueAt] = useState(() => followUpDateTime(1));
+    const isAdmin =
+        usePage<{ auth: { user: { role: string } } }>().props.auth.user.role ===
+        'admin';
+    const { locale } = useLocale();
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
@@ -598,6 +611,8 @@ function CompleteActivityDialog({
                     onSuccess={() => {
                         setOpen(false);
                         setScheduleNext(false);
+                        setCompletionNotes('');
+                        setNextDueAt(followUpDateTime(1));
                     }}
                     className="grid gap-4"
                 >
@@ -614,9 +629,48 @@ function CompleteActivityDialog({
                                 >
                                     Resultado de la acción
                                 </Label>
+                                <div
+                                    className="flex flex-wrap gap-2"
+                                    role="group"
+                                    aria-label={translate(
+                                        'Quick outcome',
+                                        locale,
+                                    )}
+                                >
+                                    {[
+                                        'No response received.',
+                                        'Information requested.',
+                                        'Customer will review the proposal.',
+                                    ].map((outcome) => (
+                                        <Button
+                                            key={outcome}
+                                            type="button"
+                                            size="sm"
+                                            variant="outline"
+                                            disabled={processing}
+                                            onClick={() =>
+                                                setCompletionNotes((notes) =>
+                                                    appendOutcome(
+                                                        notes,
+                                                        translate(
+                                                            outcome,
+                                                            locale,
+                                                        ),
+                                                    ),
+                                                )
+                                            }
+                                        >
+                                            {translate(outcome, locale)}
+                                        </Button>
+                                    ))}
+                                </div>
                                 <Textarea
                                     id={`completion-notes-${activity.id}`}
                                     name="completion_notes"
+                                    value={completionNotes}
+                                    onChange={(event) =>
+                                        setCompletionNotes(event.target.value)
+                                    }
                                     required
                                     minLength={2}
                                     rows={4}
@@ -689,15 +743,55 @@ function CompleteActivityDialog({
                                             ]}
                                         />
                                         <div className="grid gap-2">
-                                            <Label>Fecha y hora</Label>
+                                            <Label
+                                                htmlFor={`next-due-${activity.id}`}
+                                            >
+                                                Fecha y hora
+                                            </Label>
+                                            <div className="flex flex-wrap gap-2">
+                                                {[
+                                                    [1, 'Tomorrow at 09:00'],
+                                                    [7, 'In one week at 09:00'],
+                                                ].map(([days, label]) => (
+                                                    <Button
+                                                        key={days}
+                                                        type="button"
+                                                        variant="outline"
+                                                        size="sm"
+                                                        disabled={processing}
+                                                        onClick={() =>
+                                                            setNextDueAt(
+                                                                followUpDateTime(
+                                                                    Number(
+                                                                        days,
+                                                                    ),
+                                                                ),
+                                                            )
+                                                        }
+                                                    >
+                                                        {translate(
+                                                            String(label),
+                                                            locale,
+                                                        )}
+                                                    </Button>
+                                                ))}
+                                            </div>
                                             <Input
+                                                id={`next-due-${activity.id}`}
                                                 name="next_action_due_at"
                                                 type="datetime-local"
                                                 required
-                                                min={nextActionDateTime(0)}
-                                                defaultValue={nextActionDateTime(
-                                                    1,
-                                                )}
+                                                min={
+                                                    isAdmin
+                                                        ? undefined
+                                                        : followUpDateTime(0)
+                                                }
+                                                value={nextDueAt}
+                                                onChange={(event) =>
+                                                    setNextDueAt(
+                                                        event.target.value,
+                                                    )
+                                                }
                                             />
                                             <InputError
                                                 message={
@@ -920,21 +1014,4 @@ function dateTime(value: string | null) {
               timeStyle: 'short',
           }).format(new Date(value))
         : 'Sin fecha';
-}
-
-function nextActionDateTime(days: number) {
-    const value = new Date();
-    value.setDate(value.getDate() + days);
-    value.setHours(
-        days ? 9 : value.getHours(),
-        days ? 0 : value.getMinutes(),
-        0,
-        0,
-    );
-
-    const offset = value.getTimezoneOffset();
-
-    return new Date(value.getTime() - offset * 60_000)
-        .toISOString()
-        .slice(0, 16);
 }

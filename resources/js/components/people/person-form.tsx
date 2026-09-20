@@ -69,6 +69,7 @@ type PersonFormProps = {
     person?: PersonFormValue;
     forcedCategory?: 'customer' | 'staff';
     submitLabel?: string;
+    staffRoles?: string[];
 };
 
 const fieldClassName = 'grid gap-2';
@@ -81,6 +82,7 @@ export default function PersonForm({
     person,
     forcedCategory,
     submitLabel = 'Add person',
+    staffRoles = [],
 }: PersonFormProps) {
     const { locale, t } = useLocale();
     const category = forcedCategory ?? person?.category ?? 'customer';
@@ -240,16 +242,37 @@ export default function PersonForm({
                             )}
 
                             {isStaff && (
-                                <Field
-                                    id="staff_role"
-                                    label={t.staffRole}
-                                    placeholder={translate(
-                                        'Installer, sales or administration',
-                                        locale,
-                                    )}
-                                    defaultValue={person?.staff_role}
-                                    error={errors.staff_role}
-                                />
+                                <div className={fieldClassName}>
+                                    <Label htmlFor="staff_role">
+                                        {t.staffRole}
+                                    </Label>
+                                    <select
+                                        id="staff_role"
+                                        name="staff_role"
+                                        defaultValue={person?.staff_role ?? ''}
+                                        className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+                                    >
+                                        <option value="">
+                                            {translate('Unassigned', locale)}
+                                        </option>
+                                        {person?.staff_role &&
+                                            !staffRoles.includes(
+                                                person.staff_role,
+                                            ) && (
+                                                <option
+                                                    value={person.staff_role}
+                                                >
+                                                    {person.staff_role}
+                                                </option>
+                                            )}
+                                        {staffRoles.map((role) => (
+                                            <option key={role} value={role}>
+                                                {translate(role, locale)}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <InputError message={errors.staff_role} />
+                                </div>
                             )}
                         </div>
                     </FormSection>
