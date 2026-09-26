@@ -194,7 +194,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('opportunities/{opportunity}/restore', [OpportunityController::class, 'restore'])
         ->middleware('can:manage-customers')
         ->name('opportunities.restore');
-    Route::resource('opportunities', OpportunityController::class)->only(['index', 'show', 'store', 'update', 'destroy'])->middleware('can:manage-customers');
+    Route::resource('opportunities', OpportunityController::class)->only(['index', 'show', 'store', 'update', 'destroy'])->withTrashed(['show'])->middleware('can:manage-customers');
     Route::get('engineering', [EngineeringDossierController::class, 'index'])->middleware('can:view-installations')->name('engineering.index');
     Route::post('engineering', [EngineeringDossierController::class, 'store'])->middleware('can:manage-installations')->name('engineering.store');
     Route::patch('engineering/{engineeringDossier}', [EngineeringDossierController::class, 'update'])->middleware('can:manage-installations')->name('engineering.update');

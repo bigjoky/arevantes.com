@@ -505,7 +505,7 @@ export default function PurchaseShow({
                 {abilities.managePurchases &&
                     user.role === 'admin' &&
                     document.type === 'purchase_order' && (
-                        <details className="rounded-md border p-4">
+                        <details open className="rounded-md border p-4">
                             <summary className="cursor-pointer font-semibold">
                                 {translate(
                                     'Correct purchase order dates',

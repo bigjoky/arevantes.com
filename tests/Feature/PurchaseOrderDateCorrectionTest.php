@@ -26,6 +26,18 @@ class PurchaseOrderDateCorrectionTest extends TestCase
         return [...['issue_date' => '2026-05-10', 'expected_delivery_date' => '2026-05-15', 'reason' => 'Historical purchase entered with today by mistake'], ...$overrides];
     }
 
+    public function test_admin_can_correct_the_reported_september_order_to_may_without_changing_delivery(): void
+    {
+        $order = $this->order();
+        $order->update(['number' => 'PC-2026-00001', 'issue_date' => '2026-09-15', 'expected_delivery_date' => '2026-06-03']);
+        $this->actingAs(User::factory()->create(['role' => 'admin']))
+            ->patch(route('purchases.dates.update', $order), $this->payload(['issue_date' => '2026-05-29', 'expected_delivery_date' => '2026-06-03']))
+            ->assertSessionHasNoErrors()->assertRedirect();
+        $this->assertSame('2026-05-29', $order->fresh()->issue_date->toDateString());
+        $this->assertSame('2026-06-03', $order->fresh()->expected_delivery_date->toDateString());
+        $this->assertSame('PC-2026-00001', $order->fresh()->number);
+    }
+
     public function test_admin_can_correct_a_saved_locked_order_with_an_audited_reason(): void
     {
         $user = User::factory()->create(['role' => 'admin']);

@@ -1,5 +1,25 @@
 # Roadmap unificado de Arevantes
 
+## Recuperación administrativa: CRM, agenda y compras — 26/09/2026
+
+- OPP-2026-00005: confirmado el archivado en producción. La ficha normal
+  excluía registros archivados y devolvía 404. Nueva pantalla de recuperación
+  en el enlace original; restauración atómica e idempotente, con actor e
+  histórico conservados. Las rutas de edición siguen rechazando archivados.
+- Agenda: corregida la política que permitía gestionar actividades al
+  comercial pero no al administrador. Mantiene restricciones de técnicos y
+  actividades ligadas a órdenes de trabajo. Probadas las vistas día, semana,
+  mes y tablero, reprogramación, finalización y eliminación administrativa.
+  El 404 concreto de la cita sigue pendiente de identificar con su enlace;
+  el defecto confirmado de permisos produce 403, no 404.
+- PC-2026-00001: diagnóstico de producción de solo lectura: pedido abierto,
+  sin recepciones, devoluciones, facturas ni pagos; ejercicio 2026 abierto.
+  Prueba del cambio 15/09/2026 a 29/05/2026 conservando entrega 03/06/2026,
+  número e histórico. Formulario administrativo visible sin desplegar panel.
+  No se relajan protecciones fiscales ni se ha alterado el registro real.
+- Sin migraciones. Pendiente de publicación y comprobación en producción.
+  Se mantienen el roadmap fiscal y los demás frentes previamente acordados.
+
 ## Compras — corregir fechas de pedidos guardados — 20/09/2026
 
 - Corrección del hueco posterior a la publicación 2026.09.20.1: la conversión

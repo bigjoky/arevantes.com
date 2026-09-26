@@ -1,4 +1,16 @@
 {
+    "Archived opportunities": {
+        "en": "Archived opportunities",
+        "es": "Oportunidades archivadas"
+    },
+    "This opportunity is archived. Restore it to continue working without losing its history.": {
+        "en": "This opportunity is archived. Restore it to continue working without losing its history.",
+        "es": "Esta oportunidad está archivada. Restáurala para seguir trabajando sin perder su historial."
+    },
+    "Restore opportunity": {
+        "en": "Restore opportunity",
+        "es": "Restaurar oportunidad"
+    },
     "dates_corrected": { "en": "Dates corrected", "es": "Fechas corregidas" },
     "Correct purchase order dates": {
         "en": "Correct purchase order dates",
