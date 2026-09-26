@@ -1,10 +1,13 @@
 import { Form, Head, Link, usePage } from '@inertiajs/react';
 import { ArrowLeft, Download, Trash2, WalletCards } from 'lucide-react';
+import { FormErrorSummary } from '@/components/forms/form-layout';
 import { PaymentSourceFields } from '@/components/payment-source-fields';
 import type { PaymentSources } from '@/components/payment-source-fields';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { useLocale } from '@/hooks/use-locale';
+import { translate } from '@/i18n';
 type Expense = {
     id: number;
     number: string;
@@ -57,10 +60,30 @@ type Expense = {
 export default function ExpenseShow({
     expense,
     paymentSources,
+    canCorrectIssuer,
+    issuerRevision,
+    issuerCorrections,
 }: {
     expense: Expense;
     paymentSources: PaymentSources;
+    canCorrectIssuer: boolean;
+    issuerRevision: string | null;
+    issuerCorrections: {
+        id: number;
+        user: string | null;
+        created_at: string;
+        before: {
+            issuer_legal_name: string | null;
+            merchant_name: string | null;
+        };
+        after: {
+            issuer_legal_name: string;
+            merchant_name: string | null;
+            correction_reason: string;
+        };
+    }[];
 }) {
+    const { locale } = useLocale();
     const canManagePayments = usePage<{
         auth: { abilities: { managePurchasePayments: boolean } };
     }>().props.auth.abilities.managePurchasePayments;
@@ -83,7 +106,8 @@ export default function ExpenseShow({
                         </div>
                         <p className="text-sm text-muted-foreground">
                             {expense.category.name} ·{' '}
-                            {expense.supplier?.trade_name ||
+                            {expense.issuer_legal_name ||
+                                expense.supplier?.trade_name ||
                                 expense.supplier?.legal_name ||
                                 expense.merchant_name ||
                                 'Expense'}
@@ -95,6 +119,122 @@ export default function ExpenseShow({
                         </Link>
                     </Button>
                 </header>
+                {canCorrectIssuer && (
+                    <details className="rounded-md border p-4">
+                        <summary className="cursor-pointer font-semibold">
+                            {translate('Correct supplier names', locale)}
+                        </summary>
+                        <p className="mt-3 text-sm text-muted-foreground">
+                            {translate(
+                                'Correct only the names recorded on this expense. Amounts, tax ID, supplier record, payments and accounting stay unchanged.',
+                                locale,
+                            )}
+                        </p>
+                        <Form
+                            action={`/expenses/${expense.id}/issuer`}
+                            method="patch"
+                            className="mt-4 grid gap-4"
+                        >
+                            {({ errors, processing }) => (
+                                <>
+                                    <FormErrorSummary errors={errors} />
+                                    <input
+                                        type="hidden"
+                                        name="issuer_revision"
+                                        value={issuerRevision ?? ''}
+                                    />
+                                    <div className="grid gap-4 sm:grid-cols-2">
+                                        <label className="grid gap-2 text-sm font-medium">
+                                            {translate(
+                                                'Issuer legal name',
+                                                locale,
+                                            )}
+                                            <Input
+                                                name="issuer_legal_name"
+                                                defaultValue={
+                                                    expense.issuer_legal_name ||
+                                                    expense.supplier
+                                                        ?.legal_name ||
+                                                    expense.merchant_name ||
+                                                    ''
+                                                }
+                                                maxLength={255}
+                                                required
+                                            />
+                                        </label>
+                                        <label className="grid gap-2 text-sm font-medium">
+                                            {translate(
+                                                'Trade name (optional)',
+                                                locale,
+                                            )}
+                                            <Input
+                                                name="merchant_name"
+                                                defaultValue={
+                                                    expense.merchant_name ?? ''
+                                                }
+                                                maxLength={255}
+                                            />
+                                        </label>
+                                    </div>
+                                    <label className="grid gap-2 text-sm font-medium">
+                                        {translate('Correction reason', locale)}
+                                        <textarea
+                                            name="correction_reason"
+                                            required
+                                            maxLength={2000}
+                                            rows={2}
+                                            className="rounded-md border bg-background p-3"
+                                        />
+                                    </label>
+                                    <Button
+                                        className="w-fit"
+                                        disabled={processing}
+                                    >
+                                        {translate(
+                                            'Save supplier name correction',
+                                            locale,
+                                        )}
+                                    </Button>
+                                </>
+                            )}
+                        </Form>
+                    </details>
+                )}
+                {issuerCorrections.length > 0 && (
+                    <section className="rounded-md border p-4">
+                        <h2 className="font-semibold">
+                            {translate(
+                                'Supplier name correction history',
+                                locale,
+                            )}
+                        </h2>
+                        {issuerCorrections.map((correction) => (
+                            <div
+                                key={correction.id}
+                                className="mt-3 grid gap-1 border-t pt-3 text-sm break-words"
+                            >
+                                <p>
+                                    {correction.user || '—'} ·{' '}
+                                    {new Intl.DateTimeFormat(locale, {
+                                        dateStyle: 'medium',
+                                        timeStyle: 'short',
+                                    }).format(new Date(correction.created_at))}
+                                </p>
+                                <p>
+                                    {translate('Issuer legal name', locale)}:{' '}
+                                    {correction.before.issuer_legal_name || '—'}{' '}
+                                    → {correction.after.issuer_legal_name}
+                                </p>
+                                <p>
+                                    {translate('Trade name (optional)', locale)}
+                                    : {correction.before.merchant_name || '—'} →{' '}
+                                    {correction.after.merchant_name || '—'}
+                                </p>
+                                <p>{correction.after.correction_reason}</p>
+                            </div>
+                        ))}
+                    </section>
+                )}
                 <section className="grid gap-4 border-y py-4 text-sm sm:grid-cols-3 xl:grid-cols-6">
                     <Info
                         label="Document"

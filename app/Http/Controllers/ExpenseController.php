@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AuditLog;
 use App\Models\Expense;
 use App\Models\ExpenseAttachment;
 use App\Models\ExpenseCategory;
@@ -47,7 +48,57 @@ class ExpenseController extends Controller
         $expense->load(['category', 'supplier', 'attachments', 'payments.ledgerAccount', 'payments.fundingBankAccount', 'payments.fundingCard', 'payments.fundingEmployee', 'taxLines']);
         $expense->payments->each(fn (SupplierPayment $payment) => $payment->setAttribute('source_label', $payment->sourceLabel()));
 
-        return Inertia::render('expenses/show', ['expense' => $expense, 'paymentSources' => $sources->options()]);
+        $canCorrect = request()->user()->hasRole('admin') && request()->user()->can('manage-catalog');
+
+        return Inertia::render('expenses/show', [
+            'expense' => $expense, 'paymentSources' => $sources->options(),
+            'canCorrectIssuer' => $canCorrect,
+            'issuerRevision' => $canCorrect ? $this->issuerRevision($expense) : null,
+            'issuerCorrections' => $canCorrect ? AuditLog::query()
+                ->where('auditable_type', $expense->getMorphClass())->where('auditable_id', $expense->id)
+                ->where('event', 'expense_issuer_corrected')->with('user:id,name')->latest('id')->limit(50)->get()
+                ->map(fn (AuditLog $log) => ['id' => $log->id, 'user' => $log->user?->name, 'created_at' => $log->created_at->toIso8601String(), 'before' => $log->old_values, 'after' => $log->new_values]) : [],
+        ]);
+    }
+
+    public function correctIssuer(Request $request, Expense $expense): RedirectResponse
+    {
+        abort_unless($request->user()->hasRole('admin'), 403);
+        $data = $request->validate([
+            'issuer_legal_name' => ['required', 'string', 'max:255'],
+            'merchant_name' => ['nullable', 'string', 'max:255'],
+            'correction_reason' => ['required', 'string', 'max:2000'],
+            'issuer_revision' => ['required', 'string', 'size:64'],
+        ]);
+
+        DB::transaction(function () use ($request, $expense, $data): void {
+            $expense = Expense::lockForUpdate()->findOrFail($expense->id);
+            $before = $expense->only(['issuer_legal_name', 'merchant_name']);
+            $after = ['issuer_legal_name' => $data['issuer_legal_name'], 'merchant_name' => $data['merchant_name'] ?? null];
+            if ($before === $after) {
+                return;
+            }
+            if (! hash_equals($this->issuerRevision($expense), $data['issuer_revision'])) {
+                throw ValidationException::withMessages(['issuer_legal_name' => __('The supplier names have changed. Reload the expense before correcting them.')]);
+            }
+            // Names are documentary metadata. Never alter the supplier link, tax ID,
+            // invoice amounts, journal entries, payments or filed-return snapshots here.
+            $expense->update($after);
+            AuditLog::create([
+                'user_id' => $request->user()->id, 'event' => 'expense_issuer_corrected',
+                'auditable_type' => $expense->getMorphClass(), 'auditable_id' => $expense->id,
+                'old_values' => $before, 'new_values' => [...$after, 'correction_reason' => $data['correction_reason']],
+                'ip_address' => $request->ip(), 'user_agent' => $request->userAgent(),
+                'route' => $request->route()?->getName(), 'method' => $request->method(),
+            ]);
+        });
+
+        return back()->with('toast', ['type' => 'success', 'message' => __('Expense supplier names corrected.')]);
+    }
+
+    private function issuerRevision(Expense $expense): string
+    {
+        return hash('sha256', json_encode($expense->only(['issuer_legal_name', 'merchant_name']), JSON_THROW_ON_ERROR));
     }
 
     public function store(Request $request, AccountingSynchronizer $accounting, DocumentNumber $numbers): RedirectResponse
@@ -129,7 +180,8 @@ class ExpenseController extends Controller
         }
 
         if ($data['issuer_tax_id'] ?? null) {
-            $duplicate = Expense::where('issuer_tax_id', strtoupper(trim($data['issuer_tax_id'])))
+            $taxIdKey = strtoupper(str_replace([' ', '-', '.'], '', trim($data['issuer_tax_id'])));
+            $duplicate = Expense::whereRaw("upper(replace(replace(replace(issuer_tax_id, ' ', ''), '-', ''), '.', '')) = ?", [$taxIdKey])
                 ->where('document_number', $data['document_number'] ?? null)->exists();
             if ($duplicate && filled($data['document_number'] ?? null)) {
                 throw ValidationException::withMessages(['document_number' => __('This issuer invoice is already registered.')]);
