@@ -1,4 +1,6 @@
 {
+    "The supplier names have changed. Reload the expense before correcting them.": "Los nombres del proveedor han cambiado. Recarga el gasto antes de corregirlos.",
+    "Expense supplier names corrected.": "Nombres del proveedor corregidos en el gasto.",
     "Only purchase orders without receipts, invoices or payments can have their dates corrected.": "Solo se pueden corregir las fechas de pedidos abiertos sin recepciones, facturas ni pagos.",
     "A sent purchase order cannot be moved to another fiscal year.": "Un pedido enviado al proveedor no puede trasladarse a otro ejercicio.",
     "Purchase order dates updated.": "Fechas del pedido de compra actualizadas.",

@@ -1,4 +1,26 @@
 {
+    "loading": { "en": "Loading", "es": "Cargando" },
+    "error": { "en": "Error", "es": "Error" },
+    "Enter a tax ID to reuse names from previous expenses and suppliers. Review the data before saving.": {
+        "en": "Enter a tax ID to reuse names from previous expenses and suppliers. Review the data before saving.",
+        "es": "Introduce el NIF/CIF para reutilizar nombres de gastos anteriores y proveedores. Revisa los datos antes de guardar."
+    },
+    "Looking up issuer…": {
+        "en": "Looking up issuer…",
+        "es": "Buscando emisor…"
+    },
+    "Issuer lookup is unavailable. You can enter the data manually.": {
+        "en": "Issuer lookup is unavailable. You can enter the data manually.",
+        "es": "La búsqueda de emisores no está disponible. Puedes introducir los datos manualmente."
+    },
+    "No previous issuer found. Enter the names for this expense.": {
+        "en": "No previous issuer found. Enter the names for this expense.",
+        "es": "No se ha encontrado un emisor anterior. Introduce los nombres para este gasto."
+    },
+    "Use issuer details": {
+        "en": "Use issuer details",
+        "es": "Usar datos del emisor"
+    },
     "Archived opportunities": {
         "en": "Archived opportunities",
         "es": "Oportunidades archivadas"
@@ -10,6 +32,22 @@
     "Restore opportunity": {
         "en": "Restore opportunity",
         "es": "Restaurar oportunidad"
+    },
+    "Correct supplier names": {
+        "en": "Correct supplier names",
+        "es": "Corregir nombres del proveedor"
+    },
+    "Correct only the names recorded on this expense. Amounts, tax ID, supplier record, payments and accounting stay unchanged.": {
+        "en": "Correct only the names recorded on this expense. Amounts, tax ID, supplier record, payments and accounting stay unchanged.",
+        "es": "Corrige solo los nombres registrados en este gasto. No cambian los importes, el NIF, la ficha del proveedor, los pagos ni la contabilidad."
+    },
+    "Save supplier name correction": {
+        "en": "Save supplier name correction",
+        "es": "Guardar corrección del nombre"
+    },
+    "Supplier name correction history": {
+        "en": "Supplier name correction history",
+        "es": "Historial de correcciones del nombre del proveedor"
     },
     "dates_corrected": { "en": "Dates corrected", "es": "Fechas corregidas" },
     "Correct purchase order dates": {

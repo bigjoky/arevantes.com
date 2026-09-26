@@ -7,6 +7,7 @@ import {
     WalletCards,
 } from 'lucide-react';
 import { useState } from 'react';
+import { ExpenseIssuerFields } from '@/components/expense-issuer-fields';
 import {
     FormActions,
     FormErrorSummary,
@@ -50,6 +51,7 @@ type Expense = {
     number: string;
     type: string;
     merchant_name: string | null;
+    issuer_legal_name: string | null;
     expense_date: string;
     due_date: string | null;
     amount: string;
@@ -181,7 +183,8 @@ export default function ExpensesIndex({
                                             </Link>
                                         </td>
                                         <td>
-                                            {expense.supplier?.trade_name ||
+                                            {expense.issuer_legal_name ||
+                                                expense.supplier?.trade_name ||
                                                 expense.supplier?.legal_name ||
                                                 expense.merchant_name ||
                                                 '—'}
@@ -496,30 +499,7 @@ function ExpenseDialog({
                                         name="invoice_series"
                                         error={errors.invoice_series}
                                     />
-                                    <Field
-                                        label={translate(
-                                            'Issuer legal name',
-                                            locale,
-                                        )}
-                                        name="issuer_legal_name"
-                                        error={errors.issuer_legal_name}
-                                    />
-                                    <Field
-                                        label={translate(
-                                            'Issuer tax ID / VAT number',
-                                            locale,
-                                        )}
-                                        name="issuer_tax_id"
-                                        error={errors.issuer_tax_id}
-                                    />
-                                    <Field
-                                        label={translate(
-                                            'Trade name (optional)',
-                                            locale,
-                                        )}
-                                        name="merchant_name"
-                                        error={errors.merchant_name}
-                                    />
+                                    <ExpenseIssuerFields errors={errors} />
                                     <Field
                                         label={translate('Issue date', locale)}
                                         name="expense_date"

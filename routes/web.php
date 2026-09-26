@@ -24,6 +24,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DocumentDeliveryController;
 use App\Http\Controllers\EngineeringDossierController;
 use App\Http\Controllers\ExpenseController;
+use App\Http\Controllers\ExpenseIssuerLookupController;
 use App\Http\Controllers\FieldServiceSettingsController;
 use App\Http\Controllers\FinanceController;
 use App\Http\Controllers\FiscalSettingsController;
@@ -407,7 +408,9 @@ Route::middleware(['auth'])->group(function () {
     Route::patch('company-fiscal/series/{series}', [FiscalSettingsController::class, 'updateSeries'])->middleware('can:manage-tax')->name('fiscal-settings.series.update');
     Route::get('finance/export', [FinanceController::class, 'export'])->middleware('can:view-finance')->name('finance.export');
     Route::post('expenses', [ExpenseController::class, 'store'])->middleware('can:manage-catalog')->name('expenses.store');
+    Route::get('expenses/issuer-lookup', ExpenseIssuerLookupController::class)->middleware(['can:manage-catalog', 'can:view-finance', 'throttle:60,1'])->name('expenses.issuer.lookup');
     Route::get('expenses/{expense}', [ExpenseController::class, 'show'])->middleware('can:view-finance')->name('expenses.show');
+    Route::patch('expenses/{expense}/issuer', [ExpenseController::class, 'correctIssuer'])->middleware('can:manage-catalog')->name('expenses.issuer.update');
     Route::delete('expenses/{expense}', [ExpenseController::class, 'destroy'])->middleware('can:manage-catalog')->name('expenses.destroy');
     Route::get('expenses/{expense}/attachments/{attachment}', [ExpenseController::class, 'download'])->middleware('can:view-finance')->name('expenses.attachments.download');
     Route::delete('expenses/{expense}/attachments/{attachment}', [ExpenseController::class, 'destroyAttachment'])->middleware('can:manage-catalog')->name('expenses.attachments.destroy');

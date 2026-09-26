@@ -1,5 +1,32 @@
 # Roadmap unificado de Arevantes
 
+## Directorio fiscal y memoria de emisores — 26/09/2026
+
+- Fase 1 implementada en local: búsqueda exacta por NIF/CIF normalizado desde
+  gastos históricos y proveedores activos. Autocompleta campos vacíos cuando
+  solo existe una combinación de razón social/nombre comercial; ofrece elegir
+  si existen variantes. No sobrescribe datos escritos ni enlaza proveedores a
+  ciegas. Al cambiar el NIF se descartan los nombres autocompletados anteriores.
+- Búsqueda limitada y protegida por permisos de gastos y finanzas, con índices
+  de normalización para PostgreSQL/SQLite y sin devolver importes, IBAN ni
+  contactos. Respuestas tardías canceladas y entrada manual si falla la búsqueda.
+- Fase 2 pendiente: ficha fiscal canónica por país + identificación normalizada,
+  vinculada a proveedores/clientes sin duplicar sus funciones. Varias marcas y
+  establecimientos por entidad; domicilios fiscal, social y operativos con etiqueta,
+  vigencia y dirección estructurada. No tratar automáticamente una marca como
+  otra empresa ni mezclar sujetos de países distintos con identificaciones similares.
+- Fase 3 pendiente: importar identidades históricas con revisión de conflictos,
+  deduplicación y fusión auditada; congelar la dirección y razón social de cada
+  factura para que cambios del directorio nunca modifiquen documentación anterior.
+  La fase 1 no es una validación censal ante AEAT ni un directorio completo.
+- Caso identificado EXP-2026-00002 (/expenses/3): lectura de producción confirma
+  gasto pagado, razón social «E. S. LA PEÑITA, S. A.» y nombre comercial
+  «E. S. Universidad». Se preservan ambos conceptos y no se tocan pagos/asientos.
+  La herramienta administrativa permite corregir solo los nombres con histórico.
+- Verificado: 565 pruebas PHP y 7513 aserciones; build, TypeScript, ESLint y
+  catálogo bilingüe. Índices y consulta validados en PostgreSQL local; suite en
+  SQLite. No se ha hecho validación visual autenticada. Pendiente de publicación.
+
 ## Recuperación administrativa: CRM, agenda y compras — 26/09/2026
 
 - OPP-2026-00005: confirmado el archivado en producción. La ficha normal
@@ -17,8 +44,31 @@
   Prueba del cambio 15/09/2026 a 29/05/2026 conservando entrega 03/06/2026,
   número e histórico. Formulario administrativo visible sin desplegar panel.
   No se relajan protecciones fiscales ni se ha alterado el registro real.
-- Sin migraciones. Pendiente de publicación y comprobación en producción.
+- Publicado en producción: PR #122, commit 0c524c3966e13b313d32447a5d7b24ca348a007a,
+  despliegue depl-a2d65b1f-92c2-4148-ae7b-237b68c1727b finalizado correctamente
+  el 26/09/2026 a las 09:38 UTC. Verificados ruta de archivados y permiso admin
+  de agenda en el servidor; no se ha modificado el estado de OPP-2026-00005 ni
+  la fecha real de PC-2026-00001. Sin migraciones en esa publicación.
   Se mantienen el roadmap fiscal y los demás frentes previamente acordados.
+
+## Gastos — herramientas de corrección administrativa — 26/09/2026
+
+- Primer incremento: corregir razón social y nombre comercial registrados en un
+  gasto, con motivo obligatorio, historial antes/después y protección contra
+  formularios obsoletos. Solo administradores; operación y auditoría atómicas.
+- No cambia NIF, proveedor vinculado, importes, impuestos, pagos, asientos,
+  adjuntos ni declaraciones archivadas. No modifica otras facturas ni la ficha
+  maestra del proveedor. El listado y la ficha priorizan el nombre documental.
+- Caso solicitado: «E.S. LA PEÑITA, S.A.», EXP-2026-00002 (/expenses/3).
+  La razón social ya corresponde a esa entidad; el nombre comercial es distinto
+  y se conserva, sin intervenciones silenciosas sobre el registro de producción.
+- Pendiente: correcciones de NIF/número/fechas; correcciones económicas con
+  contrapartidas contables, revisión de pagos y periodos cerrados. Esta entrega
+  no habilita edición universal ni implementa todavía esas contrapartidas.
+- Verificado localmente: 559 pruebas PHP, 7444 aserciones, build, TypeScript,
+  ESLint y catálogo bilingüe. Incluye gasto pagado, preservación de asientos,
+  rechazo de formulario obsoleto y rollback si falla la auditoría. Pendiente
+  de publicación. Mantiene los demás frentes del roadmap.
 
 ## Compras — corregir fechas de pedidos guardados — 20/09/2026
 
