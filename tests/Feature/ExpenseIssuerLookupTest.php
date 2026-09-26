@@ -61,4 +61,16 @@ class ExpenseIssuerLookupTest extends TestCase
         $this->actingAs(User::factory()->create(['role' => 'admin']))
             ->getJson(route('expenses.issuer.lookup', ['tax_id' => str_repeat('A', 33)]))->assertSessionHasErrors('tax_id');
     }
+
+    public function test_changing_tax_id_format_does_not_allow_a_duplicate_invoice(): void
+    {
+        $this->expense('EXP-OLD-1', 'E.S. Universidad');
+        $this->actingAs(User::factory()->create(['role' => 'admin']))->post(route('expenses.store'), [
+            'expense_category_id' => ExpenseCategory::firstOrFail()->id, 'type' => 'invoice',
+            'document_number' => 'EXP-OLD-1', 'issuer_legal_name' => 'E.S. LA PEÑITA, S.A.',
+            'issuer_tax_id' => 'a12345678', 'expense_date' => '2026-05-29',
+            'subtotal' => 100, 'tax_amount' => 21,
+        ])->assertSessionHasErrors('document_number');
+        $this->assertSame(1, Expense::count());
+    }
 }

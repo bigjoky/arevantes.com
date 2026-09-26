@@ -10,6 +10,8 @@
 - Búsqueda limitada y protegida por permisos de gastos y finanzas, con índices
   de normalización para PostgreSQL/SQLite y sin devolver importes, IBAN ni
   contactos. Respuestas tardías canceladas y entrada manual si falla la búsqueda.
+  La misma normalización protege la detección de facturas duplicadas: cambiar
+  puntos, guiones o espacios del NIF no evita el bloqueo de duplicados.
 - Fase 2 pendiente: ficha fiscal canónica por país + identificación normalizada,
   vinculada a proveedores/clientes sin duplicar sus funciones. Varias marcas y
   establecimientos por entidad; domicilios fiscal, social y operativos con etiqueta,
@@ -23,7 +25,7 @@
   gasto pagado, razón social «E. S. LA PEÑITA, S. A.» y nombre comercial
   «E. S. Universidad». Se preservan ambos conceptos y no se tocan pagos/asientos.
   La herramienta administrativa permite corregir solo los nombres con histórico.
-- Verificado: 565 pruebas PHP y 7513 aserciones; build, TypeScript, ESLint y
+- Verificado: 566 pruebas PHP y 7516 aserciones; build, TypeScript, ESLint y
   catálogo bilingüe. Índices y consulta validados en PostgreSQL local; suite en
   SQLite. No se ha hecho validación visual autenticada. Pendiente de publicación.
 

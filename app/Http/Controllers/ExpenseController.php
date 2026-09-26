@@ -180,7 +180,8 @@ class ExpenseController extends Controller
         }
 
         if ($data['issuer_tax_id'] ?? null) {
-            $duplicate = Expense::where('issuer_tax_id', strtoupper(trim($data['issuer_tax_id'])))
+            $taxIdKey = strtoupper(str_replace([' ', '-', '.'], '', trim($data['issuer_tax_id'])));
+            $duplicate = Expense::whereRaw("upper(replace(replace(replace(issuer_tax_id, ' ', ''), '-', ''), '.', '')) = ?", [$taxIdKey])
                 ->where('document_number', $data['document_number'] ?? null)->exists();
             if ($duplicate && filled($data['document_number'] ?? null)) {
                 throw ValidationException::withMessages(['document_number' => __('This issuer invoice is already registered.')]);
