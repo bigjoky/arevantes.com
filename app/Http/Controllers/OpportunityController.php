@@ -180,6 +180,12 @@ class OpportunityController extends Controller
 
     public function show(Opportunity $opportunity, OpportunityDossier $dossier, OpportunitySalesCycle $salesCycle): Response
     {
+        if ($opportunity->trashed()) {
+            return Inertia::render('opportunities/archived', [
+                'opportunity' => $opportunity->only(['id', 'code', 'title', 'deleted_at']),
+            ]);
+        }
+
         $opportunity->load([
             'customer',
             'installation:id,person_id,project_reference,site_name,service_type,status',
@@ -410,7 +416,12 @@ class OpportunityController extends Controller
 
     public function restore(int $opportunity): RedirectResponse
     {
-        Opportunity::onlyTrashed()->findOrFail($opportunity)->restore();
+        DB::transaction(function () use ($opportunity): void {
+            $record = Opportunity::withTrashed()->lockForUpdate()->findOrFail($opportunity);
+            if ($record->trashed()) {
+                $record->restore();
+            }
+        });
 
         return to_route('opportunities.index')->with('toast', ['type' => 'success', 'message' => __('Opportunity restored.')]);
     }
