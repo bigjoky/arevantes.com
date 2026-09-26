@@ -27,7 +27,12 @@
   La herramienta administrativa permite corregir solo los nombres con histórico.
 - Verificado: 566 pruebas PHP y 7516 aserciones; build, TypeScript, ESLint y
   catálogo bilingüe. Índices y consulta validados en PostgreSQL local; suite en
-  SQLite. No se ha hecho validación visual autenticada. Pendiente de publicación.
+  SQLite. No se ha hecho validación visual autenticada.
+- Publicado: PR #123, commit 970f198065a4f2ad8c82bda4445bbd6a8d9e3c23,
+  despliegue depl-a2d73df5-77ab-40c2-b989-9f5821b3b420 completado el 26/09/2026
+  a las 20:12:52 UTC. Producción confirma ambos índices, ruta de corrección y
+  búsqueda del emisor de EXP-2026-00002; gasto sin cambios, estado pagado.
+  Salud y acceso responden HTTP 200. Las fases 2 y 3 siguen pendientes.
 
 ## Recuperación administrativa: CRM, agenda y compras — 26/09/2026
 
@@ -69,8 +74,9 @@
   no habilita edición universal ni implementa todavía esas contrapartidas.
 - Verificado localmente: 559 pruebas PHP, 7444 aserciones, build, TypeScript,
   ESLint y catálogo bilingüe. Incluye gasto pagado, preservación de asientos,
-  rechazo de formulario obsoleto y rollback si falla la auditoría. Pendiente
-  de publicación. Mantiene los demás frentes del roadmap.
+  rechazo de formulario obsoleto y rollback si falla la auditoría. Publicado
+  junto a la memoria de emisores en la versión 2026.09.26.2. Mantiene los demás
+  frentes del roadmap.
 
 ## Compras — corregir fechas de pedidos guardados — 20/09/2026
 
