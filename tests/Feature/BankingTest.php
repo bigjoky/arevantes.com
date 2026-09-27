@@ -398,6 +398,28 @@ class BankingTest extends TestCase
         $this->assertSame(1, BankStatementImport::count());
     }
 
+    public function test_norma_43_origin_office_can_differ_without_bypassing_account_controls(): void
+    {
+        $this->actingAs(User::factory()->create(['role' => 'commercial']));
+        $account = BankAccount::create(['name' => 'Origin office test', 'iban' => 'ES0001821234001234567890', 'currency' => 'EUR', 'opening_balance' => 0, 'is_active' => true]);
+        $header = '11'.'0182'.'1234'.'1234567890'.'260101'.'260131'.'2'.str_pad('0', 14, '0', STR_PAD_LEFT).'978'.'2'.str_repeat(' ', 29);
+        $movement = '22'.'    '.'9876'.'260115'.'260115'.'01'.'001'.'2'.str_pad('10000', 14, '0', STR_PAD_LEFT).str_pad('DOC1', 10).str_pad('REF', 12).str_pad('TRANSFER', 16);
+        $footer = '33'.'0182'.'1234'.'1234567890'.'00000'.str_pad('0', 14, '0', STR_PAD_LEFT).'00001'.str_pad('10000', 14, '0', STR_PAD_LEFT).'2'.str_pad('10000', 14, '0', STR_PAD_LEFT).'978'.str_repeat(' ', 4);
+        $file = fn (string $control) => UploadedFile::fake()->createWithContent('origin-office.n43', implode("\r\n", [$header, $movement, $control]));
+
+        $this->postJson(route('banking.import.preview', $account), ['statement' => $file($footer)])
+            ->assertOk()->assertJsonPath('created', 1)->assertJsonPath('control_valid', true);
+        $this->assertSame(0, BankTransaction::count());
+        $this->post(route('banking.import', $account), ['statement' => $file($footer)])->assertRedirect()->assertSessionHasNoErrors();
+        $this->assertSame(1, $account->transactions()->count());
+
+        // Account identity still comes from the header and must match the footer.
+        $wrongFooter = substr_replace($footer, '9999', 6, 4);
+        $this->postJson(route('banking.import.preview', $account), ['statement' => $file($wrongFooter)])
+            ->assertUnprocessable()->assertJsonValidationErrors('statement');
+        $this->assertSame(1, $account->transactions()->count());
+    }
+
     public function test_statement_import_can_be_rolled_back_with_audit_and_reimported(): void
     {
         $user = User::factory()->create(['role' => 'commercial']);
