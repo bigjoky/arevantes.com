@@ -35,6 +35,11 @@ de entidades. Orden de ejecución y criterios de aceptación:
    saldos y doble envío. No borrar silenciosamente pagos contabilizados.
 4. **Importes e IVA del proveedor**: cuotas editables por línea y ajuste explícito
    de redondeo documentado; recalcular saldo, deducibilidad y retenciones.
+   Primera entrega implementada: cuota editable al registrar un gasto nuevo,
+   suma de cuotas redondeadas por línea y límite existente de ±0,02 por línea
+   comprobado en céntimos enteros. Cambiar base o tipo restablece el cálculo.
+   Probados ambos límites, asiento equilibrado, deducibilidad y rechazo de
+   importes negativos, exceso de tolerancia o más de dos decimales.
    Correcciones de gastos existentes con auditoría, reversión/nuevo asiento y
    protección de declaraciones presentadas. No modificar importes históricos
    sin motivo ni utilizar una tolerancia ilimitada.

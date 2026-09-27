@@ -1,4 +1,8 @@
 {
+    "Use the supplier invoice amount. Up to 0.02 difference per tax line; changing the base or rate recalculates it.": {
+        "en": "Use the supplier invoice amount. Up to 0.02 difference per tax line; changing the base or rate recalculates it.",
+        "es": "Indica la cuota de la factura del proveedor. Diferencia máxima de 0,02 por línea fiscal; cambiar la base o el tipo la recalcula."
+    },
     "Remove current logo": {
         "en": "Remove current logo",
         "es": "Eliminar el logo actual"
