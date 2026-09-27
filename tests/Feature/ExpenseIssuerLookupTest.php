@@ -56,10 +56,10 @@ class ExpenseIssuerLookupTest extends TestCase
     public function test_lookup_is_validated_and_permission_protected(): void
     {
         $url = route('expenses.issuer.lookup', ['tax_id' => 'A12345678']);
-        $this->getJson($url)->assertRedirect(route('login'));
+        $this->getJson($url)->assertUnauthorized();
         $this->actingAs(User::factory()->create(['role' => 'technician']))->getJson($url)->assertForbidden();
         $this->actingAs(User::factory()->create(['role' => 'admin']))
-            ->getJson(route('expenses.issuer.lookup', ['tax_id' => str_repeat('A', 33)]))->assertSessionHasErrors('tax_id');
+            ->getJson(route('expenses.issuer.lookup', ['tax_id' => str_repeat('A', 33)]))->assertUnprocessable()->assertJsonValidationErrors('tax_id');
     }
 
     public function test_changing_tax_id_format_does_not_allow_a_duplicate_invoice(): void

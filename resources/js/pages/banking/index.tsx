@@ -1408,6 +1408,27 @@ function StatementImportPanel({ account }: { account: Account }) {
                     body,
                 },
             );
+
+            if (
+                response.status === 419 ||
+                response.status === 401 ||
+                response.redirected
+            ) {
+                throw new Error(
+                    'Your session has expired. Reload the page before previewing the statement.',
+                );
+            }
+
+            if (
+                !response.headers
+                    .get('content-type')
+                    ?.includes('application/json')
+            ) {
+                throw new Error(
+                    'The bank preview returned an invalid response. Please try again or contact support.',
+                );
+            }
+
             const payload = (await response.json()) as
                 | StatementPreview
                 | { message?: string; errors?: Record<string, string[]> };

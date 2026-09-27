@@ -150,7 +150,7 @@ class ExpenseController extends Controller
             'tax_lines.*.kind' => ['required', Rule::in(['vat', 'equivalence_surcharge'])],
             'tax_lines.*.taxable_base' => ['required', 'numeric', 'min:0'],
             'tax_lines.*.tax_rate' => ['required', 'numeric', 'between:0,100'],
-            'tax_lines.*.tax_amount' => ['required', 'numeric', 'min:0'],
+            'tax_lines.*.tax_amount' => ['required', 'numeric', 'decimal:0,2', 'min:0'],
             'tax_lines.*.deductible_percent' => ['required', 'numeric', 'between:0,100'],
             'tax_lines.*.exemption_reason' => ['nullable', 'string', 'max:255'],
             'notes' => ['nullable', 'string'],
@@ -162,7 +162,8 @@ class ExpenseController extends Controller
             ['kind' => 'vat', 'taxable_base' => $data['subtotal'], 'tax_rate' => (float) $data['subtotal'] > 0 ? (float) $data['tax_amount'] / (float) $data['subtotal'] * 100 : 0, 'tax_amount' => $data['tax_amount'], 'deductible_percent' => 100],
         ])->values()->map(function (array $line, int $index) {
             $expectedTax = round((float) $line['taxable_base'] * (float) $line['tax_rate'] / 100, 2);
-            if (abs($expectedTax - (float) $line['tax_amount']) > 0.02) {
+            // Compare cents rather than floating-point differences at the boundary.
+            if (abs((int) round($expectedTax * 100) - (int) round((float) $line['tax_amount'] * 100)) > 2) {
                 throw ValidationException::withMessages(["tax_lines.{$index}.tax_amount" => __('The tax amount does not match its taxable base and rate.')]);
             }
 
@@ -238,6 +239,34 @@ class ExpenseController extends Controller
         $expense->delete();
 
         return to_route('expenses.index')->with('toast', ['type' => 'success', 'message' => __('Expense deleted.')]);
+    }
+
+    public function storeAttachments(Request $request, Expense $expense): RedirectResponse
+    {
+        $data = $request->validate([
+            'attachments' => ['required', 'array', 'min:1', 'max:10'],
+            'attachments.*' => ['required', 'file', new SafeUpload(['pdf', 'jpg', 'jpeg', 'png', 'webp'], 10240)],
+        ]);
+        $stored = [];
+        $disk = Storage::disk(config('filesystems.private'));
+        try {
+            foreach ($data['attachments'] as $file) {
+                $path = $file->store('expenses/'.Str::uuid(), config('filesystems.private'));
+                if (! $path) {
+                    throw ValidationException::withMessages(['attachments' => __('The expense document could not be stored. Please try again.')]);
+                }
+                $stored[] = ['path' => $path, 'original_name' => $file->getClientOriginalName(), 'mime_type' => $file->getMimeType(), 'size' => $file->getSize(), 'uploaded_by' => $request->user()->id];
+            }
+            DB::transaction(function () use ($expense, $stored) {
+                $locked = Expense::lockForUpdate()->findOrFail($expense->id);
+                $locked->attachments()->createMany($stored);
+            });
+        } catch (Throwable $exception) {
+            $disk->delete(array_column($stored, 'path'));
+            throw $exception;
+        }
+
+        return back()->with('toast', ['type' => 'success', 'message' => __('Expense attachments added.')]);
     }
 
     public function download(Expense $expense, ExpenseAttachment $attachment): StreamedResponse

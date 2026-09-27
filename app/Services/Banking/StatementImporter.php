@@ -98,7 +98,8 @@ class StatementImporter
 
     private function importNorma43(BankAccount $account, string $contents, bool $persist): array
     {
-        $lines = preg_split('/\R/', $contents) ?: [];
+        // Split physical records before decoding: byte 0x85 is text in Windows-1252.
+        $lines = preg_split('/\r\n|\n|\r/', $contents) ?: [];
         $blocks = [];
         $blockIndex = null;
         $movementIndex = null;
@@ -139,9 +140,9 @@ class StatementImporter
                     throw ValidationException::withMessages(['statement' => __('Norma 43 record :line is truncated.', ['line' => $lineNumber + 1])]);
                 }
                 $header = $blocks[$blockIndex]['header'];
-                if (trim(substr($line, 2, 4)) !== $header['entity'] || trim(substr($line, 6, 4)) !== $header['office']) {
-                    throw ValidationException::withMessages(['statement' => __('Norma 43 movement record :line belongs to a different bank entity or office.', ['line' => $lineNumber + 1])]);
-                }
+                // Record 22 positions 3–6 are free; 7–10 identify the originating
+                // office, not necessarily the account's office. The enclosing
+                // header and control record identify and validate the account.
 
                 $sign = substr($line, 27, 1);
 
@@ -154,9 +155,10 @@ class StatementImporter
                     'booked_on' => $this->aebDate(substr($line, 10, 6)),
                     'value_on' => $this->aebDate(substr($line, 16, 6)),
                     'amount' => ($sign === '1' ? -1 : 1) * ((int) substr($line, 28, 14) / 100),
-                    'reference' => trim(substr($line, 42, 10).' '.substr($line, 52, 12).' '.substr($line, 64, 16)),
+                    // Preserve padding used by legacy import hashes to avoid reimporting old movements.
+                    'reference' => $this->aebUtf8(trim(substr($line, 42, 10).' '.substr($line, 52, 12).' '.substr($line, 64, 16))),
                     'description' => trim('Concept '.$this->cleanAebText(substr($line, 22, 2)).'/'.$this->cleanAebText(substr($line, 24, 3))),
-                    'raw_data' => ['format' => 'norma43', 'header' => $header, 'record_22' => $line, 'records_23' => []],
+                    'raw_data' => ['format' => 'norma43', 'header' => $header, 'record_22' => $this->aebUtf8($line), 'records_23' => []],
                 ];
 
                 continue;
@@ -164,7 +166,7 @@ class StatementImporter
 
             if ($record === '23' && $blockIndex !== null && $movementIndex !== null) {
                 $text = $this->cleanAebText(substr($line, 4));
-                $blocks[$blockIndex]['movements'][$movementIndex]['raw_data']['records_23'][] = $line;
+                $blocks[$blockIndex]['movements'][$movementIndex]['raw_data']['records_23'][] = $this->aebUtf8($line);
 
                 if ($text !== '') {
                     $blocks[$blockIndex]['movements'][$movementIndex]['description'] = trim($blocks[$blockIndex]['movements'][$movementIndex]['description'].' '.$text);
@@ -327,9 +329,14 @@ class StatementImporter
 
     private function cleanAebText(string $value): string
     {
-        $value = mb_convert_encoding($value, 'UTF-8', ['UTF-8', 'ISO-8859-1', 'Windows-1252']);
+        $value = $this->aebUtf8($value);
 
         return preg_replace('/\s+/', ' ', trim($value)) ?? '';
+    }
+
+    private function aebUtf8(string $value): string
+    {
+        return mb_check_encoding($value, 'UTF-8') ? $value : mb_convert_encoding($value, 'UTF-8', 'Windows-1252');
     }
 
     private function aebSignedAmount(string $sign, string $amount): float

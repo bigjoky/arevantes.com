@@ -16,6 +16,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -41,15 +42,34 @@ class FiscalSettingsController extends Controller
     public function updateCompany(Request $request): RedirectResponse
     {
         $data = $request->validate(['legal_name' => ['required', 'string', 'max:255'], 'trade_name' => ['nullable', 'string', 'max:255'], 'tax_id' => ['required', 'string', 'max:30'], 'address' => ['required', 'string', 'max:255'], 'postal_code' => ['required', 'string', 'max:20'], 'city' => ['required', 'string', 'max:255'], 'province' => ['required', 'string', 'max:255'], 'country' => ['required', 'string', 'max:255'], 'email' => ['required', 'email'], 'phone' => ['nullable', 'string', 'max:40'], 'website' => ['nullable', 'url'], 'iban' => ['nullable', 'string', 'max:34'], 'bic' => ['nullable', 'string', 'max:11'], 'commercial_registry' => ['nullable', 'string', 'max:255'], 'invoice_footer' => ['nullable', 'string', 'max:2000'], 'logo' => ['nullable', 'image', 'mimes:png,jpg,jpeg,webp', 'max:2048']]);
-        $profile = CompanyProfile::firstOrFail();
+        $request->validate(['remove_logo' => ['nullable', 'boolean']]);
         $logo = $data['logo'] ?? null;
         unset($data['logo']);
-        if ($logo) {
-            if ($profile->logo_path) {
-                Storage::disk(config('filesystems.private'))->delete($profile->logo_path);
-            } $data['logo_path'] = $logo->store('company', config('filesystems.private'));
+        $disk = Storage::disk(config('filesystems.private'));
+        $newPath = $logo?->store('company', config('filesystems.private'));
+        if ($logo && ! $newPath) {
+            throw ValidationException::withMessages(['logo' => __('The logo could not be stored. Please try again.')]);
         }
-        $profile->update($data);
+        try {
+            $oldPath = DB::transaction(function () use ($data, $newPath, $request) {
+                $profile = CompanyProfile::lockForUpdate()->firstOrFail();
+                $oldPath = $profile->logo_path;
+                if ($newPath || $request->boolean('remove_logo')) {
+                    $data['logo_path'] = $newPath ?: null;
+                }
+                $profile->update($data);
+
+                return $profile->logo_path !== $oldPath ? $oldPath : null;
+            });
+        } catch (\Throwable $exception) {
+            if ($newPath) {
+                $disk->delete($newPath);
+            }
+            throw $exception;
+        }
+        if ($oldPath) {
+            $disk->delete($oldPath);
+        }
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Company details updated.')]);
     }
@@ -59,7 +79,7 @@ class FiscalSettingsController extends Controller
         $profile = CompanyProfile::firstOrFail();
         abort_unless($profile->logo_path && Storage::disk(config('filesystems.private'))->exists($profile->logo_path), 404);
 
-        return Storage::disk(config('filesystems.private'))->download($profile->logo_path, 'company-logo', ['Content-Disposition' => 'inline']);
+        return Storage::disk(config('filesystems.private'))->download($profile->logo_path, 'company-logo', ['Content-Disposition' => 'inline', 'Cache-Control' => 'private, no-store']);
     }
 
     public function storeYear(Request $request): RedirectResponse

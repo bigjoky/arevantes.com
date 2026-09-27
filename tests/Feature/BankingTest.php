@@ -296,6 +296,26 @@ class BankingTest extends TestCase
         $this->assertSame(2, BankTransaction::count());
     }
 
+    public function test_norma_43_windows_1252_references_preview_and_import_without_json_errors(): void
+    {
+        $this->actingAs(User::factory()->create(['role' => 'commercial']));
+        $account = BankAccount::create(['name' => 'BBVA test', 'currency' => 'EUR', 'opening_balance' => 0, 'is_active' => true]);
+        $header = '11'.'0182'.'1234'.'1234567890'.'260701'.'260731'.'2'.str_pad('0', 14, '0', STR_PAD_LEFT).'978'.'2'.str_repeat(' ', 26);
+        $reference = mb_convert_encoding('PEÑITA', 'Windows-1252', 'UTF-8');
+        $movement = '22'.'0182'.'1234'.'260713'.'260713'.'01'.'001'.'2'.str_pad('12100', 14, '0', STR_PAD_LEFT).str_pad('DOC1', 10).str_pad($reference, 12).str_pad('TRANSFERENCIA', 16);
+        $concept = '2301'.str_pad(mb_convert_encoding('REPARACIÓN…', 'Windows-1252', 'UTF-8'), 76);
+        $footer = '33'.'0182'.'1234'.'1234567890'.'00000'.str_pad('0', 14, '0', STR_PAD_LEFT).'00001'.str_pad('12100', 14, '0', STR_PAD_LEFT).'2'.str_pad('12100', 14, '0', STR_PAD_LEFT).'978'.str_repeat(' ', 4);
+        $contents = implode("\r\n", [$header, $movement, $concept, $footer]);
+        $this->postJson(route('banking.import.preview', $account), ['statement' => UploadedFile::fake()->createWithContent('bbva.n43', $contents)])
+            ->assertOk()->assertJsonPath('created', 1);
+        $this->assertSame(0, BankTransaction::count());
+        $this->post(route('banking.import', $account), ['statement' => UploadedFile::fake()->createWithContent('bbva.n43', $contents)])->assertRedirect()->assertSessionHasNoErrors();
+        $transaction = BankTransaction::sole();
+        $this->assertStringContainsString('PEÑITA', $transaction->reference);
+        $this->assertStringContainsString('REPARACIÓN…', $transaction->description);
+        $this->assertStringContainsString('PEÑITA', $transaction->raw_data['record_22']);
+    }
+
     public function test_norma_43_preserves_legitimate_identical_movements_and_deduplicates_reimports(): void
     {
         $user = User::factory()->create(['role' => 'commercial']);
@@ -376,6 +396,34 @@ class BankingTest extends TestCase
         ])->assertSessionHasErrors('statement');
         $this->assertSame(1, $account->transactions()->count());
         $this->assertSame(1, BankStatementImport::count());
+    }
+
+    public function test_norma_43_origin_office_can_differ_without_bypassing_account_controls(): void
+    {
+        $this->actingAs(User::factory()->create(['role' => 'commercial']));
+        $account = BankAccount::create(['name' => 'Origin office test', 'iban' => 'ES0001821234001234567890', 'currency' => 'EUR', 'opening_balance' => 0, 'is_active' => true]);
+        $header = '11'.'0182'.'1234'.'1234567890'.'260101'.'260131'.'2'.str_pad('0', 14, '0', STR_PAD_LEFT).'978'.'2'.str_repeat(' ', 29);
+        $movement = '22'.'    '.'9876'.'260115'.'260115'.'01'.'001'.'2'.str_pad('10000', 14, '0', STR_PAD_LEFT).str_pad('DOC1', 10).str_pad('REF', 12).str_pad('TRANSFER', 16);
+        $footer = '33'.'0182'.'1234'.'1234567890'.'00000'.str_pad('0', 14, '0', STR_PAD_LEFT).'00001'.str_pad('10000', 14, '0', STR_PAD_LEFT).'2'.str_pad('10000', 14, '0', STR_PAD_LEFT).'978'.str_repeat(' ', 4);
+        $file = fn (string $control) => UploadedFile::fake()->createWithContent('origin-office.n43', implode("\r\n", [$header, $movement, $control]));
+
+        $this->postJson(route('banking.import.preview', $account), ['statement' => $file($footer)])
+            ->assertOk()->assertJsonPath('created', 1)->assertJsonPath('control_valid', true);
+        $this->assertSame(0, BankTransaction::count());
+        $this->post(route('banking.import', $account), ['statement' => $file($footer)])->assertRedirect()->assertSessionHasNoErrors();
+        $this->assertSame(1, $account->transactions()->count());
+
+        // Account identity still comes from the header and must match the footer.
+        $legacyReference = trim(substr($movement, 42, 10).' '.substr($movement, 52, 12).' '.substr($movement, 64, 16));
+        $legacyHash = hash('sha256', implode('|', ['2026-01-15', '2026-01-15', '100.00', $legacyReference, 'Concept 01/001']));
+        $this->assertSame($legacyHash, $account->transactions()->sole()->import_hash);
+        $this->postJson(route('banking.import.preview', $account), ['statement' => $file($footer)])
+            ->assertOk()->assertJsonPath('created', 0)->assertJsonPath('duplicates', 1);
+
+        $wrongFooter = substr_replace($footer, '9999', 6, 4);
+        $this->postJson(route('banking.import.preview', $account), ['statement' => $file($wrongFooter)])
+            ->assertUnprocessable()->assertJsonValidationErrors('statement');
+        $this->assertSame(1, $account->transactions()->count());
     }
 
     public function test_statement_import_can_be_rolled_back_with_audit_and_reimported(): void

@@ -413,6 +413,7 @@ Route::middleware(['auth'])->group(function () {
     Route::patch('expenses/{expense}/issuer', [ExpenseController::class, 'correctIssuer'])->middleware('can:manage-catalog')->name('expenses.issuer.update');
     Route::delete('expenses/{expense}', [ExpenseController::class, 'destroy'])->middleware('can:manage-catalog')->name('expenses.destroy');
     Route::get('expenses/{expense}/attachments/{attachment}', [ExpenseController::class, 'download'])->middleware('can:view-finance')->name('expenses.attachments.download');
+    Route::post('expenses/{expense}/attachments', [ExpenseController::class, 'storeAttachments'])->middleware('can:manage-catalog')->name('expenses.attachments.store');
     Route::delete('expenses/{expense}/attachments/{attachment}', [ExpenseController::class, 'destroyAttachment'])->middleware('can:manage-catalog')->name('expenses.attachments.destroy');
     Route::post('expenses/{expense}/payments', [ExpenseController::class, 'payExpense'])->middleware('can:manage-purchase-payments')->name('expenses.payments.store');
     Route::post('supplier-invoices/{purchaseDocument}/payments', [ExpenseController::class, 'paySupplierInvoice'])->middleware('can:manage-purchase-payments')->name('supplier-invoices.payments.store');

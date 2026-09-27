@@ -917,7 +917,7 @@ class DashboardTest extends TestCase
     {
         $this->postJson(route('geocoding.search'), [
             'query' => 'Calle Claudio Marcelo 1, Córdoba',
-        ])->assertRedirect(route('login'));
+        ])->assertUnauthorized();
     }
 
     public function test_authenticated_users_can_visit_edit_update_and_delete_installations()

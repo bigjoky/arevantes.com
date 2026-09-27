@@ -323,14 +323,23 @@ function ExpenseDialog({
     const { locale } = useLocale();
     const [open, setOpen] = useState(initialOpen);
     const [taxLines, setTaxLines] = useState([
-        { kind: 'vat', base: 0, rate: 21, deductible: 100 },
+        {
+            kind: 'vat',
+            base: 0,
+            rate: 21,
+            deductible: 100,
+            quota: null as number | null,
+        },
     ]);
     const [withholdingRate, setWithholdingRate] = useState(0);
     const subtotal = taxLines
         .filter((line) => line.kind === 'vat')
         .reduce((sum, line) => sum + line.base, 0);
     const taxAmount = taxLines.reduce(
-        (sum, line) => sum + (line.base * line.rate) / 100,
+        (sum, line) =>
+            sum +
+            (line.quota ??
+                Math.round(((line.base * line.rate) / 100 + 1e-9) * 100) / 100),
         0,
     );
     const withholdingAmount = (subtotal * withholdingRate) / 100;
@@ -602,6 +611,7 @@ function ExpenseDialog({
                                                     base: 0,
                                                     rate: 21,
                                                     deductible: 100,
+                                                    quota: null,
                                                 },
                                             ])
                                         }
@@ -611,7 +621,13 @@ function ExpenseDialog({
                                     </Button>
                                 </div>
                                 {taxLines.map((line, index) => {
-                                    const quota = (line.base * line.rate) / 100;
+                                    const quota =
+                                        line.quota ??
+                                        Math.round(
+                                            ((line.base * line.rate) / 100 +
+                                                1e-9) *
+                                                100,
+                                        ) / 100;
 
                                     return (
                                         <div
@@ -679,6 +695,7 @@ function ExpenseDialog({
                                                                     ? {
                                                                           ...item,
                                                                           base: value,
+                                                                          quota: null,
                                                                       }
                                                                     : item,
                                                         ),
@@ -709,6 +726,7 @@ function ExpenseDialog({
                                                                     ? {
                                                                           ...item,
                                                                           rate: value,
+                                                                          quota: null,
                                                                       }
                                                                     : item,
                                                         ),
@@ -721,21 +739,42 @@ function ExpenseDialog({
                                                 }
                                             />
                                             <div className="grid gap-2">
-                                                <Label>
-                                                    {translate(
+                                                <FiscalNumber
+                                                    label={translate(
                                                         'Tax amount',
                                                         locale,
                                                     )}
-                                                </Label>
-                                                <Input
-                                                    readOnly
-                                                    value={quota.toFixed(2)}
-                                                />
-                                                <input
                                                     name={`tax_lines[${index}][tax_amount]`}
-                                                    type="hidden"
-                                                    value={quota.toFixed(2)}
+                                                    value={quota}
+                                                    onChange={(value) =>
+                                                        setTaxLines((lines) =>
+                                                            lines.map(
+                                                                (
+                                                                    item,
+                                                                    itemIndex,
+                                                                ) =>
+                                                                    itemIndex ===
+                                                                    index
+                                                                        ? {
+                                                                              ...item,
+                                                                              quota: value,
+                                                                          }
+                                                                        : item,
+                                                            ),
+                                                        )
+                                                    }
+                                                    error={
+                                                        errors[
+                                                            `tax_lines.${index}.tax_amount`
+                                                        ]
+                                                    }
                                                 />
+                                                <p className="text-xs text-muted-foreground">
+                                                    {translate(
+                                                        'Use the supplier invoice amount. Up to 0.02 difference per tax line; changing the base or rate recalculates it.',
+                                                        locale,
+                                                    )}
+                                                </p>
                                             </div>
                                             <FiscalNumber
                                                 label={translate(
