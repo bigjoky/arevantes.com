@@ -24,8 +24,8 @@
   catálogo bilingüe correctos; migración aplicada en PostgreSQL local. Cubiertos
   conflictos de identidad, país, formularios obsoletos, permisos, auditoría y
   rollback, conservación de facturas/proveedores e inactivación del autocompletado.
-  Sin publicación de esta fase: producción continúa con 2026.09.26.2 hasta cerrar
-  copia fija de direcciones, integración geográfica y validación visual.
+  Sin publicación de esta fase: el directorio fiscal permanece en develop hasta
+  cerrar copia fija de direcciones, integración geográfica y validación visual.
 
 ## Corrección urgente del historial de gastos — 27/09/2026
 
@@ -38,7 +38,15 @@
 - Compilación correcta y suite general SQLite correcta; la capacidad real del
   campo se comprueba en PostgreSQL porque SQLite no limita los varchar.
 - Publicación aislada desde producción, sin incluir el directorio fiscal
-  pendiente de desarrollo. Estado: validado, pendiente de despliegue.
+  pendiente de desarrollo. Publicado el 27/09/2026 mediante PR #124:
+  commit `a10754adfd9521314aed5caa2427e070ae2ee1d2`, despliegue
+  `depl-a2d89059-4072-4bd9-bc77-de5e2a16b5aa` completado y activo.
+- Verificación posterior: columna de 255 caracteres y migración aplicada en
+  producción; `/up` y `/login` HTTP 200. EXP-2026-00002 conserva sus datos y
+  fecha de modificación; no se corrigió ninguna factura en nombre del usuario.
+- Suite aislada: 567 pruebas SQLite correctas / 7523 aserciones (la prueba
+  específica de capacidad se ejecuta en PostgreSQL); CI PHP 8.4/8.5 y calidad
+  correctos. Integrado también en develop y validado con el directorio fiscal.
 
 ## Directorio fiscal y memoria de emisores — 26/09/2026
 
