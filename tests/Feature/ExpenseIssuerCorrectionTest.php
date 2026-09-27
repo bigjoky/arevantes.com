@@ -20,6 +20,7 @@ class ExpenseIssuerCorrectionTest extends TestCase
 
     private function expense(): Expense
     {
+        $this->withoutExceptionHandling();
         $this->actingAs(User::factory()->create(['role' => 'admin']));
         $supplier = Supplier::create(['legal_name' => 'Master supplier name', 'country' => 'ES']);
         $this->post(route('expenses.store'), [
@@ -27,7 +28,9 @@ class ExpenseIssuerCorrectionTest extends TestCase
             'supplier_id' => $supplier->id, 'type' => 'invoice', 'document_number' => 'TEST-1',
             'issuer_legal_name' => 'Incorrect name', 'issuer_tax_id' => 'A12345678',
             'merchant_name' => 'Station', 'expense_date' => '2026-07-13', 'subtotal' => 100, 'tax_amount' => 21,
-        ])->assertSessionHasNoErrors();
+        ])->assertSessionHasNoErrors()->assertRedirect();
+
+        $this->withExceptionHandling();
 
         return Expense::firstOrFail();
     }
