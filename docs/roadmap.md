@@ -14,8 +14,21 @@ de entidades. Orden de ejecución y criterios de aceptación:
    Windows-1252 a UTF-8 después de separar sus campos de longitud fija; mensajes
    comprensibles cuando la vista previa recibe HTML o una sesión caducada.
    Prueba sintética con Ñ, tildes y puntos suspensivos. El usuario confirma
-   aplicación web instalada desde Safari; falta su fichero para reproducir el
-   caso real. Pendiente verificación autenticada en Safari y publicación.
+   aplicación web instalada desde Safari y aporta el extracto real. Reproducido
+   un rechazo adicional: el registro 22 contiene oficina de origen, que puede
+   diferir de la de la cuenta; posiciones 3–6 libres. Eliminada la comparación
+   incorrecta, manteniendo cabecera, IBAN, pie, bloques y control de totales.
+   Vista previa local del fichero real: 90 movimientos, 01/01–31/08/2026,
+   JSON válido y controles cuadrados, sin importar ni copiar el extracto al repo.
+   Causa del mensaje genérico en Safari: la política global de excepciones
+   ignoraba `Accept: application/json` y redirigía los errores de validación.
+   Restaurado `expectsJson()` para responder 422 con errores estructurados.
+   Referencia: Cuaderno 43, apartado 1.2 (publicado por Bankinter):
+   https://docs.bankinter.com/file_source/empresas/estaticos/stf/plataformas/empresas/gestion/ficheros/formatos_fichero/norma_43_castellano.pdf
+   Pendiente verificación autenticada en Safari y publicación.
+   Validación tras corregir el caso real: 581 pruebas correctas / 7652 aserciones,
+   una comprobación exclusiva de PostgreSQL omitida en SQLite. No se han escrito
+   movimientos del fichero aportado en ninguna cuenta local ni de producción.
 3. **Pagos erróneos**: acción administrativa de anular/corregir con motivo,
    historial antes/después y asiento de reversión, seguida de nuevo pago con
    fecha correcta. Comprobar conciliaciones, ejercicios/períodos cerrados,

@@ -140,9 +140,9 @@ class StatementImporter
                     throw ValidationException::withMessages(['statement' => __('Norma 43 record :line is truncated.', ['line' => $lineNumber + 1])]);
                 }
                 $header = $blocks[$blockIndex]['header'];
-                if (trim(substr($line, 2, 4)) !== $header['entity'] || trim(substr($line, 6, 4)) !== $header['office']) {
-                    throw ValidationException::withMessages(['statement' => __('Norma 43 movement record :line belongs to a different bank entity or office.', ['line' => $lineNumber + 1])]);
-                }
+                // Record 22 positions 3–6 are free; 7–10 identify the originating
+                // office, not necessarily the account's office. The enclosing
+                // header and control record identify and validate the account.
 
                 $sign = substr($line, 27, 1);
 
