@@ -245,6 +245,34 @@ class ExpenseController extends Controller
         return to_route('expenses.index')->with('toast', ['type' => 'success', 'message' => __('Expense deleted.')]);
     }
 
+    public function storeAttachments(Request $request, Expense $expense): RedirectResponse
+    {
+        $data = $request->validate([
+            'attachments' => ['required', 'array', 'min:1', 'max:10'],
+            'attachments.*' => ['required', 'file', new SafeUpload(['pdf', 'jpg', 'jpeg', 'png', 'webp'], 10240)],
+        ]);
+        $stored = [];
+        $disk = Storage::disk(config('filesystems.private'));
+        try {
+            foreach ($data['attachments'] as $file) {
+                $path = $file->store('expenses/'.Str::uuid(), config('filesystems.private'));
+                if (! $path) {
+                    throw ValidationException::withMessages(['attachments' => __('The expense document could not be stored. Please try again.')]);
+                }
+                $stored[] = ['path' => $path, 'original_name' => $file->getClientOriginalName(), 'mime_type' => $file->getMimeType(), 'size' => $file->getSize(), 'uploaded_by' => $request->user()->id];
+            }
+            DB::transaction(function () use ($expense, $stored) {
+                $locked = Expense::lockForUpdate()->findOrFail($expense->id);
+                $locked->attachments()->createMany($stored);
+            });
+        } catch (Throwable $exception) {
+            $disk->delete(array_column($stored, 'path'));
+            throw $exception;
+        }
+
+        return back()->with('toast', ['type' => 'success', 'message' => __('Expense attachments added.')]);
+    }
+
     public function download(Expense $expense, ExpenseAttachment $attachment): StreamedResponse
     {
         abort_unless($attachment->expense_id === $expense->id && Storage::disk(config('filesystems.private'))->exists($attachment->path), 404);

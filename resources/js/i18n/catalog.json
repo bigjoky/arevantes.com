@@ -1,4 +1,29 @@
 {
+    "Remove current logo": {
+        "en": "Remove current logo",
+        "es": "Eliminar el logo actual"
+    },
+    "Upload a new logo to replace the current one.": {
+        "en": "Upload a new logo to replace the current one.",
+        "es": "Sube un nuevo logo para sustituir el actual."
+    },
+    "Add attachments": { "en": "Add attachments", "es": "Añadir adjuntos" },
+    "Upload attachments": {
+        "en": "Upload attachments",
+        "es": "Subir adjuntos"
+    },
+    "Up to 10 files per upload, 10 MB each.": {
+        "en": "Up to 10 files per upload, 10 MB each.",
+        "es": "Hasta 10 archivos por subida, de 10 MB cada uno."
+    },
+    "Your session has expired. Reload the page before previewing the statement.": {
+        "en": "Your session has expired. Reload the page before previewing the statement.",
+        "es": "Tu sesión ha caducado. Recarga la página antes de consultar la vista previa del extracto."
+    },
+    "The bank preview returned an invalid response. Please try again or contact support.": {
+        "en": "The bank preview returned an invalid response. Please try again or contact support.",
+        "es": "La vista previa bancaria devolvió una respuesta inválida. Reinténtalo o contacta con soporte."
+    },
     "Address line 1": { "en": "Address line 1", "es": "Dirección" },
     "Address line 2": {
         "en": "Address line 2",

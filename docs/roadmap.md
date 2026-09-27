@@ -1,5 +1,55 @@
 # Roadmap unificado de Arevantes
 
+## Correcciones operativas de finanzas y compras — 27/09/2026
+
+Se añaden al roadmap existente, sin sustituir las fases fiscales ni el directorio
+de entidades. Orden de ejecución y criterios de aceptación:
+
+1. **Evidencias y logo**: permitir adjuntos después de crear o pagar un gasto,
+   con permisos, validación y limpieza de archivos si falla la escritura;
+   sustituir/eliminar el logo sin perder el anterior ante errores de validación
+   o persistencia, y renovar la imagen mostrada. Implementado y probado en develop.
+2. **BBVA Cuaderno 43**: reproducir con el fichero del usuario (solicitado), sin
+   importar movimientos reales. Corregida la conversión de referencias y registros
+   Windows-1252 a UTF-8 después de separar sus campos de longitud fija; mensajes
+   comprensibles cuando la vista previa recibe HTML o una sesión caducada.
+   Prueba sintética con Ñ, tildes y puntos suspensivos. El usuario confirma
+   aplicación web instalada desde Safari; falta su fichero para reproducir el
+   caso real. Pendiente verificación autenticada en Safari y publicación.
+3. **Pagos erróneos**: acción administrativa de anular/corregir con motivo,
+   historial antes/después y asiento de reversión, seguida de nuevo pago con
+   fecha correcta. Comprobar conciliaciones, ejercicios/períodos cerrados,
+   saldos y doble envío. No borrar silenciosamente pagos contabilizados.
+4. **Importes e IVA del proveedor**: cuotas editables por línea y ajuste explícito
+   de redondeo documentado; recalcular saldo, deducibilidad y retenciones.
+   Correcciones de gastos existentes con auditoría, reversión/nuevo asiento y
+   protección de declaraciones presentadas. No modificar importes históricos
+   sin motivo ni utilizar una tolerancia ilimitada.
+5. **Compras con líneas libres**: descripción, cantidad, precio, descuento e IVA
+   sin producto. Conservarlas en pedido, PDF, conversión, factura y abono; jamás
+   generar stock, reservas ni catálogo de proveedor a partir de ellas. Revisar
+   aprobaciones, rentabilidad, recepción mixta y nulos antes de permitir guardarlas.
+6. **Orden documental y período fiscal**: separar fecha de factura, recepción,
+   contabilización y período de deducción. La lista de gastos ya se ordena por
+   fecha; añadir filtros/agrupación por trimestre y período de presentación.
+   Congelar declaraciones presentadas y proponer períodos posteriores elegibles,
+   con confirmación y control de duplicados, no mover la fecha original ni aplicar
+   la misma regla a IVA soportado, repercutido, rectificaciones y criterio de caja.
+   Validar plazos, situaciones especiales y trazabilidad con el asesor fiscal.
+
+Referencia de diseño fiscal: AEAT, requisitos para deducir IVA:
+https://sede.agenciatributaria.gob.es/Sede/iva/que-iva-soportado-puedo-deducir/que-requisitos-debo-cumplir-poder-iva.html
+La deducción requiere justificante y registro y está sujeta, en general, al plazo
+de cuatro años; no equivale a trasladar indiscriminadamente facturas de trimestre.
+
+Validación del primer bloque: 580 pruebas correctas / 7642 aserciones (una
+comprobación exclusiva de PostgreSQL omitida en SQLite), compilación y TypeScript
+correctos, catálogo bilingüe completo. Los nuevos adjuntos conservan los importes
+y estado del gasto y limpian archivos si falla la persistencia. Las pruebas del
+logo cubren sustitución, eliminación y conservación ante un reemplazo inválido.
+Este bloque aún no está en producción; no publicar todo develop mientras el
+directorio fiscal siga pendiente. Los puntos 3–6 permanecen abiertos.
+
 ## Directorio fiscal — ficha canónica y direcciones — 27/09/2026
 
 - Implementación local, aún no publicada: catálogo propio bajo Personas y

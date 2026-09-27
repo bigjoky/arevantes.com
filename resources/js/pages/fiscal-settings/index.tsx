@@ -171,7 +171,7 @@ export default function FiscalSettings({
                                         <Label>Logo</Label>
                                         {company.logo_path && (
                                             <img
-                                                src="/company-fiscal/logo"
+                                                src={`/company-fiscal/logo?v=${encodeURIComponent(company.logo_path)}`}
                                                 alt="Company logo"
                                                 className="h-16 w-fit object-contain"
                                             />
@@ -182,6 +182,20 @@ export default function FiscalSettings({
                                             accept="image/png,image/jpeg,image/webp"
                                         />
                                         <InputError message={errors.logo} />
+                                        {company.logo_path && (
+                                            <label className="flex items-center gap-2 text-sm">
+                                                <input
+                                                    type="checkbox"
+                                                    name="remove_logo"
+                                                    value="1"
+                                                />
+                                                Remove current logo
+                                            </label>
+                                        )}
+                                        <p className="text-xs text-muted-foreground">
+                                            Upload a new logo to replace the
+                                            current one.
+                                        </p>
                                     </div>
                                     <div className="grid gap-2 md:col-span-2 xl:col-span-2">
                                         <Label>Document footer</Label>
