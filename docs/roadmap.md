@@ -1,5 +1,32 @@
 # Roadmap unificado de Arevantes
 
+## Directorio fiscal — ficha canónica y direcciones — 27/09/2026
+
+- Implementación local, aún no publicada: catálogo propio bajo Personas y
+  Empresas → Directorio fiscal, reservado a administradores. Una ficha por
+  país + NIF normalizado, varios nombres comerciales y hasta 30 direcciones
+  etiquetadas: domicilio fiscal (uno actual), social y establecimientos.
+- Identidad protegida contra reasignación, motivo de edición obligatorio,
+  versión del formulario para evitar sobreescrituras simultáneas y auditoría
+  antes/después en la misma transacción. Desactivar no borra la ficha ni facturas.
+- Integración de nombres con gastos: las fichas activas del directorio tienen
+  prioridad sobre los nombres históricos, ofreciendo selección cuando existen
+  varias marcas. País seleccionable y guardado en nuevos gastos; búsqueda y
+  duplicados separan países. Los gastos antiguos sin país no se reescriben y
+  siguen como candidatos heredados en la búsqueda ES, pendientes de revisión.
+- No se han importado ni fusionado automáticamente identidades anteriores;
+  no se modifican proveedores, documentos emitidos, pagos ni asientos.
+- Pendiente antes de completar la fase: selección y copia fija de la dirección
+  en nuevas facturas, enlace explícito con clientes/proveedores y conciliación
+  de identidades históricas. Unificar los selectores geográficos con el
+  componente común y realizar validación visual autenticada antes de publicar.
+- Verificación: 574 pruebas PHP / 7598 aserciones, build, TypeScript, ESLint y
+  catálogo bilingüe correctos; migración aplicada en PostgreSQL local. Cubiertos
+  conflictos de identidad, país, formularios obsoletos, permisos, auditoría y
+  rollback, conservación de facturas/proveedores e inactivación del autocompletado.
+  Sin publicación de esta fase: producción continúa con 2026.09.26.2 hasta cerrar
+  copia fija de direcciones, integración geográfica y validación visual.
+
 ## Directorio fiscal y memoria de emisores — 26/09/2026
 
 - Fase 1 implementada en local: búsqueda exacta por NIF/CIF normalizado desde

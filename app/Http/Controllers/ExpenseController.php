@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\AuditLog;
+use App\Models\Country;
 use App\Models\Expense;
 use App\Models\ExpenseAttachment;
 use App\Models\ExpenseCategory;
@@ -37,6 +38,7 @@ class ExpenseController extends Controller
             'expenses' => Expense::with(['category:id,name', 'supplier:id,legal_name,trade_name'])->latest('expense_date')->get(),
             'supplierInvoices' => PurchaseDocument::with('supplier:id,legal_name,trade_name')->whereIn('type', ['supplier_invoice', 'supplier_credit_note'])->latest('issue_date')->get(),
             'categories' => ExpenseCategory::where('is_active', true)->orderBy('name')->get(),
+            'countries' => Country::orderBy('name')->get(['code', 'name']),
             'suppliers' => Supplier::where('is_active', true)->orderBy('legal_name')->get(['id', 'legal_name', 'trade_name', 'tax_id']),
             'installations' => Installation::orderByDesc('created_at')->get(['id', 'project_reference', 'site_name']),
             'summary' => ['pending' => $this->pendingTotal(), 'paidThisMonth' => SupplierPayment::whereBetween('paid_at', [now()->startOfMonth(), now()->endOfMonth()])->sum('amount'), 'expensesThisMonth' => Expense::whereBetween('expense_date', [now()->startOfMonth(), now()->endOfMonth()])->sum('amount')],
@@ -136,6 +138,7 @@ class ExpenseController extends Controller
             'merchant_name' => ['nullable', 'string', 'max:255'],
             'issuer_legal_name' => [Rule::requiredIf(fn () => $request->input('type') === 'invoice'), 'nullable', 'string', 'max:255'],
             'issuer_tax_id' => [Rule::requiredIf(fn () => $request->input('type') === 'invoice'), 'nullable', 'string', 'max:32'],
+            'issuer_country' => ['nullable', 'string', 'size:2', 'regex:/^[A-Z]{2}$/', Rule::exists('countries', 'code')],
             'expense_date' => ['required', 'date'],
             'operation_date' => ['nullable', 'date'],
             'due_date' => ['nullable', 'date', 'after_or_equal:expense_date'],
@@ -182,6 +185,8 @@ class ExpenseController extends Controller
         if ($data['issuer_tax_id'] ?? null) {
             $taxIdKey = strtoupper(str_replace([' ', '-', '.'], '', trim($data['issuer_tax_id'])));
             $duplicate = Expense::whereRaw("upper(replace(replace(replace(issuer_tax_id, ' ', ''), '-', ''), '.', '')) = ?", [$taxIdKey])
+                ->where(fn ($query) => $query->where('issuer_country', $data['issuer_country'] ?? 'ES')
+                    ->when(($data['issuer_country'] ?? 'ES') === 'ES', fn ($query) => $query->orWhereNull('issuer_country')))
                 ->where('document_number', $data['document_number'] ?? null)->exists();
             if ($duplicate && filled($data['document_number'] ?? null)) {
                 throw ValidationException::withMessages(['document_number' => __('This issuer invoice is already registered.')]);

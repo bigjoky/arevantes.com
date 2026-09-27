@@ -27,6 +27,7 @@ use App\Http\Controllers\ExpenseController;
 use App\Http\Controllers\ExpenseIssuerLookupController;
 use App\Http\Controllers\FieldServiceSettingsController;
 use App\Http\Controllers\FinanceController;
+use App\Http\Controllers\FiscalEntityController;
 use App\Http\Controllers\FiscalSettingsController;
 use App\Http\Controllers\GeocodingController;
 use App\Http\Controllers\GlobalSearchController;
@@ -407,6 +408,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('company-fiscal/years/{fiscalYear}/opening', [FiscalSettingsController::class, 'openNextYear'])->middleware('can:manage-tax')->name('fiscal-settings.years.opening');
     Route::patch('company-fiscal/series/{series}', [FiscalSettingsController::class, 'updateSeries'])->middleware('can:manage-tax')->name('fiscal-settings.series.update');
     Route::get('finance/export', [FinanceController::class, 'export'])->middleware('can:view-finance')->name('finance.export');
+    Route::resource('fiscal-entities', FiscalEntityController::class)->only(['index', 'show', 'store', 'update'])->middleware('can:manage-admin');
     Route::post('expenses', [ExpenseController::class, 'store'])->middleware('can:manage-catalog')->name('expenses.store');
     Route::get('expenses/issuer-lookup', ExpenseIssuerLookupController::class)->middleware(['can:manage-catalog', 'can:view-finance', 'throttle:60,1'])->name('expenses.issuer.lookup');
     Route::get('expenses/{expense}', [ExpenseController::class, 'show'])->middleware('can:view-finance')->name('expenses.show');

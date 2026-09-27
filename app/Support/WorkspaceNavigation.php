@@ -16,6 +16,7 @@ class WorkspaceNavigation
             $this->section('PTY', 'People & companies', 'users-round', [
                 $this->when($user, 'manage-customers', fn () => $this->item('Customers', route('people.index', absolute: false))),
                 $this->when($user, 'manage-catalog', fn () => $this->item('Suppliers', route('suppliers.index', absolute: false))),
+                $this->when($user, 'manage-admin', fn () => $this->item('Fiscal directory', route('fiscal-entities.index', absolute: false))),
             ]),
             $this->section('CRM', 'CRM', 'briefcase-business', [
                 $this->when($user, 'manage-customers', fn () => $this->item('Opportunities', route('opportunities.index', absolute: false))),

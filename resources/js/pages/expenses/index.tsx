@@ -75,6 +75,7 @@ export default function ExpensesIndex({
     expenses,
     supplierInvoices,
     categories,
+    countries,
     suppliers,
     installations,
     summary,
@@ -82,6 +83,7 @@ export default function ExpensesIndex({
     expenses: Expense[];
     supplierInvoices: Invoice[];
     categories: Category[];
+    countries: { code: string; name: string }[];
     suppliers: Supplier[];
     installations: Installation[];
     summary: {
@@ -115,6 +117,7 @@ export default function ExpensesIndex({
                     {tab === 'expenses' && (
                         <ExpenseDialog
                             categories={categories}
+                            countries={countries}
                             suppliers={suppliers}
                             installations={installations}
                             initialOpen={quickCreate}
@@ -311,11 +314,13 @@ export default function ExpensesIndex({
 }
 function ExpenseDialog({
     categories,
+    countries,
     suppliers,
     installations,
     initialOpen = false,
 }: {
     categories: Category[];
+    countries: { code: string; name: string }[];
     suppliers: Supplier[];
     installations: Installation[];
     initialOpen?: boolean;
@@ -499,7 +504,10 @@ function ExpenseDialog({
                                         name="invoice_series"
                                         error={errors.invoice_series}
                                     />
-                                    <ExpenseIssuerFields errors={errors} />
+                                    <ExpenseIssuerFields
+                                        errors={errors}
+                                        countries={countries}
+                                    />
                                     <Field
                                         label={translate('Issue date', locale)}
                                         name="expense_date"

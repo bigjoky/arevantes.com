@@ -1,4 +1,60 @@
 {
+    "directory": { "en": "Directory", "es": "Directorio" },
+    "Fiscal directory": { "en": "Fiscal directory", "es": "Directorio fiscal" },
+    "Changes to this directory do not rewrite existing invoices or accounting.": {
+        "en": "Changes to this directory do not rewrite existing invoices or accounting.",
+        "es": "Los cambios en este directorio no modifican las facturas existentes ni la contabilidad."
+    },
+    "Trade names, one per line": {
+        "en": "Trade names, one per line",
+        "es": "Nombres comerciales, uno por línea"
+    },
+    "Addresses": { "en": "Addresses", "es": "Direcciones" },
+    "New address": { "en": "New address", "es": "Nueva dirección" },
+    "Address label": { "en": "Address label", "es": "Nombre de la dirección" },
+    "Address type": { "en": "Address type", "es": "Tipo de dirección" },
+    "Fiscal address": { "en": "Fiscal address", "es": "Domicilio fiscal" },
+    "Registered address": {
+        "en": "Registered address",
+        "es": "Domicilio social"
+    },
+    "Establishment address": {
+        "en": "Establishment address",
+        "es": "Dirección de establecimiento"
+    },
+    "address_line_1": { "en": "Address line 1", "es": "Dirección" },
+    "address_line_2": {
+        "en": "Address line 2",
+        "es": "Complemento de dirección"
+    },
+    "postal_code": { "en": "Postal code", "es": "Código postal" },
+    "city": { "en": "City", "es": "Municipio" },
+    "province": { "en": "Province", "es": "Provincia" },
+    "Remove address from form": {
+        "en": "Remove address from form",
+        "es": "Quitar dirección del formulario"
+    },
+    "Add address": { "en": "Add address", "es": "Añadir dirección" },
+    "Use this entity for future autofill": {
+        "en": "Use this entity for future autofill",
+        "es": "Utilizar esta entidad para autocompletar nuevos gastos"
+    },
+    "Save fiscal entity": {
+        "en": "Save fiscal entity",
+        "es": "Guardar entidad fiscal"
+    },
+    "One tax identity per country, with its legal name, brands and addresses.": {
+        "en": "One tax identity per country, with its legal name, brands and addresses.",
+        "es": "Una identidad fiscal por país, con su razón social, marcas y direcciones."
+    },
+    "No fiscal entities found.": {
+        "en": "No fiscal entities found.",
+        "es": "No se han encontrado entidades fiscales."
+    },
+    "New fiscal entity": {
+        "en": "New fiscal entity",
+        "es": "Nueva entidad fiscal"
+    },
     "loading": { "en": "Loading", "es": "Cargando" },
     "error": { "en": "Error", "es": "Error" },
     "Enter a tax ID to reuse names from previous expenses and suppliers. Review the data before saving.": {
