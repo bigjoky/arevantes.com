@@ -155,7 +155,8 @@ class StatementImporter
                     'booked_on' => $this->aebDate(substr($line, 10, 6)),
                     'value_on' => $this->aebDate(substr($line, 16, 6)),
                     'amount' => ($sign === '1' ? -1 : 1) * ((int) substr($line, 28, 14) / 100),
-                    'reference' => $this->cleanAebText(substr($line, 42, 10).' '.substr($line, 52, 12).' '.substr($line, 64, 16)),
+                    // Preserve padding used by legacy import hashes to avoid reimporting old movements.
+                    'reference' => $this->aebUtf8(trim(substr($line, 42, 10).' '.substr($line, 52, 12).' '.substr($line, 64, 16))),
                     'description' => trim('Concept '.$this->cleanAebText(substr($line, 22, 2)).'/'.$this->cleanAebText(substr($line, 24, 3))),
                     'raw_data' => ['format' => 'norma43', 'header' => $header, 'record_22' => $this->aebUtf8($line), 'records_23' => []],
                 ];

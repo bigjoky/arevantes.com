@@ -414,6 +414,12 @@ class BankingTest extends TestCase
         $this->assertSame(1, $account->transactions()->count());
 
         // Account identity still comes from the header and must match the footer.
+        $legacyReference = trim(substr($movement, 42, 10).' '.substr($movement, 52, 12).' '.substr($movement, 64, 16));
+        $legacyHash = hash('sha256', implode('|', ['2026-01-15', '2026-01-15', '100.00', $legacyReference, 'Concept 01/001']));
+        $this->assertSame($legacyHash, $account->transactions()->sole()->import_hash);
+        $this->postJson(route('banking.import.preview', $account), ['statement' => $file($footer)])
+            ->assertOk()->assertJsonPath('created', 0)->assertJsonPath('duplicates', 1);
+
         $wrongFooter = substr_replace($footer, '9999', 6, 4);
         $this->postJson(route('banking.import.preview', $account), ['statement' => $file($wrongFooter)])
             ->assertUnprocessable()->assertJsonValidationErrors('statement');
