@@ -1,5 +1,30 @@
 # Roadmap unificado de Arevantes
 
+## Publicación operativa y avance fiscal — 27/09/2026 — v2026.09.27.2
+
+- Publicada PR #125 desde una rama aislada de producción, sin el directorio
+  fiscal incompleto. Commit `ffe024c5b6415ac78cd58bb6971c25c5ca12fdc6`;
+  despliegue activo `depl-a2d920b5-4f85-44e2-aef5-d00540af7d9a` completado.
+- Disponible: adjuntos posteriores en gastos, sustitución/eliminación de logo,
+  Cuaderno 43 con oficinas de origen distintas y UTF-8, errores JSON para Safari
+  y cuotas de IVA editables al registrar gastos nuevos con tolerancia de ±0,02.
+- Se preservan los espacios de las referencias AEB usados en identificadores
+  históricos para no duplicar movimientos importados anteriormente.
+- La prueba PostgreSQL detectó y corrigió otro error 500: `bank_reclassification`
+  (21 caracteres) no cabía en `journal_entries.entry_kind` (20). Migración a 64
+  conservando el valor por defecto; rollback bloqueado si truncaría información.
+- Verificación de release: 581 pruebas generales / 7610 aserciones, una prueba
+  exclusiva de PostgreSQL omitida en SQLite; 46 pruebas PostgreSQL / 614 aserciones
+  en base aislada, build, tipos, traducciones, ESLint y CI PHP 8.4/8.5 correctos.
+- Comprobación posterior: `/up` y `/login` HTTP 200; petición JSON no autenticada
+  devuelve 401 JSON; ruta de adjuntos y migración activas, columna de 64 caracteres,
+  sin tabla de directorio fiscal. No se modificaron documentos o pagos reales,
+  ni se importó el extracto del usuario. Pendiente comprobación visual autenticada
+  en la aplicación instalada de Safari.
+- Siguiente prioridad: corrección administrativa de pagos ya contabilizados con
+  reversión y trazabilidad; después importes de gastos existentes, líneas libres
+  de compra y asignación a períodos fiscales sin alterar declaraciones presentadas.
+
 ## Correcciones operativas de finanzas y compras — 27/09/2026
 
 Se añaden al roadmap existente, sin sustituir las fases fiscales ni el directorio
@@ -8,7 +33,7 @@ de entidades. Orden de ejecución y criterios de aceptación:
 1. **Evidencias y logo**: permitir adjuntos después de crear o pagar un gasto,
    con permisos, validación y limpieza de archivos si falla la escritura;
    sustituir/eliminar el logo sin perder el anterior ante errores de validación
-   o persistencia, y renovar la imagen mostrada. Implementado y probado en develop.
+   o persistencia, y renovar la imagen mostrada. Publicado en v2026.09.27.2.
 2. **BBVA Cuaderno 43**: reproducir con el fichero del usuario (solicitado), sin
    importar movimientos reales. Corregida la conversión de referencias y registros
    Windows-1252 a UTF-8 después de separar sus campos de longitud fija; mensajes
@@ -25,7 +50,7 @@ de entidades. Orden de ejecución y criterios de aceptación:
    Restaurado `expectsJson()` para responder 422 con errores estructurados.
    Referencia: Cuaderno 43, apartado 1.2 (publicado por Bankinter):
    https://docs.bankinter.com/file_source/empresas/estaticos/stf/plataformas/empresas/gestion/ficheros/formatos_fichero/norma_43_castellano.pdf
-   Pendiente verificación autenticada en Safari y publicación.
+   Publicado en v2026.09.27.2; pendiente verificación visual autenticada en Safari.
    Validación tras corregir el caso real: 581 pruebas correctas / 7652 aserciones,
    una comprobación exclusiva de PostgreSQL omitida en SQLite. No se han escrito
    movimientos del fichero aportado en ninguna cuenta local ni de producción.
@@ -35,7 +60,7 @@ de entidades. Orden de ejecución y criterios de aceptación:
    saldos y doble envío. No borrar silenciosamente pagos contabilizados.
 4. **Importes e IVA del proveedor**: cuotas editables por línea y ajuste explícito
    de redondeo documentado; recalcular saldo, deducibilidad y retenciones.
-   Primera entrega implementada: cuota editable al registrar un gasto nuevo,
+   Primera entrega publicada: cuota editable al registrar un gasto nuevo,
    suma de cuotas redondeadas por línea y límite existente de ±0,02 por línea
    comprobado en céntimos enteros. Cambiar base o tipo restablece el cálculo.
    Probados ambos límites, asiento equilibrado, deducibilidad y rechazo de
@@ -65,8 +90,9 @@ comprobación exclusiva de PostgreSQL omitida en SQLite), compilación y TypeScr
 correctos, catálogo bilingüe completo. Los nuevos adjuntos conservan los importes
 y estado del gasto y limpian archivos si falla la persistencia. Las pruebas del
 logo cubren sustitución, eliminación y conservación ante un reemplazo inválido.
-Este bloque aún no está en producción; no publicar todo develop mientras el
-directorio fiscal siga pendiente. Los puntos 3–6 permanecen abiertos.
+Este bloque está en producción como v2026.09.27.2; no publicar todo develop
+mientras el directorio fiscal siga pendiente. El punto 4 tiene su primera entrega
+para gastos nuevos publicada; las correcciones históricas y puntos 3, 5 y 6 siguen abiertos.
 
 ## Directorio fiscal — ficha canónica y direcciones — 27/09/2026
 
