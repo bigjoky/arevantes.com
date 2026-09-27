@@ -296,6 +296,26 @@ class BankingTest extends TestCase
         $this->assertSame(2, BankTransaction::count());
     }
 
+    public function test_norma_43_windows_1252_references_preview_and_import_without_json_errors(): void
+    {
+        $this->actingAs(User::factory()->create(['role' => 'commercial']));
+        $account = BankAccount::create(['name' => 'BBVA test', 'currency' => 'EUR', 'opening_balance' => 0, 'is_active' => true]);
+        $header = '11'.'0182'.'1234'.'1234567890'.'260701'.'260731'.'2'.str_pad('0', 14, '0', STR_PAD_LEFT).'978'.'2'.str_repeat(' ', 26);
+        $reference = mb_convert_encoding('PEÑITA', 'Windows-1252', 'UTF-8');
+        $movement = '22'.'0182'.'1234'.'260713'.'260713'.'01'.'001'.'2'.str_pad('12100', 14, '0', STR_PAD_LEFT).str_pad('DOC1', 10).str_pad($reference, 12).str_pad('TRANSFERENCIA', 16);
+        $concept = '2301'.str_pad(mb_convert_encoding('REPARACIÓN…', 'Windows-1252', 'UTF-8'), 76);
+        $footer = '33'.'0182'.'1234'.'1234567890'.'00000'.str_pad('0', 14, '0', STR_PAD_LEFT).'00001'.str_pad('12100', 14, '0', STR_PAD_LEFT).'2'.str_pad('12100', 14, '0', STR_PAD_LEFT).'978'.str_repeat(' ', 4);
+        $contents = implode("\r\n", [$header, $movement, $concept, $footer]);
+        $this->postJson(route('banking.import.preview', $account), ['statement' => UploadedFile::fake()->createWithContent('bbva.n43', $contents)])
+            ->assertOk()->assertJsonPath('created', 1);
+        $this->assertSame(0, BankTransaction::count());
+        $this->post(route('banking.import', $account), ['statement' => UploadedFile::fake()->createWithContent('bbva.n43', $contents)])->assertRedirect()->assertSessionHasNoErrors();
+        $transaction = BankTransaction::sole();
+        $this->assertStringContainsString('PEÑITA', $transaction->reference);
+        $this->assertStringContainsString('REPARACIÓN…', $transaction->description);
+        $this->assertStringContainsString('PEÑITA', $transaction->raw_data['record_22']);
+    }
+
     public function test_norma_43_preserves_legitimate_identical_movements_and_deduplicates_reimports(): void
     {
         $user = User::factory()->create(['role' => 'commercial']);

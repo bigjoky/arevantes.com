@@ -1,4 +1,12 @@
 {
+    "The logo could not be stored. Please try again.": "No se pudo guardar el logo. Inténtalo de nuevo.",
+    "Expense attachments added.": "Adjuntos añadidos al gasto.",
+    "This tax identity already exists in this country. Open its existing record.": "Esta identidad fiscal ya existe en este país. Abre su ficha existente.",
+    "Fiscal entity saved.": "Entidad fiscal guardada.",
+    "This fiscal record has changed. Reload it before saving.": "Esta ficha fiscal ha cambiado. Recárgala antes de guardar.",
+    "The country and tax identity cannot be reassigned to another entity.": "El país y la identificación fiscal no pueden reasignarse a otra entidad.",
+    "Keep only one current fiscal address. Use other address types for establishments.": "Mantén un solo domicilio fiscal actual. Utiliza los otros tipos de dirección para los establecimientos.",
+    "Each address must have its own identifier.": "Cada dirección debe tener su propio identificador.",
     "The supplier names have changed. Reload the expense before correcting them.": "Los nombres del proveedor han cambiado. Recarga el gasto antes de corregirlos.",
     "Expense supplier names corrected.": "Nombres del proveedor corregidos en el gasto.",
     "Only purchase orders without receipts, invoices or payments can have their dates corrected.": "Solo se pueden corregir las fechas de pedidos abiertos sin recepciones, facturas ni pagos.",

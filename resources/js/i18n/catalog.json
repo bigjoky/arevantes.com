@@ -1,4 +1,95 @@
 {
+    "Remove current logo": {
+        "en": "Remove current logo",
+        "es": "Eliminar el logo actual"
+    },
+    "Upload a new logo to replace the current one.": {
+        "en": "Upload a new logo to replace the current one.",
+        "es": "Sube un nuevo logo para sustituir el actual."
+    },
+    "Add attachments": { "en": "Add attachments", "es": "Añadir adjuntos" },
+    "Upload attachments": {
+        "en": "Upload attachments",
+        "es": "Subir adjuntos"
+    },
+    "Up to 10 files per upload, 10 MB each.": {
+        "en": "Up to 10 files per upload, 10 MB each.",
+        "es": "Hasta 10 archivos por subida, de 10 MB cada uno."
+    },
+    "Your session has expired. Reload the page before previewing the statement.": {
+        "en": "Your session has expired. Reload the page before previewing the statement.",
+        "es": "Tu sesión ha caducado. Recarga la página antes de consultar la vista previa del extracto."
+    },
+    "The bank preview returned an invalid response. Please try again or contact support.": {
+        "en": "The bank preview returned an invalid response. Please try again or contact support.",
+        "es": "La vista previa bancaria devolvió una respuesta inválida. Reinténtalo o contacta con soporte."
+    },
+    "Address line 1": { "en": "Address line 1", "es": "Dirección" },
+    "Address line 2": {
+        "en": "Address line 2",
+        "es": "Complemento de dirección"
+    },
+    "Search by legal name or tax ID": {
+        "en": "Search by legal name or tax ID",
+        "es": "Buscar por razón social o NIF/CIF"
+    },
+    "Pagination": { "en": "Pagination", "es": "Paginación" },
+    "directory": { "en": "Directory", "es": "Directorio" },
+    "Fiscal directory": { "en": "Fiscal directory", "es": "Directorio fiscal" },
+    "Changes to this directory do not rewrite existing invoices or accounting.": {
+        "en": "Changes to this directory do not rewrite existing invoices or accounting.",
+        "es": "Los cambios en este directorio no modifican las facturas existentes ni la contabilidad."
+    },
+    "Trade names, one per line": {
+        "en": "Trade names, one per line",
+        "es": "Nombres comerciales, uno por línea"
+    },
+    "Addresses": { "en": "Addresses", "es": "Direcciones" },
+    "New address": { "en": "New address", "es": "Nueva dirección" },
+    "Address label": { "en": "Address label", "es": "Nombre de la dirección" },
+    "Address type": { "en": "Address type", "es": "Tipo de dirección" },
+    "Fiscal address": { "en": "Fiscal address", "es": "Domicilio fiscal" },
+    "Registered address": {
+        "en": "Registered address",
+        "es": "Domicilio social"
+    },
+    "Establishment address": {
+        "en": "Establishment address",
+        "es": "Dirección de establecimiento"
+    },
+    "address_line_1": { "en": "Address line 1", "es": "Dirección" },
+    "address_line_2": {
+        "en": "Address line 2",
+        "es": "Complemento de dirección"
+    },
+    "postal_code": { "en": "Postal code", "es": "Código postal" },
+    "city": { "en": "City", "es": "Municipio" },
+    "province": { "en": "Province", "es": "Provincia" },
+    "Remove address from form": {
+        "en": "Remove address from form",
+        "es": "Quitar dirección del formulario"
+    },
+    "Add address": { "en": "Add address", "es": "Añadir dirección" },
+    "Use this entity for future autofill": {
+        "en": "Use this entity for future autofill",
+        "es": "Utilizar esta entidad para autocompletar nuevos gastos"
+    },
+    "Save fiscal entity": {
+        "en": "Save fiscal entity",
+        "es": "Guardar entidad fiscal"
+    },
+    "One tax identity per country, with its legal name, brands and addresses.": {
+        "en": "One tax identity per country, with its legal name, brands and addresses.",
+        "es": "Una identidad fiscal por país, con su razón social, marcas y direcciones."
+    },
+    "No fiscal entities found.": {
+        "en": "No fiscal entities found.",
+        "es": "No se han encontrado entidades fiscales."
+    },
+    "New fiscal entity": {
+        "en": "New fiscal entity",
+        "es": "Nueva entidad fiscal"
+    },
     "loading": { "en": "Loading", "es": "Cargando" },
     "error": { "en": "Error", "es": "Error" },
     "Enter a tax ID to reuse names from previous expenses and suppliers. Review the data before saving.": {

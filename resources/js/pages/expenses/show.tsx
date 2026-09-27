@@ -84,6 +84,9 @@ export default function ExpenseShow({
     }[];
 }) {
     const { locale } = useLocale();
+    const canManageAttachments = usePage<{
+        auth: { abilities: { manageCatalog: boolean } };
+    }>().props.auth.abilities.manageCatalog;
     const canManagePayments = usePage<{
         auth: { abilities: { managePurchasePayments: boolean } };
     }>().props.auth.abilities.managePurchasePayments;
@@ -381,14 +384,19 @@ export default function ExpenseShow({
                                                 <Download />
                                             </a>
                                         </Button>
-                                        <Form
-                                            action={`/expenses/${expense.id}/attachments/${file.id}`}
-                                            method="delete"
-                                        >
-                                            <Button size="icon" variant="ghost">
-                                                <Trash2 />
-                                            </Button>
-                                        </Form>
+                                        {canManageAttachments && (
+                                            <Form
+                                                action={`/expenses/${expense.id}/attachments/${file.id}`}
+                                                method="delete"
+                                            >
+                                                <Button
+                                                    size="icon"
+                                                    variant="ghost"
+                                                >
+                                                    <Trash2 />
+                                                </Button>
+                                            </Form>
+                                        )}
                                     </div>
                                 </div>
                             ))}
@@ -396,6 +404,39 @@ export default function ExpenseShow({
                                 <Empty text="No attachments." />
                             )}
                         </div>
+                        {canManageAttachments && (
+                            <Form
+                                action={`/expenses/${expense.id}/attachments`}
+                                method="post"
+                                resetOnSuccess
+                                encType="multipart/form-data"
+                                className="mt-4 grid gap-3"
+                            >
+                                {({ errors, processing }) => (
+                                    <>
+                                        <FormErrorSummary errors={errors} />
+                                        <label htmlFor="expense-attachments">
+                                            Add attachments
+                                        </label>
+                                        <Input
+                                            id="expense-attachments"
+                                            name="attachments[]"
+                                            type="file"
+                                            multiple
+                                            required
+                                            accept=".pdf,.jpg,.jpeg,.png,.webp"
+                                        />
+                                        <p className="text-xs text-muted-foreground">
+                                            Up to 10 files per upload, 10 MB
+                                            each.
+                                        </p>
+                                        <Button disabled={processing}>
+                                            Upload attachments
+                                        </Button>
+                                    </>
+                                )}
+                            </Form>
+                        )}
                     </div>
                     <div>
                         <h2 className="mb-3 font-semibold">Payment history</h2>
