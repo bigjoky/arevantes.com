@@ -1,5 +1,18 @@
 # Roadmap unificado de Arevantes
 
+## Corrección urgente del historial de gastos — 27/09/2026
+
+- Causa del error 500 al corregir la razón social: PostgreSQL limita
+  `audit_logs.event` a 20 caracteres y `expense_issuer_corrected` tiene 24.
+- Migración incremental a 255 caracteres, sin reescribir documentos ni
+  movimientos contables. La reversión se bloquea si truncaría eventos existentes.
+- Verificado el flujo completo en PostgreSQL aislado: 7 pruebas y 68
+  aserciones, incluidos permisos, concurrencia y reversión sin pérdida del historial.
+- Compilación correcta y suite general SQLite correcta; la capacidad real del
+  campo se comprueba en PostgreSQL porque SQLite no limita los varchar.
+- Publicación aislada desde producción, sin incluir el directorio fiscal
+  pendiente de desarrollo. Estado: validado, pendiente de despliegue.
+
 ## Directorio fiscal y memoria de emisores — 26/09/2026
 
 - Fase 1 implementada en local: búsqueda exacta por NIF/CIF normalizado desde
