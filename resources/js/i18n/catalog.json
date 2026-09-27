@@ -1,4 +1,14 @@
 {
+    "Address line 1": { "en": "Address line 1", "es": "Dirección" },
+    "Address line 2": {
+        "en": "Address line 2",
+        "es": "Complemento de dirección"
+    },
+    "Search by legal name or tax ID": {
+        "en": "Search by legal name or tax ID",
+        "es": "Buscar por razón social o NIF/CIF"
+    },
+    "Pagination": { "en": "Pagination", "es": "Paginación" },
     "directory": { "en": "Directory", "es": "Directorio" },
     "Fiscal directory": { "en": "Fiscal directory", "es": "Directorio fiscal" },
     "Changes to this directory do not rewrite existing invoices or accounting.": {
