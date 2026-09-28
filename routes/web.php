@@ -420,6 +420,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('expenses/{expense}/payments', [ExpenseController::class, 'payExpense'])->middleware('can:manage-purchase-payments')->name('expenses.payments.store');
     Route::post('supplier-invoices/{purchaseDocument}/payments', [ExpenseController::class, 'paySupplierInvoice'])->middleware('can:manage-purchase-payments')->name('supplier-invoices.payments.store');
     Route::delete('supplier-payments/{payment}', [ExpenseController::class, 'destroyPayment'])->middleware('can:manage-purchase-payments')->name('supplier-payments.destroy');
+    Route::post('expenses/{expense}/payments/{payment}/cancel', [ExpenseController::class, 'cancelPayment'])->middleware('can:manage-purchase-payments')->name('expenses.payments.cancel');
     Route::post('purchases', [PurchaseController::class, 'store'])->middleware('can:manage-purchases')->name('purchases.store');
     Route::get('purchases/{purchaseDocument}', [PurchaseController::class, 'show'])->middleware('can:view-purchases')->name('purchases.show');
     Route::patch('purchases/{purchaseDocument}/dates', [PurchaseController::class, 'correctDates'])->middleware('can:manage-purchases')->name('purchases.dates.update');

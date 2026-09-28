@@ -1,4 +1,41 @@
 {
+    "Cancelled payment": { "en": "Cancelled payment", "es": "Pago anulado" },
+    "Cancel incorrect payment": {
+        "en": "Cancel incorrect payment",
+        "es": "Anular pago erróneo"
+    },
+    "Cancellation reason": {
+        "en": "Cancellation reason",
+        "es": "Motivo de la anulación"
+    },
+    "Confirm cancellation": {
+        "en": "Confirm cancellation",
+        "es": "Confirmar anulación"
+    },
+    "This cancels the record, not a bank transfer. The original payment remains in history and its entry is reversed on the original date. Then register the correct payment.": {
+        "en": "This cancels the record, not a bank transfer. The original payment remains in history and its entry is reversed on the original date. Then register the correct payment.",
+        "es": "Se anula el registro, no una transferencia bancaria. El pago original permanece en el historial y su asiento se revierte en la fecha original. Después, registra el pago correcto."
+    },
+    "Undo the bank reconciliation before cancelling this payment.": {
+        "en": "Undo the bank reconciliation before cancelling this payment.",
+        "es": "Deshaz la conciliación bancaria antes de anular este pago."
+    },
+    "The payment belongs to a closed or unavailable fiscal year.": {
+        "en": "The payment belongs to a closed or unavailable fiscal year.",
+        "es": "El pago pertenece a un ejercicio cerrado o no disponible."
+    },
+    "A prepared or filed tax return protects this payment. Review it with your accountant.": {
+        "en": "A prepared or filed tax return protects this payment. Review it with your accountant.",
+        "es": "Una declaración preparada o presentada protege este pago. Revísalo con tu asesor contable."
+    },
+    "Payment cancelled. You can now register the correct payment.": {
+        "en": "Payment cancelled. You can now register the correct payment.",
+        "es": "Pago anulado. Ya puedes registrar el pago correcto."
+    },
+    "Use the administrative payment cancellation action.": {
+        "en": "Use the administrative payment cancellation action.",
+        "es": "Utiliza la acción administrativa de anulación de pagos."
+    },
     "Choose catalog products or custom lines. Custom lines do not affect inventory.": {
         "en": "Choose catalog products or custom lines. Custom lines do not affect inventory.",
         "es": "Elige productos del catálogo o líneas personalizadas. Las líneas personalizadas no afectan al inventario."
