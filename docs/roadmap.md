@@ -1,5 +1,36 @@
 # Roadmap unificado de Arevantes
 
+## Simplificación de la ficha de gastos — 28/09/2026
+
+Retirados el formulario y la ruta independientes de corrección de nombres del
+proveedor. La acción única es **Editar gasto**, con sus permisos y protecciones.
+Se conserva el historial anterior de correcciones del emisor, sin borrar datos.
+Los gastos pagados ya no tienen una vía alternativa para modificar el emisor.
+
+
+## Corrección administrativa de gastos pendientes — 28/09/2026
+
+Implementada en `develop` la acción **Editar gasto** en la ficha, exclusiva para
+administradores con permisos de gestión. Permite corregir categoría, proveedor,
+instalación, documento, emisor, fechas, moneda, desglose fiscal, retención y notas.
+Los adjuntos siguen gestionándose desde la ficha. El número interno, autor y
+pagos no se sobrescriben desde el formulario.
+
+- Motivo obligatorio, copia anterior/posterior y autor en auditoría, con historial
+  visible y detección de formularios obsoletos.
+- Bloqueo de gastos pagados y de ejercicios/períodos cerrados o declaraciones
+  preparadas/presentadas. Un cambio de fecha comprueba origen y destino.
+- Conserva asientos originales; compensa valores anteriores y contabiliza los
+  nuevos dentro de la misma transacción. Una discrepancia previa documento/libro
+  bloquea la corrección para revisión, sin ocultarla.
+- Pagos parciales conservados; el nuevo total no puede ser inferior a lo pagado.
+  Cambiar proveedor o moneda exige cancelar antes los pagos existentes.
+- Reutiliza las validaciones de alta; no activa aún el motor decimal aislado ni
+  recalcula históricos. Sin migraciones ni cambios de datos reales.
+- PostgreSQL aislado: 25 pruebas, 248 comprobaciones superadas. Regresión general:
+  636 pruebas superadas, una omitida y 9.990 comprobaciones. Compilación,
+  TypeScript, traducciones ES/EN y formato revisados. Pendiente prueba visual
+  autenticada y despliegue; no habilitado todavía en producción.
 ## Correcciones operativas de finanzas y compras — 27/09/2026
 
 Se añaden al roadmap existente, sin sustituir las fases fiscales ni el directorio

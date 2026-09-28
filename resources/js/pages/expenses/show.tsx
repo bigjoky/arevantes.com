@@ -65,16 +65,21 @@ type Expense = {
 export default function ExpenseShow({
     expense,
     paymentSources,
-    canCorrectIssuer,
     canCancelPayments,
-    issuerRevision,
     issuerCorrections,
+    canEditExpense,
+    expenseCorrections,
 }: {
     expense: Expense;
     paymentSources: PaymentSources;
-    canCorrectIssuer: boolean;
     canCancelPayments: boolean;
-    issuerRevision: string | null;
+    canEditExpense: boolean;
+    expenseCorrections: {
+        id: number;
+        created_at: string;
+        user: { name: string } | null;
+        new_values: { correction_reason: string };
+    }[];
     issuerCorrections: {
         id: number;
         user: string | null;
@@ -129,86 +134,27 @@ export default function ExpenseShow({
                         </Link>
                     </Button>
                 </header>
-                {canCorrectIssuer && (
-                    <details className="rounded-md border p-4">
-                        <summary className="cursor-pointer font-semibold">
-                            {translate('Correct supplier names', locale)}
-                        </summary>
-                        <p className="mt-3 text-sm text-muted-foreground">
-                            {translate(
-                                'Correct only the names recorded on this expense. Amounts, tax ID, supplier record, payments and accounting stay unchanged.',
-                                locale,
-                            )}
-                        </p>
-                        <Form
-                            action={`/expenses/${expense.id}/issuer`}
-                            method="patch"
-                            className="mt-4 grid gap-4"
-                        >
-                            {({ errors, processing }) => (
-                                <>
-                                    <FormErrorSummary errors={errors} />
-                                    <input
-                                        type="hidden"
-                                        name="issuer_revision"
-                                        value={issuerRevision ?? ''}
-                                    />
-                                    <div className="grid gap-4 sm:grid-cols-2">
-                                        <label className="grid gap-2 text-sm font-medium">
-                                            {translate(
-                                                'Issuer legal name',
-                                                locale,
-                                            )}
-                                            <Input
-                                                name="issuer_legal_name"
-                                                defaultValue={
-                                                    expense.issuer_legal_name ||
-                                                    expense.supplier
-                                                        ?.legal_name ||
-                                                    expense.merchant_name ||
-                                                    ''
-                                                }
-                                                maxLength={255}
-                                                required
-                                            />
-                                        </label>
-                                        <label className="grid gap-2 text-sm font-medium">
-                                            {translate(
-                                                'Trade name (optional)',
-                                                locale,
-                                            )}
-                                            <Input
-                                                name="merchant_name"
-                                                defaultValue={
-                                                    expense.merchant_name ?? ''
-                                                }
-                                                maxLength={255}
-                                            />
-                                        </label>
-                                    </div>
-                                    <label className="grid gap-2 text-sm font-medium">
-                                        {translate('Correction reason', locale)}
-                                        <textarea
-                                            name="correction_reason"
-                                            required
-                                            maxLength={2000}
-                                            rows={2}
-                                            className="rounded-md border bg-background p-3"
-                                        />
-                                    </label>
-                                    <Button
-                                        className="w-fit"
-                                        disabled={processing}
-                                    >
-                                        {translate(
-                                            'Save supplier name correction',
-                                            locale,
-                                        )}
-                                    </Button>
-                                </>
-                            )}
-                        </Form>
-                    </details>
+                {canEditExpense && (
+                    <Button asChild className="w-fit">
+                        <Link href={`/expenses/${expense.id}/edit`}>
+                            {translate('Edit expense', locale)}
+                        </Link>
+                    </Button>
+                )}
+                {expenseCorrections.length > 0 && (
+                    <section className="rounded-md border p-4">
+                        <h2 className="font-semibold">
+                            {translate('Expense correction history', locale)}
+                        </h2>
+                        {expenseCorrections.map((item) => (
+                            <div key={item.id} className="mt-3 text-sm">
+                                <p>
+                                    {date(item.created_at)} · {item.user?.name}
+                                </p>
+                                <p>{item.new_values.correction_reason}</p>
+                            </div>
+                        ))}
+                    </section>
                 )}
                 {issuerCorrections.length > 0 && (
                     <section className="rounded-md border p-4">
