@@ -1,5 +1,32 @@
 # Roadmap unificado de Arevantes
 
+## Compras libres y verificación de conciliación — 28/09/2026
+
+- Implementadas líneas personalizadas sin producto en solicitudes y pedidos:
+  descripción, cantidad, coste, descuento e IVA; selección explícita «Línea
+  personalizada (sin inventario)» junto al catálogo, en español e inglés.
+- Conservadas en conversión a pedido y factura, PDF y aprobaciones por importe.
+  No crean artículos, tarifas de proveedor ni entradas de almacén. Los pedidos
+  mixtos reciben únicamente sus productos con control de existencias.
+- Los costes de líneas libres facturadas se incluyen en rentabilidad de proyectos.
+  Migración incremental nullable con rollback bloqueado si existen líneas libres.
+- Validación: develop 593 pruebas correctas / 7746 aserciones y una omitida
+  exclusiva de PostgreSQL. Rama aislada de release PR #126: 585 pruebas correctas /
+  7664 aserciones y una omitida; PostgreSQL aislado: 41 pruebas / 661 aserciones.
+  Build, tipos, ESLint y catálogo bilingüe correctos. Migración aplicada a localhost.
+  Sin comprobación visual autenticada en Safari en esta entrega.
+- Conciliación: ampliadas las pruebas de pagos de gastos con subcuenta bancaria,
+  anulación y reintento, y conciliación automática con reclasificación contable.
+  La corrección previa de `entry_kind` ya está aplicada en producción (64 caracteres).
+  Los registros locales encontrados corresponden al límite anterior de 20;
+  no se ha reproducido un nuevo error con la versión actual. Pendiente que el
+  usuario confirme entorno y aporte un nuevo error si persiste. No se han
+  conciliado movimientos reales para probar.
+- Se mantienen las siguientes fases fiscales: corrección administrativa trazable
+  de pagos e importes, directorio fiscal y asignación a períodos sin alterar
+  declaraciones presentadas. Esta entrega no activa el directorio incompleto.
+
+
 ## Publicación operativa y avance fiscal — 27/09/2026 — v2026.09.27.2
 
 - Publicada PR #125 desde una rama aislada de producción, sin el directorio
