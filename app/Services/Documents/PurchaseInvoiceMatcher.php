@@ -102,7 +102,7 @@ class PurchaseInvoiceMatcher
             $invoiced = (float) $linkedInvoiceLines->sum('quantity');
             $credited = abs((float) $credits->flatMap->lines->whereIn('source_line_id', $invoiceLineIds)->sum('quantity'));
             $netInvoiced = round($invoiced - $credited, 3);
-            $available = $line->product->track_stock
+            $available = $line->product?->track_stock
                 ? max(0, (float) $line->received_quantity - (float) $line->returned_quantity)
                 : (float) $line->quantity;
 

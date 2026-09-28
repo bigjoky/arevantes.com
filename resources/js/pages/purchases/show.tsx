@@ -60,7 +60,7 @@ type Line = {
         sku: string | null;
         track_stock: boolean;
         track_serials: boolean;
-    };
+    } | null;
 };
 type Document = {
     id: number;
@@ -271,7 +271,12 @@ export default function PurchaseShow({
     const canReceive =
         document.type === 'purchase_order' &&
         ['ordered', 'partially_received'].includes(document.status) &&
-        abilities.receivePurchases;
+        abilities.receivePurchases &&
+        document.lines.some(
+            (line) =>
+                line.product?.track_stock &&
+                Number(line.received_quantity) < Number(line.quantity),
+        );
     const supplierInvoices = document.derived_documents.filter(
         (item) => item.type === 'supplier_invoice',
     );
@@ -287,7 +292,7 @@ export default function PurchaseShow({
         false;
     const hasReturnableStock = document.lines.some(
         (line) =>
-            line.product.track_stock &&
+            line.product?.track_stock &&
             Number(line.received_quantity) - Number(line.returned_quantity) > 0,
     );
     const hasCreditableLines =
@@ -885,7 +890,7 @@ export default function PurchaseShow({
                                         {document.lines
                                             .filter(
                                                 (line) =>
-                                                    line.product.track_stock &&
+                                                    line.product?.track_stock &&
                                                     Number(
                                                         line.received_quantity,
                                                     ) < Number(line.quantity),
@@ -896,7 +901,8 @@ export default function PurchaseShow({
                                                     className="border-b last:border-0"
                                                 >
                                                     <td className="py-3">
-                                                        {line.product.name}
+                                                        {line.product?.name ??
+                                                            line.description}
                                                         <div className="text-xs text-muted-foreground">
                                                             Pending{' '}
                                                             {Number(
@@ -1002,7 +1008,7 @@ export default function PurchaseShow({
                                                     </td>
                                                     <td className="p-2">
                                                         {line.product
-                                                            .track_serials ? (
+                                                            ?.track_serials ? (
                                                             <Input
                                                                 name={`serials[${line.id}]`}
                                                                 placeholder="Comma-separated serial numbers"
@@ -1063,7 +1069,7 @@ export default function PurchaseShow({
                                         {document.lines
                                             .filter(
                                                 (line) =>
-                                                    line.product.track_stock &&
+                                                    line.product?.track_stock &&
                                                     Number(
                                                         line.received_quantity,
                                                     ) -
@@ -1102,7 +1108,7 @@ export default function PurchaseShow({
                                                         </td>
                                                         <td className="p-2">
                                                             {line.product
-                                                                .track_serials ? (
+                                                                ?.track_serials ? (
                                                                 <Input
                                                                     name={`serials[${line.id}]`}
                                                                     placeholder="Serial numbers to return"
@@ -1217,7 +1223,7 @@ export default function PurchaseShow({
                                                         </td>
                                                         <td>
                                                             {line.product
-                                                                .track_stock
+                                                                ?.track_stock
                                                                 ? progress.get(
                                                                       line.id,
                                                                   )

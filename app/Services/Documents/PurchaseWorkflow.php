@@ -141,7 +141,7 @@ class PurchaseWorkflow
             $document = PurchaseDocument::lockForUpdate()->with('lines.product')->findOrFail($document->id);
             abort_unless($document->type === 'purchase_order' && $document->status === 'closed', 422);
             $received = $document->lines->contains(fn ($line) => (float) $line->received_quantity > 0);
-            $complete = $document->lines->every(fn ($line) => ! $line->product->track_stock || (float) $line->received_quantity >= (float) $line->quantity);
+            $complete = $document->lines->every(fn ($line) => ! $line->product?->track_stock || (float) $line->received_quantity >= (float) $line->quantity);
             $to = $complete ? 'received' : ($received ? 'partially_received' : 'ordered');
             $document->update(['status' => $to, 'closed_at' => null, 'closed_by' => null, 'closing_reason' => null]);
             $this->record($document, 'reopened', $user->id, 'closed', $to);
