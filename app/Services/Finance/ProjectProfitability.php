@@ -29,11 +29,11 @@ class ProjectProfitability
             ->groupBy(fn ($entry) => $entry->workOrder->installation_id)->map(fn ($entries) => (float) $entries->sum(fn ($entry) => $entry->cost));
         $supplierServices = PurchaseDocumentLine::query()
             ->join('purchase_documents', 'purchase_documents.id', '=', 'purchase_document_lines.purchase_document_id')
-            ->join('products', 'products.id', '=', 'purchase_document_lines.product_id')
+            ->leftJoin('products', 'products.id', '=', 'purchase_document_lines.product_id')
             ->whereIn('purchase_documents.type', ['supplier_invoice', 'supplier_credit_note'])
             ->whereNot('purchase_documents.status', 'review_required')
             ->whereNotNull('purchase_documents.installation_id')
-            ->where('products.type', 'service')
+            ->where(fn ($query) => $query->where('products.type', 'service')->orWhereNull('purchase_document_lines.product_id'))
             ->whereYear('purchase_documents.issue_date', $year)
             ->selectRaw('purchase_documents.installation_id, coalesce(sum(purchase_document_lines.subtotal), 0) total')
             ->groupBy('purchase_documents.installation_id')->pluck('total', 'installation_id');

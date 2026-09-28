@@ -175,7 +175,7 @@ class PurchaseController extends Controller
                 $rejectedQuantity = round((float) ($data['rejected_quantities'][$line->id] ?? 0), 3);
                 $pending = (float) $line->quantity - (float) $line->received_quantity;
                 abort_if($quantity + $rejectedQuantity > $pending + 0.0005, 422, __('Accepted and rejected quantities exceed the pending quantity.'));
-                abort_if(($quantity > 0 || $rejectedQuantity > 0) && ! $line->product->track_stock, 422, __('Only stock-tracked products can be received.'));
+                abort_if(($quantity > 0 || $rejectedQuantity > 0) && ! $line->product?->track_stock, 422, __('Only stock-tracked products can be received.'));
 
                 if ($quantity > 0) {
                     $acceptedLines->push(['line' => $line, 'product_id' => $line->product_id, 'quantity' => $quantity, 'unit_cost' => $line->unit_price, 'serials' => $data['serials'][$line->id] ?? null]);
@@ -203,7 +203,7 @@ class PurchaseController extends Controller
                     $item['line']->increment('received_quantity', $item['quantity']);
                 }
                 $allocator->allocate($order, (int) $data['warehouse_id'], $acceptedLines->map(fn ($line) => collect($line)->only(['product_id', 'quantity'])->all()));
-                $complete = $order->lines()->with('product')->get()->every(fn ($line) => (float) $line->received_quantity >= (float) $line->quantity || ! $line->product->track_stock);
+                $complete = $order->lines()->with('product')->get()->every(fn ($line) => (float) $line->received_quantity >= (float) $line->quantity || ! $line->product?->track_stock);
                 $order->update(['status' => $complete ? 'received' : 'partially_received']);
                 $issued = app(DocumentNumber::class)->next('goods_receipt', now());
                 $receipt = GoodsReceipt::create(['purchase_document_id' => $order->id, 'stock_movement_id' => $movement->id, 'warehouse_id' => $data['warehouse_id'], 'created_by' => $request->user()->id, 'number' => $issued['number'], 'supplier_delivery_note' => $data['supplier_delivery_note'] ?? null, 'received_at' => now()]);
@@ -353,7 +353,7 @@ class PurchaseController extends Controller
                 $quantity = round((float) ($data['quantities'][$line->id] ?? 0), 3);
                 $returnable = (float) $line->received_quantity - (float) $line->returned_quantity;
                 abort_if($quantity > $returnable + 0.0005, 422, __('Returned quantity exceeds received stock.'));
-                if ($quantity <= 0 || ! $line->product->track_stock) {
+                if ($quantity <= 0 || ! $line->product?->track_stock) {
                     return null;
                 }
 
@@ -413,7 +413,7 @@ class PurchaseController extends Controller
 
     private function validateDocument(Request $request): array
     {
-        return $request->validate(['type' => ['required', Rule::in(['purchase_rfq', 'purchase_order'])], 'supplier_id' => ['required', Rule::exists('suppliers', 'id')->where('is_active', true)], 'issue_date' => ['required', 'date'], 'expected_delivery_date' => ['nullable', 'date', 'after_or_equal:issue_date'], 'shipping_cost' => ['nullable', 'numeric', 'min:0'], 'notes' => ['nullable', 'string'], 'lines' => ['required', 'array', 'min:1'], 'lines.*.product_id' => ['required', Rule::exists('products', 'id')->where('is_active', true)], 'lines.*.description' => ['required', 'string'], 'lines.*.quantity' => ['required', 'numeric', 'gt:0'], 'lines.*.unit_price' => ['required', 'numeric', 'min:0'], 'lines.*.discount_percent' => ['required', 'numeric', 'between:0,100'], 'lines.*.tax_percent' => ['required', 'numeric', 'between:0,100']]);
+        return $request->validate(['type' => ['required', Rule::in(['purchase_rfq', 'purchase_order'])], 'supplier_id' => ['required', Rule::exists('suppliers', 'id')->where('is_active', true)], 'issue_date' => ['required', 'date'], 'expected_delivery_date' => ['nullable', 'date', 'after_or_equal:issue_date'], 'shipping_cost' => ['nullable', 'numeric', 'min:0'], 'notes' => ['nullable', 'string'], 'lines' => ['required', 'array', 'min:1'], 'lines.*.product_id' => ['nullable', Rule::exists('products', 'id')->where('is_active', true)], 'lines.*.description' => ['required', 'string'], 'lines.*.quantity' => ['required', 'numeric', 'gt:0'], 'lines.*.unit_price' => ['required', 'numeric', 'min:0'], 'lines.*.discount_percent' => ['required', 'numeric', 'between:0,100'], 'lines.*.tax_percent' => ['required', 'numeric', 'between:0,100']]);
     }
 
     private function calculate(array $lines, float $shippingCost = 0): array

@@ -23,6 +23,81 @@ class PurchaseTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_custom_purchase_lines_can_be_invoiced_without_catalog_or_stock(): void
+    {
+        $user = User::factory()->create(['role' => 'admin']);
+        $supplier = Supplier::create(['legal_name' => 'Custom supplier', 'country' => 'ES']);
+        $this->actingAs($user)->post(route('purchases.store'), [
+            'type' => 'purchase_order', 'supplier_id' => $supplier->id, 'issue_date' => now()->toDateString(),
+            'lines' => [['product_id' => null, 'description' => 'Special transport', 'quantity' => 2, 'unit_price' => 100, 'discount_percent' => 10, 'tax_percent' => 21]],
+        ])->assertRedirect()->assertSessionHasNoErrors();
+        $order = PurchaseDocument::where('type', 'purchase_order')->firstOrFail();
+        $this->assertSame('217.80', $order->amount);
+        $this->assertNull($order->lines->first()->product_id);
+        $this->get(route('purchases.show', $order))->assertOk();
+        $this->get(route('purchases.pdf', $order))->assertOk();
+        $warehouse = Warehouse::create(['code' => 'CUSTOM', 'name' => 'Custom test']);
+        $this->post(route('purchases.receive', $order), [
+            'warehouse_id' => $warehouse->id, 'quantities' => [$order->lines->first()->id => 1],
+        ])->assertStatus(422);
+        $this->post(route('purchases.invoice', $order), [
+            'supplier_number' => 'CUSTOM-1', 'issue_date' => now()->toDateString(),
+        ])->assertRedirect()->assertSessionHasNoErrors();
+        $invoice = PurchaseDocument::where('type', 'supplier_invoice')->firstOrFail();
+        $this->assertSame('217.80', $invoice->amount);
+        $this->assertSame('matched', $invoice->matching_status);
+        $this->assertNull($invoice->lines->first()->product_id);
+        $this->assertNotNull($invoice->accountingEntry);
+        $this->get(route('purchases.show', $invoice))->assertOk();
+        $this->assertDatabaseCount('supplier_products', 0);
+        $this->assertDatabaseCount('stock_movements', 0);
+        $this->assertDatabaseCount('goods_receipts', 0);
+    }
+
+    public function test_custom_lines_do_not_bypass_purchase_approval(): void
+    {
+        $user = User::factory()->create(['role' => 'commercial']);
+        $supplier = Supplier::create(['legal_name' => 'Custom approval', 'country' => 'ES']);
+        $this->actingAs($user)->post(route('purchases.store'), [
+            'type' => 'purchase_order', 'supplier_id' => $supplier->id, 'issue_date' => now()->toDateString(),
+            'lines' => [['description' => 'External work', 'quantity' => 1, 'unit_price' => 10000, 'discount_percent' => 0, 'tax_percent' => 21]],
+        ])->assertRedirect()->assertSessionHasNoErrors();
+        $this->assertSame('pending_approval', PurchaseDocument::firstOrFail()->status);
+        $this->assertDatabaseCount('supplier_products', 0);
+    }
+
+    public function test_mixed_rfq_converts_and_only_receives_its_stock_product(): void
+    {
+        $user = User::factory()->create(['role' => 'admin']);
+        $supplier = Supplier::create(['legal_name' => 'Mixed supplier', 'country' => 'ES']);
+        $warehouse = Warehouse::create(['code' => 'MIXED', 'name' => 'Mixed warehouse']);
+        $product = Product::create(['type' => 'product', 'name' => 'Stock item', 'unit_id' => Unit::firstOrFail()->id, 'tax_rate_id' => TaxRate::firstOrFail()->id, 'cost_price' => 100, 'sale_price' => 120, 'track_stock' => true, 'is_active' => true]);
+        $this->actingAs($user)->post(route('purchases.store'), [
+            'type' => 'purchase_rfq', 'supplier_id' => $supplier->id, 'issue_date' => now()->toDateString(),
+            'lines' => [
+                ['product_id' => $product->id, 'description' => 'Stock item', 'quantity' => 1, 'unit_price' => 100, 'discount_percent' => 0, 'tax_percent' => 21],
+                ['product_id' => null, 'description' => 'Assembly service', 'quantity' => 1, 'unit_price' => 20, 'discount_percent' => 0, 'tax_percent' => 21],
+            ],
+        ])->assertRedirect()->assertSessionHasNoErrors();
+        $request = PurchaseDocument::where('type', 'purchase_rfq')->firstOrFail();
+        $this->post(route('purchases.convert', $request))->assertRedirect()->assertSessionHasNoErrors();
+        $order = PurchaseDocument::where('type', 'purchase_order')->firstOrFail();
+        $this->assertSame(2, $order->lines->count());
+        $this->assertNull($order->lines->last()->product_id);
+        $this->post(route('purchases.receive', $order), [
+            'warehouse_id' => $warehouse->id, 'quantities' => [$order->lines->first()->id => 1],
+        ])->assertRedirect()->assertSessionHasNoErrors();
+        $this->assertSame('received', $order->fresh()->status);
+        $this->assertSame('0.000', $order->lines->last()->fresh()->received_quantity);
+        $this->assertDatabaseCount('stock_movement_lines', 1);
+        $this->assertDatabaseCount('supplier_products', 1);
+        $this->post(route('purchases.invoice', $order), ['supplier_number' => 'MIXED-1', 'issue_date' => now()->toDateString()])->assertRedirect()->assertSessionHasNoErrors();
+        $invoice = PurchaseDocument::where('type', 'supplier_invoice')->firstOrFail();
+        $this->assertSame('145.20', $invoice->amount);
+        $this->assertSame('matched', $invoice->matching_status);
+        $this->assertSame(2, $invoice->lines->count());
+    }
+
     public function test_a_purchase_order_includes_transport_cost_in_its_total(): void
     {
         $user = User::factory()->create(['role' => 'commercial']);
