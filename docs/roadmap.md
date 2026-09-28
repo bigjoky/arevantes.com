@@ -1,5 +1,13 @@
 # Roadmap unificado de Arevantes
 
+## Simplificación de la ficha de gastos — 28/09/2026
+
+Retirados el formulario y la ruta independientes de corrección de nombres del
+proveedor. La acción única es **Editar gasto**, con sus permisos y protecciones.
+Se conserva el historial anterior de correcciones del emisor, sin borrar datos.
+Los gastos pagados ya no tienen una vía alternativa para modificar el emisor.
+
+
 ## Corrección administrativa de gastos pendientes — 28/09/2026
 
 Implementada en `develop` la acción **Editar gasto** en la ficha, exclusiva para
