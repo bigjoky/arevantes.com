@@ -754,7 +754,7 @@ class BankingController extends Controller
             }
             $payment = match ($type) {
                 'customer' => SalesDocumentPayment::findOrFail($id),
-                'supplier' => SupplierPayment::findOrFail($id),
+                'supplier' => SupplierPayment::lockForUpdate()->findOrFail($id),
                 'tax' => TaxReturnPayment::with('taxReturn')->findOrFail($id),
             };
             $inbound = $type === 'customer' || ($type === 'tax' && (float) $payment->taxReturn->result < 0);

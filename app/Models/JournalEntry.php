@@ -24,7 +24,7 @@ class JournalEntry extends Model
 
     public function source(): MorphTo
     {
-        return $this->morphTo();
+        return $this->morphTo()->withoutGlobalScope('active_supplier_payment');
     }
 
     public function lines(): HasMany

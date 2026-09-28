@@ -9,11 +9,21 @@ use Illuminate\Database\Eloquent\Relations\MorphOne;
 
 class SupplierPayment extends Model
 {
+    protected static function booted(): void
+    {
+        static::addGlobalScope('active_supplier_payment', fn ($query) => $query->whereNull('supplier_payments.voided_at'));
+    }
+
     protected $fillable = ['purchase_document_id', 'expense_id', 'created_by', 'origin_bank_transaction_id', 'paid_at', 'amount', 'method', 'funding_source_type', 'funding_source_id', 'ledger_account_id', 'reference', 'notes'];
 
     protected function casts(): array
     {
-        return ['paid_at' => 'date:Y-m-d', 'amount' => 'decimal:2'];
+        return ['paid_at' => 'date:Y-m-d', 'amount' => 'decimal:2', 'voided_at' => 'datetime'];
+    }
+
+    public function voidedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'voided_by');
     }
 
     public function expense(): BelongsTo

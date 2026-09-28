@@ -12,6 +12,7 @@ use App\Models\Supplier;
 use App\Models\SupplierPayment;
 use App\Rules\SafeUpload;
 use App\Services\Accounting\AccountingSynchronizer;
+use App\Services\Accounting\ExpensePaymentCancellation;
 use App\Services\Accounting\SupplierPaymentSourceResolver;
 use App\Services\Documents\DocumentNumber;
 use App\Services\Finance\OutstandingBalanceCalculator;
@@ -45,7 +46,8 @@ class ExpenseController extends Controller
 
     public function show(Expense $expense, SupplierPaymentSourceResolver $sources): Response
     {
-        $expense->load(['category', 'supplier', 'attachments', 'payments.ledgerAccount', 'payments.fundingBankAccount', 'payments.fundingCard', 'payments.fundingEmployee', 'taxLines']);
+        $expense->load(['category', 'supplier', 'attachments', 'taxLines']);
+        $expense->load(['payments' => fn ($query) => $query->withoutGlobalScope('active_supplier_payment')->with(['ledgerAccount', 'fundingBankAccount', 'fundingCard', 'fundingEmployee', 'voidedBy:id,name', 'reconciliation:id,supplier_payment_id'])]);
         $expense->payments->each(fn (SupplierPayment $payment) => $payment->setAttribute('source_label', $payment->sourceLabel()));
 
         $canCorrect = request()->user()->hasRole('admin') && request()->user()->can('manage-catalog');
@@ -53,6 +55,7 @@ class ExpenseController extends Controller
         return Inertia::render('expenses/show', [
             'expense' => $expense, 'paymentSources' => $sources->options(),
             'canCorrectIssuer' => $canCorrect,
+            'canCancelPayments' => request()->user()->hasRole('admin') && request()->user()->can('manage-purchase-payments'),
             'issuerRevision' => $canCorrect ? $this->issuerRevision($expense) : null,
             'issuerCorrections' => $canCorrect ? AuditLog::query()
                 ->where('auditable_type', $expense->getMorphClass())->where('auditable_id', $expense->id)
@@ -231,7 +234,7 @@ class ExpenseController extends Controller
 
     public function destroy(Expense $expense): RedirectResponse
     {
-        abort_if($expense->payments()->exists(), 422, __('Expenses with payments cannot be deleted.'));
+        abort_if($expense->payments()->withoutGlobalScope('active_supplier_payment')->exists(), 422, __('Expenses with payments cannot be deleted.'));
         abort_if($expense->accountingEntry()->exists(), 422, __('Posted expenses cannot be deleted. Reverse the accounting entry first.'));
         foreach ($expense->attachments as $attachment) {
             Storage::disk(config('filesystems.private'))->delete($attachment->path);
@@ -301,12 +304,24 @@ class ExpenseController extends Controller
         return back()->with('toast', ['type' => 'success', 'message' => __('Payment registered.')]);
     }
 
+    public function cancelPayment(Request $request, Expense $expense, SupplierPayment $payment, ExpensePaymentCancellation $cancellation): RedirectResponse
+    {
+        $data = $request->validate(['reason' => ['required', 'string', 'min:5', 'max:2000']]);
+        $cancellation->cancel($expense, $payment, $request->user(), $data['reason'], [
+            'ip_address' => $request->ip(), 'user_agent' => $request->userAgent(),
+            'route' => $request->route()?->getName(), 'method' => $request->method(),
+        ]);
+
+        return back()->with('toast', ['type' => 'success', 'message' => __('Payment cancelled. You can now register the correct payment.')]);
+    }
+
     public function destroyPayment(SupplierPayment $payment): RedirectResponse
     {
         if ($payment->accountingEntry()->exists()) {
             throw ValidationException::withMessages(['payment' => __('Posted payments cannot be deleted. Reverse the accounting entry first.')]);
         }
         $expense = $payment->expense;
+        abort_if($expense, 422, __('Use the administrative payment cancellation action.'));
         $invoice = $payment->purchaseDocument;
         $payment->delete();
         $this->refreshStatus($expense, $invoice);
