@@ -1,5 +1,43 @@
 # Roadmap unificado de Arevantes
 
+## Criterio de cálculo de facturas de proveedor — 28/09/2026
+
+Se incorpora la propuesta del usuario al siguiente bloque fiscal de importes/IVA.
+**Diseño acordado para implementar; no cambia todavía el cálculo en producción.**
+
+- Diagnóstico del código: compras redondea base a dos decimales por línea y luego
+  calcula/redondea su IVA; la conversión a factura también limita el precio unitario
+  a dos decimales. Gastos suma las cuotas calculadas o introducidas de cada fila
+  fiscal. Ninguno de estos flujos normaliza aún todo el IVA por grupo impositivo.
+- Conservar cálculo decimal de alta precisión para cantidades, precios y descuentos,
+  evitando `float` como representación monetaria. Definir escalas, límites y regla
+  de redondeo comunes en servidor y vista previa, sin reducir antes el precio unitario.
+- Separar base calculada y **base documental de línea**: permitir introducir el
+  importe neto que aparece en la factura del proveedor, sin falsear precio/cantidad.
+  Guardar ambas bases, diferencia, origen y motivo de ajuste cuando corresponda.
+- Agrupar bases documentales por tipo de IVA y tratamiento fiscal compatible;
+  calcular y redondear una vez la cuota de cada grupo. Mantener separados recargo
+  de equivalencia, exenciones/no sujeción e inversión del sujeto pasivo. Deducibilidad
+  y retenciones no deben alterar la base documental ni duplicarla.
+- Permitir registrar la **cuota documental del proveedor por grupo**, comparándola
+  con la calculada y mostrando el ajuste. No sustituir automáticamente una cuota
+  real por otra calculada, ni multiplicar tolerancias por el número de líneas.
+  Las diferencias fuera de la política aprobada requieren revisión explícita.
+- Si se necesitan cuotas por línea para abonos o informes, repartir los céntimos
+  del grupo de forma determinista, garantizando que su suma coincida exactamente
+  con el grupo. Incluir portes con el grupo fiscal que corresponda.
+- Alinear registro de gastos, facturas derivadas de compras, abonos, PDF, asientos,
+  libros fiscales y conciliación. Versionar el criterio: documentos contabilizados
+  no se recalculan al visualizarlos; las correcciones usan el circuito auditable.
+- Casos de aceptación: precios unitarios con más de dos decimales, descuentos,
+  varios tipos, portes, deducibilidad parcial y abonos parciales; dos bases de 0,03
+  al 21 % producen una cuota agrupada de 0,01 (no 0,02 por suma de redondeos).
+  Conservar el caso documental confirmado de base 3,46, cuota 0,34 y total 3,80,
+  registrando la diferencia frente al cálculo automático, sin inventar un céntimo.
+- Secuencia: motor decimal y pruebas de grupos; entradas documentales y vista previa;
+  persistencia/versionado y correcciones; integración contable/fiscal y despliegue
+  aislado tras verificar PostgreSQL. Se mantienen las demás fases del roadmap.
+
 ## Corrección trazable de pagos de gastos — 28/09/2026
 
 - Publicada **v2026.09.28.2**, PR #127, commit
