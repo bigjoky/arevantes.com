@@ -1,5 +1,10 @@
 # Revisión financiera y preparación fiscal 2027
 
+Actualización de planificación, 28/09/2026: el [plan de modelos 303, 390 y 347](fiscal-models-303-390-347.md)
+desarrolla FIN-02/03/05 del roadmap, con diagnóstico adicional de libros,
+dependencias, validaciones y calendario interno. Este documento conserva la
+revisión inicial y sus evidencias; no implica que los modelos estén implementados.
+
 Fecha: 12/09/2026. Anexo de diagnóstico del [roadmap unificado](roadmap.md).
 Objetivo solicitado: funcionamiento el 01/01/2027; puesta en marcha interna
 prevista antes del 18/12/2026 para reservar margen de estabilización.

@@ -1,5 +1,31 @@
 # Roadmap unificado de Arevantes
 
+## Prioridad de modelos 303, 390 y 347 — 28/09/2026
+
+Preparado el [plan detallado de los tres modelos](fiscal-models-303-390-347.md),
+anexo de esta misma secuencia y basado en documentación AEAT revisada. No implica
+que los modelos estén implementados, certificados ni habilitados para presentar.
+
+- FIN-02.A (09/10): motor decimal, bases documentales, IVA agrupado, perfil fiscal,
+  identidad unificada, fechas registrales y libros conciliados. Corregir antes
+  los portes asumidos al 21 %, la consulta de subcuentas 472/477 y la mezcla de
+  vista previa con generación de asientos detectadas en los servicios actuales.
+- FIN-03.303 (30/10): borrador por casillas, compensaciones, validación contable,
+  expediente y rectificación según reglas aplicables. El 3T/2026 debe seguir el
+  circuito verificado de asesoría; no esperar al desarrollo para su presentación.
+- FIN-05.390 (13/11): resumen anual desde libros, contraste con los 303 y control
+  de obligación/exoneración; información anual del último 303 cuando corresponda.
+- FIN-05.347 (27/11): terceros por NIF/país y clave, umbral, IVA incluido, períodos,
+  exclusiones, anticipos/abonos y contraste de discrepancias sin envíos automáticos.
+- FIN-06/07: ensayo integral hasta 11/12 y activación controlada hasta 18/12;
+  reserva de estabilización y objetivo operativo 01/01/2027 conservados.
+- Formatos y calendario por ejercicio sujetos a validación oficial; perfiles no
+  soportados bloqueados. Preparar/exportar nunca equivale a presentar o pagar.
+  Confirmar perfil censal y completar histórico 2026 con la asesoría.
+
+Se conservan el resto de modelos aplicables, VERI*FACTU y las mejoras ya acordadas.
+Este corte modifica planificación, no cálculos ni datos fiscales de producción.
+
 ## Criterio de cálculo de facturas de proveedor — 28/09/2026
 
 Se incorpora la propuesta del usuario al siguiente bloque fiscal de importes/IVA.
@@ -574,6 +600,12 @@ y trazabilidad en el roadmap. Las propuestas futuras permanecen visibles aunque
 un corte posterior cambie su orden o alcance.
 
 ## Prioridad vigente — Preparación fiscal al 01/01/2027
+
+Actualización de planificación al 28/09/2026: FIN-02 se concreta con motor decimal
+y libros normalizados; FIN-03 prioriza el 303 (30/10), y FIN-05 adelanta el 390
+al 13/11 y el 347 al 27/11. Véase el [anexo de ejecución 303/390/347](fiscal-models-303-390-347.md)
+para alcance, dependencias, fuentes y aceptación. La revisión inicial que sigue
+es histórica; las entregas publicadas se registran al comienzo de este documento.
 
 Estado a 12/09/2026: revisión inicial realizada y primer incremento FIN-01
 implementado localmente; pendiente de integración/publicación y del resto de
