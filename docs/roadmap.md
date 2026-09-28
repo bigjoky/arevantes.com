@@ -2,6 +2,12 @@
 
 ## Corrección trazable de pagos de gastos — 28/09/2026
 
+- Publicada **v2026.09.28.2**, PR #127, commit
+  `94ba61aa4def2bf9af3ff651c4d4adb09ee9a098`. Despliegue activo
+  `depl-a2da77fb-d72d-4ed0-9699-c2e3d0f0cfc3` completado en 1 min 50 s.
+  Tras confirmar ausencia de despliegues activos/en cola y retraso del evento
+  automático, se inició uno manual. Verificados `/up` y `/login` HTTP 200,
+  ruta de anulación y cuatro columnas de historial; directorio fiscal excluido.
 - Implementada anulación administrativa con motivo obligatorio. Conserva importe,
   fecha, origen y referencia del pago original; añade autor, momento, motivo,
   enlace al asiento de reversión y auditoría antes/después.
@@ -20,7 +26,10 @@
 - Verificado en desarrollo: 601 pruebas generales / 7814 aserciones, una exclusiva
   de PostgreSQL omitida; 42 pruebas PostgreSQL / 625 aserciones tras ampliar controles
   de permisos e historial. Build, TypeScript, ESLint y traducciones correctos.
-  Migración aplicada a localhost; pendiente verificación de la rama de publicación.
+  Rama de publicación: 593 pruebas correctas / 7744 aserciones y una omitida;
+  42 pruebas PostgreSQL / 625 aserciones. CI PHP 8.4/8.5 y calidad aprobados.
+  Migración aplicada en localhost y producción. Pendiente comprobación visual
+  autenticada; no se han usado pagos reales para una prueba de anulación.
 - Operación: después de usar anulaciones, no volver a una versión de código anterior
   que desconozca `voided_at`, porque contaría pagos anulados. Corregir hacia delante.
   El rollback de esquema se bloquea si existen anulaciones para preservar historial.
