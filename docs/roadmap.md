@@ -2,6 +2,11 @@
 
 ## Compras libres y verificación de conciliación — 28/09/2026
 
+- Publicada **v2026.09.28.1**, PR #126, commit
+  `16f046ef94578a7c48a6cdaace95f4d4fa338835`. Despliegue activo
+  `depl-a2da0684-ac34-4079-bb53-68247fee3b95` completado sin errores.
+  Verificados `/up` y `/login` HTTP 200, producto nullable en líneas de compra,
+  tipo de asiento de 64 caracteres y directorio fiscal incompleto excluido.
 - Implementadas líneas personalizadas sin producto en solicitudes y pedidos:
   descripción, cantidad, coste, descuento e IVA; selección explícita «Línea
   personalizada (sin inventario)» junto al catálogo, en español e inglés.
