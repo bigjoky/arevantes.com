@@ -197,6 +197,24 @@ justificante como evidencia consultable.
 - No hay presentación desatendida en el alcance inicial. Certificados, representación
   y remisión real requieren un hito de seguridad y autorización específico.
 
+## Avance de implementación — 28/09/2026
+
+Primer incremento de FIN-02.A: motor aislado `SupplierInvoiceCalculator`, versión
+`supplier-vat-v1`, con aritmética decimal exacta mediante dependencia directa
+`brick/math`. Acepta bases y cuotas documentales, registra diferencias y motivos
+en su resultado, agrupa IVA y reparte céntimos de forma estable. Incluye
+deducibilidad parcial y abonos por inversión de magnitudes. Las 28 pruebas
+específicas realizan 2.105 comprobaciones.
+
+**No está activado en producción ni conectado a los modelos fiscales.** La versión
+se devuelve en el resultado; aún no se persiste. No modifica facturas anteriores.
+EUR únicamente; no admite líneas con signos mixtos, recargos, retenciones,
+inversión del sujeto pasivo ni conversiones de moneda. La tolerancia técnica
+inicial de cuota es 0,02 EUR por grupo, no una regla legal. Los adaptadores deberán
+validar además los límites monetarios del almacenamiento y guardar evidencia del
+cálculo. Quedan pendientes integración, formularios, regímenes adicionales y
+conciliación con libros/asientos antes de habilitar su uso real.
+
 ## Fuentes oficiales y revalidación
 
 Consultadas el 28/09/2026. Revalidar al implementar cada modelo y antes de cada

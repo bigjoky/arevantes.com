@@ -1,5 +1,30 @@
 # Roadmap unificado de Arevantes
 
+## FIN-02.A — primer incremento del motor decimal — 28/09/2026
+
+Implementado `SupplierInvoiceCalculator` como servicio puro y versionado, todavía
+sin conectar con formularios, persistencia, asientos ni informes de producción.
+No se recalculan documentos históricos. FIN-02.A sigue abierto.
+
+- Importes decimales exactos, bases documentales con motivo de ajuste e IVA
+  redondeado por grupo; reparto determinista de céntimos por identificador estable.
+- Cuota documental con diferencia máxima de 0,02 EUR por grupo en esta primera
+  política técnica, sin multiplicarla por líneas. No es una tolerancia legal.
+- Deducibilidad parcial y abonos con inversión exacta de los importes.
+- Conservado el caso de referencia: base 3,46 + cuota documental 0,34 = 3,80 EUR.
+- Alcance inicial: EUR, magnitudes positivas, factura o abono completo, IVA
+  ordinario, exención y no sujeción. Regímenes y campos no soportados se rechazan.
+- Pruebas específicas: 28 casos, 2.105 comprobaciones, incluyendo 500 líneas,
+  reordenación, límites de reparto y matriz de tipos/deducibilidad.
+- Regresión general: 629 pruebas superadas, una omitida y 9.931 comprobaciones;
+  formato PHP y validación de dependencias correctos.
+
+Siguiente entrega: adaptadores de gastos/compras, conservación del cálculo y su
+versión, límites de almacenamiento, vista previa y validación de formularios.
+Antes de activar: resolver recargos, retenciones, líneas de signo mixto y demás
+regímenes aplicables; probar integración contable sin cambiar históricos.
+
+
 ## Prioridad de modelos 303, 390 y 347 — 28/09/2026
 
 Preparado el [plan detallado de los tres modelos](fiscal-models-303-390-347.md),
