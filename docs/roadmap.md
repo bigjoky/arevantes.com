@@ -1,5 +1,34 @@
 # Roadmap unificado de Arevantes
 
+## Corrección trazable de pagos de gastos — 28/09/2026
+
+- Implementada anulación administrativa con motivo obligatorio. Conserva importe,
+  fecha, origen y referencia del pago original; añade autor, momento, motivo,
+  enlace al asiento de reversión y auditoría antes/después.
+- La reversión usa la fecha original, únicamente en ejercicio y mes abiertos.
+  Es una corrección del registro: no ordena devoluciones ni cancela transferencias.
+  Después puede registrarse el pago correcto desde el formulario habitual.
+- Los pagos anulados quedan visibles en el historial, pero excluidos de saldos,
+  candidaturas de conciliación y sumas operativas. Los asientos conservan acceso
+  a su pago de origen. No se permite borrar un gasto con pagos históricos.
+- Bloqueados pagos conciliados o generados por banca: deben deshacerse desde banca.
+  Protección conservadora de períodos con declaraciones preparadas o presentadas,
+  tanto de la fecha del pago como del gasto. No reabre ni modifica declaraciones.
+- Exclusivo de administrador con permiso de pagos; validación del gasto propietario,
+  bloqueo ante doble envío y frente a conciliación concurrente, reversión y auditoría
+  en una sola transacción. Si falla cualquier paso, saldo y registro se conservan.
+- Verificado en desarrollo: 601 pruebas generales / 7814 aserciones, una exclusiva
+  de PostgreSQL omitida; 42 pruebas PostgreSQL / 625 aserciones tras ampliar controles
+  de permisos e historial. Build, TypeScript, ESLint y traducciones correctos.
+  Migración aplicada a localhost; pendiente verificación de la rama de publicación.
+- Operación: después de usar anulaciones, no volver a una versión de código anterior
+  que desconozca `voided_at`, porque contaría pagos anulados. Corregir hacia delante.
+  El rollback de esquema se bloquea si existen anulaciones para preservar historial.
+- Próximos bloques, sin sustituir el roadmap fiscal: corrección de importes e IVA de
+  gastos existentes; fechas de recepción/registro/deducción y protección de períodos;
+  completar directorio fiscal, modelos y preparación de VeriFactu para 01/01/2027.
+  No se han anulado pagos reales ni realizado transferencias durante las pruebas.
+
 ## Compras libres y verificación de conciliación — 28/09/2026
 
 - Publicada **v2026.09.28.1**, PR #126, commit
