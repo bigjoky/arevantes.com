@@ -55,18 +55,25 @@ type Expense = {
         method: string;
         reference: string | null;
         source_label: string;
+        voided_at: string | null;
+        void_reason: string | null;
+        voided_by: { name: string } | null;
+        reconciliation: { id: number } | null;
+        origin_bank_transaction_id: number | null;
     }[];
 };
 export default function ExpenseShow({
     expense,
     paymentSources,
     canCorrectIssuer,
+    canCancelPayments,
     issuerRevision,
     issuerCorrections,
 }: {
     expense: Expense;
     paymentSources: PaymentSources;
     canCorrectIssuer: boolean;
+    canCancelPayments: boolean;
     issuerRevision: string | null;
     issuerCorrections: {
         id: number;
@@ -444,7 +451,7 @@ export default function ExpenseShow({
                             {expense.payments.map((payment) => (
                                 <div
                                     key={payment.id}
-                                    className="flex justify-between gap-3 border-b py-3 text-sm last:border-0"
+                                    className="flex flex-col justify-between gap-3 border-b py-3 text-sm last:border-0 sm:flex-row"
                                 >
                                     <div>
                                         <div className="font-medium">
@@ -463,17 +470,89 @@ export default function ExpenseShow({
                                                 ? ` · ${payment.reference}`
                                                 : ''}
                                         </div>
+                                        {payment.voided_at && (
+                                            <div className="mt-2 text-xs text-muted-foreground">
+                                                <Badge variant="secondary">
+                                                    Cancelled payment
+                                                </Badge>
+                                                <p>
+                                                    {date(payment.voided_at)} ·{' '}
+                                                    {payment.voided_by?.name}
+                                                </p>
+                                                <p>{payment.void_reason}</p>
+                                            </div>
+                                        )}
                                     </div>
-                                    {canManagePayments && (
-                                        <Form
-                                            action={`/supplier-payments/${payment.id}`}
-                                            method="delete"
-                                        >
-                                            <Button size="icon" variant="ghost">
-                                                <Trash2 />
-                                            </Button>
-                                        </Form>
-                                    )}
+                                    {canCancelPayments &&
+                                        !payment.voided_at &&
+                                        (payment.reconciliation ||
+                                        payment.origin_bank_transaction_id ? (
+                                            <p className="max-w-sm text-xs text-muted-foreground">
+                                                Undo the bank reconciliation
+                                                before cancelling this payment.
+                                            </p>
+                                        ) : (
+                                            <details className="w-full sm:max-w-sm">
+                                                <summary className="cursor-pointer text-destructive">
+                                                    Cancel incorrect payment
+                                                </summary>
+                                                <Form
+                                                    action={`/expenses/${expense.id}/payments/${payment.id}/cancel`}
+                                                    method="post"
+                                                    className="mt-3 grid gap-3"
+                                                >
+                                                    {({
+                                                        errors,
+                                                        processing,
+                                                    }) => (
+                                                        <>
+                                                            <p className="text-xs text-muted-foreground">
+                                                                This cancels the
+                                                                record, not a
+                                                                bank transfer.
+                                                                The original
+                                                                payment remains
+                                                                in history and
+                                                                its entry is
+                                                                reversed on the
+                                                                original date.
+                                                                Then register
+                                                                the correct
+                                                                payment.
+                                                            </p>
+                                                            <FormErrorSummary
+                                                                errors={errors}
+                                                            />
+                                                            <label className="grid gap-1">
+                                                                <span>
+                                                                    Cancellation
+                                                                    reason
+                                                                </span>
+                                                                <Input
+                                                                    name="reason"
+                                                                    required
+                                                                    minLength={
+                                                                        5
+                                                                    }
+                                                                    maxLength={
+                                                                        2000
+                                                                    }
+                                                                />
+                                                            </label>
+                                                            <Button
+                                                                variant="destructive"
+                                                                disabled={
+                                                                    processing
+                                                                }
+                                                            >
+                                                                Confirm
+                                                                cancellation
+                                                            </Button>
+                                                        </>
+                                                    )}
+                                                </Form>
+                                            </details>
+                                        ))}
                                 </div>
                             ))}
                             {expense.payments.length === 0 && (
