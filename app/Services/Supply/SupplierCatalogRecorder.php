@@ -16,6 +16,9 @@ class SupplierCatalogRecorder
 
     public function recordLine(PurchaseDocumentLine $line, ?PurchaseDocument $document = null): void
     {
+        if (! $line->product_id) {
+            return;
+        }
         $document ??= $line->document;
         if (! $document || ! in_array($document->type, ['purchase_rfq', 'purchase_order', 'supplier_invoice'], true)) {
             return;

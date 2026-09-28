@@ -643,7 +643,7 @@ function PurchaseDialog({
                             </FormSection>
                             <FormSection
                                 title="Purchase lines"
-                                description="Select catalog products and adjust the quantities, costs, discounts and taxes for this document."
+                                description="Choose catalog products or custom lines. Custom lines do not affect inventory."
                             >
                                 <div className="grid gap-3">
                                     {lines.map((line, i) => (
@@ -703,9 +703,14 @@ function PurchaseDialog({
                                                     onChange={(product) =>
                                                         update(
                                                             i,
-                                                            productLine(
-                                                                product,
-                                                            ),
+                                                            product
+                                                                ? productLine(
+                                                                      product,
+                                                                  )
+                                                                : {
+                                                                      product_id:
+                                                                          '',
+                                                                  },
                                                         )
                                                     }
                                                 />
@@ -847,14 +852,19 @@ function ProductSelect({
     value: string;
     products: Product[];
     error?: string;
-    onChange: (product: Product) => void;
+    onChange: (product: Product | null) => void;
 }) {
     return (
         <>
             <Select
-                name={name}
-                value={value}
+                value={value || 'custom'}
                 onValueChange={(selectedId) => {
+                    if (selectedId === 'custom') {
+                        onChange(null);
+
+                        return;
+                    }
+
                     const product = products.find(
                         (item) => item.id === Number(selectedId),
                     );
@@ -868,6 +878,9 @@ function ProductSelect({
                     <SelectValue placeholder="Select product" />
                 </SelectTrigger>
                 <SelectContent>
+                    <SelectItem value="custom">
+                        Custom line (no inventory)
+                    </SelectItem>
                     {products.map((product) => (
                         <SelectItem key={product.id} value={String(product.id)}>
                             {product.sku
@@ -877,6 +890,7 @@ function ProductSelect({
                     ))}
                 </SelectContent>
             </Select>
+            <input type="hidden" name={name} value={value} />
             <InputError message={error} />
         </>
     );

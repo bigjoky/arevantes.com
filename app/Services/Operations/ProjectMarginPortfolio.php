@@ -52,9 +52,9 @@ class ProjectMarginPortfolio
             ->selectRaw('stock_movements.installation_id, coalesce(sum(-stock_movement_lines.quantity * coalesce(stock_movement_lines.unit_cost, 0)), 0) total, count(*) movements')
             ->groupBy('stock_movements.installation_id')->get()->keyBy('installation_id');
         $supplierServices = DB::table('purchase_document_lines')->join('purchase_documents', 'purchase_documents.id', '=', 'purchase_document_lines.purchase_document_id')
-            ->join('products', 'products.id', '=', 'purchase_document_lines.product_id')
+            ->leftJoin('products', 'products.id', '=', 'purchase_document_lines.product_id')
             ->whereIn('purchase_documents.installation_id', $ids)->whereIn('purchase_documents.type', ['supplier_invoice', 'supplier_credit_note'])
-            ->whereNotIn('purchase_documents.status', ['draft', 'review_required', 'cancelled'])->where('products.type', 'service')
+            ->whereNotIn('purchase_documents.status', ['draft', 'review_required', 'cancelled'])->where(fn ($query) => $query->where('products.type', 'service')->orWhereNull('purchase_document_lines.product_id'))
             ->selectRaw('purchase_documents.installation_id, coalesce(sum(purchase_document_lines.subtotal), 0) total, count(distinct purchase_documents.id) documents')
             ->groupBy('purchase_documents.installation_id')->get()->keyBy('installation_id');
         $expenses = DB::table('expenses')->whereIn('installation_id', $ids)->whereNotIn('status', ['draft', 'cancelled'])

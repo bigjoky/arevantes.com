@@ -1,4 +1,12 @@
 {
+    "Choose catalog products or custom lines. Custom lines do not affect inventory.": {
+        "en": "Choose catalog products or custom lines. Custom lines do not affect inventory.",
+        "es": "Elige productos del catálogo o líneas personalizadas. Las líneas personalizadas no afectan al inventario."
+    },
+    "Custom line (no inventory)": {
+        "en": "Custom line (no inventory)",
+        "es": "Línea personalizada (sin inventario)"
+    },
     "Use the supplier invoice amount. Up to 0.02 difference per tax line; changing the base or rate recalculates it.": {
         "en": "Use the supplier invoice amount. Up to 0.02 difference per tax line; changing the base or rate recalculates it.",
         "es": "Indica la cuota de la factura del proveedor. Diferencia máxima de 0,02 por línea fiscal; cambiar la base o el tipo la recalcula."
