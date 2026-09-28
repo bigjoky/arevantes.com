@@ -13,6 +13,7 @@ use App\Models\Supplier;
 use App\Models\SupplierPayment;
 use App\Rules\SafeUpload;
 use App\Services\Accounting\AccountingSynchronizer;
+use App\Services\Accounting\ExpenseCorrection;
 use App\Services\Accounting\ExpensePaymentCancellation;
 use App\Services\Accounting\SupplierPaymentSourceResolver;
 use App\Services\Documents\DocumentNumber;
@@ -57,6 +58,8 @@ class ExpenseController extends Controller
         return Inertia::render('expenses/show', [
             'expense' => $expense, 'paymentSources' => $sources->options(),
             'canCorrectIssuer' => $canCorrect,
+            'canEditExpense' => $canCorrect && $expense->status !== 'paid',
+            'expenseCorrections' => $canCorrect ? AuditLog::where('auditable_type', $expense->getMorphClass())->where('auditable_id', $expense->id)->where('event', 'expense_corrected')->with('user:id,name')->latest('id')->limit(50)->get() : [],
             'canCancelPayments' => request()->user()->hasRole('admin') && request()->user()->can('manage-purchase-payments'),
             'issuerRevision' => $canCorrect ? $this->issuerRevision($expense) : null,
             'issuerCorrections' => $canCorrect ? AuditLog::query()
@@ -108,6 +111,34 @@ class ExpenseController extends Controller
 
     public function store(Request $request, AccountingSynchronizer $accounting, DocumentNumber $numbers): RedirectResponse
     {
+        return $this->saveExpense($request, $accounting, $numbers);
+    }
+
+    public function edit(Request $request, Expense $expense): Response
+    {
+        abort_unless($request->user()->hasRole('admin'), 403);
+        abort_if($expense->status === 'paid', 403);
+
+        return Inertia::render('expenses/edit', [
+            'expense' => $expense->load('taxLines'),
+            'revision' => ExpenseCorrection::revision($expense),
+            'categories' => ExpenseCategory::orderBy('name')->get(['id', 'name']),
+            'suppliers' => Supplier::orderBy('legal_name')->get(['id', 'legal_name']),
+            'installations' => Installation::orderByDesc('id')->get(['id', 'project_reference', 'site_name']),
+            'countries' => Country::orderBy('name')->get(['code', 'name']),
+        ]);
+    }
+
+    public function update(Request $request, Expense $expense, AccountingSynchronizer $accounting, DocumentNumber $numbers): RedirectResponse
+    {
+        abort_unless($request->user()->hasRole('admin'), 403);
+        $request->validate(['revision' => ['required', 'string', 'size:64'], 'correction_reason' => ['required', 'string', 'min:5', 'max:2000'], 'attachments' => ['prohibited']]);
+
+        return $this->saveExpense($request, $accounting, $numbers, $expense);
+    }
+
+    private function saveExpense(Request $request, AccountingSynchronizer $accounting, DocumentNumber $numbers, ?Expense $editing = null): RedirectResponse
+    {
         $request->merge([
             'currency_code' => $request->input('currency_code', 'EUR'),
             'tax_regime' => $request->input('tax_regime', 'standard'),
@@ -152,7 +183,7 @@ class ExpenseController extends Controller
             'withholding_amount' => ['nullable', 'numeric', 'min:0'],
             'subtotal' => ['required_without:tax_lines', 'nullable', 'numeric', 'min:0'],
             'tax_amount' => ['required_without:tax_lines', 'nullable', 'numeric', 'min:0'],
-            'tax_lines' => ['nullable', 'array', 'max:20'],
+            'tax_lines' => ['nullable', 'array', 'min:1', 'max:20'],
             'tax_lines.*.kind' => ['required', Rule::in(['vat', 'equivalence_surcharge'])],
             'tax_lines.*.taxable_base' => ['required', 'numeric', 'min:0'],
             'tax_lines.*.tax_rate' => ['required', 'numeric', 'between:0,100'],
@@ -189,6 +220,7 @@ class ExpenseController extends Controller
         if ($data['issuer_tax_id'] ?? null) {
             $taxIdKey = strtoupper(str_replace([' ', '-', '.'], '', trim($data['issuer_tax_id'])));
             $duplicate = Expense::whereRaw("upper(replace(replace(replace(issuer_tax_id, ' ', ''), '-', ''), '.', '')) = ?", [$taxIdKey])
+                ->when($editing, fn ($query) => $query->whereKeyNot($editing->id))
                 ->where(fn ($query) => $query->where('issuer_country', $data['issuer_country'] ?? 'ES')
                     ->when(($data['issuer_country'] ?? 'ES') === 'ES', fn ($query) => $query->orWhereNull('issuer_country')))
                 ->where('document_number', $data['document_number'] ?? null)->exists();
@@ -204,6 +236,11 @@ class ExpenseController extends Controller
         $data['subtotal'] = $subtotal;
         $data['tax_amount'] = $taxAmount;
         $data['withholding_amount'] = $withholdingAmount;
+        if ($editing) {
+            app(ExpenseCorrection::class)->correct($editing, $data, $taxLines->all(), $request);
+
+            return to_route('expenses.show', $editing)->with('toast', ['type' => 'success', 'message' => __('Expense corrected.')]);
+        }
         $storedFiles = [];
 
         try {

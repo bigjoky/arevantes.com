@@ -412,6 +412,8 @@ Route::middleware(['auth'])->group(function () {
     Route::post('expenses', [ExpenseController::class, 'store'])->middleware('can:manage-catalog')->name('expenses.store');
     Route::get('expenses/issuer-lookup', ExpenseIssuerLookupController::class)->middleware(['can:manage-catalog', 'can:view-finance', 'throttle:60,1'])->name('expenses.issuer.lookup');
     Route::get('expenses/{expense}', [ExpenseController::class, 'show'])->middleware('can:view-finance')->name('expenses.show');
+    Route::get('expenses/{expense}/edit', [ExpenseController::class, 'edit'])->middleware(['can:view-finance', 'can:manage-catalog'])->name('expenses.edit');
+    Route::patch('expenses/{expense}', [ExpenseController::class, 'update'])->middleware(['can:view-finance', 'can:manage-catalog'])->name('expenses.update');
     Route::patch('expenses/{expense}/issuer', [ExpenseController::class, 'correctIssuer'])->middleware('can:manage-catalog')->name('expenses.issuer.update');
     Route::delete('expenses/{expense}', [ExpenseController::class, 'destroy'])->middleware('can:manage-catalog')->name('expenses.destroy');
     Route::get('expenses/{expense}/attachments/{attachment}', [ExpenseController::class, 'download'])->middleware('can:view-finance')->name('expenses.attachments.download');

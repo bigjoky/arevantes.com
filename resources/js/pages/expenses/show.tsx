@@ -69,11 +69,20 @@ export default function ExpenseShow({
     canCancelPayments,
     issuerRevision,
     issuerCorrections,
+    canEditExpense,
+    expenseCorrections,
 }: {
     expense: Expense;
     paymentSources: PaymentSources;
     canCorrectIssuer: boolean;
     canCancelPayments: boolean;
+    canEditExpense: boolean;
+    expenseCorrections: {
+        id: number;
+        created_at: string;
+        user: { name: string } | null;
+        new_values: { correction_reason: string };
+    }[];
     issuerRevision: string | null;
     issuerCorrections: {
         id: number;
@@ -209,6 +218,28 @@ export default function ExpenseShow({
                             )}
                         </Form>
                     </details>
+                )}
+                {canEditExpense && (
+                    <Button asChild className="w-fit">
+                        <Link href={`/expenses/${expense.id}/edit`}>
+                            {translate('Edit expense', locale)}
+                        </Link>
+                    </Button>
+                )}
+                {expenseCorrections.length > 0 && (
+                    <section className="rounded-md border p-4">
+                        <h2 className="font-semibold">
+                            {translate('Expense correction history', locale)}
+                        </h2>
+                        {expenseCorrections.map((item) => (
+                            <div key={item.id} className="mt-3 text-sm">
+                                <p>
+                                    {date(item.created_at)} · {item.user?.name}
+                                </p>
+                                <p>{item.new_values.correction_reason}</p>
+                            </div>
+                        ))}
+                    </section>
                 )}
                 {issuerCorrections.length > 0 && (
                     <section className="rounded-md border p-4">

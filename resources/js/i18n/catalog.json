@@ -1,4 +1,116 @@
 {
+    "Equivalence surcharge": {
+        "en": "Equivalence surcharge",
+        "es": "Recargo de equivalencia"
+    },
+    "taxable_base": {
+        "en": "taxable_base",
+        "es": "Base imponible"
+    },
+    "tax_rate": {
+        "en": "tax_rate",
+        "es": "Tipo impositivo"
+    },
+    "tax_amount": {
+        "en": "tax_amount",
+        "es": "Cuota tributaria"
+    },
+    "deductible_percent": {
+        "en": "deductible_percent",
+        "es": "Porcentaje deducible"
+    },
+    "Tax rate": {
+        "en": "Tax rate",
+        "es": "Tipo impositivo"
+    },
+    "Exemption reason": {
+        "en": "Exemption reason",
+        "es": "Motivo de exención"
+    },
+    "Add tax line": {
+        "en": "Add tax line",
+        "es": "Añadir línea fiscal"
+    },
+    "The expense accounting differs from its document. Review it before editing.": {
+        "en": "The expense accounting differs from its document. Review it before editing.",
+        "es": "La contabilidad del gasto difiere de su documento. Revísala antes de editarlo."
+    },
+    "Edit expense": {
+        "en": "Edit expense",
+        "es": "Editar gasto"
+    },
+    "Expense corrected.": {
+        "en": "Expense corrected.",
+        "es": "Gasto corregido."
+    },
+    "Save correction": {
+        "en": "Save correction",
+        "es": "Guardar corrección"
+    },
+    "Expense correction history": {
+        "en": "Expense correction history",
+        "es": "Historial de correcciones del gasto"
+    },
+    "Corrections retain history and update accounting. Paid expenses and protected periods cannot be edited.": {
+        "en": "Corrections retain history and update accounting. Paid expenses and protected periods cannot be edited.",
+        "es": "Las correcciones conservan el historial y actualizan la contabilidad. No se pueden editar gastos pagados ni períodos protegidos."
+    },
+    "Paid expenses cannot be edited.": {
+        "en": "Paid expenses cannot be edited.",
+        "es": "No se pueden editar gastos pagados."
+    },
+    "The expense has changed. Reload it before editing.": {
+        "en": "The expense has changed. Reload it before editing.",
+        "es": "El gasto ha cambiado. Vuelve a cargarlo antes de editarlo."
+    },
+    "The expense date must belong to an open fiscal year.": {
+        "en": "The expense date must belong to an open fiscal year.",
+        "es": "La fecha del gasto debe pertenecer a un ejercicio abierto."
+    },
+    "A prepared or filed tax return protects this expense.": {
+        "en": "A prepared or filed tax return protects this expense.",
+        "es": "Una declaración preparada o presentada protege este gasto."
+    },
+    "Cancel existing payments before changing the supplier or currency.": {
+        "en": "Cancel existing payments before changing the supplier or currency.",
+        "es": "Anula los pagos existentes antes de cambiar el proveedor o la moneda."
+    },
+    "The expense total cannot be less than its registered payments.": {
+        "en": "The expense total cannot be less than its registered payments.",
+        "es": "El total del gasto no puede ser inferior a sus pagos registrados."
+    },
+    "Tax line": {
+        "en": "Tax line",
+        "es": "Línea fiscal"
+    },
+    "Deductible VAT (%)": {
+        "en": "Deductible VAT (%)",
+        "es": "IVA deducible (%)"
+    },
+    "standard": {
+        "en": "standard",
+        "es": "General"
+    },
+    "exempt": {
+        "en": "exempt",
+        "es": "Exento"
+    },
+    "non_subject": {
+        "en": "non_subject",
+        "es": "No sujeto"
+    },
+    "reverse_charge": {
+        "en": "reverse_charge",
+        "es": "Inversión del sujeto pasivo"
+    },
+    "intra_community": {
+        "en": "intra_community",
+        "es": "Intracomunitario"
+    },
+    "import": {
+        "en": "import",
+        "es": "Importación"
+    },
     "Cancelled payment": { "en": "Cancelled payment", "es": "Pago anulado" },
     "Cancel incorrect payment": {
         "en": "Cancel incorrect payment",
