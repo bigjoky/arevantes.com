@@ -127,6 +127,11 @@ class AccountingSynchronizer
 
     private function expense(Expense $expense, ?int $userId): int
     {
+        return $this->post($expense, 'document', $expense->expense_date->toDateString(), $expense->number, $userId, $this->expenseLines($expense));
+    }
+
+    public function expenseLines(Expense $expense): array
+    {
         $expense->loadMissing(['category', 'supplier', 'taxLines']);
         $creditorAccount = $expense->supplier?->payable_account_code ?: '410';
         $deductibleTax = round((float) $expense->taxLines->sum('deductible_amount'), 2);
@@ -148,7 +153,7 @@ class AccountingSynchronizer
         }
         $lines[] = [$creditorAccount, 0, (float) $expense->amount];
 
-        return $this->post($expense, 'document', $expense->expense_date->toDateString(), $expense->number, $userId, $lines);
+        return $lines;
     }
 
     private function customerPayment(SalesDocumentPayment $payment, ?int $userId): int
