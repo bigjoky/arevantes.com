@@ -1,5 +1,25 @@
 # Roadmap unificado de Arevantes
 
+## Producción verificada: edición unificada de gastos — 28/09/2026
+
+- Publicada `v2026.09.28.3`, PR #128, commit de producción
+  `4f7464322410f7687c4a3d05a5a3014980603b19`.
+- Cloud `depl-a2db5330-0419-49f5-b22a-0a44ef2965e1`: succeeded, 1m57s;
+  `currentDeploymentId` confirmado, sin otros despliegues en curso.
+- Edición administrativa de gastos pendientes activa y corrección separada del
+  proveedor retirada. Se conservan el historial y las protecciones contables.
+- Rama de publicación aislada: 596 pruebas superadas, una omitida y 7.766
+  comprobaciones; PostgreSQL: 21 pruebas y 211 comprobaciones. CI PHP 8.4/8.5,
+  calidad, TypeScript, traducciones y compilación aprobados.
+- Comprobación remota de solo lectura: `/up` y `/login` HTTP 200; rutas
+  `expenses.edit` y `expenses.update` activas, `expenses.issuer.update` ausente,
+  servicio de corrección disponible y `fiscal_entities` todavía ausente.
+- Sin migraciones ni cambios de documentos/pagos reales. El directorio fiscal y
+  el motor decimal aislado permanecen en desarrollo; no se altera su planificación.
+  Pendiente comprobación visual autenticada en Safari. Tras registrar ajustes,
+  aplicar correcciones hacia delante: no volver a código que ignore su historial.
+
+
 ## Simplificación de la ficha de gastos — 28/09/2026
 
 Retirados el formulario y la ruta independientes de corrección de nombres del
