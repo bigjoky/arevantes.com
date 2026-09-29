@@ -1,4 +1,7 @@
 {
+    "Grouped expense calculation is not enabled for this operation.": "El cálculo agrupado de gastos no está habilitado para esta operación.",
+    "The grouped calculation requires supported fiscal data, stable line IDs, exact decimals and justified rounding adjustments.": "El cálculo agrupado requiere datos fiscales compatibles, identificadores estables de línea, decimales exactos y ajustes de redondeo justificados.",
+    "Review the VAT ledger account configuration.": "Revisa la configuración de las cuentas contables de IVA.",
     "Equivalence surcharge": "Recargo de equivalencia",
     "taxable_base": "Base imponible",
     "tax_rate": "Tipo impositivo",
