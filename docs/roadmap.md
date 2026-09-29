@@ -45,6 +45,12 @@ No hay envío AEAT ni pagos automáticos habilitados por este roadmap.
 
 ### 29/09/2026 — Vista previa documental de gastos (FIN-02.A/B)
 
+Activación local posterior, solicitada por el usuario: habilitada en el `.env`
+de develop (`http://localhost:8000`), aplicando únicamente la migración de los
+dos campos de evidencia. Configuración y columnas verificadas; `/up` responde
+200. No se han recalculado gastos. Producción y el valor por defecto siguen
+desactivados; la comprobación visual autenticada continúa pendiente.
+
 - Panel común ES/EN en alta y edición: base, IVA calculado, cuota documental,
   diferencia de redondeo, total e IVA deducible. Motivo del ajuste conservado.
 - Vista previa calculada en servidor, sin crear gastos ni asientos. Guardado
