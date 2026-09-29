@@ -210,8 +210,10 @@ en su resultado, agrupa IVA y reparte céntimos de forma estable. Incluye
 deducibilidad parcial y abonos por inversión de magnitudes. Las 28 pruebas
 específicas realizan 2.105 comprobaciones.
 
-**No está activado en producción ni conectado a los modelos fiscales.** La versión
-se devuelve en el resultado; aún no se persiste. No modifica facturas anteriores.
+**No está activado en producción ni conectado a los modelos fiscales.** El
+29/09 se añade adaptador y persistencia opt-in de gastos, deshabilitados por
+defecto: migración nullable, snapshot y evidencia de correcciones, sin backfill.
+Pendientes formularios/vista previa y compras; no modifica facturas anteriores.
 EUR únicamente; no admite líneas con signos mixtos, recargos, retenciones,
 inversión del sujeto pasivo ni conversiones de moneda. La tolerancia técnica
 inicial de cuota es 0,02 EUR por grupo, no una regla legal. Los adaptadores deberán

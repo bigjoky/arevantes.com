@@ -124,8 +124,9 @@ class TaxTest extends TestCase
             'subtotal' => -100, 'discount_amount' => 0, 'tax_amount' => -21, 'total' => -121,
         ]);
 
-        $entryId = app(AccountingSynchronizer::class)->syncSalesDocument($credit, $user->id);
-        $entry = JournalEntry::with('lines.account')->findOrFail($entryId);
+        $created = app(AccountingSynchronizer::class)->syncSalesDocument($credit, $user->id);
+        $this->assertSame(1, $created);
+        $entry = $credit->accountingEntry()->with('lines.account')->firstOrFail();
         $report = app(VatReport::class)->make(2026, 3);
 
         $this->assertEqualsWithDelta(121, $entry->lines->sum('debit'), 0.001);

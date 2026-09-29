@@ -15,6 +15,7 @@ class Expense extends Model
         'issuer_tax_id', 'issuer_country', 'expense_date', 'operation_date', 'due_date', 'currency_code',
         'tax_regime', 'subtotal', 'tax_amount', 'withholding_rate', 'withholding_amount',
         'deductible_expense_percent', 'amount', 'paid_amount', 'status', 'notes',
+        'tax_calculation_version', 'tax_calculation_snapshot',
     ];
 
     protected function casts(): array
@@ -25,6 +26,7 @@ class Expense extends Model
             'withholding_rate' => 'decimal:3', 'withholding_amount' => 'decimal:2',
             'deductible_expense_percent' => 'decimal:2', 'amount' => 'decimal:2',
             'paid_amount' => 'decimal:2',
+            'tax_calculation_snapshot' => 'array',
         ];
     }
 

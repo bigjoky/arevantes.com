@@ -1,4 +1,12 @@
 {
+    "Grouped expense calculation is not enabled for this operation.": {
+        "en": "Grouped expense calculation is not enabled for this operation.",
+        "es": "El cálculo agrupado de gastos no está habilitado para esta operación."
+    },
+    "The grouped calculation requires supported fiscal data, stable line IDs, exact decimals and justified rounding adjustments.": {
+        "en": "The grouped calculation requires supported fiscal data, stable line IDs, exact decimals and justified rounding adjustments.",
+        "es": "El cálculo agrupado requiere datos fiscales compatibles, identificadores estables de línea, decimales exactos y ajustes de redondeo justificados."
+    },
     "Supported VAT": { "en": "Input VAT charged", "es": "IVA soportado" },
     "Non-deductible VAT": {
         "en": "Non-deductible VAT",

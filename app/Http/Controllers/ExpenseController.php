@@ -18,6 +18,8 @@ use App\Services\Accounting\ExpensePaymentCancellation;
 use App\Services\Accounting\SupplierPaymentSourceResolver;
 use App\Services\Documents\DocumentNumber;
 use App\Services\Finance\OutstandingBalanceCalculator;
+use App\Services\Tax\ExpenseDocumentaryCalculation;
+use App\Services\Tax\SupplierInvoiceCalculator;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -121,6 +123,8 @@ class ExpenseController extends Controller
         }
 
         $data = $request->validate([
+            'calculation_mode' => ['nullable', Rule::in([ExpenseDocumentaryCalculation::MODE])],
+            'calculation_reason' => ['nullable', 'string', 'min:5', 'max:2000'],
             'expense_category_id' => ['required', 'exists:expense_categories,id'],
             'supplier_id' => ['nullable', 'exists:suppliers,id'],
             'installation_id' => ['nullable', 'exists:installations,id'],
@@ -143,6 +147,7 @@ class ExpenseController extends Controller
             'tax_amount' => ['required_without:tax_lines', 'nullable', 'numeric', 'min:0'],
             'tax_lines' => ['nullable', 'array', 'min:1', 'max:20'],
             'tax_lines.*.kind' => ['required', Rule::in(['vat', 'equivalence_surcharge'])],
+            'tax_lines.*.calculation_id' => ['nullable', 'string', 'max:64'],
             'tax_lines.*.taxable_base' => ['required', 'numeric', 'min:0'],
             'tax_lines.*.tax_rate' => ['required', 'numeric', 'between:0,100'],
             'tax_lines.*.tax_amount' => ['required', 'numeric', 'decimal:0,2', 'min:0'],
@@ -153,7 +158,13 @@ class ExpenseController extends Controller
             'attachments.*' => ['file', new SafeUpload(['pdf', 'jpg', 'jpeg', 'png', 'webp'], 10240)],
         ]);
 
-        $taxLines = collect($data['tax_lines'] ?? [
+        $grouped = ($data['calculation_mode'] ?? null) === ExpenseDocumentaryCalculation::MODE || $editing?->tax_calculation_version;
+        if ($grouped && (! config('fiscal.grouped_expense_calculation') || ! $request->user()->hasRole('admin')
+            || ($editing?->tax_calculation_version && $editing->tax_calculation_version !== SupplierInvoiceCalculator::VERSION))) {
+            throw ValidationException::withMessages(['calculation_mode' => __('Grouped expense calculation is not enabled for this operation.')]);
+        }
+        $calculation = $grouped ? app(ExpenseDocumentaryCalculation::class)->calculate($data, $data['calculation_reason'] ?? null) : null;
+        $taxLines = $calculation ? collect($calculation['tax_lines']) : collect($data['tax_lines'] ?? [
             ['kind' => 'vat', 'taxable_base' => $data['subtotal'], 'tax_rate' => (float) $data['subtotal'] > 0 ? (float) $data['tax_amount'] / (float) $data['subtotal'] * 100 : 0, 'tax_amount' => $data['tax_amount'], 'deductible_percent' => 100],
         ])->values()->map(function (array $line, int $index) {
             $expectedTax = round((float) $line['taxable_base'] * (float) $line['tax_rate'] / 100, 2);
@@ -164,11 +175,13 @@ class ExpenseController extends Controller
 
             $deductiblePercent = $line['kind'] === 'equivalence_surcharge' ? 0 : (float) $line['deductible_percent'];
 
+            unset($line['calculation_id']);
+
             return [...$line, 'position' => $index + 1, 'deductible_percent' => $deductiblePercent, 'deductible_amount' => round((float) $line['tax_amount'] * $deductiblePercent / 100, 2)];
         });
 
-        $subtotal = round((float) $taxLines->where('kind', 'vat')->sum('taxable_base'), 2);
-        $taxAmount = round((float) $taxLines->sum('tax_amount'), 2);
+        $subtotal = $calculation['subtotal'] ?? round((float) $taxLines->where('kind', 'vat')->sum('taxable_base'), 2);
+        $taxAmount = $calculation['tax_amount'] ?? round((float) $taxLines->sum('tax_amount'), 2);
         $withholdingAmount = round((float) ($data['withholding_amount'] ?? 0), 2);
         $calculatedWithholding = round($subtotal * (float) ($data['withholding_rate'] ?? 0) / 100, 2);
         if (abs($calculatedWithholding - $withholdingAmount) > 0.02) {
@@ -188,7 +201,11 @@ class ExpenseController extends Controller
         }
 
         $files = $data['attachments'] ?? [];
-        unset($data['attachments'], $data['tax_lines']);
+        unset($data['attachments'], $data['tax_lines'], $data['calculation_mode'], $data['calculation_reason']);
+        if ($calculation) {
+            $data['tax_calculation_version'] = $calculation['tax_calculation_version'];
+            $data['tax_calculation_snapshot'] = $calculation['tax_calculation_snapshot'];
+        }
         $data['issuer_tax_id'] = filled($data['issuer_tax_id'] ?? null) ? strtoupper(trim($data['issuer_tax_id'])) : null;
         $data['currency_code'] = strtoupper($data['currency_code']);
         $data['subtotal'] = $subtotal;
@@ -213,7 +230,7 @@ class ExpenseController extends Controller
 
             $expense = DB::transaction(function () use ($request, $data, $taxLines, $storedFiles, $accounting, $numbers) {
                 $number = $numbers->next('expense', $data['expense_date'])['number'];
-                $amount = round((float) $data['subtotal'] + (float) $data['tax_amount'] - (float) $data['withholding_amount'], 2);
+                $amount = $data['tax_calculation_snapshot']['result']['totals']['total'] ?? round((float) $data['subtotal'] + (float) $data['tax_amount'] - (float) $data['withholding_amount'], 2);
                 $expense = Expense::create([...$data, 'created_by' => $request->user()->id, 'number' => $number, 'amount' => $amount, 'status' => 'pending']);
                 $expense->taxLines()->createMany($taxLines->all());
                 foreach ($storedFiles as $storedFile) {

@@ -18,7 +18,7 @@ y comprobaciones remotas no sustituyen esa validación.
 | 1 | FIN-01, integridad | Abierto; mejoras operativas publicadas | Completar ensayos de concurrencia con conexiones independientes y revisión de todos los accesos de emisión; no dar el bloque por cerrado |
 | 2 | FIN-02.B, libros y conciliación | Implementado en develop; pendiente publicación | Subcuentas por jerarquía/mapeo, movimientos contabilizados y liquidación de las cuentas reales; completar puertas de publicación |
 | 3 | FIN-02.B, cuotas de los libros | Implementado en develop; pendiente publicación | IVA soportado/deducible/no deducible separado en libro, resumen y CSV; verificar compatibilidad de liquidación |
-| 4 | FIN-02.A/B, cálculo y normalización | Motor aislado probado, sin activar; resto pendiente | Adaptadores, versión persistida, límites y vista previa; tratamiento real de portes, recepción/registro/deducción y preparación sin asientos implícitos |
+| 4 | FIN-02.A/B, cálculo y normalización | Adaptador y persistencia de gastos implementados con activación deshabilitada | Vista previa documental y formularios, compras, regímenes adicionales; portes, fechas registrales y preparación sin asientos implícitos |
 | 5 | FIN-02.C, identidad y perfil | Directorio parcial solo en develop | Completar direcciones/snapshot e integración, revisión de duplicados y validación censal con asesoría |
 | 6 | FIN-03.303 | Planificado | Casillas, compensaciones y expediente trazable; objetivo interno 30/10 |
 | 7 | FIN-04 y FIN-05.390 | Planificados | VERI*FACTU en pruebas y resumen anual/exoneración 390; objetivos internos 13/11 |
@@ -46,6 +46,34 @@ No hay envío AEAT ni pagos automáticos habilitados por este roadmap.
 Las notas siguientes conservan decisiones, alcance y pruebas de cada corte.
 «Pendiente de publicar» en una nota antigua describe aquel momento; para el estado
 actual consultar la tabla anterior y la última publicación verificada.
+
+## FIN-02.A — persistencia del cálculo documental de gastos — 29/09/2026
+
+- Adaptador `grouped_v1` para filas fiscales de gastos: base documental, cuota
+  agrupada por tipo y reparto de deducibilidad. Identificadores de línea estables,
+  cadenas decimales exactas y límites del almacenamiento `numeric(12,2)`.
+- Alta y corrección pueden guardar `tax_calculation_version` y snapshot con
+  entradas, cuotas originales, resultado, motivos y huella SHA-256 reproducible.
+  La auditoría de corrección conserva también la evidencia anterior. Esta huella
+  no es un registro VERI*FACTU ni una certificación fiscal.
+- Opción explícita de servidor `FISCAL_GROUPED_EXPENSE_CALCULATION`, **false por
+  defecto**, y rol administrador. No activada en localhost ni producción, ni
+  ofrecida aún en formularios. No habilitar hasta completar vista previa y UI.
+- Una edición versionada nunca cae al cálculo legado: se recalcula con su
+  versión compatible o se bloquea si está deshabilitada/desconocida. Datos de
+  snapshot enviados por el cliente no se aceptan como evidencia calculada.
+- Alcance inicial EUR y regímenes general/exento/no sujeto, sin recargos ni
+  retenciones; casos incompatibles se rechazan. Las filas fiscales no sustituyen
+  todavía a componentes/precios de productos en compras. Cálculos contables
+  existentes conservan sus adaptadores: no se declara completada la migración decimal.
+- Migración aditiva nullable, sin backfill. El rollback se bloquea si existe
+  evidencia; nunca borrar snapshots para forzarlo. No se ha aplicado a datos reales.
+- Siguiente entrega: vista previa del servidor y formularios con cuotas por grupo,
+  motivo de ajuste y conservación de identificadores; después adaptador de compras.
+- Verificado: 652 pruebas generales superadas, una omitida y 10.060 comprobaciones;
+  bloque PostgreSQL: 34 pruebas y 352 comprobaciones. Compilación, formato y
+  catálogo bilingüe correctos. Corregida además una prueba fiscal antigua que
+  confundía el contador de asientos creados con su identificador real.
 
 ## FIN-02.B — desglose de cuotas en libros — 29/09/2026
 
