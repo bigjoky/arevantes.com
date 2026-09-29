@@ -1,4 +1,59 @@
 {
+    "Use grouped documentary calculation": {
+        "en": "Use grouped documentary calculation",
+        "es": "Usar cálculo documental agrupado"
+    },
+    "EUR only, without withholding or surcharges. Enter documentary quotas; the server compares them by VAT group. Preview again after changing the form.": {
+        "en": "EUR only, without withholding or surcharges. Enter documentary quotas; the server compares them by VAT group. Preview again after changing the form.",
+        "es": "Solo EUR, sin retenciones ni recargos. Introduce las cuotas de la factura; el servidor las compara por grupo de IVA. Revisa el cálculo de nuevo si modificas el formulario."
+    },
+    "Rounding adjustment reason": {
+        "en": "Rounding adjustment reason",
+        "es": "Motivo del ajuste de redondeo"
+    },
+    "Calculating…": { "en": "Calculating…", "es": "Calculando…" },
+    "Preview grouped calculation": {
+        "en": "Preview grouped calculation",
+        "es": "Revisar cálculo agrupado"
+    },
+    "Unable to preview the calculation. Please try again.": {
+        "en": "Unable to preview the calculation. Please try again.",
+        "es": "No se ha podido obtener el cálculo. Inténtalo de nuevo."
+    },
+    "Calculated VAT": { "en": "Calculated VAT", "es": "IVA calculado" },
+    "Documentary VAT": { "en": "Documentary VAT", "es": "IVA de la factura" },
+    "Rounding adjustment": {
+        "en": "Rounding adjustment",
+        "es": "Ajuste de redondeo"
+    },
+    "Calculation reviewed. Saving will validate these values again.": {
+        "en": "Calculation reviewed. Saving will validate these values again.",
+        "es": "Cálculo revisado. Al guardar se volverán a validar estos importes."
+    },
+    "Preview the current grouped calculation before saving.": {
+        "en": "Preview the current grouped calculation before saving.",
+        "es": "Revisa el cálculo agrupado actual antes de guardar."
+    },
+    "EUR": { "en": "EUR", "es": "EUR" },
+    "EUR ·": { "en": "EUR ·", "es": "EUR ·" },
+    "Grouped expense calculation is not enabled for this operation.": {
+        "en": "Grouped expense calculation is not enabled for this operation.",
+        "es": "El cálculo agrupado de gastos no está habilitado para esta operación."
+    },
+    "The grouped calculation requires supported fiscal data, stable line IDs, exact decimals and justified rounding adjustments.": {
+        "en": "The grouped calculation requires supported fiscal data, stable line IDs, exact decimals and justified rounding adjustments.",
+        "es": "El cálculo agrupado requiere datos fiscales compatibles, identificadores estables de línea, decimales exactos y ajustes de redondeo justificados."
+    },
+    "Supported VAT": { "en": "Input VAT charged", "es": "IVA soportado" },
+    "Non-deductible VAT": {
+        "en": "Non-deductible VAT",
+        "es": "IVA no deducible"
+    },
+    "Base + VAT": { "en": "Base + VAT", "es": "Base + IVA" },
+    "Review the VAT ledger account configuration.": {
+        "en": "Review the VAT ledger account configuration.",
+        "es": "Revisa la configuración de las cuentas contables de IVA."
+    },
     "Equivalence surcharge": {
         "en": "Equivalence surcharge",
         "es": "Recargo de equivalencia"

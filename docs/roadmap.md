@@ -1,5 +1,161 @@
 # Roadmap unificado de Arevantes
 
+## Estado vigente y orden de ejecución — 29/09/2026
+
+Esta sección es el punto de entrada y prevalece sobre los estados de las notas
+históricas inferiores. No se eliminan tareas anteriores ni se crean planes
+paralelos. Cada entrega actualiza esta cola, su evidencia y el siguiente paso.
+
+**Producción:** `v2026.09.28.3` (PR #128): edición unificada de gastos pendiente de
+pago, historial y ajustes contables; retirado el formulario separado del proveedor.
+También publicados: anulación trazable de pagos, líneas libres de compras,
+adjuntos de gastos, logo y correcciones de conciliación/importación bancaria.
+Comprobación visual autenticada de Safari aún pendiente: las pruebas automatizadas
+y comprobaciones remotas no sustituyen esa validación.
+
+| Orden | Bloque | Estado vigente | Siguiente entrega / puerta de salida |
+| --- | --- | --- | --- |
+| 1 | FIN-01, integridad | Abierto; mejoras operativas publicadas | Completar ensayos de concurrencia con conexiones independientes y revisión de todos los accesos de emisión; no dar el bloque por cerrado |
+| 2 | FIN-02.B, libros y conciliación | Implementado en develop; pendiente publicación | Subcuentas por jerarquía/mapeo, movimientos contabilizados y liquidación de las cuentas reales; completar puertas de publicación |
+| 3 | FIN-02.B, cuotas de los libros | Implementado en develop; pendiente publicación | IVA soportado/deducible/no deducible separado en libro, resumen y CSV; verificar compatibilidad de liquidación |
+| 4 | FIN-02.A/B, cálculo y normalización | Adaptador, persistencia y vista previa de gastos implementados con activación deshabilitada | Validación visual autenticada y activación controlada; compras, regímenes adicionales, portes, fechas registrales y preparación sin asientos implícitos |
+| 5 | FIN-02.C, identidad y perfil | Directorio parcial solo en develop | Completar direcciones/snapshot e integración, revisión de duplicados y validación censal con asesoría |
+| 6 | FIN-03.303 | Planificado | Casillas, compensaciones y expediente trazable; objetivo interno 30/10 |
+| 7 | FIN-04 y FIN-05.390 | Planificados | VERI*FACTU en pruebas y resumen anual/exoneración 390; objetivos internos 13/11 |
+| 8 | FIN-05.347 y otros modelos aplicables | Planificados | Terceros, exclusiones y trimestres; objetivo interno 27/11; conservar 111/115, 190/180, 349 y 200/202 |
+| 9 | FIN-06/07 | Planificados | Ensayo integral 11/12, activación aprobada 18/12 y estabilización hasta 31/12; objetivo operativo 01/01/2027 |
+
+La numeración indica prioridad, no autorización para saltar dependencias. El
+incremento de subcuentas adelanta un defecto concreto de conciliación; no cierra
+FIN-01 ni sustituye la integración del motor decimal. Los objetivos temporales
+siguen siendo internos, no plazos tributarios ni garantías de conformidad.
+
+**Backlog transversal conservado:** arquitectura de 20 áreas y secciones propias,
+formularios coherentes, ES/EN, móvil, rendimiento p75, permisos por rol, agilidad
+comercial, energía/CUPS, Ingeniería y horizontes 1–4. Se ejecutan dentro del corte
+afectado o después de estabilizar sus dependencias fiscales. No reintroducir
+«visitados recientemente» ni favoritos en el sidebar. La app móvil mantiene su
+proyecto independiente y contratos comunes con la web.
+
+Referencias de ejecución: [modelos 303/390/347](fiscal-models-303-390-347.md),
+[preparación fiscal](fiscal-readiness-2027.md) y [energía/CUPS](energy-supply-roadmap.md).
+No hay envío AEAT ni pagos automáticos habilitados por este roadmap.
+
+## Registro de entregas y detalle conservado
+
+### 29/09/2026 — Vista previa documental de gastos (FIN-02.A/B)
+
+- Panel común ES/EN en alta y edición: base, IVA calculado, cuota documental,
+  diferencia de redondeo, total e IVA deducible. Motivo del ajuste conservado.
+- Vista previa calculada en servidor, sin crear gastos ni asientos. Guardado
+  sujeto a una revisión cifrada ligada al usuario y al cálculo, válida 15 minutos;
+  cambios fiscales o caducidad obligan a revisar nuevamente. Peticiones limitadas.
+- Identificadores estables de líneas; cambios del formulario invalidan la vista
+  y cancelan solicitudes pendientes. Un documento versionado no permite volver
+  silenciosamente al cálculo anterior.
+- Activación sigue deshabilitada por defecto. Sin migrar datos reales, sin
+  publicación en producción y sin envío AEAT. Pendiente prueba visual autenticada
+  antes de activar; se mantienen los límites de EUR y regímenes soportados.
+- Verificación específica: 10 pruebas de cálculo/persistencia/vista previa;
+  36 pruebas fiscales y de gastos sobre PostgreSQL aislado (366 aserciones).
+  Suite completa: 654 correctas, 1 omitida y 10.074 aserciones; compilación,
+  tipos, lint y catálogo bilingüe comprobados.
+
+
+Las notas siguientes conservan decisiones, alcance y pruebas de cada corte.
+«Pendiente de publicar» en una nota antigua describe aquel momento; para el estado
+actual consultar la tabla anterior y la última publicación verificada.
+
+## FIN-02.A — persistencia del cálculo documental de gastos — 29/09/2026
+
+- Adaptador `grouped_v1` para filas fiscales de gastos: base documental, cuota
+  agrupada por tipo y reparto de deducibilidad. Identificadores de línea estables,
+  cadenas decimales exactas y límites del almacenamiento `numeric(12,2)`.
+- Alta y corrección pueden guardar `tax_calculation_version` y snapshot con
+  entradas, cuotas originales, resultado, motivos y huella SHA-256 reproducible.
+  La auditoría de corrección conserva también la evidencia anterior. Esta huella
+  no es un registro VERI*FACTU ni una certificación fiscal.
+- Opción explícita de servidor `FISCAL_GROUPED_EXPENSE_CALCULATION`, **false por
+  defecto**, y rol administrador. No activada en localhost ni producción, ni
+  ofrecida aún en formularios. No habilitar hasta completar vista previa y UI.
+- Una edición versionada nunca cae al cálculo legado: se recalcula con su
+  versión compatible o se bloquea si está deshabilitada/desconocida. Datos de
+  snapshot enviados por el cliente no se aceptan como evidencia calculada.
+- Alcance inicial EUR y regímenes general/exento/no sujeto, sin recargos ni
+  retenciones; casos incompatibles se rechazan. Las filas fiscales no sustituyen
+  todavía a componentes/precios de productos en compras. Cálculos contables
+  existentes conservan sus adaptadores: no se declara completada la migración decimal.
+- Migración aditiva nullable, sin backfill. El rollback se bloquea si existe
+  evidencia; nunca borrar snapshots para forzarlo. No se ha aplicado a datos reales.
+- Siguiente entrega: vista previa del servidor y formularios con cuotas por grupo,
+  motivo de ajuste y conservación de identificadores; después adaptador de compras.
+- Verificado: 652 pruebas generales superadas, una omitida y 10.060 comprobaciones;
+  bloque PostgreSQL: 34 pruebas y 352 comprobaciones. Compilación, formato y
+  catálogo bilingüe correctos. Corregida además una prueba fiscal antigua que
+  confundía el contador de asientos creados con su identificador real.
+
+## FIN-02.B — desglose de cuotas en libros — 29/09/2026
+
+- La columna `vat` del informe representa siempre la cuota documental completa.
+  El libro recibido añade `deductible_vat` y `non_deductible_vat`; resumen y tipos
+  separan también las tres magnitudes. La liquidación y la comparación contable
+  siguen usando exclusivamente la parte deducible, sin cambiar cuotas persistidas.
+- La pantalla muestra columnas propias y distingue «Base + IVA» del neto pagadero.
+  El CSV recibido pasa a `supported_vat`, `base_plus_vat`, `deductible_vat` y
+  `non_deductible_vat`; quienes procesen ese CSV deben adaptar las cabeceras.
+  El CSV emitido mantiene su estructura anterior.
+- Recargo de equivalencia no se suma como IVA ni duplica la base en este libro.
+  Compras y gastos históricos sin desglose conservan el tratamiento previo de
+  deducción íntegra por compatibilidad: no constituye una validación fiscal nueva.
+  Queda pendiente revisar esos históricos y los regímenes con el perfil censal.
+- No se recalculan documentos, pagos ni declaraciones existentes. Próximo tramo:
+  retomar adaptadores/persistencia del motor decimal y clasificar portes y fechas
+  registrales; seguir separando preparación, aprobación y presentación.
+- Verificado: 644 pruebas generales superadas, una omitida y 10.016 comprobaciones;
+  20 pruebas fiscales PostgreSQL y 219 comprobaciones. Compilación, TypeScript,
+  ESLint, formato y catálogo bilingüe correctos. Pendiente validación visual
+  autenticada y publicación aislada; no desplegado todavía en producción.
+
+## FIN-02.B — conciliación y liquidación por subcuenta — 28/09/2026
+
+- Nuevo lector contable de solo lectura: 472/477, descendientes por `parent_code`
+  y cuentas mapeadas explícitamente por tipos de IVA. No usa prefijos arbitrarios;
+  valida naturaleza de activo/pasivo y evita duplicados y bucles de jerarquía.
+- Conserva movimientos de cuentas/tipos inactivos; excluye asientos no
+  contabilizados, apertura/cierre y sus reversiones, y liquidaciones tributarias.
+  Incluye correcciones operativas con su signo real.
+- Informe con detalle de cuentas y totales. Liquidación compensatoria contra
+  esas mismas cuentas, con signo inverso cuando corresponda, y desglose guardado
+  en snapshot. No modifica liquidaciones ni documentos anteriores.
+- Sin migraciones. El perfil fiscal, los portes, las fechas registrales y la
+  separación de vista previa/preparación siguen pendientes; no es un 303 oficial.
+- Verificación: 638 pruebas generales superadas, una omitida, 9.968 comprobaciones;
+  fiscalidad en PostgreSQL aislado: 14 pruebas y 171 comprobaciones. Sin tocar
+  documentos reales ni activar cambios en producción.
+- Próximo corte funcional: separar cuota soportada/deducible en libros y exportación;
+  después retomar adaptadores y persistencia del motor decimal. Concurrencia FIN-01
+  continúa abierta y es puerta de aceptación global, no un bloque completado.
+
+## Producción verificada: edición unificada de gastos — 28/09/2026
+
+- Publicada `v2026.09.28.3`, PR #128, commit de producción
+  `4f7464322410f7687c4a3d05a5a3014980603b19`.
+- Cloud `depl-a2db5330-0419-49f5-b22a-0a44ef2965e1`: succeeded, 1m57s;
+  `currentDeploymentId` confirmado, sin otros despliegues en curso.
+- Edición administrativa de gastos pendientes activa y corrección separada del
+  proveedor retirada. Se conservan el historial y las protecciones contables.
+- Rama de publicación aislada: 596 pruebas superadas, una omitida y 7.766
+  comprobaciones; PostgreSQL: 21 pruebas y 211 comprobaciones. CI PHP 8.4/8.5,
+  calidad, TypeScript, traducciones y compilación aprobados.
+- Comprobación remota de solo lectura: `/up` y `/login` HTTP 200; rutas
+  `expenses.edit` y `expenses.update` activas, `expenses.issuer.update` ausente,
+  servicio de corrección disponible y `fiscal_entities` todavía ausente.
+- Sin migraciones ni cambios de documentos/pagos reales. El directorio fiscal y
+  el motor decimal aislado permanecen en desarrollo; no se altera su planificación.
+  Pendiente comprobación visual autenticada en Safari. Tras registrar ajustes,
+  aplicar correcciones hacia delante: no volver a código que ignore su historial.
+
+
 ## Simplificación de la ficha de gastos — 28/09/2026
 
 Retirados el formulario y la ruta independientes de corrección de nombres del

@@ -57,7 +57,7 @@ class ExpenseCorrection
             if ($paid > 0 && ((string) ($data['supplier_id'] ?? '') !== (string) ($expense->supplier_id ?? '') || $data['currency_code'] !== $expense->currency_code)) {
                 $this->fail('Cancel existing payments before changing the supplier or currency.');
             }
-            $amount = round($data['subtotal'] + $data['tax_amount'] - $data['withholding_amount'], 2);
+            $amount = $data['tax_calculation_snapshot']['result']['totals']['total'] ?? round($data['subtotal'] + $data['tax_amount'] - $data['withholding_amount'], 2);
             if ($amount < $paid || $amount < 0) {
                 $this->fail('The expense total cannot be less than its registered payments.');
             }

@@ -408,6 +408,7 @@ Route::middleware(['auth'])->group(function () {
     Route::patch('company-fiscal/series/{series}', [FiscalSettingsController::class, 'updateSeries'])->middleware('can:manage-tax')->name('fiscal-settings.series.update');
     Route::get('finance/export', [FinanceController::class, 'export'])->middleware('can:view-finance')->name('finance.export');
     Route::post('expenses', [ExpenseController::class, 'store'])->middleware('can:manage-catalog')->name('expenses.store');
+    Route::post('expenses/calculation-preview', [ExpenseController::class, 'previewCalculation'])->middleware(['can:manage-catalog', 'can:view-finance', 'throttle:60,1'])->name('expenses.calculation.preview');
     Route::get('expenses/issuer-lookup', ExpenseIssuerLookupController::class)->middleware(['can:manage-catalog', 'can:view-finance', 'throttle:60,1'])->name('expenses.issuer.lookup');
     Route::get('expenses/{expense}', [ExpenseController::class, 'show'])->middleware('can:view-finance')->name('expenses.show');
     Route::get('expenses/{expense}/edit', [ExpenseController::class, 'edit'])->middleware(['can:view-finance', 'can:manage-catalog'])->name('expenses.edit');
