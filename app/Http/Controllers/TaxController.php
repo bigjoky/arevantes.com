@@ -127,9 +127,17 @@ class TaxController extends Controller
         return response()->streamDownload(function () use ($data, $book) {
             $out = fopen('php://output', 'w');
             fwrite($out, "\xEF\xBB\xBF");
-            fputcsv($out, ['date', 'number', 'tax_id', 'party', 'vat_rate', 'taxable_base', 'vat', 'total'], ';');
+            $headers = ['date', 'number', 'tax_id', 'party', 'vat_rate', 'taxable_base', $book === 'received' ? 'supported_vat' : 'vat', $book === 'received' ? 'base_plus_vat' : 'total'];
+            if ($book === 'received') {
+                $headers = [...$headers, 'deductible_vat', 'non_deductible_vat'];
+            }
+            fputcsv($out, $headers, ';');
             foreach ($data[$book] as $row) {
-                fputcsv($out, [$row['date'], $row['number'], $row['tax_id'], $row['party'], number_format($row['rate'], 2, ',', ''), number_format($row['base'], 2, ',', ''), number_format($row['vat'], 2, ',', ''), number_format($row['total'], 2, ',', '')], ';');
+                $values = [$row['date'], $row['number'], $row['tax_id'], $row['party'], number_format($row['rate'], 2, ',', ''), number_format($row['base'], 2, ',', ''), number_format($row['vat'], 2, ',', ''), number_format($row['total'], 2, ',', '')];
+                if ($book === 'received') {
+                    $values = [...$values, number_format($row['deductible_vat'], 2, ',', ''), number_format($row['non_deductible_vat'], 2, ',', '')];
+                }
+                fputcsv($out, $values, ';');
             }
             fclose($out);
         }, "vat-book-{$book}-{$year}".($quarter ? "-Q{$quarter}" : '').'.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);

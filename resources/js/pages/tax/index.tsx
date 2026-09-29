@@ -35,6 +35,8 @@ type VatRow = {
     rate: number;
     base: number;
     vat: number;
+    deductible_vat: number | null;
+    non_deductible_vat: number | null;
     total: number;
 };
 type Rate = {
@@ -49,6 +51,8 @@ type Summary = {
     outputVat: number;
     taxableBaseReceived: number;
     deductibleVat: number;
+    supportedVat: number;
+    nonDeductibleVat: number;
     result: number;
 };
 type Check = {
@@ -192,7 +196,7 @@ export default function TaxIndex({
                         </Select>
                     </div>
                 </header>
-                <section className="grid grid-cols-2 border-y lg:grid-cols-4">
+                <section className="grid grid-cols-2 border-y lg:grid-cols-3 xl:grid-cols-6">
                     <Metric
                         label="Output VAT"
                         value={money(summary.outputVat)}
@@ -200,6 +204,14 @@ export default function TaxIndex({
                     <Metric
                         label="Deductible VAT"
                         value={money(summary.deductibleVat)}
+                    />
+                    <Metric
+                        label={translate('Supported VAT', locale)}
+                        value={money(summary.supportedVat)}
+                    />
+                    <Metric
+                        label={translate('Non-deductible VAT', locale)}
+                        value={money(summary.nonDeductibleVat)}
                     />
                     <Metric
                         label={
@@ -244,6 +256,7 @@ export default function TaxIndex({
                     <Book
                         title="Received invoice register"
                         rows={received}
+                        received
                         exportUrl={`/tax/export?book=received&${query}`}
                     />
                 )}
@@ -621,11 +634,15 @@ function Book({
     title,
     rows,
     exportUrl,
+    received = false,
 }: {
     title: string;
     rows: VatRow[];
     exportUrl: string;
+    received?: boolean;
 }) {
+    const { locale } = useLocale();
+
     return (
         <section className="overflow-x-auto">
             <div className="mb-3 flex items-center justify-between">
@@ -645,8 +662,28 @@ function Book({
                         <th>Party</th>
                         <th className="text-right">Rate</th>
                         <th className="text-right">Base</th>
-                        <th className="text-right">VAT</th>
-                        <th className="text-right">Total</th>
+                        <th className="text-right">
+                            {translate(
+                                received ? 'Supported VAT' : 'VAT',
+                                locale,
+                            )}
+                        </th>
+                        {received && (
+                            <th className="text-right">
+                                {translate('Deductible VAT', locale)}
+                            </th>
+                        )}
+                        {received && (
+                            <th className="text-right">
+                                {translate('Non-deductible VAT', locale)}
+                            </th>
+                        )}
+                        <th className="text-right">
+                            {translate(
+                                received ? 'Base + VAT' : 'Total',
+                                locale,
+                            )}
+                        </th>
                     </tr>
                 </thead>
                 <tbody>
@@ -662,6 +699,16 @@ function Book({
                             <td className="text-right">{row.rate}%</td>
                             <td className="text-right">{money(row.base)}</td>
                             <td className="text-right">{money(row.vat)}</td>
+                            {received && (
+                                <td className="text-right">
+                                    {money(row.deductible_vat ?? 0)}
+                                </td>
+                            )}
+                            {received && (
+                                <td className="text-right">
+                                    {money(row.non_deductible_vat ?? 0)}
+                                </td>
+                            )}
                             <td className="text-right font-medium">
                                 {money(row.total)}
                             </td>

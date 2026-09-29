@@ -50,8 +50,10 @@ Brechas observadas que se convierten en tareas FIN-02:
   signos, incluidas rectificaciones/reversiones, sin coincidencias de prefijo.
   La liquidación usa las cuentas reales y conserva su desglose en el snapshot.
   Pendiente publicación; no equivale a completar los libros ni el modelo 303.
-- Separar cuota soportada, deducible y no deducible en el libro, no reutilizar
-  una columna con significados distintos según el origen documental.
+- Cuota soportada, deducible y no deducible separadas en develop (29/09): libro,
+  resumen y exportación recibida; pendiente publicación. Los históricos sin
+  desglose y las compras conservan el tratamiento previo, pendiente revisión
+  censal; no se da por validada su deducibilidad ni el modelo oficial.
 - Se filtra por fecha de factura/gasto: incorporar recepción, registro y período
   de deducción/devengo, sin desplazar fechas originales para encajar trimestres.
 - `VatSettlement::prepare` sincroniza contabilidad y genera asiento: separar

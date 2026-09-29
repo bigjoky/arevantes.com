@@ -1,6 +1,6 @@
 # Roadmap unificado de Arevantes
 
-## Estado vigente y orden de ejecución — 28/09/2026
+## Estado vigente y orden de ejecución — 29/09/2026
 
 Esta sección es el punto de entrada y prevalece sobre los estados de las notas
 históricas inferiores. No se eliminan tareas anteriores ni se crean planes
@@ -17,7 +17,7 @@ y comprobaciones remotas no sustituyen esa validación.
 | --- | --- | --- | --- |
 | 1 | FIN-01, integridad | Abierto; mejoras operativas publicadas | Completar ensayos de concurrencia con conexiones independientes y revisión de todos los accesos de emisión; no dar el bloque por cerrado |
 | 2 | FIN-02.B, libros y conciliación | Implementado en develop; pendiente publicación | Subcuentas por jerarquía/mapeo, movimientos contabilizados y liquidación de las cuentas reales; completar puertas de publicación |
-| 3 | FIN-02.B, siguiente corte de libros | Pendiente | Separar IVA soportado/deducible en libros y exportación; mantener compatibilidad de la liquidación |
+| 3 | FIN-02.B, cuotas de los libros | Implementado en develop; pendiente publicación | IVA soportado/deducible/no deducible separado en libro, resumen y CSV; verificar compatibilidad de liquidación |
 | 4 | FIN-02.A/B, cálculo y normalización | Motor aislado probado, sin activar; resto pendiente | Adaptadores, versión persistida, límites y vista previa; tratamiento real de portes, recepción/registro/deducción y preparación sin asientos implícitos |
 | 5 | FIN-02.C, identidad y perfil | Directorio parcial solo en develop | Completar direcciones/snapshot e integración, revisión de duplicados y validación censal con asesoría |
 | 6 | FIN-03.303 | Planificado | Casillas, compensaciones y expediente trazable; objetivo interno 30/10 |
@@ -46,6 +46,28 @@ No hay envío AEAT ni pagos automáticos habilitados por este roadmap.
 Las notas siguientes conservan decisiones, alcance y pruebas de cada corte.
 «Pendiente de publicar» en una nota antigua describe aquel momento; para el estado
 actual consultar la tabla anterior y la última publicación verificada.
+
+## FIN-02.B — desglose de cuotas en libros — 29/09/2026
+
+- La columna `vat` del informe representa siempre la cuota documental completa.
+  El libro recibido añade `deductible_vat` y `non_deductible_vat`; resumen y tipos
+  separan también las tres magnitudes. La liquidación y la comparación contable
+  siguen usando exclusivamente la parte deducible, sin cambiar cuotas persistidas.
+- La pantalla muestra columnas propias y distingue «Base + IVA» del neto pagadero.
+  El CSV recibido pasa a `supported_vat`, `base_plus_vat`, `deductible_vat` y
+  `non_deductible_vat`; quienes procesen ese CSV deben adaptar las cabeceras.
+  El CSV emitido mantiene su estructura anterior.
+- Recargo de equivalencia no se suma como IVA ni duplica la base en este libro.
+  Compras y gastos históricos sin desglose conservan el tratamiento previo de
+  deducción íntegra por compatibilidad: no constituye una validación fiscal nueva.
+  Queda pendiente revisar esos históricos y los regímenes con el perfil censal.
+- No se recalculan documentos, pagos ni declaraciones existentes. Próximo tramo:
+  retomar adaptadores/persistencia del motor decimal y clasificar portes y fechas
+  registrales; seguir separando preparación, aprobación y presentación.
+- Verificado: 644 pruebas generales superadas, una omitida y 10.016 comprobaciones;
+  20 pruebas fiscales PostgreSQL y 219 comprobaciones. Compilación, TypeScript,
+  ESLint, formato y catálogo bilingüe correctos. Pendiente validación visual
+  autenticada y publicación aislada; no desplegado todavía en producción.
 
 ## FIN-02.B — conciliación y liquidación por subcuenta — 28/09/2026
 

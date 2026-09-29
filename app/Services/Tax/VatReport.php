@@ -17,7 +17,7 @@ class VatReport
         $issued = $this->issued($from, $to);
         $received = $this->received($from, $to);
         $output = round((float) $issued->sum('vat'), 2);
-        $input = round((float) $received->sum('vat'), 2);
+        $input = round((float) $received->sum('deductible_vat'), 2);
         $ledger = app(VatLedger::class)->make($from, $to);
         $ledgerOutput = $ledger['output']['total'];
         $ledgerInput = $ledger['input']['total'];
@@ -28,6 +28,8 @@ class VatReport
             'summary' => [
                 'taxableBaseIssued' => round((float) $issued->sum('base'), 2), 'outputVat' => $output,
                 'taxableBaseReceived' => round((float) $received->sum('base'), 2), 'deductibleVat' => $input,
+                'supportedVat' => round((float) $received->sum('vat'), 2),
+                'nonDeductibleVat' => round((float) $received->sum('non_deductible_vat'), 2),
                 'result' => round($output - $input, 2),
             ],
             'rates' => $issued->concat($received)->groupBy('rate')->map(fn ($rows, $rate) => [
@@ -35,7 +37,9 @@ class VatReport
                 'issuedBase' => round((float) $rows->where('direction', 'issued')->sum('base'), 2),
                 'outputVat' => round((float) $rows->where('direction', 'issued')->sum('vat'), 2),
                 'receivedBase' => round((float) $rows->where('direction', 'received')->sum('base'), 2),
-                'inputVat' => round((float) $rows->where('direction', 'received')->sum('vat'), 2),
+                'inputVat' => round((float) $rows->where('direction', 'received')->sum('deductible_vat'), 2),
+                'supportedVat' => round((float) $rows->where('direction', 'received')->sum('vat'), 2),
+                'nonDeductibleVat' => round((float) $rows->where('direction', 'received')->sum('non_deductible_vat'), 2),
             ])->sortBy('rate')->values(),
             'accountingCheck' => [
                 'outputVat' => $ledgerOutput, 'inputVat' => $ledgerInput,
@@ -105,17 +109,22 @@ class VatReport
             return $expense->taxLines->where('kind', 'vat')->map(fn ($line) => $this->row(
                 'received', $expense->expense_date, $expense->document_number ?: $expense->number,
                 $party, $taxId, (float) $line->tax_rate, (float) $line->taxable_base,
-                (float) $line->deductible_amount, (float) $line->taxable_base + (float) $line->tax_amount,
-                'expense', $expense->id,
+                (float) $line->tax_amount, (float) $line->taxable_base + (float) $line->tax_amount,
+                'expense', $expense->id, (float) $line->deductible_amount,
             ));
         });
 
         return $purchases->concat($expenses)->sortBy('date')->values();
     }
 
-    private function row(string $direction, CarbonInterface $date, string $number, string $party, ?string $taxId, float $rate, float $base, float $vat, float $total, string $sourceType, int $sourceId): array
+    private function row(string $direction, CarbonInterface $date, string $number, string $party, ?string $taxId, float $rate, float $base, float $vat, float $total, string $sourceType, int $sourceId, ?float $deductibleVat = null): array
     {
-        return ['direction' => $direction, 'date' => $date->toDateString(), 'number' => $number, 'party' => $party, 'tax_id' => $taxId, 'rate' => round($rate, 2), 'base' => round($base, 2), 'vat' => round($vat, 2), 'total' => round($total, 2), 'source_type' => $sourceType, 'source_id' => $sourceId];
+        // Legacy documents and purchases retain the existing full-deduction rule.
+        // This is compatibility, not a new determination of fiscal deductibility.
+        $deduction = $direction === 'received' ? round($deductibleVat ?? $vat, 2) : null;
+
+        return ['direction' => $direction, 'date' => $date->toDateString(), 'number' => $number, 'party' => $party, 'tax_id' => $taxId, 'rate' => round($rate, 2), 'base' => round($base, 2), 'vat' => round($vat, 2), 'total' => round($total, 2), 'source_type' => $sourceType, 'source_id' => $sourceId,
+            'deductible_vat' => $deduction, 'non_deductible_vat' => $direction === 'received' ? round($vat - $deduction, 2) : null];
     }
 
     private function effectiveRate(mixed $base, mixed $vat): string

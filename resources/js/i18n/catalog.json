@@ -1,4 +1,10 @@
 {
+    "Supported VAT": { "en": "Input VAT charged", "es": "IVA soportado" },
+    "Non-deductible VAT": {
+        "en": "Non-deductible VAT",
+        "es": "IVA no deducible"
+    },
+    "Base + VAT": { "en": "Base + VAT", "es": "Base + IVA" },
     "Review the VAT ledger account configuration.": {
         "en": "Review the VAT ledger account configuration.",
         "es": "Revisa la configuración de las cuentas contables de IVA."
