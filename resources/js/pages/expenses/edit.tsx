@@ -1,5 +1,6 @@
 import { Form, Head, Link } from '@inertiajs/react';
 import { useState } from 'react';
+import { ExpenseCalculationPreview } from '@/components/expense-calculation-preview';
 import { FormErrorSummary } from '@/components/forms/form-layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,6 +25,7 @@ export default function ExpenseEdit({
     categories,
     suppliers,
     installations,
+    canUseGroupedCalculation,
 }: {
     expense: Expense;
     revision: string;
@@ -34,9 +36,14 @@ export default function ExpenseEdit({
         project_reference: string | null;
         site_name: string | null;
     }[];
+    canUseGroupedCalculation: boolean;
 }) {
     const { locale } = useLocale();
     const t = (key: string) => translate(key, locale);
+    const snapshot = expense.tax_calculation_snapshot as {
+        source_tax_lines?: { calculation_id: string }[];
+        input?: { quota_overrides?: { reason: string | null }[] };
+    } | null;
     const [lines, setLines] = useState(() =>
         (expense.tax_lines.length
             ? expense.tax_lines
@@ -59,7 +66,9 @@ export default function ExpenseEdit({
               ]
         ).map((line, index) => ({
             ...line,
-            key: String(index),
+            key:
+                snapshot?.source_tax_lines?.[index]?.calculation_id ??
+                `existing-${index}`,
         })),
     );
     const fields = [
@@ -157,6 +166,15 @@ export default function ExpenseEdit({
                 {({ errors, processing }) => (
                     <>
                         <FormErrorSummary errors={errors} />
+                        <ExpenseCalculationPreview
+                            available={canUseGroupedCalculation}
+                            required={Boolean(expense.tax_calculation_version)}
+                            lineIds={lines.map((line) => line.key)}
+                            initialReason={
+                                snapshot?.input?.quota_overrides?.[0]?.reason ??
+                                ''
+                            }
+                        />
                         <input type="hidden" name="revision" value={revision} />
                         <section className="grid gap-4 rounded-md border p-4 sm:grid-cols-2">
                             {selects.map(([name, label, options]) => (
@@ -344,7 +362,14 @@ export default function ExpenseEdit({
                                 className="rounded-md border bg-background p-3"
                             />
                         </label>
-                        <Button disabled={processing} className="w-fit">
+                        <Button
+                            disabled={
+                                processing ||
+                                (Boolean(expense.tax_calculation_version) &&
+                                    !canUseGroupedCalculation)
+                            }
+                            className="w-fit"
+                        >
                             {t('Save correction')}
                         </Button>
                     </>

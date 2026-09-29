@@ -1,4 +1,41 @@
 {
+    "Use grouped documentary calculation": {
+        "en": "Use grouped documentary calculation",
+        "es": "Usar cálculo documental agrupado"
+    },
+    "EUR only, without withholding or surcharges. Enter documentary quotas; the server compares them by VAT group. Preview again after changing the form.": {
+        "en": "EUR only, without withholding or surcharges. Enter documentary quotas; the server compares them by VAT group. Preview again after changing the form.",
+        "es": "Solo EUR, sin retenciones ni recargos. Introduce las cuotas de la factura; el servidor las compara por grupo de IVA. Revisa el cálculo de nuevo si modificas el formulario."
+    },
+    "Rounding adjustment reason": {
+        "en": "Rounding adjustment reason",
+        "es": "Motivo del ajuste de redondeo"
+    },
+    "Calculating…": { "en": "Calculating…", "es": "Calculando…" },
+    "Preview grouped calculation": {
+        "en": "Preview grouped calculation",
+        "es": "Revisar cálculo agrupado"
+    },
+    "Unable to preview the calculation. Please try again.": {
+        "en": "Unable to preview the calculation. Please try again.",
+        "es": "No se ha podido obtener el cálculo. Inténtalo de nuevo."
+    },
+    "Calculated VAT": { "en": "Calculated VAT", "es": "IVA calculado" },
+    "Documentary VAT": { "en": "Documentary VAT", "es": "IVA de la factura" },
+    "Rounding adjustment": {
+        "en": "Rounding adjustment",
+        "es": "Ajuste de redondeo"
+    },
+    "Calculation reviewed. Saving will validate these values again.": {
+        "en": "Calculation reviewed. Saving will validate these values again.",
+        "es": "Cálculo revisado. Al guardar se volverán a validar estos importes."
+    },
+    "Preview the current grouped calculation before saving.": {
+        "en": "Preview the current grouped calculation before saving.",
+        "es": "Revisa el cálculo agrupado actual antes de guardar."
+    },
+    "EUR": { "en": "EUR", "es": "EUR" },
+    "EUR ·": { "en": "EUR ·", "es": "EUR ·" },
     "Grouped expense calculation is not enabled for this operation.": {
         "en": "Grouped expense calculation is not enabled for this operation.",
         "es": "El cálculo agrupado de gastos no está habilitado para esta operación."

@@ -213,7 +213,9 @@ específicas realizan 2.105 comprobaciones.
 **No está activado en producción ni conectado a los modelos fiscales.** El
 29/09 se añade adaptador y persistencia opt-in de gastos, deshabilitados por
 defecto: migración nullable, snapshot y evidencia de correcciones, sin backfill.
-Pendientes formularios/vista previa y compras; no modifica facturas anteriores.
+Formularios y vista previa de gastos implementados en develop, con revisión
+cifrada del cálculo antes de guardar. Pendientes validación visual, activación
+controlada y compras; no modifica facturas anteriores.
 EUR únicamente; no admite líneas con signos mixtos, recargos, retenciones,
 inversión del sujeto pasivo ni conversiones de moneda. La tolerancia técnica
 inicial de cuota es 0,02 EUR por grupo, no una regla legal. Los adaptadores deberán
