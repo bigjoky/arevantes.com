@@ -20,8 +20,10 @@ use App\Services\Documents\DocumentNumber;
 use App\Services\Finance\OutstandingBalanceCalculator;
 use App\Services\Tax\ExpenseDocumentaryCalculation;
 use App\Services\Tax\SupplierInvoiceCalculator;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -40,6 +42,7 @@ class ExpenseController extends Controller
     {
         return Inertia::render('expenses/index', [
             'expenses' => Expense::with(['category:id,name', 'supplier:id,legal_name,trade_name'])->latest('expense_date')->get(),
+            'canUseGroupedCalculation' => config('fiscal.grouped_expense_calculation') && request()->user()->hasRole('admin') && request()->user()->can('manage-catalog'),
             'supplierInvoices' => PurchaseDocument::with('supplier:id,legal_name,trade_name')->whereIn('type', ['supplier_invoice', 'supplier_credit_note'])->latest('issue_date')->get(),
             'categories' => ExpenseCategory::where('is_active', true)->orderBy('name')->get(),
             'countries' => Country::orderBy('name')->get(['code', 'name']),
@@ -80,6 +83,7 @@ class ExpenseController extends Controller
         abort_if($expense->status === 'paid', 403);
 
         return Inertia::render('expenses/edit', [
+            'canUseGroupedCalculation' => config('fiscal.grouped_expense_calculation') && $request->user()->hasRole('admin'),
             'expense' => $expense->load('taxLines'),
             'revision' => ExpenseCorrection::revision($expense),
             'categories' => ExpenseCategory::orderBy('name')->get(['id', 'name']),
@@ -95,6 +99,28 @@ class ExpenseController extends Controller
         $request->validate(['revision' => ['required', 'string', 'size:64'], 'correction_reason' => ['required', 'string', 'min:5', 'max:2000'], 'attachments' => ['prohibited']]);
 
         return $this->saveExpense($request, $accounting, $numbers, $expense);
+    }
+
+    public function previewCalculation(Request $request, ExpenseDocumentaryCalculation $calculator): JsonResponse
+    {
+        abort_unless(config('fiscal.grouped_expense_calculation') && $request->user()->hasRole('admin'), 403);
+        $request->merge(['currency_code' => $request->input('currency_code', 'EUR'), 'tax_regime' => $request->input('tax_regime', 'standard'),
+            'withholding_rate' => $request->input('withholding_rate', 0), 'withholding_amount' => $request->input('withholding_amount', 0)]);
+        $data = $request->validate([
+            'currency_code' => ['required', 'string', 'size:3'], 'tax_regime' => ['required', 'string', 'max:32'],
+            'withholding_rate' => ['required', 'numeric'], 'withholding_amount' => ['required', 'numeric'],
+            'calculation_reason' => ['nullable', 'string', 'min:5', 'max:2000'],
+            'tax_lines' => ['required', 'array', 'min:1', 'max:20'],
+            'tax_lines.*.calculation_id' => ['required', 'string', 'max:64'],
+            'tax_lines.*.kind' => ['required', 'string', 'max:32'],
+            'tax_lines.*.taxable_base' => ['required', 'numeric'], 'tax_lines.*.tax_rate' => ['required', 'numeric'],
+            'tax_lines.*.tax_amount' => ['required', 'numeric'], 'tax_lines.*.deductible_percent' => ['required', 'numeric'],
+            'tax_lines.*.exemption_reason' => ['nullable', 'string', 'max:255'],
+        ]);
+        $calculation = $calculator->calculate($data, $data['calculation_reason'] ?? null);
+        $token = Crypt::encryptString(json_encode(['user_id' => $request->user()->id, 'sha256' => $calculation['tax_calculation_snapshot']['sha256'], 'expires_at' => now()->addMinutes(15)->timestamp], JSON_THROW_ON_ERROR));
+
+        return response()->json(['result' => $calculation['tax_calculation_snapshot']['result'], 'preview_token' => $token]);
     }
 
     private function saveExpense(Request $request, AccountingSynchronizer $accounting, DocumentNumber $numbers, ?Expense $editing = null): RedirectResponse
@@ -164,6 +190,18 @@ class ExpenseController extends Controller
             throw ValidationException::withMessages(['calculation_mode' => __('Grouped expense calculation is not enabled for this operation.')]);
         }
         $calculation = $grouped ? app(ExpenseDocumentaryCalculation::class)->calculate($data, $data['calculation_reason'] ?? null) : null;
+        if ($calculation) {
+            try {
+                $token = json_decode(Crypt::decryptString((string) $request->input('calculation_preview_token')), true, flags: JSON_THROW_ON_ERROR);
+                $valid = ($token['user_id'] ?? null) === $request->user()->id && ($token['expires_at'] ?? 0) > now()->timestamp
+                    && hash_equals($calculation['tax_calculation_snapshot']['sha256'], $token['sha256'] ?? '');
+            } catch (Throwable) {
+                $valid = false;
+            }
+            if (! $valid) {
+                throw ValidationException::withMessages(['calculation_mode' => __('Preview the current grouped calculation before saving.')]);
+            }
+        }
         $taxLines = $calculation ? collect($calculation['tax_lines']) : collect($data['tax_lines'] ?? [
             ['kind' => 'vat', 'taxable_base' => $data['subtotal'], 'tax_rate' => (float) $data['subtotal'] > 0 ? (float) $data['tax_amount'] / (float) $data['subtotal'] * 100 : 0, 'tax_amount' => $data['tax_amount'], 'deductible_percent' => 100],
         ])->values()->map(function (array $line, int $index) {

@@ -7,6 +7,7 @@ import {
     WalletCards,
 } from 'lucide-react';
 import { useState } from 'react';
+import { ExpenseCalculationPreview } from '@/components/expense-calculation-preview';
 import { ExpenseIssuerFields } from '@/components/expense-issuer-fields';
 import {
     FormActions,
@@ -327,8 +328,12 @@ function ExpenseDialog({
 }) {
     const { locale } = useLocale();
     const [open, setOpen] = useState(initialOpen);
+    const canUseGroupedCalculation = usePage<{
+        canUseGroupedCalculation: boolean;
+    }>().props.canUseGroupedCalculation;
     const [taxLines, setTaxLines] = useState([
         {
+            calculationId: 'initial-line',
             kind: 'vat',
             base: 0,
             rate: 21,
@@ -373,6 +378,12 @@ function ExpenseDialog({
                     {({ errors, processing }) => (
                         <>
                             <FormErrorSummary errors={errors} />
+                            <ExpenseCalculationPreview
+                                available={canUseGroupedCalculation}
+                                lineIds={taxLines.map(
+                                    (line) => line.calculationId,
+                                )}
+                            />
                             <input
                                 name="currency_code"
                                 type="hidden"
@@ -615,6 +626,8 @@ function ExpenseDialog({
                                             setTaxLines((lines) => [
                                                 ...lines,
                                                 {
+                                                    calculationId:
+                                                        crypto.randomUUID(),
                                                     kind: 'vat',
                                                     base: 0,
                                                     rate: 21,
@@ -639,7 +652,7 @@ function ExpenseDialog({
 
                                     return (
                                         <div
-                                            key={index}
+                                            key={line.calculationId}
                                             className="grid gap-3 border-t pt-3 sm:grid-cols-[1.2fr_1fr_1fr_1fr_1fr_auto] sm:items-end"
                                         >
                                             <SelectField

@@ -18,7 +18,7 @@ y comprobaciones remotas no sustituyen esa validación.
 | 1 | FIN-01, integridad | Abierto; mejoras operativas publicadas | Completar ensayos de concurrencia con conexiones independientes y revisión de todos los accesos de emisión; no dar el bloque por cerrado |
 | 2 | FIN-02.B, libros y conciliación | Implementado en develop; pendiente publicación | Subcuentas por jerarquía/mapeo, movimientos contabilizados y liquidación de las cuentas reales; completar puertas de publicación |
 | 3 | FIN-02.B, cuotas de los libros | Implementado en develop; pendiente publicación | IVA soportado/deducible/no deducible separado en libro, resumen y CSV; verificar compatibilidad de liquidación |
-| 4 | FIN-02.A/B, cálculo y normalización | Adaptador y persistencia de gastos implementados con activación deshabilitada | Vista previa documental y formularios, compras, regímenes adicionales; portes, fechas registrales y preparación sin asientos implícitos |
+| 4 | FIN-02.A/B, cálculo y normalización | Adaptador, persistencia y vista previa de gastos implementados con activación deshabilitada | Validación visual autenticada y activación controlada; compras, regímenes adicionales, portes, fechas registrales y preparación sin asientos implícitos |
 | 5 | FIN-02.C, identidad y perfil | Directorio parcial solo en develop | Completar direcciones/snapshot e integración, revisión de duplicados y validación censal con asesoría |
 | 6 | FIN-03.303 | Planificado | Casillas, compensaciones y expediente trazable; objetivo interno 30/10 |
 | 7 | FIN-04 y FIN-05.390 | Planificados | VERI*FACTU en pruebas y resumen anual/exoneración 390; objetivos internos 13/11 |
@@ -42,6 +42,25 @@ Referencias de ejecución: [modelos 303/390/347](fiscal-models-303-390-347.md),
 No hay envío AEAT ni pagos automáticos habilitados por este roadmap.
 
 ## Registro de entregas y detalle conservado
+
+### 29/09/2026 — Vista previa documental de gastos (FIN-02.A/B)
+
+- Panel común ES/EN en alta y edición: base, IVA calculado, cuota documental,
+  diferencia de redondeo, total e IVA deducible. Motivo del ajuste conservado.
+- Vista previa calculada en servidor, sin crear gastos ni asientos. Guardado
+  sujeto a una revisión cifrada ligada al usuario y al cálculo, válida 15 minutos;
+  cambios fiscales o caducidad obligan a revisar nuevamente. Peticiones limitadas.
+- Identificadores estables de líneas; cambios del formulario invalidan la vista
+  y cancelan solicitudes pendientes. Un documento versionado no permite volver
+  silenciosamente al cálculo anterior.
+- Activación sigue deshabilitada por defecto. Sin migrar datos reales, sin
+  publicación en producción y sin envío AEAT. Pendiente prueba visual autenticada
+  antes de activar; se mantienen los límites de EUR y regímenes soportados.
+- Verificación específica: 10 pruebas de cálculo/persistencia/vista previa;
+  36 pruebas fiscales y de gastos sobre PostgreSQL aislado (366 aserciones).
+  Suite completa: 654 correctas, 1 omitida y 10.074 aserciones; compilación,
+  tipos, lint y catálogo bilingüe comprobados.
+
 
 Las notas siguientes conservan decisiones, alcance y pruebas de cada corte.
 «Pendiente de publicar» en una nota antigua describe aquel momento; para el estado
