@@ -1,5 +1,72 @@
 # Roadmap unificado de Arevantes
 
+## Estado vigente y orden de ejecución — 28/09/2026
+
+Esta sección es el punto de entrada y prevalece sobre los estados de las notas
+históricas inferiores. No se eliminan tareas anteriores ni se crean planes
+paralelos. Cada entrega actualiza esta cola, su evidencia y el siguiente paso.
+
+**Producción:** `v2026.09.28.3` (PR #128): edición unificada de gastos pendiente de
+pago, historial y ajustes contables; retirado el formulario separado del proveedor.
+También publicados: anulación trazable de pagos, líneas libres de compras,
+adjuntos de gastos, logo y correcciones de conciliación/importación bancaria.
+Comprobación visual autenticada de Safari aún pendiente: las pruebas automatizadas
+y comprobaciones remotas no sustituyen esa validación.
+
+| Orden | Bloque | Estado vigente | Siguiente entrega / puerta de salida |
+| --- | --- | --- | --- |
+| 1 | FIN-01, integridad | Abierto; mejoras operativas publicadas | Completar ensayos de concurrencia con conexiones independientes y revisión de todos los accesos de emisión; no dar el bloque por cerrado |
+| 2 | FIN-02.B, libros y conciliación | Implementado en develop; pendiente publicación | Subcuentas por jerarquía/mapeo, movimientos contabilizados y liquidación de las cuentas reales; completar puertas de publicación |
+| 3 | FIN-02.B, siguiente corte de libros | Pendiente | Separar IVA soportado/deducible en libros y exportación; mantener compatibilidad de la liquidación |
+| 4 | FIN-02.A/B, cálculo y normalización | Motor aislado probado, sin activar; resto pendiente | Adaptadores, versión persistida, límites y vista previa; tratamiento real de portes, recepción/registro/deducción y preparación sin asientos implícitos |
+| 5 | FIN-02.C, identidad y perfil | Directorio parcial solo en develop | Completar direcciones/snapshot e integración, revisión de duplicados y validación censal con asesoría |
+| 6 | FIN-03.303 | Planificado | Casillas, compensaciones y expediente trazable; objetivo interno 30/10 |
+| 7 | FIN-04 y FIN-05.390 | Planificados | VERI*FACTU en pruebas y resumen anual/exoneración 390; objetivos internos 13/11 |
+| 8 | FIN-05.347 y otros modelos aplicables | Planificados | Terceros, exclusiones y trimestres; objetivo interno 27/11; conservar 111/115, 190/180, 349 y 200/202 |
+| 9 | FIN-06/07 | Planificados | Ensayo integral 11/12, activación aprobada 18/12 y estabilización hasta 31/12; objetivo operativo 01/01/2027 |
+
+La numeración indica prioridad, no autorización para saltar dependencias. El
+incremento de subcuentas adelanta un defecto concreto de conciliación; no cierra
+FIN-01 ni sustituye la integración del motor decimal. Los objetivos temporales
+siguen siendo internos, no plazos tributarios ni garantías de conformidad.
+
+**Backlog transversal conservado:** arquitectura de 20 áreas y secciones propias,
+formularios coherentes, ES/EN, móvil, rendimiento p75, permisos por rol, agilidad
+comercial, energía/CUPS, Ingeniería y horizontes 1–4. Se ejecutan dentro del corte
+afectado o después de estabilizar sus dependencias fiscales. No reintroducir
+«visitados recientemente» ni favoritos en el sidebar. La app móvil mantiene su
+proyecto independiente y contratos comunes con la web.
+
+Referencias de ejecución: [modelos 303/390/347](fiscal-models-303-390-347.md),
+[preparación fiscal](fiscal-readiness-2027.md) y [energía/CUPS](energy-supply-roadmap.md).
+No hay envío AEAT ni pagos automáticos habilitados por este roadmap.
+
+## Registro de entregas y detalle conservado
+
+Las notas siguientes conservan decisiones, alcance y pruebas de cada corte.
+«Pendiente de publicar» en una nota antigua describe aquel momento; para el estado
+actual consultar la tabla anterior y la última publicación verificada.
+
+## FIN-02.B — conciliación y liquidación por subcuenta — 28/09/2026
+
+- Nuevo lector contable de solo lectura: 472/477, descendientes por `parent_code`
+  y cuentas mapeadas explícitamente por tipos de IVA. No usa prefijos arbitrarios;
+  valida naturaleza de activo/pasivo y evita duplicados y bucles de jerarquía.
+- Conserva movimientos de cuentas/tipos inactivos; excluye asientos no
+  contabilizados, apertura/cierre y sus reversiones, y liquidaciones tributarias.
+  Incluye correcciones operativas con su signo real.
+- Informe con detalle de cuentas y totales. Liquidación compensatoria contra
+  esas mismas cuentas, con signo inverso cuando corresponda, y desglose guardado
+  en snapshot. No modifica liquidaciones ni documentos anteriores.
+- Sin migraciones. El perfil fiscal, los portes, las fechas registrales y la
+  separación de vista previa/preparación siguen pendientes; no es un 303 oficial.
+- Verificación: 638 pruebas generales superadas, una omitida, 9.968 comprobaciones;
+  fiscalidad en PostgreSQL aislado: 14 pruebas y 171 comprobaciones. Sin tocar
+  documentos reales ni activar cambios en producción.
+- Próximo corte funcional: separar cuota soportada/deducible en libros y exportación;
+  después retomar adaptadores y persistencia del motor decimal. Concurrencia FIN-01
+  continúa abierta y es puerta de aceptación global, no un bloque completado.
+
 ## Producción verificada: edición unificada de gastos — 28/09/2026
 
 - Publicada `v2026.09.28.3`, PR #128, commit de producción

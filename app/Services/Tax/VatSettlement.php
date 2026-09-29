@@ -34,11 +34,15 @@ class VatSettlement
             $settlementStatus = $result > 0 ? 'pending' : ($result < 0 ? 'awaiting_election' : 'settled');
             $return = TaxReturn::create(['tax_type' => 'vat', 'year' => $year, 'quarter' => $quarter, 'period_from' => $data['period']['from'], 'period_to' => $data['period']['to'], 'status' => 'prepared', 'settlement_status' => $settlementStatus, 'output_vat' => $output, 'input_vat' => $input, 'result' => $result, 'result_option' => $option, 'snapshot' => ['summary' => $data['summary'], 'rates' => $data['rates'], 'issued_count' => count($data['issued']), 'received_count' => count($data['received'])], 'prepared_by' => $userId, 'prepared_at' => now()]);
             $lines = [];
-            if ($output > 0) {
-                $lines[] = ['account_code' => '477', 'debit' => $output, 'credit' => 0];
-            }
-            if ($input > 0) {
-                $lines[] = ['account_code' => '472', 'debit' => 0, 'credit' => $input];
+            foreach (['output', 'input'] as $direction) {
+                foreach ($data['accountingCheck']['accounts'][$direction]['accounts'] as $account) {
+                    $balance = (float) $account['balance'];
+                    if ($balance === 0.0) {
+                        continue;
+                    }
+                    $debit = $direction === 'output' ? $balance : -$balance;
+                    $lines[] = ['account_code' => $account['account_code'], 'debit' => max($debit, 0), 'credit' => max(-$debit, 0)];
+                }
             }
             if ($result > 0) {
                 $lines[] = ['account_code' => '4750', 'debit' => 0, 'credit' => $result];
@@ -46,7 +50,7 @@ class VatSettlement
                 $lines[] = ['account_code' => '4700', 'debit' => abs($result), 'credit' => 0];
             }
             $entry = $this->poster->post($data['period']['to'], __('VAT settlement :year Q:quarter', compact('year', 'quarter')), $lines, $userId, 'tax_settlement', $return, 'vat_settlement');
-            $return->update(['journal_entry_id' => $entry->id]);
+            $return->update(['journal_entry_id' => $entry->id, 'snapshot' => [...$return->snapshot, 'vat_accounts' => $data['accountingCheck']['accounts']]]);
 
             return $return;
         });

@@ -45,9 +45,11 @@ Brechas observadas que se convierten en tareas FIN-02:
 - `VatReport::received` presupone portes al 21 % y puede inferir un tipo efectivo
   sobre residuos: persistir el tratamiento real y marcar históricos ambiguos
   para revisión; no inventar una clasificación fiscal para cuadrar diferencias.
-- La comprobación contable busca códigos exactos 472/477: abarcar las subcuentas
-  asignadas con su naturaleza y signos, incluidas rectificaciones/reversiones,
-  sin sumar cuentas ajenas por una coincidencia de texto indiscriminada.
+- La comprobación contable buscaba códigos exactos 472/477. Incremento FIN-02.B
+  implementado en develop: jerarquía y mapeos explícitos de IVA, naturaleza y
+  signos, incluidas rectificaciones/reversiones, sin coincidencias de prefijo.
+  La liquidación usa las cuentas reales y conserva su desglose en el snapshot.
+  Pendiente publicación; no equivale a completar los libros ni el modelo 303.
 - Separar cuota soportada, deducible y no deducible en el libro, no reutilizar
   una columna con significados distintos según el origen documental.
 - Se filtra por fecha de factura/gasto: incorporar recepción, registro y período

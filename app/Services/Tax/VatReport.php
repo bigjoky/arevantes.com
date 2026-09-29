@@ -3,7 +3,6 @@
 namespace App\Services\Tax;
 
 use App\Models\Expense;
-use App\Models\JournalLine;
 use App\Models\PurchaseDocument;
 use App\Models\SalesDocument;
 use Carbon\CarbonInterface;
@@ -19,8 +18,9 @@ class VatReport
         $received = $this->received($from, $to);
         $output = round((float) $issued->sum('vat'), 2);
         $input = round((float) $received->sum('vat'), 2);
-        $ledgerOutput = $this->ledgerVat('477', $from, $to, true);
-        $ledgerInput = $this->ledgerVat('472', $from, $to, false);
+        $ledger = app(VatLedger::class)->make($from, $to);
+        $ledgerOutput = $ledger['output']['total'];
+        $ledgerInput = $ledger['input']['total'];
 
         return [
             'period' => ['from' => $from->toDateString(), 'to' => $to->toDateString(), 'year' => $year, 'quarter' => $quarter],
@@ -39,6 +39,7 @@ class VatReport
             ])->sortBy('rate')->values(),
             'accountingCheck' => [
                 'outputVat' => $ledgerOutput, 'inputVat' => $ledgerInput,
+                'accounts' => $ledger,
                 'outputDifference' => round($output - $ledgerOutput, 2), 'inputDifference' => round($input - $ledgerInput, 2),
                 'matches' => abs($output - $ledgerOutput) < 0.01 && abs($input - $ledgerInput) < 0.01,
             ],
@@ -127,12 +128,5 @@ class VatReport
         $from = Carbon::create($year, $quarter ? (($quarter - 1) * 3) + 1 : 1, 1)->startOfDay();
 
         return [$from, $quarter ? $from->copy()->addMonths(3)->subDay()->endOfDay() : $from->copy()->endOfYear()];
-    }
-
-    private function ledgerVat(string $code, Carbon $from, Carbon $to, bool $creditNature): float
-    {
-        $line = JournalLine::whereHas('account', fn ($q) => $q->where('code', $code))->whereHas('entry', fn ($q) => $q->whereBetween('entry_date', [$from, $to])->whereNotIn('entry_kind', ['closing', 'opening', 'tax_settlement']))->selectRaw('coalesce(sum(debit),0) debit, coalesce(sum(credit),0) credit')->first();
-
-        return round($creditNature ? (float) $line->credit - (float) $line->debit : (float) $line->debit - (float) $line->credit, 2);
     }
 }
