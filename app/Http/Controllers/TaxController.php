@@ -19,12 +19,14 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class TaxController extends Controller
 {
-    public function index(Request $request, VatReport $report): Response
+    public function index(Request $request, VatReport $report, VatSettlement $settlement): Response
     {
         [$year, $quarter] = $this->period($request);
+        $data = $report->make($year, $quarter);
 
         return Inertia::render('tax/index', [
-            ...$report->make($year, $quarter),
+            ...$data,
+            'settlementPreview' => $quarter ? $settlement->preview($data) : null,
             'initialSection' => match ($request->route()->getName()) {
                 'tax.issued' => 'issued',
                 'tax.received' => 'received',

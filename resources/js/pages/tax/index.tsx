@@ -62,6 +62,12 @@ type Check = {
     inputDifference: number;
     matches: boolean;
 };
+type SettlementPreview = {
+    lines: { account_code: string; debit: number; credit: number }[];
+    debit: number;
+    credit: number;
+    ready: boolean;
+};
 type TaxReturn = {
     id: number;
     status: string;
@@ -101,6 +107,7 @@ export default function TaxIndex({
     rates,
     accountingCheck,
     taxReturn,
+    settlementPreview,
 }: {
     initialSection: TaxSection;
     canManageTax: boolean;
@@ -111,6 +118,7 @@ export default function TaxIndex({
     rates: Rate[];
     accountingCheck: Check;
     taxReturn: TaxReturn | null;
+    settlementPreview: SettlementPreview | null;
 }) {
     const tab = initialSection;
     const { locale } = useLocale();
@@ -231,10 +239,8 @@ export default function TaxIndex({
                         taxReturn={taxReturn}
                         period={{ year: period.year, quarter: period.quarter }}
                         canManageTax={canManageTax}
-                        canPrepare={
-                            accountingCheck.matches &&
-                            (issued.length > 0 || received.length > 0)
-                        }
+                        canPrepare={settlementPreview?.ready ?? false}
+                        preview={settlementPreview}
                     />
                 )}
                 {tab === 'summary' && (
@@ -270,12 +276,16 @@ function ReturnStatus({
     period,
     canManageTax,
     canPrepare,
+    preview,
 }: {
     taxReturn: TaxReturn | null;
     period: { year: number; quarter: number };
     canManageTax: boolean;
     canPrepare: boolean;
+    preview: SettlementPreview | null;
 }) {
+    const { locale } = useLocale();
+
     if (!taxReturn) {
         return (
             <section className="flex flex-wrap items-center justify-between gap-3 border-y py-3">
@@ -295,10 +305,73 @@ function ReturnStatus({
                             value={period.quarter}
                         />
                         <Button disabled={!canPrepare}>
-                            <FileCheck2 /> Prepare return
+                            <FileCheck2 />{' '}
+                            {translate('Prepare and post settlement', locale)}
                         </Button>
                     </Form>
                 )}
+                <details className="w-full rounded border p-3">
+                    <summary className="cursor-pointer text-sm font-medium">
+                        {translate('Settlement entry preview', locale)}
+                    </summary>
+                    <p className="my-3 text-sm text-muted-foreground">
+                        {translate(
+                            'Reviewing this preview does not create accounting entries. Preparing the settlement posts the displayed entry and requires reconciled documents.',
+                            locale,
+                        )}
+                    </p>
+                    {!preview?.ready && (
+                        <p className="mb-3 text-sm text-destructive">
+                            {translate(
+                                'Resolve accounting differences or missing VAT movements before posting.',
+                                locale,
+                            )}
+                        </p>
+                    )}
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                            <thead>
+                                <tr>
+                                    <th className="text-left">
+                                        {translate('Account', locale)}
+                                    </th>
+                                    <th className="text-right">
+                                        {translate('Debit', locale)}
+                                    </th>
+                                    <th className="text-right">
+                                        {translate('Credit', locale)}
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {preview?.lines.map((line) => (
+                                    <tr key={line.account_code}>
+                                        <td>{line.account_code}</td>
+                                        <td className="text-right">
+                                            {money(line.debit)}
+                                        </td>
+                                        <td className="text-right">
+                                            {money(line.credit)}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                            <tfoot>
+                                <tr>
+                                    <th className="text-left">
+                                        {translate('Total', locale)}
+                                    </th>
+                                    <td className="text-right">
+                                        {money(preview?.debit ?? 0)}
+                                    </td>
+                                    <td className="text-right">
+                                        {money(preview?.credit ?? 0)}
+                                    </td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </details>
             </section>
         );
     }

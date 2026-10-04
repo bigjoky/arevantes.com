@@ -1,4 +1,8 @@
 {
+    "Prepare and post settlement": "Prepare and post settlement",
+    "Settlement entry preview": "Settlement entry preview",
+    "Reviewing this preview does not create accounting entries. Preparing the settlement posts the displayed entry and requires reconciled documents.": "Reviewing this preview does not create accounting entries. Preparing the settlement posts the displayed entry and requires reconciled documents.",
+    "Resolve accounting differences or missing VAT movements before posting.": "Resolve accounting differences or missing VAT movements before posting.",
     "This expense already has documentary calculation evidence.": "This expense already has documentary calculation evidence.",
     "The expense has changed. Reload it before reviewing.": "The expense has changed. Reload it before reviewing.",
     "Evidence can only be attached when every stored amount and tax line matches exactly.": "Evidence can only be attached when every stored amount and tax line matches exactly.",

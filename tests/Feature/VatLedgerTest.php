@@ -92,9 +92,18 @@ class VatLedgerTest extends TestCase
             'number' => 'EXP-VAT-SUB', 'type' => 'invoice', 'expense_date' => '2026-09-15', 'subtotal' => 100, 'tax_amount' => 21, 'amount' => 121, 'status' => 'pending']);
         app(AccountingSynchronizer::class)->syncExpense($expense, $user->id);
         $this->assertTrue(app(VatReport::class)->make(2026, 3)['accountingCheck']['matches']);
+        $entries = JournalEntry::count();
+        $preview = app(VatSettlement::class)->preview(app(VatReport::class)->make(2026, 3));
+        $this->assertTrue($preview['ready']);
+        $this->assertEquals(21, $preview['debit']);
+        $this->assertEquals(21, $preview['credit']);
+        $this->assertSame($entries, JournalEntry::count());
         $return = app(VatSettlement::class)->prepare(2026, 3, $user->id);
         $this->assertSame('47200021', $return->snapshot['vat_accounts']['input']['accounts'][0]['account_code']);
         $entry = JournalEntry::with('lines.account')->findOrFail($return->journal_entry_id);
+        $this->assertEquals($preview['lines'], $entry->lines->map(fn ($line) => [
+            'account_code' => $line->account->code, 'debit' => (float) $line->debit, 'credit' => (float) $line->credit,
+        ])->all());
         $this->assertEquals(21, $entry->lines->firstWhere('account.code', '47200021')->credit);
         $this->assertNull($entry->lines->firstWhere('account.code', '472'));
         $this->assertTrue(app(VatReport::class)->make(2026, 3)['accountingCheck']['matches']);
@@ -111,10 +120,32 @@ class VatLedgerTest extends TestCase
         $credit->lines()->create(['position' => 1, 'description' => 'Credit', 'quantity' => -1,
             'unit_price' => 100, 'discount_percent' => 0, 'tax_percent' => 21, 'subtotal' => -100,
             'discount_amount' => 0, 'tax_amount' => -21, 'total' => -121]);
+        app(AccountingSynchronizer::class)->sync($user->id);
         $return = app(VatSettlement::class)->prepare(2026, 3, $user->id);
         $entry = JournalEntry::with('lines.account')->findOrFail($return->journal_entry_id);
         $this->assertEquals(-21, $return->result);
         $this->assertEquals(21, $entry->lines->firstWhere('account.code', '47700021')->credit);
         $this->assertEquals($entry->lines->sum('debit'), $entry->lines->sum('credit'));
+    }
+
+    public function test_preview_and_rejected_preparation_do_not_synchronize_unposted_documents(): void
+    {
+        $user = User::factory()->create(['role' => 'admin']);
+        Expense::create(['expense_category_id' => ExpenseCategory::firstOrFail()->id, 'created_by' => $user->id,
+            'number' => 'EXP-UNPOSTED', 'type' => 'invoice', 'expense_date' => '2026-09-15',
+            'subtotal' => 100, 'tax_amount' => 21, 'amount' => 121, 'status' => 'pending']);
+        $before = JournalEntry::count();
+        $data = app(VatReport::class)->make(2026, 3);
+        $preview = app(VatSettlement::class)->preview($data);
+        $this->assertFalse($preview['ready']);
+        $this->assertSame($before, JournalEntry::count());
+        try {
+            app(VatSettlement::class)->prepare(2026, 3, $user->id);
+            $this->fail('Unposted documents must require reconciliation.');
+        } catch (ValidationException $exception) {
+            $this->assertArrayHasKey('quarter', $exception->errors());
+        }
+        $this->assertSame($before, JournalEntry::count());
+        $this->assertDatabaseCount('tax_returns', 0);
     }
 }

@@ -215,6 +215,8 @@ class TaxTest extends TestCase
             'status' => 'pending',
         ]);
 
+        app(AccountingSynchronizer::class)->sync($admin->id);
+
         $this->actingAs($admin)->post(route('tax.returns.prepare'), ['year' => 2026, 'quarter' => 1])
             ->assertSessionHasNoErrors();
         $return = TaxReturn::firstOrFail();

@@ -1,4 +1,8 @@
 {
+    "Prepare and post settlement": "Preparar y contabilizar liquidación",
+    "Settlement entry preview": "Vista previa del asiento de liquidación",
+    "Reviewing this preview does not create accounting entries. Preparing the settlement posts the displayed entry and requires reconciled documents.": "Consultar esta vista previa no genera asientos. Preparar la liquidación contabiliza el asiento mostrado y requiere documentos conciliados.",
+    "Resolve accounting differences or missing VAT movements before posting.": "Resuelve las diferencias contables o la ausencia de movimientos de IVA antes de contabilizar.",
     "This expense already has documentary calculation evidence.": "Este gasto ya tiene evidencia de cálculo documental.",
     "The expense has changed. Reload it before reviewing.": "El gasto ha cambiado. Vuelve a cargarlo antes de revisarlo.",
     "Evidence can only be attached when every stored amount and tax line matches exactly.": "La evidencia solo puede adjuntarse cuando todos los importes y líneas fiscales guardados coinciden exactamente.",

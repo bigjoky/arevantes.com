@@ -46,6 +46,22 @@ No hay envío AEAT ni pagos automáticos habilitados por este roadmap.
 
 ## Registro de entregas y detalle conservado
 
+### 04/10/2026 — Vista previa contable de liquidación de IVA (FIN-02.B)
+
+- En develop: el resumen trimestral muestra una vista previa de cuentas, debe,
+  haber y totales del asiento de liquidación. Consulta sin escrituras y acción
+  identificada expresamente como preparar y contabilizar.
+- Preparar ya no sincroniza todos los documentos de forma implícita: requiere
+  conciliación previa y rechaza diferencias sin generar asientos ni expediente.
+  La propuesta y la contabilización comparten la composición del asiento.
+- Se conserva el circuito existente de liquidación; no se etiqueta como modelo
+  303 oficial. Pendientes revisión/aprobación separadas, control de concurrencia,
+  periodos sin actividad, perfil censal y snapshot completo antes de cerrar FIN-02.
+- Verificación: 21 pruebas específicas y 230 aserciones; regresión completa
+  con 659 correctas, 1 omitida y 10.138 aserciones. Tipos, lint y catálogo ES/EN
+  y compilación correctos. Pendiente publicación con los incrementos de
+  libros/subcuentas.
+
 ### 04/10/2026 — Revisión asistida de gastos históricos (FIN-02.A/B)
 
 - Publicado mediante PR #130, commit `f32461f40f92ff43fb31bd682e789ab10a6f8875`,

@@ -58,6 +58,9 @@ Brechas observadas que se convierten en tareas FIN-02:
   de deducción/devengo, sin desplazar fechas originales para encajar trimestres.
 - `VatSettlement::prepare` sincroniza contabilidad y genera asiento: separar
   vista previa sin escrituras, revisión, aprobación y contabilización explícita.
+  Incremento 04/10 en develop: vista previa de asiento sin escrituras y retirada
+  de sincronización implícita al preparar; exige conciliación previa. Continúan
+  pendientes aprobación separada, concurrencia y snapshot de fuentes/versiones.
 - La ausencia de movimientos actualmente impide preparar una liquidación:
   soportar el escenario sin actividad cuando corresponda, sin equipararlo
   automáticamente a todas las declaraciones de resultado cero.
