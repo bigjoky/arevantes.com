@@ -2,7 +2,9 @@
 
 namespace App\Services\Tax;
 
+use App\Models\AccountingPeriod;
 use App\Models\FiscalYear;
+use App\Models\LedgerAccount;
 use App\Models\TaxReturn;
 use App\Services\Accounting\JournalPoster;
 use Illuminate\Support\Facades\DB;
@@ -33,9 +35,43 @@ class VatSettlement
         }
         $debit = round(array_sum(array_column($lines, 'debit')), 2);
         $credit = round(array_sum(array_column($lines, 'credit')), 2);
+        $date = $data['period']['to'];
+        $year = FiscalYear::whereDate('starts_on', '<=', $date)->whereDate('ends_on', '>=', $date)->first();
+        $periodClosed = AccountingPeriod::where('year', substr($date, 0, 4))->where('month', (int) substr($date, 5, 2))->where('status', 'closed')->exists();
+        $accounts = LedgerAccount::whereIn('code', array_column($lines, 'account_code'))->get()->keyBy('code');
+        $invalidAccounts = array_values(array_filter(array_column($lines, 'account_code'), function ($code) use ($accounts) {
+            $account = $accounts->get($code);
+
+            return ! $account || ! $account->is_active || ! $account->is_postable;
+        }));
+        $checks = [
+            ['code' => 'reconciliation', 'label' => 'VAT books match accounting', 'passed' => $data['accountingCheck']['matches']],
+            ['code' => 'movements', 'label' => 'VAT movements are available', 'passed' => $debit > 0],
+            ['code' => 'balanced', 'label' => 'Settlement entry is balanced', 'passed' => abs($debit - $credit) < 0.001],
+            ['code' => 'year', 'label' => 'Settlement date belongs to an open fiscal year', 'passed' => $year?->status === 'open'],
+            ['code' => 'period', 'label' => 'Settlement accounting period is open', 'passed' => ! $periodClosed],
+            ['code' => 'accounts', 'label' => 'Settlement accounts are active and postable', 'passed' => $invalidAccounts === [], 'details' => $invalidAccounts],
+        ];
 
         return ['lines' => $lines, 'debit' => $debit, 'credit' => $credit,
-            'ready' => $data['accountingCheck']['matches'] && $debit > 0 && abs($debit - $credit) < 0.001];
+            'checks' => $checks, 'ready' => ! in_array(false, array_column($checks, 'passed'), true)];
+    }
+
+    public function readiness(TaxReturn $return, array $data): array
+    {
+        $evidence = $this->evidence($data);
+        $unchanged = ($return->snapshot['fingerprint'] ?? null) === $evidence['fingerprint'];
+        $checks = [...$evidence['entry']['checks'], ['code' => 'evidence', 'label' => 'Draft evidence matches current VAT books', 'passed' => $unchanged]];
+
+        return ['ready' => $evidence['entry']['ready'] && $unchanged, 'checks' => $checks];
+    }
+
+    private function assertReady(array $preview, string $field): void
+    {
+        if (! $preview['ready']) {
+            $labels = array_map(fn ($check) => __($check['label']), array_filter($preview['checks'], fn ($check) => ! $check['passed']));
+            throw ValidationException::withMessages([$field => __('Resolve the following settlement checks: :checks.', ['checks' => implode('; ', $labels)])]);
+        }
     }
 
     public function prepare(int $year, int $quarter, int $userId): TaxReturn
@@ -53,6 +89,7 @@ class VatSettlement
         if ($output === 0.0 && $input === 0.0) {
             throw ValidationException::withMessages(['quarter' => __('There are no VAT movements in this period.')]);
         }
+        $this->assertReady($this->preview($data), 'quarter');
 
         return DB::transaction(function () use ($year, $quarter, $userId, $data, $output, $input, $result) {
             // Serialize creation with other settlements and accounting posting in the year.
@@ -89,9 +126,7 @@ class VatSettlement
             abort_unless($refresh || $return->status === 'draft', 422);
             $data = $this->report->make($return->year, $return->quarter);
             $evidence = $this->evidence($data);
-            if (! $evidence['entry']['ready']) {
-                throw ValidationException::withMessages(['review' => __('Resolve VAT differences between documents and accounting before preparing the return.')]);
-            }
+            $this->assertReady($evidence['entry'], 'review');
             if (! $refresh && ($return->snapshot['fingerprint'] ?? null) !== $evidence['fingerprint']) {
                 throw ValidationException::withMessages(['review' => __('The VAT books have changed. Refresh and review the draft again.')]);
             }
@@ -114,7 +149,8 @@ class VatSettlement
             // JournalPoster uses the same year lock; keep the check and posting together.
             FiscalYear::where('year', $return->year)->lockForUpdate()->firstOrFail();
             $evidence = $this->evidence($this->report->make($return->year, $return->quarter));
-            if (! $evidence['entry']['ready'] || ($return->snapshot['fingerprint'] ?? null) !== $evidence['fingerprint']) {
+            $this->assertReady($evidence['entry'], 'review');
+            if (($return->snapshot['fingerprint'] ?? null) !== $evidence['fingerprint']) {
                 throw ValidationException::withMessages(['review' => __('The VAT books have changed. Refresh and review the draft again.')]);
             }
             $year = $return->year;

@@ -1,4 +1,13 @@
 {
+    "VAT books match accounting": {"en":"VAT books match accounting","es":"Los libros de IVA coinciden con la contabilidad"},
+    "VAT movements are available": {"en":"VAT movements are available","es":"Hay movimientos de IVA disponibles"},
+    "Settlement entry is balanced": {"en":"Settlement entry is balanced","es":"El asiento de liquidación está cuadrado"},
+    "Settlement date belongs to an open fiscal year": {"en":"Settlement date belongs to an open fiscal year","es":"La fecha de liquidación pertenece a un ejercicio abierto"},
+    "Settlement accounting period is open": {"en":"Settlement accounting period is open","es":"El periodo contable de la liquidación está abierto"},
+    "Settlement accounts are active and postable": {"en":"Settlement accounts are active and postable","es":"Las cuentas de liquidación están activas y admiten asientos"},
+    "Draft evidence matches current VAT books": {"en":"Draft evidence matches current VAT books","es":"La evidencia del borrador coincide con los libros de IVA actuales"},
+    "Settlement readiness checks": {"en":"Settlement readiness checks","es":"Comprobaciones previas de liquidación"},
+    "Resolve the following settlement checks: :checks.": {"en":"Resolve the following settlement checks: :checks.","es":"Resuelve las siguientes comprobaciones de liquidación: :checks."},
     "VAT settlement draft created.": {"en":"VAT settlement draft created.","es":"Borrador de liquidación de IVA creado."},
     "VAT settlement review saved.": {"en":"VAT settlement review saved.","es":"Revisión de liquidación de IVA guardada."},
     "The VAT books have changed. Refresh and review the draft again.": {"en":"The VAT books have changed. Refresh and review the draft again.","es":"Los libros de IVA han cambiado. Actualiza y revisa de nuevo el borrador."},

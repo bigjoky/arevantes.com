@@ -2,15 +2,19 @@
 
 namespace Tests\Feature;
 
+use App\Models\AccountingPeriod;
 use App\Models\Expense;
 use App\Models\ExpenseCategory;
 use App\Models\FiscalYear;
 use App\Models\JournalEntry;
+use App\Models\LedgerAccount;
 use App\Models\TaxReturn;
 use App\Models\User;
 use App\Services\Accounting\AccountingSynchronizer;
+use App\Services\Tax\VatReport;
 use App\Services\Tax\VatSettlement;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
 class VatSettlementWorkflowTest extends TestCase
@@ -76,9 +80,46 @@ class VatSettlementWorkflowTest extends TestCase
         $this->actingAs($user)->post(route('tax.returns.review', $return), ['reason' => 'Reviewed'])->assertSessionHasNoErrors();
         FiscalYear::where('year', 2026)->update(['status' => 'closed']);
         $entries = JournalEntry::count();
-        $this->post(route('tax.returns.post', $return))->assertSessionHasErrors('entry_date');
+        $this->post(route('tax.returns.post', $return))->assertSessionHasErrors('review');
         $this->assertSame('approved', $return->fresh()->status);
         $this->assertNull($return->fresh()->journal_entry_id);
         $this->assertSame($entries, JournalEntry::count());
+    }
+
+    public function test_account_readiness_is_visible_and_enforced_before_approval(): void
+    {
+        $user = User::factory()->create(['role' => 'admin']);
+        $return = $this->draft($user);
+        $entries = JournalEntry::count();
+        LedgerAccount::where('code', '4700')->update(['is_active' => false]);
+        $data = app(VatReport::class)->make(2026, 3);
+        $readiness = app(VatSettlement::class)->readiness($return, $data);
+        $check = collect($readiness['checks'])->firstWhere('code', 'accounts');
+        $this->assertFalse($readiness['ready']);
+        $this->assertFalse($check['passed']);
+        $this->assertSame(['4700'], $check['details']);
+        $this->actingAs($user)->get('/tax?year=2026&quarter=3')->assertOk()
+            ->assertInertia(fn (Assert $page) => $page->where('settlementReadiness.ready', false));
+        $this->actingAs($user)->post(route('tax.returns.review', $return), ['reason' => 'Checked'])->assertSessionHasErrors('review');
+        $this->assertSame('draft', $return->fresh()->status);
+        $this->assertSame($entries, JournalEntry::count());
+        LedgerAccount::where('code', '4700')->update(['is_active' => true]);
+        $this->assertTrue(app(VatSettlement::class)->readiness($return->fresh(), $data)['ready']);
+        $this->post(route('tax.returns.review', $return), ['reason' => 'Account restored'])->assertSessionHasNoErrors();
+    }
+
+    public function test_closed_period_blocks_approval_without_mutating_the_draft(): void
+    {
+        $user = User::factory()->create(['role' => 'admin']);
+        $return = $this->draft($user);
+        AccountingPeriod::create(['fiscal_year_id' => FiscalYear::where('year', 2026)->firstOrFail()->id,
+            'year' => 2026, 'month' => 9, 'status' => 'closed']);
+        $before = $return->fresh()->getAttributes();
+        $entries = JournalEntry::count();
+        $this->actingAs($user)->post(route('tax.returns.review', $return), ['reason' => 'Checked'])->assertSessionHasErrors('review');
+        $this->assertSame($before, $return->fresh()->getAttributes());
+        $this->assertSame($entries, JournalEntry::count());
+        $readiness = app(VatSettlement::class)->readiness($return, app(VatReport::class)->make(2026, 3));
+        $this->assertFalse(collect($readiness['checks'])->firstWhere('code', 'period')['passed']);
     }
 }

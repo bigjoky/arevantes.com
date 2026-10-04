@@ -66,6 +66,9 @@ Brechas observadas que se convierten en tareas FIN-02:
   huella, revisión invalidada por cambios y protección contra repetir el asiento.
   Pendientes ensayos de concurrencia independientes y fuentes/versiones fiscales
   completas; no representa todavía un modelo 303 oficial.
+  Controles previos visibles añadidos: ejercicio y periodo abiertos, cuentas
+  activas/contabilizables, equilibrio, movimientos y coincidencia de evidencia.
+  Se validan otra vez en servidor antes de aprobar y contabilizar.
 - La ausencia de movimientos actualmente impide preparar una liquidación:
   soportar el escenario sin actividad cuando corresponda, sin equipararlo
   automáticamente a todas las declaraciones de resultado cero.

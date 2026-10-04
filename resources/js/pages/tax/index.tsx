@@ -67,6 +67,12 @@ type SettlementPreview = {
     debit: number;
     credit: number;
     ready: boolean;
+    checks: {
+        code: string;
+        label: string;
+        passed: boolean;
+        details?: string[];
+    }[];
 };
 type TaxReturn = {
     id: number;
@@ -117,6 +123,7 @@ export default function TaxIndex({
     accountingCheck,
     taxReturn,
     settlementPreview,
+    settlementReadiness,
 }: {
     initialSection: TaxSection;
     canManageTax: boolean;
@@ -128,6 +135,7 @@ export default function TaxIndex({
     accountingCheck: Check;
     taxReturn: TaxReturn | null;
     settlementPreview: SettlementPreview | null;
+    settlementReadiness: Pick<SettlementPreview, 'ready' | 'checks'> | null;
 }) {
     const tab = initialSection;
     const { locale } = useLocale();
@@ -250,6 +258,7 @@ export default function TaxIndex({
                         canManageTax={canManageTax}
                         canPrepare={settlementPreview?.ready ?? false}
                         preview={settlementPreview}
+                        readiness={settlementReadiness}
                     />
                 )}
                 {tab === 'summary' && (
@@ -286,12 +295,14 @@ function ReturnStatus({
     canManageTax,
     canPrepare,
     preview,
+    readiness,
 }: {
     taxReturn: TaxReturn | null;
     period: { year: number; quarter: number };
     canManageTax: boolean;
     canPrepare: boolean;
     preview: SettlementPreview | null;
+    readiness: Pick<SettlementPreview, 'ready' | 'checks'> | null;
 }) {
     const { locale } = useLocale();
 
@@ -358,6 +369,7 @@ function ReturnStatus({
                             )}
                         </p>
                     )}
+                    <SettlementChecks checks={preview?.checks ?? []} />
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm">
                             <thead>
@@ -425,6 +437,7 @@ function ReturnStatus({
                         locale,
                     )}
                 </p>
+                <SettlementChecks checks={readiness?.checks ?? []} />
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                         <thead>
@@ -478,7 +491,11 @@ function ReturnStatus({
                                 )}
                                 <div className="flex flex-wrap gap-2">
                                     {taxReturn.status === 'draft' && (
-                                        <Button disabled={processing}>
+                                        <Button
+                                            disabled={
+                                                processing || !readiness?.ready
+                                            }
+                                        >
                                             {translate('Approve draft', locale)}
                                         </Button>
                                     )}
@@ -515,7 +532,9 @@ function ReturnStatus({
                                         </p>
                                     ),
                                 )}
-                                <Button disabled={processing}>
+                                <Button
+                                    disabled={processing || !readiness?.ready}
+                                >
                                     {translate(
                                         'Post approved settlement',
                                         locale,
@@ -591,6 +610,34 @@ function ReturnStatus({
                 )}
             </div>
         </section>
+    );
+}
+
+function SettlementChecks({ checks }: { checks: SettlementPreview['checks'] }) {
+    const { locale } = useLocale();
+
+    return (
+        <div className="my-3 space-y-2">
+            <h3 className="text-sm font-medium">
+                {translate('Settlement readiness checks', locale)}
+            </h3>
+            {checks.map((check) => (
+                <div
+                    key={check.code}
+                    className="flex flex-wrap items-start gap-2 text-sm"
+                >
+                    <Badge variant={check.passed ? 'outline' : 'destructive'}>
+                        {translate(check.passed ? 'Ready' : 'Blocked', locale)}
+                    </Badge>
+                    <span>
+                        {translate(check.label, locale)}
+                        {check.details?.length
+                            ? ` · ${check.details.join(', ')}`
+                            : ''}
+                    </span>
+                </div>
+            ))}
+        </div>
     );
 }
 

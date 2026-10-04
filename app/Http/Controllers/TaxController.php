@@ -23,6 +23,7 @@ class TaxController extends Controller
     {
         [$year, $quarter] = $this->period($request);
         $data = $report->make($year, $quarter);
+        $taxReturn = $quarter ? TaxReturn::with(['journalEntry:id,number', 'payments:id,tax_return_id,paid_on,amount,method,reference'])->where(['tax_type' => 'vat', 'year' => $year, 'quarter' => $quarter])->first() : null;
 
         return Inertia::render('tax/index', [
             ...$data,
@@ -33,7 +34,8 @@ class TaxController extends Controller
                 default => 'summary',
             },
             'canManageTax' => $request->user()->can('manage-tax'),
-            'taxReturn' => $quarter ? TaxReturn::with(['journalEntry:id,number', 'payments:id,tax_return_id,paid_on,amount,method,reference'])->where(['tax_type' => 'vat', 'year' => $year, 'quarter' => $quarter])->first() : null,
+            'taxReturn' => $taxReturn,
+            'settlementReadiness' => $taxReturn && in_array($taxReturn->status, ['draft', 'approved'], true) ? $settlement->readiness($taxReturn, $data) : null,
         ]);
     }
 

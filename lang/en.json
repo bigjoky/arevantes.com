@@ -1,4 +1,13 @@
 {
+    "VAT books match accounting": "VAT books match accounting",
+    "VAT movements are available": "VAT movements are available",
+    "Settlement entry is balanced": "Settlement entry is balanced",
+    "Settlement date belongs to an open fiscal year": "Settlement date belongs to an open fiscal year",
+    "Settlement accounting period is open": "Settlement accounting period is open",
+    "Settlement accounts are active and postable": "Settlement accounts are active and postable",
+    "Draft evidence matches current VAT books": "Draft evidence matches current VAT books",
+    "Settlement readiness checks": "Settlement readiness checks",
+    "Resolve the following settlement checks: :checks.": "Resolve the following settlement checks: :checks.",
     "VAT settlement draft created.": "VAT settlement draft created.",
     "VAT settlement review saved.": "VAT settlement review saved.",
     "The VAT books have changed. Refresh and review the draft again.": "The VAT books have changed. Refresh and review the draft again.",

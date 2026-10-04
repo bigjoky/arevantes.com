@@ -46,6 +46,22 @@ No hay envío AEAT ni pagos automáticos habilitados por este roadmap.
 
 ## Registro de entregas y detalle conservado
 
+### 04/10/2026 — Controles previos visibles de liquidación (FIN-02.B)
+
+- En develop: lista de comprobaciones actuales para borrador y vista previa:
+  conciliación, movimientos, equilibrio, ejercicio, periodo y cuentas activas
+  contabilizables. Los borradores también contrastan su huella con los libros.
+- La pantalla señala cada bloqueo, incluidas las cuentas afectadas, y deshabilita
+  aprobación/contabilización cuando procede. El servidor vuelve a comprobarlo:
+  un periodo cerrado o una cuenta desactivada no llega hasta JournalPoster.
+- Los controles son contables; no certifican conformidad censal o del 303.
+  Se conservan los siguientes pasos: concurrencia independiente de FIN-01,
+  perfil censal, fuentes fiscales completas, sin actividad y casillas 303.
+- PostgreSQL aislado: 26 pruebas y 292 aserciones; base temporal eliminada.
+  Regresión: 664 correctas, 1 omitida y 10.200 aserciones. Tipos, lint, catálogo
+  ES/EN, formato y compilación correctos. Pendiente publicación con el flujo
+  de borradores.
+
 ### 04/10/2026 — Revisión y contabilización separadas de IVA (FIN-02.B)
 
 - En develop: crear borrador → revisar/aprobar con motivo → contabilizar.
