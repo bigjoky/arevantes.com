@@ -16,7 +16,7 @@ class ExpenseDocumentaryReviewTest extends TestCase
 
     private function expense(string $number): Expense
     {
-        $expense = Expense::create(['expense_category_id' => ExpenseCategory::firstOrFail()->id, 'created_by' => 1,
+        $expense = Expense::create(['expense_category_id' => ExpenseCategory::firstOrFail()->id, 'created_by' => null,
             'number' => $number, 'type' => 'invoice', 'document_number' => $number, 'issuer_legal_name' => 'Supplier',
             'expense_date' => '2026-09-15', 'currency_code' => 'EUR', 'tax_regime' => 'standard', 'subtotal' => 100,
             'tax_amount' => 21, 'withholding_rate' => 0, 'withholding_amount' => 0, 'amount' => 121, 'paid_amount' => 0, 'status' => 'pending']);
@@ -39,9 +39,15 @@ class ExpenseDocumentaryReviewTest extends TestCase
                 ->where('review.total', 2)
                 ->where('review.data.0.number', 'EXP-REVIEW-2')
                 ->where('review.data.0.eligible', false)
+                ->where('review.data.0.comparison.paid', '10.00')
+                ->where('review.data.0.comparison.outstanding', '111.00')
                 ->where('review.data.1.number', 'EXP-REVIEW-1')
                 ->where('review.data.1.eligible', true)
                 ->where('review.data.1.edit_url', route('expenses.edit', ['expense' => $eligible, 'documentary_review' => 1])));
+
+        $this->actingAs($admin)->get(route('expenses.documentary-review', ['filter' => 'with_payments']))->assertOk()
+            ->assertInertia(fn (Assert $page) => $page->where('filter', 'with_payments')->where('review.total', 1)
+                ->where('review.data.0.number', 'EXP-REVIEW-2'));
     }
 
     public function test_review_requires_enabled_feature_and_admin_role(): void

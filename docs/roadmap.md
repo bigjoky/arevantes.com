@@ -57,9 +57,16 @@ No hay envío AEAT ni pagos automáticos habilitados por este roadmap.
   ofrecen acción. Acceso exclusivo de administrador con permisos financieros.
 - Consulta acotada a 50 registros y apoyada por índice parcial de documentos sin
   evidencia, evitando penalizar los ya revisados. Sin recalcular históricos.
+- Filtros en servidor para todos, con pagos y sin pagos. Los documentos
+  compatibles muestran en solo lectura base, IVA matemático, IVA documental,
+  ajuste, total, pagos y saldo. La comparación de un gasto protegido nunca
+  habilita edición ni escritura.
 - Pruebas del bloque documental/correcciones: 19 correctas y 138 aserciones;
-  compilación, tipos, lint, formato y catálogo ES/EN comprobados. PostgreSQL local
-  pendiente porque Apple Container no está disponible en esta sesión.
+  compilación, tipos, lint, formato y catálogo ES/EN comprobados. Extensión de
+  filtros/comparación verificada en PostgreSQL aislado: 19 pruebas y 155
+  aserciones; la base temporal se eliminó al terminar. Regresión completa: 656
+  correctas, 1 omitida y 10.113 aserciones; compilación y controles frontend
+  correctos.
 
 
 ### 29/09/2026 — Vista previa documental de gastos (FIN-02.A/B)

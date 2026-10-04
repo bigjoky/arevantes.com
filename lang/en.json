@@ -1,4 +1,10 @@
 {
+    "Historical expense filters": "Historical expense filters",
+    "With registered payments": "With registered payments",
+    "Without registered payments": "Without registered payments",
+    "View read-only comparison": "View read-only comparison",
+    "This comparison does not authorize changes to the protected expense.": "This comparison does not authorize changes to the protected expense.",
+    "A documentary comparison is not available for this fiscal configuration.": "A documentary comparison is not available for this fiscal configuration.",
     "Historical documentary calculation review": "Historical documentary calculation review",
     "Review historical calculations": "Review historical calculations",
     "Historical documentary review": "Historical documentary review",

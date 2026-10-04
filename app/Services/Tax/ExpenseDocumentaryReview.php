@@ -6,12 +6,16 @@ use App\Models\AccountingPeriod;
 use App\Models\Expense;
 use App\Models\FiscalYear;
 use App\Models\TaxReturn;
+use Brick\Math\BigDecimal;
 use Carbon\CarbonImmutable;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Validation\ValidationException;
 
 class ExpenseDocumentaryReview
 {
-    public function page(int $perPage = 50): LengthAwarePaginator
+    public function __construct(private ExpenseDocumentaryCalculation $calculator) {}
+
+    public function page(string $filter = 'all', int $perPage = 50): LengthAwarePaginator
     {
         $years = FiscalYear::all(['starts_on', 'ends_on', 'status']);
         $closedPeriods = AccountingPeriod::where('status', 'closed')->get(['year', 'month'])
@@ -20,11 +24,15 @@ class ExpenseDocumentaryReview
 
         return Expense::query()
             ->whereNull('tax_calculation_version')
+            ->when($filter === 'with_payments', fn ($query) => $query->where(fn ($query) => $query
+                ->where('status', 'paid')->orWhereHas('payments')))
+            ->when($filter === 'without_payments', fn ($query) => $query->where('status', '!=', 'paid')->whereDoesntHave('payments'))
             ->with(['category:id,name', 'supplier:id,legal_name,trade_name', 'taxLines'])
             ->withSum('payments', 'amount')
             ->orderByDesc('expense_date')
             ->orderByDesc('id')
             ->paginate($perPage)
+            ->withQueryString()
             ->through(function (Expense $expense) use ($years, $closedPeriods, $protectedReturns): array {
                 $date = CarbonImmutable::parse($expense->expense_date);
                 $reasons = [];
@@ -68,8 +76,51 @@ class ExpenseDocumentaryReview
                     'status' => $expense->status,
                     'eligible' => $reasons === [],
                     'reasons' => $reasons,
+                    'comparison' => $this->comparison($expense),
                     'edit_url' => route('expenses.edit', ['expense' => $expense, 'documentary_review' => 1]),
                 ];
             });
+    }
+
+    private function comparison(Expense $expense): ?array
+    {
+        try {
+            $calculation = $this->calculator->calculate([
+                'currency_code' => $expense->currency_code,
+                'tax_regime' => $expense->tax_regime,
+                'withholding_rate' => $expense->withholding_rate,
+                'withholding_amount' => $expense->withholding_amount,
+                'tax_lines' => $expense->taxLines->map(fn ($line) => [
+                    'calculation_id' => 'historical-'.$expense->id.'-'.$line->id,
+                    'kind' => $line->kind,
+                    'taxable_base' => $line->taxable_base,
+                    'tax_rate' => $line->tax_rate,
+                    'tax_amount' => $line->tax_amount,
+                    'deductible_percent' => $line->deductible_percent,
+                    'exemption_reason' => $line->exemption_reason,
+                ])->all(),
+            ], 'Historical documentary calculation review');
+        } catch (ValidationException) {
+            return null;
+        }
+
+        $result = $calculation['tax_calculation_snapshot']['result'];
+        $calculatedTax = BigDecimal::zero();
+        $adjustment = BigDecimal::zero();
+        foreach ($result['tax_groups'] as $group) {
+            $calculatedTax = $calculatedTax->plus($group['calculated_tax']);
+            $adjustment = $adjustment->plus($group['tax_adjustment']);
+        }
+        $paid = BigDecimal::of((string) ($expense->payments_sum_amount ?? '0'))->toScale(2);
+
+        return [
+            'subtotal' => $result['totals']['subtotal'],
+            'calculated_tax' => (string) $calculatedTax->toScale(2),
+            'documentary_tax' => $result['totals']['tax_amount'],
+            'adjustment' => (string) $adjustment->toScale(2),
+            'total' => $result['totals']['total'],
+            'paid' => (string) $paid,
+            'outstanding' => (string) BigDecimal::of($result['totals']['total'])->minus($paid)->toScale(2),
+        ];
     }
 }
