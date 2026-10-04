@@ -1,4 +1,4 @@
-import { Form, Head, Link } from '@inertiajs/react';
+import { Form, Head, Link, usePage } from '@inertiajs/react';
 import { useState } from 'react';
 import { ExpenseCalculationPreview } from '@/components/expense-calculation-preview';
 import { FormErrorSummary } from '@/components/forms/form-layout';
@@ -42,6 +42,10 @@ export default function ExpenseEdit({
 }) {
     const { locale } = useLocale();
     const t = (key: string) => translate(key, locale);
+    const documentaryReview =
+        new URLSearchParams(usePage().url.split('?')[1] || '').get(
+            'documentary_review',
+        ) === '1';
     const snapshot = expense.tax_calculation_snapshot as {
         source_tax_lines?: { calculation_id: string }[];
         input?: { quota_overrides?: { reason: string | null }[] };
@@ -184,8 +188,13 @@ export default function ExpenseEdit({
                             lineIds={lines.map((line) => line.key)}
                             initialReason={
                                 snapshot?.input?.quota_overrides?.[0]?.reason ??
-                                ''
+                                (documentaryReview
+                                    ? t(
+                                          'Historical documentary calculation review',
+                                      )
+                                    : '')
                             }
+                            defaultEnabled={documentaryReview}
                         />
                         <input type="hidden" name="revision" value={revision} />
                         <section className="grid gap-4 rounded-md border p-4 sm:grid-cols-2">

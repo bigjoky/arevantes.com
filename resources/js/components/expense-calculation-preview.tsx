@@ -29,15 +29,17 @@ export function ExpenseCalculationPreview({
     required = false,
     lineIds,
     initialReason = '',
+    defaultEnabled = false,
 }: {
     available: boolean;
     required?: boolean;
     lineIds: string[];
     initialReason?: string;
+    defaultEnabled?: boolean;
 }) {
     const { locale } = useLocale();
     const t = (key: string) => translate(key, locale);
-    const [enabled, setEnabled] = useState(required);
+    const [enabled, setEnabled] = useState(required || defaultEnabled);
     const [preview, setPreview] = useState<Preview | null>(null);
     const [error, setError] = useState('');
     const [busy, setBusy] = useState(false);
