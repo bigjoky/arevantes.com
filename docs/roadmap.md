@@ -1,15 +1,17 @@
 # Roadmap unificado de Arevantes
 
-## Estado vigente y orden de ejecución — 29/09/2026
+## Estado vigente y orden de ejecución — 04/10/2026
 
 Esta sección es el punto de entrada y prevalece sobre los estados de las notas
 históricas inferiores. No se eliminan tareas anteriores ni se crean planes
 paralelos. Cada entrega actualiza esta cola, su evidencia y el siguiente paso.
 
-**Producción:** `v2026.09.29.1` (PR #129, deployment
-`depl-a2dcbed9-7d75-4753-bc80-ab0eb78890a2`): cálculo documental agrupado de
-gastos activo para administradores, con vista previa, evidencia versionada y
-migración aditiva. También publicados: edición unificada de gastos, anulación
+**Producción:** `v2026.10.04.1` (PR #130, deployment
+`depl-a2e76b9e-c4bd-4532-88af-287228dc6b58`): revisión de gastos históricos
+activa para administradores, con filtros por pagos, comparación y adopción de
+evidencia cuando importes y líneas fiscales coinciden exactamente. El cálculo
+documental agrupado conserva vista previa y evidencia versionada.
+También publicados: edición unificada de gastos, anulación
 trazable de pagos, líneas libres de compras, adjuntos, logo y banca.
 Comprobación visual autenticada de Safari aún pendiente: las pruebas automatizadas
 y comprobaciones remotas no sustituyen esa validación.
@@ -19,7 +21,7 @@ y comprobaciones remotas no sustituyen esa validación.
 | 1 | FIN-01, integridad | Abierto; mejoras operativas publicadas | Completar ensayos de concurrencia con conexiones independientes y revisión de todos los accesos de emisión; no dar el bloque por cerrado |
 | 2 | FIN-02.B, libros y conciliación | Implementado en develop; pendiente publicación | Subcuentas por jerarquía/mapeo, movimientos contabilizados y liquidación de las cuentas reales; completar puertas de publicación |
 | 3 | FIN-02.B, cuotas de los libros | Implementado en develop; pendiente publicación | IVA soportado/deducible/no deducible separado en libro, resumen y CSV; verificar compatibilidad de liquidación |
-| 4 | FIN-02.A/B, cálculo y normalización | Cálculo documental de gastos publicado y activo para administradores | Validación visual autenticada; compras, regímenes adicionales, portes, fechas registrales y preparación sin asientos implícitos |
+| 4 | FIN-02.A/B, cálculo y normalización | Cálculo documental y revisión histórica publicados y activos para administradores | Validación visual autenticada; compras, regímenes adicionales, portes, fechas registrales y preparación sin asientos implícitos |
 | 5 | FIN-02.C, identidad y perfil | Directorio parcial solo en develop | Completar direcciones/snapshot e integración, revisión de duplicados y validación censal con asesoría |
 | 6 | FIN-03.303 | Planificado | Casillas, compensaciones y expediente trazable; objetivo interno 30/10 |
 | 7 | FIN-04 y FIN-05.390 | Planificados | VERI*FACTU en pruebas y resumen anual/exoneración 390; objetivos internos 13/11 |
@@ -46,6 +48,13 @@ No hay envío AEAT ni pagos automáticos habilitados por este roadmap.
 
 ### 04/10/2026 — Revisión asistida de gastos históricos (FIN-02.A/B)
 
+- Publicado mediante PR #130, commit `f32461f40f92ff43fb31bd682e789ab10a6f8875`,
+  versión `v2026.10.04.1`; despliegue correcto el 04/10/2026 a las 23:12 Madrid.
+  Rutas, activación, migración e índice verificados remotamente; `/up` y `/login`
+  responden 200. No se modificó ningún gasto real durante la comprobación.
+- Regresión de publicación: 638 correctas, 1 omitida, 9.983 aserciones.
+  GitHub confirmó calidad y pruebas en PHP 8.4 y 8.5. La validación visual
+  autenticada en Safari sigue pendiente y no se da por realizada.
 - Nueva cola administrativa paginada desde Gastos para documentos aún no
   versionados. Clasifica cada gasto sin modificarlo y explica bloqueos por pagos,
   moneda, régimen, retención, desglose, ejercicio, periodo o declaración protegida.
