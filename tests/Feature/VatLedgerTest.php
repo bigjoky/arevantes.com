@@ -99,6 +99,10 @@ class VatLedgerTest extends TestCase
         $this->assertEquals(21, $preview['credit']);
         $this->assertSame($entries, JournalEntry::count());
         $return = app(VatSettlement::class)->prepare(2026, 3, $user->id);
+        $this->assertSame('draft', $return->status);
+        $this->assertNull($return->journal_entry_id);
+        app(VatSettlement::class)->review($return, $user->id, 'Reviewed');
+        $return = app(VatSettlement::class)->post($return, $user->id);
         $this->assertSame('47200021', $return->snapshot['vat_accounts']['input']['accounts'][0]['account_code']);
         $entry = JournalEntry::with('lines.account')->findOrFail($return->journal_entry_id);
         $this->assertEquals($preview['lines'], $entry->lines->map(fn ($line) => [
@@ -122,6 +126,8 @@ class VatLedgerTest extends TestCase
             'discount_amount' => 0, 'tax_amount' => -21, 'total' => -121]);
         app(AccountingSynchronizer::class)->sync($user->id);
         $return = app(VatSettlement::class)->prepare(2026, 3, $user->id);
+        app(VatSettlement::class)->review($return, $user->id, 'Reviewed');
+        $return = app(VatSettlement::class)->post($return, $user->id);
         $entry = JournalEntry::with('lines.account')->findOrFail($return->journal_entry_id);
         $this->assertEquals(-21, $return->result);
         $this->assertEquals(21, $entry->lines->firstWhere('account.code', '47700021')->credit);

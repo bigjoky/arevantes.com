@@ -376,6 +376,8 @@ Route::middleware(['auth'])->group(function () {
     Route::get('tax/received', [TaxController::class, 'index'])->middleware('can:view-finance')->name('tax.received');
     Route::get('tax/export', [TaxController::class, 'export'])->middleware('can:view-finance')->name('tax.export');
     Route::post('tax/returns', [TaxController::class, 'prepare'])->middleware('can:manage-tax')->name('tax.returns.prepare');
+    Route::post('tax/returns/{taxReturn}/review', [TaxController::class, 'review'])->middleware('can:manage-tax')->name('tax.returns.review');
+    Route::post('tax/returns/{taxReturn}/post', [TaxController::class, 'post'])->middleware('can:manage-tax')->name('tax.returns.post');
     Route::post('tax/returns/{taxReturn}/file', [TaxController::class, 'file'])->middleware('can:manage-tax')->name('tax.returns.file');
     Route::get('tax/returns/{taxReturn}/receipt', [TaxController::class, 'receipt'])->middleware('can:view-finance')->name('tax.returns.receipt');
     Route::post('tax/returns/{taxReturn}/payments', [TaxController::class, 'pay'])->middleware('can:manage-tax')->name('tax.returns.payments.store');

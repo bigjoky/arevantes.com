@@ -174,6 +174,10 @@ class TaxTest extends TestCase
 
         $this->post(route('tax.returns.prepare'), ['year' => 2026, 'quarter' => 3])->assertRedirect()->assertSessionHasNoErrors();
         $return = TaxReturn::firstOrFail();
+        $this->assertSame('draft', $return->status);
+        $this->post(route('tax.returns.review', $return), ['reason' => 'Reviewed registers'])->assertSessionHasNoErrors();
+        $this->post(route('tax.returns.post', $return))->assertSessionHasNoErrors();
+        $return->refresh();
         $this->assertSame('prepared', $return->status);
         $this->assertSame('10.50', $return->result);
         $this->assertNotNull($return->journal_entry_id);
@@ -220,6 +224,9 @@ class TaxTest extends TestCase
         $this->actingAs($admin)->post(route('tax.returns.prepare'), ['year' => 2026, 'quarter' => 1])
             ->assertSessionHasNoErrors();
         $return = TaxReturn::firstOrFail();
+        $this->post(route('tax.returns.review', $return), ['reason' => 'Reviewed registers'])->assertSessionHasNoErrors();
+        $this->post(route('tax.returns.post', $return))->assertSessionHasNoErrors();
+        $return->refresh();
         $this->assertSame('compensate', $return->result_option);
         $this->assertSame('awaiting_election', $return->settlement_status);
 

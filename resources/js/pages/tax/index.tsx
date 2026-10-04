@@ -88,6 +88,15 @@ type TaxReturn = {
         method: string;
         reference: string | null;
     }[];
+    snapshot: {
+        entry?: SettlementPreview;
+        review_history?: {
+            action: string;
+            user_id: number;
+            reason: string;
+            at: string;
+        }[];
+    };
 };
 
 type TaxSection = 'summary' | 'issued' | 'received';
@@ -298,16 +307,37 @@ function ReturnStatus({
                 </div>
                 {canManageTax && (
                     <Form action="/tax/returns" method="post">
-                        <input type="hidden" name="year" value={period.year} />
-                        <input
-                            type="hidden"
-                            name="quarter"
-                            value={period.quarter}
-                        />
-                        <Button disabled={!canPrepare}>
-                            <FileCheck2 />{' '}
-                            {translate('Prepare and post settlement', locale)}
-                        </Button>
+                        {({ processing, errors }) => (
+                            <>
+                                <input
+                                    type="hidden"
+                                    name="year"
+                                    value={period.year}
+                                />
+                                <input
+                                    type="hidden"
+                                    name="quarter"
+                                    value={period.quarter}
+                                />
+                                <Button disabled={!canPrepare || processing}>
+                                    <FileCheck2 />{' '}
+                                    {translate(
+                                        'Create settlement draft',
+                                        locale,
+                                    )}
+                                </Button>
+                                {Object.entries(errors).map(
+                                    ([field, message]) => (
+                                        <p
+                                            key={field}
+                                            className="text-sm text-destructive"
+                                        >
+                                            {message}
+                                        </p>
+                                    ),
+                                )}
+                            </>
+                        )}
                     </Form>
                 )}
                 <details className="w-full rounded border p-3">
@@ -316,7 +346,7 @@ function ReturnStatus({
                     </summary>
                     <p className="my-3 text-sm text-muted-foreground">
                         {translate(
-                            'Reviewing this preview does not create accounting entries. Preparing the settlement posts the displayed entry and requires reconciled documents.',
+                            'Creating a draft does not post entries. Review and approve it before posting the settlement.',
                             locale,
                         )}
                     </p>
@@ -372,6 +402,142 @@ function ReturnStatus({
                         </table>
                     </div>
                 </details>
+            </section>
+        );
+    }
+
+    if (taxReturn.status === 'draft' || taxReturn.status === 'approved') {
+        return (
+            <section className="space-y-3 rounded border p-4">
+                <h2 className="font-medium">
+                    {translate('Settlement draft review', locale)}
+                </h2>
+                <p className="text-sm">
+                    {translate(
+                        taxReturn.status === 'draft' ? 'Draft' : 'Approved',
+                        locale,
+                    )}{' '}
+                    · {money(Number(taxReturn.result))}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                    {translate(
+                        'Creating a draft does not post entries. Review and approve it before posting the settlement.',
+                        locale,
+                    )}
+                </p>
+                <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                        <thead>
+                            <tr>
+                                <th className="text-left">
+                                    {translate('Account', locale)}
+                                </th>
+                                <th className="text-right">
+                                    {translate('Debit', locale)}
+                                </th>
+                                <th className="text-right">
+                                    {translate('Credit', locale)}
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {taxReturn.snapshot.entry?.lines.map((line) => (
+                                <tr key={line.account_code}>
+                                    <td>{line.account_code}</td>
+                                    <td className="text-right">
+                                        {money(line.debit)}
+                                    </td>
+                                    <td className="text-right">
+                                        {money(line.credit)}
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+                {canManageTax && (
+                    <Form
+                        action={`/tax/returns/${taxReturn.id}/review`}
+                        method="post"
+                    >
+                        {({ processing, errors }) => (
+                            <div className="space-y-2">
+                                <Label htmlFor="vat-review-reason">
+                                    {translate('Review reason', locale)}
+                                </Label>
+                                <Input
+                                    id="vat-review-reason"
+                                    name="reason"
+                                    required
+                                    maxLength={1000}
+                                />
+                                {(errors.reason || errors.review) && (
+                                    <p className="text-sm text-destructive">
+                                        {errors.reason || errors.review}
+                                    </p>
+                                )}
+                                <div className="flex flex-wrap gap-2">
+                                    {taxReturn.status === 'draft' && (
+                                        <Button disabled={processing}>
+                                            {translate('Approve draft', locale)}
+                                        </Button>
+                                    )}
+                                    <Button
+                                        variant="outline"
+                                        name="refresh"
+                                        value="1"
+                                        disabled={processing}
+                                    >
+                                        {translate(
+                                            'Refresh draft for review',
+                                            locale,
+                                        )}
+                                    </Button>
+                                </div>
+                            </div>
+                        )}
+                    </Form>
+                )}
+                {canManageTax && taxReturn.status === 'approved' && (
+                    <Form
+                        action={`/tax/returns/${taxReturn.id}/post`}
+                        method="post"
+                    >
+                        {({ processing, errors }) => (
+                            <div className="space-y-2">
+                                {Object.entries(errors).map(
+                                    ([field, message]) => (
+                                        <p
+                                            key={field}
+                                            className="text-sm text-destructive"
+                                        >
+                                            {message}
+                                        </p>
+                                    ),
+                                )}
+                                <Button disabled={processing}>
+                                    {translate(
+                                        'Post approved settlement',
+                                        locale,
+                                    )}
+                                </Button>
+                            </div>
+                        )}
+                    </Form>
+                )}
+                {taxReturn.snapshot.review_history?.map((event, index) => (
+                    <p key={index} className="text-xs text-muted-foreground">
+                        {translate(
+                            event.action === 'approved'
+                                ? 'Approved'
+                                : 'Refreshed',
+                            locale,
+                        )}{' '}
+                        · {new Date(event.at).toLocaleString(locale)} ·{' '}
+                        {translate('User', locale)} #{event.user_id} ·{' '}
+                        {event.reason}
+                    </p>
+                ))}
             </section>
         );
     }

@@ -19,7 +19,7 @@ y comprobaciones remotas no sustituyen esa validación.
 | Orden | Bloque | Estado vigente | Siguiente entrega / puerta de salida |
 | --- | --- | --- | --- |
 | 1 | FIN-01, integridad | Abierto; mejoras operativas publicadas | Completar ensayos de concurrencia con conexiones independientes y revisión de todos los accesos de emisión; no dar el bloque por cerrado |
-| 2 | FIN-02.B, libros y conciliación | Implementado en develop; pendiente publicación | Subcuentas por jerarquía/mapeo, movimientos contabilizados y liquidación de las cuentas reales; completar puertas de publicación |
+| 2 | FIN-02.B, libros y conciliación | Implementado en develop; incluye borrador, aprobación y contabilización separados; pendiente publicación | Subcuentas, libros y liquidación revisable; completar pruebas de concurrencia independientes y puertas de publicación |
 | 3 | FIN-02.B, cuotas de los libros | Implementado en develop; pendiente publicación | IVA soportado/deducible/no deducible separado en libro, resumen y CSV; verificar compatibilidad de liquidación |
 | 4 | FIN-02.A/B, cálculo y normalización | Cálculo documental y revisión histórica publicados y activos para administradores | Validación visual autenticada; compras, regímenes adicionales, portes, fechas registrales y preparación sin asientos implícitos |
 | 5 | FIN-02.C, identidad y perfil | Directorio parcial solo en develop | Completar direcciones/snapshot e integración, revisión de duplicados y validación censal con asesoría |
@@ -45,6 +45,26 @@ Referencias de ejecución: [modelos 303/390/347](fiscal-models-303-390-347.md),
 No hay envío AEAT ni pagos automáticos habilitados por este roadmap.
 
 ## Registro de entregas y detalle conservado
+
+### 04/10/2026 — Revisión y contabilización separadas de IVA (FIN-02.B)
+
+- En develop: crear borrador → revisar/aprobar con motivo → contabilizar.
+  Crear y aprobar no generan asientos. Solo un expediente aprobado puede
+  contabilizarse; la presentación continúa reservada a los ya contabilizados.
+- Evidencia versionada de documentos de los libros, resumen, tipos, cuentas y
+  propuesta de asiento, con huella SHA-256. Un cambio de entradas obliga a
+  actualizar el borrador y aprobarlo otra vez; se conserva el historial de
+  revisión con autor, motivo y fecha. Los expedientes previos siguen operativos.
+- Transiciones bajo bloqueo del expediente; contabilización y comprobación
+  toman también el bloqueo de ejercicio utilizado por JournalPoster. Repeticiones
+  no duplican asientos; los errores de contabilización revierten la operación.
+- Alcance contable, no modelo 303 oficial ni presentación AEAT. Siguen pendientes
+  pruebas de concurrencia con conexiones independientes para todo FIN-01,
+  perfil fiscal, casos sin actividad y cobertura normativa/regímenes adicionales.
+- PostgreSQL aislado: 24 pruebas y 269 aserciones; base temporal eliminada.
+  Regresión completa: 662 correctas, 1 omitida y 10.177 aserciones. Tipos,
+  lint, traducciones y compilación verificados. Sin cambios en documentos reales
+  ni publicación.
 
 ### 04/10/2026 — Vista previa contable de liquidación de IVA (FIN-02.B)
 

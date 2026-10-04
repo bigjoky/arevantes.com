@@ -61,6 +61,11 @@ Brechas observadas que se convierten en tareas FIN-02:
   Incremento 04/10 en develop: vista previa de asiento sin escrituras y retirada
   de sincronización implícita al preparar; exige conciliación previa. Continúan
   pendientes aprobación separada, concurrencia y snapshot de fuentes/versiones.
+  Segundo incremento 04/10 en develop: borrador, aprobación motivada y
+  contabilización independientes; fuentes de libros y cuentas conservadas con
+  huella, revisión invalidada por cambios y protección contra repetir el asiento.
+  Pendientes ensayos de concurrencia independientes y fuentes/versiones fiscales
+  completas; no representa todavía un modelo 303 oficial.
 - La ausencia de movimientos actualmente impide preparar una liquidación:
   soportar el escenario sin actividad cuando corresponda, sin equipararlo
   automáticamente a todas las declaraciones de resultado cero.

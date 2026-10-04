@@ -42,6 +42,21 @@ class TaxController extends Controller
         $data = $request->validate(['year' => ['required', 'integer', 'between:2020,2100'], 'quarter' => ['required', 'integer', 'between:1,4']]);
         $settlement->prepare((int) $data['year'], (int) $data['quarter'], $request->user()->id);
 
+        return back()->with('toast', ['type' => 'success', 'message' => __('VAT settlement draft created.')]);
+    }
+
+    public function review(Request $request, TaxReturn $taxReturn, VatSettlement $settlement): RedirectResponse
+    {
+        $data = $request->validate(['reason' => ['required', 'string', 'max:1000'], 'refresh' => ['nullable', 'boolean']]);
+        $settlement->review($taxReturn, $request->user()->id, $data['reason'], (bool) ($data['refresh'] ?? false));
+
+        return back()->with('toast', ['type' => 'success', 'message' => __('VAT settlement review saved.')]);
+    }
+
+    public function post(Request $request, TaxReturn $taxReturn, VatSettlement $settlement): RedirectResponse
+    {
+        $settlement->post($taxReturn, $request->user()->id);
+
         return back()->with('toast', ['type' => 'success', 'message' => __('VAT return prepared and settlement entry posted.')]);
     }
 
