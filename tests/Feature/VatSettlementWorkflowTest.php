@@ -46,11 +46,16 @@ class VatSettlementWorkflowTest extends TestCase
 
         // Even an identity-only change must invalidate the evidence being approved.
         Expense::firstOrFail()->update(['merchant_name' => 'Corrected issuer']);
+        $comparison = app(VatSettlement::class)->readiness($return->fresh(), app(VatReport::class)->make(2026, 3))['comparison'];
+        $this->assertSame(1, $comparison['counts']['modified']);
+        $this->assertEquals(0, $comparison['totals']['result']['difference']);
         $this->post(route('tax.returns.post', $return))->assertSessionHasErrors('review');
         $this->assertSame($entries, JournalEntry::count());
         $this->assertNull($return->fresh()->journal_entry_id);
         $this->post(route('tax.returns.review', $return), ['reason' => 'Updated evidence', 'refresh' => true])->assertSessionHasNoErrors();
         $this->assertSame('draft', $return->fresh()->status);
+        $this->assertSame(1, $return->fresh()->snapshot['review_history'][1]['comparison']['counts']['modified']);
+        $this->assertNotEmpty($return->fresh()->snapshot['review_history'][1]['previous_fingerprint']);
         $this->post(route('tax.returns.post', $return))->assertStatus(422);
         $this->post(route('tax.returns.review', $return), ['reason' => 'Reviewed corrected issuer'])->assertSessionHasNoErrors();
         $this->post(route('tax.returns.post', $return))->assertSessionHasNoErrors();

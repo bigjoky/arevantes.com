@@ -69,6 +69,9 @@ Brechas observadas que se convierten en tareas FIN-02:
   Controles previos visibles añadidos: ejercicio y periodo abiertos, cuentas
   activas/contabilizables, equilibrio, movimientos y coincidencia de evidencia.
   Se validan otra vez en servidor antes de aprobar y contabilizar.
+  Comparación documental añadida: altas/bajas/modificaciones, cambios de
+  identidad, tipos y cuotas; actualización con resumen y huella previa en el
+  historial. No sustituye la trazabilidad normativa por casillas del 303.
 - La ausencia de movimientos actualmente impide preparar una liquidación:
   soportar el escenario sin actividad cuando corresponda, sin equipararlo
   automáticamente a todas las declaraciones de resultado cero.

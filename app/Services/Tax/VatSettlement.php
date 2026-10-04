@@ -63,7 +63,8 @@ class VatSettlement
         $unchanged = ($return->snapshot['fingerprint'] ?? null) === $evidence['fingerprint'];
         $checks = [...$evidence['entry']['checks'], ['code' => 'evidence', 'label' => 'Draft evidence matches current VAT books', 'passed' => $unchanged]];
 
-        return ['ready' => $evidence['entry']['ready'] && $unchanged, 'checks' => $checks];
+        return ['ready' => $evidence['entry']['ready'] && $unchanged, 'checks' => $checks,
+            'comparison' => app(VatDraftComparison::class)->make($return->snapshot['sources'] ?? [], $evidence['sources'])];
     }
 
     private function assertReady(array $preview, string $field): void
@@ -132,6 +133,10 @@ class VatSettlement
             }
             $history = $return->snapshot['review_history'] ?? [];
             $history[] = ['action' => $refresh ? 'refreshed' : 'approved', 'user_id' => $userId, 'reason' => $reason, 'at' => now()->toISOString(), 'fingerprint' => $evidence['fingerprint']];
+            if ($refresh) {
+                $history[array_key_last($history)]['previous_fingerprint'] = $return->snapshot['fingerprint'] ?? null;
+                $history[array_key_last($history)]['comparison'] = app(VatDraftComparison::class)->make($return->snapshot['sources'] ?? [], $evidence['sources']);
+            }
             $return->update(['status' => $refresh ? 'draft' : 'approved',
                 'output_vat' => $data['summary']['outputVat'], 'input_vat' => $data['summary']['deductibleVat'],
                 'result_option' => $data['summary']['result'] > 0 ? 'payable' : ($data['summary']['result'] < 0 ? 'compensate' : 'none'),

@@ -74,6 +74,39 @@ type SettlementPreview = {
         details?: string[];
     }[];
 };
+type DraftDocument = {
+    number: string;
+    party: string;
+    tax_id: string | null;
+    date: string;
+    base: number;
+    vat: number;
+    deductible_vat: number;
+    breakdown: {
+        rate: number;
+        base: number;
+        vat: number;
+        deductible_vat: number | null;
+    }[];
+};
+type DraftComparison = {
+    totals: Record<
+        string,
+        { before: number; after: number; difference: number }
+    >;
+    counts: { added: number; removed: number; modified: number };
+    documents: {
+        key: string;
+        kind: string;
+        before: DraftDocument | null;
+        after: DraftDocument | null;
+    }[];
+    accounting_changed: boolean;
+    truncated: boolean;
+};
+type SettlementReadiness = Pick<SettlementPreview, 'ready' | 'checks'> & {
+    comparison: DraftComparison;
+};
 type TaxReturn = {
     id: number;
     status: string;
@@ -101,6 +134,7 @@ type TaxReturn = {
             user_id: number;
             reason: string;
             at: string;
+            comparison?: DraftComparison;
         }[];
     };
 };
@@ -135,7 +169,7 @@ export default function TaxIndex({
     accountingCheck: Check;
     taxReturn: TaxReturn | null;
     settlementPreview: SettlementPreview | null;
-    settlementReadiness: Pick<SettlementPreview, 'ready' | 'checks'> | null;
+    settlementReadiness: SettlementReadiness | null;
 }) {
     const tab = initialSection;
     const { locale } = useLocale();
@@ -302,7 +336,7 @@ function ReturnStatus({
     canManageTax: boolean;
     canPrepare: boolean;
     preview: SettlementPreview | null;
-    readiness: Pick<SettlementPreview, 'ready' | 'checks'> | null;
+    readiness: SettlementReadiness | null;
 }) {
     const { locale } = useLocale();
 
@@ -438,6 +472,9 @@ function ReturnStatus({
                     )}
                 </p>
                 <SettlementChecks checks={readiness?.checks ?? []} />
+                {readiness && (
+                    <DraftChanges comparison={readiness.comparison} />
+                )}
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                         <thead>
@@ -555,6 +592,17 @@ function ReturnStatus({
                         · {new Date(event.at).toLocaleString(locale)} ·{' '}
                         {translate('User', locale)} #{event.user_id} ·{' '}
                         {event.reason}
+                        {event.comparison && (
+                            <>
+                                {' '}
+                                · {translate('Documents added', locale)}:{' '}
+                                {event.comparison.counts.added} ·{' '}
+                                {translate('Documents removed', locale)}:{' '}
+                                {event.comparison.counts.removed} ·{' '}
+                                {translate('Documents modified', locale)}:{' '}
+                                {event.comparison.counts.modified}
+                            </>
+                        )}
                     </p>
                 ))}
             </section>
@@ -638,6 +686,136 @@ function SettlementChecks({ checks }: { checks: SettlementPreview['checks'] }) {
                 </div>
             ))}
         </div>
+    );
+}
+
+function DraftChanges({ comparison }: { comparison: DraftComparison }) {
+    const { locale } = useLocale();
+    const labels: Record<string, string> = {
+        outputVat: 'Output VAT',
+        supportedVat: 'Supported VAT',
+        deductibleVat: 'Deductible VAT',
+        nonDeductibleVat: 'Non-deductible VAT',
+        result: 'Result',
+    };
+    const document = (value: DraftDocument | null) =>
+        value ? (
+            <div className="space-y-1">
+                <p>
+                    {value.number} · {value.party}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                    {value.date} · {value.tax_id || '—'}
+                </p>
+                <p>
+                    {translate('Taxable base', locale)}: {money(value.base)} ·{' '}
+                    {translate('VAT', locale)}: {money(value.vat)}
+                </p>
+                <p>
+                    {translate('Deductible VAT', locale)}:{' '}
+                    {money(value.deductible_vat)}
+                </p>
+                {value.breakdown.map((row, index) => (
+                    <p key={index} className="text-xs text-muted-foreground">
+                        {row.rate}% · {translate('Taxable base', locale)}:{' '}
+                        {money(row.base)} · {translate('VAT', locale)}:{' '}
+                        {money(row.vat)}
+                    </p>
+                ))}
+            </div>
+        ) : (
+            '—'
+        );
+
+    return (
+        <details className="rounded border p-3">
+            <summary className="cursor-pointer text-sm font-medium">
+                {translate('Compare draft with current books', locale)}
+            </summary>
+            <p className="my-3 text-sm">
+                {translate('Documents added', locale)}:{' '}
+                {comparison.counts.added} ·{' '}
+                {translate('Documents removed', locale)}:{' '}
+                {comparison.counts.removed} ·{' '}
+                {translate('Documents modified', locale)}:{' '}
+                {comparison.counts.modified}
+            </p>
+            {comparison.accounting_changed && (
+                <p className="mb-3 text-sm">
+                    {translate(
+                        'Accounting movements have changed since this draft.',
+                        locale,
+                    )}
+                </p>
+            )}
+            <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                    <thead>
+                        <tr>
+                            <th className="text-left">
+                                {translate('Amount', locale)}
+                            </th>
+                            <th className="text-right">
+                                {translate('Draft amount', locale)}
+                            </th>
+                            <th className="text-right">
+                                {translate('Current amount', locale)}
+                            </th>
+                            <th className="text-right">
+                                {translate('Difference', locale)}
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {Object.entries(comparison.totals).map(
+                            ([key, value]) => (
+                                <tr key={key}>
+                                    <td>
+                                        {translate(labels[key] ?? key, locale)}
+                                    </td>
+                                    <td className="text-right">
+                                        {money(value.before)}
+                                    </td>
+                                    <td className="text-right">
+                                        {money(value.after)}
+                                    </td>
+                                    <td className="text-right">
+                                        {money(value.difference)}
+                                    </td>
+                                </tr>
+                            ),
+                        )}
+                    </tbody>
+                </table>
+            </div>
+            {comparison.documents.map((change) => (
+                <div
+                    key={change.key}
+                    className="mt-3 grid gap-3 border-t pt-3 text-sm sm:grid-cols-2"
+                >
+                    <div>
+                        <p className="mb-1 font-medium">
+                            {translate('Draft evidence', locale)}
+                        </p>
+                        {document(change.before)}
+                    </div>
+                    <div>
+                        <p className="mb-1 font-medium">
+                            {translate('Current evidence', locale)}
+                        </p>
+                        {document(change.after)}
+                    </div>
+                </div>
+            ))}
+            {comparison.truncated && (
+                <p className="mt-3 text-sm text-muted-foreground">
+                    {translate(
+                        'Showing the first 50 changed documents. Counts include all changes.',
+                        locale,
+                    )}
+                </p>
+            )}
+        </details>
     );
 }
 

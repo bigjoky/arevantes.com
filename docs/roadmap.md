@@ -46,6 +46,24 @@ No hay envío AEAT ni pagos automáticos habilitados por este roadmap.
 
 ## Registro de entregas y detalle conservado
 
+### 04/10/2026 — Comparación documental del borrador de IVA (FIN-02.B)
+
+- En develop: comparar la evidencia del borrador con los libros actuales antes
+  de actualizarlo. Recuenta documentos añadidos, retirados y modificados, sin
+  compensar cambios entre documentos ni confundir el orden de filas con cambios.
+- Muestra identidad, fecha, bases, cuotas y desglose por tipo; compara IVA
+  devengado, soportado, deducible/no deducible y resultado. Cambios contables se
+  señalan aparte. Vista acotada a 50 documentos, con recuentos completos.
+- Actualizar guarda la huella anterior y el resumen de diferencias en el
+  historial; la auditoría del expediente conserva el snapshot anterior. La
+  aprobación previa sigue invalidada y debe revisarse otra vez.
+- Alcance contable, sin presentación AEAT ni cambios automáticos de documentos.
+  Regresión: 667 correctas, 1 omitida y 10.214 aserciones; 8 específicas de
+  comparación/flujo. Persistencia e historial comprobados en PostgreSQL aislado
+  (5 pruebas, 59 aserciones); la base temporal se eliminó al terminar.
+  Tipos, lint, catálogo ES/EN y compilación correctos. Pendiente publicación
+  con el flujo revisable de liquidación.
+
 ### 04/10/2026 — Controles previos visibles de liquidación (FIN-02.B)
 
 - En develop: lista de comprobaciones actuales para borrador y vista previa:
