@@ -1,4 +1,116 @@
 {
+    "Evidence review reason": {
+        "en": "Evidence review reason",
+        "es": "Motivo de revisión de la evidencia"
+    },
+    "Historical documentary evidence review": {
+        "en": "Historical documentary evidence review",
+        "es": "Revisión histórica de evidencia documental"
+    },
+    "This action only attaches calculation evidence. It does not change totals, payments, tax lines or accounting entries.": {
+        "en": "This action only attaches calculation evidence. It does not change totals, payments, tax lines or accounting entries.",
+        "es": "Esta acción solo adjunta evidencia del cálculo. No cambia totales, pagos, líneas fiscales ni asientos contables."
+    },
+    "Attach matching evidence": {
+        "en": "Attach matching evidence",
+        "es": "Adjuntar evidencia coincidente"
+    },
+    "with_payments": { "en": "with_payments", "es": "with_payments" },
+    "without_payments": { "en": "without_payments", "es": "without_payments" },
+    "Historical expense filters": {
+        "en": "Historical expense filters",
+        "es": "Filtros de gastos históricos"
+    },
+    "With registered payments": {
+        "en": "With registered payments",
+        "es": "Con pagos registrados"
+    },
+    "Without registered payments": {
+        "en": "Without registered payments",
+        "es": "Sin pagos registrados"
+    },
+    "View read-only comparison": {
+        "en": "View read-only comparison",
+        "es": "Ver comparación de solo lectura"
+    },
+    "This comparison does not authorize changes to the protected expense.": {
+        "en": "This comparison does not authorize changes to the protected expense.",
+        "es": "Esta comparación no autoriza cambios en el gasto protegido."
+    },
+    "A documentary comparison is not available for this fiscal configuration.": {
+        "en": "A documentary comparison is not available for this fiscal configuration.",
+        "es": "No hay una comparación documental disponible para esta configuración fiscal."
+    },
+    "Historical documentary calculation review": {
+        "en": "Historical documentary calculation review",
+        "es": "Revisión histórica del cálculo documental"
+    },
+    "Review historical calculations": {
+        "en": "Review historical calculations",
+        "es": "Revisar cálculos históricos"
+    },
+    "Historical documentary review": {
+        "en": "Historical documentary review",
+        "es": "Revisión documental histórica"
+    },
+    "Review compatible expenses one by one. Saving still requires a fresh preview, a reason and all accounting protections.": {
+        "en": "Review compatible expenses one by one. Saving still requires a fresh preview, a reason and all accounting protections.",
+        "es": "Revisa los gastos compatibles uno a uno. Guardar sigue exigiendo una vista previa actual, un motivo y todas las protecciones contables."
+    },
+    "Back to expenses": { "en": "Back to expenses", "es": "Volver a gastos" },
+    "Historical expenses awaiting review": {
+        "en": "Historical expenses awaiting review",
+        "es": "Gastos históricos pendientes de revisión"
+    },
+    "Ready for review": {
+        "en": "Ready for review",
+        "es": "Listo para revisar"
+    },
+    "Protected": { "en": "Protected", "es": "Protegido" },
+    "This expense has registered payments.": {
+        "en": "This expense has registered payments.",
+        "es": "Este gasto tiene pagos registrados."
+    },
+    "Only EUR expenses are supported.": {
+        "en": "Only EUR expenses are supported.",
+        "es": "Solo se admiten gastos en EUR."
+    },
+    "This tax regime is not supported yet.": {
+        "en": "This tax regime is not supported yet.",
+        "es": "Este régimen fiscal todavía no está admitido."
+    },
+    "Withholdings are not supported yet.": {
+        "en": "Withholdings are not supported yet.",
+        "es": "Las retenciones todavía no están admitidas."
+    },
+    "A bounded VAT tax breakdown is required.": {
+        "en": "A bounded VAT tax breakdown is required.",
+        "es": "Se necesita un desglose de IVA de entre 1 y 20 líneas."
+    },
+    "Equivalence surcharges are not supported yet.": {
+        "en": "Equivalence surcharges are not supported yet.",
+        "es": "El recargo de equivalencia todavía no está admitido."
+    },
+    "The fiscal year is not open.": {
+        "en": "The fiscal year is not open.",
+        "es": "El ejercicio fiscal no está abierto."
+    },
+    "The accounting period is closed.": {
+        "en": "The accounting period is closed.",
+        "es": "El periodo contable está cerrado."
+    },
+    "The document can be reviewed without changing it automatically.": {
+        "en": "The document can be reviewed without changing it automatically.",
+        "es": "El documento puede revisarse sin modificarlo automáticamente."
+    },
+    "Review calculation": {
+        "en": "Review calculation",
+        "es": "Revisar cálculo"
+    },
+    "There are no historical expenses awaiting review.": {
+        "en": "There are no historical expenses awaiting review.",
+        "es": "No hay gastos históricos pendientes de revisión."
+    },
     "Use grouped documentary calculation": {
         "en": "Use grouped documentary calculation",
         "es": "Usar cálculo documental agrupado"

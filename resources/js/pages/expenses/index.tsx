@@ -79,6 +79,7 @@ export default function ExpensesIndex({
     suppliers,
     installations,
     summary,
+    canUseGroupedCalculation,
 }: {
     expenses: Expense[];
     supplierInvoices: Invoice[];
@@ -90,6 +91,7 @@ export default function ExpensesIndex({
         paidThisMonth: number;
         expensesThisMonth: number;
     };
+    canUseGroupedCalculation: boolean;
 }) {
     const { locale } = useLocale();
     const [tab, setTab] = useState<'expenses' | 'payables'>('expenses');
@@ -114,12 +116,24 @@ export default function ExpensesIndex({
                         </p>
                     </div>
                     {tab === 'expenses' && (
-                        <ExpenseDialog
-                            categories={categories}
-                            suppliers={suppliers}
-                            installations={installations}
-                            initialOpen={quickCreate}
-                        />
+                        <div className="flex flex-wrap gap-2">
+                            {canUseGroupedCalculation ? (
+                                <Button asChild variant="outline">
+                                    <Link href="/expenses/documentary-review">
+                                        {translate(
+                                            'Review historical calculations',
+                                            locale,
+                                        )}
+                                    </Link>
+                                </Button>
+                            ) : null}
+                            <ExpenseDialog
+                                categories={categories}
+                                suppliers={suppliers}
+                                installations={installations}
+                                initialOpen={quickCreate}
+                            />
+                        </div>
                     )}
                 </header>
                 <section className="grid grid-cols-3 border-y">

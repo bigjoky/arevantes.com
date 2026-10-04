@@ -43,6 +43,36 @@ No hay envío AEAT ni pagos automáticos habilitados por este roadmap.
 
 ## Registro de entregas y detalle conservado
 
+### 04/10/2026 — Revisión asistida de gastos históricos (FIN-02.A/B)
+
+- Nueva cola administrativa paginada desde Gastos para documentos aún no
+  versionados. Clasifica cada gasto sin modificarlo y explica bloqueos por pagos,
+  moneda, régimen, retención, desglose, ejercicio, periodo o declaración protegida.
+- Los compatibles abren la edición con el cálculo documental seleccionado y un
+  motivo inicial. Siguen siendo obligatorios la vista previa reciente, el motivo
+  de corrección, el control de revisión y todas las comprobaciones contables.
+- No existe migración masiva ni escritura al visitar la cola. Los gastos pagados,
+  con pagos parciales, periodos cerrados o declaraciones preparadas/presentadas no
+  ofrecen edición; solo evidencia sin impacto cuando la coincidencia es exacta.
+  Acceso exclusivo de administrador con permisos financieros.
+- Consulta acotada a 50 registros y apoyada por índice parcial de documentos sin
+  evidencia, evitando penalizar los ya revisados. Sin recalcular históricos.
+- Filtros en servidor para todos, con pagos y sin pagos. Los documentos
+  compatibles muestran en solo lectura base, IVA matemático, IVA documental,
+  ajuste, total, pagos y saldo. La comparación de un gasto protegido nunca
+  habilita edición ni escritura.
+- Cierre del ciclo histórico: un administrador puede adjuntar evidencia a un
+  gasto protegido solo si subtotal, IVA, total y cada línea fiscal coinciden
+  exactamente con el cálculo reproducible. La operación bloquea el registro,
+  comprueba revisión optimista, conserva motivo y autor en auditoría y no cambia
+  pagos, importes, líneas fiscales ni asientos. Diferencias e incompatibilidades
+  continúan bloqueadas para corrección contable expresa.
+- Bloque documental/correcciones verificado en PostgreSQL aislado: 21 pruebas y
+  170 aserciones; la base temporal se eliminó al terminar. Regresión completa:
+  658 correctas, 1 omitida y 10.128 aserciones; compilación, tipos, lint, formato
+  y catálogo ES/EN correctos.
+
+
 ### 29/09/2026 — Vista previa documental de gastos (FIN-02.A/B)
 
 - Panel común ES/EN en alta y edición: base, IVA calculado, cuota documental,
