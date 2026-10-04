@@ -6,10 +6,11 @@ Esta sección es el punto de entrada y prevalece sobre los estados de las notas
 históricas inferiores. No se eliminan tareas anteriores ni se crean planes
 paralelos. Cada entrega actualiza esta cola, su evidencia y el siguiente paso.
 
-**Producción:** `v2026.09.28.3` (PR #128): edición unificada de gastos pendiente de
-pago, historial y ajustes contables; retirado el formulario separado del proveedor.
-También publicados: anulación trazable de pagos, líneas libres de compras,
-adjuntos de gastos, logo y correcciones de conciliación/importación bancaria.
+**Producción:** `v2026.09.29.1` (PR #129, deployment
+`depl-a2dcbed9-7d75-4753-bc80-ab0eb78890a2`): cálculo documental agrupado de
+gastos activo para administradores, con vista previa, evidencia versionada y
+migración aditiva. También publicados: edición unificada de gastos, anulación
+trazable de pagos, líneas libres de compras, adjuntos, logo y banca.
 Comprobación visual autenticada de Safari aún pendiente: las pruebas automatizadas
 y comprobaciones remotas no sustituyen esa validación.
 
@@ -18,7 +19,7 @@ y comprobaciones remotas no sustituyen esa validación.
 | 1 | FIN-01, integridad | Abierto; mejoras operativas publicadas | Completar ensayos de concurrencia con conexiones independientes y revisión de todos los accesos de emisión; no dar el bloque por cerrado |
 | 2 | FIN-02.B, libros y conciliación | Implementado en develop; pendiente publicación | Subcuentas por jerarquía/mapeo, movimientos contabilizados y liquidación de las cuentas reales; completar puertas de publicación |
 | 3 | FIN-02.B, cuotas de los libros | Implementado en develop; pendiente publicación | IVA soportado/deducible/no deducible separado en libro, resumen y CSV; verificar compatibilidad de liquidación |
-| 4 | FIN-02.A/B, cálculo y normalización | Adaptador, persistencia y vista previa de gastos implementados con activación deshabilitada | Validación visual autenticada y activación controlada; compras, regímenes adicionales, portes, fechas registrales y preparación sin asientos implícitos |
+| 4 | FIN-02.A/B, cálculo y normalización | Cálculo documental de gastos publicado y activo para administradores | Validación visual autenticada; compras, regímenes adicionales, portes, fechas registrales y preparación sin asientos implícitos |
 | 5 | FIN-02.C, identidad y perfil | Directorio parcial solo en develop | Completar direcciones/snapshot e integración, revisión de duplicados y validación censal con asesoría |
 | 6 | FIN-03.303 | Planificado | Casillas, compensaciones y expediente trazable; objetivo interno 30/10 |
 | 7 | FIN-04 y FIN-05.390 | Planificados | VERI*FACTU en pruebas y resumen anual/exoneración 390; objetivos internos 13/11 |
@@ -45,11 +46,11 @@ No hay envío AEAT ni pagos automáticos habilitados por este roadmap.
 
 ### 29/09/2026 — Vista previa documental de gastos (FIN-02.A/B)
 
-Activación local posterior, solicitada por el usuario: habilitada en el `.env`
-de develop (`http://localhost:8000`), aplicando únicamente la migración de los
-dos campos de evidencia. Configuración y columnas verificadas; `/up` responde
-200. No se han recalculado gastos. Producción y el valor por defecto siguen
-desactivados; la comprobación visual autenticada continúa pendiente.
+Activación local y posterior publicación en producción solicitadas por el
+usuario. Producción `v2026.09.29.1`, PR #129, commit `ea6f8f9c`, deployment
+`depl-a2dcbed9-7d75-4753-bc80-ab0eb78890a2` correcto y activo. Configuración,
+columnas, migración y ruta comprobadas remotamente; `/up` y `/login` responden
+200. No se han recalculado históricos. Pendiente comprobación visual autenticada.
 
 - Panel común ES/EN en alta y edición: base, IVA calculado, cuota documental,
   diferencia de redondeo, total e IVA deducible. Motivo del ajuste conservado.
