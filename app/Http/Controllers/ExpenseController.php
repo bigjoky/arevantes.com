@@ -74,8 +74,9 @@ class ExpenseController extends Controller
     public function documentaryReview(Request $request, ExpenseDocumentaryReview $review): Response
     {
         abort_unless(config('fiscal.grouped_expense_calculation') && $request->user()->hasRole('admin'), 403);
+        $filter = $request->validate(['filter' => ['nullable', Rule::in(['all', 'with_payments', 'without_payments'])]])['filter'] ?? 'all';
 
-        return Inertia::render('expenses/documentary-review', ['review' => $review->page()]);
+        return Inertia::render('expenses/documentary-review', ['review' => $review->page($filter), 'filter' => $filter]);
     }
 
     public function store(Request $request, AccountingSynchronizer $accounting, DocumentNumber $numbers): RedirectResponse

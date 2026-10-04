@@ -1,4 +1,30 @@
 {
+    "with_payments": { "en": "with_payments", "es": "with_payments" },
+    "without_payments": { "en": "without_payments", "es": "without_payments" },
+    "Historical expense filters": {
+        "en": "Historical expense filters",
+        "es": "Filtros de gastos históricos"
+    },
+    "With registered payments": {
+        "en": "With registered payments",
+        "es": "Con pagos registrados"
+    },
+    "Without registered payments": {
+        "en": "Without registered payments",
+        "es": "Sin pagos registrados"
+    },
+    "View read-only comparison": {
+        "en": "View read-only comparison",
+        "es": "Ver comparación de solo lectura"
+    },
+    "This comparison does not authorize changes to the protected expense.": {
+        "en": "This comparison does not authorize changes to the protected expense.",
+        "es": "Esta comparación no autoriza cambios en el gasto protegido."
+    },
+    "A documentary comparison is not available for this fiscal configuration.": {
+        "en": "A documentary comparison is not available for this fiscal configuration.",
+        "es": "No hay una comparación documental disponible para esta configuración fiscal."
+    },
     "Historical documentary calculation review": {
         "en": "Historical documentary calculation review",
         "es": "Revisión histórica del cálculo documental"

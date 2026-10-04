@@ -1,4 +1,10 @@
 {
+    "Historical expense filters": "Filtros de gastos históricos",
+    "With registered payments": "Con pagos registrados",
+    "Without registered payments": "Sin pagos registrados",
+    "View read-only comparison": "Ver comparación de solo lectura",
+    "This comparison does not authorize changes to the protected expense.": "Esta comparación no autoriza cambios en el gasto protegido.",
+    "A documentary comparison is not available for this fiscal configuration.": "No hay una comparación documental disponible para esta configuración fiscal.",
     "Historical documentary calculation review": "Revisión histórica del cálculo documental",
     "Review historical calculations": "Revisar cálculos históricos",
     "Historical documentary review": "Revisión documental histórica",
