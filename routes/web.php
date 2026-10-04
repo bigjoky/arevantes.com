@@ -405,6 +405,8 @@ Route::middleware(['auth'])->group(function () {
     Route::post('banking/postings/{posting}/reverse', [BankingController::class, 'reversePosting'])->middleware('can:manage-accounting')->name('banking.postings.reverse');
     Route::post('banking/transfers/{transfer}/reverse', [BankingController::class, 'reverseTransfer'])->middleware('can:manage-treasury')->name('banking.transfers.reverse');
     Route::get('company-fiscal', [FiscalSettingsController::class, 'index'])->middleware('can:manage-tax')->name('fiscal-settings.index');
+    Route::get('company-fiscal/census', [\App\Http\Controllers\CompanyCensusController::class, 'index'])->middleware('can:manage-tax')->name('company-census.index');
+    Route::post('company-fiscal/census', [\App\Http\Controllers\CompanyCensusController::class, 'store'])->middleware('can:manage-tax')->name('company-census.store');
     Route::post('company-fiscal/company', [FiscalSettingsController::class, 'updateCompany'])->middleware('can:manage-tax')->name('fiscal-settings.company.update');
     Route::get('company-fiscal/logo', [FiscalSettingsController::class, 'logo'])->middleware('can:manage-tax')->name('fiscal-settings.logo');
     Route::post('company-fiscal/years', [FiscalSettingsController::class, 'storeYear'])->middleware('can:manage-tax')->name('fiscal-settings.years.store');

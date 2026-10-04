@@ -1,4 +1,4 @@
-import { Form, Head, usePage } from '@inertiajs/react';
+import { Form, Head, Link, usePage } from '@inertiajs/react';
 import {
     Building2,
     CalendarPlus,
@@ -23,6 +23,8 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useLocale } from '@/hooks/use-locale';
+import { translate } from '@/i18n';
 type Company = {
     id: number;
     legal_name: string;
@@ -69,6 +71,8 @@ export default function FiscalSettings({
     company: Company;
     fiscalYears: FiscalYear[];
 }) {
+    const { locale } = useLocale();
+
     return (
         <>
             <Head title="Company & fiscal settings" />
@@ -78,6 +82,11 @@ export default function FiscalSettings({
                     description="Legal identity, payment details, fiscal years and document numbering."
                 />
                 <section>
+                    <Button variant="outline" asChild className="mb-4">
+                        <Link href="/company-fiscal/census">
+                            {translate('Company census profile', locale)}
+                        </Link>
+                    </Button>
                     <div className="mb-4 flex items-center gap-2">
                         <Building2 className="size-4" />
                         <h2 className="font-semibold">Company details</h2>

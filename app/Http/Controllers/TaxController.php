@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\CompanyProfile;
 use App\Models\Expense;
 use App\Models\SalesDocument;
 use App\Models\TaxReturn;
 use App\Models\TaxReturnPayment;
 use App\Services\Accounting\JournalPoster;
+use App\Services\Tax\CompanyCensus;
 use App\Services\Tax\ExpenseFiscalReview;
 use App\Services\Tax\Model303Preview;
 use App\Services\Tax\VatReport;
@@ -39,7 +41,8 @@ class TaxController extends Controller
                 'current' => $review->isCurrent($expense), 'operation_class' => $expense->fiscalClassification?->operation_class,
             ]])->all();
 
-        return Inertia::render('tax/model303', ['preview' => $preview->make($books, $documents, $classifications)]);
+        return Inertia::render('tax/model303', ['preview' => $preview->make($books, $documents, $classifications),
+            'census' => app(CompanyCensus::class)->check(CompanyProfile::firstOrFail(), $year)]);
     }
 
     public function index(Request $request, VatReport $report, VatSettlement $settlement): Response

@@ -2,6 +2,25 @@
 
 ## Estado vigente y orden de ejecución — 05/10/2026
 
+**Incremento FIN-02.C/FIN-03.303, perfil censal (05/10):** configuración anual
+en `/company-fiscal/census`, accesible desde Configuración fiscal y Modelo 303.
+Obligación 303, régimen, periodicidad, administración, criterio de caja propio
+y recibido, prorrata, REDEME y SII con «pendiente» explícito. Versiones nuevas
+en cada guardado, autor, motivo, referencia censal y snapshot de identidad;
+sin sobrescribir historial ni autoasignar obligaciones. Revisar exige datos
+completos, referencia y confirmación para todo el año. No consulta el censo AEAT.
+Cambio de identidad o un borrador posterior invalidan el estado revisado.
+Ejercicio cerrado o IVA preparado/presentado impiden nuevas versiones. El 303
+muestra vigencia y alcance (general trimestral, territorio común, sin caja,
+prorrata, REDEME/SII) pero sigue no presentable. Regímenes adicionales y cambios
+censales dentro del ejercicio requieren tratamiento por periodos, no anual.
+Verificado: 690 pruebas generales superadas, 5 omitidas y 10.458 aserciones;
+22 pruebas específicas en PostgreSQL con 226 aserciones. Migración reversible
+y aplicada en localhost; base aislada eliminada. TypeScript, lint y ES/EN
+correctos. Pendiente producción; no se ha configurado ni revisado ningún perfil
+real automáticamente. Próximo corte: compras, fechas registrales/deducción y
+clasificación de operaciones adicionales del 303.
+
 **Incremento FIN-03.303, clasificación de gastos (05/10):** formulario específico
 desde los documentos del Modelo 303 en develop. Selección interior corriente /
 bienes de inversión / pendiente, con confirmación explícita de territorio IVA,
@@ -50,7 +69,7 @@ y comprobaciones remotas no sustituyen esa validación.
 | 2 | FIN-02.B, libros y conciliación | Implementado en develop; incluye borrador, aprobación y contabilización separados; pendiente publicación | Subcuentas, libros y liquidación revisable; completar pruebas de concurrencia independientes y puertas de publicación |
 | 3 | FIN-02.B, cuotas de los libros | Implementado en develop; pendiente publicación | IVA soportado/deducible/no deducible separado en libro, resumen y CSV; verificar compatibilidad de liquidación |
 | 4 | FIN-02.A/B, cálculo y normalización | Cálculo documental y revisión histórica publicados y activos para administradores | Validación visual autenticada; compras, regímenes adicionales, portes, fechas registrales y preparación sin asientos implícitos |
-| 5 | FIN-02.C, identidad y perfil | Directorio parcial solo en develop | Completar direcciones/snapshot e integración, revisión de duplicados y validación censal con asesoría |
+| 5 | FIN-02.C, identidad y perfil | Directorio parcial y perfil censal anual versionado en develop | Completar direcciones/snapshot e integración, duplicados, cambios censales por periodo y validación con asesoría |
 | 6 | FIN-03.303 | Proyección preliminar y clasificación auditada de gastos en develop; no presentable | Clasificar compras y casos adicionales, perfil censal, fechas registrales/deducción, compensaciones y expediente trazable; objetivo interno 30/10 |
 | 7 | FIN-04 y FIN-05.390 | Planificados | VERI*FACTU en pruebas y resumen anual/exoneración 390; objetivos internos 13/11 |
 | 8 | FIN-05.347 y otros modelos aplicables | Planificados | Terceros, exclusiones y trimestres; objetivo interno 27/11; conservar 111/115, 190/180, 349 y 200/202 |

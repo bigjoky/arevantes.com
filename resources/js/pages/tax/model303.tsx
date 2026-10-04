@@ -60,7 +60,18 @@ const deductionLabels: Record<string, string> = {
 
 const isExpense = (row: Evidence) => row.source_type === 'expense';
 
-export default function Model303({ preview }: { preview: Preview }) {
+export default function Model303({
+    preview,
+    census,
+}: {
+    preview: Preview;
+    census: {
+        current: boolean;
+        supported: boolean;
+        author: string | null;
+        version_id: number | null;
+    };
+}) {
     const { locale } = useLocale();
     const t = (key: string) => translate(key, locale);
     const amount = (value: number | null) =>
@@ -161,6 +172,41 @@ export default function Model303({ preview }: { preview: Preview }) {
                         )}
                     </p>
                     <p className="mt-2 font-mono">{preview.version}</p>
+                </section>
+                <section className="rounded-lg border p-4 text-sm">
+                    <h2 className="font-semibold">
+                        {t('Company census profile')}
+                    </h2>
+                    <p>
+                        {census.current
+                            ? t('Census profile reviewed and current.')
+                            : t(
+                                  'Census profile unreviewed or company identity changed.',
+                              )}
+                    </p>
+                    <p>
+                        {census.supported
+                            ? t(
+                                  'Profile within the current quarterly general-regime scope.',
+                              )
+                            : t(
+                                  'Profile not yet within the supported model scope.',
+                              )}
+                    </p>
+                    <p>
+                        {census.author ?? '—'} · {census.version_id ?? '—'}
+                    </p>
+                    <Link
+                        className="mt-2 inline-block underline"
+                        href={`/company-fiscal/census?year=${preview.period.year}`}
+                    >
+                        {t('Review census profile')}
+                    </Link>
+                    <p className="mt-2 text-muted-foreground">
+                        {t(
+                            'Even with a reviewed profile, this projection is not ready for filing: operation classification, deduction periods and carried-forward credits remain incomplete.',
+                        )}
+                    </p>
                 </section>
                 <section className="grid gap-3">
                     <h2 className="font-semibold">

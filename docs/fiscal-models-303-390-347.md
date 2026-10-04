@@ -9,6 +9,16 @@ y su asesoría. Ninguna publicación habilita envíos o pagos reales automática
 
 ## Objetivo y secuencia
 
+Perfil censal inicial (05/10): `/company-fiscal/census`, anual, sin valores
+afirmativos por defecto. Guarda borradores y versiones revisadas con referencia,
+autor, motivo y snapshot de identidad. Revisión humana, no consulta ni alta AEAT.
+El 303 separa perfil vigente de alcance técnico admitido. La identidad fiscal
+modificada o un borrador más reciente dejan el perfil sin revisión vigente.
+Guardar no modifica libros, liquidaciones, pagos ni declaraciones. No se deduce
+automáticamente obligación/exoneración del 390 o del 347. Cambios dentro del año,
+situaciones adicionales de identificación oficial y regímenes fuera del alcance
+requieren ampliar el perfil por periodos antes de habilitar presentación.
+
 Segundo incremento 05/10: clasificación fiscal persistida de gastos en
 `/tax/expenses/{expense}/classification`, enlazada desde documentos del 303.
 Solo administradores; corriente / inversión / pendiente, autor, motivo y
