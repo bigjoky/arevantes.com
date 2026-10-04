@@ -81,6 +81,18 @@ class ExpenseController extends Controller
         return Inertia::render('expenses/documentary-review', ['review' => $review->page($filter), 'filter' => $filter]);
     }
 
+    public function adoptDocumentaryEvidence(Request $request, Expense $expense, ExpenseDocumentaryReview $review): RedirectResponse
+    {
+        abort_unless(config('fiscal.grouped_expense_calculation') && $request->user()->hasRole('admin'), 403);
+        $request->validate([
+            'revision' => ['required', 'string', 'size:64'],
+            'documentary_evidence_reason' => ['required', 'string', 'min:5', 'max:2000'],
+        ]);
+        $review->adoptEvidence($expense, $request);
+
+        return back()->with('toast', ['type' => 'success', 'message' => __('Documentary calculation evidence attached without changing financial amounts.')]);
+    }
+
     public function store(Request $request, AccountingSynchronizer $accounting, DocumentNumber $numbers): RedirectResponse
     {
         return $this->saveExpense($request, $accounting, $numbers);

@@ -1,6 +1,7 @@
-import { Head, Link } from '@inertiajs/react';
+import { Form, Head, Link } from '@inertiajs/react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { useLocale } from '@/hooks/use-locale';
 import { translate } from '@/i18n';
 
@@ -14,6 +15,8 @@ type ReviewRow = {
     status: string;
     eligible: boolean;
     reasons: string[];
+    can_adopt_evidence: boolean;
+    revision: string;
     comparison: {
         subtotal: string;
         calculated_tax: string;
@@ -188,6 +191,55 @@ export default function DocumentaryReview({
                                     )}
                                 </p>
                             )}
+                            {!expense.eligible && expense.can_adopt_evidence ? (
+                                <Form
+                                    action={`/expenses/${expense.id}/documentary-evidence`}
+                                    method="post"
+                                    className="grid gap-2 rounded-md border p-3"
+                                >
+                                    {({ errors, processing }) => (
+                                        <>
+                                            <input
+                                                type="hidden"
+                                                name="revision"
+                                                value={expense.revision}
+                                            />
+                                            <label className="grid gap-1 text-sm">
+                                                {t('Evidence review reason')}
+                                                <Input
+                                                    name="documentary_evidence_reason"
+                                                    required
+                                                    minLength={5}
+                                                    maxLength={2000}
+                                                    defaultValue={t(
+                                                        'Historical documentary evidence review',
+                                                    )}
+                                                />
+                                            </label>
+                                            {errors.documentary_evidence_reason ? (
+                                                <p className="text-sm text-destructive">
+                                                    {
+                                                        errors.documentary_evidence_reason
+                                                    }
+                                                </p>
+                                            ) : null}
+                                            <p className="text-sm text-muted-foreground">
+                                                {t(
+                                                    'This action only attaches calculation evidence. It does not change totals, payments, tax lines or accounting entries.',
+                                                )}
+                                            </p>
+                                            <Button
+                                                type="submit"
+                                                variant="outline"
+                                                disabled={processing}
+                                                className="w-fit"
+                                            >
+                                                {t('Attach matching evidence')}
+                                            </Button>
+                                        </>
+                                    )}
+                                </Form>
+                            ) : null}
                         </div>
                         {expense.eligible ? (
                             <Button asChild className="self-center">

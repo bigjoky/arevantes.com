@@ -3,12 +3,16 @@
 namespace App\Services\Tax;
 
 use App\Models\AccountingPeriod;
+use App\Models\AuditLog;
 use App\Models\Expense;
 use App\Models\FiscalYear;
 use App\Models\TaxReturn;
+use App\Services\Accounting\ExpenseCorrection;
 use Brick\Math\BigDecimal;
 use Carbon\CarbonImmutable;
+use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class ExpenseDocumentaryReview
@@ -65,6 +69,15 @@ class ExpenseDocumentaryReview
                 if ($protectedReturns->contains(fn (TaxReturn $return) => $return->period_from->lte($date) && $return->period_to->gte($date))) {
                     $reasons[] = 'A prepared or filed tax return protects this expense.';
                 }
+                $comparison = $this->comparison($expense);
+                $canAdoptEvidence = $comparison !== null && $this->matchesStoredDocument($expense, $comparison['calculation']);
+                if ($comparison !== null) {
+                    unset($comparison['calculation']);
+                }
+                // Aggregate aliases are presentation data and must not alter the
+                // optimistic revision used by the correction service.
+                $expense->offsetUnset('payments_sum_amount');
+                $revision = ExpenseCorrection::revision($expense);
 
                 return [
                     'id' => $expense->id,
@@ -76,7 +89,9 @@ class ExpenseDocumentaryReview
                     'status' => $expense->status,
                     'eligible' => $reasons === [],
                     'reasons' => $reasons,
-                    'comparison' => $this->comparison($expense),
+                    'comparison' => $comparison,
+                    'can_adopt_evidence' => $canAdoptEvidence,
+                    'revision' => $revision,
                     'edit_url' => route('expenses.edit', ['expense' => $expense, 'documentary_review' => 1]),
                 ];
             });
@@ -84,8 +99,70 @@ class ExpenseDocumentaryReview
 
     private function comparison(Expense $expense): ?array
     {
+        $calculation = $this->calculation($expense);
+        if ($calculation === null) {
+            return null;
+        }
+
+        $result = $calculation['tax_calculation_snapshot']['result'];
+        $calculatedTax = BigDecimal::zero();
+        $adjustment = BigDecimal::zero();
+        foreach ($result['tax_groups'] as $group) {
+            $calculatedTax = $calculatedTax->plus($group['calculated_tax']);
+            $adjustment = $adjustment->plus($group['tax_adjustment']);
+        }
+        $paid = BigDecimal::of((string) ($expense->payments_sum_amount ?? $expense->payments()->sum('amount')))->toScale(2);
+
+        return [
+            'subtotal' => $result['totals']['subtotal'],
+            'calculated_tax' => (string) $calculatedTax->toScale(2),
+            'documentary_tax' => $result['totals']['tax_amount'],
+            'adjustment' => (string) $adjustment->toScale(2),
+            'total' => $result['totals']['total'],
+            'paid' => (string) $paid,
+            'outstanding' => (string) BigDecimal::of($result['totals']['total'])->minus($paid)->toScale(2),
+            'calculation' => $calculation,
+        ];
+    }
+
+    public function adoptEvidence(Expense $expense, Request $request): void
+    {
+        DB::transaction(function () use ($expense, $request): void {
+            $expense = Expense::lockForUpdate()->with('taxLines')->findOrFail($expense->id);
+            if ($expense->tax_calculation_version !== null) {
+                throw ValidationException::withMessages(['documentary_evidence_reason' => __('This expense already has documentary calculation evidence.')]);
+            }
+            if (! hash_equals(ExpenseCorrection::revision($expense), $request->string('revision')->toString())) {
+                throw ValidationException::withMessages(['documentary_evidence_reason' => __('The expense has changed. Reload it before reviewing.')]);
+            }
+            $calculation = $this->calculation($expense, $request->string('documentary_evidence_reason')->toString());
+            if ($calculation === null || ! $this->matchesStoredDocument($expense, $calculation)) {
+                throw ValidationException::withMessages(['documentary_evidence_reason' => __('Evidence can only be attached when every stored amount and tax line matches exactly.')]);
+            }
+            $before = ExpenseCorrection::snapshot($expense);
+            $expense->update([
+                'tax_calculation_version' => $calculation['tax_calculation_version'],
+                'tax_calculation_snapshot' => $calculation['tax_calculation_snapshot'],
+            ]);
+            AuditLog::create([
+                'user_id' => $request->user()->id,
+                'event' => 'expense_documentary_evidence_adopted',
+                'auditable_type' => $expense->getMorphClass(),
+                'auditable_id' => $expense->id,
+                'old_values' => $before,
+                'new_values' => [...ExpenseCorrection::snapshot($expense->fresh()), 'review_reason' => $request->input('documentary_evidence_reason')],
+                'ip_address' => $request->ip(),
+                'user_agent' => $request->userAgent(),
+                'route' => $request->route()?->getName(),
+                'method' => $request->method(),
+            ]);
+        });
+    }
+
+    private function calculation(Expense $expense, string $reason = 'Historical documentary calculation review'): ?array
+    {
         try {
-            $calculation = $this->calculator->calculate([
+            return $this->calculator->calculate([
                 'currency_code' => $expense->currency_code,
                 'tax_regime' => $expense->tax_regime,
                 'withholding_rate' => $expense->withholding_rate,
@@ -99,28 +176,34 @@ class ExpenseDocumentaryReview
                     'deductible_percent' => $line->deductible_percent,
                     'exemption_reason' => $line->exemption_reason,
                 ])->all(),
-            ], 'Historical documentary calculation review');
+            ], $reason);
         } catch (ValidationException) {
             return null;
         }
+    }
 
-        $result = $calculation['tax_calculation_snapshot']['result'];
-        $calculatedTax = BigDecimal::zero();
-        $adjustment = BigDecimal::zero();
-        foreach ($result['tax_groups'] as $group) {
-            $calculatedTax = $calculatedTax->plus($group['calculated_tax']);
-            $adjustment = $adjustment->plus($group['tax_adjustment']);
+    private function matchesStoredDocument(Expense $expense, array $calculation): bool
+    {
+        foreach (['subtotal', 'tax_amount', 'amount'] as $field) {
+            if (! BigDecimal::of((string) $expense->{$field})->isEqualTo($calculation[$field])) {
+                return false;
+            }
         }
-        $paid = BigDecimal::of((string) ($expense->payments_sum_amount ?? '0'))->toScale(2);
+        if ($expense->taxLines->count() !== count($calculation['tax_lines'])) {
+            return false;
+        }
+        foreach ($expense->taxLines->values() as $index => $line) {
+            $calculated = $calculation['tax_lines'][$index];
+            foreach (['taxable_base', 'tax_rate', 'tax_amount', 'deductible_percent', 'deductible_amount'] as $field) {
+                if ($line->{$field} === null || ! BigDecimal::of((string) $line->{$field})->isEqualTo($calculated[$field])) {
+                    return false;
+                }
+            }
+            if ($line->kind !== $calculated['kind'] || ($line->exemption_reason ?? null) !== ($calculated['exemption_reason'] ?? null)) {
+                return false;
+            }
+        }
 
-        return [
-            'subtotal' => $result['totals']['subtotal'],
-            'calculated_tax' => (string) $calculatedTax->toScale(2),
-            'documentary_tax' => $result['totals']['tax_amount'],
-            'adjustment' => (string) $adjustment->toScale(2),
-            'total' => $result['totals']['total'],
-            'paid' => (string) $paid,
-            'outstanding' => (string) BigDecimal::of($result['totals']['total'])->minus($paid)->toScale(2),
-        ];
+        return true;
     }
 }

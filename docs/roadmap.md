@@ -54,19 +54,24 @@ No hay envío AEAT ni pagos automáticos habilitados por este roadmap.
   de corrección, el control de revisión y todas las comprobaciones contables.
 - No existe migración masiva ni escritura al visitar la cola. Los gastos pagados,
   con pagos parciales, periodos cerrados o declaraciones preparadas/presentadas no
-  ofrecen acción. Acceso exclusivo de administrador con permisos financieros.
+  ofrecen edición; solo evidencia sin impacto cuando la coincidencia es exacta.
+  Acceso exclusivo de administrador con permisos financieros.
 - Consulta acotada a 50 registros y apoyada por índice parcial de documentos sin
   evidencia, evitando penalizar los ya revisados. Sin recalcular históricos.
 - Filtros en servidor para todos, con pagos y sin pagos. Los documentos
   compatibles muestran en solo lectura base, IVA matemático, IVA documental,
   ajuste, total, pagos y saldo. La comparación de un gasto protegido nunca
   habilita edición ni escritura.
-- Pruebas del bloque documental/correcciones: 19 correctas y 138 aserciones;
-  compilación, tipos, lint, formato y catálogo ES/EN comprobados. Extensión de
-  filtros/comparación verificada en PostgreSQL aislado: 19 pruebas y 155
-  aserciones; la base temporal se eliminó al terminar. Regresión completa: 656
-  correctas, 1 omitida y 10.113 aserciones; compilación y controles frontend
-  correctos.
+- Cierre del ciclo histórico: un administrador puede adjuntar evidencia a un
+  gasto protegido solo si subtotal, IVA, total y cada línea fiscal coinciden
+  exactamente con el cálculo reproducible. La operación bloquea el registro,
+  comprueba revisión optimista, conserva motivo y autor en auditoría y no cambia
+  pagos, importes, líneas fiscales ni asientos. Diferencias e incompatibilidades
+  continúan bloqueadas para corrección contable expresa.
+- Bloque documental/correcciones verificado en PostgreSQL aislado: 21 pruebas y
+  170 aserciones; la base temporal se eliminó al terminar. Regresión completa:
+  658 correctas, 1 omitida y 10.128 aserciones; compilación, tipos, lint, formato
+  y catálogo ES/EN correctos.
 
 
 ### 29/09/2026 — Vista previa documental de gastos (FIN-02.A/B)

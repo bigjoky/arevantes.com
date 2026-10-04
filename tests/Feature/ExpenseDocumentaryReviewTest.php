@@ -2,10 +2,13 @@
 
 namespace Tests\Feature;
 
+use App\Models\AuditLog;
 use App\Models\Expense;
 use App\Models\ExpenseCategory;
+use App\Models\JournalEntry;
 use App\Models\SupplierPayment;
 use App\Models\User;
+use App\Services\Accounting\ExpenseCorrection;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
@@ -53,10 +56,61 @@ class ExpenseDocumentaryReviewTest extends TestCase
     public function test_review_requires_enabled_feature_and_admin_role(): void
     {
         $admin = User::factory()->create(['role' => 'admin']);
+        $expense = $this->expense('EXP-REVIEW-AUTH');
         config(['fiscal.grouped_expense_calculation' => false]);
         $this->actingAs($admin)->get(route('expenses.documentary-review'))->assertForbidden();
+        $this->post(route('expenses.documentary-evidence.adopt', $expense), [
+            'revision' => ExpenseCorrection::revision($expense), 'documentary_evidence_reason' => 'Historical evidence check',
+        ])->assertForbidden();
         config(['fiscal.grouped_expense_calculation' => true]);
-        $this->actingAs(User::factory()->create(['role' => 'commercial']))
-            ->get(route('expenses.documentary-review'))->assertForbidden();
+        $this->actingAs(User::factory()->create(['role' => 'commercial']));
+        $this->get(route('expenses.documentary-review'))->assertForbidden();
+        $this->post(route('expenses.documentary-evidence.adopt', $expense), [
+            'revision' => ExpenseCorrection::revision($expense), 'documentary_evidence_reason' => 'Historical evidence check',
+        ])->assertForbidden();
+    }
+
+    public function test_admin_can_attach_matching_evidence_to_paid_expense_without_financial_changes(): void
+    {
+        config(['fiscal.grouped_expense_calculation' => true]);
+        $admin = User::factory()->create(['role' => 'admin']);
+        $expense = $this->expense('EXP-PAID-EVIDENCE');
+        SupplierPayment::create(['expense_id' => $expense->id, 'created_by' => $admin->id, 'amount' => 121,
+            'method' => 'cash', 'paid_at' => '2026-09-15']);
+        $expense->update(['status' => 'paid', 'paid_amount' => 121]);
+        $before = $expense->only(['subtotal', 'tax_amount', 'amount', 'paid_amount', 'status']);
+        $entries = JournalEntry::count();
+
+        $this->actingAs($admin)->post(route('expenses.documentary-evidence.adopt', $expense), [
+            'revision' => ExpenseCorrection::revision($expense->fresh()),
+            'documentary_evidence_reason' => 'Reviewed against the original supplier invoice',
+        ])->assertSessionHasNoErrors();
+
+        $expense->refresh();
+        $this->assertSame($before, $expense->only(array_keys($before)));
+        $this->assertSame('supplier-vat-v1', $expense->tax_calculation_version);
+        $this->assertNotNull($expense->tax_calculation_snapshot);
+        $this->assertSame(1, $expense->payments()->count());
+        $this->assertSame($entries, JournalEntry::count());
+        $this->assertSame(1, AuditLog::where('event', 'expense_documentary_evidence_adopted')->count());
+    }
+
+    public function test_evidence_adoption_rejects_stale_or_non_matching_documents(): void
+    {
+        config(['fiscal.grouped_expense_calculation' => true]);
+        $admin = User::factory()->create(['role' => 'admin']);
+        $expense = $this->expense('EXP-MISMATCH-EVIDENCE');
+        $revision = ExpenseCorrection::revision($expense);
+        $expense->update(['amount' => 120]);
+
+        $this->actingAs($admin)->post(route('expenses.documentary-evidence.adopt', $expense), [
+            'revision' => $revision, 'documentary_evidence_reason' => 'Historical evidence check',
+        ])->assertSessionHasErrors('documentary_evidence_reason');
+        $this->assertNull($expense->fresh()->tax_calculation_version);
+
+        $this->post(route('expenses.documentary-evidence.adopt', $expense), [
+            'revision' => ExpenseCorrection::revision($expense), 'documentary_evidence_reason' => 'Historical evidence check',
+        ])->assertSessionHasErrors('documentary_evidence_reason');
+        $this->assertNull($expense->fresh()->tax_calculation_version);
     }
 }

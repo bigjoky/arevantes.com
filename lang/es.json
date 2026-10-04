@@ -1,4 +1,12 @@
 {
+    "This expense already has documentary calculation evidence.": "Este gasto ya tiene evidencia de cálculo documental.",
+    "The expense has changed. Reload it before reviewing.": "El gasto ha cambiado. Vuelve a cargarlo antes de revisarlo.",
+    "Evidence can only be attached when every stored amount and tax line matches exactly.": "La evidencia solo puede adjuntarse cuando todos los importes y líneas fiscales guardados coinciden exactamente.",
+    "Documentary calculation evidence attached without changing financial amounts.": "Evidencia de cálculo documental adjuntada sin cambiar importes financieros.",
+    "Evidence review reason": "Motivo de revisión de la evidencia",
+    "Historical documentary evidence review": "Revisión histórica de evidencia documental",
+    "This action only attaches calculation evidence. It does not change totals, payments, tax lines or accounting entries.": "Esta acción solo adjunta evidencia del cálculo. No cambia totales, pagos, líneas fiscales ni asientos contables.",
+    "Attach matching evidence": "Adjuntar evidencia coincidente",
     "Historical expense filters": "Filtros de gastos históricos",
     "With registered payments": "Con pagos registrados",
     "Without registered payments": "Sin pagos registrados",
