@@ -1,4 +1,20 @@
 {
+    "Evidence review reason": {
+        "en": "Evidence review reason",
+        "es": "Motivo de revisión de la evidencia"
+    },
+    "Historical documentary evidence review": {
+        "en": "Historical documentary evidence review",
+        "es": "Revisión histórica de evidencia documental"
+    },
+    "This action only attaches calculation evidence. It does not change totals, payments, tax lines or accounting entries.": {
+        "en": "This action only attaches calculation evidence. It does not change totals, payments, tax lines or accounting entries.",
+        "es": "Esta acción solo adjunta evidencia del cálculo. No cambia totales, pagos, líneas fiscales ni asientos contables."
+    },
+    "Attach matching evidence": {
+        "en": "Attach matching evidence",
+        "es": "Adjuntar evidencia coincidente"
+    },
     "with_payments": { "en": "with_payments", "es": "with_payments" },
     "without_payments": { "en": "without_payments", "es": "without_payments" },
     "Historical expense filters": {

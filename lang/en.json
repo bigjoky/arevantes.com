@@ -1,4 +1,12 @@
 {
+    "This expense already has documentary calculation evidence.": "This expense already has documentary calculation evidence.",
+    "The expense has changed. Reload it before reviewing.": "The expense has changed. Reload it before reviewing.",
+    "Evidence can only be attached when every stored amount and tax line matches exactly.": "Evidence can only be attached when every stored amount and tax line matches exactly.",
+    "Documentary calculation evidence attached without changing financial amounts.": "Documentary calculation evidence attached without changing financial amounts.",
+    "Evidence review reason": "Evidence review reason",
+    "Historical documentary evidence review": "Historical documentary evidence review",
+    "This action only attaches calculation evidence. It does not change totals, payments, tax lines or accounting entries.": "This action only attaches calculation evidence. It does not change totals, payments, tax lines or accounting entries.",
+    "Attach matching evidence": "Attach matching evidence",
     "Historical expense filters": "Historical expense filters",
     "With registered payments": "With registered payments",
     "Without registered payments": "Without registered payments",

@@ -409,6 +409,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('finance/export', [FinanceController::class, 'export'])->middleware('can:view-finance')->name('finance.export');
     Route::post('expenses', [ExpenseController::class, 'store'])->middleware('can:manage-catalog')->name('expenses.store');
     Route::get('expenses/documentary-review', [ExpenseController::class, 'documentaryReview'])->middleware(['can:manage-catalog', 'can:view-finance'])->name('expenses.documentary-review');
+    Route::post('expenses/{expense}/documentary-evidence', [ExpenseController::class, 'adoptDocumentaryEvidence'])->middleware(['can:manage-catalog', 'can:view-finance', 'throttle:30,1'])->name('expenses.documentary-evidence.adopt');
     Route::post('expenses/calculation-preview', [ExpenseController::class, 'previewCalculation'])->middleware(['can:manage-catalog', 'can:view-finance', 'throttle:60,1'])->name('expenses.calculation.preview');
     Route::get('expenses/issuer-lookup', ExpenseIssuerLookupController::class)->middleware(['can:manage-catalog', 'can:view-finance', 'throttle:60,1'])->name('expenses.issuer.lookup');
     Route::get('expenses/{expense}', [ExpenseController::class, 'show'])->middleware('can:view-finance')->name('expenses.show');
