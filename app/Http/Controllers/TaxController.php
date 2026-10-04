@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\SalesDocument;
 use App\Models\TaxReturn;
 use App\Models\TaxReturnPayment;
 use App\Services\Accounting\JournalPoster;
+use App\Services\Tax\Model303Preview;
 use App\Services\Tax\VatReport;
 use App\Services\Tax\VatSettlement;
 use Illuminate\Http\RedirectResponse;
@@ -19,6 +21,20 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class TaxController extends Controller
 {
+    public function model303(Request $request, VatReport $report, Model303Preview $preview): Response
+    {
+        $data = $request->validate(['year' => ['nullable', 'integer', 'between:2020,2100'], 'quarter' => ['nullable', 'integer', 'between:1,4']]);
+        $year = (int) ($data['year'] ?? now()->year);
+        $quarter = (int) ($data['quarter'] ?? now()->quarter);
+        $books = $report->make($year, $quarter);
+        $documents = SalesDocument::whereIn('id', collect($books['issued'])->pluck('source_id')->unique())
+            ->get(['id', 'type', 'customer_snapshot'])->mapWithKeys(fn ($document) => [$document->id => [
+                'type' => $document->type, 'country' => $document->customer_snapshot['country'] ?? null,
+            ]])->all();
+
+        return Inertia::render('tax/model303', ['preview' => $preview->make($books, $documents)]);
+    }
+
     public function index(Request $request, VatReport $report, VatSettlement $settlement): Response
     {
         [$year, $quarter] = $this->period($request);

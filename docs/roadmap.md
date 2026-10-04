@@ -2,6 +2,17 @@
 
 ## Estado vigente y orden de ejecución — 05/10/2026
 
+**Incremento FIN-03.303 en develop (05/10):** primera pantalla propia de Modelo
+303 desde IVA, de solo lectura y alineada con las casillas AEAT 2T–4T/2026.
+Evidencia documental para candidatos 01–09 y rectificaciones 14/15, preservando
+importes redondeados de origen. Operaciones ambiguas y todas las deducciones
+pendientes de clasificación explícita; compensaciones y resultado oficial no
+calculados. No habilita exportación ni presentación. Continúa con perfil censal,
+clasificación persistida y periodo de deducción antes de completar totales.
+Suite general: 673 pruebas superadas, 5 omitidas (incluidas las que requieren
+conexiones PostgreSQL independientes); 10.268 aserciones. Sin cambios en datos
+de producción ni asientos por consultar esta pantalla.
+
 Esta sección es el punto de entrada y prevalece sobre los estados de las notas
 históricas inferiores. No se eliminan tareas anteriores ni se crean planes
 paralelos. Cada entrega actualiza esta cola, su evidencia y el siguiente paso.
@@ -23,7 +34,7 @@ y comprobaciones remotas no sustituyen esa validación.
 | 3 | FIN-02.B, cuotas de los libros | Implementado en develop; pendiente publicación | IVA soportado/deducible/no deducible separado en libro, resumen y CSV; verificar compatibilidad de liquidación |
 | 4 | FIN-02.A/B, cálculo y normalización | Cálculo documental y revisión histórica publicados y activos para administradores | Validación visual autenticada; compras, regímenes adicionales, portes, fechas registrales y preparación sin asientos implícitos |
 | 5 | FIN-02.C, identidad y perfil | Directorio parcial solo en develop | Completar direcciones/snapshot e integración, revisión de duplicados y validación censal con asesoría |
-| 6 | FIN-03.303 | Planificado | Casillas, compensaciones y expediente trazable; objetivo interno 30/10 |
+| 6 | FIN-03.303 | Proyección preliminar de casillas en develop; no presentable | Clasificación fiscal persistida, perfil censal, deducciones, compensaciones y expediente trazable; objetivo interno 30/10 |
 | 7 | FIN-04 y FIN-05.390 | Planificados | VERI*FACTU en pruebas y resumen anual/exoneración 390; objetivos internos 13/11 |
 | 8 | FIN-05.347 y otros modelos aplicables | Planificados | Terceros, exclusiones y trimestres; objetivo interno 27/11; conservar 111/115, 190/180, 349 y 200/202 |
 | 9 | FIN-06/07 | Planificados | Ensayo integral 11/12, activación aprobada 18/12 y estabilización hasta 31/12; objetivo operativo 01/01/2027 |

@@ -1,12 +1,29 @@
 # Plan de entrega fiscal: 303, 390 y 347
 
-Fecha de revisión: 28/09/2026. Anexo ejecutable del [roadmap unificado](roadmap.md),
-no un roadmap paralelo. Estado: **planificado, no implementado ni presentado**.
+Fecha de revisión: 05/10/2026. Anexo ejecutable del [roadmap unificado](roadmap.md),
+no un roadmap paralelo. Estado: **303 con proyección preliminar en develop;
+390/347 planificados. Ningún modelo está listo para presentación oficial**.
 Responsable técnico: desarrollo de Arevantes. La aplicabilidad, los casos fiscales
 de referencia y la aprobación de declaraciones requieren validación de la empresa
 y su asesoría. Ninguna publicación habilita envíos o pagos reales automáticamente.
 
 ## Objetivo y secuencia
+
+Incremento 05/10: `/tax/models/303`, accesible a administradores desde IVA,
+documento de trabajo de solo lectura basado en instrucciones AEAT 2T–4T/2026.
+Casillas candidatas 01–09 y 14/15 con evidencia documental y céntimos originales.
+Solo candidatos con snapshot de país ES y tipo 4/10/21; territorio, régimen y
+devengo siguen sujetos a validación. No equivalen a clasificación fiscal aprobada.
+Operaciones a tipo cero, exentas, extranjeras, sin identidad y tipos desconocidos
+quedan pendientes. Compras/gastos no se asignan indiscriminadamente a 28/29:
+requieren clase de operación, corriente/inversión y periodo de deducción.
+Las casillas pendientes conservan valor desconocido, nunca cero ficticio.
+No hay resultado 71, compensación, exportación AEAT ni cambios en asientos/pagos.
+Próximo corte: clasificación fiscal persistida y perfil censal; después bases y
+cuotas deducibles por clase, compensaciones, totales oficiales y casos de asesoría.
+Otros ejercicios y 1T/2026 no reutilizan automáticamente este diseño.
+
+Referencia: [instrucciones oficiales AEAT 2T–4T/2026](https://sede.agenciatributaria.gob.es/Sede/todas-gestiones/impuestos-tasas/iva/modelo-303-iva-autoliquidacion_/instrucciones-2026/instrucciones-02-12-2t-4t-2026.html).
 
 Preparar, revisar, conciliar y conservar los tres modelos cuando correspondan al
 perfil censal. Mantener el objetivo operativo del 01/01/2027 y la puesta en marcha

@@ -197,6 +197,13 @@ export default function TaxIndex({
                         </p>
                     </div>
                     <div className="flex flex-wrap gap-2">
+                        {canManageTax ? (
+                            <Button variant="outline" asChild>
+                                <Link href={`/tax/models/303?${query}`}>
+                                    {translate('Model 303', locale)}
+                                </Link>
+                            </Button>
+                        ) : null}
                         <Button variant="outline" asChild>
                             <Link href="/accounting">
                                 <ArrowLeft /> Accounting

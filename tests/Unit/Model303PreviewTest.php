@@ -1,0 +1,64 @@
+<?php
+
+namespace Tests\Unit;
+
+use App\Services\Tax\Model303Preview;
+use PHPUnit\Framework\TestCase;
+
+class Model303PreviewTest extends TestCase
+{
+    private function row(int $id, float $rate = 21, float $base = 100, float $vat = 21): array
+    {
+        return ['source_type' => 'sales_document', 'source_id' => $id, 'rate' => $rate, 'base' => $base, 'vat' => $vat];
+    }
+
+    private function report(array $issued = [], array $received = []): array
+    {
+        return ['period' => ['year' => 2026, 'quarter' => 3], 'issued' => $issued, 'received' => $received];
+    }
+
+    public function test_preserves_documentary_rounding_in_official_candidate_boxes(): void
+    {
+        $result = (new Model303Preview)->make($this->report([$this->row(1, 10, 3.46, 0.34), $this->row(2, 10, 3.46, 0.34)]), array_fill_keys([1, 2], ['type' => 'invoice', 'country' => 'ES']));
+        $this->assertSame(6.92, $result['groups'][1]['base']);
+        $this->assertSame(0.68, $result['groups'][1]['vat']);
+        $this->assertSame('04', $result['groups'][1]['base_box']);
+        $this->assertSame('06', $result['groups'][1]['vat_box']);
+        $this->assertFalse($result['ready']);
+    }
+
+    public function test_groups_rectifications_with_sign_without_rate_breakdown(): void
+    {
+        $result = (new Model303Preview)->make($this->report([$this->row(1, 21, -100, -21), $this->row(1, 10, -50, -5)]), [1 => ['type' => 'credit_note', 'country' => 'ES']]);
+        $this->assertEquals(-150, $result['groups'][3]['base']);
+        $this->assertEquals(-26, $result['groups'][3]['vat']);
+        $this->assertNull($result['groups'][3]['rate']);
+        $this->assertNull($result['groups'][2]['vat']);
+        $this->assertCount(2, $result['groups'][3]['documents']);
+    }
+
+    public function test_does_not_invent_exemptions_geography_or_deduction_classification(): void
+    {
+        $rows = [$this->row(1, 0, 100, 0), $this->row(2), $this->row(3), $this->row(4, 7)];
+        $received = [['source_type' => 'expense', 'source_id' => 7, 'deductible_vat' => 0.34]];
+        $result = (new Model303Preview)->make($this->report($rows, $received), [1 => ['type' => 'invoice', 'country' => 'ES'], 2 => ['type' => 'invoice', 'country' => 'FR'], 4 => ['type' => 'invoice', 'country' => 'ES']]);
+        $this->assertSame($rows, $result['pendingIssued']);
+        $this->assertSame($received, $result['pendingReceived']);
+        foreach ($result['groups'] as $group) {
+            $this->assertNull($group['base']);
+            $this->assertNull($group['vat']);
+        }
+    }
+
+    public function test_requires_a_validated_period_specific_design(): void
+    {
+        foreach ([[2027, 3], [2026, 1], [2025, 4], [2026, null]] as [$year, $quarter]) {
+            $report = $this->report([$this->row(1)]);
+            $report['period'] = ['year' => $year, 'quarter' => $quarter];
+            $result = (new Model303Preview)->make($report, [1 => ['type' => 'invoice', 'country' => 'ES']]);
+            $this->assertFalse($result['supported']);
+            $this->assertNull($result['groups'][2]['vat']);
+            $this->assertCount(1, $result['pendingIssued']);
+        }
+    }
+}

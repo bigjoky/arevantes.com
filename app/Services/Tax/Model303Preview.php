@@ -1,0 +1,58 @@
+<?php
+
+namespace App\Services\Tax;
+
+/** Read-only candidates, never a declaration or a substitute for fiscal classification. */
+class Model303Preview
+{
+    public const SOURCE = 'https://sede.agenciatributaria.gob.es/Sede/todas-gestiones/impuestos-tasas/iva/modelo-303-iva-autoliquidacion_/instrucciones-2026/instrucciones-02-12-2t-4t-2026.html';
+
+    public function make(array $report, array $documents): array
+    {
+        // Do not silently reuse this period-specific design for another fiscal version.
+        $supported = $report['period']['year'] === 2026 && in_array($report['period']['quarter'], [2, 3, 4], true);
+        $groups = [
+            ['base_box' => '01', 'rate_box' => '02', 'vat_box' => '03', 'rate' => 4],
+            ['base_box' => '04', 'rate_box' => '05', 'vat_box' => '06', 'rate' => 10],
+            ['base_box' => '07', 'rate_box' => '08', 'vat_box' => '09', 'rate' => 21],
+            ['base_box' => '14', 'rate_box' => null, 'vat_box' => '15', 'rate' => null],
+        ];
+        foreach ($groups as &$group) {
+            $group += ['base' => null, 'vat' => null, 'documents' => []];
+        }
+        unset($group);
+        $pending = [];
+        foreach ($report['issued'] as $row) {
+            $document = $documents[$row['source_id']] ?? [];
+            $rate = (float) $row['rate'];
+            $country = strtoupper(trim((string) ($document['country'] ?? '')));
+            $eligible = $supported && $row['source_type'] === 'sales_document'
+                && $country === 'ES' && in_array($rate, [4.0, 10.0, 21.0], true)
+                && in_array($document['type'] ?? null, ['invoice', 'credit_note'], true);
+            if (! $eligible) {
+                $pending[] = $row;
+
+                continue;
+            }
+            $index = $document['type'] === 'credit_note' ? 3 : array_search($rate, [4.0, 10.0, 21.0], true);
+            // Preserve the supplier/customer document's rounded amounts; do not recompute VAT.
+            $groups[$index]['base'] = ($groups[$index]['base'] ?? 0) + (int) round((float) $row['base'] * 100);
+            $groups[$index]['vat'] = ($groups[$index]['vat'] ?? 0) + (int) round((float) $row['vat'] * 100);
+            $groups[$index]['documents'][] = $row;
+        }
+        foreach ($groups as &$group) {
+            $group['base'] = $group['base'] === null ? null : $group['base'] / 100;
+            $group['vat'] = $group['vat'] === null ? null : $group['vat'] / 100;
+        }
+        unset($group);
+
+        return [
+            'period' => $report['period'], 'version' => '303-2026-2T-4T-v1',
+            'source' => self::SOURCE, 'supported' => $supported, 'ready' => false,
+            'groups' => $groups, 'pendingIssued' => $pending,
+            // Current/investment, domestic/import/intracommunity, deduction period and
+            // rectifications cannot be established from the legacy VAT rows alone.
+            'pendingReceived' => array_values(is_array($report['received']) ? $report['received'] : $report['received']->all()),
+        ];
+    }
+}
