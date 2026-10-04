@@ -18,6 +18,7 @@ use App\Services\Accounting\SupplierPaymentSourceResolver;
 use App\Services\Documents\DocumentNumber;
 use App\Services\Finance\OutstandingBalanceCalculator;
 use App\Services\Tax\ExpenseDocumentaryCalculation;
+use App\Services\Tax\ExpenseDocumentaryReview;
 use App\Services\Tax\SupplierInvoiceCalculator;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -68,6 +69,13 @@ class ExpenseController extends Controller
                 ->where('event', 'expense_issuer_corrected')->with('user:id,name')->latest('id')->limit(50)->get()
                 ->map(fn (AuditLog $log) => ['id' => $log->id, 'user' => $log->user?->name, 'created_at' => $log->created_at->toIso8601String(), 'before' => $log->old_values, 'after' => $log->new_values]) : [],
         ]);
+    }
+
+    public function documentaryReview(Request $request, ExpenseDocumentaryReview $review): Response
+    {
+        abort_unless(config('fiscal.grouped_expense_calculation') && $request->user()->hasRole('admin'), 403);
+
+        return Inertia::render('expenses/documentary-review', ['review' => $review->page()]);
     }
 
     public function store(Request $request, AccountingSynchronizer $accounting, DocumentNumber $numbers): RedirectResponse

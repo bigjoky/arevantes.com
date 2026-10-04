@@ -43,6 +43,24 @@ No hay envío AEAT ni pagos automáticos habilitados por este roadmap.
 
 ## Registro de entregas y detalle conservado
 
+### 04/10/2026 — Revisión asistida de gastos históricos (FIN-02.A/B)
+
+- Nueva cola administrativa paginada desde Gastos para documentos aún no
+  versionados. Clasifica cada gasto sin modificarlo y explica bloqueos por pagos,
+  moneda, régimen, retención, desglose, ejercicio, periodo o declaración protegida.
+- Los compatibles abren la edición con el cálculo documental seleccionado y un
+  motivo inicial. Siguen siendo obligatorios la vista previa reciente, el motivo
+  de corrección, el control de revisión y todas las comprobaciones contables.
+- No existe migración masiva ni escritura al visitar la cola. Los gastos pagados,
+  con pagos parciales, periodos cerrados o declaraciones preparadas/presentadas no
+  ofrecen acción. Acceso exclusivo de administrador con permisos financieros.
+- Consulta acotada a 50 registros y apoyada por índice parcial de documentos sin
+  evidencia, evitando penalizar los ya revisados. Sin recalcular históricos.
+- Pruebas del bloque documental/correcciones: 19 correctas y 138 aserciones;
+  compilación, tipos, lint, formato y catálogo ES/EN comprobados. PostgreSQL local
+  pendiente porque Apple Container no está disponible en esta sesión.
+
+
 ### 29/09/2026 — Vista previa documental de gastos (FIN-02.A/B)
 
 - Panel común ES/EN en alta y edición: base, IVA calculado, cuota documental,
