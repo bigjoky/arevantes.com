@@ -245,6 +245,27 @@ altas nuevas por hacer un backfill.
 
 ## Pruebas y puertas de salida
 
+### Ensayo PostgreSQL independiente — 05/10/2026
+
+`tests/Feature/FiscalConcurrencyTest.php` ejecuta trabajadores independientes
+de `tests/Support/fiscal-concurrency-worker.php`. Cuatro escenarios comprobados:
+borrador IVA concurrente, contabilización IVA concurrente, numeración concurrente
+y emisión directa concurrente de una misma factura (34 aserciones).
+
+La prueba solo admite PostgreSQL y una base cuyo nombre termine en
+`_concurrency_test`; reinicia esa base con datos de prueba. Nunca apuntar a una
+base de trabajo o producción. Ejecución tras crear una base temporal vacía:
+
+```sh
+DB_CONNECTION=pgsql DB_DATABASE=arevantes_fiscal_concurrency_test DB_URL='' vendor/bin/phpunit tests/Feature/FiscalConcurrencyTest.php
+```
+
+Las credenciales locales siguen en `.env`; no se incluyen en el comando ni en
+el repositorio. Ambas conexiones deben estar esperando bloqueos en
+`pg_stat_activity` antes de liberar el ejercicio. El ensayo verifica estos
+cuatro casos, no cierra FIN-01: faltan conversiones, rectificaciones, pagos,
+cierres y cobertura completa de accesos.
+
 - FIN-01: peticiones simultáneas y reintentos no renumeran ni duplican; cambio de
   empresa/proveedor no altera documentos/libros históricos; roles sin permiso
   no emiten/rectifican/cambian cierres.

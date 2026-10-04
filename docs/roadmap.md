@@ -1,6 +1,6 @@
 # Roadmap unificado de Arevantes
 
-## Estado vigente y orden de ejecución — 04/10/2026
+## Estado vigente y orden de ejecución — 05/10/2026
 
 Esta sección es el punto de entrada y prevalece sobre los estados de las notas
 históricas inferiores. No se eliminan tareas anteriores ni se crean planes
@@ -18,7 +18,7 @@ y comprobaciones remotas no sustituyen esa validación.
 
 | Orden | Bloque | Estado vigente | Siguiente entrega / puerta de salida |
 | --- | --- | --- | --- |
-| 1 | FIN-01, integridad | Abierto; mejoras operativas publicadas | Completar ensayos de concurrencia con conexiones independientes y revisión de todos los accesos de emisión; no dar el bloque por cerrado |
+| 1 | FIN-01, integridad | Abierto; concurrencia PostgreSQL verificada para numeración, emisión directa y borrador/contabilización de IVA en develop | Extender ensayos a conversiones, rectificaciones, pagos y cierres; revisar todos los accesos de emisión antes de cerrar el bloque |
 | 2 | FIN-02.B, libros y conciliación | Implementado en develop; incluye borrador, aprobación y contabilización separados; pendiente publicación | Subcuentas, libros y liquidación revisable; completar pruebas de concurrencia independientes y puertas de publicación |
 | 3 | FIN-02.B, cuotas de los libros | Implementado en develop; pendiente publicación | IVA soportado/deducible/no deducible separado en libro, resumen y CSV; verificar compatibilidad de liquidación |
 | 4 | FIN-02.A/B, cálculo y normalización | Cálculo documental y revisión histórica publicados y activos para administradores | Validación visual autenticada; compras, regímenes adicionales, portes, fechas registrales y preparación sin asientos implícitos |
@@ -45,6 +45,26 @@ Referencias de ejecución: [modelos 303/390/347](fiscal-models-303-390-347.md),
 No hay envío AEAT ni pagos automáticos habilitados por este roadmap.
 
 ## Registro de entregas y detalle conservado
+
+### 05/10/2026 — Concurrencia fiscal con conexiones independientes (FIN-01)
+
+- Ensayo reproducible con dos procesos PHP y conexiones PostgreSQL separadas.
+  La prueba exige que ambas conexiones estén esperando bloqueos reales antes
+  de liberarlos; no se limita a repetir peticiones secuenciales o usar mocks.
+- Crear el mismo borrador simultáneamente produce un único expediente sin
+  asiento; contabilizar el mismo aprobado produce un único asiento cuadrado.
+- Numerar dos documentos produce números distintos y avanza dos posiciones.
+  Emitir la misma factura simultáneamente consume una sola numeración y genera
+  un solo asiento, conservando el documento emitido y bloqueado.
+- Cuatro pruebas, 34 aserciones en base PostgreSQL temporal aislada. Arnés
+  protegido por driver y nombre terminado en `_concurrency_test`; se omite en
+  SQLite y bases normales. Tiempos de espera acotados y procesos limpiados.
+- No se alteró código de emisión ni datos reales: estos casos verifican los
+  bloqueos existentes. FIN-01 sigue abierto para conversiones, rectificaciones,
+  pagos, cierres y auditoría completa de permisos.
+- Regresión focalizada de IVA/emisión: 20 correctas, 4 omitidas en SQLite,
+  352 aserciones; formato y sintaxis correctos. Base temporal eliminada tras
+  finalizar. Sin cambios de interfaz ni despliegue requerido para este ensayo.
 
 ### 04/10/2026 — Comparación documental del borrador de IVA (FIN-02.B)
 
