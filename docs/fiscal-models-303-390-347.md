@@ -9,6 +9,22 @@ y su asesoría. Ninguna publicación habilita envíos o pagos reales automática
 
 ## Objetivo y secuencia
 
+Segundo incremento 05/10: clasificación fiscal persistida de gastos en
+`/tax/expenses/{expense}/classification`, enlazada desde documentos del 303.
+Solo administradores; corriente / inversión / pendiente, autor, motivo y
+confirmación explícita del territorio IVA, régimen sin caja, clase única y
+deducción en el mismo periodo de la factura. Casillas candidatas 28/29 y 30/31
+desde evidencia documental agrupada válida: base completa y cuota deducible.
+La factura modificada deja la clasificación obsoleta. Se puede volver a pendiente
+sin borrar el historial. No cambia importes, pagos, cuentas ni liquidaciones.
+Periodo cerrado o liquidación preparada/presentada impiden nuevas revisiones.
+Quedan fuera las compras, facturas mixtas, cuotas deducibles cero, regímenes
+especiales, rectificaciones recibidas y deducciones en periodos posteriores.
+No equivale a perfil censal aprobado ni a modelo presentable.
+
+Referencia adicional: [Pre303 de AEAT, datos de liquidación 2026](https://sede.agenciatributaria.gob.es/Sede/iva/pre-303/servicios-especificos-sii/2026-notas/datos-liquidacion.html).
+Reglas de cálculo por casilla: [IVA deducible Pre303 2026](https://sede.agenciatributaria.gob.es/Sede/iva/pre-303/2026/iva-deducible.html).
+
 Incremento 05/10: `/tax/models/303`, accesible a administradores desde IVA,
 documento de trabajo de solo lectura basado en instrucciones AEAT 2T–4T/2026.
 Casillas candidatas 01–09 y 14/15 con evidencia documental y céntimos originales.

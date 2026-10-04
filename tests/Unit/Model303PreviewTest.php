@@ -61,4 +61,20 @@ class Model303PreviewTest extends TestCase
             $this->assertCount(1, $result['pendingIssued']);
         }
     }
+
+    public function test_deductions_need_current_explicit_review_and_keep_unprorated_bases(): void
+    {
+        $row = ['source_type' => 'expense', 'source_id' => 1, 'base' => 100, 'vat' => 21, 'deductible_vat' => 10.5];
+        $report = $this->report([], [$row, [...$row, 'source_id' => 2], [...$row, 'source_type' => 'purchase_document'], [...$row, 'source_id' => 3, 'deductible_vat' => 0]]);
+        $classifications = ['expense:1' => ['current' => true, 'operation_class' => 'domestic_current'],
+            'expense:2' => ['current' => false, 'operation_class' => 'domestic_current'],
+            'expense:3' => ['current' => true, 'operation_class' => 'domestic_current']];
+        $result = (new Model303Preview)->make($report, [], $classifications);
+        $this->assertEquals(100, $result['deductions'][0]['base']);
+        $this->assertEquals(10.5, $result['deductions'][0]['vat']);
+        $this->assertCount(1, $result['deductions'][0]['documents']);
+        $this->assertCount(3, $result['pendingReceived']);
+        $this->assertNull($result['deductions'][1]['base']);
+        $this->assertFalse($result['ready']);
+    }
 }

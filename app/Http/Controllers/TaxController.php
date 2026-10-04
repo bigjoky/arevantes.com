@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Expense;
 use App\Models\SalesDocument;
 use App\Models\TaxReturn;
 use App\Models\TaxReturnPayment;
 use App\Services\Accounting\JournalPoster;
+use App\Services\Tax\ExpenseFiscalReview;
 use App\Services\Tax\Model303Preview;
 use App\Services\Tax\VatReport;
 use App\Services\Tax\VatSettlement;
@@ -21,7 +23,7 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class TaxController extends Controller
 {
-    public function model303(Request $request, VatReport $report, Model303Preview $preview): Response
+    public function model303(Request $request, VatReport $report, Model303Preview $preview, ExpenseFiscalReview $review): Response
     {
         $data = $request->validate(['year' => ['nullable', 'integer', 'between:2020,2100'], 'quarter' => ['nullable', 'integer', 'between:1,4']]);
         $year = (int) ($data['year'] ?? now()->year);
@@ -32,7 +34,12 @@ class TaxController extends Controller
                 'type' => $document->type, 'country' => $document->customer_snapshot['country'] ?? null,
             ]])->all();
 
-        return Inertia::render('tax/model303', ['preview' => $preview->make($books, $documents)]);
+        $classifications = Expense::whereIn('id', collect($books['received'])->where('source_type', 'expense')->pluck('source_id')->unique())
+            ->with(['taxLines', 'fiscalClassification'])->get()->mapWithKeys(fn ($expense) => ['expense:'.$expense->id => [
+                'current' => $review->isCurrent($expense), 'operation_class' => $expense->fiscalClassification?->operation_class,
+            ]])->all();
+
+        return Inertia::render('tax/model303', ['preview' => $preview->make($books, $documents, $classifications)]);
     }
 
     public function index(Request $request, VatReport $report, VatSettlement $settlement): Response

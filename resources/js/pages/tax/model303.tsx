@@ -12,6 +12,7 @@ type Evidence = {
     party: string;
     base: number;
     vat: number;
+    deductible_vat?: number | null;
 };
 type Group = {
     base_box: string;
@@ -31,11 +32,17 @@ type Preview = {
     groups: Group[];
     pendingIssued: Evidence[];
     pendingReceived: Evidence[];
+    deductions: {
+        base_box: string;
+        vat_box: string;
+        operation_class: string;
+        base: number | null;
+        vat: number | null;
+        documents: Evidence[];
+    }[];
 };
 
 const deductionBoxes = [
-    '28 / 29',
-    '30 / 31',
     '32 / 33',
     '34 / 35',
     '36 / 37',
@@ -45,6 +52,13 @@ const deductionBoxes = [
     '43',
     '44',
 ];
+
+const deductionLabels: Record<string, string> = {
+    domestic_current: 'Domestic current goods and services',
+    domestic_investment: 'Domestic investment goods',
+};
+
+const isExpense = (row: Evidence) => row.source_type === 'expense';
 
 export default function Model303({ preview }: { preview: Preview }) {
     const { locale } = useLocale();
@@ -193,6 +207,27 @@ export default function Model303({ preview }: { preview: Preview }) {
                             'Separate domestic purchases, imports and intra-community acquisitions; current goods, investment goods and deduction adjustments.',
                         )}
                     </p>
+                    {preview.deductions.map((group) => (
+                        <article
+                            className="rounded border p-3"
+                            key={group.base_box}
+                        >
+                            <h3 className="font-medium">
+                                {t(deductionLabels[group.operation_class])}
+                            </h3>
+                            <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                                <p>
+                                    {t('Taxable base')} [{group.base_box}]:{' '}
+                                    <strong>{amount(group.base)}</strong>
+                                </p>
+                                <p>
+                                    {t('Deductible VAT')} [{group.vat_box}]:{' '}
+                                    <strong>{amount(group.vat)}</strong>
+                                </p>
+                            </div>
+                            <EvidenceList rows={group.documents} />
+                        </article>
+                    ))}
                     <div className="flex flex-wrap gap-2">
                         {deductionBoxes.map((box) => (
                             <span
@@ -250,6 +285,7 @@ function EvidenceList({ rows }: { rows: Evidence[] }) {
                             <th className="p-2">{t('Document')}</th>
                             <th className="p-2">{t('Taxable base')}</th>
                             <th className="p-2">{t('VAT')}</th>
+                            <th className="p-2">{t('Deductible VAT')}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -263,6 +299,14 @@ function EvidenceList({ rows }: { rows: Evidence[] }) {
                                         {row.number} · {row.date}
                                     </span>
                                     <span>{row.party}</span>
+                                    {isExpense(row) ? (
+                                        <Link
+                                            className="mt-1 block underline"
+                                            href={`/tax/expenses/${row.source_id}/classification`}
+                                        >
+                                            {t('Review fiscal classification')}
+                                        </Link>
+                                    ) : null}
                                 </td>
                                 <td className="p-2 tabular-nums">
                                     {new Intl.NumberFormat(locale, {
@@ -275,6 +319,15 @@ function EvidenceList({ rows }: { rows: Evidence[] }) {
                                         minimumFractionDigits: 2,
                                         maximumFractionDigits: 2,
                                     }).format(row.vat)}
+                                </td>
+                                <td className="p-2 tabular-nums">
+                                    {row.deductible_vat === null ||
+                                    row.deductible_vat === undefined
+                                        ? '—'
+                                        : new Intl.NumberFormat(locale, {
+                                              minimumFractionDigits: 2,
+                                              maximumFractionDigits: 2,
+                                          }).format(row.deductible_vat)}
                                 </td>
                             </tr>
                         ))}

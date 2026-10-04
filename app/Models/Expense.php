@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
 
 class Expense extends Model
@@ -53,6 +54,11 @@ class Expense extends Model
     public function taxLines(): HasMany
     {
         return $this->hasMany(ExpenseTaxLine::class)->orderBy('position');
+    }
+
+    public function fiscalClassification(): HasOne
+    {
+        return $this->hasOne(ExpenseFiscalClassification::class);
     }
 
     public function payments(): HasMany

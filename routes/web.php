@@ -373,6 +373,8 @@ Route::middleware(['auth'])->group(function () {
     Route::get('corporate-tax/returns/{corporateTaxReturn}/receipt', [CorporateTaxController::class, 'receipt'])->middleware('can:view-finance')->name('corporate-tax.receipt');
     Route::get('tax', [TaxController::class, 'index'])->middleware('can:view-finance')->name('tax.index');
     Route::get('tax/models/303', [TaxController::class, 'model303'])->middleware('can:manage-tax')->name('tax.models.303');
+    Route::get('tax/expenses/{expense}/classification', [\App\Http\Controllers\ExpenseFiscalReviewController::class, 'show'])->middleware('can:manage-tax')->name('tax.expenses.classification.show');
+    Route::post('tax/expenses/{expense}/classification', [\App\Http\Controllers\ExpenseFiscalReviewController::class, 'update'])->middleware('can:manage-tax')->name('tax.expenses.classification.update');
     Route::get('tax/issued', [TaxController::class, 'index'])->middleware('can:view-finance')->name('tax.issued');
     Route::get('tax/received', [TaxController::class, 'index'])->middleware('can:view-finance')->name('tax.received');
     Route::get('tax/export', [TaxController::class, 'export'])->middleware('can:view-finance')->name('tax.export');

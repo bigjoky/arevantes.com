@@ -7,7 +7,7 @@ class Model303Preview
 {
     public const SOURCE = 'https://sede.agenciatributaria.gob.es/Sede/todas-gestiones/impuestos-tasas/iva/modelo-303-iva-autoliquidacion_/instrucciones-2026/instrucciones-02-12-2t-4t-2026.html';
 
-    public function make(array $report, array $documents): array
+    public function make(array $report, array $documents, array $classifications = []): array
     {
         // Do not silently reuse this period-specific design for another fiscal version.
         $supported = $report['period']['year'] === 2026 && in_array($report['period']['quarter'], [2, 3, 4], true);
@@ -46,13 +46,38 @@ class Model303Preview
         }
         unset($group);
 
+        $deductions = [
+            ['base_box' => '28', 'vat_box' => '29', 'operation_class' => 'domestic_current', 'base' => null, 'vat' => null, 'documents' => []],
+            ['base_box' => '30', 'vat_box' => '31', 'operation_class' => 'domestic_investment', 'base' => null, 'vat' => null, 'documents' => []],
+        ];
+        $pendingReceived = [];
+        foreach ($report['received'] as $row) {
+            $classification = $classifications[$row['source_type'].':'.$row['source_id']] ?? [];
+            $class = $classification['operation_class'] ?? null;
+            if (! $supported || ! ($classification['current'] ?? false) || $row['source_type'] !== 'expense'
+                || ! in_array($class, ['domestic_current', 'domestic_investment'], true)
+                || (float) $row['vat'] <= 0 || (float) ($row['deductible_vat'] ?? -1) <= 0) {
+                $pendingReceived[] = $row;
+
+                continue;
+            }
+            $index = $class === 'domestic_current' ? 0 : 1;
+            // Bases are not prorated. Only the documented deductible quota is used.
+            $deductions[$index]['base'] = ($deductions[$index]['base'] ?? 0) + (int) round((float) $row['base'] * 100);
+            $deductions[$index]['vat'] = ($deductions[$index]['vat'] ?? 0) + (int) round((float) $row['deductible_vat'] * 100);
+            $deductions[$index]['documents'][] = $row;
+        }
+        foreach ($deductions as &$deduction) {
+            $deduction['base'] = $deduction['base'] === null ? null : $deduction['base'] / 100;
+            $deduction['vat'] = $deduction['vat'] === null ? null : $deduction['vat'] / 100;
+        }
+        unset($deduction);
+
         return [
-            'period' => $report['period'], 'version' => '303-2026-2T-4T-v1',
+            'period' => $report['period'], 'version' => '303-2026-2T-4T-v2',
             'source' => self::SOURCE, 'supported' => $supported, 'ready' => false,
             'groups' => $groups, 'pendingIssued' => $pending,
-            // Current/investment, domestic/import/intracommunity, deduction period and
-            // rectifications cannot be established from the legacy VAT rows alone.
-            'pendingReceived' => array_values(is_array($report['received']) ? $report['received'] : $report['received']->all()),
+            'deductions' => $deductions, 'pendingReceived' => $pendingReceived,
         ];
     }
 }
