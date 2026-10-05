@@ -270,6 +270,42 @@ Por cada corte se debe:
    permisos, ES/EN, teclado, móvil y escritorio. Registrar las comprobaciones
    pendientes antes de considerar una sección terminada o publicada.
 
+### UI-SIDEBAR — Componente común de navegación, 06/10/2026
+
+Prioridad indicada por el usuario: completar primero el sidebar del diseño,
+después continuar con el resto de la página. El ajuste anterior solo cambiaba
+la paleta del diario; este corte modifica el componente compartido.
+
+- Preparado: ancho de 238 px, fondo verde, marca de agua vectorial, palabra
+  AREVANTES y línea verde, iconos finos, filas de 35 px, selección activa y grupos
+  separados. El menú personal pasa a la cabecera y el pie muestra la empresa real
+  y el ejercicio del contexto, con acceso autorizado a configuración fiscal.
+- En el contexto financiero se presentan enlaces directos en Contabilidad,
+  Gestión y Configuración. Se derivan de la navegación autorizada del servidor;
+  las áreas restantes siguen accesibles desde «Otras áreas». Fuera de ese contexto
+  se conserva la estructura de áreas con el nuevo componente visual.
+- Balances, resultados, mayor, terceros y mapeos utilizan URLs con `view` para
+  abrir las capacidades existentes. No se presentan como módulos nuevos ni se
+  duplican informes. Continúa pendiente separarlos en endpoints propios y cargar
+  únicamente los datos de cada vista, según UI-JOURNAL-08 y el plan transversal.
+
+| ID | Pendiente del diseño | Preparación y criterio de aceptación |
+| --- | --- | --- |
+| UI-SIDEBAR-01 | Destino independiente «Asientos» | No existe separado del diario. Definir diferencia funcional, ruta y permiso; preparar su enlace cuando exista, sin duplicar el mismo destino con otra etiqueta |
+| UI-SIDEBAR-02 | «Series y diarios» y «Periodos contables» como destinos propios | Series, ejercicio y cierre están distribuidos entre configuración y opciones contables. Separar pantallas reutilizando esas funciones; conservar bloqueo y permisos; incorporar enlaces autorizados |
+| UI-SIDEBAR-03 | «Libros oficiales» e «Informes» con índice propio | Libros emitidos/recibidos e informes actuales se conservan con su nombre real; definir índice y alcance de libros oficiales antes de usar esa etiqueta; no confundir libros de IVA con libros legalizados |
+| UI-SIDEBAR-04 | Selector directo de empresa y ejercicio del pie | Empresa actual real y acceso a configuración preparados. No existe cambio de empresa activo; solo permitir selección cuando haya catálogo autorizado y alcance definido. Selector de ejercicio debe conservar filtros y corresponder al ejercicio seleccionado de cada módulo |
+| UI-SIDEBAR-05 | Aceptación visual y responsive | Comparar con la referencia en Safari con sesión local, verificar selección, navegación por teclado, colapsado y móvil; registrar validación e integración en develop |
+
+Validación local del corte: Vite, TypeScript global, catálogo ES/EN, ESLint y
+formato de los archivos modificados, Pint y Composer correctos. Suite Laravel:
+733 pruebas correctas, 5 omitidas y 10.863 aserciones. Comprobado visualmente en
+Safari con sesión real del entorno local: logo, dimensiones, grupos, selección del
+diario, usuario en cabecera y empresa/ejercicio al pie. Preparación compatible con
+colapsado y móvil; su aceptación visual e interacción siguen pendientes porque
+el Mac se bloqueó durante la revisión. Aplicado y recompilado en develop local,
+conservando los cambios contables ajenos que ya estaban en ese checkout.
+
 ### UI-JOURNAL — Libro diario, asientos y apuntes
 
 Referencia: diseño adjunto del usuario «Libro diario, asientos y apuntes.png».

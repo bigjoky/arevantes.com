@@ -318,8 +318,9 @@
     }
 }
 
-/* Journal design: keep this palette scoped to the accounting journal. */
-[data-slot='sidebar-wrapper']:has([data-journal-design]) {
+/* Shared sidebar geometry and palette from the accounting design. */
+.arevantes-shell,
+[data-sidebar='sidebar'][data-mobile='true'] {
     --sidebar: #003c32;
     --sidebar-foreground: #e4f0eb;
     --sidebar-primary: #d6f0e3;
@@ -327,16 +328,99 @@
     --sidebar-accent: #2d5c50;
     --sidebar-accent-foreground: #ffffff;
     --sidebar-border: #326257;
+    --sidebar-ring: #8fcdb1;
+}
+[data-sidebar='sidebar'] {
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(155deg, #003c32 0%, #002c26 100%);
+}
+.sidebar-monogram {
+    position: absolute;
+    right: -115px;
+    bottom: -70px;
+    width: 280px;
+    color: #b0d7c7;
+    opacity: 0.14;
+    pointer-events: none;
+    transform: skewX(-24deg);
+}
+.sidebar-monogram svg {
+    width: 100%;
+    fill: currentColor;
+}
+.sidebar-brand {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 5px;
+}
+.sidebar-brand::after {
+    content: '';
+    width: 41px;
+    height: 4px;
+    background: #00d37e;
+}
+[data-collapsible='icon'] .sidebar-wordmark,
+[data-collapsible='icon'] .sidebar-brand::after,
+[data-collapsible='icon'] .sidebar-monogram {
+    display: none;
+}
+[data-sidebar='sidebar'] [data-sidebar='menu'] {
+    gap: 0;
+}
+[data-sidebar='sidebar']
+    [data-sidebar='menu-button']:not(.sidebar-brand):not(.sidebar-company) {
+    height: 35px;
+    gap: 13px;
+    padding-inline: 16px;
+    font-size: 13px;
+    font-weight: 400;
+}
+[data-sidebar='sidebar'] [data-sidebar='menu-button'][data-active='true'] {
+    background: #2d5c50;
+    font-weight: 600;
+}
+[data-sidebar='sidebar'] [data-sidebar='menu-button'] > svg {
+    width: 18px;
+    height: 18px;
+    stroke-width: 1.5;
+}
+.sidebar-section {
+    margin: 16px 13px 0;
+    padding-top: 15px;
+    border-top: 1px solid #ffffff26;
+}
+.sidebar-section > [data-sidebar='group'] {
+    padding-inline: 0;
+}
+.sidebar-section:nth-child(2) {
+    margin-top: 15px;
+    padding-top: 0;
+    border-top: 0;
+}
+[data-sidebar='sidebar'] [data-sidebar='group-label'] {
+    height: 27px;
+    padding-inline: 11px;
+    color: #b3cbc3;
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+[data-collapsible='icon'] .sidebar-section {
+    margin-inline: 0;
+}
+[data-collapsible='icon']
+    [data-sidebar='menu-button']:not(.sidebar-brand):not(.sidebar-company) {
+    padding-inline: 8px;
+}
+.arevantes-shell [data-slot='sidebar-inset'] {
+    margin: 0;
+    border-radius: 0;
+}
+/* Journal buttons inherit the same green while the remaining page theme stays intact. */
+.arevantes-shell:has([data-journal-design]) {
     --primary: #003c32;
     --primary-foreground: #ffffff;
-}
-[data-slot='sidebar-wrapper']:has([data-journal-design])
-    [data-sidebar='sidebar'] {
-    background: linear-gradient(155deg, #003c32, #002c26);
-}
-[data-slot='sidebar-wrapper']:has([data-journal-design])
-    [data-slot='sidebar-inset'] {
-    border-radius: 0;
-    margin-block: 0;
-    margin-right: 0;
 }

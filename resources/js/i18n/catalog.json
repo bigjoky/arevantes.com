@@ -1,4 +1,88 @@
 {
+    "AREVANTES · Inicio": {
+        "en": "AREVANTES · Home",
+        "es": "AREVANTES · Inicio"
+    },
+    "Otras áreas": {
+        "en": "Other areas",
+        "es": "Otras áreas"
+    },
+    "Ejercicio": {
+        "en": "Fiscal year",
+        "es": "Ejercicio"
+    },
+    "Empresa y ejercicios fiscales": {
+        "en": "Company and fiscal years",
+        "es": "Empresa y ejercicios fiscales"
+    },
+    "Contabilidad": {
+        "en": "Accounting",
+        "es": "Contabilidad"
+    },
+    "Gestión": {
+        "en": "Management",
+        "es": "Gestión"
+    },
+    "Configuración": {
+        "en": "Settings",
+        "es": "Configuración"
+    },
+    "Vista general": {
+        "en": "Overview",
+        "es": "Vista general"
+    },
+    "Plan General Contable": {
+        "en": "Chart of accounts",
+        "es": "Plan General Contable"
+    },
+    "Balances": {
+        "en": "Trial balance",
+        "es": "Balances"
+    },
+    "Cuenta de resultados": {
+        "en": "Profit and loss",
+        "es": "Cuenta de resultados"
+    },
+    "Libro mayor": {
+        "en": "General ledger",
+        "es": "Libro mayor"
+    },
+    "Saldos de terceros": {
+        "en": "Third-party balances",
+        "es": "Saldos de terceros"
+    },
+    "Facturación": {
+        "en": "Billing",
+        "es": "Facturación"
+    },
+    "Clientes": {
+        "en": "Customers",
+        "es": "Clientes"
+    },
+    "Proveedores": {
+        "en": "Suppliers",
+        "es": "Proveedores"
+    },
+    "Productos y servicios": {
+        "en": "Products and services",
+        "es": "Productos y servicios"
+    },
+    "Gastos": {
+        "en": "Expenses",
+        "es": "Gastos"
+    },
+    "Bancos": {
+        "en": "Banking",
+        "es": "Bancos"
+    },
+    "Impuestos": {
+        "en": "Taxes",
+        "es": "Impuestos"
+    },
+    "Mapeos contables": {
+        "en": "Accounting mappings",
+        "es": "Mapeos contables"
+    },
     "Libro Diario": {
         "en": "Journal",
         "es": "Libro Diario"

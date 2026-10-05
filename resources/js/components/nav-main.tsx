@@ -1,4 +1,4 @@
-import { Link } from '@inertiajs/react';
+import { Link, usePage } from '@inertiajs/react';
 import { ChevronRight } from 'lucide-react';
 import {
     Collapsible,
@@ -14,8 +14,10 @@ import {
     SidebarMenuSub,
     SidebarMenuSubButton,
     SidebarMenuSubItem,
+    useSidebar,
 } from '@/components/ui/sidebar';
 import { useCurrentUrl } from '@/hooks/use-current-url';
+import { toUrl } from '@/lib/utils';
 import type { NavItem } from '@/types';
 
 export function NavMain({
@@ -25,7 +27,35 @@ export function NavMain({
     items: NavItem[];
     label?: string;
 }) {
-    const { isCurrentUrl, isCurrentOrParentUrl } = useCurrentUrl();
+    const { isCurrentOrParentUrl } = useCurrentUrl();
+    const page = usePage();
+    const { setOpenMobile } = useSidebar();
+    const authorizedPaths = page.props.auth.navigation
+        .flatMap((item) => item.children ?? [item])
+        .map((item) => new URL(item.href, 'http://localhost').pathname);
+    const current = new URL(page.url, 'http://localhost');
+    const isActive = (item: NavItem) => {
+        const target = new URL(toUrl(item.href), 'http://localhost');
+
+        if (target.searchParams.has('view')) {
+            return (
+                current.pathname === target.pathname &&
+                (current.searchParams.get('view') ??
+                    (current.searchParams.has('account')
+                        ? 'ledger'
+                        : 'journal')) === target.searchParams.get('view')
+            );
+        }
+
+        const moreSpecific = authorizedPaths.some(
+            (path) =>
+                path.length > target.pathname.length &&
+                (current.pathname === path ||
+                    current.pathname.startsWith(`${path}/`)),
+        );
+
+        return !moreSpecific && isCurrentOrParentUrl(item.href);
+    };
 
     return (
         <SidebarGroup className="px-2 py-0">
@@ -33,10 +63,8 @@ export function NavMain({
             <SidebarMenu>
                 {items.map((item) => {
                     const active =
-                        isCurrentOrParentUrl(item.href) ||
-                        item.children?.some((child) =>
-                            isCurrentOrParentUrl(child.href),
-                        );
+                        isActive(item) ||
+                        item.children?.some((child) => isActive(child));
                     const tooltip = item.code
                         ? `${item.code} · ${item.title}`
                         : item.title;
@@ -46,10 +74,17 @@ export function NavMain({
                             <SidebarMenuItem key={item.title}>
                                 <SidebarMenuButton
                                     asChild
-                                    isActive={isCurrentUrl(item.href)}
+                                    isActive={isActive(item)}
                                     tooltip={{ children: tooltip }}
                                 >
-                                    <Link href={item.href} prefetch>
+                                    <Link
+                                        href={item.href}
+                                        onClick={() => setOpenMobile(false)}
+                                        prefetch
+                                        aria-current={
+                                            isActive(item) ? 'page' : undefined
+                                        }
+                                    >
                                         {item.icon && <item.icon />}
                                         <span>{item.title}</span>
                                     </Link>
@@ -72,11 +107,6 @@ export function NavMain({
                                         tooltip={{ children: tooltip }}
                                     >
                                         {item.icon && <item.icon />}
-                                        {item.code ? (
-                                            <span className="w-7 shrink-0 text-[10px] font-semibold tracking-wide text-sidebar-foreground/60">
-                                                {item.code}
-                                            </span>
-                                        ) : null}
                                         <span>{item.title}</span>
                                         <ChevronRight className="ml-auto transition-transform group-data-[state=open]/collapsible:rotate-90" />
                                     </SidebarMenuButton>
@@ -90,9 +120,7 @@ export function NavMain({
                                                 <SidebarMenuSubButton
                                                     asChild
                                                     isActive={
-                                                        isCurrentOrParentUrl(
-                                                            child.href,
-                                                        ) &&
+                                                        isActive(child) &&
                                                         !item.children?.some(
                                                             (other) =>
                                                                 String(
@@ -101,14 +129,15 @@ export function NavMain({
                                                                     String(
                                                                         child.href,
                                                                     ).length &&
-                                                                isCurrentOrParentUrl(
-                                                                    other.href,
-                                                                ),
+                                                                isActive(other),
                                                         )
                                                     }
                                                 >
                                                     <Link
                                                         href={child.href}
+                                                        onClick={() =>
+                                                            setOpenMobile(false)
+                                                        }
                                                         prefetch
                                                     >
                                                         <span>

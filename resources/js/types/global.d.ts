@@ -23,6 +23,10 @@ declare module '@inertiajs/core' {
             performance: {
                 webVitalsSampleRate: number;
             };
+            workspaceContext: {
+                companyName: string | null;
+                currentYear: number;
+            } | null;
             sidebarOpen: boolean;
             [key: string]: unknown;
         };
