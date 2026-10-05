@@ -28,6 +28,14 @@ class DashboardTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        // These contract assertions deliberately exercise the optional English UI.
+        $this->withSession(['locale' => 'en']);
+        app()->setLocale('en');
+    }
+
     public function test_guests_are_redirected_to_the_login_page()
     {
         $response = $this->get(route('dashboard'));

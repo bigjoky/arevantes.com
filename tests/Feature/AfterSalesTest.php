@@ -28,6 +28,14 @@ class AfterSalesTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        // These contract assertions deliberately exercise the optional English UI.
+        $this->withSession(['locale' => 'en']);
+        app()->setLocale('en');
+    }
+
     public function test_each_service_workspace_loads_only_its_contextual_dataset(): void
     {
         $commercial = User::factory()->create(['role' => 'commercial']);

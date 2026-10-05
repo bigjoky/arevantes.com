@@ -19,6 +19,14 @@ class WorkspaceNavigationAuthorizationTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        // These contract assertions deliberately exercise the optional English UI.
+        $this->withSession(['locale' => 'en']);
+        app()->setLocale('en');
+    }
+
     public function test_shortcuts_are_personal_authorized_and_cleaned_when_permissions_change(): void
     {
         $user = $this->userWithPermissions(['view-installations']);

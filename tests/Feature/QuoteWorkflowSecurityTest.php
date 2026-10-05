@@ -18,6 +18,14 @@ class QuoteWorkflowSecurityTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        // These contract assertions deliberately exercise the optional English UI.
+        $this->withSession(['locale' => 'en']);
+        app()->setLocale('en');
+    }
+
     public function test_a_new_proposal_is_always_saved_as_an_editable_private_draft(): void
     {
         $commercial = User::factory()->create(['role' => 'commercial']);

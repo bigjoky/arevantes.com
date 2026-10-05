@@ -23,6 +23,14 @@ class PurchaseTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        // These contract assertions deliberately exercise the optional English UI.
+        $this->withSession(['locale' => 'en']);
+        app()->setLocale('en');
+    }
+
     public function test_custom_purchase_lines_can_be_invoiced_without_catalog_or_stock(): void
     {
         $user = User::factory()->create(['role' => 'admin']);

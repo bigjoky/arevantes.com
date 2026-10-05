@@ -28,6 +28,14 @@ class RecurringServiceQualityTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        // These contract assertions deliberately exercise the optional English UI.
+        $this->withSession(['locale' => 'en']);
+        app()->setLocale('en');
+    }
+
     public function test_completed_cycle_detection_is_idempotent_and_opens_assigned_reviews_by_business_line(): void
     {
         [$admin, $technician, $commitment, $asset] = $this->completedSecurityCycle();
