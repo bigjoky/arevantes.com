@@ -5,6 +5,7 @@ import { Breadcrumbs } from '@/components/breadcrumbs';
 import { FavoritesBar } from '@/components/favorites-bar';
 import { GlobalSearch } from '@/components/global-search';
 import { LanguageSelector } from '@/components/language-selector';
+import { NavUser } from '@/components/nav-user';
 import { QuickCreate } from '@/components/quick-create';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import type { BreadcrumbItem as BreadcrumbItemType } from '@/types';
@@ -44,6 +45,7 @@ export function AppSidebarHeader({
                     <QuickCreate />
                     {hasActionCenter && <ActionCenter />}
                     {abilities.useAi && <AreviaChat />}
+                    <NavUser placement="header" />
                 </div>
             </header>
             <FavoritesBar />

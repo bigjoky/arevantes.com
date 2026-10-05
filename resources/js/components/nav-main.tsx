@@ -1,4 +1,4 @@
-import { Link } from '@inertiajs/react';
+import { Link, usePage } from '@inertiajs/react';
 import { ChevronRight } from 'lucide-react';
 import {
     Collapsible,
@@ -16,6 +16,7 @@ import {
     SidebarMenuSubItem,
 } from '@/components/ui/sidebar';
 import { useCurrentUrl } from '@/hooks/use-current-url';
+import { toUrl } from '@/lib/utils';
 import type { NavItem } from '@/types';
 
 export function NavMain({
@@ -25,7 +26,24 @@ export function NavMain({
     items: NavItem[];
     label?: string;
 }) {
-    const { isCurrentUrl, isCurrentOrParentUrl } = useCurrentUrl();
+    const { isCurrentOrParentUrl } = useCurrentUrl();
+    const page = usePage();
+    const current = new URL(page.url, 'http://localhost');
+    const isActive = (item: NavItem) => {
+        const target = new URL(toUrl(item.href), 'http://localhost');
+
+        if (target.searchParams.has('view')) {
+            return (
+                current.pathname === target.pathname &&
+                (current.searchParams.get('view') ??
+                    (current.searchParams.has('account')
+                        ? 'ledger'
+                        : 'journal')) === target.searchParams.get('view')
+            );
+        }
+
+        return isCurrentOrParentUrl(item.href);
+    };
 
     return (
         <SidebarGroup className="px-2 py-0">
@@ -46,10 +64,16 @@ export function NavMain({
                             <SidebarMenuItem key={item.title}>
                                 <SidebarMenuButton
                                     asChild
-                                    isActive={isCurrentUrl(item.href)}
+                                    isActive={isActive(item)}
                                     tooltip={{ children: tooltip }}
                                 >
-                                    <Link href={item.href} prefetch>
+                                    <Link
+                                        href={item.href}
+                                        prefetch
+                                        aria-current={
+                                            isActive(item) ? 'page' : undefined
+                                        }
+                                    >
                                         {item.icon && <item.icon />}
                                         <span>{item.title}</span>
                                     </Link>
@@ -72,11 +96,6 @@ export function NavMain({
                                         tooltip={{ children: tooltip }}
                                     >
                                         {item.icon && <item.icon />}
-                                        {item.code ? (
-                                            <span className="w-7 shrink-0 text-[10px] font-semibold tracking-wide text-sidebar-foreground/60">
-                                                {item.code}
-                                            </span>
-                                        ) : null}
                                         <span>{item.title}</span>
                                         <ChevronRight className="ml-auto transition-transform group-data-[state=open]/collapsible:rotate-90" />
                                     </SidebarMenuButton>

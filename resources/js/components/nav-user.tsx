@@ -15,7 +15,11 @@ import { UserInfo } from '@/components/user-info';
 import { UserMenuContent } from '@/components/user-menu-content';
 import { useIsMobile } from '@/hooks/use-mobile';
 
-export function NavUser() {
+export function NavUser({
+    placement = 'sidebar',
+}: {
+    placement?: 'sidebar' | 'header';
+}) {
     const { auth } = usePage().props;
     const { state } = useSidebar();
     const isMobile = useIsMobile();
@@ -25,13 +29,17 @@ export function NavUser() {
     }
 
     return (
-        <SidebarMenu>
+        <SidebarMenu className={placement === 'header' ? 'w-auto' : undefined}>
             <SidebarMenuItem>
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                         <SidebarMenuButton
                             size="lg"
-                            className="group text-sidebar-accent-foreground data-[state=open]:bg-sidebar-accent"
+                            className={
+                                placement === 'header'
+                                    ? 'group w-auto max-w-52 text-foreground hover:bg-accent hover:text-accent-foreground data-[state=open]:bg-accent'
+                                    : 'group text-sidebar-accent-foreground data-[state=open]:bg-sidebar-accent'
+                            }
                             data-test="sidebar-menu-button"
                         >
                             <UserInfo user={auth.user} />
@@ -42,11 +50,13 @@ export function NavUser() {
                         className="w-(--radix-dropdown-menu-trigger-width) min-w-56 rounded-lg"
                         align="end"
                         side={
-                            isMobile
+                            placement === 'header'
                                 ? 'bottom'
-                                : state === 'collapsed'
-                                  ? 'left'
-                                  : 'bottom'
+                                : isMobile
+                                  ? 'bottom'
+                                  : state === 'collapsed'
+                                    ? 'left'
+                                    : 'bottom'
                         }
                     >
                         <UserMenuContent user={auth.user} />

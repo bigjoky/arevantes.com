@@ -1,4 +1,4 @@
-import { Form, Head, Link, router } from '@inertiajs/react';
+import { Form, Head, Link, router, usePage } from '@inertiajs/react';
 import {
     ArrowLeft,
     CalendarRange,
@@ -175,11 +175,33 @@ export default function AccountingIndex({
     taxRates: TaxRate[];
     thirdParties: { customers: PartyBalance[]; suppliers: PartyBalance[] };
 }) {
+    const page = usePage();
+    const requestedView = new URL(
+        page.url,
+        'http://localhost',
+    ).searchParams.get('view');
+    const views: View[] = [
+        'journal',
+        'trial',
+        'profit',
+        'balance',
+        'ledger',
+        'parties',
+        'mappings',
+    ];
     const [view, setView] = useState<View>(
-        selectedAccount ? 'ledger' : 'journal',
+        views.includes(requestedView as View)
+            ? (requestedView as View)
+            : selectedAccount
+              ? 'ledger'
+              : 'journal',
     );
     const navigate = (params: Record<string, string | number>) =>
-        router.get('/accounting', { year, ...params }, { preserveState: true });
+        router.get(
+            '/accounting',
+            { year, view, ...params },
+            { preserveState: true },
+        );
 
     return (
         <>
@@ -249,7 +271,10 @@ export default function AccountingIndex({
                                         <button
                                             key={key}
                                             type="button"
-                                            onClick={() => setView(key)}
+                                            onClick={() => {
+                                                setView(key);
+                                                navigate({ view: key });
+                                            }}
                                             className={`border-b-2 px-3 py-2 text-sm font-medium whitespace-nowrap ${view === key ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
                                         >
                                             {label}
@@ -285,7 +310,7 @@ export default function AccountingIndex({
                             onValueChange={(value) =>
                                 router.get(
                                     '/accounting',
-                                    { year: value },
+                                    { year: value, view },
                                     { preserveState: true },
                                 )
                             }
@@ -341,7 +366,7 @@ export default function AccountingIndex({
                         accounts={accounts}
                         onAccount={(code) => {
                             setView('ledger');
-                            navigate({ account: code });
+                            navigate({ account: code, view: 'ledger' });
                         }}
                     />
                 )}
@@ -362,7 +387,9 @@ export default function AccountingIndex({
                         accounts={accounts}
                         selected={selectedAccount}
                         lines={ledger}
-                        onAccount={(code) => navigate({ account: code })}
+                        onAccount={(code) =>
+                            navigate({ account: code, view: 'ledger' })
+                        }
                     />
                 )}
                 {view === 'parties' && (
