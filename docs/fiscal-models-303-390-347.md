@@ -88,7 +88,6 @@ cuotas deducibles por clase, compensaciones, totales oficiales y casos de asesor
 Otros ejercicios y 1T/2026 no reutilizan automáticamente este diseño.
 
 Referencia: [instrucciones oficiales AEAT 2T–4T/2026](https://sede.agenciatributaria.gob.es/Sede/todas-gestiones/impuestos-tasas/iva/modelo-303-iva-autoliquidacion_/instrucciones-2026/instrucciones-02-12-2t-4t-2026.html).
-
 Preparar, revisar, conciliar y conservar los tres modelos cuando correspondan al
 perfil censal. Mantener el objetivo operativo del 01/01/2027 y la puesta en marcha
 controlada del 18/12/2026. No confundir estas fechas internas con vencimientos AEAT.

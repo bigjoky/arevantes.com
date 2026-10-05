@@ -8,11 +8,13 @@ producción por PR131, versión efectiva `v2026.10.05.2`, commit
 `depl-a2e82a80-ddc1-460a-81fc-b038e2266f30` con éxito; `/up` y `/login` HTTP 200,
 login sin preferencias con `lang="es"`. Inglés explícito conservado. Publicación
 solo del idioma: no lleva funciones/migraciones fiscales pendientes de develop.
-Control previo a la próxima publicación fiscal: reconciliar divergencias históricas
-entre main/develop en gastos, sus pantallas, traducciones y documentación, con
-pruebas funcionales completas. El intento de integración tras PR131 se canceló
-sin cambios de código al detectar conflictos; no resolverlos tomando una rama
-entera ni sobrescribir correcciones publicadas. Develop conserva su estado probado.
+Requisito de reconciliación main/develop completado (05/10): conflictos históricos
+resueltos por bloque tras comprobar que las correcciones publicadas ya estaban
+conservadas. Ninguna clave/valor de traducción publicado se pierde; código funcional
+idéntico al develop probado. 710 pruebas superadas, 5 omitidas, 10.688 aserciones.
+Evidencia en [registro de reconciliación](branch-reconciliation-2026-10-05.md).
+La publicación fiscal sigue necesitando sus puertas funcionales y de preparación;
+reconciliar Git no equivale a validar un modelo oficial ni a desplegarlo.
 
 **Incremento FIN-03.303, periodo de deducción de compras (05/10):** revisión
 auditada con fecha de registro, ejercicio y trimestre de deducción explícitos.
@@ -301,7 +303,6 @@ usuario. Producción `v2026.09.29.1`, PR #129, commit `ea6f8f9c`, deployment
 `depl-a2dcbed9-7d75-4753-bc80-ab0eb78890a2` correcto y activo. Configuración,
 columnas, migración y ruta comprobadas remotamente; `/up` y `/login` responden
 200. No se han recalculado históricos. Pendiente comprobación visual autenticada.
-
 - Panel común ES/EN en alta y edición: base, IVA calculado, cuota documental,
   diferencia de redondeo, total e IVA deducible. Motivo del ajuste conservado.
 - Vista previa calculada en servidor, sin crear gastos ni asientos. Guardado
@@ -629,7 +630,6 @@ Se incorpora la propuesta del usuario al siguiente bloque fiscal de importes/IVA
 - Siguiente prioridad: corrección administrativa de pagos ya contabilizados con
   reversión y trazabilidad; después importes de gastos existentes, líneas libres
   de compra y asignación a períodos fiscales sin alterar declaraciones presentadas.
-
 ## Correcciones operativas de finanzas y compras — 27/09/2026
 
 Se añaden al roadmap existente, sin sustituir las fases fiscales ni el directorio
