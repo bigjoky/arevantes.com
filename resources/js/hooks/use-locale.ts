@@ -234,7 +234,7 @@ const dictionaries = {
 
 export function useLocale() {
     const current = usePage().props.localization.current;
-    const locale: Locale = current === 'es' ? 'es' : 'en';
+    const locale: Locale = current === 'en' ? 'en' : 'es';
 
     return {
         locale,

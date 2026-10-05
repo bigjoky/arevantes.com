@@ -17,6 +17,14 @@ class SupplyControlTowerTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        // These contract assertions deliberately exercise the optional English UI.
+        $this->withSession(['locale' => 'en']);
+        app()->setLocale('en');
+    }
+
     public function test_open_orders_are_prioritized_and_supplier_eta_changes_are_audited(): void
     {
         $commercial = User::factory()->create(['role' => 'commercial']);

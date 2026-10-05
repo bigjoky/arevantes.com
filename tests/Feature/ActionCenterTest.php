@@ -21,6 +21,14 @@ class ActionCenterTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        // These contract assertions deliberately exercise the optional English UI.
+        $this->withSession(['locale' => 'en']);
+        app()->setLocale('en');
+    }
+
     public function test_commercial_user_sees_operational_financial_and_banking_actions(): void
     {
         $user = User::factory()->create(['role' => 'commercial']);
@@ -80,7 +88,7 @@ class ActionCenterTest extends TestCase
         $group = collect($response->json('groups'))->firstWhere('label', 'Financial alerts');
         $this->assertNotNull($group);
         $this->assertSame(1, $group['count']);
-        $this->assertSame('Jun · Operating result', $group['items'][0]['title']);
+        $this->assertSame(now()->month(6)->translatedFormat('M').' · Operating result', $group['items'][0]['title']);
         $this->assertSame('critical', $group['items'][0]['severity']);
         $this->assertSame('/finance?year=2026#budget-month-6', $group['items'][0]['href']);
     }
