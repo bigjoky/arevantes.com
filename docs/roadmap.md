@@ -247,6 +247,68 @@ Referencias de ejecución: [modelos 303/390/347](fiscal-models-303-390-347.md),
 [preparación fiscal](fiscal-readiness-2027.md) y [energía/CUPS](energy-supply-roadmap.md).
 No hay envío AEAT ni pagos automáticos habilitados por este roadmap.
 
+## Implantación del nuevo diseño por secciones — 05/10/2026
+
+Decisión del usuario: aplicar los diseños sección por sección. En **cada sección**,
+los datos y acciones del diseño que todavía no estén disponibles se incorporan a
+este roadmap, con preparación de interfaz y contrato para su futura conexión.
+Esta regla se aplica al libro diario y a todos los siguientes cortes. No se
+presupone el contenido de diseños que aún no se hayan proporcionado.
+
+Por cada corte se debe:
+
+1. Contrastar cada campo, filtro, pestaña y acción del diseño con el modelo,
+   payload, rutas y permisos reales; reutilizar capacidades existentes.
+2. Preparar componentes y tipos aditivos compatibles con el payload actual.
+   Distinguir datos no suministrados de datos consultados y vacíos; no inventar
+   documentos, nombres, importes, auditoría ni enlaces para completar el diseño.
+3. Registrar aquí las carencias con identificador, estado, dependencias y criterio
+   de aceptación. Una interfaz preparada no equivale a backend implantado.
+4. Conectar las acciones solo cuando existan rutas y autorización en servidor.
+   Conservar las funciones vigentes, documentar las ausentes y preparar su flujo.
+5. Verificar con datos reales estados poblados, vacíos, no disponibles y errores,
+   permisos, ES/EN, teclado, móvil y escritorio. Registrar las comprobaciones
+   pendientes antes de considerar una sección terminada o publicada.
+
+### UI-JOURNAL — Libro diario, asientos y apuntes
+
+Referencia: diseño adjunto del usuario «Libro diario, asientos y apuntes.png».
+Estado: **interfaz implementada localmente y contrato preparado; backend adicional,
+validación visual autenticada e integración/publicación pendientes**.
+
+Disponible actualmente: fecha, número, concepto, tipo técnico, estado, líneas,
+cuentas, debe/haber, documento de origen cuando exista, alta manual, reversión,
+sincronización, cierres e informes. Lista/detalle, búsqueda y filtros locales,
+exportación CSV de la selección y paleta del diseño implementados. Las opciones
+contables se conservan en «Más opciones».
+
+Contrato aditivo preparado en `resources/js/types/accounting-journal.ts`, consumido
+por `resources/js/pages/accounting/index.tsx`: `journal`, `notes`, `documents` e
+`history`. Campos ausentes (`undefined`) significan capacidad no suministrada;
+`null` o arrays vacíos significan consulta realizada sin contenido. El controlador
+actual todavía no emite estos campos. No inferir un diario «General» del tipo,
+ni observaciones del concepto, ni adjuntos a partir del enlace al origen.
+
+| ID | Capacidad pendiente / preparación actual | Dependencias y siguiente implantación | Criterio de aceptación |
+| --- | --- | --- | --- |
+| UI-JOURNAL-01 | Diario contable: columna, campo de detalle y selector preparados; selector deshabilitado sin catálogo | Definir asociación con series/diarios existentes y reglas de asignación; suministrar catálogo autorizado completo, no solo diarios de los asientos cargados; enlazar con configuración | Nombres reales en lista y detalle; filtro global; históricos sin asociación siguen visibles; no asignar diarios ficticios |
+| UI-JOURNAL-02 | Observaciones: sección y campo opcional preparados | Confirmar si existe información reutilizable en origen o si requiere persistencia propia; definir autor, revisión y permisos de modificación | Observaciones reales separadas del concepto; ausencia y vacío distinguibles; cambios auditados sin alterar contabilidad |
+| UI-JOURNAL-03 | Adjuntos: lista, contador, nombre, tamaño, fecha, consulta y descarga preparados | Reutilizar adjuntos de gastos/compras/ventas que correspondan al origen; definir adjuntos directos de asiento si se necesitan; emitir URLs autorizadas y metadatos del contrato | Lista completa sin duplicados; contador real; consulta/descarga con comprobación de acceso; no exponer rutas privadas ni mostrar PDF ficticio |
+| UI-JOURNAL-04 | Historial: pestaña y cronología preparadas | Reutilizar auditoría existente; entregar eventos del asiento y relaciones de reversión, con actor/fecha; definir alcance de eventos del origen | Eventos reales ordenados y trazables; acceso autorizado; ninguna actividad inventada; reversión identificable |
+| UI-JOURNAL-05 | Editar: flujo planificado; acción no habilitada | No existe ruta de edición de asiento en las rutas contables revisadas; definir borradores editables frente a correcciones por reversión/nuevo asiento, con permisos y controles de periodo/documento de origen | No modificar silenciosamente asientos contabilizados; periodo cerrado protegido; validación de líneas, motivo y auditoría; acción solo cuando el servidor la autorice |
+| UI-JOURNAL-06 | Duplicar: flujo planificado; acción no habilitada | No existe ruta de duplicado revisada; reutilizar formulario manual con datos precargados, nueva fecha/número y confirmación antes de contabilizar; no copiar vínculos del origen automáticamente | Abrir propuesta editable; no contabilizar al pulsar duplicar; nuevo número asignado en servidor; balance y permisos verificados |
+| UI-JOURNAL-07 | Filtros avanzados, paginación y exportación completa | El controlador limita a 250 asientos; búsqueda, filtros y CSV actuales solo operan sobre los cargados. Preparar consultas en servidor y exportación con idénticos filtros, incluidos diario, estado e importes | Filtrar todo el ejercicio sin truncamiento silencioso; totales y recuentos coherentes; exportación etiquetada y autorizada; filtros persistentes al cambiar selección |
+| UI-JOURNAL-08 | Navegación contable y cabecera común del diseño | Continuar la separación de destinos financieros ya planificada; reutilizar navegación por permisos, búsqueda global, ejercicio, notificaciones y usuario; mantener acciones de cabecera existentes | Diario e informes con URL propia; selección de ejercicio coherente; cabecera/sidebar fieles al diseño sin perder accesos reales; no introducir favoritos en sidebar |
+| UI-JOURNAL-09 | Tipos y estados en lenguaje de usuario | Preparar catálogo ES/EN para tipos, estados, fechas y nuevas etiquetas; evitar exponer códigos técnicos | Español e inglés completos; catálogo i18n validado; estado contable y reversión diferenciados |
+| UI-JOURNAL-10 | Verificación e integración | Falta entorno Laravel preparado en este checkout y rutas Wayfinder generadas para comprobar tipos globales; comprobar con autenticación y datos representativos | Compilación/tipos globales, lint, formato y pruebas proporcionales; revisión visual con referencia en escritorio/móvil; publicar solo tras validación |
+
+Orden dentro del corte: 01–04 (datos de lectura) → 07 y 09 (consulta completa e
+idioma) → 05–06 (operaciones, tras definir integridad) → 08 y 10 (integración y
+aceptación). Se preservan las prioridades y dependencias FIN-01/FIN-02 y el resto
+del roadmap; sin fechas nuevas ni declaración de capacidades como publicadas.
+La preparación actual de 05–08 es especificación de flujo/dependencias; no existen
+endpoints nuevos ni una implementación operativa de esas capacidades.
+
 ## Registro de entregas y detalle conservado
 
 ### 05/10/2026 — Concurrencia fiscal con conexiones independientes (FIN-01)
