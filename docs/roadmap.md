@@ -297,6 +297,15 @@ la paleta del diario; este corte modifica el componente compartido.
 | UI-SIDEBAR-04 | Selector directo de empresa y ejercicio del pie | Empresa actual real y acceso a configuración preparados. No existe cambio de empresa activo; solo permitir selección cuando haya catálogo autorizado y alcance definido. Selector de ejercicio debe conservar filtros y corresponder al ejercicio seleccionado de cada módulo |
 | UI-SIDEBAR-05 | Aceptación visual y responsive | Comparar con la referencia en Safari con sesión local, verificar selección, navegación por teclado, colapsado y móvil; registrar validación e integración en develop |
 
+Validación local del corte: Vite, TypeScript global, catálogo ES/EN, ESLint y
+formato de los archivos modificados, Pint y Composer correctos. Suite Laravel:
+733 pruebas correctas, 5 omitidas y 10.863 aserciones. Comprobado visualmente en
+Safari con sesión real del entorno local: logo, dimensiones, grupos, selección del
+diario, usuario en cabecera y empresa/ejercicio al pie. Preparación compatible con
+colapsado y móvil; su aceptación visual e interacción siguen pendientes porque
+el Mac se bloqueó durante la revisión. Aplicado y recompilado en develop local,
+conservando los cambios contables ajenos que ya estaban en ese checkout.
+
 ### UI-JOURNAL — Libro diario, asientos y apuntes
 
 Referencia: diseño adjunto del usuario «Libro diario, asientos y apuntes.png».
