@@ -14,6 +14,7 @@ import {
     SidebarMenuSub,
     SidebarMenuSubButton,
     SidebarMenuSubItem,
+    useSidebar,
 } from '@/components/ui/sidebar';
 import { useCurrentUrl } from '@/hooks/use-current-url';
 import { toUrl } from '@/lib/utils';
@@ -28,6 +29,10 @@ export function NavMain({
 }) {
     const { isCurrentOrParentUrl } = useCurrentUrl();
     const page = usePage();
+    const { setOpenMobile } = useSidebar();
+    const authorizedPaths = page.props.auth.navigation
+        .flatMap((item) => item.children ?? [item])
+        .map((item) => new URL(item.href, 'http://localhost').pathname);
     const current = new URL(page.url, 'http://localhost');
     const isActive = (item: NavItem) => {
         const target = new URL(toUrl(item.href), 'http://localhost');
@@ -42,7 +47,13 @@ export function NavMain({
             );
         }
 
-        return isCurrentOrParentUrl(item.href);
+        const moreSpecific = authorizedPaths.some(
+            (path) =>
+                path.length > target.pathname.length &&
+                (current.pathname === path ||
+                    current.pathname.startsWith(`${path}/`)),
+        );
+        return !moreSpecific && isCurrentOrParentUrl(item.href);
     };
 
     return (
@@ -67,6 +78,7 @@ export function NavMain({
                                 >
                                     <Link
                                         href={item.href}
+                                        onClick={() => setOpenMobile(false)}
                                         prefetch
                                         aria-current={
                                             isActive(item) ? 'page' : undefined
@@ -122,6 +134,9 @@ export function NavMain({
                                                 >
                                                     <Link
                                                         href={child.href}
+                                                        onClick={() =>
+                                                            setOpenMobile(false)
+                                                        }
                                                         prefetch
                                                     >
                                                         <span>
