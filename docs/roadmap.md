@@ -8,6 +8,11 @@ producción por PR131, versión efectiva `v2026.10.05.2`, commit
 `depl-a2e82a80-ddc1-460a-81fc-b038e2266f30` con éxito; `/up` y `/login` HTTP 200,
 login sin preferencias con `lang="es"`. Inglés explícito conservado. Publicación
 solo del idioma: no lleva funciones/migraciones fiscales pendientes de develop.
+Control previo a la próxima publicación fiscal: reconciliar divergencias históricas
+entre main/develop en gastos, sus pantallas, traducciones y documentación, con
+pruebas funcionales completas. El intento de integración tras PR131 se canceló
+sin cambios de código al detectar conflictos; no resolverlos tomando una rama
+entera ni sobrescribir correcciones publicadas. Develop conserva su estado probado.
 
 **Incremento FIN-03.303, periodo de deducción de compras (05/10):** revisión
 auditada con fecha de registro, ejercicio y trimestre de deducción explícitos.
