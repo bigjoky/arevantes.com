@@ -11,7 +11,6 @@ import {
     SlidersHorizontal,
     SquareLibrary,
     UsersRound,
-    WalletCards,
 } from 'lucide-react';
 import type { NavItem } from '@/types';
 
@@ -22,8 +21,8 @@ export function accountingNavigation(navigation: NavItem[], year?: number) {
         const item = leaves.find((candidate) => candidate.href === href);
 
         if (!item) {
-return [];
-}
+            return [];
+        }
 
         used.add(href);
 
@@ -36,19 +35,23 @@ return [];
         icon = BookOpenText,
     ): NavItem[] => {
         if (!journal) {
-return [];
-}
+            return [];
+        }
 
         used.add('/accounting');
         const params = new URLSearchParams({ view });
 
         if (year) {
-params.set('year', String(year));
-}
+            params.set('year', String(year));
+        }
 
         return [{ title, href: `/accounting?${params}`, icon }];
     };
     const home = find('/dashboard', 'Inicio', Home);
+    const books = [
+        ...find('/tax/issued', 'Facturas emitidas', FileText),
+        ...find('/tax/received', 'Facturas recibidas', FileText),
+    ];
     const groups = [
         {
             label: 'Contabilidad',
@@ -64,8 +67,16 @@ params.set('year', String(year));
                 ...report('profit', 'Cuenta de resultados', FileChartColumn),
                 ...report('ledger', 'Libro mayor', BookOpenText),
                 ...report('parties', 'Saldos de terceros', UsersRound),
-                ...find('/tax/issued', undefined, FileText),
-                ...find('/tax/received', undefined, FileText),
+                ...(books.length
+                    ? [
+                          {
+                              title: 'Libros de IVA',
+                              href: books[0].href,
+                              icon: FileText,
+                              children: books,
+                          },
+                      ]
+                    : []),
             ],
         },
         {
@@ -75,8 +86,6 @@ params.set('year', String(year));
                 ...find('/people', 'Clientes', UsersRound),
                 ...find('/suppliers', 'Proveedores', ShoppingBag),
                 ...find('/catalog', 'Productos y servicios', ShoppingBag),
-                ...find('/expenses', 'Gastos', WalletCards),
-                ...find('/banking', 'Bancos', Landmark),
             ],
         },
         {
@@ -92,8 +101,8 @@ params.set('year', String(year));
     ].filter((group) => group.items.length);
     const remaining = navigation.flatMap((item) => {
         if (!item.children) {
-return used.has(String(item.href)) ? [] : [item];
-}
+            return used.has(String(item.href)) ? [] : [item];
+        }
 
         const children = item.children.filter(
             (child) => !used.has(String(child.href)),

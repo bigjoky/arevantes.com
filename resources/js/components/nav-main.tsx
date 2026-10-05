@@ -51,10 +51,8 @@ export function NavMain({
             <SidebarMenu>
                 {items.map((item) => {
                     const active =
-                        isCurrentOrParentUrl(item.href) ||
-                        item.children?.some((child) =>
-                            isCurrentOrParentUrl(child.href),
-                        );
+                        isActive(item) ||
+                        item.children?.some((child) => isActive(child));
                     const tooltip = item.code
                         ? `${item.code} · ${item.title}`
                         : item.title;
@@ -109,9 +107,7 @@ export function NavMain({
                                                 <SidebarMenuSubButton
                                                     asChild
                                                     isActive={
-                                                        isCurrentOrParentUrl(
-                                                            child.href,
-                                                        ) &&
+                                                        isActive(child) &&
                                                         !item.children?.some(
                                                             (other) =>
                                                                 String(
@@ -120,9 +116,7 @@ export function NavMain({
                                                                     String(
                                                                         child.href,
                                                                     ).length &&
-                                                                isCurrentOrParentUrl(
-                                                                    other.href,
-                                                                ),
+                                                                isActive(other),
                                                         )
                                                     }
                                                 >
