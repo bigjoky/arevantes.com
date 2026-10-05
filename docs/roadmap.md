@@ -299,8 +299,8 @@ ni observaciones del concepto, ni adjuntos a partir del enlace al origen.
 | UI-JOURNAL-06 | Duplicar: flujo planificado; acción no habilitada | No existe ruta de duplicado revisada; reutilizar formulario manual con datos precargados, nueva fecha/número y confirmación antes de contabilizar; no copiar vínculos del origen automáticamente | Abrir propuesta editable; no contabilizar al pulsar duplicar; nuevo número asignado en servidor; balance y permisos verificados |
 | UI-JOURNAL-07 | Filtros avanzados, paginación y exportación completa | El controlador limita a 250 asientos; búsqueda, filtros y CSV actuales solo operan sobre los cargados. Preparar consultas en servidor y exportación con idénticos filtros, incluidos diario, estado e importes | Filtrar todo el ejercicio sin truncamiento silencioso; totales y recuentos coherentes; exportación etiquetada y autorizada; filtros persistentes al cambiar selección |
 | UI-JOURNAL-08 | Navegación contable y cabecera común del diseño | Continuar la separación de destinos financieros ya planificada; reutilizar navegación por permisos, búsqueda global, ejercicio, notificaciones y usuario; mantener acciones de cabecera existentes | Diario e informes con URL propia; selección de ejercicio coherente; cabecera/sidebar fieles al diseño sin perder accesos reales; no introducir favoritos en sidebar |
-| UI-JOURNAL-09 | Tipos y estados en lenguaje de usuario | Preparar catálogo ES/EN para tipos, estados, fechas y nuevas etiquetas; evitar exponer códigos técnicos | Español e inglés completos; catálogo i18n validado; estado contable y reversión diferenciados |
-| UI-JOURNAL-10 | Verificación e integración | Falta entorno Laravel preparado en este checkout y rutas Wayfinder generadas para comprobar tipos globales; comprobar con autenticación y datos representativos | Compilación/tipos globales, lint, formato y pruebas proporcionales; revisión visual con referencia en escritorio/móvil; publicar solo tras validación |
+| UI-JOURNAL-09 | Tipos y estados en lenguaje de usuario | Preparar catálogo ES/EN para tipos, estados, fechas y nuevas etiquetas; evitar exponer códigos técnicos | Español e inglés completos; catálogo i18n validado; estado contable y reversión diferenciados. Nuevas etiquetas ES/EN ya incorporadas y comprobadas en este corte |
+| UI-JOURNAL-10 | Verificación e integración | Entorno Laravel y rutas Wayfinder preparados; compilación y tipos globales comprobados; queda comprobar con autenticación y datos representativos | Compilación/tipos globales, lint, formato y pruebas proporcionales; revisión visual con referencia en escritorio/móvil; publicar solo tras validación |
 
 Orden dentro del corte: 01–04 (datos de lectura) → 07 y 09 (consulta completa e
 idioma) → 05–06 (operaciones, tras definir integridad) → 08 y 10 (integración y
@@ -308,6 +308,12 @@ aceptación). Se preservan las prioridades y dependencias FIN-01/FIN-02 y el res
 del roadmap; sin fechas nuevas ni declaración de capacidades como publicadas.
 La preparación actual de 05–08 es especificación de flujo/dependencias; no existen
 endpoints nuevos ni una implementación operativa de esas capacidades.
+
+Validación de integración del 05/10: compilación Vite, TypeScript global, ESLint y
+formato de los archivos modificados, catálogo ES/EN y `composer validate --strict`
+correctos. Suite Laravel: 733 pruebas correctas, 5 omitidas y 10.863 aserciones.
+PR de integración: [#132](https://github.com/bigjoky/arevantes.com/pull/132).
+Revisión visual autenticada pendiente; no considerar cerrada UI-JOURNAL-10.
 
 ## Registro de entregas y detalle conservado
 

@@ -210,7 +210,6 @@ export default function AccountingIndex({
                                     </DialogTitle>
                                 </DialogHeader>
                                 <div className="flex flex-wrap gap-2">
-                                    {' '}
                                     <Button variant="outline" asChild>
                                         <Link href="/finance">
                                             <ArrowLeft /> Finance
