@@ -38,6 +38,11 @@ class PurchaseDocument extends Model
         return $this->belongsTo(Supplier::class);
     }
 
+    public function fiscalClassification(): HasOne
+    {
+        return $this->hasOne(PurchaseFiscalClassification::class);
+    }
+
     /** @return array<string, mixed> */
     public function supplierIdentity(): array
     {

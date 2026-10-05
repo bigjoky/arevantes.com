@@ -54,7 +54,7 @@ class Model303Preview
         foreach ($report['received'] as $row) {
             $classification = $classifications[$row['source_type'].':'.$row['source_id']] ?? [];
             $class = $classification['operation_class'] ?? null;
-            if (! $supported || ! ($classification['current'] ?? false) || $row['source_type'] !== 'expense'
+            if (! $supported || ! ($classification['current'] ?? false) || ! in_array($row['source_type'], ['expense', 'purchase_document'], true)
                 || ! in_array($class, ['domestic_current', 'domestic_investment'], true)
                 || (float) $row['vat'] <= 0 || (float) ($row['deductible_vat'] ?? -1) <= 0) {
                 $pendingReceived[] = $row['source_type'] === 'purchase_document'

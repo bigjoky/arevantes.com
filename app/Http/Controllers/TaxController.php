@@ -12,7 +12,7 @@ use App\Services\Accounting\JournalPoster;
 use App\Services\Tax\CompanyCensus;
 use App\Services\Tax\ExpenseFiscalReview;
 use App\Services\Tax\Model303Preview;
-use App\Services\Tax\PurchaseFiscalEvidence;
+use App\Services\Tax\PurchaseFiscalReview;
 use App\Services\Tax\VatReport;
 use App\Services\Tax\VatSettlement;
 use Illuminate\Http\RedirectResponse;
@@ -43,10 +43,12 @@ class TaxController extends Controller
                 'current' => $review->isCurrent($expense), 'operation_class' => $expense->fiscalClassification?->operation_class,
             ]])->all();
 
-        $purchaseEvidence = app(PurchaseFiscalEvidence::class);
+        $purchaseEvidence = app(PurchaseFiscalReview::class);
         $classifications += PurchaseDocument::whereIn('id', collect($books['received'])->where('source_type', 'purchase_document')->pluck('source_id')->unique())
-            ->with('lines')->get()->mapWithKeys(fn ($purchase) => ['purchase_document:'.$purchase->id => [
-                'current' => false, 'issues' => $purchaseEvidence->issues($purchase),
+            ->with(['lines', 'fiscalClassification'])->get()->mapWithKeys(fn ($purchase) => ['purchase_document:'.$purchase->id => [
+                'current' => $purchaseEvidence->isCurrent($purchase),
+                'operation_class' => $purchase->fiscalClassification?->operation_class,
+                'issues' => ['purchase_review_pending', ...$purchaseEvidence->issues($purchase)],
             ]])->all();
 
         return Inertia::render('tax/model303', ['preview' => $preview->make($books, $documents, $classifications),

@@ -1,4 +1,13 @@
 {
+    "Purchase fiscal classification": "Purchase fiscal classification",
+    "Unreviewed or changed evidence: this purchase remains pending in the model.": "Unreviewed or changed evidence: this purchase remains pending in the model.",
+    "VAT to confirm as fully deductible": "VAT to confirm as fully deductible",
+    "Documentary review reference": "Documentary review reference",
+    "I checked the supplier invoice against this breakdown and confirm EUR, general domestic VAT without cash accounting, one invoice class, fully deductible VAT and deduction in the invoice quarter. Otherwise leave it pending.": "I checked the supplier invoice against this breakdown and confirm EUR, general domestic VAT without cash accounting, one invoice class, fully deductible VAT and deduction in the invoice quarter. Otherwise leave it pending.",
+    "The purchase invoice date must belong to an open fiscal year.": "The purchase invoice date must belong to an open fiscal year.",
+    "A prepared or filed tax return protects this purchase invoice.": "A prepared or filed tax return protects this purchase invoice.",
+    "A documentary review reference is required.": "A documentary review reference is required.",
+    "The purchase invoice evidence must be completed before classification.": "The purchase invoice evidence must be completed before classification.",
     "View purchase document": "View purchase document",
     "Purchase VAT classification and deduction period require explicit review.": "Purchase VAT classification and deduction period require explicit review.",
     "Supplier credit notes require separate fiscal treatment.": "Supplier credit notes require separate fiscal treatment.",

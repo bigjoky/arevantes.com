@@ -9,6 +9,19 @@ y su asesoría. Ninguna publicación habilita envíos o pagos reales automática
 
 ## Objetivo y secuencia
 
+Revisión de compras (05/10), evolución del diagnóstico: clasificación persistida
+y auditada desde `/tax/purchases/{purchaseDocument}/classification`. Confirma
+documento cotejado, moneda EUR, régimen interior general sin caja, clase única,
+IVA íntegramente deducible y mismo trimestre. Corriente/inversión/pendiente;
+autor, motivo, referencia y snapshot conservados, con control de versión del
+formulario. Casillas candidatas 28/29 y 30/31 solo con revisión vigente y desglose
+exacto 4/10/21, sin portes ni diferencias; líneas libres admitidas. Cambios
+fiscales invalidan revisión, no pagos/recepciones. Periodos y liquidaciones
+protegidos bloquean nuevas revisiones. Alcance pendiente: deducción parcial,
+deducción posterior con periodo registral propio, portes documentados,
+rectificativas y regímenes especiales. No modifica libros ni habilita envíos.
+Referencia: [AEAT, IVA deducible 2026](https://sede.agenciatributaria.gob.es/Sede/iva/pre-303/2026/iva-deducible.html).
+
 Diagnóstico de compras (05/10): evidencia recibida del 303 explica los bloqueos
 documentales de cada factura y enlaza su ficha. Comprueba snapshot de proveedor,
 número de factura, registro, país, portes, tipos y coherencia exacta de importes

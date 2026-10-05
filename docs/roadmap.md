@@ -2,6 +2,29 @@
 
 ## Estado vigente y orden de ejecución — 05/10/2026
 
+**Incremento FIN-03.303, revisión fiscal de compras y español nativo (05/10):**
+la plataforma arranca en español tanto pública como autenticada, incluso con
+APP_LOCALE heredado en inglés; elección explícita de inglés conservada en sesión.
+Revisión desde documentos del 303 en `/tax/purchases/{purchaseDocument}/classification`:
+solo administradores, clase corriente/inversión/pendiente, autor, fecha, motivo,
+referencia documental y snapshot fiscal, con historial auditable. Confirmación
+humana de cotejo con factura, EUR, IVA interior general sin caja, clase única,
+deducción íntegra y mismo trimestre de factura. Primer alcance: facturas
+registradas, proveedor ES con identidad conservada, tipos 4/10/21 y desglose
+exacto, incluidas líneas libres. Portes, diferencias, deducción parcial, casos
+mixtos, rectificativas y otros regímenes siguen pendientes. Revisión vigente
+alimenta candidatos 28/29 o 30/31 sin recalcular céntimos ni modificar libros,
+pagos o asientos. Cambios fiscales invalidan revisión; pagos y recepción de stock
+no. Formularios obsoletos rechazados; cierre de ejercicio/mes o liquidación
+preparada/presentada protege la revisión. Migración reversible aplicada en
+localhost tras ensayos en PostgreSQL aislado. Develop; no presentación oficial
+ni despliegue a producción en este corte. Próximo: periodo registral/deducción
+explícito, asignación documental de portes/diferencias y deducción parcial.
+Verificado: 705 pruebas superadas, 5 omitidas y 10.597 aserciones; 25 pruebas
+específicas y 249 aserciones también en PostgreSQL aislado. Migración reversible;
+base temporal eliminada. ES/EN, TypeScript y lint correctos. No se han clasificado
+compras reales ni modificado importes o pagos automáticamente.
+
 **Incremento FIN-03.303, diagnóstico documental de compras (05/10):** el 303
 muestra en la evidencia recibida los motivos concretos de bloqueo de cada compra,
 con enlace al documento: registro, identidad fiscal conservada, país, portes,
