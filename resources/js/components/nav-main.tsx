@@ -53,6 +53,7 @@ export function NavMain({
                 (current.pathname === path ||
                     current.pathname.startsWith(`${path}/`)),
         );
+
         return !moreSpecific && isCurrentOrParentUrl(item.href);
     };
 
