@@ -11,6 +11,22 @@ class LocaleSelectionTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_spanish_is_native_for_signed_in_users_even_with_legacy_english_app_config(): void
+    {
+        config(['app.locale' => 'en']);
+        $this->actingAs(User::factory()->create(['role' => 'admin']))
+            ->get(route('dashboard'))->assertOk()->assertSee('<html lang="es"', false)
+            ->assertInertia(fn (Assert $page) => $page->where('localization.current', 'es'));
+    }
+
+    public function test_explicit_english_choice_is_preserved_and_invalid_session_falls_back_to_spanish(): void
+    {
+        $this->actingAs(User::factory()->create(['role' => 'admin']))->withSession(['locale' => 'en'])
+            ->get(route('dashboard'))->assertOk()->assertInertia(fn (Assert $page) => $page->where('localization.current', 'en'));
+        $this->withSession(['locale' => 'fr'])->get(route('dashboard'))->assertOk()
+            ->assertInertia(fn (Assert $page) => $page->where('localization.current', 'es'));
+    }
+
     public function test_authenticated_user_can_change_language_for_the_current_session(): void
     {
         $user = User::factory()->create(['role' => 'admin']);

@@ -22,6 +22,14 @@ class OperationsAdminTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        // These contract assertions deliberately exercise the optional English UI.
+        $this->withSession(['locale' => 'en']);
+        app()->setLocale('en');
+    }
+
     public function test_commercial_users_can_manage_activities_and_quotes(): void
     {
         $user = User::factory()->create(['role' => 'commercial']);

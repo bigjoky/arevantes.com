@@ -21,6 +21,14 @@ class CustomerCrmEvolutionTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        // These contract assertions deliberately exercise the optional English UI.
+        $this->withSession(['locale' => 'en']);
+        app()->setLocale('en');
+    }
+
     public function test_customer_can_have_multiple_contacts_with_one_primary_contact(): void
     {
         $user = User::factory()->create(['role' => 'commercial']);

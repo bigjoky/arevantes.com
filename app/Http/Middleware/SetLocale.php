@@ -13,9 +13,8 @@ class SetLocale
     public function handle(Request $request, Closure $next): Response
     {
         $supported = array_keys(config('localization.supported', []));
-        $default = $request->user()
-            ? config('app.locale')
-            : config('localization.default', config('app.locale'));
+        // One native language for both guests and signed-in users. Session choices win.
+        $default = config('localization.default', 'es');
         $locale = $request->session()->get('locale', $default);
         App::setLocale(in_array($locale, $supported, true) ? $locale : $default);
 
