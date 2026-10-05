@@ -67,11 +67,44 @@ const deductionLabels: Record<string, string> = {
 const isExpense = (row: Evidence) => row.source_type === 'expense';
 const isPurchase = (row: Evidence) => row.source_type === 'purchase_document';
 
+type Reconciliation = {
+    matches: boolean;
+    pending_rows: number;
+    rows: {
+        direction: string;
+        candidate_vat: number;
+        book_vat: number | null;
+        ledger_vat: number | null;
+        book_difference: number | null;
+        ledger_difference: number | null;
+        unexplained_difference: number | null;
+    }[];
+    differences: {
+        source_type: string;
+        source_id: number;
+        number: string;
+        difference: number;
+        reason: string;
+    }[];
+};
+const reconciliationReasons: Record<string, string> = {
+    added_period: 'Included from another invoice period',
+    deferred_period: 'Assigned to another deduction period',
+    pending_review: 'Not included: fiscal review pending',
+    quota_difference: 'Documentary deductible quota difference',
+};
+const reconciliationDirections: Record<string, string> = {
+    output: 'Output VAT',
+    input: 'Deductible VAT',
+};
+
 export default function Model303({
     preview,
     census,
+    reconciliation,
 }: {
     preview: Preview;
+    reconciliation: Reconciliation;
     census: {
         current: boolean;
         supported: boolean;
@@ -179,6 +212,112 @@ export default function Model303({
                         )}
                     </p>
                     <p className="mt-2 font-mono">{preview.version}</p>
+                </section>
+                <section className="rounded-lg border p-4 text-sm">
+                    <h2 className="font-semibold">{t('303 reconciliation')}</h2>
+                    <p className="my-2">
+                        {t(
+                            'Comparison with invoice-date VAT books and VAT ledger balances. Existing settlements still use the books, not this projection. No entries or invoices are changed.',
+                        )}
+                    </p>
+                    <p className="my-2 font-medium">
+                        {reconciliation.matches
+                            ? t(
+                                  'Amounts match; official filing remains unavailable.',
+                              )
+                            : t(
+                                  'Differences or pending evidence require review. This is not filing readiness.',
+                              )}
+                    </p>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left">
+                            <caption className="sr-only">
+                                {t('303 reconciliation')}
+                            </caption>
+                            <thead>
+                                <tr>
+                                    {[
+                                        'VAT',
+                                        '303 candidate',
+                                        'VAT books',
+                                        'VAT ledger',
+                                        'Difference vs books',
+                                        'Difference vs ledger',
+                                        'Unexplained difference',
+                                    ].map((label) => (
+                                        <th
+                                            key={label}
+                                            scope="col"
+                                            className="p-2"
+                                        >
+                                            {t(label)}
+                                        </th>
+                                    ))}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {reconciliation.rows.map((row) => (
+                                    <tr
+                                        key={row.direction}
+                                        className="border-t"
+                                    >
+                                        <th scope="row" className="p-2">
+                                            {t(
+                                                reconciliationDirections[
+                                                    row.direction
+                                                ],
+                                            )}
+                                        </th>
+                                        {[
+                                            row.candidate_vat,
+                                            row.book_vat,
+                                            row.ledger_vat,
+                                            row.book_difference,
+                                            row.ledger_difference,
+                                            row.unexplained_difference,
+                                        ].map((value, index) => (
+                                            <td
+                                                key={index}
+                                                className="p-2 whitespace-nowrap tabular-nums"
+                                            >
+                                                {value === null
+                                                    ? '—'
+                                                    : amount(value)}
+                                            </td>
+                                        ))}
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                    {reconciliation.differences.length > 0 ? (
+                        <ul className="mt-3 space-y-2">
+                            {reconciliation.differences.map((row) => (
+                                <li
+                                    key={`${row.source_type}:${row.source_id}`}
+                                    className="flex flex-wrap gap-2"
+                                >
+                                    <Link
+                                        className="underline"
+                                        href={
+                                            row.source_type === 'expense'
+                                                ? `/expenses/${row.source_id}`
+                                                : row.source_type ===
+                                                    'purchase_document'
+                                                  ? `/purchases/${row.source_id}`
+                                                  : `/sales/${row.source_id}`
+                                        }
+                                    >
+                                        {row.number}
+                                    </Link>
+                                    <span>
+                                        {t(reconciliationReasons[row.reason])} ·{' '}
+                                        {amount(row.difference)}
+                                    </span>
+                                </li>
+                            ))}
+                        </ul>
+                    ) : null}
                 </section>
                 <section className="rounded-lg border p-4 text-sm">
                     <h2 className="font-semibold">

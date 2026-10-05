@@ -2,6 +2,26 @@
 
 ## Estado vigente y orden de ejecución — 05/10/2026
 
+**Incremento FIN-03.303, diagnóstico de conciliación (05/10):** nueva sección
+«Conciliación del 303» en `/tax/models/303`, develop. Compara cuotas candidatas
+con los libros por fecha de factura y saldos contables de IVA, conservando los
+libros originales antes de incorporar documentos de otro periodo. Diferencias
+por documento: pendiente de revisión, asignado a otro periodo, incorporado desde
+otro periodo o cuota documental distinta. Acumulación por céntimos y documento;
+las diferencias que se compensan entre sí siguen visibles individualmente.
+Detecta discrepancias entre resumen y filas como diferencia sin explicar.
+Evidencias pendientes o totales desconocidos impiden mostrar coincidencia.
+Diagnóstico de solo lectura, sin consultas adicionales ni migraciones: no cambia
+facturas, asientos ni liquidaciones. Coincidencia numérica no habilita presentar.
+Las liquidaciones compatibles aún utilizan libros originales; no se sustituye
+su cálculo por candidatos incompletos. Primera fase de la puerta de conciliación
+completada; siguiente: comparación con borradores guardados y tratamiento auditado
+de diferencias antes de habilitar preparación fiscal nueva. Producción sin cambios.
+Suite completa: 718 superadas, 5 omitidas, 10.769 aserciones.
+30 pruebas específicas, 387 aserciones también en PostgreSQL aislado; base temporal
+eliminada. TypeScript, lint, ES/EN y formato comprobados. Build correcto,
+con avisos existentes de tamaño de bundles; sin nuevas dependencias de UI.
+
 **Incremento FIN-03.303, periodos explícitos también en gastos (05/10):**
 en develop, revisión con referencia documental, fecha de registro, ejercicio y
 trimestre de deducción. Comparte validación y protección de periodos con compras,

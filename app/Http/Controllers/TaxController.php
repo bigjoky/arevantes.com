@@ -12,6 +12,7 @@ use App\Services\Accounting\JournalPoster;
 use App\Services\Tax\CompanyCensus;
 use App\Services\Tax\ExpenseFiscalReview;
 use App\Services\Tax\Model303Preview;
+use App\Services\Tax\Model303Reconciliation;
 use App\Services\Tax\PurchaseFiscalReview;
 use App\Services\Tax\VatReport;
 use App\Services\Tax\VatSettlement;
@@ -33,6 +34,7 @@ class TaxController extends Controller
         $year = (int) ($data['year'] ?? now()->year);
         $quarter = (int) ($data['quarter'] ?? now()->quarter);
         $books = $report->make($year, $quarter);
+        $originalBooks = $books;
         $documents = SalesDocument::whereIn('id', collect($books['issued'])->pluck('source_id')->unique())
             ->get(['id', 'type', 'customer_snapshot'])->mapWithKeys(fn ($document) => [$document->id => [
                 'type' => $document->type, 'country' => $document->customer_snapshot['country'] ?? null,
@@ -69,7 +71,10 @@ class TaxController extends Controller
             ->reject(fn ($purchase) => $bookPurchaseIds->contains($purchase->id))
             ->flatMap(fn ($purchase) => $purchaseEvidence->rows($purchase)))->values();
 
-        return Inertia::render('tax/model303', ['preview' => $preview->make($books, $documents, $classifications),
+        $projection = $preview->make($books, $documents, $classifications);
+
+        return Inertia::render('tax/model303', ['preview' => $projection,
+            'reconciliation' => app(Model303Reconciliation::class)->make($originalBooks, $projection),
             'census' => app(CompanyCensus::class)->check(CompanyProfile::firstOrFail(), $year)]);
     }
 

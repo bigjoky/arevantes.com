@@ -9,6 +9,19 @@ y su asesoría. Ninguna publicación habilita envíos o pagos reales automática
 
 ## Objetivo y secuencia
 
+Conciliación, primera fase diagnóstica (05/10): comparación en la pantalla del
+303 entre cuotas candidatas, libros originales y saldos contables. Desglose de
+diferencias por documento, sumado en céntimos, incluyendo pendientes y cambios
+de periodo. Diferencias netas cero no ocultan documentos excluidos o incorporados;
+resúmenes incompatibles con sus filas quedan como diferencia sin explicar.
+Solo lectura, sin alterar libros ni preparar/asentar liquidaciones. Las
+liquidaciones existentes mantienen su lógica compatible por fecha de factura.
+No sustituirla con candidatos del 303 mientras falten clases/regímenes. Coincidir
+no equivale a validación fiscal; `ready=false` siempre. Pendiente comparar borradores
+persistidos, resolver diferencias de manera auditada y definir la puerta nueva
+de preparación fiscal, conservando el flujo contable compatible y su evidencia.
+Referencia contrastada: [AEAT, IVA deducible 2026](https://sede.agenciatributaria.gob.es/Sede/iva/pre-303/2026/iva-deducible.html).
+
 Periodo de deducción de gastos (05/10), proyección v4: referencia documental,
 fecha de registro y periodo explícitos desde `/tax/expenses/{expense}/classification`.
 Base documental completa y cuota realmente deducible, conservando deducción

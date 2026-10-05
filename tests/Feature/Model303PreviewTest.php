@@ -25,7 +25,8 @@ class Model303PreviewTest extends TestCase
             ->get('/tax/models/303?year=2026&quarter=3')
             ->assertOk()->assertInertia(fn (Assert $page) => $page->component('tax/model303')
             ->where('preview.ready', false)->where('preview.supported', true)
-            ->has('preview.groups', 4)->where('preview.groups.0.base', null));
+            ->has('preview.groups', 4)->where('preview.groups.0.base', null)
+            ->where('reconciliation.ready', false)->where('reconciliation.matches', false));
         $this->assertSame(0, TaxReturn::count());
         $this->assertSame(0, JournalEntry::count());
     }
