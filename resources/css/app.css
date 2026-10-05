@@ -317,3 +317,26 @@
         color: var(--foreground) !important;
     }
 }
+
+/* Journal design: keep this palette scoped to the accounting journal. */
+[data-slot='sidebar-wrapper']:has([data-journal-design]) {
+    --sidebar: #003c32;
+    --sidebar-foreground: #e4f0eb;
+    --sidebar-primary: #d6f0e3;
+    --sidebar-primary-foreground: #003c32;
+    --sidebar-accent: #2d5c50;
+    --sidebar-accent-foreground: #ffffff;
+    --sidebar-border: #326257;
+    --primary: #003c32;
+    --primary-foreground: #ffffff;
+}
+[data-slot='sidebar-wrapper']:has([data-journal-design])
+    [data-sidebar='sidebar'] {
+    background: linear-gradient(155deg, #003c32, #002c26);
+}
+[data-slot='sidebar-wrapper']:has([data-journal-design])
+    [data-slot='sidebar-inset'] {
+    border-radius: 0;
+    margin-block: 0;
+    margin-right: 0;
+}

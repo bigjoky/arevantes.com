@@ -2,6 +2,10 @@ import { Form, Head, Link, router } from '@inertiajs/react';
 import {
     ArrowLeft,
     CalendarRange,
+    Check,
+    Search,
+    Download,
+    FileText,
     Landmark,
     LockKeyhole,
     Plus,
@@ -33,22 +37,25 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import type { JournalDetailExtension } from '@/types/accounting-journal';
 
 type Line = {
     id: number;
     debit: string;
     credit: string;
     running_balance?: number;
+    description?: string;
     account: { code: string; name: string };
     entry?: { number: string; entry_date: string; description: string };
 };
-type Entry = {
+type Entry = JournalDetailExtension & {
     id: number;
     number: string;
     entry_date: string;
     description: string;
     event: string;
     entry_kind: string;
+    status: string;
     reversal: { id: number } | null;
     source_href: string | null;
     lines: Line[];
@@ -176,37 +183,96 @@ export default function AccountingIndex({
 
     return (
         <>
-            <Head title="Accounting" />
-            <div className="flex flex-1 flex-col gap-6 p-4 md:p-6">
+            <Head title={view === 'journal' ? 'Libro Diario' : 'Accounting'} />
+            <div className="flex flex-1 flex-col gap-5 bg-[#fdfdfb] p-4 text-[#092d30] md:p-8 dark:bg-background dark:text-foreground">
                 <header className="flex flex-wrap items-center justify-between gap-3">
                     <div>
-                        <h1 className="text-xl font-semibold">Accounting</h1>
+                        <h1 className="text-3xl font-semibold tracking-tight">
+                            {view === 'journal' ? 'Libro Diario' : 'Accounting'}
+                        </h1>
                         <p className="text-sm text-muted-foreground">
-                            Journal, general ledger and statutory financial
-                            reports.
+                            {view === 'journal'
+                                ? 'Registro cronológico de todos los asientos contables.'
+                                : 'Journal, general ledger and statutory financial reports.'}
                         </p>
                     </div>
                     <div className="flex flex-wrap gap-2">
-                        <Button variant="outline" asChild>
-                            <Link href="/finance">
-                                <ArrowLeft /> Finance
-                            </Link>
-                        </Button>
-                        <Button variant="outline" asChild>
-                            <Link href="/tax">
-                                <Landmark /> VAT
-                            </Link>
-                        </Button>
-                        <Button variant="outline" asChild>
-                            <Link href="/company-fiscal">
-                                <CalendarRange /> Fiscal years
-                            </Link>
-                        </Button>
-                        <Form action="/accounting/sync" method="post">
-                            <Button>
-                                <RefreshCw /> Sync now
-                            </Button>
-                        </Form>
+                        <Dialog>
+                            <DialogTrigger asChild>
+                                <Button variant="outline">
+                                    Más opciones ···
+                                </Button>
+                            </DialogTrigger>
+                            <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-3xl">
+                                <DialogHeader>
+                                    <DialogTitle>
+                                        Opciones contables
+                                    </DialogTitle>
+                                </DialogHeader>
+                                <div className="flex flex-wrap gap-2">
+                                    <Button variant="outline" asChild>
+                                        <Link href="/finance">
+                                            <ArrowLeft /> Finance
+                                        </Link>
+                                    </Button>
+                                    <Button variant="outline" asChild>
+                                        <Link href="/tax">
+                                            <Landmark /> VAT
+                                        </Link>
+                                    </Button>
+                                    <Button variant="outline" asChild>
+                                        <Link href="/company-fiscal">
+                                            <CalendarRange /> Fiscal years
+                                        </Link>
+                                    </Button>
+                                    <Form
+                                        action="/accounting/sync"
+                                        method="post"
+                                    >
+                                        <Button>
+                                            <RefreshCw /> Sync now
+                                        </Button>
+                                    </Form>
+                                </div>
+                                <PageTabs aria-label="Accounting views">
+                                    {(
+                                        [
+                                            ['journal', 'Libro Diario'],
+                                            ['trial', 'Trial balance'],
+                                            ['profit', 'Profit & loss'],
+                                            ['balance', 'Balance sheet'],
+                                            ['ledger', 'General ledger'],
+                                            ['parties', 'Third parties'],
+                                            ['mappings', 'Mappings'],
+                                        ] as [View, string][]
+                                    ).map(([key, label]) => (
+                                        <button
+                                            key={key}
+                                            type="button"
+                                            onClick={() => setView(key)}
+                                            className={`border-b-2 px-3 py-2 text-sm font-medium whitespace-nowrap ${view === key ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+                                        >
+                                            {label}
+                                        </button>
+                                    ))}
+                                </PageTabs>
+                                <p className="text-sm text-muted-foreground">
+                                    {summary.entries} asientos · Debe{' '}
+                                    {money(summary.debit)} · Haber{' '}
+                                    {money(summary.credit)}
+                                </p>
+                                <MonthlyClose
+                                    year={year}
+                                    month={selectedMonth}
+                                    periods={accountingPeriods}
+                                    summary={periodSummary}
+                                    canManage={canClosePeriods}
+                                    fiscalYearOpen={
+                                        fiscalYear?.status === 'open'
+                                    }
+                                />
+                            </DialogContent>
+                        </Dialog>
                         {fiscalYear?.status === 'open' && (
                             <ManualEntryDialog
                                 accounts={accounts}
@@ -244,44 +310,6 @@ export default function AccountingIndex({
                         </Select>
                     </div>
                 </header>
-                <section className="grid grid-cols-3 border-y">
-                    <Metric label="Entries" value={String(summary.entries)} />
-                    <Metric label="Total debit" value={money(summary.debit)} />
-                    <Metric
-                        label="Total credit"
-                        value={money(summary.credit)}
-                    />
-                </section>
-                <MonthlyClose
-                    year={year}
-                    month={selectedMonth}
-                    periods={accountingPeriods}
-                    summary={periodSummary}
-                    canManage={canClosePeriods}
-                    fiscalYearOpen={fiscalYear?.status === 'open'}
-                />
-                <PageTabs aria-label="Accounting views">
-                    {(
-                        [
-                            ['journal', 'Journal'],
-                            ['trial', 'Trial balance'],
-                            ['profit', 'Profit & loss'],
-                            ['balance', 'Balance sheet'],
-                            ['ledger', 'General ledger'],
-                            ['parties', 'Third parties'],
-                            ['mappings', 'Mappings'],
-                        ] as [View, string][]
-                    ).map(([key, label]) => (
-                        <button
-                            key={key}
-                            type="button"
-                            onClick={() => setView(key)}
-                            className={`border-b-2 px-3 py-2 text-sm font-medium whitespace-nowrap ${view === key ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
-                        >
-                            {label}
-                        </button>
-                    ))}
-                </PageTabs>
                 {selectedFinancialCategory && (
                     <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border bg-muted/30 px-4 py-3 text-sm">
                         <div>
@@ -304,6 +332,8 @@ export default function AccountingIndex({
                     <Journal
                         entries={entries}
                         canReverse={fiscalYear?.status === 'open'}
+                        accounts={accounts}
+                        year={year}
                     />
                 )}
                 {view === 'trial' && (
@@ -638,7 +668,7 @@ function ManualEntryDialog({
         <Dialog>
             <DialogTrigger asChild>
                 <Button>
-                    <Plus /> New entry
+                    <Plus /> Nuevo asiento
                 </Button>
             </DialogTrigger>
             <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto">
@@ -766,101 +796,595 @@ function ManualEntryDialog({
 function Journal({
     entries,
     canReverse,
+    accounts,
+    year,
 }: {
     entries: Entry[];
     canReverse: boolean;
+    accounts: Account[];
+    year: number;
 }) {
+    const [selectedId, setSelectedId] = useState<number | null>(null);
+    const [search, setSearch] = useState('');
+    const [account, setAccount] = useState('all');
+    const [kind, setKind] = useState('all');
+    const [journal, setJournal] = useState('all');
+    const journals = Array.from(
+        new Map(
+            entries.flatMap((entry) =>
+                entry.journal
+                    ? [[entry.journal.id, entry.journal] as const]
+                    : [],
+            ),
+        ).values(),
+    );
+    const [start, setStart] = useState('');
+    const [end, setEnd] = useState('');
+    const [tab, setTab] = useState('detail');
+    const filtered = entries.filter(
+        (entry) =>
+            (!start || entry.entry_date.slice(0, 10) >= start) &&
+            (!end || entry.entry_date.slice(0, 10) <= end) &&
+            (kind === 'all' || entry.entry_kind === kind) &&
+            (journal === 'all' || entry.journal?.id === journal) &&
+            (account === 'all' ||
+                entry.lines.some((line) => line.account.code === account)) &&
+            `${entry.number} ${entry.description} ${entry.lines.map((line) => `${line.account.code} ${line.account.name} ${line.debit} ${line.credit}`).join(' ')}`
+                .toLocaleLowerCase()
+                .includes(search.toLocaleLowerCase()),
+    );
+    const selected =
+        filtered.find((entry) => entry.id === selectedId) ?? filtered[0];
+    const total = (entry: Entry, field: 'debit' | 'credit') =>
+        entry.lines.reduce((value, line) => value + Number(line[field]), 0);
+    const status = (entry: Entry) =>
+        entry.reversal
+            ? 'Revertido'
+            : entry.status === 'posted'
+              ? 'Contabilizado'
+              : entry.status;
+    const exportEntries = () => {
+        const rows = [
+            ['Fecha', 'Asiento', 'Concepto', 'Tipo', 'Debe', 'Haber'],
+            ...filtered.map((entry) => [
+                entry.entry_date.slice(0, 10),
+                entry.number,
+                entry.description,
+                entry.entry_kind,
+                total(entry, 'debit').toFixed(2),
+                total(entry, 'credit').toFixed(2),
+            ]),
+        ];
+        const blob = new Blob(
+            [
+                '\ufeff' +
+                    rows
+                        .map((row) =>
+                            row
+                                .map(
+                                    (cell) =>
+                                        `"${String(cell).replaceAll('"', '""')}"`,
+                                )
+                                .join(';'),
+                        )
+                        .join('\r\n'),
+            ],
+            { type: 'text/csv;charset=utf-8;' },
+        );
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `libro-diario-${year}.csv`;
+        link.click();
+        URL.revokeObjectURL(url);
+    };
+
     return (
-        <section className="overflow-x-auto">
-            <h2 className="mb-3 text-base font-semibold">Journal</h2>
-            <table className="w-full min-w-[60rem] text-sm">
-                <thead>
-                    <tr className="border-b text-left text-muted-foreground">
-                        <th className="py-2">Entry</th>
-                        <th>Date</th>
-                        <th>Description</th>
-                        <th>Account</th>
-                        <th className="text-right">Debit</th>
-                        <th className="text-right">Credit</th>
-                        <th />
-                    </tr>
-                </thead>
-                <tbody>
-                    {entries.flatMap((entry) =>
-                        entry.lines.map((line, index) => (
-                            <tr key={line.id} className="border-b align-top">
-                                <td className="py-2 font-mono text-xs">
-                                    {index === 0 ? entry.number : ''}
-                                </td>
-                                <td>
-                                    {index === 0 ? date(entry.entry_date) : ''}
-                                </td>
-                                <td>
-                                    {index === 0 ? (
-                                        <span>
-                                            {entry.description}{' '}
-                                            <Badge variant="outline">
-                                                {entry.entry_kind}
-                                            </Badge>
-                                            {entry.source_href && (
-                                                <Link
-                                                    href={entry.source_href}
-                                                    className="ml-2 text-xs font-medium text-primary underline underline-offset-2"
-                                                >
-                                                    Open source
-                                                </Link>
+        <section data-journal-design className="space-y-6">
+            <div className="flex flex-wrap items-center gap-3">
+                <div className="flex items-center gap-2 rounded-md border px-3 py-1">
+                    <CalendarRange className="size-4 shrink-0" />
+                    <Input
+                        aria-label="Fecha inicial"
+                        type="date"
+                        className="w-36 border-0 shadow-none"
+                        value={start}
+                        onChange={(event) => setStart(event.target.value)}
+                    />
+                    <span>→</span>
+                    <Input
+                        aria-label="Fecha final"
+                        type="date"
+                        className="w-36 border-0 shadow-none"
+                        value={end}
+                        onChange={(event) => setEnd(event.target.value)}
+                    />
+                </div>
+                <Select
+                    value={journal}
+                    onValueChange={setJournal}
+                    disabled={!journals.length}
+                >
+                    <SelectTrigger className="w-44" aria-label="Diario">
+                        <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">Todos los diarios</SelectItem>
+                        {journals.map((item) => (
+                            <SelectItem key={item.id} value={item.id}>
+                                {item.name}
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+                <Select value={account} onValueChange={setAccount}>
+                    <SelectTrigger className="w-48">
+                        <SelectValue placeholder="Todas las cuentas" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">Todas las cuentas</SelectItem>
+                        {accounts.map((item) => (
+                            <SelectItem key={item.id} value={item.code}>
+                                {item.code} · {item.name}
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+                <Select value={kind} onValueChange={setKind}>
+                    <SelectTrigger className="w-40">
+                        <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">Todos los tipos</SelectItem>
+                        {Array.from(
+                            new Set(entries.map((entry) => entry.entry_kind)),
+                        ).map((value) => (
+                            <SelectItem key={value} value={value}>
+                                {value}
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+                <div className="relative min-w-48 flex-1">
+                    <Search className="absolute top-3 left-3 size-4 text-muted-foreground" />
+                    <Input
+                        className="pl-9"
+                        placeholder="Buscar asientos, cuentas, importes…"
+                        aria-label="Buscar asientos"
+                        value={search}
+                        onChange={(event) => setSearch(event.target.value)}
+                    />
+                </div>
+                <Button variant="outline" onClick={exportEntries}>
+                    <Download />
+                    Exportar
+                </Button>
+            </div>
+            <div className="grid border-t xl:grid-cols-[minmax(0,1.08fr)_minmax(0,1fr)]">
+                <div className="min-w-0 overflow-x-auto pt-3 xl:pr-5">
+                    <table className="w-full min-w-[620px] text-xs">
+                        <thead>
+                            <tr className="text-left text-[10px] tracking-wide text-muted-foreground uppercase">
+                                {[
+                                    'Fecha',
+                                    'Asiento',
+                                    'Concepto',
+                                    'Diario',
+                                    'Debe',
+                                    'Haber',
+                                    'Estado',
+                                ].map((label) => (
+                                    <th
+                                        className="px-3 py-3 font-medium"
+                                        key={label}
+                                    >
+                                        {label}
+                                    </th>
+                                ))}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {filtered.map((entry) => (
+                                <tr
+                                    key={entry.id}
+                                    className={`border-b border-border/50 transition-colors ${selected?.id === entry.id ? 'bg-[#e8f3e9] dark:bg-accent' : 'hover:bg-muted/50'}`}
+                                >
+                                    <td className="px-3 py-4 whitespace-nowrap">
+                                        {date(entry.entry_date)}
+                                    </td>
+                                    <td className="px-3">
+                                        <button
+                                            className="font-medium hover:underline"
+                                            onClick={() => {
+                                                setSelectedId(entry.id);
+                                                setTab('detail');
+                                            }}
+                                            aria-pressed={
+                                                selected?.id === entry.id
+                                            }
+                                        >
+                                            {entry.number}
+                                        </button>
+                                    </td>
+                                    <td className="max-w-52 px-3">
+                                        <button
+                                            className="w-full text-left"
+                                            onClick={() => {
+                                                setSelectedId(entry.id);
+                                                setTab('detail');
+                                            }}
+                                        >
+                                            {entry.description}
+                                        </button>
+                                    </td>
+                                    <td className="px-3">
+                                        {entry.journal?.name ?? '—'}
+                                    </td>
+                                    <td className="px-3 text-right whitespace-nowrap tabular-nums">
+                                        {money(total(entry, 'debit'))}
+                                    </td>
+                                    <td className="px-3 text-right whitespace-nowrap tabular-nums">
+                                        {money(total(entry, 'credit'))}
+                                    </td>
+                                    <td className="px-3 text-center">
+                                        <span title={status(entry)}>
+                                            {entry.status === 'posted' &&
+                                            !entry.reversal ? (
+                                                <Check className="mx-auto size-4 text-emerald-700" />
+                                            ) : (
+                                                status(entry)
                                             )}
                                         </span>
-                                    ) : (
-                                        ''
-                                    )}
-                                </td>
-                                <td>
-                                    <span className="font-mono">
-                                        {line.account.code}
-                                    </span>{' '}
-                                    {line.account.name}
-                                </td>
-                                <td className="text-right">
-                                    {amount(line.debit)}
-                                </td>
-                                <td className="text-right">
-                                    {amount(line.credit)}
-                                </td>
-                                <td>
-                                    {index === 0 &&
-                                        canReverse &&
-                                        !entry.reversal &&
-                                        entry.entry_kind !== 'reversal' && (
-                                            <Form
-                                                action={`/accounting/entries/${entry.id}/reverse`}
-                                                method="post"
-                                                className="flex gap-1"
-                                            >
-                                                <input
-                                                    type="hidden"
-                                                    name="entry_date"
-                                                    value={new Date()
-                                                        .toISOString()
-                                                        .slice(0, 10)}
-                                                />
-                                                <Button
-                                                    size="icon"
-                                                    variant="ghost"
-                                                    title="Post reversal"
-                                                >
-                                                    <RotateCcw />
-                                                </Button>
-                                            </Form>
-                                        )}
-                                </td>
-                            </tr>
-                        )),
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                    {!filtered.length && (
+                        <Empty text="No hay asientos que coincidan con los filtros." />
                     )}
-                </tbody>
-            </table>
-            {entries.length === 0 && <Empty />}
+                    <p className="py-4 text-xs text-muted-foreground">
+                        {filtered.length} de {entries.length} asientos cargados
+                    </p>
+                </div>
+                <aside className="min-w-0 border-t py-6 xl:border-t-0 xl:border-l xl:pl-7">
+                    {selected ? (
+                        <>
+                            <div className="flex flex-wrap items-start justify-between gap-3">
+                                <div>
+                                    <p className="text-xs font-medium tracking-wider text-muted-foreground">
+                                        ASIENTO CONTABLE
+                                    </p>
+                                    <h2 className="mt-1 text-2xl font-semibold tracking-tight">
+                                        Asiento {selected.number}
+                                    </h2>
+                                </div>
+                                <Badge
+                                    variant="outline"
+                                    className="border-emerald-200 bg-emerald-50 text-emerald-800"
+                                >
+                                    {selected.status === 'posted' && (
+                                        <Check className="mr-1 size-3" />
+                                    )}
+                                    {status(selected)}
+                                </Badge>
+                            </div>
+                            <div className="mt-4 flex justify-end gap-2">
+                                {selected.source_href && (
+                                    <Button variant="outline" size="sm" asChild>
+                                        <Link href={selected.source_href}>
+                                            <FileText />
+                                            Abrir documento
+                                        </Link>
+                                    </Button>
+                                )}
+                                {canReverse &&
+                                    !selected.reversal &&
+                                    selected.entry_kind !== 'reversal' && (
+                                        <Form
+                                            action={`/accounting/entries/${selected.id}/reverse`}
+                                            method="post"
+                                        >
+                                            <input
+                                                type="hidden"
+                                                name="entry_date"
+                                                value={new Date().toLocaleDateString(
+                                                    'en-CA',
+                                                )}
+                                            />
+                                            <Button size="sm" variant="outline">
+                                                <RotateCcw />
+                                                Revertir asiento
+                                            </Button>
+                                        </Form>
+                                    )}
+                            </div>
+                            <div className="mt-3 flex gap-6 border-b">
+                                {[
+                                    ['detail', 'Detalle'],
+                                    [
+                                        'documents',
+                                        `Documentos${selected.documents ? ` (${selected.documents.length})` : ''}`,
+                                    ],
+                                    ['history', 'Historial'],
+                                ].map(([key, label]) => (
+                                    <button
+                                        key={key}
+                                        onClick={() => setTab(key)}
+                                        className={`border-b-2 px-3 py-3 text-sm ${tab === key ? 'border-emerald-700 font-medium' : 'border-transparent text-muted-foreground'}`}
+                                    >
+                                        {label}
+                                    </button>
+                                ))}
+                            </div>
+                            {tab === 'detail' ? (
+                                <div className="space-y-6 pt-5">
+                                    <section>
+                                        <h3 className="mb-3 font-semibold">
+                                            Información general
+                                        </h3>
+                                        <div className="rounded-md border p-4">
+                                            <dl className="grid grid-cols-2 gap-4 text-sm sm:grid-cols-3">
+                                                <div>
+                                                    <dt className="text-xs text-muted-foreground">
+                                                        Fecha
+                                                    </dt>
+                                                    <dd className="mt-1">
+                                                        {date(
+                                                            selected.entry_date,
+                                                        )}
+                                                    </dd>
+                                                </div>
+                                                <div>
+                                                    <dt className="text-xs text-muted-foreground">
+                                                        Diario
+                                                    </dt>
+                                                    <dd className="mt-1">
+                                                        {selected.journal
+                                                            ?.name ?? '—'}
+                                                    </dd>
+                                                </div>
+                                                <div>
+                                                    <dt className="text-xs text-muted-foreground">
+                                                        Tipo
+                                                    </dt>
+                                                    <dd className="mt-1">
+                                                        {selected.entry_kind}
+                                                    </dd>
+                                                </div>
+                                                <div>
+                                                    <dt className="text-xs text-muted-foreground">
+                                                        Estado
+                                                    </dt>
+                                                    <dd className="mt-1">
+                                                        {status(selected)}
+                                                    </dd>
+                                                </div>
+                                                <div className="col-span-full">
+                                                    <dt className="text-xs text-muted-foreground">
+                                                        Concepto
+                                                    </dt>
+                                                    <dd className="mt-1">
+                                                        {selected.description}
+                                                    </dd>
+                                                </div>
+                                            </dl>
+                                        </div>
+                                    </section>
+                                    <section>
+                                        <h3 className="mb-3 font-semibold">
+                                            Líneas del asiento
+                                        </h3>
+                                        <div className="overflow-x-auto rounded-md border">
+                                            <table className="w-full text-xs">
+                                                <thead className="bg-muted/40 text-[10px] uppercase">
+                                                    <tr>
+                                                        <th className="p-3 text-left">
+                                                            Cuenta
+                                                        </th>
+                                                        <th className="p-3 text-left">
+                                                            Descripción
+                                                        </th>
+                                                        <th className="p-3 text-right">
+                                                            Debe
+                                                        </th>
+                                                        <th className="p-3 text-right">
+                                                            Haber
+                                                        </th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {selected.lines.map(
+                                                        (line) => (
+                                                            <tr
+                                                                key={line.id}
+                                                                className="border-t"
+                                                            >
+                                                                <td className="p-3">
+                                                                    {
+                                                                        line
+                                                                            .account
+                                                                            .code
+                                                                    }
+                                                                </td>
+                                                                <td className="p-3">
+                                                                    {line.description ||
+                                                                        line
+                                                                            .account
+                                                                            .name}
+                                                                </td>
+                                                                <td className="p-3 text-right whitespace-nowrap">
+                                                                    {amount(
+                                                                        line.debit,
+                                                                    ) || '—'}
+                                                                </td>
+                                                                <td className="p-3 text-right whitespace-nowrap">
+                                                                    {amount(
+                                                                        line.credit,
+                                                                    ) || '—'}
+                                                                </td>
+                                                            </tr>
+                                                        ),
+                                                    )}
+                                                </tbody>
+                                                <tfoot className="bg-[#e8f3e9] font-semibold dark:bg-accent">
+                                                    <tr>
+                                                        <td
+                                                            colSpan={2}
+                                                            className="p-3"
+                                                        >
+                                                            TOTALES
+                                                        </td>
+                                                        <td className="p-3 text-right whitespace-nowrap">
+                                                            {money(
+                                                                total(
+                                                                    selected,
+                                                                    'debit',
+                                                                ),
+                                                            )}
+                                                        </td>
+                                                        <td className="p-3 text-right whitespace-nowrap">
+                                                            {money(
+                                                                total(
+                                                                    selected,
+                                                                    'credit',
+                                                                ),
+                                                            )}
+                                                        </td>
+                                                    </tr>
+                                                </tfoot>
+                                            </table>
+                                        </div>
+                                    </section>
+                                    <section>
+                                        <h3 className="mb-3 font-semibold">
+                                            Observaciones
+                                        </h3>
+                                        <p className="min-h-16 rounded-md border p-4 text-sm text-muted-foreground">
+                                            {selected.notes === undefined
+                                                ? 'Observaciones no disponibles.'
+                                                : selected.notes ||
+                                                  'Sin observaciones.'}
+                                        </p>
+                                    </section>
+                                    <section>
+                                        <h3 className="mb-3 font-semibold">
+                                            Documentos adjuntos
+                                            {selected.documents
+                                                ? ` (${selected.documents.length})`
+                                                : ''}
+                                        </h3>
+                                        <JournalDocuments entry={selected} />
+                                    </section>
+                                </div>
+                            ) : tab === 'documents' ? (
+                                <div className="py-6">
+                                    <JournalDocuments entry={selected} />
+                                </div>
+                            ) : (
+                                <div className="py-6">
+                                    {selected.history === undefined ? (
+                                        <Empty text="Historial no disponible." />
+                                    ) : selected.history.length === 0 ? (
+                                        <Empty text="Sin eventos registrados." />
+                                    ) : (
+                                        <ol className="space-y-4">
+                                            {selected.history.map((event) => (
+                                                <li
+                                                    key={event.id}
+                                                    className="border-l-2 border-emerald-200 pl-4"
+                                                >
+                                                    <p className="text-sm">
+                                                        {event.description}
+                                                    </p>
+                                                    <p className="mt-1 text-xs text-muted-foreground">
+                                                        {dateTime(
+                                                            event.occurred_at,
+                                                        )}{' '}
+                                                        ·{' '}
+                                                        {event.actor_name ??
+                                                            'Sistema'}
+                                                    </p>
+                                                </li>
+                                            ))}
+                                        </ol>
+                                    )}
+                                </div>
+                            )}
+                        </>
+                    ) : (
+                        <Empty text="Selecciona un asiento para consultar su detalle." />
+                    )}
+                </aside>
+            </div>
         </section>
+    );
+}
+
+function JournalDocuments({ entry }: { entry: Entry }) {
+    return (
+        <div className="space-y-3">
+            {entry.documents === undefined ? (
+                <p className="text-sm text-muted-foreground">
+                    Listado de adjuntos no disponible.
+                </p>
+            ) : entry.documents.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                    Sin documentos adjuntos.
+                </p>
+            ) : (
+                entry.documents.map((document) => (
+                    <div
+                        key={document.id}
+                        className="flex items-center gap-3 rounded-md border p-4"
+                    >
+                        <FileText className="size-7 shrink-0 text-emerald-700" />
+                        <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-medium">
+                                {document.name}
+                            </p>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                                {new Intl.NumberFormat('es-ES', {
+                                    maximumFractionDigits: 1,
+                                }).format(document.size_bytes / 1024)}{' '}
+                                KB · {dateTime(document.attached_at)}
+                            </p>
+                        </div>
+                        {document.preview_href && (
+                            <Button variant="ghost" size="sm" asChild>
+                                <a
+                                    href={document.preview_href}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    aria-label={`Ver ${document.name}`}
+                                >
+                                    Ver
+                                </a>
+                            </Button>
+                        )}
+                        {document.download_href && (
+                            <Button variant="ghost" size="icon" asChild>
+                                <a
+                                    href={document.download_href}
+                                    aria-label={`Descargar ${document.name}`}
+                                >
+                                    <Download />
+                                </a>
+                            </Button>
+                        )}
+                    </div>
+                ))
+            )}
+            {entry.source_href && (
+                <Link
+                    href={entry.source_href}
+                    className="flex items-center gap-3 rounded-md border p-4 text-sm hover:bg-muted"
+                >
+                    <FileText className="size-6 text-emerald-700" />
+                    Consultar documento de origen
+                </Link>
+            )}
+        </div>
     );
 }
 
@@ -1325,14 +1849,6 @@ function ReportTable({
         </section>
     );
 }
-function Metric({ label, value }: { label: string; value: string }) {
-    return (
-        <div className="px-4 py-4">
-            <div className="text-xs text-muted-foreground">{label}</div>
-            <div className="mt-1 text-lg font-semibold">{value}</div>
-        </div>
-    );
-}
 function Empty({
     text = 'No accounting movements for this year.',
 }: {
@@ -1351,13 +1867,13 @@ function amount(value: string) {
     return Number(value) ? money(Number(value)) : '';
 }
 function money(value: number) {
-    return new Intl.NumberFormat(undefined, {
+    return new Intl.NumberFormat('es-ES', {
         style: 'currency',
         currency: 'EUR',
     }).format(value);
 }
 function date(value: string) {
-    return new Intl.DateTimeFormat(undefined, { dateStyle: 'short' }).format(
+    return new Intl.DateTimeFormat('es-ES', { dateStyle: 'short' }).format(
         new Date(`${value.slice(0, 10)}T00:00:00`),
     );
 }
