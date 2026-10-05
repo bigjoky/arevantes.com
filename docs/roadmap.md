@@ -2,6 +2,27 @@
 
 ## Estado vigente y orden de ejecución — 05/10/2026
 
+**Incremento FIN-03.303, comparación de liquidaciones guardadas (05/10):**
+en develop, pantalla del 303 con liquidación contable del mismo ejercicio/trimestre.
+Cuotas guardadas frente a candidatas y saldo provisional en céntimos; este saldo
+no es la casilla 71 oficial, porque no incorpora compensaciones ni otros ajustes.
+Evidencia de libros guardada frente a libros actuales: documentos añadidos,
+retirados y modificados, incluso identidad cambiada con importes iguales.
+Sin liquidación o sin snapshot compatible no se declara equivalencia. Estados
+preparado/presentado claramente protegidos; ninguna actualización automática de
+snapshot, factura, asiento o liquidación. Una consulta limitada al periodo,
+sin N+1 ni migraciones. `ready=false`; producción sin cambios.
+Siguiente puerta: tratamiento auditado de diferencias y revisión de operaciones
+emitidas; después controles de resultado/compensación y expediente fiscal nuevo.
+No habilitar presentación por la mera coincidencia de totales. Continúa el orden
+303 → 390 → 347, sin abandonar el resto del roadmap operativo.
+Verificación final: 724 pruebas superadas, 5 omitidas, 10.820 aserciones; 36 pruebas
+específicas y 435 aserciones también en PostgreSQL aislado, base temporal eliminada.
+TypeScript, lint, ES/EN y formato comprobados. Referencia oficial 2026 contrastada
+en el anexo fiscal. Sin cambios de datos fiscales reales.
+Build correcto; mantiene los avisos de tamaño de bundles existentes. Guardas
+adicionales rechazan snapshots con resúmenes incompletos o cuotas no numéricas.
+
 **Incremento FIN-03.303, diagnóstico de conciliación (05/10):** nueva sección
 «Conciliación del 303» en `/tax/models/303`, develop. Compara cuotas candidatas
 con los libros por fecha de factura y saldos contables de IVA, conservando los

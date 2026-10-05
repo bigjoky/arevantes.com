@@ -39,6 +39,23 @@ class Model303PreviewTest extends TestCase
             ->get('/tax/models/303')->assertForbidden();
     }
 
+    public function test_saved_settlement_is_compared_only_in_its_period_without_mutation(): void
+    {
+        $saved = TaxReturn::create(['tax_type' => 'vat', 'year' => 2026, 'quarter' => 3,
+            'period_from' => '2026-07-01', 'period_to' => '2026-09-30', 'status' => 'filed',
+            'output_vat' => 0, 'input_vat' => 0.34, 'result' => -0.34, 'snapshot' => [], 'prepared_at' => now()]);
+        $before = $saved->fresh()->getAttributes();
+        $this->actingAs(User::factory()->create(['role' => 'admin']))
+            ->get('/tax/models/303?year=2026&quarter=3')->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->where('savedComparison.id', $saved->id)->where('savedComparison.protected', true)
+            ->where('savedComparison.evidence_available', false)->where('savedComparison.ready', false)
+            ->where('savedComparison.totals.1.difference', -0.34));
+        $this->get('/tax/models/303?year=2026&quarter=2')->assertOk()
+            ->assertInertia(fn (Assert $page) => $page->where('savedComparison', null));
+        $this->assertSame($before, $saved->fresh()->getAttributes());
+        $this->assertSame(0, JournalEntry::count());
+    }
+
     public function test_purchase_evidence_is_loaded_and_explained_without_changing_document(): void
     {
         $supplier = Supplier::create(['legal_name' => 'Supplier SA', 'tax_id' => 'A12345678', 'country' => 'ES']);

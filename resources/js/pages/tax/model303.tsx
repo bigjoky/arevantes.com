@@ -97,14 +97,49 @@ const reconciliationDirections: Record<string, string> = {
     output: 'Output VAT',
     input: 'Deductible VAT',
 };
+const savedTotalLabels: Record<string, string> = {
+    output: 'Output VAT',
+    input: 'Deductible VAT',
+    net: 'Provisional VAT balance, not box 71',
+};
+type SavedComparison = {
+    id: number;
+    status: string;
+    protected: boolean;
+    evidence_available: boolean;
+    books_unchanged: boolean;
+    totals: {
+        key: string;
+        saved: number | null;
+        candidate: number;
+        difference: number | null;
+    }[];
+    book_changes: {
+        counts: { added: number; removed: number; modified: number };
+        truncated: boolean;
+        documents: {
+            key: string;
+            kind: string;
+            before: { number: string } | null;
+            after: { number: string } | null;
+        }[];
+    } | null;
+};
+const savedChangeLabels: Record<string, string> = {
+    added: 'Added document',
+    removed: 'Removed document',
+    modified: 'Modified document',
+};
 
 export default function Model303({
     preview,
     census,
     reconciliation,
+    savedComparison,
 }: {
     preview: Preview;
     reconciliation: Reconciliation;
+    savedComparison: SavedComparison | null;
     census: {
         current: boolean;
         supported: boolean;
@@ -212,6 +247,131 @@ export default function Model303({
                         )}
                     </p>
                     <p className="mt-2 font-mono">{preview.version}</p>
+                </section>
+                <section className="rounded-lg border p-4 text-sm">
+                    <h2 className="font-semibold">
+                        {t('Saved VAT settlement comparison')}
+                    </h2>
+                    <p className="my-2">
+                        {t(
+                            'This is an accounting settlement, not a saved official 303. Provisional balance excludes carried-forward credits and other result adjustments.',
+                        )}
+                    </p>
+                    {savedComparison ? (
+                        <>
+                            <p className="font-mono">
+                                #{savedComparison.id} ·{' '}
+                                {t(savedComparison.status)}
+                            </p>
+                            <p className="my-2">
+                                {savedComparison.books_unchanged
+                                    ? t(
+                                          'Saved VAT book evidence matches the current books.',
+                                      )
+                                    : savedComparison.evidence_available
+                                      ? t(
+                                            'The VAT books have changed since this settlement was saved.',
+                                        )
+                                      : t(
+                                            'Complete saved book evidence is unavailable; equivalence cannot be confirmed.',
+                                        )}
+                            </p>
+                            {savedComparison.protected ? (
+                                <p className="my-2">
+                                    {t(
+                                        'Prepared or filed settlement: read-only comparison, no automatic correction.',
+                                    )}
+                                </p>
+                            ) : null}
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left">
+                                    <caption className="sr-only">
+                                        {t('Saved VAT settlement comparison')}
+                                    </caption>
+                                    <thead>
+                                        <tr>
+                                            {[
+                                                'VAT',
+                                                'Saved settlement',
+                                                '303 candidate',
+                                                'Difference',
+                                            ].map((label) => (
+                                                <th
+                                                    scope="col"
+                                                    key={label}
+                                                    className="p-2"
+                                                >
+                                                    {t(label)}
+                                                </th>
+                                            ))}
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {savedComparison.totals.map((row) => (
+                                            <tr
+                                                className="border-t"
+                                                key={row.key}
+                                            >
+                                                <th scope="row" className="p-2">
+                                                    {t(
+                                                        savedTotalLabels[
+                                                            row.key
+                                                        ],
+                                                    )}
+                                                </th>
+                                                {[
+                                                    row.saved,
+                                                    row.candidate,
+                                                    row.difference,
+                                                ].map((value, index) => (
+                                                    <td
+                                                        key={index}
+                                                        className="p-2 whitespace-nowrap tabular-nums"
+                                                    >
+                                                        {value === null
+                                                            ? '—'
+                                                            : amount(value)}
+                                                    </td>
+                                                ))}
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                            <ul className="my-3 space-y-1">
+                                {savedComparison.book_changes?.documents.map(
+                                    (change) => (
+                                        <li key={change.key}>
+                                            {t(savedChangeLabels[change.kind])}{' '}
+                                            ·{' '}
+                                            {change.after?.number ??
+                                                change.before?.number ??
+                                                change.key}
+                                        </li>
+                                    ),
+                                )}
+                            </ul>
+                            {savedComparison.book_changes?.truncated ? (
+                                <p>
+                                    {t(
+                                        'Only the first 50 document changes are shown.',
+                                    )}
+                                </p>
+                            ) : null}
+                        </>
+                    ) : (
+                        <p>
+                            {t(
+                                'No VAT settlement has been saved for this period.',
+                            )}
+                        </p>
+                    )}
+                    <Link
+                        className="mt-2 inline-block underline"
+                        href={`/tax?year=${preview.period.year}&quarter=${preview.period.quarter}`}
+                    >
+                        {t('VAT')}
+                    </Link>
                 </section>
                 <section className="rounded-lg border p-4 text-sm">
                     <h2 className="font-semibold">{t('303 reconciliation')}</h2>

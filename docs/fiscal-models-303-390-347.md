@@ -9,6 +9,20 @@ y su asesoría. Ninguna publicación habilita envíos o pagos reales automática
 
 ## Objetivo y secuencia
 
+Comparación de liquidación guardada (05/10): nueva sección en el 303, develop,
+con cuotas y saldo de la liquidación contable del mismo periodo frente a la
+proyección. Se compara el snapshot de libros compatible con sus datos actuales,
+incluyendo cambios documentales sin variación monetaria. Evidencia antigua
+incompleta/desconocida no se trata como cero ni se declara coincidente. El saldo
+provisional no se etiqueta como casilla 71: las
+[instrucciones AEAT 2026, 2T–4T](https://sede.agenciatributaria.gob.es/Sede/todas-gestiones/impuestos-tasas/iva/modelo-303-iva-autoliquidacion_/instrucciones-2026/instrucciones-02-12-2t-4t-2026.html)
+definen ajustes, compensaciones y situaciones adicionales para el resultado.
+Alcance contable diagnóstico, no formulario oficial guardado. Ni preparar ni
+presentar, tampoco rectificar automáticamente una liquidación protegida.
+Siguiente: resolución auditada de diferencias y revisión del IVA devengado;
+posteriormente expediente fiscal/versiones y controles de resultado, compensaciones
+y validación de casillas antes de generar ficheros oficiales.
+
 Conciliación, primera fase diagnóstica (05/10): comparación en la pantalla del
 303 entre cuotas candidatas, libros originales y saldos contables. Desglose de
 diferencias por documento, sumado en céntimos, incluyendo pendientes y cambios

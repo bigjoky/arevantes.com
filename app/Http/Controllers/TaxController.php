@@ -13,6 +13,7 @@ use App\Services\Tax\CompanyCensus;
 use App\Services\Tax\ExpenseFiscalReview;
 use App\Services\Tax\Model303Preview;
 use App\Services\Tax\Model303Reconciliation;
+use App\Services\Tax\Model303SavedComparison;
 use App\Services\Tax\PurchaseFiscalReview;
 use App\Services\Tax\VatReport;
 use App\Services\Tax\VatSettlement;
@@ -72,9 +73,13 @@ class TaxController extends Controller
             ->flatMap(fn ($purchase) => $purchaseEvidence->rows($purchase)))->values();
 
         $projection = $preview->make($books, $documents, $classifications);
+        $reconciliation = app(Model303Reconciliation::class)->make($originalBooks, $projection);
+        $saved = TaxReturn::where(['tax_type' => 'vat', 'year' => $year, 'quarter' => $quarter])
+            ->first(['id', 'status', 'output_vat', 'input_vat', 'result', 'snapshot']);
 
         return Inertia::render('tax/model303', ['preview' => $projection,
-            'reconciliation' => app(Model303Reconciliation::class)->make($originalBooks, $projection),
+            'reconciliation' => $reconciliation,
+            'savedComparison' => app(Model303SavedComparison::class)->make($saved, $originalBooks, $reconciliation),
             'census' => app(CompanyCensus::class)->check(CompanyProfile::firstOrFail(), $year)]);
     }
 
