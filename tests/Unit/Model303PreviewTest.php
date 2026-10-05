@@ -77,4 +77,18 @@ class Model303PreviewTest extends TestCase
         $this->assertNull($result['deductions'][1]['base']);
         $this->assertFalse($result['ready']);
     }
+
+    public function test_purchase_diagnostics_remain_pending_even_with_other_current_classification(): void
+    {
+        $row = ['source_type' => 'purchase_document', 'source_id' => 1, 'base' => 3.46, 'vat' => 0.34, 'deductible_vat' => 0.34];
+        $service = new Model303Preview;
+        $result = $service->make($this->report([], [$row]), [], ['purchase_document:1' => [
+            'current' => true, 'operation_class' => 'domestic_current', 'issues' => ['purchase_shipping_pending'],
+        ]]);
+        $this->assertSame(['purchase_shipping_pending'], $result['pendingReceived'][0]['fiscal_issues']);
+        $this->assertSame(0.34, $result['pendingReceived'][0]['vat']);
+        $this->assertNull($result['deductions'][0]['vat']);
+        $missing = $service->make($this->report([], [$row]), []);
+        $this->assertSame(['purchase_review_pending'], $missing['pendingReceived'][0]['fiscal_issues']);
+    }
 }

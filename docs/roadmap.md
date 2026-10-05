@@ -2,6 +2,23 @@
 
 ## Estado vigente y orden de ejecución — 05/10/2026
 
+**Incremento FIN-03.303, diagnóstico documental de compras (05/10):** el 303
+muestra en la evidencia recibida los motivos concretos de bloqueo de cada compra,
+con enlace al documento: registro, identidad fiscal conservada, país, portes,
+desglose y diferencias entre líneas y cabecera. Las líneas personalizadas sin
+producto de inventario también se comprueban. Se usan los céntimos almacenados,
+sin recalcular cuotas ni atribuir automáticamente IVA a portes o diferencias.
+La estimación histórica del 21 % de portes permanece solo en el libro compatible;
+no habilita deducción en las casillas oficiales. Consulta de solo lectura, sin
+migraciones, cambios de facturas, pagos ni asientos. Compras siguen pendientes:
+el siguiente corte es revisión fiscal persistida/auditada, clase de operación,
+deducibilidad y periodo registral, antes de alimentar 28/29 o 30/31. No sustituye
+la revisión humana ni acredita por sí solo el tratamiento territorial del IVA.
+Disponible en develop; pendiente producción. Verificado: 697 pruebas superadas,
+5 omitidas y 10.492 aserciones; 14 pruebas específicas/94 aserciones también en
+PostgreSQL aislado, cuya base se eliminó al terminar. TypeScript, lint y ES/EN
+correctos. La base real de localhost no necesitó migraciones ni modificaciones.
+
 **Incremento FIN-02.C/FIN-03.303, perfil censal (05/10):** configuración anual
 en `/company-fiscal/census`, accesible desde Configuración fiscal y Modelo 303.
 Obligación 303, régimen, periodicidad, administración, criterio de caja propio

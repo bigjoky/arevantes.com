@@ -57,7 +57,9 @@ class Model303Preview
             if (! $supported || ! ($classification['current'] ?? false) || $row['source_type'] !== 'expense'
                 || ! in_array($class, ['domestic_current', 'domestic_investment'], true)
                 || (float) $row['vat'] <= 0 || (float) ($row['deductible_vat'] ?? -1) <= 0) {
-                $pendingReceived[] = $row;
+                $pendingReceived[] = $row['source_type'] === 'purchase_document'
+                    ? [...$row, 'fiscal_issues' => $classification['issues'] ?? ['purchase_review_pending']]
+                    : $row;
 
                 continue;
             }

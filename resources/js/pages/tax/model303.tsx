@@ -13,6 +13,7 @@ type Evidence = {
     base: number;
     vat: number;
     deductible_vat?: number | null;
+    fiscal_issues?: string[];
 };
 type Group = {
     base_box: string;
@@ -59,6 +60,25 @@ const deductionLabels: Record<string, string> = {
 };
 
 const isExpense = (row: Evidence) => row.source_type === 'expense';
+const isPurchase = (row: Evidence) => row.source_type === 'purchase_document';
+const purchaseIssueLabels: Record<string, string> = {
+    purchase_review_pending:
+        'Purchase VAT classification and deduction period require explicit review.',
+    purchase_rectification_pending:
+        'Supplier credit notes require separate fiscal treatment.',
+    purchase_registration_pending:
+        'The supplier invoice is not registered or requires review.',
+    purchase_identity_missing:
+        'The invoice needs a supplier number and retained legal name and tax ID.',
+    purchase_territory_pending:
+        'The retained supplier country does not establish Spanish domestic VAT treatment.',
+    purchase_shipping_pending:
+        'Shipping VAT needs documentary allocation; the legacy 21% estimate is not fiscal evidence.',
+    purchase_lines_pending:
+        'The line breakdown needs review: missing lines, unsupported rates, non-positive amounts or inconsistent totals.',
+    purchase_totals_mismatch:
+        'Stored line amounts do not exactly match invoice totals; unallocated differences remain pending.',
+};
 
 export default function Model303({
     preview,
@@ -352,6 +372,30 @@ function EvidenceList({ rows }: { rows: Evidence[] }) {
                                         >
                                             {t('Review fiscal classification')}
                                         </Link>
+                                    ) : null}
+                                    {isPurchase(row) ? (
+                                        <>
+                                            <Link
+                                                className="mt-1 block underline"
+                                                href={`/purchases/${row.source_id}`}
+                                            >
+                                                {t('View purchase document')}
+                                            </Link>
+                                            <ul className="mt-2 list-disc space-y-1 pl-4 text-muted-foreground">
+                                                {(row.fiscal_issues ?? []).map(
+                                                    (issue) => (
+                                                        <li key={issue}>
+                                                            {t(
+                                                                purchaseIssueLabels[
+                                                                    issue
+                                                                ] ??
+                                                                    'Pending classification',
+                                                            )}
+                                                        </li>
+                                                    ),
+                                                )}
+                                            </ul>
+                                        </>
                                     ) : null}
                                 </td>
                                 <td className="p-2 tabular-nums">

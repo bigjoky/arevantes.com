@@ -1,4 +1,13 @@
 {
+    "View purchase document": "View purchase document",
+    "Purchase VAT classification and deduction period require explicit review.": "Purchase VAT classification and deduction period require explicit review.",
+    "Supplier credit notes require separate fiscal treatment.": "Supplier credit notes require separate fiscal treatment.",
+    "The supplier invoice is not registered or requires review.": "The supplier invoice is not registered or requires review.",
+    "The invoice needs a supplier number and retained legal name and tax ID.": "The invoice needs a supplier number and retained legal name and tax ID.",
+    "The retained supplier country does not establish Spanish domestic VAT treatment.": "The retained supplier country does not establish Spanish domestic VAT treatment.",
+    "Shipping VAT needs documentary allocation; the legacy 21% estimate is not fiscal evidence.": "Shipping VAT needs documentary allocation; the legacy 21% estimate is not fiscal evidence.",
+    "The line breakdown needs review: missing lines, unsupported rates, non-positive amounts or inconsistent totals.": "The line breakdown needs review: missing lines, unsupported rates, non-positive amounts or inconsistent totals.",
+    "Stored line amounts do not exactly match invoice totals; unallocated differences remain pending.": "Stored line amounts do not exactly match invoice totals; unallocated differences remain pending.",
     "Reviewed": "Reviewed",
     "Company census profile": "Company census profile",
     "Model 303 obligation": "Model 303 obligation",

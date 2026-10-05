@@ -9,6 +9,17 @@ y su asesoría. Ninguna publicación habilita envíos o pagos reales automática
 
 ## Objetivo y secuencia
 
+Diagnóstico de compras (05/10): evidencia recibida del 303 explica los bloqueos
+documentales de cada factura y enlaza su ficha. Comprueba snapshot de proveedor,
+número de factura, registro, país, portes, tipos y coherencia exacta de importes
+de líneas/cabecera, incluidas líneas libres sin inventario. No recalcula IVA ni
+convierte en evidencia fiscal el 21 % estimado de portes del libro compatible.
+Incluso sin incidencias de desglose, la compra permanece pendiente de revisión
+de clasificación, deducción y periodo registral. No hay asignación automática,
+persistencia de revisión ni nuevas casillas oficiales en este incremento.
+Próximo paso: revisión auditada de compras; después portes/diferencias con
+asignación documental, deducción parcial y periodos de deducción posteriores.
+
 Perfil censal inicial (05/10): `/company-fiscal/census`, anual, sin valores
 afirmativos por defecto. Guarda borradores y versiones revisadas con referencia,
 autor, motivo y snapshot de identidad. Revisión humana, no consulta ni alta AEAT.

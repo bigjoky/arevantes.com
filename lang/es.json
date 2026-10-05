@@ -1,4 +1,13 @@
 {
+    "View purchase document": "Ver documento de compra",
+    "Purchase VAT classification and deduction period require explicit review.": "La clasificación del IVA de compra y el periodo de deducción requieren revisión explícita.",
+    "Supplier credit notes require separate fiscal treatment.": "Las facturas rectificativas del proveedor requieren un tratamiento fiscal específico.",
+    "The supplier invoice is not registered or requires review.": "La factura del proveedor no está registrada o requiere revisión.",
+    "The invoice needs a supplier number and retained legal name and tax ID.": "La factura necesita un número del proveedor y una razón social y NIF conservados.",
+    "The retained supplier country does not establish Spanish domestic VAT treatment.": "El país conservado del proveedor no acredita el tratamiento de IVA interior español.",
+    "Shipping VAT needs documentary allocation; the legacy 21% estimate is not fiscal evidence.": "El IVA de los portes necesita asignación documental; la estimación histórica del 21 % no es evidencia fiscal.",
+    "The line breakdown needs review: missing lines, unsupported rates, non-positive amounts or inconsistent totals.": "El desglose necesita revisión: faltan líneas, hay tipos no admitidos, importes no positivos o totales incoherentes.",
+    "Stored line amounts do not exactly match invoice totals; unallocated differences remain pending.": "Los importes guardados de las líneas no coinciden exactamente con los totales de la factura; las diferencias sin asignar quedan pendientes.",
     "Reviewed": "Revisado",
     "Company census profile": "Perfil censal de la empresa",
     "Model 303 obligation": "Obligación de presentar el modelo 303",
