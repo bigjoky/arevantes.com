@@ -170,7 +170,10 @@ export function AppSidebar() {
                         {companySettings ? (
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
-                                    <SidebarMenuButton className="sidebar-company h-auto min-h-16 border border-white/20 bg-white/[0.025] px-3 py-2">
+                                    <SidebarMenuButton
+                                        aria-label="Empresa y ejercicios fiscales"
+                                        className="sidebar-company h-auto min-h-16 border border-white/20 bg-white/[0.025] px-3 py-2"
+                                    >
                                         <Building2 className="hidden group-data-[collapsible=icon]:block" />
                                         <span className="grid gap-1 group-data-[collapsible=icon]:hidden">
                                             <span className="truncate font-semibold">
