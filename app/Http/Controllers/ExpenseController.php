@@ -14,6 +14,7 @@ use App\Models\SupplierPayment;
 use App\Rules\SafeUpload;
 use App\Services\Accounting\AccountingSynchronizer;
 use App\Services\Accounting\ExpenseCorrection;
+use App\Services\Accounting\ExpenseCreditorRegistry;
 use App\Services\Accounting\ExpensePaymentCancellation;
 use App\Services\Accounting\SupplierPaymentSourceResolver;
 use App\Services\Documents\DocumentNumber;
@@ -288,6 +289,7 @@ class ExpenseController extends Controller
             }
 
             $expense = DB::transaction(function () use ($request, $data, $taxLines, $storedFiles, $accounting, $numbers) {
+                $data = app(ExpenseCreditorRegistry::class)->newInvoice($data);
                 $number = $numbers->next('expense', $data['expense_date'])['number'];
                 $amount = $data['tax_calculation_snapshot']['result']['totals']['total'] ?? round((float) $data['subtotal'] + (float) $data['tax_amount'] - (float) $data['withholding_amount'], 2);
                 $expense = Expense::create([...$data, 'created_by' => $request->user()->id, 'number' => $number, 'amount' => $amount, 'status' => 'pending']);

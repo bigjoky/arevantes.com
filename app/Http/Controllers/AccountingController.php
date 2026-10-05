@@ -212,10 +212,19 @@ class AccountingController extends Controller
 
             return $this->partyRow($person->id, $person->company_name ?: trim($person->first_name.' '.$person->last_name), $person->receivable_account_code, (float) ($balances[$person->receivable_account_code] ?? 0), $items, 'customer');
         })->filter(fn ($row) => $row['outstanding'] != 0 || $row['ledgerBalance'] != 0)->values();
-        $suppliers = Supplier::whereNotNull('payable_account_code')->get()->map(function ($supplier) use ($purchases, $expenses, $balances) {
-            $items = $purchases->get($supplier->id, collect())->concat($expenses->get($supplier->id, collect()));
+        $suppliers = Supplier::whereNotNull('payable_account_code')->get()->flatMap(function ($supplier) use ($purchases, $expenses, $balances) {
+            $documents = $purchases->get($supplier->id, collect());
+            $supplierExpenses = $expenses->get($supplier->id, collect());
+            $goods = $supplierExpenses->filter(fn ($expense) => ! $expense->creditor_account_code || $expense->creditor_account_code === $supplier->payable_account_code);
+            $rows = [$this->partyRow($supplier->id, $supplier->trade_name ?: $supplier->legal_name, $supplier->payable_account_code,
+                (float) ($balances[$supplier->payable_account_code] ?? 0), $documents->concat($goods), 'supplier')];
+            if ($supplier->service_payable_account_code) {
+                $rows[] = $this->partyRow($supplier->id, $supplier->trade_name ?: $supplier->legal_name, $supplier->service_payable_account_code,
+                    (float) ($balances[$supplier->service_payable_account_code] ?? 0),
+                    $supplierExpenses->where('creditor_account_code', $supplier->service_payable_account_code), 'supplier-services');
+            }
 
-            return $this->partyRow($supplier->id, $supplier->trade_name ?: $supplier->legal_name, $supplier->payable_account_code, (float) ($balances[$supplier->payable_account_code] ?? 0), $items, 'supplier');
+            return $rows;
         })->filter(fn ($row) => $row['outstanding'] != 0 || $row['ledgerBalance'] != 0)->values();
 
         return compact('customers', 'suppliers');

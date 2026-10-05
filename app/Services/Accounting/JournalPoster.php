@@ -16,6 +16,15 @@ class JournalPoster
 
     public function post(string $date, string $description, array $lines, ?int $userId, string $kind = 'manual', ?Model $source = null, string $event = 'manual', ?JournalEntry $reverses = null): JournalEntry
     {
+        foreach ($lines as &$line) {
+            foreach (['debit', 'credit'] as $side) {
+                if (! is_numeric($line[$side] ?? null) || ! is_finite((float) $line[$side]) || (float) $line[$side] < 0) {
+                    throw ValidationException::withMessages(['lines' => __('Journal amounts must be finite, non-negative numbers.')]);
+                }
+                $line[$side] = round((float) $line[$side], 2);
+            }
+        }
+        unset($line);
         $debit = round(collect($lines)->sum(fn ($line) => (float) $line['debit']), 2);
         $credit = round(collect($lines)->sum(fn ($line) => (float) $line['credit']), 2);
 
@@ -38,6 +47,10 @@ class JournalPoster
 
             if (! $year || $year->status !== 'open') {
                 throw ValidationException::withMessages(['entry_date' => __('The entry date must belong to an open fiscal year.')]);
+            }
+            if (! in_array($kind, ['closing', 'closing_reversal', 'opening_reversal'], true)) {
+                // Monthly closure takes the same year lock: recheck inside it.
+                $this->periods->assertOpen($date);
             }
 
             if ($source && JournalEntry::whereMorphedTo('source', $source)->where('event', $event)->exists()) {

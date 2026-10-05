@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\MorphOne;
 class Expense extends Model
 {
     protected $fillable = [
-        'expense_category_id', 'supplier_id', 'installation_id', 'created_by', 'number',
+        'expense_category_id', 'supplier_id', 'creditor_account_code', 'installation_id', 'created_by', 'number',
         'type', 'document_number', 'invoice_series', 'merchant_name', 'issuer_legal_name',
         'issuer_tax_id', 'issuer_country', 'expense_date', 'operation_date', 'due_date', 'currency_code',
         'tax_regime', 'subtotal', 'tax_amount', 'withholding_rate', 'withholding_amount',

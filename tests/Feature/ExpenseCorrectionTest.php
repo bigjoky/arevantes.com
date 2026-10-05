@@ -68,7 +68,7 @@ class ExpenseCorrectionTest extends TestCase
         $this->assertSame('REVISED', $expense->document_number);
         $this->assertSame(5, JournalEntry::count());
         $this->assertSame(2, AuditLog::where('event', 'expense_corrected')->count());
-        $netCreditor = JournalLine::whereHas('account', fn ($query) => $query->where('code', '410'))->get()->sum(fn ($line) => (float) $line->credit - (float) $line->debit);
+        $netCreditor = JournalLine::whereHas('account', fn ($query) => $query->where('code', $expense->creditor_account_code))->get()->sum(fn ($line) => (float) $line->credit - (float) $line->debit);
         $this->assertEquals(363, $netCreditor);
         foreach (JournalEntry::with('lines')->get() as $entry) {
             $this->assertEquals($entry->lines->sum('debit'), $entry->lines->sum('credit'));

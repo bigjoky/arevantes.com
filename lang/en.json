@@ -1,4 +1,9 @@
 {
+    "The nature and hierarchy of an account with journal movements cannot be changed.": "The nature and hierarchy of an account with journal movements cannot be changed.",
+    "Review the supplier accounting account before continuing.": "Review the supplier accounting account before continuing.",
+    "Multiple suppliers share this fiscal identity. Select and review the supplier explicitly.": "Multiple suppliers share this fiscal identity. Select and review the supplier explicitly.",
+    "The supplier is inactive. Review it before registering the invoice.": "The supplier is inactive. Review it before registering the invoice.",
+    "Journal amounts must be finite, non-negative numbers.": "Journal amounts must be finite, non-negative numbers.",
     "Saved VAT settlement comparison": "Saved VAT settlement comparison",
     "This is an accounting settlement, not a saved official 303. Provisional balance excludes carried-forward credits and other result adjustments.": "This is an accounting settlement, not a saved official 303. Provisional balance excludes carried-forward credits and other result adjustments.",
     "Saved VAT book evidence matches the current books.": "Saved VAT book evidence matches the current books.",

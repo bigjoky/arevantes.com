@@ -1,4 +1,9 @@
 {
+    "The nature and hierarchy of an account with journal movements cannot be changed.": "No se puede cambiar la naturaleza ni la jerarquía de una cuenta con movimientos contables.",
+    "Review the supplier accounting account before continuing.": "Revisa la cuenta contable del proveedor antes de continuar.",
+    "Multiple suppliers share this fiscal identity. Select and review the supplier explicitly.": "Varios proveedores comparten esta identidad fiscal. Selecciona y revisa el proveedor expresamente.",
+    "The supplier is inactive. Review it before registering the invoice.": "El proveedor está inactivo. Revísalo antes de registrar la factura.",
+    "Journal amounts must be finite, non-negative numbers.": "Los importes del asiento deben ser números finitos y no negativos.",
     "Saved VAT settlement comparison": "Comparación con la liquidación de IVA guardada",
     "This is an accounting settlement, not a saved official 303. Provisional balance excludes carried-forward credits and other result adjustments.": "Esta es una liquidación contable, no un modelo 303 oficial guardado. El saldo provisional no incorpora cuotas a compensar de periodos anteriores ni otros ajustes del resultado.",
     "Saved VAT book evidence matches the current books.": "La evidencia guardada de los libros de IVA coincide con los libros actuales.",

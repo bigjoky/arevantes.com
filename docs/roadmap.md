@@ -2,6 +2,26 @@
 
 ## Estado vigente y orden de ejecución — 05/10/2026
 
+**Prioridad ACC-PGC.01 (05/10):** revisión solicitada frente al PGC del BOE.
+Primera corrección estructural: emisores de facturas EUR conectados a maestros
+de proveedores, cuentas 4000/4100 individualizadas, cuenta del gasto conservada
+para sus pagos, recuperación no destructiva de maestros y diagnóstico contable.
+Asientos automáticos unificados con motor validado, contador de sincronización
+corregido y protección de cuentas con movimientos. Develop, no producción.
+No se reescriben históricos. Auditoría y secuencia en
+[revisión contable PGC](accounting-pgc-review-2026-10-05.md).
+ACC-PGC.02: conciliar saldos genéricos y terceros históricos, sin reclasificación
+silenciosa. ACC-PGC.03: naturaleza por línea de compra/venta y cuentas concretas
+en cobros. ACC-PGC.04: inmovilizado, existencias, personal, divisas y cierre completo.
+Estos requisitos alimentan el roadmap fiscal 303/390/347; no lo sustituyen ni
+permiten declarar cumplimiento PGC completo antes de cerrar las puertas pendientes.
+Verificación: 733 pruebas superadas, 5 omitidas, 10.863 aserciones; 61 contables
+en PostgreSQL, 540 aserciones. Migración reversible comprobada y aplicada en local.
+Recuperadas 5 identidades: 6 proveedores locales con ambas cuentas. Hash confirma
+documentos/asientos/pagos intactos; 17 gastos históricos aún pendientes de conciliar.
+Build, tipos, lint y ES/EN correctos. Limitación CRM/Arevia de la suite PostgreSQL
+documentada en el informe; no forma parte del bloque contable declarado verificado.
+
 **Incremento FIN-03.303, comparación de liquidaciones guardadas (05/10):**
 en develop, pantalla del 303 con liquidación contable del mismo ejercicio/trimestre.
 Cuotas guardadas frente a candidatas y saldo provisional en céntimos; este saldo

@@ -9,6 +9,15 @@ y su asesoría. Ninguna publicación habilita envíos o pagos reales automática
 
 ## Objetivo y secuencia
 
+Dependencia ACC-PGC.01 (05/10): revisión del PGC y corrección del circuito de
+proveedores/acreedores y motor de asientos. Evidencia en
+[revisión contable](accounting-pgc-review-2026-10-05.md). No modifica las casillas
+del 303 ni convierte el diagnóstico en declaración oficial. Recuperar maestros
+no concilia automáticamente los saldos de facturas antiguas. ACC-PGC.02 y la
+validación de naturaleza/IVA por documento son puertas previas a la preparación
+fiscal nueva; conservar históricos y declaraciones protegidas. Se mantiene el
+orden 303, 390 y 347 en el único roadmap integrado.
+
 Comparación de liquidación guardada (05/10): nueva sección en el 303, develop,
 con cuotas y saldo de la liquidación contable del mismo periodo frente a la
 proyección. Se compara el snapshot de libros compatible con sus datos actuales,

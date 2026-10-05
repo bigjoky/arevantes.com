@@ -108,7 +108,7 @@ type TaxRate = {
 };
 type PartyBalance = {
     id: number;
-    kind: 'customer' | 'supplier';
+    kind: 'customer' | 'supplier' | 'supplier-services';
     name: string;
     accountCode: string;
     ledgerBalance: number;
