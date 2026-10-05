@@ -2,6 +2,35 @@
 
 ## Estado vigente y orden de ejecución — 05/10/2026
 
+**Publicación selectiva del idioma (05/10):** español nativo desplegado en
+producción por PR131, versión efectiva `v2026.10.05.2`, commit
+`f5890858f81fbabc0429aac95b1f8eecd4e2f843`. Laravel Cloud confirmó
+`depl-a2e82a80-ddc1-460a-81fc-b038e2266f30` con éxito; `/up` y `/login` HTTP 200,
+login sin preferencias con `lang="es"`. Inglés explícito conservado. Publicación
+solo del idioma: no lleva funciones/migraciones fiscales pendientes de develop.
+
+**Incremento FIN-03.303, periodo de deducción de compras (05/10):** revisión
+auditada con fecha de registro, ejercicio y trimestre de deducción explícitos.
+Sin rellenar retrospectivamente revisiones guardadas: las antiguas sin periodo
+quedan pendientes de nueva confirmación. Modelo preliminar v3 distingue fecha
+de factura y periodo asignado; una compra revisada puede deducirse en un trimestre
+posterior compatible de 2026 (2T–4T), sin modificar sus fechas ni libros existentes.
+La factura aparece una sola vez como candidata en el trimestre seleccionado y
+en el de origen se muestra como asignada a otro periodo. Evidencia modificada
+queda pendiente también en el destino, no desaparece silenciosamente.
+Autor, motivo, referencia y cambios de periodo conservados en auditoría.
+No se admite registro anterior a factura/futuro ni trimestre anterior al registro.
+Protegidos origen, registro, periodo de deducción anterior y nuevo; un origen
+contable cerrado o ya preparado/presentado sigue bloqueado, sin bypass para
+históricos. Solo compras interiores ya admitidas; gastos conservan revisión en
+periodo de factura. Sigue no presentable; los libros y liquidación compatibles
+no se recalculan con esta proyección. Pendiente extender periodos a gastos,
+conciliar diferencias con libros/liquidaciones, asignar portes documentales,
+deducción parcial de compras y otros ejercicios/regímenes. Develop, no producción.
+Verificación: 710 pruebas superadas, 5 omitidas y 10.688 aserciones; 28 pruebas
+específicas y 348 aserciones también en PostgreSQL aislado. Migración reversible
+y aplicada en localhost; base temporal eliminada. TypeScript, lint y ES/EN correctos.
+
 **Incremento FIN-03.303, revisión fiscal de compras y español nativo (05/10):**
 la plataforma arranca en español tanto pública como autenticada, incluso con
 APP_LOCALE heredado en inglés; elección explícita de inglés conservada en sesión.

@@ -37,7 +37,9 @@ class PurchaseFiscalReviewController extends Controller
             'history' => AuditLog::where('auditable_type', $purchaseDocument->getMorphClass())->where('auditable_id', $purchaseDocument->id)
                 ->where('event', 'purchase_fiscal_classified')->with('user:id,name')->latest('id')->limit(30)->get()
                 ->map(fn ($log) => ['id' => $log->id, 'author' => $log->new_values['evidence_snapshot']['reviewer']['name'] ?? $log->user?->name, 'date' => $log->created_at->toIso8601String(),
-                    'operation_class' => $log->new_values['operation_class'], 'reason' => $log->new_values['reason'], 'source_reference' => $log->new_values['source_reference'] ?? '']),
+                    'operation_class' => $log->new_values['operation_class'], 'reason' => $log->new_values['reason'], 'source_reference' => $log->new_values['source_reference'] ?? '',
+                    'registered_on' => $log->new_values['registered_on'] ?? null, 'deduction_year' => $log->new_values['deduction_year'] ?? null,
+                    'deduction_quarter' => $log->new_values['deduction_quarter'] ?? null]),
         ]);
     }
 
@@ -45,7 +47,9 @@ class PurchaseFiscalReviewController extends Controller
     {
         $data = $request->validate(['operation_class' => ['required', Rule::in(PurchaseFiscalReview::CLASSES)],
             'revision' => ['required', 'string', 'size:64'], 'reason' => ['required', 'string', 'max:1000'],
-            'source_reference' => ['required', 'string', 'max:255'], 'confirmed' => ['nullable', 'boolean']]);
+            'source_reference' => ['required', 'string', 'max:255'], 'confirmed' => ['nullable', 'boolean'],
+            'registered_on' => ['nullable', 'date_format:Y-m-d'], 'deduction_year' => ['nullable', 'integer'],
+            'deduction_quarter' => ['nullable', 'integer', 'between:1,4']]);
         $review->save($purchaseDocument, $data, $request);
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Fiscal classification saved without changing invoice amounts or payments.')]);

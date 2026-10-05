@@ -14,6 +14,13 @@ variables de entorno y credenciales nunca se guardan en el repositorio.
 
 ## Flujo de publicación
 
+Publicación selectiva 05/10/2026: PR131, español predeterminado e inglés opcional,
+sin fiscalidad pendiente de develop ni nuevas migraciones. Versión efectiva
+`v2026.10.05.2`, commit `f5890858f81fbabc0429aac95b1f8eecd4e2f843`, deployment
+`depl-a2e82a80-ddc1-460a-81fc-b038e2266f30` confirmado correcto. `/up` y `/login`
+HTTP 200; HTML del login sin cookies en español. La etiqueta `v2026.10.05.1`
+se creó antes del merge y referencia el baseline previo: no identifica este cambio.
+
 1. Integrar mediante pull request los cambios verificados de `develop` en `main`.
 2. Crear la etiqueta de versión correspondiente.
 3. Laravel Cloud inicia automáticamente el despliegue de `main` en `production` mediante Push to

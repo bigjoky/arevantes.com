@@ -44,12 +44,22 @@ class TaxController extends Controller
             ]])->all();
 
         $purchaseEvidence = app(PurchaseFiscalReview::class);
-        $classifications += PurchaseDocument::whereIn('id', collect($books['received'])->where('source_type', 'purchase_document')->pluck('source_id')->unique())
-            ->with(['lines', 'fiscalClassification'])->get()->mapWithKeys(fn ($purchase) => ['purchase_document:'.$purchase->id => [
-                'current' => $purchaseEvidence->isCurrent($purchase),
-                'operation_class' => $purchase->fiscalClassification?->operation_class,
-                'issues' => ['purchase_review_pending', ...$purchaseEvidence->issues($purchase)],
-            ]])->all();
+        $bookPurchaseIds = collect($books['received'])->where('source_type', 'purchase_document')->pluck('source_id')->unique();
+        $purchases = PurchaseDocument::where(fn ($query) => $query->whereIn('id', $bookPurchaseIds)
+            ->orWhereHas('fiscalClassification', fn ($classification) => $classification->where('deduction_year', $year)->where('deduction_quarter', $quarter)))
+            ->with(['lines', 'fiscalClassification'])->get();
+        $classifications += $purchases->mapWithKeys(fn ($purchase) => ['purchase_document:'.$purchase->id => [
+            'current' => $purchaseEvidence->isCurrent($purchase),
+            'operation_class' => $purchase->fiscalClassification?->operation_class,
+            'registered_on' => $purchase->fiscalClassification?->registered_on?->toDateString(),
+            'deduction_year' => $purchase->fiscalClassification?->deduction_year,
+            'deduction_quarter' => $purchase->fiscalClassification?->deduction_quarter,
+            'issues' => ['purchase_review_pending', ...$purchaseEvidence->issues($purchase)],
+        ]])->all();
+        // Additional reviewed documents belong to this deduction period only. Legacy books remain unchanged.
+        $books['received'] = collect($books['received'])->concat($purchases
+            ->reject(fn ($purchase) => $bookPurchaseIds->contains($purchase->id))
+            ->flatMap(fn ($purchase) => $purchaseEvidence->rows($purchase)))->values();
 
         return Inertia::render('tax/model303', ['preview' => $preview->make($books, $documents, $classifications),
             'census' => app(CompanyCensus::class)->check(CompanyProfile::firstOrFail(), $year)]);

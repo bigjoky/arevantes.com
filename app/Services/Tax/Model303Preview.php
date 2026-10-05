@@ -51,9 +51,20 @@ class Model303Preview
             ['base_box' => '30', 'vat_box' => '31', 'operation_class' => 'domestic_investment', 'base' => null, 'vat' => null, 'documents' => []],
         ];
         $pendingReceived = [];
+        $deferredReceived = [];
         foreach ($report['received'] as $row) {
             $classification = $classifications[$row['source_type'].':'.$row['source_id']] ?? [];
             $class = $classification['operation_class'] ?? null;
+            if ($row['source_type'] === 'purchase_document' && ($classification['current'] ?? false)) {
+                $row = [...$row, 'registered_on' => $classification['registered_on'] ?? null,
+                    'deduction_year' => $classification['deduction_year'] ?? null,
+                    'deduction_quarter' => $classification['deduction_quarter'] ?? null];
+                if ($row['deduction_year'] !== $report['period']['year'] || $row['deduction_quarter'] !== $report['period']['quarter']) {
+                    $deferredReceived[] = $row;
+
+                    continue;
+                }
+            }
             if (! $supported || ! ($classification['current'] ?? false) || ! in_array($row['source_type'], ['expense', 'purchase_document'], true)
                 || ! in_array($class, ['domestic_current', 'domestic_investment'], true)
                 || (float) $row['vat'] <= 0 || (float) ($row['deductible_vat'] ?? -1) <= 0) {
@@ -76,10 +87,10 @@ class Model303Preview
         unset($deduction);
 
         return [
-            'period' => $report['period'], 'version' => '303-2026-2T-4T-v2',
+            'period' => $report['period'], 'version' => '303-2026-2T-4T-v3',
             'source' => self::SOURCE, 'supported' => $supported, 'ready' => false,
             'groups' => $groups, 'pendingIssued' => $pending,
-            'deductions' => $deductions, 'pendingReceived' => $pendingReceived,
+            'deductions' => $deductions, 'pendingReceived' => $pendingReceived, 'deferredReceived' => $deferredReceived,
         ];
     }
 }

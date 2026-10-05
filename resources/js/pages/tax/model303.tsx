@@ -15,6 +15,9 @@ type Evidence = {
     vat: number;
     deductible_vat?: number | null;
     fiscal_issues?: string[];
+    registered_on?: string | null;
+    deduction_year?: number | null;
+    deduction_quarter?: number | null;
 };
 type Group = {
     base_box: string;
@@ -34,6 +37,7 @@ type Preview = {
     groups: Group[];
     pendingIssued: Evidence[];
     pendingReceived: Evidence[];
+    deferredReceived: Evidence[];
     deductions: {
         base_box: string;
         vat_box: string;
@@ -288,6 +292,17 @@ export default function Model303({
                         ))}
                     </div>
                     <EvidenceList rows={preview.pendingReceived} />
+                    <h3 className="mt-3 font-medium">
+                        {t(
+                            'Received invoices assigned to another deduction period',
+                        )}
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                        {t(
+                            'These reviewed purchases do not contribute to this period. Their invoice dates remain unchanged in the accounting books.',
+                        )}
+                    </p>
+                    <EvidenceList rows={preview.deferredReceived} />
                 </section>
                 <section className="rounded-lg border p-4">
                     <h2 className="font-semibold">
@@ -348,6 +363,15 @@ function EvidenceList({ rows }: { rows: Evidence[] }) {
                                         {row.number} · {row.date}
                                     </span>
                                     <span>{row.party}</span>
+                                    {row.deduction_year &&
+                                    row.deduction_quarter ? (
+                                        <p className="mt-1 text-muted-foreground">
+                                            {t('Deduction period')}:{' '}
+                                            {`${row.deduction_year} / ${row.deduction_quarter}T`}{' '}
+                                            · {t('Fiscal registration date')}:{' '}
+                                            {row.registered_on ?? '—'}
+                                        </p>
+                                    ) : null}
                                     {isExpense(row) ? (
                                         <Link
                                             className="mt-1 block underline"

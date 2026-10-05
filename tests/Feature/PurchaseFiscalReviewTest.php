@@ -11,6 +11,7 @@ use App\Models\Supplier;
 use App\Models\TaxReturn;
 use App\Models\User;
 use App\Services\Tax\PurchaseFiscalReview;
+use App\Services\Tax\VatReport;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Testing\TestResponse;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -38,7 +39,7 @@ class PurchaseFiscalReviewTest extends TestCase
     {
         return ['revision' => app(PurchaseFiscalReview::class)->revision($invoice->fresh()),
             'operation_class' => 'domestic_current', 'reason' => 'Invoice checked', 'source_reference' => 'Invoice S-123 original',
-            'confirmed' => true, ...$overrides];
+            'confirmed' => true, 'registered_on' => '2026-09-01', 'deduction_year' => 2026, 'deduction_quarter' => 3, ...$overrides];
     }
 
     private function save(PurchaseDocument $invoice, array $data): TestResponse
@@ -128,5 +129,67 @@ class PurchaseFiscalReviewTest extends TestCase
         $this->actingAs(User::factory()->create(['role' => 'sales']));
         $this->get(route('tax.purchases.classification.show', $invoice))->assertForbidden();
         $this->save($invoice, $this->data($invoice))->assertForbidden();
+    }
+
+    public function test_later_deduction_appears_once_in_selected_period_without_moving_accounting_books(): void
+    {
+        $invoice = $this->invoice();
+        $invoice->update(['issue_date' => '2026-06-30']);
+        $this->save($invoice, $this->data($invoice, ['registered_on' => '2026-07-01']))->assertSessionHasNoErrors();
+        $this->get('/tax/models/303?year=2026&quarter=2')->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->where('preview.deductions.0.vat', null)->has('preview.deferredReceived', 1)->has('preview.pendingReceived', 0)
+            ->where('preview.deferredReceived.0.deduction_quarter', 3));
+        $this->get('/tax/models/303?year=2026&quarter=3')->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->where('preview.deductions.0.base', 3.46)->where('preview.deductions.0.vat', 0.34)
+            ->has('preview.deductions.0.documents', 1)->where('preview.deductions.0.documents.0.date', '2026-06-30')
+            ->where('preview.deductions.0.documents.0.registered_on', '2026-07-01'));
+        $this->assertCount(0, app(VatReport::class)->make(2026, 3)['received']);
+        $this->assertCount(1, app(VatReport::class)->make(2026, 2)['received']);
+        $this->assertSame('2026-06-30', $invoice->fresh()->issue_date->toDateString());
+    }
+
+    public function test_registration_chronology_and_unsupported_periods_are_rejected(): void
+    {
+        $invoice = $this->invoice();
+        foreach ([['registered_on' => '2026-08-31'], ['deduction_quarter' => 2], ['deduction_year' => 2027],
+            ['registered_on' => null], ['registered_on' => now()->addDay()->toDateString()]] as $invalid) {
+            $this->save($invoice, $this->data($invoice, $invalid))->assertSessionHasErrors('operation_class');
+        }
+        $this->assertNull($invoice->fresh()->fiscalClassification);
+    }
+
+    public function test_previous_deduction_period_remains_protected_when_reassigning_or_withdrawing(): void
+    {
+        $invoice = $this->invoice();
+        $invoice->update(['issue_date' => '2026-06-30']);
+        $this->save($invoice, $this->data($invoice, ['registered_on' => '2026-07-01']))->assertSessionHasNoErrors();
+        TaxReturn::create(['tax_type' => 'vat', 'year' => 2026, 'quarter' => 3, 'period_from' => '2026-07-01', 'period_to' => '2026-09-30',
+            'status' => 'prepared', 'result' => 0, 'output_vat' => 0, 'input_vat' => 0, 'snapshot' => [], 'prepared_at' => now()]);
+        $this->save($invoice, $this->data($invoice, ['registered_on' => '2026-07-01', 'deduction_quarter' => 4]))->assertSessionHasErrors('operation_class');
+        $this->save($invoice, $this->data($invoice, ['operation_class' => 'pending']))->assertSessionHasErrors('operation_class');
+        $this->assertSame(3, $invoice->fresh()->fiscalClassification->deduction_quarter);
+        $this->get(route('tax.purchases.classification.show', $invoice))->assertOk()
+            ->assertInertia(fn (Assert $page) => $page->where('canReview', false));
+    }
+
+    public function test_legacy_review_without_explicit_registration_requires_a_new_confirmation(): void
+    {
+        $invoice = $this->invoice();
+        $this->save($invoice, $this->data($invoice))->assertSessionHasNoErrors();
+        $invoice->fresh()->fiscalClassification->update(['registered_on' => null, 'deduction_year' => null, 'deduction_quarter' => null]);
+        $this->assertFalse(app(PurchaseFiscalReview::class)->isCurrent($invoice->fresh()));
+        $this->get('/tax/models/303?year=2026&quarter=3')->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->where('preview.deductions.0.vat', null)->has('preview.pendingReceived', 1));
+    }
+
+    public function test_changed_deferred_invoice_remains_visible_as_pending_in_the_assigned_period(): void
+    {
+        $invoice = $this->invoice();
+        $invoice->update(['issue_date' => '2026-06-30']);
+        $this->save($invoice, $this->data($invoice, ['registered_on' => '2026-07-01']))->assertSessionHasNoErrors();
+        $invoice->lines()->first()->update(['description' => 'Changed invoice evidence']);
+        $this->get('/tax/models/303?year=2026&quarter=3')->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->where('preview.deductions.0.vat', null)->has('preview.pendingReceived', 1)
+            ->where('preview.pendingReceived.0.source_id', $invoice->id)->where('preview.pendingReceived.0.deductible_vat', null));
     }
 }

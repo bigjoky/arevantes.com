@@ -9,6 +9,20 @@ y su asesoría. Ninguna publicación habilita envíos o pagos reales automática
 
 ## Objetivo y secuencia
 
+Periodo de deducción de compras (05/10): fecha de registro y trimestre explícitos,
+auditados, sin cambiar la fecha de factura ni el libro compatible. Se incluyen
+compras revisadas por su periodo de deducción, aunque su fecha de factura quede
+fuera del trimestre; origen muestra asignación a otro periodo sin duplicar cuotas.
+Revisiones anteriores sin esos datos requieren confirmación nueva. Evidencia
+obsoleta queda visible como pendiente también en el destino. Registro posterior
+o igual a factura y no futuro; trimestre de deducción no anterior al registro.
+Primer alcance: mismo ejercicio 2026, diseños 2T–4T; revisión interior soportada
+sin portes/diferencias y con deducción íntegra. Origen, mes registral, destino
+anterior y nuevo protegidos contra cierres/declaraciones preparadas o presentadas.
+No reubica facturas de periodos contables ya protegidos. Gastos y ejercicios
+posteriores siguen pendientes; también reconciliación de esta proyección con
+libros y liquidaciones compatibles antes de habilitar presentación oficial.
+
 Revisión de compras (05/10), evolución del diagnóstico: clasificación persistida
 y auditada desde `/tax/purchases/{purchaseDocument}/classification`. Confirma
 documento cotejado, moneda EUR, régimen interior general sin caja, clase única,
