@@ -1,4 +1,6 @@
 {
+    "I confirm a domestic VAT transaction without cash-accounting treatment, one invoice class, documentary deductible VAT, the registration date and the selected deduction period. Otherwise leave it pending.": "I confirm a domestic VAT transaction without cash-accounting treatment, one invoice class, documentary deductible VAT, the registration date and the selected deduction period. Otherwise leave it pending.",
+    "These reviewed received invoices do not contribute to this period. Their invoice dates remain unchanged in the accounting books.": "These reviewed received invoices do not contribute to this period. Their invoice dates remain unchanged in the accounting books.",
     "Fiscal registration date": "Fiscal registration date",
     "Deduction year": "Deduction year",
     "Deduction quarter": "Deduction quarter",

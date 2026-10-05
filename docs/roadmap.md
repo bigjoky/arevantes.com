@@ -2,6 +2,25 @@
 
 ## Estado vigente y orden de ejecución — 05/10/2026
 
+**Incremento FIN-03.303, periodos explícitos también en gastos (05/10):**
+en develop, revisión con referencia documental, fecha de registro, ejercicio y
+trimestre de deducción. Comparte validación y protección de periodos con compras,
+sin cambiar fechas, importes, pagos ni asientos de la factura. Conserva la base
+documental completa y la cuota realmente deducible, incluso con deducción parcial.
+Proyección preliminar v4: candidato una sola vez en el destino; asignación a otro
+periodo visible en origen; evidencia obsoleta pendiente en destino. Revisiones
+anteriores sin periodo explícito necesitan nueva confirmación, sin backfill.
+Alcance: mismo ejercicio 2026, 2T–4T, operaciones interiores soportadas. No
+presentable ni desplegado en producción. Siguiente puerta fiscal: conciliar la
+proyección con libros y liquidaciones compatibles antes de preparar declaraciones;
+después ampliar portes, deducción parcial de compras y ejercicios/regímenes.
+Mantiene el orden integrado del 303, 390 y 347 y el resto del roadmap operativo.
+Verificación: 714 pruebas superadas, 5 omitidas, 10.751 aserciones; 32 pruebas
+específicas y 411 aserciones también en PostgreSQL aislado. Migración reversible
+comprobada y aplicada en localhost; base temporal eliminada. TypeScript, lint,
+catálogo bilingüe y formato comprobados. Build correcto; conserva los avisos
+de tamaño de bundles existentes. No se modifican datos fiscales reales.
+
 **Publicación selectiva del idioma (05/10):** español nativo desplegado en
 producción por PR131, versión efectiva `v2026.10.05.2`, commit
 `f5890858f81fbabc0429aac95b1f8eecd4e2f843`. Laravel Cloud confirmó
@@ -29,9 +48,9 @@ Autor, motivo, referencia y cambios de periodo conservados en auditoría.
 No se admite registro anterior a factura/futuro ni trimestre anterior al registro.
 Protegidos origen, registro, periodo de deducción anterior y nuevo; un origen
 contable cerrado o ya preparado/presentado sigue bloqueado, sin bypass para
-históricos. Solo compras interiores ya admitidas; gastos conservan revisión en
-periodo de factura. Sigue no presentable; los libros y liquidación compatibles
-no se recalculan con esta proyección. Pendiente extender periodos a gastos,
+históricos. Solo compras interiores ya admitidas; la extensión a gastos se completa
+en el incremento v4 descrito arriba. Sigue no presentable; los libros y liquidación compatibles
+no se recalculan con esta proyección. Pendiente
 conciliar diferencias con libros/liquidaciones, asignar portes documentales,
 deducción parcial de compras y otros ejercicios/regímenes. Develop, no producción.
 Verificación: 710 pruebas superadas, 5 omitidas y 10.688 aserciones; 28 pruebas

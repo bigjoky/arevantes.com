@@ -9,7 +9,6 @@ use App\Models\PurchaseDocument;
 use App\Models\PurchaseFiscalClassification;
 use App\Models\TaxReturn;
 use App\Services\Accounting\AccountingPeriodManager;
-use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -56,7 +55,7 @@ class PurchaseFiscalReview
         $review = $purchaseDocument->fiscalClassification;
 
         return $review && in_array($review->operation_class, ['domestic_current', 'domestic_investment'], true)
-            && $review->registered_on && $review->deduction_year === 2026 && in_array($review->deduction_quarter, [2, 3, 4], true)
+            && app(FiscalDeductionPeriod::class)->explicit($review)
             && $this->issues($purchaseDocument) === [] && hash_equals($review->evidence_fingerprint, $this->fingerprint($purchaseDocument));
     }
 
@@ -78,18 +77,9 @@ class PurchaseFiscalReview
             $issues[] = 'A prepared or filed tax return protects this purchase invoice.';
         }
         $purchaseDocument->loadMissing('fiscalClassification');
-        $review = $purchaseDocument->fiscalClassification;
-        if ($review?->deduction_year && $review?->deduction_quarter) {
-            $start = CarbonImmutable::create($review->deduction_year, ($review->deduction_quarter - 1) * 3 + 1, 1)->startOfDay();
-            $end = $start->endOfQuarter();
-            if (AccountingPeriod::where('year', $review->deduction_year)->whereBetween('month', [$start->month, $end->month])->where('status', 'closed')->exists()
-                || TaxReturn::where('tax_type', 'vat')->whereIn('status', ['prepared', 'filed'])
-                    ->whereDate('period_from', '<=', $end)->whereDate('period_to', '>=', $start)->exists()) {
-                $issues[] = 'The previous or selected deduction period is protected.';
-            }
-        }
+        $periods = app(FiscalDeductionPeriod::class);
 
-        return $issues;
+        return [...$issues, ...$periods->protectionIssues($periods->stored($purchaseDocument->fiscalClassification))];
     }
 
     /** Documentary rows for a reviewed invoice selected by deduction period, not invoice date. */
@@ -140,28 +130,10 @@ class PurchaseFiscalReview
                 $this->fail('The purchase invoice date must belong to an open fiscal year.');
             }
             app(AccountingPeriodManager::class)->assertOpen($date);
-            $period = $data['operation_class'] === 'pending' ? null : $this->validatePeriod($purchaseDocument, $data);
-            $old = $purchaseDocument->fiscalClassification;
-            // Moving or withdrawing a review must protect its previously assigned period too.
-            foreach ([$period, $old?->deduction_year && $old?->deduction_quarter ? [
-                'registered_on' => $old->registered_on?->toDateString(),
-                'deduction_year' => $old->deduction_year, 'deduction_quarter' => $old->deduction_quarter,
-            ] : null] as $protected) {
-                if (! $protected) {
-                    continue;
-                }
-                if ($protected['registered_on']) {
-                    app(AccountingPeriodManager::class)->assertOpen($protected['registered_on']);
-                }
-                $periodStart = CarbonImmutable::create($protected['deduction_year'], ($protected['deduction_quarter'] - 1) * 3 + 1, 1)->startOfDay();
-                $periodEnd = $periodStart->endOfQuarter();
-                if (AccountingPeriod::where('year', $protected['deduction_year'])
-                    ->whereBetween('month', [$periodStart->month, $periodEnd->month])->where('status', 'closed')->exists()
-                    || TaxReturn::where('tax_type', 'vat')->whereIn('status', ['prepared', 'filed'])
-                        ->whereDate('period_from', '<=', $periodEnd)->whereDate('period_to', '>=', $periodStart)->exists()) {
-                    $this->fail('The previous or selected deduction period is protected.');
-                }
-            }
+            $periods = app(FiscalDeductionPeriod::class);
+            $period = $data['operation_class'] === 'pending' ? null : $periods->validate($purchaseDocument->issue_date, $data);
+            $periods->assertOpen($period);
+            $periods->assertOpen($periods->stored($purchaseDocument->fiscalClassification));
             // The year lock serializes with settlement posting and monthly closure.
             // Do not lock the return after the year: posting locks these in the opposite order.
             if (TaxReturn::where('tax_type', 'vat')->whereIn('status', ['prepared', 'filed'])
@@ -201,23 +173,5 @@ class PurchaseFiscalReview
     private function fail(string $message): never
     {
         throw ValidationException::withMessages(['operation_class' => __($message)]);
-    }
-
-    private function validatePeriod(PurchaseDocument $document, array $data): array
-    {
-        if (! filled($data['registered_on'] ?? null) || ! isset($data['deduction_year'], $data['deduction_quarter'])) {
-            $this->fail('Confirm the registration date and deduction period before reviewing.');
-        }
-        $registered = CarbonImmutable::parse($data['registered_on']);
-        $year = (int) $data['deduction_year'];
-        $quarter = (int) $data['deduction_quarter'];
-        // Later years require their own validated official model and limitation rules.
-        if ($year !== 2026 || $document->issue_date->year !== 2026 || $registered->year !== 2026
-            || ! in_array($quarter, [2, 3, 4], true) || $registered->lt($document->issue_date->startOfDay())
-            || $registered->startOfDay()->gt(today()) || $quarter < $registered->quarter) {
-            $this->fail('Only supported 2026 deduction periods on or after registration are available.');
-        }
-
-        return ['registered_on' => $registered->toDateString(), 'deduction_year' => $year, 'deduction_quarter' => $quarter];
     }
 }

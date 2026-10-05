@@ -44,7 +44,8 @@ class ExpenseFiscalReviewTest extends TestCase
     private function payload(Expense $expense, string $class = 'domestic_current'): array
     {
         return ['revision' => app(ExpenseFiscalReview::class)->revision($expense->fresh()),
-            'operation_class' => $class, 'reason' => 'Invoice, VAT territory and same-period deduction checked', 'confirmed' => true];
+            'operation_class' => $class, 'reason' => 'Invoice, VAT territory and deduction period checked', 'confirmed' => true,
+            'source_reference' => 'Supplier invoice SUP-123', 'registered_on' => '2026-09-15', 'deduction_year' => 2026, 'deduction_quarter' => 3];
     }
 
     public function test_saves_audited_review_without_mutating_paid_invoice_or_accounting(): void
@@ -148,6 +149,54 @@ class ExpenseFiscalReviewTest extends TestCase
         $this->assertSame(0, ExpenseFiscalClassification::count());
         $this->get(route('tax.expenses.classification.show', $expense))->assertOk()
             ->assertInertia(fn (Assert $page) => $page->where('canReview', false));
+    }
+
+    public function test_later_deduction_preserves_invoice_date_and_partial_documentary_quota(): void
+    {
+        $expense = $this->expense();
+        $expense->update(['expense_date' => '2026-06-30']);
+        $payload = [...$this->payload($expense), 'registered_on' => '2026-07-01'];
+        $this->post(route('tax.expenses.classification.update', $expense), $payload)->assertSessionHasNoErrors();
+        $this->get('/tax/models/303?year=2026&quarter=2')->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->has('preview.deferredReceived', 1)->where('preview.deductions.0.base', null));
+        $this->get('/tax/models/303?year=2026&quarter=3')->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->where('preview.deductions.0.base', 100)->where('preview.deductions.0.vat', 10.5)->has('preview.pendingReceived', 0));
+        $this->assertSame('2026-06-30', $expense->fresh()->expense_date->format('Y-m-d'));
+        $expense->update(['document_number' => 'CORRECTED']);
+        $this->get('/tax/models/303?year=2026&quarter=3')->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->has('preview.pendingReceived', 1)->where('preview.deductions.0.base', null));
+    }
+
+    public function test_rejects_invalid_or_missing_explicit_periods(): void
+    {
+        $expense = $this->expense();
+        foreach ([['registered_on' => '2026-09-14'], ['registered_on' => null], ['deduction_year' => 2027], ['deduction_quarter' => 2], ['registered_on' => '2026-12-31']] as $invalid) {
+            $this->post(route('tax.expenses.classification.update', $expense), [...$this->payload($expense), ...$invalid])->assertSessionHasErrors();
+        }
+        $this->post(route('tax.expenses.classification.update', $expense), [...$this->payload($expense), 'source_reference' => ''])->assertSessionHasErrors('source_reference');
+        $this->assertSame(0, ExpenseFiscalClassification::count());
+    }
+
+    public function test_previously_assigned_protected_period_blocks_reassignment_and_withdrawal(): void
+    {
+        $expense = $this->expense();
+        $expense->update(['expense_date' => '2026-06-30']);
+        $this->post(route('tax.expenses.classification.update', $expense), [...$this->payload($expense), 'registered_on' => '2026-07-01'])->assertSessionHasNoErrors();
+        TaxReturn::create(['tax_type' => 'vat', 'year' => 2026, 'quarter' => 3, 'period_from' => '2026-07-01', 'period_to' => '2026-09-30',
+            'status' => 'prepared', 'result' => 0, 'output_vat' => 0, 'input_vat' => 0, 'snapshot' => [], 'prepared_at' => now()]);
+        $this->post(route('tax.expenses.classification.update', $expense), [...$this->payload($expense), 'deduction_quarter' => 4])->assertSessionHasErrors('operation_class');
+        $this->post(route('tax.expenses.classification.update', $expense), $this->payload($expense, 'pending'))->assertSessionHasErrors('operation_class');
+        $this->assertSame(3, $expense->fresh()->fiscalClassification->deduction_quarter);
+        $this->assertSame(1, AuditLog::where('event', 'expense_fiscal_classified')->count());
+    }
+
+    public function test_legacy_review_without_explicit_period_requires_reconfirmation(): void
+    {
+        $expense = $this->expense();
+        $this->post(route('tax.expenses.classification.update', $expense), $this->payload($expense))->assertSessionHasNoErrors();
+        $expense->fiscalClassification()->update(['registered_on' => null, 'deduction_year' => null, 'deduction_quarter' => null]);
+        $this->assertFalse(app(ExpenseFiscalReview::class)->isCurrent($expense->fresh()));
+        $this->get('/tax/models/303?year=2026&quarter=3')->assertOk()->assertInertia(fn (Assert $page) => $page->has('preview.pendingReceived', 1));
     }
 
     public function test_only_admin_can_access_and_class_must_be_selected_from_defined_options(): void

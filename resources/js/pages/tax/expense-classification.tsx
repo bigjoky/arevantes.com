@@ -23,6 +23,9 @@ type Props = {
         operation_class: OperationClass;
         reviewed_by_name: string | null;
         reviewed_at: string;
+        registered_on: string | null;
+        deduction_year: number | null;
+        deduction_quarter: number | null;
     } | null;
     revision: string;
     current: boolean;
@@ -42,6 +45,10 @@ type Props = {
         date: string;
         operation_class: OperationClass;
         reason: string;
+        source_reference: string;
+        registered_on: string | null;
+        deduction_year: number | null;
+        deduction_quarter: number | null;
     }[];
 };
 
@@ -65,6 +72,21 @@ export default function ExpenseClassification({
     const form = useForm({
         operation_class: classification?.operation_class ?? 'pending',
         reason: '',
+        source_reference: '',
+        registered_on:
+            classification?.registered_on?.slice(0, 10) ??
+            expense.expense_date.slice(0, 10),
+        deduction_year: classification?.deduction_year ?? 2026,
+        deduction_quarter:
+            classification?.deduction_quarter ??
+            Math.max(
+                2,
+                Math.floor(
+                    new Date(
+                        `${expense.expense_date.slice(0, 10)}T12:00:00`,
+                    ).getMonth() / 3,
+                ) + 1,
+            ),
         confirmed: false,
         revision,
     });
@@ -189,7 +211,11 @@ export default function ExpenseClassification({
                             `/tax/expenses/${expense.id}/classification`,
                             {
                                 onSuccess: () =>
-                                    form.reset('reason', 'confirmed'),
+                                    form.reset(
+                                        'reason',
+                                        'confirmed',
+                                        'source_reference',
+                                    ),
                             },
                         );
                     }}
@@ -229,10 +255,83 @@ export default function ExpenseClassification({
                         />
                         <span>
                             {t(
-                                'I confirm a domestic VAT transaction without cash-accounting treatment, one invoice class, documentary deductible VAT and deduction in the invoice period. Otherwise leave it pending.',
+                                'I confirm a domestic VAT transaction without cash-accounting treatment, one invoice class, documentary deductible VAT, the registration date and the selected deduction period. Otherwise leave it pending.',
                             )}
                         </span>
                     </label>
+                    <label className="grid gap-2">
+                        {t('Documentary review reference')}
+                        <input
+                            required
+                            maxLength={255}
+                            className="h-10 rounded border bg-background px-3"
+                            value={form.data.source_reference}
+                            onChange={(event) =>
+                                form.setData(
+                                    'source_reference',
+                                    event.target.value,
+                                )
+                            }
+                        />
+                    </label>
+                    <div className="grid gap-3 sm:grid-cols-3">
+                        <label className="grid gap-2">
+                            {t('Fiscal registration date')}
+                            <input
+                                type="date"
+                                required
+                                className="h-10 w-full rounded border bg-background px-3"
+                                value={form.data.registered_on}
+                                onChange={(event) =>
+                                    form.setData(
+                                        'registered_on',
+                                        event.target.value,
+                                    )
+                                }
+                            />
+                        </label>
+                        <label className="grid gap-2">
+                            {t('Deduction year')}
+                            <input
+                                type="number"
+                                required
+                                min={2026}
+                                max={2026}
+                                className="h-10 w-full rounded border bg-background px-3"
+                                value={form.data.deduction_year}
+                                onChange={(event) =>
+                                    form.setData(
+                                        'deduction_year',
+                                        Number(event.target.value),
+                                    )
+                                }
+                            />
+                        </label>
+                        <label className="grid gap-2">
+                            {t('Deduction quarter')}
+                            <select
+                                className="h-10 rounded border bg-background px-3"
+                                value={form.data.deduction_quarter}
+                                onChange={(event) =>
+                                    form.setData(
+                                        'deduction_quarter',
+                                        Number(event.target.value),
+                                    )
+                                }
+                            >
+                                {[2, 3, 4].map((period) => (
+                                    <option key={period} value={period}>
+                                        {period}T
+                                    </option>
+                                ))}
+                            </select>
+                        </label>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                        {t(
+                            'The deduction period must not precede registration. Invoice dates and legacy accounting books are not changed. Only the supported 2026 periods are available.',
+                        )}
+                    </p>
                     <label className="grid gap-2">
                         {t('Review reason')}
                         <textarea
@@ -284,6 +383,15 @@ export default function ExpenseClassification({
                             </p>
                             <p className="mt-2 whitespace-pre-wrap">
                                 {item.reason}
+                            </p>
+                            <p>{item.source_reference}</p>
+                            <p>
+                                {t('Fiscal registration date')}:{' '}
+                                {item.registered_on?.slice(0, 10) ?? '—'} ·{' '}
+                                {t('Deduction period')}:{' '}
+                                {item.deduction_year && item.deduction_quarter
+                                    ? `${item.deduction_year} / ${item.deduction_quarter}T`
+                                    : '—'}
                             </p>
                         </article>
                     ))}

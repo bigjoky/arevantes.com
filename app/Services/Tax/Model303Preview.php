@@ -55,7 +55,9 @@ class Model303Preview
         foreach ($report['received'] as $row) {
             $classification = $classifications[$row['source_type'].':'.$row['source_id']] ?? [];
             $class = $classification['operation_class'] ?? null;
-            if ($row['source_type'] === 'purchase_document' && ($classification['current'] ?? false)) {
+            $periodExplicit = filled($classification['registered_on'] ?? null) && ($classification['deduction_year'] ?? null) === 2026
+                && in_array($classification['deduction_quarter'] ?? null, [2, 3, 4], true);
+            if ($periodExplicit && in_array($row['source_type'], ['expense', 'purchase_document'], true) && ($classification['current'] ?? false)) {
                 $row = [...$row, 'registered_on' => $classification['registered_on'] ?? null,
                     'deduction_year' => $classification['deduction_year'] ?? null,
                     'deduction_quarter' => $classification['deduction_quarter'] ?? null];
@@ -65,7 +67,7 @@ class Model303Preview
                     continue;
                 }
             }
-            if (! $supported || ! ($classification['current'] ?? false) || ! in_array($row['source_type'], ['expense', 'purchase_document'], true)
+            if (! $supported || ! $periodExplicit || ! ($classification['current'] ?? false) || ! in_array($row['source_type'], ['expense', 'purchase_document'], true)
                 || ! in_array($class, ['domestic_current', 'domestic_investment'], true)
                 || (float) $row['vat'] <= 0 || (float) ($row['deductible_vat'] ?? -1) <= 0) {
                 $pendingReceived[] = $row['source_type'] === 'purchase_document'
@@ -87,7 +89,7 @@ class Model303Preview
         unset($deduction);
 
         return [
-            'period' => $report['period'], 'version' => '303-2026-2T-4T-v3',
+            'period' => $report['period'], 'version' => '303-2026-2T-4T-v4',
             'source' => self::SOURCE, 'supported' => $supported, 'ready' => false,
             'groups' => $groups, 'pendingIssued' => $pending,
             'deductions' => $deductions, 'pendingReceived' => $pendingReceived, 'deferredReceived' => $deferredReceived,

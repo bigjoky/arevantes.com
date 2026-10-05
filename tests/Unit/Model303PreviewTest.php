@@ -66,7 +66,7 @@ class Model303PreviewTest extends TestCase
     {
         $row = ['source_type' => 'expense', 'source_id' => 1, 'base' => 100, 'vat' => 21, 'deductible_vat' => 10.5];
         $report = $this->report([], [$row, [...$row, 'source_id' => 2], [...$row, 'source_type' => 'purchase_document'], [...$row, 'source_id' => 3, 'deductible_vat' => 0]]);
-        $classifications = ['expense:1' => ['current' => true, 'operation_class' => 'domestic_current'],
+        $classifications = ['expense:1' => ['current' => true, 'operation_class' => 'domestic_current', 'registered_on' => '2026-07-01', 'deduction_year' => 2026, 'deduction_quarter' => 3],
             'expense:2' => ['current' => false, 'operation_class' => 'domestic_current'],
             'expense:3' => ['current' => true, 'operation_class' => 'domestic_current']];
         $result = (new Model303Preview)->make($report, [], $classifications);

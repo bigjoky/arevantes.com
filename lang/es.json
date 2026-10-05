@@ -1,4 +1,6 @@
 {
+    "I confirm a domestic VAT transaction without cash-accounting treatment, one invoice class, documentary deductible VAT, the registration date and the selected deduction period. Otherwise leave it pending.": "Confirmo una operación de IVA interior sin criterio de caja, una única clase de factura, el IVA deducible documental, la fecha de registro y el periodo de deducción seleccionado. En otro caso, dejar pendiente.",
+    "These reviewed received invoices do not contribute to this period. Their invoice dates remain unchanged in the accounting books.": "Estas facturas recibidas revisadas no se incluyen en este periodo. Sus fechas originales permanecen sin cambios en los libros contables.",
     "Fiscal registration date": "Fecha de registro fiscal",
     "Deduction year": "Ejercicio de deducción",
     "Deduction quarter": "Trimestre de deducción",

@@ -299,7 +299,7 @@ export default function Model303({
                     </h3>
                     <p className="text-sm text-muted-foreground">
                         {t(
-                            'These reviewed purchases do not contribute to this period. Their invoice dates remain unchanged in the accounting books.',
+                            'These reviewed received invoices do not contribute to this period. Their invoice dates remain unchanged in the accounting books.',
                         )}
                     </p>
                     <EvidenceList rows={preview.deferredReceived} />

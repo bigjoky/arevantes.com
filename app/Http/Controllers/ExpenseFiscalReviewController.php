@@ -29,7 +29,10 @@ class ExpenseFiscalReviewController extends Controller
             'history' => AuditLog::where('auditable_type', $expense->getMorphClass())->where('auditable_id', $expense->id)
                 ->where('event', 'expense_fiscal_classified')->with('user:id,name')->latest('id')->limit(30)->get()
                 ->map(fn ($log) => ['id' => $log->id, 'author' => $log->new_values['evidence_snapshot']['reviewer']['name'] ?? $log->user?->name, 'date' => $log->created_at->toIso8601String(),
-                    'operation_class' => $log->new_values['operation_class'], 'reason' => $log->new_values['reason']]),
+                    'operation_class' => $log->new_values['operation_class'], 'reason' => $log->new_values['reason'],
+                    'source_reference' => $log->new_values['source_reference'] ?? '',
+                    'registered_on' => $log->new_values['registered_on'] ?? null, 'deduction_year' => $log->new_values['deduction_year'] ?? null,
+                    'deduction_quarter' => $log->new_values['deduction_quarter'] ?? null]),
         ]);
     }
 
@@ -37,7 +40,9 @@ class ExpenseFiscalReviewController extends Controller
     {
         $data = $request->validate(['operation_class' => ['required', Rule::in(ExpenseFiscalReview::CLASSES)],
             'revision' => ['required', 'string', 'size:64'], 'reason' => ['required', 'string', 'max:1000'],
-            'confirmed' => ['nullable', 'boolean']]);
+            'confirmed' => ['nullable', 'boolean'], 'source_reference' => ['required', 'string', 'max:255'],
+            'registered_on' => ['nullable', 'date_format:Y-m-d'], 'deduction_year' => ['nullable', 'integer'],
+            'deduction_quarter' => ['nullable', 'integer', 'between:1,4']]);
         $review->save($expense, $data, $request);
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Fiscal classification saved without changing invoice amounts or payments.')]);

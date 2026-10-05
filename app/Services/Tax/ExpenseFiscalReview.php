@@ -100,6 +100,7 @@ class ExpenseFiscalReview
         $review = $expense->fiscalClassification;
 
         return $review && in_array($review->operation_class, ['domestic_current', 'domestic_investment'], true)
+            && app(FiscalDeductionPeriod::class)->explicit($review)
             && $this->issues($expense) === [] && hash_equals($review->evidence_fingerprint, $this->fingerprint($expense));
     }
 
@@ -118,7 +119,9 @@ class ExpenseFiscalReview
             $issues[] = 'A prepared or filed tax return protects this expense.';
         }
 
-        return $issues;
+        $expense->loadMissing('fiscalClassification');
+
+        return [...$issues, ...app(FiscalDeductionPeriod::class)->protectionIssues(app(FiscalDeductionPeriod::class)->stored($expense->fiscalClassification))];
     }
 
     public function save(Expense $expense, array $data, Request $request): void
@@ -137,6 +140,13 @@ class ExpenseFiscalReview
                 $this->fail('The expense date must belong to an open fiscal year.');
             }
             app(AccountingPeriodManager::class)->assertOpen($date);
+            if (! filled($data['source_reference'] ?? null)) {
+                $this->fail('A documentary review reference is required.');
+            }
+            $periods = app(FiscalDeductionPeriod::class);
+            $period = $data['operation_class'] === 'pending' ? null : $periods->validate($expense->expense_date, $data);
+            $periods->assertOpen($period);
+            $periods->assertOpen($periods->stored($expense->fiscalClassification));
             // The year lock serializes with settlement posting and monthly closure.
             // Do not lock the return after the year: posting locks these in the opposite order.
             if (TaxReturn::where('tax_type', 'vat')->whereIn('status', ['prepared', 'filed'])
@@ -157,9 +167,11 @@ class ExpenseFiscalReview
                 'evidence_snapshot' => [...$this->evidence($expense), 'reviewer' => $request->user()->only(['id', 'name']), 'confirmation' => [
                     'domestic_vat_without_cash_accounting' => $data['operation_class'] !== 'pending',
                     'single_invoice_class' => $data['operation_class'] !== 'pending',
-                    'deduction_in_invoice_period' => $data['operation_class'] !== 'pending',
+                    'deduction_period_confirmed' => $data['operation_class'] !== 'pending',
                 ]], 'reviewed_by' => $request->user()->id,
-                'reviewed_at' => now(), 'reason' => $data['reason'],
+                'reviewed_at' => now(), 'reason' => $data['reason'], 'source_reference' => $data['source_reference'],
+                'registered_on' => $period['registered_on'] ?? null,
+                'deduction_year' => $period['deduction_year'] ?? null, 'deduction_quarter' => $period['deduction_quarter'] ?? null,
             ]);
             AuditLog::create(['user_id' => $request->user()->id, 'event' => 'expense_fiscal_classified',
                 'auditable_type' => $expense->getMorphClass(), 'auditable_id' => $expense->id,
@@ -167,6 +179,27 @@ class ExpenseFiscalReview
                 'ip_address' => $request->ip(), 'user_agent' => $request->userAgent(),
                 'route' => $request->route()?->getName(), 'method' => $request->method()]);
         });
+    }
+
+    /** Preserve supplier bases, quotas and partial deductions in the selected fiscal period. */
+    public function rows(Expense $expense): array
+    {
+        if (! $this->isCurrent($expense)) {
+            return [['direction' => 'received', 'date' => $expense->expense_date->toDateString(),
+                'number' => $expense->document_number ?: $expense->number, 'party' => $expense->issuer_legal_name ?: '—',
+                'tax_id' => $expense->issuer_tax_id, 'rate' => null, 'base' => (float) $expense->subtotal,
+                'vat' => (float) $expense->tax_amount, 'total' => (float) $expense->amount,
+                'source_type' => 'expense', 'source_id' => $expense->id, 'deductible_vat' => null, 'non_deductible_vat' => null]];
+        }
+
+        return $expense->taxLines->map(fn ($line) => [
+            'direction' => 'received', 'date' => $expense->expense_date->toDateString(),
+            'number' => $expense->document_number, 'party' => $expense->issuer_legal_name, 'tax_id' => $expense->issuer_tax_id,
+            'rate' => (float) $line->tax_rate, 'base' => (float) $line->taxable_base, 'vat' => (float) $line->tax_amount,
+            'total' => round((float) $line->taxable_base + (float) $line->tax_amount, 2),
+            'source_type' => 'expense', 'source_id' => $expense->id, 'deductible_vat' => (float) $line->deductible_amount,
+            'non_deductible_vat' => round((float) $line->tax_amount - (float) $line->deductible_amount, 2),
+        ])->values()->all();
     }
 
     private function fail(string $message): never

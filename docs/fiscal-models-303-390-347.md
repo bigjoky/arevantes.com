@@ -9,6 +9,18 @@ y su asesoría. Ninguna publicación habilita envíos o pagos reales automática
 
 ## Objetivo y secuencia
 
+Periodo de deducción de gastos (05/10), proyección v4: referencia documental,
+fecha de registro y periodo explícitos desde `/tax/expenses/{expense}/classification`.
+Base documental completa y cuota realmente deducible, conservando deducción
+parcial. Mismas reglas de compras para cronología y protección del origen,
+registro y asignación anterior/nueva. Revisiones sin periodo requieren nueva
+confirmación; no se rellenan registros históricos. Documentos diferidos se
+incluyen una sola vez en destino, sin modificar factura, pagos ni asientos.
+Evidencia obsoleta permanece pendiente también en destino. Alcance 2026, 2T–4T;
+sin preparación ni presentación oficial. Próxima prioridad: reconciliar esta
+proyección con libros y liquidaciones compatibles, mostrando diferencias y
+bloqueando preparación mientras existan discrepancias no justificadas.
+
 Periodo de deducción de compras (05/10): fecha de registro y trimestre explícitos,
 auditados, sin cambiar la fecha de factura ni el libro compatible. Se incluyen
 compras revisadas por su periodo de deducción, aunque su fecha de factura quede
@@ -19,8 +31,8 @@ o igual a factura y no futuro; trimestre de deducción no anterior al registro.
 Primer alcance: mismo ejercicio 2026, diseños 2T–4T; revisión interior soportada
 sin portes/diferencias y con deducción íntegra. Origen, mes registral, destino
 anterior y nuevo protegidos contra cierres/declaraciones preparadas o presentadas.
-No reubica facturas de periodos contables ya protegidos. Gastos y ejercicios
-posteriores siguen pendientes; también reconciliación de esta proyección con
+No reubica facturas de periodos contables ya protegidos. Gastos completados en v4;
+ejercicios posteriores siguen pendientes; también reconciliación de esta proyección con
 libros y liquidaciones compatibles antes de habilitar presentación oficial.
 
 Revisión de compras (05/10), evolución del diagnóstico: clasificación persistida

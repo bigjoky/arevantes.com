@@ -38,10 +38,18 @@ class TaxController extends Controller
                 'type' => $document->type, 'country' => $document->customer_snapshot['country'] ?? null,
             ]])->all();
 
-        $classifications = Expense::whereIn('id', collect($books['received'])->where('source_type', 'expense')->pluck('source_id')->unique())
-            ->with(['taxLines', 'fiscalClassification'])->get()->mapWithKeys(fn ($expense) => ['expense:'.$expense->id => [
-                'current' => $review->isCurrent($expense), 'operation_class' => $expense->fiscalClassification?->operation_class,
-            ]])->all();
+        $bookExpenseIds = collect($books['received'])->where('source_type', 'expense')->pluck('source_id')->unique();
+        $expenses = Expense::where(fn ($query) => $query->whereIn('id', $bookExpenseIds)
+            ->orWhereHas('fiscalClassification', fn ($classification) => $classification->where('deduction_year', $year)->where('deduction_quarter', $quarter)))
+            ->with(['taxLines', 'fiscalClassification'])->get();
+        $classifications = $expenses->mapWithKeys(fn ($expense) => ['expense:'.$expense->id => [
+            'current' => $review->isCurrent($expense), 'operation_class' => $expense->fiscalClassification?->operation_class,
+            'registered_on' => $expense->fiscalClassification?->registered_on?->toDateString(),
+            'deduction_year' => $expense->fiscalClassification?->deduction_year,
+            'deduction_quarter' => $expense->fiscalClassification?->deduction_quarter,
+        ]])->all();
+        $books['received'] = collect($books['received'])->concat($expenses
+            ->reject(fn ($expense) => $bookExpenseIds->contains($expense->id))->flatMap(fn ($expense) => $review->rows($expense)))->values();
 
         $purchaseEvidence = app(PurchaseFiscalReview::class);
         $bookPurchaseIds = collect($books['received'])->where('source_type', 'purchase_document')->pluck('source_id')->unique();
