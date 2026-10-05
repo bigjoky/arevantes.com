@@ -189,13 +189,11 @@ export default function AccountingIndex({
         'parties',
         'mappings',
     ];
-    const [view, setView] = useState<View>(
-        views.includes(requestedView as View)
-            ? (requestedView as View)
-            : selectedAccount
-              ? 'ledger'
-              : 'journal',
-    );
+    const view: View = views.includes(requestedView as View)
+        ? (requestedView as View)
+        : selectedAccount
+          ? 'ledger'
+          : 'journal';
     const navigate = (params: Record<string, string | number>) =>
         router.get(
             '/accounting',
@@ -272,7 +270,6 @@ export default function AccountingIndex({
                                             key={key}
                                             type="button"
                                             onClick={() => {
-                                                setView(key);
                                                 navigate({ view: key });
                                             }}
                                             className={`border-b-2 px-3 py-2 text-sm font-medium whitespace-nowrap ${view === key ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
@@ -287,6 +284,7 @@ export default function AccountingIndex({
                                     {money(summary.credit)}
                                 </p>
                                 <MonthlyClose
+                                    view={view}
                                     year={year}
                                     month={selectedMonth}
                                     periods={accountingPeriods}
@@ -365,7 +363,6 @@ export default function AccountingIndex({
                     <TrialBalance
                         accounts={accounts}
                         onAccount={(code) => {
-                            setView('ledger');
                             navigate({ account: code, view: 'ledger' });
                         }}
                     />
@@ -412,6 +409,7 @@ export default function AccountingIndex({
 }
 
 function MonthlyClose({
+    view,
     year,
     month,
     periods,
@@ -425,6 +423,7 @@ function MonthlyClose({
     summary: PeriodSummary;
     canManage: boolean;
     fiscalYearOpen: boolean;
+    view: View;
 }) {
     const period = periods.find((item) => item.month === month);
     const isClosed = period?.status === 'closed';
@@ -470,7 +469,7 @@ function MonthlyClose({
                                 onClick={() =>
                                     router.get(
                                         '/accounting',
-                                        { year, month: value },
+                                        { year, month: value, view },
                                         {
                                             preserveState: true,
                                             preserveScroll: true,
