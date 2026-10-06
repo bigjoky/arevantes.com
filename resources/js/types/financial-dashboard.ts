@@ -43,6 +43,7 @@ export type FinancialOverview = {
         type: string;
         number: string | null;
         party: string | null;
+        currency?: string;
         amount: number;
         status: string;
         href: string;

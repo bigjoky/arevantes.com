@@ -84,11 +84,12 @@ class FinancialDashboardTest extends TestCase
     {
         $this->travelTo(now()->setDate(2026, 9, 28));
         $this->actingAs(User::factory()->create());
-        $expense = Expense::create(['expense_category_id' => ExpenseCategory::firstOrFail()->id, 'created_by' => auth()->id(), 'number' => 'HOME-EXP', 'document_number' => 'SUP-007', 'type' => 'receipt', 'expense_date' => '2026-09-28', 'merchant_name' => 'Supplier', 'subtotal' => 100, 'tax_amount' => 21, 'amount' => 121, 'status' => 'pending']);
+        $expense = Expense::create(['expense_category_id' => ExpenseCategory::firstOrFail()->id, 'created_by' => auth()->id(), 'number' => 'HOME-EXP', 'currency_code' => 'USD', 'document_number' => 'SUP-007', 'type' => 'receipt', 'expense_date' => '2026-09-28', 'merchant_name' => 'Supplier', 'subtotal' => 100, 'tax_amount' => 21, 'amount' => 121, 'status' => 'pending']);
         $this->get('/dashboard?year=2026')->assertInertia(fn (Assert $page) => $page
             ->where('financialOverview.documents_available', true)
             ->has('financialOverview.documents', 1)
             ->where('financialOverview.documents.0.number', 'SUP-007')
+            ->where('financialOverview.documents.0.currency', 'USD')
             ->where('financialOverview.documents.0.type', 'receipt')
             ->where('financialOverview.documents.0.href', '/expenses/'.$expense->id));
     }

@@ -75,7 +75,7 @@ class FinancialDashboardSummary
             ->latest('expense_date')->latest('id')->limit(5)->get()->toBase()->map(fn ($expense) => [
                 'id' => 'expense-'.$expense->id, 'date' => $expense->expense_date->toDateString(), 'type' => $expense->type,
                 'number' => $expense->document_number ?: $expense->number, 'party' => $expense->issuer_legal_name ?: $expense->merchant_name,
-                'amount' => (float) $expense->amount, 'status' => $expense->status, 'href' => '/expenses/'.$expense->id,
+                'currency' => $expense->currency_code ?: 'EUR', 'amount' => (float) $expense->amount, 'status' => $expense->status, 'href' => '/expenses/'.$expense->id,
             ]);
         if (Gate::allows('manage-installations')) {
             $documents = $documents->merge(SalesDocument::query()->with('customer:id,first_name,last_name,company_name')

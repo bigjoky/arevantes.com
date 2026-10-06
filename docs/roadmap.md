@@ -2508,7 +2508,9 @@ trabajo terminado. Documentos y accesos respetan permisos de sus fuentes.
 Comprobación local: Safari autenticado muestra Inicio con el sidebar contable,
 cuatro métricas y paneles completos en escritorio; se conserva el tema oscuro
 seleccionado por el usuario. Comprobado responsive a 402 px; cabecera adaptada, tablas con desplazamiento interno. Pendiente comparación en tema claro.
-Suite local: 743 pruebas, 738 correctas, 5 omitidas, 10.975 aserciones;
+Suite local: 743 pruebas, 738 correctas, 5 omitidas, 10.976 aserciones;
 compilación, TypeScript, ESLint de archivos modificados, Pint y catálogo ES/EN.
 Enlaces verificados en Safari: alta manual abre formulario y el enlace a un
 asiento selecciona su detalle. No se ha enviado ningún formulario contable.
+Los documentos de Gastos conservan su moneda original al mostrar importes;
+no se presentan como euros ni se convierten con un cambio supuesto.

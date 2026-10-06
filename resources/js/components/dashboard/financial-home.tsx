@@ -37,11 +37,13 @@ export function FinancialHome({ overview }: { overview: FinancialOverview }) {
     const { locale } = useLocale();
     const { auth, workspaceContext } = usePage().props;
     const t = (key: string) => translate(key, locale);
-    const money = (value: number) =>
-        new Intl.NumberFormat(locale, {
-            style: 'currency',
-            currency: 'EUR',
-        }).format(value);
+    const money = (value: number, currency = 'EUR') =>
+        /^[A-Z]{3}$/.test(currency)
+            ? new Intl.NumberFormat(locale, {
+                  style: 'currency',
+                  currency,
+              }).format(value)
+            : `${new Intl.NumberFormat(locale, { maximumFractionDigits: 2 }).format(value)} ${currency}`;
     const date = (value: string) =>
         new Intl.DateTimeFormat(locale).format(new Date(`${value}T12:00:00`));
     const account = (view: string) =>
@@ -587,7 +589,10 @@ export function FinancialHome({ overview }: { overview: FinancialOverview }) {
                                                 {document.party ?? '—'}
                                             </td>
                                             <td className="home-number">
-                                                {money(document.amount)}
+                                                {money(
+                                                    document.amount,
+                                                    document.currency ?? 'EUR',
+                                                )}
                                             </td>
                                             <td>
                                                 <span className="home-status">
