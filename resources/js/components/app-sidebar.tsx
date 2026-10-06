@@ -85,6 +85,7 @@ export function AppSidebar() {
 
     const pathname = new URL(page.url, 'http://localhost').pathname;
     const financial =
+        (pathname === '/dashboard' && page.props.auth.abilities.viewFinance) ||
         /^\/(accounting|finance|tax|corporate-tax|company-fiscal|expenses|banking)(\/|$)/.test(
             pathname,
         );

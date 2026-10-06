@@ -688,10 +688,14 @@ function ManualEntryDialog({
     year: number;
     month: number;
 }) {
+    const page = usePage();
+    const createRequested =
+        new URL(page.url, 'http://localhost').searchParams.get('create') ===
+        '1';
     const [lines, setLines] = useState([0, 1]);
 
     return (
-        <Dialog>
+        <Dialog defaultOpen={createRequested}>
             <DialogTrigger asChild>
                 <Button>
                     <Plus /> Nuevo asiento
@@ -830,7 +834,13 @@ function Journal({
     accounts: Account[];
     year: number;
 }) {
-    const [selectedId, setSelectedId] = useState<number | null>(null);
+    const page = usePage();
+    const requestedEntry = Number(
+        new URL(page.url, 'http://localhost').searchParams.get('entry'),
+    );
+    const [selectedId, setSelectedId] = useState<number | null>(
+        requestedEntry > 0 ? requestedEntry : null,
+    );
     const [search, setSearch] = useState('');
     const [account, setAccount] = useState('all');
     const [kind, setKind] = useState('all');

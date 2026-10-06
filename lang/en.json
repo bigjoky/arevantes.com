@@ -391,5 +391,7 @@
     "An authorized signatory must have the legal representative role.": "An authorized signatory must have the legal representative role.",
     "Supplier contact added.": "Supplier contact added.",
     "Supplier contact updated.": "Supplier contact updated.",
-    "Supplier contact removed.": "Supplier contact removed."
+    "Supplier contact removed.": "Supplier contact removed.",
+    "Asiento contabilizado": "Entry posted",
+    "Conciliación bancaria": "Bank reconciliation"
 }
