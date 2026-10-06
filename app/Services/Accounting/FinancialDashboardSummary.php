@@ -3,6 +3,7 @@
 namespace App\Services\Accounting;
 
 use App\Models\BankTransaction;
+use App\Models\Expense;
 use App\Models\FiscalYear;
 use App\Models\JournalEntry;
 use App\Models\JournalLine;
@@ -70,7 +71,12 @@ class FinancialDashboardSummary
                 'description' => $entry->description, 'debit' => (float) $entry->debit, 'credit' => (float) $entry->credit,
                 'status' => $entry->status, 'href' => '/accounting?'.http_build_query(['year' => $year, 'view' => 'journal', 'entry' => $entry->id]),
             ])->values();
-        $documents = collect();
+        $documents = Expense::query()->whereBetween('expense_date', [$from->toDateString(), $to->endOfDay()->toDateTimeString()])
+            ->latest('expense_date')->latest('id')->limit(5)->get()->toBase()->map(fn ($expense) => [
+                'id' => 'expense-'.$expense->id, 'date' => $expense->expense_date->toDateString(), 'type' => $expense->type,
+                'number' => $expense->document_number ?: $expense->number, 'party' => $expense->issuer_legal_name ?: $expense->merchant_name,
+                'amount' => (float) $expense->amount, 'status' => $expense->status, 'href' => '/expenses/'.$expense->id,
+            ]);
         if (Gate::allows('manage-installations')) {
             $documents = $documents->merge(SalesDocument::query()->with('customer:id,first_name,last_name,company_name')
                 ->whereIn('type', ['invoice', 'credit_note'])->whereBetween('issue_date', [$from->toDateString(), $to->endOfDay()->toDateTimeString()])
@@ -111,7 +117,7 @@ class FinancialDashboardSummary
             'posted_entries' => (clone $entries)->where('status', 'posted')->count(),
             'pending_entries' => (clone $entries)->where('status', 'draft')->count(),
             'pending_documents' => null, 'entries' => $latestEntries,
-            'documents_available' => Gate::allows('manage-installations') || Gate::allows('view-purchases'),
+            'documents_available' => true,
             'documents' => $documents->sortByDesc(fn ($document) => $document['date'].' '.$document['id'])->take(5)->values(),
             'tasks' => $pendingBank ? [['id' => 'bank', 'title' => __('Conciliación bancaria'), 'count' => $pendingBank, 'due_on' => null, 'href' => '/banking']] : [],
             'activity' => $activity,

@@ -44,10 +44,16 @@ export function AppSidebarHeader({
 
     return (
         <>
-            <header className="flex h-16 shrink-0 items-center gap-2 border-b border-sidebar-border/50 px-3 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12 md:px-4">
+            <header
+                className={`${isHome ? 'financial-home-header' : ''} flex h-16 shrink-0 items-center gap-2 border-b border-sidebar-border/50 px-3 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12 md:px-4`}
+            >
                 <div className="flex min-w-0 items-center gap-2">
                     <SidebarTrigger className="-ml-1" />
-                    <div className="hidden min-w-0 md:block">
+                    <div
+                        className={
+                            isHome ? 'hidden' : 'hidden min-w-0 md:block'
+                        }
+                    >
                         <Breadcrumbs breadcrumbs={breadcrumbs} />
                     </div>
                 </div>
@@ -90,20 +96,18 @@ export function AppSidebarHeader({
                         </label>
                     )}
                     <LanguageSelector />
-                    {canSearch &&
-                        (!isHome ? (
-                            <GlobalSearch />
-                        ) : (
-                            <div className="md:hidden">
-                                <GlobalSearch />
-                            </div>
-                        ))}
+                    {canSearch && !isHome && <GlobalSearch />}
                     <QuickCreate />
                     {hasActionCenter && <ActionCenter />}
                     {abilities.useAi && <AreviaChat />}
                     <NavUser placement="header" />
                 </div>
             </header>
+            {isHome && canSearch && (
+                <div className="border-b px-3 py-2 md:hidden">
+                    <GlobalSearch expanded />
+                </div>
+            )}
             {!isHome && <FavoritesBar />}
         </>
     );

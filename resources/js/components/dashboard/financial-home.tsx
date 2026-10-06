@@ -81,7 +81,11 @@ export function FinancialHome({ overview }: { overview: FinancialOverview }) {
                   },
               ]
             : []),
-        { label: 'Balance', href: account('trial'), icon: ChartNoAxesCombined },
+        {
+            label: 'Balance de situación',
+            href: account('balance'),
+            icon: ChartNoAxesCombined,
+        },
         {
             label: 'Cuenta de resultados',
             href: account('profit'),
@@ -102,6 +106,7 @@ export function FinancialHome({ overview }: { overview: FinancialOverview }) {
                 {
                     posted: 'Contabilizado',
                     draft: 'Borrador',
+                    pending: 'Pendiente',
                     issued: 'Emitida',
                     received: 'Recibida',
                     paid: 'Pagada',
@@ -319,6 +324,7 @@ export function FinancialHome({ overview }: { overview: FinancialOverview }) {
                                         }}
                                     />
                                     <Bar
+                                        isAnimationActive={false}
                                         name={t('Ingresos')}
                                         dataKey="income"
                                         fill="#008665"
@@ -326,6 +332,7 @@ export function FinancialHome({ overview }: { overview: FinancialOverview }) {
                                         maxBarSize={16}
                                     />
                                     <Bar
+                                        isAnimationActive={false}
                                         name={t('Gastos')}
                                         dataKey="expenses"
                                         fill="#92cfbb"
@@ -333,6 +340,7 @@ export function FinancialHome({ overview }: { overview: FinancialOverview }) {
                                         maxBarSize={16}
                                     />
                                     <Line
+                                        isAnimationActive={false}
                                         name={t('Resultado')}
                                         dataKey="result"
                                         stroke="#00694f"
@@ -559,7 +567,14 @@ export function FinancialHome({ overview }: { overview: FinancialOverview }) {
                                                         'credit',
                                                     )
                                                         ? 'Rectificativa'
-                                                        : 'Factura',
+                                                        : document.type ===
+                                                            'receipt'
+                                                          ? 'Recibo'
+                                                          : document.type.includes(
+                                                                  'invoice',
+                                                              )
+                                                            ? 'Factura'
+                                                            : 'Gasto',
                                                 )}
                                             </td>
                                             <td>

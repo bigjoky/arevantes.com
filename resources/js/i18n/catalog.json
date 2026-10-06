@@ -17593,5 +17593,18 @@
     "Completada": {
         "en": "Completed",
         "es": "Completada"
-    }
+    },
+    "Balance de situación": {
+        "en": "Balance sheet",
+        "es": "Balance de situación"
+    },
+    "Recibo": {
+        "en": "Receipt",
+        "es": "Recibo"
+    },
+    "Gasto": {
+        "en": "Expense",
+        "es": "Gasto"
+    },
+    "receipt": { "en": "Receipt", "es": "Recibo" }
 }

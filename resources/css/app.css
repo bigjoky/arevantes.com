@@ -927,3 +927,15 @@
         max-width: 160px;
     }
 }
+
+@media (max-width: 767px) {
+    .financial-home-header [data-test='sidebar-menu-button'] {
+        width: 36px;
+        min-width: 36px;
+        padding: 2px;
+    }
+    .financial-home-header [data-test='sidebar-menu-button'] > .grid,
+    .financial-home-header [data-test='sidebar-menu-button'] > svg {
+        display: none;
+    }
+}

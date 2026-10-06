@@ -2498,9 +2498,17 @@ trabajo terminado. Documentos y accesos respetan permisos de sus fuentes.
 | UI-HOME-02 | Cola de documentos por procesar: contador nullable; pendiente | Definir estados de recepción, extracción, validación y contabilización, permisos y fuentes. Contador real sin duplicados; distinguir indisponible de cero |
 | UI-HOME-03 | Tareas y vencimientos: conciliación bancaria real implantada; resto pendiente | Agregar revisión de facturas, modelos tributarios, cierre mensual y provisiones desde fuentes autorizadas. Contrato de tarea con enlace, cantidad y fecha nullable preparado; vencimientos reales y acciones persistentes antes de permitir completar tareas |
 | UI-HOME-04 | Actividad reciente: contabilización real implantada; agregado pendiente | Incorporar facturas, cobros/pagos e informes a partir de eventos auditados. Actor, fecha y destino con permisos de cada fuente; no exponer datos privados de auditoría |
-| UI-HOME-05 | Documentos recientes: facturas de venta y compra autorizadas implantadas; otros pendientes | Incorporar nóminas, adjuntos/cola y estados de procesamiento definidos en UI-HOME-02. No llamar «Procesado» a un documento comercial emitido/borrador; ordenar fuentes con fechas e identidad estable |
+| UI-HOME-05 | Documentos recientes: gastos, facturas de venta y compra autorizadas implantadas; otros pendientes | Incorporar nóminas, adjuntos/cola y estados de procesamiento definidos en UI-HOME-02. No llamar «Procesado» a un documento comercial emitido/borrador; ordenar fuentes con fechas e identidad estable |
 | UI-HOME-06 | Búsqueda: buscador global existente conservado; alcance contable pendiente | Extender endpoint a cuentas, asientos y documentos con permisos y navegación a detalle. Mantener descripción de alcance actual hasta disponer de resultados financieros |
 | UI-HOME-07 | Accesos rápidos: destinos existentes habilitados por permiso; libros oficiales/informes pendientes | Reutilizar índices pendientes UI-SIDEBAR-03. Nuevo asiento abre formulario sin contabilizar; entrada concreta enlaza al detalle. No duplicar etiquetas para destinos inexistentes |
 | UI-HOME-08 | Ejercicio y empresa: ejercicio seleccionable; cambio de empresa pendiente | Cambiar año actualiza todo el resumen y conserva contexto; ejercicio no configurado señalado; multiempresa depende de UI-SIDEBAR-04. No mostrar roles inventados ni una empresa ficticia |
 | UI-HOME-09 | Saldos: alcance contable explícito implantado; conciliación ampliada pendiente | Validar integridad de aperturas, cobertura de subcuentas/proveedores de inmovilizado y periodos cerrados; enlazar tesorería con extractos conciliados si se quiere saldo disponible. No considerar ausencia de apertura como saldo real de banco |
 | UI-HOME-10 | Verificación e integración | Compilación, tipos, formato/lint y pruebas de cálculos, periodos, permisos, vacío e indisponible. Comparar referencia en escritorio/móvil autenticados y registrar publicación en develop separadamente de trabajo local |
+
+Comprobación local: Safari autenticado muestra Inicio con el sidebar contable,
+cuatro métricas y paneles completos en escritorio; se conserva el tema oscuro
+seleccionado por el usuario. Comprobado responsive a 402 px; cabecera adaptada, tablas con desplazamiento interno. Pendiente comparación en tema claro.
+Suite local: 743 pruebas, 738 correctas, 5 omitidas, 10.975 aserciones;
+compilación, TypeScript, ESLint de archivos modificados, Pint y catálogo ES/EN.
+Enlaces verificados en Safari: alta manual abre formulario y el enlace a un
+asiento selecciona su detalle. No se ha enviado ningún formulario contable.
