@@ -2474,3 +2474,33 @@ estados, acciones, mensajes vacíos y textos dinámicos con cantidades o referen
 La interfaz utiliza **propuesta** para la oferta comercial, **pedido** para el
 documento de venta previo al albarán y **factura rectificativa** para los abonos,
 evitando traducciones literales incompatibles con el uso administrativo español.
+
+### UI-HOME — Inicio financiero, 06/10/2026
+
+Referencia: «ChatGPT Image 6 Oct 2026, 06_54_00.png». Inicio financiero por
+permiso `view-finance`, sidebar contable común, cabecera con ejercicio, tarjetas,
+gráfico mensual, estado, saldos, accesos, últimos asientos/documentos, conciliación
+y actividad contable. El mapa y la agenda permanecen en «Resumen operativo»;
+los perfiles sin acceso financiero mantienen su inicio operativo.
+
+Contratos aditivos en `FinancialOverview` y resumen de solo lectura en
+`FinancialDashboardSummary`. Ingresos/gastos/resultados proceden de líneas
+contabilizadas, excluyendo cierre; comparación con el mismo periodo anterior,
+sin porcentaje si no existe base. Meses futuros se muestran sin valores. Saldos
+son movimientos contables del ejercicio, incluido asiento de apertura cuando
+exista: 57, 430, 400/410 y 472/477/4700/4750; no sustituyen extractos bancarios.
+La fecha es real, el porcentaje indica avance del calendario y no porcentaje de
+trabajo terminado. Documentos y accesos respetan permisos de sus fuentes.
+
+| ID | Capacidad y estado | Dependencias y criterio de aceptación |
+| --- | --- | --- |
+| UI-HOME-01 | IVA a ingresar: contrato nullable y tarjeta preparada; pendiente | Conectar cálculo fiscal autorizado del periodo/modelo 303 con periodo y estado declarativo explícitos. No equiparar el saldo contable de IVA con cuota a ingresar; contrastar rectificaciones y compensaciones |
+| UI-HOME-02 | Cola de documentos por procesar: contador nullable; pendiente | Definir estados de recepción, extracción, validación y contabilización, permisos y fuentes. Contador real sin duplicados; distinguir indisponible de cero |
+| UI-HOME-03 | Tareas y vencimientos: conciliación bancaria real implantada; resto pendiente | Agregar revisión de facturas, modelos tributarios, cierre mensual y provisiones desde fuentes autorizadas. Contrato de tarea con enlace, cantidad y fecha nullable preparado; vencimientos reales y acciones persistentes antes de permitir completar tareas |
+| UI-HOME-04 | Actividad reciente: contabilización real implantada; agregado pendiente | Incorporar facturas, cobros/pagos e informes a partir de eventos auditados. Actor, fecha y destino con permisos de cada fuente; no exponer datos privados de auditoría |
+| UI-HOME-05 | Documentos recientes: facturas de venta y compra autorizadas implantadas; otros pendientes | Incorporar nóminas, adjuntos/cola y estados de procesamiento definidos en UI-HOME-02. No llamar «Procesado» a un documento comercial emitido/borrador; ordenar fuentes con fechas e identidad estable |
+| UI-HOME-06 | Búsqueda: buscador global existente conservado; alcance contable pendiente | Extender endpoint a cuentas, asientos y documentos con permisos y navegación a detalle. Mantener descripción de alcance actual hasta disponer de resultados financieros |
+| UI-HOME-07 | Accesos rápidos: destinos existentes habilitados por permiso; libros oficiales/informes pendientes | Reutilizar índices pendientes UI-SIDEBAR-03. Nuevo asiento abre formulario sin contabilizar; entrada concreta enlaza al detalle. No duplicar etiquetas para destinos inexistentes |
+| UI-HOME-08 | Ejercicio y empresa: ejercicio seleccionable; cambio de empresa pendiente | Cambiar año actualiza todo el resumen y conserva contexto; ejercicio no configurado señalado; multiempresa depende de UI-SIDEBAR-04. No mostrar roles inventados ni una empresa ficticia |
+| UI-HOME-09 | Saldos: alcance contable explícito implantado; conciliación ampliada pendiente | Validar integridad de aperturas, cobertura de subcuentas/proveedores de inmovilizado y periodos cerrados; enlazar tesorería con extractos conciliados si se quiere saldo disponible. No considerar ausencia de apertura como saldo real de banco |
+| UI-HOME-10 | Verificación e integración | Compilación, tipos, formato/lint y pruebas de cálculos, periodos, permisos, vacío e indisponible. Comparar referencia en escritorio/móvil autenticados y registrar publicación en develop separadamente de trabajo local |

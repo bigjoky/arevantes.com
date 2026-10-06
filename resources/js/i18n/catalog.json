@@ -17333,5 +17333,265 @@
     "Add delivery, purchasing or supplier instructions that should accompany the document.": {
         "en": "Add delivery, purchasing or supplier instructions that should accompany the document.",
         "es": "Añade instrucciones de entrega, compra o proveedor que deban acompañar al documento."
+    },
+    "Bienvenido de nuevo": {
+        "en": "Welcome back",
+        "es": "Bienvenido de nuevo"
+    },
+    "Resumen de la situación contable y financiera": {
+        "en": "Accounting and financial overview",
+        "es": "Resumen de la situación contable y financiera"
+    },
+    "Tu empresa": {
+        "en": "Your company",
+        "es": "Tu empresa"
+    },
+    "Controlar los números es construir el futuro.": {
+        "en": "Understanding the numbers builds the future.",
+        "es": "Controlar los números es construir el futuro."
+    },
+    "Ingresos acumulados": {
+        "en": "Income to date",
+        "es": "Ingresos acumulados"
+    },
+    "Gastos acumulados": {
+        "en": "Expenses to date",
+        "es": "Gastos acumulados"
+    },
+    "Resultado del ejercicio": {
+        "en": "Result for the year",
+        "es": "Resultado del ejercicio"
+    },
+    "Sin base comparable": {
+        "en": "No comparable baseline",
+        "es": "Sin base comparable"
+    },
+    "IVA a ingresar": {
+        "en": "VAT payable",
+        "es": "IVA a ingresar"
+    },
+    "Pendiente de integración": {
+        "en": "Integration pending",
+        "es": "Pendiente de integración"
+    },
+    "Periodo seleccionado": {
+        "en": "Selected period",
+        "es": "Periodo seleccionado"
+    },
+    "Evolución financiera": {
+        "en": "Financial evolution",
+        "es": "Evolución financiera"
+    },
+    "Ingresos, gastos y resultado por mes": {
+        "en": "Monthly income, expenses and result",
+        "es": "Ingresos, gastos y resultado por mes"
+    },
+    "Ingresos": {
+        "en": "Income",
+        "es": "Ingresos"
+    },
+    "Resultado": {
+        "en": "Result",
+        "es": "Resultado"
+    },
+    "Asientos contabilizados hasta": {
+        "en": "Posted entries through",
+        "es": "Asientos contabilizados hasta"
+    },
+    "Estado del ejercicio": {
+        "en": "Fiscal year status",
+        "es": "Estado del ejercicio"
+    },
+    "Avance del calendario": {
+        "en": "Calendar progress",
+        "es": "Avance del calendario"
+    },
+    "meses": {
+        "en": "months",
+        "es": "meses"
+    },
+    "Asientos contabilizados": {
+        "en": "Posted entries",
+        "es": "Asientos contabilizados"
+    },
+    "Asientos pendientes": {
+        "en": "Pending entries",
+        "es": "Asientos pendientes"
+    },
+    "Documentos por procesar": {
+        "en": "Documents to process",
+        "es": "Documentos por procesar"
+    },
+    "Ejercicio cerrado": {
+        "en": "Closed fiscal year",
+        "es": "Ejercicio cerrado"
+    },
+    "Ver cierre de ejercicio": {
+        "en": "View fiscal year closing",
+        "es": "Ver cierre de ejercicio"
+    },
+    "Configurar ejercicio": {
+        "en": "Configure fiscal year",
+        "es": "Configurar ejercicio"
+    },
+    "Saldos principales": {
+        "en": "Main balances",
+        "es": "Saldos principales"
+    },
+    "Tesorería": {
+        "en": "Treasury",
+        "es": "Tesorería"
+    },
+    "Hacienda (IVA)": {
+        "en": "Tax authority (VAT)",
+        "es": "Hacienda (IVA)"
+    },
+    "Resultado ejercicio": {
+        "en": "Result for the year",
+        "es": "Resultado ejercicio"
+    },
+    "Saldos contables del ejercicio": {
+        "en": "Ledger balances for the fiscal year",
+        "es": "Saldos contables del ejercicio"
+    },
+    "Accesos rápidos": {
+        "en": "Quick access",
+        "es": "Accesos rápidos"
+    },
+    "Registrar factura": {
+        "en": "Record invoice",
+        "es": "Registrar factura"
+    },
+    "Conciliar banco": {
+        "en": "Reconcile bank",
+        "es": "Conciliar banco"
+    },
+    "Modelo 303": {
+        "en": "Form 303",
+        "es": "Modelo 303"
+    },
+    "Libro Mayor": {
+        "en": "General ledger",
+        "es": "Libro Mayor"
+    },
+    "Últimos asientos": {
+        "en": "Latest entries",
+        "es": "Últimos asientos"
+    },
+    "Últimos documentos": {
+        "en": "Latest documents",
+        "es": "Últimos documentos"
+    },
+    "Número": {
+        "en": "Number",
+        "es": "Número"
+    },
+    "Tercero": {
+        "en": "Third party",
+        "es": "Tercero"
+    },
+    "Rectificativa": {
+        "en": "Credit note",
+        "es": "Rectificativa"
+    },
+    "Factura": {
+        "en": "Invoice",
+        "es": "Factura"
+    },
+    "Emitida": {
+        "en": "Issued",
+        "es": "Emitida"
+    },
+    "Recibida": {
+        "en": "Received",
+        "es": "Recibida"
+    },
+    "Pagada": {
+        "en": "Paid",
+        "es": "Pagada"
+    },
+    "Anulada": {
+        "en": "Cancelled",
+        "es": "Anulada"
+    },
+    "Aprobada": {
+        "en": "Approved",
+        "es": "Aprobada"
+    },
+    "Tareas pendientes": {
+        "en": "Pending tasks",
+        "es": "Tareas pendientes"
+    },
+    "Ver todas": {
+        "en": "View all",
+        "es": "Ver todas"
+    },
+    "movimientos": {
+        "en": "transactions",
+        "es": "movimientos"
+    },
+    "Sin conciliaciones pendientes": {
+        "en": "No pending reconciliations",
+        "es": "Sin conciliaciones pendientes"
+    },
+    "Otras tareas y vencimientos pendientes de integración": {
+        "en": "Other tasks and due dates awaiting integration",
+        "es": "Otras tareas y vencimientos pendientes de integración"
+    },
+    "Actividad reciente": {
+        "en": "Recent activity",
+        "es": "Actividad reciente"
+    },
+    "Actividad de contabilización": {
+        "en": "Posting activity",
+        "es": "Actividad de contabilización"
+    },
+    "Ver resumen operativo": {
+        "en": "View operational overview",
+        "es": "Ver resumen operativo"
+    },
+    "Resumen financiero": {
+        "en": "Financial overview",
+        "es": "Resumen financiero"
+    },
+    "Sin registros en este periodo": {
+        "en": "No records in this period",
+        "es": "Sin registros en este periodo"
+    },
+    "Asiento contabilizado": {
+        "en": "Entry posted",
+        "es": "Asiento contabilizado"
+    },
+    "Conciliación bancaria": {
+        "en": "Bank reconciliation",
+        "es": "Conciliación bancaria"
+    },
+    "vs.": {
+        "en": "vs.",
+        "es": "vs."
+    },
+    "Documentos no accesibles para tu perfil": {
+        "en": "Documents are not accessible for your profile",
+        "es": "Documentos no accesibles para tu perfil"
+    },
+    "Registrada": {
+        "en": "Registered",
+        "es": "Registrada"
+    },
+    "Revisión requerida": {
+        "en": "Review required",
+        "es": "Revisión requerida"
+    },
+    "Parcialmente pagada": {
+        "en": "Partially paid",
+        "es": "Parcialmente pagada"
+    },
+    "Cerrada": {
+        "en": "Closed",
+        "es": "Cerrada"
+    },
+    "Completada": {
+        "en": "Completed",
+        "es": "Completada"
     }
 }

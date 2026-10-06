@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 
 type Result = { group: string; title: string; subtitle: string; href: string };
 
-export function GlobalSearch() {
+export function GlobalSearch({ expanded = false }: { expanded?: boolean }) {
     const root = useRef<HTMLDivElement>(null);
     const input = useRef<HTMLInputElement>(null);
     const [query, setQuery] = useState('');
@@ -134,7 +134,14 @@ export function GlobalSearch() {
     let index = -1;
 
     return (
-        <div ref={root} className="relative w-32 sm:w-56 lg:w-80">
+        <div
+            ref={root}
+            className={
+                expanded
+                    ? 'relative w-full max-w-[502px]'
+                    : 'relative w-32 sm:w-56 lg:w-80'
+            }
+        >
             <Search className="pointer-events-none absolute top-1/2 left-3 z-10 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
                 ref={input}

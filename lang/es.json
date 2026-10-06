@@ -1523,5 +1523,7 @@
     "An authorized signatory must have the legal representative role.": "Un firmante autorizado debe tener la función de representante legal.",
     "Supplier contact added.": "Contacto del proveedor añadido.",
     "Supplier contact updated.": "Contacto del proveedor actualizado.",
-    "Supplier contact removed.": "Contacto del proveedor eliminado."
+    "Supplier contact removed.": "Contacto del proveedor eliminado.",
+    "Asiento contabilizado": "Asiento contabilizado",
+    "Conciliación bancaria": "Conciliación bancaria"
 }
