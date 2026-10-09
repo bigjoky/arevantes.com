@@ -73,21 +73,42 @@ class QuoteBillingPlan
                 ? round((float) $line->{$field} - (float) ($previous?->{$field} ?? 0), 2)
                 : round((float) $line->{$field} * $ratio, 2);
 
+            $subtotal = max(0, $scale('subtotal'));
+            $discount = min($subtotal, max(0, $scale('discount_amount')));
+            $tax = max(0, $scale('tax_amount'));
+
             return [
                 ...$line->only(['product_id', 'unit_id', 'position', 'description', 'quantity', 'discount_percent', 'tax_percent']),
                 'unit_price' => max(0, $scale('unit_price')),
-                'subtotal' => max(0, $scale('subtotal')),
-                'discount_amount' => max(0, $scale('discount_amount')),
-                'tax_amount' => max(0, $scale('tax_amount')),
-                'total' => max(0, $scale('total')),
+                'subtotal' => $subtotal,
+                'discount_amount' => $discount,
+                'tax_amount' => $tax,
+                'total' => round($subtotal - $discount + $tax, 2),
             ];
         })->values()->all();
 
-        if (! $isFinal && count($lines) > 0) {
-            $difference = round($amount - (float) collect($lines)->sum('total'), 2);
-            $last = array_key_last($lines);
-            $lines[$last]['tax_amount'] = max(0, round($lines[$last]['tax_amount'] + $difference, 2));
-            $lines[$last]['total'] = round($lines[$last]['subtotal'] - $lines[$last]['discount_amount'] + $lines[$last]['tax_amount'], 2);
+        $paidPositions = $quote->lines->where('is_selected', true)->filter(fn ($line) => (float) $line->total > 0)->pluck('position')->flip();
+        $taxedPositions = $quote->lines->where('is_selected', true)->filter(fn ($line) => (float) $line->tax_amount > 0)->pluck('position')->flip();
+        $difference = round($amount - (float) collect($lines)->sum('total'), 2);
+        // Allocate rounding to paid lines, keeping free lines and exempt VAT intact.
+        foreach (array_reverse(array_keys($lines)) as $index) {
+            if ($difference == 0 || ! $taxedPositions->has($lines[$index]['position']) || ($difference < 0 && $lines[$index]['tax_amount'] <= 0)) {
+                continue;
+            }
+            $adjustment = max(-$lines[$index]['tax_amount'], $difference);
+            $lines[$index]['tax_amount'] = round($lines[$index]['tax_amount'] + $adjustment, 2);
+            $lines[$index]['total'] = round($lines[$index]['total'] + $adjustment, 2);
+            $difference = round($difference - $adjustment, 2);
+        }
+        foreach (array_reverse(array_keys($lines)) as $index) {
+            if ($difference == 0 || ! $paidPositions->has($lines[$index]['position'])) {
+                continue;
+            }
+            $net = $lines[$index]['subtotal'] - $lines[$index]['discount_amount'];
+            $adjustment = max(-$net, $difference);
+            $lines[$index]['subtotal'] = round($lines[$index]['subtotal'] + $adjustment, 2);
+            $lines[$index]['total'] = round($lines[$index]['total'] + $adjustment, 2);
+            $difference = round($difference - $adjustment, 2);
         }
 
         return [
