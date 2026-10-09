@@ -10,6 +10,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 import { useLocale } from '@/hooks/use-locale';
 import { translate } from '@/i18n';
 
@@ -36,6 +37,7 @@ type Product = {
     tax_rate: { rate: string };
 };
 type Line = {
+    id?: number;
     product_id: number | null;
     unit_id: number | null;
     tax_rate_id: number | null;
@@ -54,7 +56,15 @@ type Document = {
     issue_date: string;
     due_date: string | null;
     notes: string | null;
-    lines: Array<Line & { id: number }>;
+    lines: Array<
+        Line & {
+            id: number;
+            subtotal: string;
+            discount_amount: string;
+            tax_amount: string;
+            total: string;
+        }
+    >;
 };
 
 const typeLabels: Record<string, string> = {
@@ -71,6 +81,8 @@ export default function SalesForm({
     defaultCustomerId,
     defaultInstallationId,
     defaultType = 'invoice',
+    issuedCorrection = false,
+    revision = '',
 }: {
     customers: Customer[];
     installations: Installation[];
@@ -79,6 +91,8 @@ export default function SalesForm({
     defaultCustomerId?: number | null;
     defaultInstallationId?: number | null;
     defaultType?: string;
+    issuedCorrection?: boolean;
+    revision?: string;
 }) {
     const { locale } = useLocale();
     const initialCustomerId = document?.person_id ?? defaultCustomerId ?? null;
@@ -99,7 +113,10 @@ export default function SalesForm({
             ? localDate(document.due_date)
             : addDays(initialPaymentTerms, initialIssueDate),
         notes: document?.notes ?? '',
+        revision,
+        correction_reason: '',
         lines: document?.lines.map((line) => ({
+            ...(issuedCorrection ? { id: line.id } : {}),
             product_id: line.product_id,
             unit_id: line.unit_id,
             tax_rate_id: line.tax_rate_id ?? null,
@@ -118,7 +135,10 @@ export default function SalesForm({
             !form.data.person_id ||
             item.person_id === Number(form.data.person_id),
     );
-    const totals = calculate(form.data.lines);
+    const totals = calculate(
+        form.data.lines,
+        issuedCorrection ? document?.lines : undefined,
+    );
     const pageTitle = document
         ? `${translate('Edit', locale)} ${document.number}`
         : translate(`New ${typeLabels[form.data.type].toLowerCase()}`, locale);
@@ -174,13 +194,49 @@ export default function SalesForm({
                         event.preventDefault();
 
                         if (document) {
-                            form.put(`/sales/${document.id}`);
+                            form.put(
+                                issuedCorrection
+                                    ? `/sales/${document.id}/issued`
+                                    : `/sales/${document.id}`,
+                            );
                         } else {
                             form.post('/sales');
                         }
                     }}
                     className="grid gap-8"
                 >
+                    {issuedCorrection && (
+                        <section className="grid gap-3 rounded-lg border p-4">
+                            <p className="text-sm text-muted-foreground">
+                                {translate(
+                                    'Changes preserve the invoice number and are recorded in its correction history.',
+                                    locale,
+                                )}
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                                {translate(
+                                    'Previous sharing links will be revoked when you save. You can resend the updated invoice from its record.',
+                                    locale,
+                                )}
+                            </p>
+                            <Label htmlFor="correction_reason">
+                                {translate('Correction reason', locale)}
+                            </Label>
+                            <Textarea
+                                id="correction_reason"
+                                value={form.data.correction_reason}
+                                required
+                                minLength={5}
+                                maxLength={2000}
+                                onChange={(event) =>
+                                    form.setData(
+                                        'correction_reason',
+                                        event.target.value,
+                                    )
+                                }
+                            />
+                        </section>
+                    )}
                     <section className="grid gap-4 border-t pt-5 md:grid-cols-2 xl:grid-cols-5">
                         <SelectField
                             label="Document type"
@@ -442,7 +498,14 @@ export default function SalesForm({
                                                 />
                                             </td>
                                             <td className="p-2 text-right font-medium">
-                                                {money(lineTotal(line))}
+                                                {money(
+                                                    calculate(
+                                                        [line],
+                                                        issuedCorrection
+                                                            ? document?.lines
+                                                            : undefined,
+                                                    ).total,
+                                                )}
                                             </td>
                                             <td className="p-2">
                                                 <Button
@@ -503,7 +566,11 @@ export default function SalesForm({
                     <div className="flex justify-end">
                         <Button disabled={form.processing}>
                             <Save />{' '}
-                            {document ? 'Save document' : 'Create document'}
+                            {issuedCorrection
+                                ? translate('Save invoice changes', locale)
+                                : document
+                                  ? 'Save document'
+                                  : 'Create document'}
                         </Button>
                     </div>
                 </form>
@@ -524,28 +591,42 @@ function blankLine(): Line {
         tax_percent: '21',
     };
 }
-function lineTotal(line: Line) {
-    const base = Number(line.quantity) * Number(line.unit_price);
-
-    return (
-        base *
-        (1 - Number(line.discount_percent) / 100) *
-        (1 + Number(line.tax_percent) / 100)
-    );
+function roundMoney(value: number) {
+    return Math.round((value + Number.EPSILON) * 100) / 100;
 }
-function calculate(lines: Line[]) {
+function calculate(lines: Line[], originals: Document['lines'] = []) {
     return lines.reduce(
         (sum, line) => {
-            const subtotal = Number(line.quantity) * Number(line.unit_price);
-            const discount = (subtotal * Number(line.discount_percent)) / 100;
-            const tax =
-                ((subtotal - discount) * Number(line.tax_percent)) / 100;
+            const original = originals.find((item) => item.id === line.id);
+            const unchanged =
+                original &&
+                (
+                    [
+                        'quantity',
+                        'unit_price',
+                        'discount_percent',
+                        'tax_percent',
+                    ] as const
+                ).every(
+                    (field) => Number(line[field]) === Number(original[field]),
+                );
+            const subtotal = unchanged
+                ? Number(original.subtotal)
+                : roundMoney(Number(line.quantity) * Number(line.unit_price));
+            const discount = unchanged
+                ? Number(original.discount_amount)
+                : roundMoney((subtotal * Number(line.discount_percent)) / 100);
+            const tax = unchanged
+                ? Number(original.tax_amount)
+                : roundMoney(
+                      ((subtotal - discount) * Number(line.tax_percent)) / 100,
+                  );
 
             return {
-                subtotal: sum.subtotal + subtotal,
-                discount: sum.discount + discount,
-                tax: sum.tax + tax,
-                total: sum.total + subtotal - discount + tax,
+                subtotal: roundMoney(sum.subtotal + subtotal),
+                discount: roundMoney(sum.discount + discount),
+                tax: roundMoney(sum.tax + tax),
+                total: roundMoney(sum.total + subtotal - discount + tax),
             };
         },
         { subtotal: 0, discount: 0, tax: 0, total: 0 },

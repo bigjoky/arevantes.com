@@ -14,6 +14,8 @@ import HistoricalDocumentDate from '@/components/historical-document-date';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { useLocale } from '@/hooks/use-locale';
+import { translate } from '@/i18n';
 
 type Payment = {
     id: number;
@@ -24,6 +26,7 @@ type Payment = {
     accounting_entry: { number: string; status: string } | null;
 };
 type Document = {
+    can_correct_issued: boolean;
     can_issue_invoice: boolean;
     can_prepare_credit_note: boolean;
     id: number;
@@ -108,16 +111,31 @@ type Conversion = {
     }[];
 };
 
+type Correction = {
+    id: number;
+    created_at: string;
+    user: { name: string } | null;
+    old_values: { amount: string; issue_date: string };
+    new_values: {
+        amount: string;
+        issue_date: string;
+        correction_reason: string;
+    };
+};
+
 type Warehouse = { id: number; code: string; name: string };
 export default function SalesShow({
     document,
     warehouses,
     conversion,
+    corrections = [],
 }: {
     document: Document;
     warehouses: Warehouse[];
     conversion: Conversion | null;
+    corrections?: Correction[];
 }) {
+    const { locale } = useLocale();
     const customer =
         document.customer_snapshot.company_name ||
         `${document.customer_snapshot.first_name || ''} ${document.customer_snapshot.last_name || ''}`.trim();
@@ -202,6 +220,16 @@ export default function SalesShow({
                                 <FileDown /> PDF
                             </a>
                         </Button>
+                        {document.can_correct_issued && (
+                            <Button variant="outline" asChild>
+                                <Link
+                                    href={`/sales/${document.id}/edit-issued`}
+                                >
+                                    <Pencil />{' '}
+                                    {translate('Edit issued invoice', locale)}
+                                </Link>
+                            </Button>
+                        )}
                         {document.status === 'draft' &&
                             !document.quote &&
                             !document.source_document &&
@@ -215,6 +243,31 @@ export default function SalesShow({
                             )}
                     </div>
                 </header>
+                {corrections.length > 0 && (
+                    <section className="grid gap-3 rounded-lg border p-4">
+                        <h2 className="font-semibold">
+                            {translate('Invoice correction history', locale)}
+                        </h2>
+                        {corrections.map((correction) => (
+                            <div
+                                key={correction.id}
+                                className="grid gap-1 border-t pt-3 text-sm"
+                            >
+                                <span className="text-muted-foreground">
+                                    {date(correction.created_at)} ·{' '}
+                                    {correction.user?.name}
+                                </span>
+                                <p>{correction.new_values.correction_reason}</p>
+                                <p>
+                                    {money(correction.old_values.amount)} →{' '}
+                                    {money(correction.new_values.amount)} ·{' '}
+                                    {date(correction.old_values.issue_date)} →{' '}
+                                    {date(correction.new_values.issue_date)}
+                                </p>
+                            </div>
+                        ))}
+                    </section>
+                )}
                 <section className="grid gap-4 border-y py-4 text-sm sm:grid-cols-2 lg:grid-cols-4">
                     <Info label="Customer" value={customer} />
                     <Info

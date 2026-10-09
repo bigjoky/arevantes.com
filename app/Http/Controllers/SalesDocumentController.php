@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AuditLog;
 use App\Models\CompanyProfile;
 use App\Models\Installation;
 use App\Models\Person;
@@ -11,6 +12,7 @@ use App\Models\SalesDocument;
 use App\Models\SalesDocumentPayment;
 use App\Models\Warehouse;
 use App\Services\Accounting\AccountingSynchronizer;
+use App\Services\Accounting\IssuedInvoiceCorrection;
 use App\Services\Documents\DocumentNumber;
 use App\Services\Documents\DocumentPdf;
 use App\Services\Documents\QuoteBillingPlan;
@@ -84,9 +86,10 @@ class SalesDocumentController extends Controller
             || $salesDocument->sourceDocument?->recurringServiceBilling()->exists();
         $salesDocument->setAttribute('can_issue_invoice', $request->user()->can('issue-invoices')
             && (! $isRecurring || $request->user()->can('manage-treasury')));
+        $salesDocument->setAttribute('can_correct_issued', $request->user()->hasRole('admin') && $request->user()->can('manage-admin') && IssuedInvoiceCorrection::eligible($salesDocument));
         $salesDocument->setAttribute('can_prepare_credit_note', $request->user()->can('prepare-credit-notes'));
 
-        return Inertia::render('sales/show', ['document' => $salesDocument->load(['customer', 'installation', 'quote:id,number', 'sourceDocument:id,number,type', 'lines.product:id,name,track_stock,track_serials', 'accountingEntry:id,source_type,source_id,number,status', 'payments.accountingEntry:id,source_type,source_id,number,status', 'deliveries:id,sales_document_id,recipient_email,status,sent_at,first_viewed_at,responded_at,revoked_at', 'recurringServiceBilling.serviceCycleCommitment.maintenancePlan:id,name']), 'conversion' => $conversion->summary($salesDocument), 'warehouses' => Warehouse::where('is_active', true)->orderByDesc('is_default')->orderBy('name')->get(['id', 'code', 'name'])]);
+        return Inertia::render('sales/show', ['document' => $salesDocument->load(['customer', 'installation', 'quote:id,number', 'sourceDocument:id,number,type', 'lines.product:id,name,track_stock,track_serials', 'accountingEntry:id,source_type,source_id,number,status', 'payments.accountingEntry:id,source_type,source_id,number,status', 'deliveries:id,sales_document_id,recipient_email,status,sent_at,first_viewed_at,responded_at,revoked_at', 'recurringServiceBilling.serviceCycleCommitment.maintenancePlan:id,name']), 'corrections' => $request->user()->hasRole('admin') && $request->user()->can('manage-admin') ? AuditLog::where('auditable_type', $salesDocument->getMorphClass())->where('auditable_id', $salesDocument->id)->where('event', 'issued_invoice_corrected')->with('user:id,name')->latest()->get() : [], 'conversion' => $conversion->summary($salesDocument), 'warehouses' => Warehouse::where('is_active', true)->orderByDesc('is_default')->orderBy('name')->get(['id', 'code', 'name'])]);
     }
 
     public function edit(SalesDocument $salesDocument): Response
@@ -97,6 +100,35 @@ class SalesDocumentController extends Controller
             ...$this->formData(),
             'document' => $salesDocument->load('lines'),
         ]);
+    }
+
+    public function editIssued(Request $request, SalesDocument $salesDocument): Response
+    {
+        abort_unless($request->user()->hasRole('admin') && $request->user()->can('manage-admin') && IssuedInvoiceCorrection::eligible($salesDocument), 403);
+
+        return Inertia::render('sales/form', [
+            ...$this->formData(), 'document' => $salesDocument->load('lines'),
+            'issuedCorrection' => true, 'revision' => IssuedInvoiceCorrection::revision($salesDocument),
+        ]);
+    }
+
+    public function updateIssued(Request $request, SalesDocument $salesDocument, IssuedInvoiceCorrection $correction): RedirectResponse
+    {
+        abort_unless($request->user()->hasRole('admin') && $request->user()->can('manage-admin') && IssuedInvoiceCorrection::eligible($salesDocument), 403);
+        $request->validate(['revision' => ['required', 'string', 'size:64'], 'correction_reason' => ['required', 'string', 'min:5', 'max:2000']]);
+        $data = $this->validateDirectDocument($request);
+        abort_unless($data['type'] === 'invoice', 422, __('The document type cannot be changed after creation.'));
+        $request->validate(['lines.*.id' => ['nullable', 'integer', 'distinct', Rule::exists('sales_document_lines', 'id')->where('sales_document_id', $salesDocument->id)]]);
+        foreach ($data['lines'] as $index => &$line) {
+            if ($request->filled("lines.{$index}.id")) {
+                $line['id'] = $request->integer("lines.{$index}.id");
+            }
+        }
+        unset($line);
+        $request->validate(['lines.*.quantity' => ['decimal:0,3'], 'lines.*.unit_price' => ['decimal:0,2'], 'lines.*.discount_percent' => ['decimal:0,2'], 'lines.*.tax_percent' => ['decimal:0,2']]);
+        $correction->correct($salesDocument, $data, $request);
+
+        return to_route('sales-documents.show', $salesDocument)->with('toast', ['type' => 'success', 'message' => __('Issued invoice updated with correction history.')]);
     }
 
     public function store(Request $request, QuoteCalculator $calculator): RedirectResponse
@@ -237,9 +269,18 @@ class SalesDocumentController extends Controller
         $outstanding = round((float) $salesDocument->amount - (float) $salesDocument->paid_amount, 2);
         $data = $request->validate(['paid_at' => ['required', 'date'], 'amount' => ['required', 'numeric', 'gt:0', 'max:'.$outstanding], 'method' => ['required', Rule::in(['bank_transfer', 'card', 'cash', 'direct_debit', 'other'])], 'reference' => ['nullable', 'string', 'max:255'], 'notes' => ['nullable', 'string']]);
         DB::transaction(function () use ($request, $salesDocument, $data, $accounting) {
-            $payment = $salesDocument->payments()->create([...$data, 'created_by' => $request->user()->id]);
+            if ($salesDocument->quote_id) {
+                Quote::lockForUpdate()->findOrFail($salesDocument->quote_id);
+            }
+            $document = SalesDocument::lockForUpdate()->findOrFail($salesDocument->id);
+            abort_unless($document->type === 'invoice' && $document->locked_at && in_array($document->status, ['issued', 'partial', 'overdue'], true), 422, __('Payments can only be registered against issued invoices.'));
+            $outstanding = round((float) $document->amount - (float) $document->payments()->sum('amount'), 2);
+            if ((float) $data['amount'] > $outstanding) {
+                throw ValidationException::withMessages(['amount' => __('The payment exceeds the current outstanding invoice balance.')]);
+            }
+            $payment = $document->payments()->create([...$data, 'created_by' => $request->user()->id]);
             $accounting->syncCustomerPayment($payment, $request->user()->id);
-            $this->refreshPaymentStatus($salesDocument);
+            $this->refreshPaymentStatus($document);
         });
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Payment registered.')]);
