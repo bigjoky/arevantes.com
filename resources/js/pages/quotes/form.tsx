@@ -94,6 +94,7 @@ type Line = {
     description: string;
     quantity: string;
     unit_price: string;
+    total_with_tax: string;
     discount_percent: string;
     tax_percent: string;
     selection_mode: 'included' | 'optional' | 'alternative';
@@ -187,6 +188,7 @@ export default function QuoteForm({
                 ...line,
                 client_key: `line-${line.id}`,
                 depth: 1,
+                total_with_tax: line.total_with_tax ?? '',
                 product_id: line.product_id,
                 unit_id: line.unit_id,
                 tax_rate_id: line.tax_rate_id,
@@ -253,7 +255,7 @@ export default function QuoteForm({
         form.setData(
             'lines',
             form.data.lines.map((line, position) =>
-                position === index ? { ...line, ...changes } : line,
+                position === index ? updateLinePrice(line, changes) : line,
             ),
         );
     const selectProduct = (index: number, value: string) => {
@@ -698,7 +700,7 @@ export default function QuoteForm({
                                                     <Input
                                                         type="number"
                                                         min="0"
-                                                        step="0.01"
+                                                        step="0.001"
                                                         value={line.unit_price}
                                                         onChange={(event) =>
                                                             updateLine(index, {
@@ -744,7 +746,64 @@ export default function QuoteForm({
                                                     />
                                                 </td>
                                                 <td className="p-2 text-right font-medium">
-                                                    {money(lineTotal(line))}
+                                                    <div className="grid gap-1">
+                                                        <span>
+                                                            {money(
+                                                                lineTotal(line),
+                                                            )}
+                                                        </span>
+                                                        <Label
+                                                            className="text-xs"
+                                                            htmlFor={`gross-${line.client_key}`}
+                                                        >
+                                                            {locale === 'en'
+                                                                ? 'Line total incl. VAT'
+                                                                : 'Total de línea con IVA'}
+                                                        </Label>
+                                                        <Input
+                                                            id={`gross-${line.client_key}`}
+                                                            type="number"
+                                                            min="0"
+                                                            step="0.01"
+                                                            className="w-36"
+                                                            value={
+                                                                line.total_with_tax
+                                                            }
+                                                            placeholder={money(
+                                                                lineTotal(line),
+                                                            )}
+                                                            disabled={
+                                                                Number(
+                                                                    line.discount_percent,
+                                                                ) >= 100
+                                                            }
+                                                            onChange={(event) =>
+                                                                updateLine(
+                                                                    index,
+                                                                    {
+                                                                        total_with_tax:
+                                                                            event
+                                                                                .target
+                                                                                .value,
+                                                                    },
+                                                                )
+                                                            }
+                                                        />
+                                                        <span className="text-xs text-muted-foreground">
+                                                            {locale === 'en'
+                                                                ? 'Taxable base'
+                                                                : 'Base imponible'}
+                                                            :{' '}
+                                                            {money(
+                                                                lineAmounts(
+                                                                    line,
+                                                                ).subtotal -
+                                                                    lineAmounts(
+                                                                        line,
+                                                                    ).discount,
+                                                            )}
+                                                        </span>
+                                                    </div>
                                                 </td>
                                                 <td className="sticky right-0 z-10 bg-background p-2">
                                                     <div className="flex items-center gap-1">
@@ -1415,6 +1474,7 @@ function blankLine(): Line {
         description: '',
         quantity: '1',
         unit_price: '0',
+        total_with_tax: '',
         discount_percent: '0',
         tax_percent: '21',
         selection_mode: 'included',
@@ -1465,14 +1525,52 @@ function componentFromProduct(product: Product): Component {
         planned_unit_cost: product.cost_price,
     };
 }
-function lineTotal(line: Line) {
-    const base = Number(line.quantity) * Number(line.unit_price);
+function roundMoney(value: number) {
+    return Math.round((value + Number.EPSILON) * 100) / 100;
+}
+function updateLinePrice(line: Line, changes: Partial<Line>): Line {
+    const next = { ...line, ...changes };
 
-    return (
-        base *
-        (1 - Number(line.discount_percent) / 100) *
-        (1 + Number(line.tax_percent) / 100)
+    if (
+        changes.unit_price !== undefined ||
+        Number(next.discount_percent) >= 100
+    ) {
+        next.total_with_tax = '';
+    }
+
+    if (next.total_with_tax !== '' && Number(next.quantity) > 0) {
+        const base = roundMoney(
+            Number(next.total_with_tax) / (1 + Number(next.tax_percent) / 100),
+        );
+        const subtotal = roundMoney(
+            base / (1 - Number(next.discount_percent) / 100),
+        );
+        next.unit_price = (subtotal / Number(next.quantity)).toFixed(3);
+    }
+
+    return next;
+}
+function lineAmounts(line: Line) {
+    let subtotal = roundMoney(Number(line.quantity) * Number(line.unit_price));
+    let discount = roundMoney((subtotal * Number(line.discount_percent)) / 100);
+    let tax = roundMoney(
+        ((subtotal - discount) * Number(line.tax_percent)) / 100,
     );
+    let total = roundMoney(subtotal - discount + tax);
+
+    if (line.total_with_tax !== '' && line.total_with_tax != null) {
+        total = roundMoney(Number(line.total_with_tax));
+        const base = roundMoney(total / (1 + Number(line.tax_percent) / 100));
+        const factor = 1 - Number(line.discount_percent) / 100;
+        subtotal = factor > 0 ? roundMoney(base / factor) : 0;
+        discount = roundMoney(subtotal - base);
+        tax = roundMoney(total - base);
+    }
+
+    return { subtotal, discount, tax, total };
+}
+function lineTotal(line: Line) {
+    return lineAmounts(line).total;
 }
 function calculate(lines: Line[]) {
     return lines.reduce(
@@ -1481,16 +1579,13 @@ function calculate(lines: Line[]) {
                 return sum;
             }
 
-            const subtotal = Number(line.quantity) * Number(line.unit_price);
-            const discount = (subtotal * Number(line.discount_percent)) / 100;
-            const tax =
-                ((subtotal - discount) * Number(line.tax_percent)) / 100;
+            const amounts = lineAmounts(line);
 
             return {
-                subtotal: sum.subtotal + subtotal,
-                discount: sum.discount + discount,
-                tax: sum.tax + tax,
-                total: sum.total + subtotal - discount + tax,
+                subtotal: roundMoney(sum.subtotal + amounts.subtotal),
+                discount: roundMoney(sum.discount + amounts.discount),
+                tax: roundMoney(sum.tax + amounts.tax),
+                total: roundMoney(sum.total + amounts.total),
             };
         },
         { subtotal: 0, discount: 0, tax: 0, total: 0 },

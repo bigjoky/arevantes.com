@@ -199,7 +199,7 @@
                 </td>
                 <td class="right nowrap">{{ rtrim(rtrim(number_format((float) $line->quantity, 3, ',', '.'), '0'), ',') }}</td>
                 <td class="right nowrap">
-                    {{ number_format((float) $line->unit_price, 2, ',', '.') }} €
+                    {{ number_format((float) $line->unit_price, fmod(round((float) $line->unit_price * 1000), 10) != 0 ? 3 : 2, ',', '.') }} €
                     @if((float) $line->discount_percent > 0)<div class="muted">-{{ rtrim(rtrim(number_format((float) $line->discount_percent, 2, ',', '.'), '0'), ',') }}%</div>@endif
                 </td>
                 <td class="right nowrap">{{ rtrim(rtrim(number_format((float) $line->tax_percent, 2, ',', '.'), '0'), ',') }}%</td>

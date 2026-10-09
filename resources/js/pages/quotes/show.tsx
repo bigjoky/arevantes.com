@@ -731,7 +731,7 @@ export default function QuoteShow({
                                         )}
                                     </td>
                                     <td>{Number(line.quantity)}</td>
-                                    <td>{money(line.unit_price)}</td>
+                                    <td>{money(line.unit_price, 3)}</td>
                                     <td>{line.discount_percent}%</td>
                                     <td>{line.tax_percent}%</td>
                                     <td className="text-right font-medium">
@@ -1536,10 +1536,11 @@ function Total({
         </div>
     );
 }
-function money(value: string | number) {
+function money(value: string | number, maximumFractionDigits = 2) {
     return new Intl.NumberFormat(undefined, {
         style: 'currency',
         currency: 'EUR',
+        maximumFractionDigits,
     }).format(Number(value));
 }
 function effectiveComponentQuantity(
