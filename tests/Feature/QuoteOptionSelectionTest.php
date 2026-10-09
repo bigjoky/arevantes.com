@@ -9,6 +9,7 @@ use App\Models\Quote;
 use App\Models\SalesDocument;
 use App\Models\User;
 use App\Services\Documents\DocumentFingerprint;
+use App\Services\Quotes\QuoteSelection;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
 use Tests\TestCase;
@@ -16,6 +17,24 @@ use Tests\TestCase;
 class QuoteOptionSelectionTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_option_selection_preserves_an_exact_vat_inclusive_total(): void
+    {
+        $user = User::factory()->create(['role' => 'commercial']);
+        $customer = Person::create(['category' => 'customer', 'first_name' => 'Cliente total exacto']);
+        $quote = Quote::create([
+            'person_id' => $customer->id, 'created_by' => $user->id, 'number' => 'PRE-EXACT-1', 'version' => 1,
+            'status' => 'draft', 'approval_status' => 'not_required', 'issue_date' => today(),
+            'subtotal' => 0, 'discount_amount' => 0, 'tax_amount' => 0, 'amount' => 0,
+        ]);
+        $line = $this->line($quote, 1, 'Importe exacto', 0, 'optional', null, false);
+        $line->update(['quantity' => 1000, 'total_with_tax' => '0.03', 'subtotal' => '0.02', 'tax_amount' => '0.01', 'total' => '0.03']);
+        $selected = app(QuoteSelection::class)->apply($quote, [$line->id]);
+        $this->assertSame('0.03', $selected->amount);
+        $this->assertSame('0.02', $selected->subtotal);
+        $this->assertSame('0.01', $selected->tax_amount);
+        $this->assertSame('0.03', $line->fresh()->total_with_tax);
+    }
 
     public function test_customer_selects_options_and_one_alternative_before_acceptance(): void
     {

@@ -355,7 +355,8 @@ class QuoteController extends Controller
             'lines.*.client_key' => ['required', 'string', 'max:100', 'distinct'],
             'lines.*.product_id' => ['nullable', 'exists:products,id'], 'lines.*.unit_id' => ['nullable', 'exists:units,id'],
             'lines.*.tax_rate_id' => ['nullable', 'exists:tax_rates,id'], 'lines.*.description' => ['required', 'string'], 'lines.*.quantity' => ['required', 'numeric', 'gt:0'],
-            'lines.*.unit_price' => ['required', 'numeric', 'min:0'], 'lines.*.discount_percent' => ['required', 'numeric', 'between:0,100'], 'lines.*.tax_percent' => ['required', 'numeric', 'between:0,100'],
+            'lines.*.total_with_tax' => ['nullable', 'numeric', 'min:0', 'decimal:0,2'],
+            'lines.*.unit_price' => ['required', 'numeric', 'min:0', 'decimal:0,3'], 'lines.*.discount_percent' => ['required', 'numeric', 'between:0,100'], 'lines.*.tax_percent' => ['required', 'numeric', 'between:0,100'],
             'lines.*.selection_mode' => ['sometimes', Rule::in(['included', 'optional', 'alternative'])],
             'lines.*.option_group' => ['nullable', 'string', 'max:100'],
             'lines.*.is_selected' => ['sometimes', 'boolean'],
@@ -372,6 +373,14 @@ class QuoteController extends Controller
             'lines.*.components.*.planned_unit_cost' => ['nullable', 'numeric', 'min:0'],
             'lines.*.components.*.interval_months' => ['nullable', 'integer', 'between:1,120'],
         ]);
+
+        foreach ($data['lines'] as $index => $line) {
+            if (isset($line['total_with_tax']) && (float) $line['total_with_tax'] > 0 && (float) $line['discount_percent'] >= 100) {
+                throw ValidationException::withMessages([
+                    "lines.{$index}.total_with_tax" => __('Un total con IVA positivo requiere un descuento inferior al 100%.'),
+                ]);
+            }
+        }
 
         return $this->normalizeComponentHierarchy($data);
     }
