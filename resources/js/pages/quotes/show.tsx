@@ -10,6 +10,7 @@ import {
     Wrench,
 } from 'lucide-react';
 import { useState } from 'react';
+import { FormErrorSummary } from '@/components/forms/form-layout';
 import HistoricalDocumentDate from '@/components/historical-document-date';
 import InputError from '@/components/input-error';
 import { Badge } from '@/components/ui/badge';
@@ -371,10 +372,13 @@ export default function QuoteShow({
                         <Form
                             action={`/quotes/${quote.id}/status`}
                             method="patch"
-                            className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"
+                            className="flex flex-wrap items-end justify-between gap-3"
                         >
-                            {({ processing }) => (
+                            {({ processing, errors }) => (
                                 <>
+                                    <div className="w-full">
+                                        <FormErrorSummary errors={errors} />
+                                    </div>
                                     <div className="grid w-full gap-2 sm:max-w-md">
                                         <Label htmlFor="quote_status">
                                             Estado de la oferta
