@@ -377,7 +377,7 @@ class QuoteController extends Controller
         foreach ($data['lines'] as $index => $line) {
             if (isset($line['total_with_tax']) && (float) $line['total_with_tax'] > 0 && (float) $line['discount_percent'] >= 100) {
                 throw ValidationException::withMessages([
-                    "lines.{$index}.total_with_tax" => __('Un total con IVA positivo requiere un descuento inferior al 100%.'),
+                    "lines.{$index}.total_with_tax" => __('A positive VAT-inclusive total requires a discount below 100%.'),
                 ]);
             }
         }
