@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Http\Controllers\SalesDocumentController;
 use App\Models\AccountingPeriod;
 use App\Models\AuditLog;
 use App\Models\DocumentDelivery;
@@ -13,8 +14,11 @@ use App\Models\Quote;
 use App\Models\SalesDocument;
 use App\Models\TaxReturn;
 use App\Models\User;
+use App\Services\Accounting\AccountingSynchronizer;
 use App\Services\Accounting\IssuedInvoiceCorrection;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
@@ -201,6 +205,24 @@ class IssuedInvoiceCorrectionTest extends TestCase
         $payload = $this->payload($invoice->fresh());
         $payload['lines'][0]['id'] = $sourceLine->id;
         $this->put(route('sales-documents.update-issued', $invoice), $payload)->assertSessionHasErrors('lines.0.id');
+    }
+
+    public function test_stale_payment_submission_rechecks_the_corrected_invoice_balance(): void
+    {
+        $invoice = $this->invoice();
+        $payload = $this->payload($invoice);
+        $payload['lines'][0]['unit_price'] = 50;
+        $this->put(route('sales-documents.update-issued', $invoice), $payload)->assertSessionHasNoErrors();
+        $request = Request::create('/', 'POST', ['paid_at' => '2026-09-15', 'amount' => 100, 'method' => 'cash']);
+        $request->setUserResolver(fn () => auth()->user());
+        try {
+            app(SalesDocumentController::class)->storePayment($request, $invoice, app(AccountingSynchronizer::class));
+            $this->fail('A stale payment must not exceed the corrected invoice balance.');
+        } catch (ValidationException $exception) {
+            $this->assertArrayHasKey('amount', $exception->errors());
+        }
+        $this->assertSame('60.50', $invoice->fresh()->amount);
+        $this->assertSame(0, $invoice->payments()->count());
     }
 
     public function test_missing_reason_and_existing_credit_notes_are_rejected(): void

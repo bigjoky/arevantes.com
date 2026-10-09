@@ -12,6 +12,7 @@ use App\Models\SalesDocument;
 use App\Models\ServiceCycleCommitment;
 use App\Models\ServiceCycleCommunication;
 use App\Models\User;
+use App\Services\Accounting\IssuedInvoiceCorrection;
 use App\Services\Analytics\RecurringServiceEconomics;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -66,6 +67,30 @@ class RecurringServiceBillingTest extends TestCase
         $this->post(route('sales-documents.issue', $credit), ['issue_date' => today()->toDateString()])->assertRedirect();
         $this->assertSame('credited', $billing->refresh()->status);
         $this->assertSame(0.0, app(RecurringServiceEconomics::class)->build(true)['summary']['settled_revenue']);
+    }
+
+    public function test_admin_can_correct_an_issued_cycle_invoice_and_refresh_its_billing_snapshot(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        [$commitment] = $this->cycle();
+        $this->actingAs($admin)->post(route('after-sales.commitments.billing.store', $commitment), ['tax_percent' => 21, 'due_days' => 30, 'generation_note' => 'Revisar factura del ciclo.'])->assertSessionHasNoErrors();
+        $invoice = SalesDocument::where('type', 'invoice')->sole();
+        $this->post(route('sales-documents.issue', $invoice), ['issue_date' => today()->toDateString()])->assertSessionHasNoErrors();
+        $invoice->refresh();
+        $dueDate = today()->addDays(45)->toDateString();
+        $this->put(route('sales-documents.update-issued', $invoice), [
+            'type' => 'invoice', 'person_id' => $invoice->person_id, 'installation_id' => $invoice->installation_id,
+            'issue_date' => $invoice->issue_date->toDateString(), 'due_date' => $dueDate,
+            'revision' => IssuedInvoiceCorrection::revision($invoice), 'correction_reason' => 'Actualizar precio y tipo de IVA.',
+            'lines' => [['id' => $invoice->lines()->firstOrFail()->id, 'description' => 'Servicio revisado', 'quantity' => 1, 'unit_price' => 500, 'discount_percent' => 0, 'tax_percent' => 10]],
+        ])->assertSessionHasNoErrors()->assertRedirect();
+        $billing = RecurringServiceBilling::sole();
+        $this->assertSame('500.00', $billing->net_amount);
+        $this->assertSame('50.00', $billing->tax_amount);
+        $this->assertSame('550.00', $billing->gross_amount);
+        $this->assertSame('10.00', $billing->tax_percent);
+        $this->assertSame($dueDate, $billing->due_on->toDateString());
+        $this->assertSame('550.00', $invoice->fresh()->amount);
     }
 
     public function test_cycle_notices_respect_customer_preferences_and_only_confirmed_dates_reach_the_portal(): void
