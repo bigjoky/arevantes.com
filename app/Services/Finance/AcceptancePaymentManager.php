@@ -67,7 +67,7 @@ class AcceptancePaymentManager
                 ...$installment['totals'],
                 'paid_amount' => 0,
                 'customer_snapshot' => $quote->customer_snapshot ?? [],
-                'notes' => __('Payment milestone for quote :number. No invoice has been issued. Use :reference as the bank transfer reference.', [
+                'notes' => __('Payment milestone for quote :number. Use :reference as the bank transfer reference.', [
                     'number' => $quote->number,
                     'reference' => $quote->number,
                 ]),
