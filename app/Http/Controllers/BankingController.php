@@ -16,6 +16,7 @@ use App\Models\JournalEntry;
 use App\Models\JournalLine;
 use App\Models\LedgerAccount;
 use App\Models\PurchaseDocument;
+use App\Models\Quote;
 use App\Models\SalesDocument;
 use App\Models\SalesDocumentPayment;
 use App\Models\SupplierPayment;
@@ -466,6 +467,9 @@ class BankingController extends Controller
                 ->first(fn ($payment) => (int) $payment?->origin_bank_transaction_id === (int) $transactionId);
             if ($generatedPayment?->accountingEntry) {
                 $this->reverseEntry($generatedPayment->accountingEntry, $request->user()->id, $poster);
+                if ($generatedPayment instanceof SalesDocumentPayment && $generatedPayment->document?->collect_before_invoice) {
+                    JournalEntry::whereMorphedTo('source', $generatedPayment)->where('event', 'invoice_allocation')->each(fn ($entry) => $this->reverseEntry($entry, $request->user()->id, $poster));
+                }
             }
             $reconciliation->transaction()->update(['status' => 'pending']);
             $reconciliation->delete();
@@ -632,7 +636,7 @@ class BankingController extends Controller
 
         if ($inbound) {
             return ($pool ? $pool['salesDocuments'] : SalesDocument::with('customer:id,first_name,last_name,company_name')
-                ->where('type', 'invoice')->whereIn('status', ['issued', 'partial', 'overdue'])->latest('issue_date')->limit(100)->get())
+                ->where('type', 'invoice')->where(fn ($query) => $query->whereIn('status', ['issued', 'partial', 'overdue'])->orWhere(fn ($draft) => $draft->where('status', 'draft')->where('collect_before_invoice', true)->whereColumn('paid_amount', '<', 'amount')))->latest('issue_date')->limit(100)->get())
                 ->filter(function (SalesDocument $document) use ($transaction, $amount): bool {
                     $outstanding = $this->balances->receivable($document);
 
@@ -717,7 +721,7 @@ class BankingController extends Controller
             'supplierPayments' => SupplierPayment::with(['expense:id,number', 'purchaseDocument:id,number'])->whereDoesntHave('reconciliation')->whereBetween('paid_at', [$from, $to])->get(),
             'taxPayments' => TaxReturnPayment::with('taxReturn:id,year,quarter,result')->whereDoesntHave('reconciliation')->whereBetween('paid_on', [$from, $to])->get(),
             'transfers' => BankTransaction::with('account:id,name')->where('status', 'pending')->whereBetween('booked_on', [$from, $to])->get(),
-            'salesDocuments' => SalesDocument::with('customer:id,first_name,last_name,company_name')->where('type', 'invoice')->whereIn('status', ['issued', 'partial', 'overdue'])->latest('issue_date')->limit(100)->get(),
+            'salesDocuments' => SalesDocument::with('customer:id,first_name,last_name,company_name')->where('type', 'invoice')->where(fn ($query) => $query->whereIn('status', ['issued', 'partial', 'overdue'])->orWhere(fn ($draft) => $draft->where('status', 'draft')->where('collect_before_invoice', true)->whereColumn('paid_amount', '<', 'amount')))->latest('issue_date')->limit(100)->get(),
             'purchaseDocuments' => PurchaseDocument::with('supplier:id,legal_name,trade_name')->withSum('creditNotes as credited_total', 'amount')->where('type', 'supplier_invoice')->whereIn('status', ['registered', 'pending', 'partial', 'overdue'])->where(fn ($query) => $query->whereNull('matching_status')->orWhereNot('matching_status', 'review_required'))->latest('issue_date')->limit(100)->get(),
             'expenses' => Expense::with('supplier:id,legal_name,trade_name')->whereIn('status', ['pending', 'partial', 'overdue'])->latest('expense_date')->limit(100)->get(),
         ];
@@ -770,6 +774,10 @@ class BankingController extends Controller
         $amount = abs((float) $transaction->amount);
         if ($type === 'customer_invoice') {
             abort_unless((float) $transaction->amount > 0, 422, __('Customer receipts require an incoming bank movement.'));
+            $quoteId = SalesDocument::whereKey($documentId)->value('quote_id');
+            if ($quoteId) {
+                Quote::lockForUpdate()->findOrFail($quoteId);
+            }
             $document = SalesDocument::lockForUpdate()->findOrFail($documentId);
             $outstanding = $this->balances->receivable($document);
             $this->ensureOutstandingAmount($amount, $outstanding);
@@ -777,7 +785,7 @@ class BankingController extends Controller
             $accounting->syncCustomerPayment($payment, $userId);
             $paid = (float) $document->payments()->sum('amount');
             $status = $paid >= (float) $document->amount ? 'paid' : 'partial';
-            $document->update(['paid_amount' => $paid, 'status' => $status]);
+            $document->update(['paid_amount' => $paid, 'status' => $document->locked_at ? $status : 'draft']);
             $document->recurringServiceBilling?->update(['status' => $status]);
 
             return ['customer', $payment->id];
@@ -821,7 +829,7 @@ class BankingController extends Controller
         if ($customerDocument) {
             $paid = (float) $customerDocument->payments()->sum('amount');
             $status = $paid >= (float) $customerDocument->amount ? 'paid' : ($paid > 0 ? 'partial' : ($customerDocument->due_date?->isPast() ? 'overdue' : 'issued'));
-            $customerDocument->update(['paid_amount' => $paid, 'status' => $status]);
+            $customerDocument->update(['paid_amount' => $paid, 'status' => $customerDocument->locked_at ? $status : 'draft']);
             $customerDocument->recurringServiceBilling?->update(['status' => $status]);
 
             return;

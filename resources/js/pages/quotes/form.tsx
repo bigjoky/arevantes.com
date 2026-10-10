@@ -542,7 +542,7 @@ export default function QuoteForm({
                             />
                             <p className="text-sm text-muted-foreground md:col-span-2">
                                 {translate(
-                                    'When the customer accepts, the platform issues this advance invoice automatically. Use 0% when no acceptance payment is required.',
+                                    'Acceptance creates a payment milestone. Register its collection first and issue the invoice manually afterwards. Use 0% when no acceptance payment is required.',
                                     locale,
                                 )}
                                 {selectedCustomer?.payment_terms_days !=
