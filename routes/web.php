@@ -548,6 +548,7 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('sales/{salesDocument}', [SalesDocumentController::class, 'destroy'])->middleware('can:manage-installations')->name('sales-documents.destroy');
     Route::get('sales/{salesDocument}/pdf', [SalesDocumentController::class, 'pdf'])->middleware('can:manage-installations')->name('sales-documents.pdf');
     Route::post('sales/{salesDocument}/send', [DocumentDeliveryController::class, 'sendSalesDocument'])->middleware('can:manage-installations')->name('sales-documents.send');
+    Route::put('sales/{salesDocument}/milestone', [SalesDocumentController::class, 'updateMilestone'])->middleware('can:manage-installations')->name('sales-documents.milestone');
     Route::post('sales/{salesDocument}/issue', [SalesDocumentController::class, 'issue'])->middleware('can:issue-invoices')->name('sales-documents.issue');
     Route::post('sales/{salesDocument}/convert', [SalesDocumentController::class, 'convertDocument'])->middleware('can:manage-installations')->name('sales-documents.convert');
     Route::post('sales/{salesDocument}/payments', [SalesDocumentController::class, 'storePayment'])->middleware('can:manage-installations')->name('sales-documents.payments.store');

@@ -2,10 +2,9 @@
 
 namespace Tests\Feature;
 
-use App\Mail\DocumentSharedMail;
 use App\Models\BankAccount;
-use App\Models\CompanyProfile;
 use App\Models\Installation;
+use App\Models\JournalLine;
 use App\Models\Person;
 use App\Models\Quote;
 use App\Models\QuoteLine;
@@ -68,7 +67,7 @@ class AcceptancePaymentWorkflowTest extends TestCase
         $this->assertSame('accepted', $quote->fresh()->status);
         $advance = $quote->acceptanceInvoice()->firstOrFail();
         $this->assertSame('1650.00', $advance->amount);
-        $this->assertNotNull($advance->accountingEntry);
+        $this->assertNull($advance->accountingEntry);
         foreach ($advance->lines as $line) {
             $this->assertEqualsWithDelta((float) $line->total, (float) $line->subtotal - (float) $line->discount_amount + (float) $line->tax_amount, 0.000001);
             if ((float) $line->discount_percent === 100.0) {
@@ -85,7 +84,7 @@ class AcceptancePaymentWorkflowTest extends TestCase
         $this->assertEqualsWithDelta(572.73, (float) $advance->tax_amount + $final['totals']['tax_amount'], 0.000001);
     }
 
-    public function test_acceptance_issues_advance_invoice_and_bank_reconciliation_clears_operations(): void
+    public function test_acceptance_plans_advance_without_invoicing_and_bank_reconciliation_clears_operations(): void
     {
         Mail::fake();
         $user = User::factory()->create(['role' => 'commercial']);
@@ -130,14 +129,17 @@ class AcceptancePaymentWorkflowTest extends TestCase
             ->assertRedirect();
 
         $invoice = SalesDocument::where('is_acceptance_invoice', true)->firstOrFail();
-        $this->assertSame('issued', $invoice->status);
-        $this->assertSame(CompanyProfile::firstOrFail()->documentSnapshot(), $invoice->issuer_snapshot);
+        $this->assertSame('draft', $invoice->status);
+        $this->assertTrue($invoice->collect_before_invoice);
+        $this->assertNull($invoice->locked_at);
+        $this->assertNull($invoice->issued_at);
+        $this->assertNull($invoice->issuer_snapshot);
         $this->assertSame('30.00', $invoice->billing_percentage);
         $this->assertSame('363.00', $invoice->amount);
         $this->assertSame(today()->addDays(5)->toDateString(), $invoice->due_date->toDateString());
-        $this->assertNotNull($invoice->accountingEntry);
-        $this->assertDatabaseHas('document_deliveries', ['sales_document_id' => $invoice->id, 'recipient_email' => 'ana@example.com', 'status' => 'sent']);
-        Mail::assertSent(DocumentSharedMail::class, fn (DocumentSharedMail $mail) => $mail->document->is($invoice));
+        $this->assertNull($invoice->accountingEntry);
+        $this->assertDatabaseMissing('document_deliveries', ['sales_document_id' => $invoice->id]);
+        Mail::assertNothingSent();
         $this->assertSame('pending', $quote->refresh()->financial_status);
         $this->assertSame('pending', $installation->refresh()->financial_status);
         $this->patch(route('quotes.status.update', $quote), ['status' => 'rejected'])
@@ -176,12 +178,17 @@ class AcceptancePaymentWorkflowTest extends TestCase
             ->assertRedirect()
             ->assertSessionHasNoErrors();
 
-        $this->assertSame('paid', $invoice->refresh()->status);
+        $this->assertSame('draft', $invoice->refresh()->status);
+        $this->assertSame('363.00', $invoice->paid_amount);
+        $this->assertNull($invoice->accountingEntry);
         $this->assertSame('cleared', $quote->refresh()->financial_status);
         $this->assertNotNull($quote->financially_cleared_at);
         $this->assertSame('cleared', $installation->refresh()->financial_status);
         $this->assertNotNull($installation->financially_cleared_at);
         $this->assertSame('reconciled', $transaction->refresh()->status);
+        $this->post(route('sales-documents.issue', $invoice), ['issue_date' => today()->toDateString()])->assertSessionHasNoErrors();
+        $this->assertSame('paid', $invoice->fresh()->status);
+        $this->assertNotNull($invoice->fresh()->accountingEntry);
 
         $this->post(route('work-orders.store'), [
             'installation_id' => $installation->id,
@@ -193,6 +200,7 @@ class AcceptancePaymentWorkflowTest extends TestCase
         $this->delete(route('banking.reconciliations.undo', $transaction->reconciliation))
             ->assertRedirect()
             ->assertSessionHasNoErrors();
+        $this->assertEquals(0, (float) JournalLine::whereHas('account', fn ($q) => $q->where('code', '438'))->selectRaw('sum(debit-credit) as balance')->value('balance'));
         $this->assertSame('pending', $quote->refresh()->financial_status);
         $this->assertSame('pending', $installation->refresh()->financial_status);
         $this->patch(route('work-orders.update', $executionOrder), ['status' => 'in_progress'])

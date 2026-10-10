@@ -16458,5 +16458,9 @@
     "Add delivery, purchasing or supplier instructions that should accompany the document.": {
         "en": "Add delivery, purchasing or supplier instructions that should accompany the document.",
         "es": "Añade instrucciones de entrega, compra o proveedor que deban acompañar al documento."
+    },
+    "Acceptance creates a payment milestone. Register its collection first and issue the invoice manually afterwards. Use 0% when no acceptance payment is required.": {
+        "es": "La aceptación crea un hito de cobro. Registra primero el cobro y emite la factura manualmente después. Usa 0% cuando no se requiera anticipo.",
+        "en": "Acceptance creates a payment milestone. Register its collection first and issue the invoice manually afterwards. Use 0% when no acceptance payment is required."
     }
 }

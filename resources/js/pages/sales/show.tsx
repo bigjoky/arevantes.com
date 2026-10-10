@@ -10,6 +10,7 @@ import {
     Send,
     Trash2,
 } from 'lucide-react';
+import { FormErrorSummary } from '@/components/forms/form-layout';
 import HistoricalDocumentDate from '@/components/historical-document-date';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -26,6 +27,7 @@ type Payment = {
     accounting_entry: { number: string; status: string } | null;
 };
 type Document = {
+    collect_before_invoice: boolean;
     can_correct_issued: boolean;
     can_issue_invoice: boolean;
     can_prepare_credit_note: boolean;
@@ -144,7 +146,9 @@ export default function SalesShow({
         document.can_issue_invoice &&
         ['invoice', 'credit_note'].includes(document.type) &&
         document.status === 'draft' &&
-        !document.locked_at;
+        !document.locked_at &&
+        (!document.collect_before_invoice ||
+            Number(document.paid_amount) >= Number(document.amount));
     const hasStockLines = document.lines.some(
         (line) => line.product?.track_stock,
     );
@@ -439,6 +443,57 @@ export default function SalesShow({
                     </div>
                 </section>
 
+                {document.collect_before_invoice &&
+                    document.status === 'draft' && (
+                        <section
+                            id="milestone"
+                            className="grid gap-4 border-t pt-5"
+                        >
+                            <h2 className="font-semibold">
+                                Hito de cobro · pendiente de facturar
+                            </h2>
+                            <p className="text-sm text-muted-foreground">
+                                Registra el cobro primero. La factura solo se
+                                emitirá cuando esté cobrado por completo y
+                                pulses «Emitir factura».
+                            </p>
+                            <Form
+                                action={`/sales/${document.id}/milestone`}
+                                method="put"
+                                className="grid gap-3"
+                            >
+                                {({ errors, processing }) => (
+                                    <>
+                                        <FormErrorSummary errors={errors} />
+                                        <div className="grid gap-3 sm:grid-cols-2">
+                                            <Field
+                                                label="Nombre del hito"
+                                                name="billing_label"
+                                                value={
+                                                    document.billing_label ||
+                                                    'Hito de cobro'
+                                                }
+                                            />
+                                            <Field
+                                                label="Importe del hito (IVA incluido)"
+                                                name="billing_amount"
+                                                type="number"
+                                                step="0.01"
+                                                value={document.amount}
+                                            />
+                                        </div>
+                                        <Button
+                                            disabled={processing}
+                                            className="w-fit"
+                                        >
+                                            Guardar importe
+                                        </Button>
+                                    </>
+                                )}
+                            </Form>
+                        </section>
+                    )}
+
                 {canIssue && (
                     <section className="border-t pt-5">
                         <h2 className="font-semibold">Issue document</h2>
@@ -451,23 +506,41 @@ export default function SalesShow({
                             method="post"
                             className="grid gap-4 sm:grid-cols-[12rem_12rem_auto] sm:items-end"
                         >
-                            <Field
-                                label="Issue date"
-                                name="issue_date"
-                                type="date"
-                                value={document.issue_date.slice(0, 10)}
-                            />
-                            {isInvoice && (
-                                <Field
-                                    label="Due date"
-                                    name="due_date"
-                                    type="date"
-                                    value={document.due_date?.slice(0, 10)}
-                                />
+                            {({ errors }) => (
+                                <>
+                                    <FormErrorSummary errors={errors} />
+                                    <Field
+                                        label="Issue date"
+                                        name="issue_date"
+                                        type="date"
+                                        value={
+                                            document.collect_before_invoice
+                                                ? today()
+                                                : document.issue_date.slice(
+                                                      0,
+                                                      10,
+                                                  )
+                                        }
+                                    />
+                                    {isInvoice && (
+                                        <Field
+                                            label="Due date"
+                                            name="due_date"
+                                            type="date"
+                                            value={document.due_date?.slice(
+                                                0,
+                                                10,
+                                            )}
+                                        />
+                                    )}
+                                    <Button>
+                                        <LockKeyhole />{' '}
+                                        {document.collect_before_invoice
+                                            ? 'Emitir factura'
+                                            : 'Issue and lock'}
+                                    </Button>
+                                </>
                             )}
-                            <Button>
-                                <LockKeyhole /> Issue and lock
-                            </Button>
                         </Form>
                     </section>
                 )}
@@ -547,7 +620,7 @@ export default function SalesShow({
 
                 {document.can_prepare_credit_note &&
                     isInvoice &&
-                    document.locked_at && (
+                    (document.locked_at || document.collect_before_invoice) && (
                         <section className="grid gap-8 border-t pt-5 xl:grid-cols-[minmax(20rem,.7fr)_minmax(0,1.3fr)]">
                             <div>
                                 <h2 className="font-semibold">
@@ -564,54 +637,64 @@ export default function SalesShow({
                                         resetOnSuccess
                                         className="grid gap-4"
                                     >
-                                        <div className="grid gap-4 sm:grid-cols-2">
-                                            <Field
-                                                label="Payment date"
-                                                name="paid_at"
-                                                type="date"
-                                                value={today()}
-                                            />
-                                            <Field
-                                                label="Amount"
-                                                name="amount"
-                                                type="number"
-                                                value={String(outstanding)}
-                                                step="0.01"
-                                            />
-                                            <div className="grid gap-2">
-                                                <label className="text-sm font-medium">
-                                                    Method
-                                                </label>
-                                                <select
-                                                    name="method"
-                                                    defaultValue="bank_transfer"
-                                                    className="h-9 rounded-md border bg-background px-3 text-sm"
-                                                >
-                                                    <option value="bank_transfer">
-                                                        Bank transfer
-                                                    </option>
-                                                    <option value="card">
-                                                        Card
-                                                    </option>
-                                                    <option value="cash">
-                                                        Cash
-                                                    </option>
-                                                    <option value="direct_debit">
-                                                        Direct debit
-                                                    </option>
-                                                    <option value="other">
-                                                        Other
-                                                    </option>
-                                                </select>
-                                            </div>
-                                            <Field
-                                                label="Reference"
-                                                name="reference"
-                                            />
-                                        </div>
-                                        <Button>
-                                            <CreditCard /> Register payment
-                                        </Button>
+                                        {({ errors }) => (
+                                            <>
+                                                <FormErrorSummary
+                                                    errors={errors}
+                                                />
+                                                <div className="grid gap-4 sm:grid-cols-2">
+                                                    <Field
+                                                        label="Payment date"
+                                                        name="paid_at"
+                                                        type="date"
+                                                        value={today()}
+                                                    />
+                                                    <Field
+                                                        label="Amount"
+                                                        name="amount"
+                                                        type="number"
+                                                        value={String(
+                                                            outstanding,
+                                                        )}
+                                                        step="0.01"
+                                                    />
+                                                    <div className="grid gap-2">
+                                                        <label className="text-sm font-medium">
+                                                            Method
+                                                        </label>
+                                                        <select
+                                                            name="method"
+                                                            defaultValue="bank_transfer"
+                                                            className="h-9 rounded-md border bg-background px-3 text-sm"
+                                                        >
+                                                            <option value="bank_transfer">
+                                                                Bank transfer
+                                                            </option>
+                                                            <option value="card">
+                                                                Card
+                                                            </option>
+                                                            <option value="cash">
+                                                                Cash
+                                                            </option>
+                                                            <option value="direct_debit">
+                                                                Direct debit
+                                                            </option>
+                                                            <option value="other">
+                                                                Other
+                                                            </option>
+                                                        </select>
+                                                    </div>
+                                                    <Field
+                                                        label="Reference"
+                                                        name="reference"
+                                                    />
+                                                </div>
+                                                <Button>
+                                                    <CreditCard /> Register
+                                                    payment
+                                                </Button>
+                                            </>
+                                        )}
                                     </Form>
                                 ) : (
                                     <p className="text-sm font-medium text-green-700 dark:text-green-400">
@@ -685,6 +768,7 @@ export default function SalesShow({
                         </section>
                     )}
                 {document.status === 'draft' &&
+                    document.payments.length === 0 &&
                     !conversion?.children.length && (
                         <section className="flex justify-end border-t pt-5">
                             <Form
