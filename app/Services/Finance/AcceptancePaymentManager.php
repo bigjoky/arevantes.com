@@ -2,23 +2,17 @@
 
 namespace App\Services\Finance;
 
-use App\Models\CompanyProfile;
 use App\Models\Quote;
 use App\Models\SalesDocument;
-use App\Services\Accounting\AccountingSynchronizer;
-use App\Services\Documents\AcceptanceInvoiceNotifier;
-use App\Services\Documents\DocumentNumber;
 use App\Services\Documents\QuoteBillingPlan;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class AcceptancePaymentManager
 {
     public function __construct(
         private readonly QuoteBillingPlan $billing,
-        private readonly DocumentNumber $numbers,
-        private readonly AccountingSynchronizer $accounting,
-        private readonly AcceptanceInvoiceNotifier $notifier,
     ) {}
 
     public function activate(Quote $quote): ?SalesDocument
@@ -51,38 +45,35 @@ class AcceptancePaymentManager
             if ($installment['lines'] === []) {
                 $installment = $this->legacyInstallment($quote, $percentage);
             }
-            $issued = $this->numbers->next('invoice', today());
+            $number = 'DRAFT-INV-'.Str::upper(Str::random(8));
             $document = SalesDocument::create([
                 'type' => 'invoice',
                 'quote_id' => $quote->id,
                 'person_id' => $quote->person_id,
                 'installation_id' => $quote->installation_id,
-                'document_series_id' => $issued['series']->id,
+                'document_series_id' => null,
                 'created_by' => $quote->created_by,
-                'number' => $issued['number'],
-                'status' => 'issued',
+                'number' => $number,
+                'status' => 'draft',
+                'collect_before_invoice' => true,
                 'issue_date' => today(),
                 'due_date' => today()->addDays((int) $quote->acceptance_payment_due_days),
                 'billing_percentage' => $percentage,
                 'billing_sequence' => count($summary['documents']) + 1,
                 'billing_label' => __('Acceptance payment'),
                 'is_acceptance_invoice' => true,
-                'issued_at' => now(),
-                'locked_at' => now(),
+                'issued_at' => null,
+                'locked_at' => null,
                 ...$installment['totals'],
                 'paid_amount' => 0,
                 'customer_snapshot' => $quote->customer_snapshot ?? [],
-                'notes' => __('Automatically issued after acceptance of quote :number. Use :reference as the bank transfer reference.', [
+                'notes' => __('Payment milestone for quote :number. No invoice has been issued. Use :reference as the bank transfer reference.', [
                     'number' => $quote->number,
-                    'reference' => $issued['number'],
+                    'reference' => $quote->number,
                 ]),
             ]);
-            $document->issuer_snapshot = CompanyProfile::firstOrFail()->documentSnapshot();
-            $document->save();
             $document->lines()->createMany($installment['lines']);
-            $this->accounting->syncSalesDocument($document->refresh(), $quote->created_by);
             $this->setStatus($quote, 'pending');
-            $this->notifier->send($document);
 
             return $document;
         });
@@ -91,11 +82,10 @@ class AcceptancePaymentManager
     public function refresh(Quote $quote): string
     {
         $quote->loadMissing('acceptanceInvoice.payments');
-        if ((float) $quote->acceptance_payment_percentage <= 0) {
+        $invoice = $quote->acceptanceInvoice;
+        if (! $invoice && (float) $quote->acceptance_payment_percentage <= 0) {
             return $this->setStatus($quote, 'cleared');
         }
-
-        $invoice = $quote->acceptanceInvoice;
         if (! $invoice) {
             return $this->setStatus($quote, $quote->status === 'accepted' ? 'pending' : 'not_required');
         }

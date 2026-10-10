@@ -177,6 +177,7 @@ type BillingPlan = {
         billing_sequence: number | null;
         billing_label: string | null;
         is_acceptance_invoice: boolean;
+        collect_before_invoice: boolean;
         amount: number;
         paid_amount: number;
         issue_date: string;
@@ -468,7 +469,12 @@ export default function QuoteShow({
                                 billing.documents.find(
                                     (document) =>
                                         document.is_acceptance_invoice,
-                                )?.number || 'Not issued'
+                                )?.status === 'draft'
+                                    ? 'Pendiente de facturar'
+                                    : billing.documents.find(
+                                          (document) =>
+                                              document.is_acceptance_invoice,
+                                      )?.number || 'Not issued'
                             }
                         />
                         <Info
@@ -773,8 +779,9 @@ export default function QuoteShow({
                                         Billing plan
                                     </h2>
                                     <p className="text-sm text-muted-foreground">
-                                        Invoice the accepted quote in controlled
-                                        milestones.
+                                        Planifica los importes, registra los
+                                        cobros y emite cada factura cuando tú lo
+                                        indiques.
                                     </p>
                                 </div>
                                 {billing.remaining_percentage > 0 &&
@@ -832,39 +839,110 @@ export default function QuoteShow({
                         </div>
                         <div className="border-y">
                             {billing.documents.map((document) => (
-                                <Link
+                                <div
                                     key={document.id}
-                                    href={`/sales/${document.id}`}
-                                    className="flex items-center justify-between gap-4 border-b py-3 text-sm transition-colors last:border-0 hover:bg-muted/40"
+                                    className="border-b last:border-0"
                                 >
-                                    <div className="min-w-0">
-                                        <div className="truncate font-medium">
-                                            {document.billing_label ||
-                                                `Milestone ${document.billing_sequence}`}
-                                        </div>
-                                        <div className="text-xs text-muted-foreground">
-                                            {document.number} ·{' '}
-                                            {document.billing_percentage}%
-                                            {document.is_acceptance_invoice
-                                                ? ' · Acceptance'
-                                                : ''}
-                                        </div>
-                                    </div>
-                                    <div className="text-right">
-                                        <div className="font-medium">
-                                            {money(document.amount)}
-                                        </div>
-                                        {document.is_acceptance_invoice && (
-                                            <div className="text-xs text-muted-foreground">
-                                                Paid{' '}
-                                                {money(document.paid_amount)}
+                                    <Link
+                                        href={`/sales/${document.id}`}
+                                        className="flex items-center justify-between gap-4 border-b py-3 text-sm transition-colors last:border-0 hover:bg-muted/40"
+                                    >
+                                        <div className="min-w-0">
+                                            <div className="truncate font-medium">
+                                                {document.billing_label ||
+                                                    `Milestone ${document.billing_sequence}`}
                                             </div>
+                                            <div className="text-xs text-muted-foreground">
+                                                {document.collect_before_invoice &&
+                                                document.status === 'draft'
+                                                    ? 'Editar importe · registrar cobro'
+                                                    : document.number}{' '}
+                                                · {document.billing_percentage}%
+                                                {document.is_acceptance_invoice
+                                                    ? ' · Acceptance'
+                                                    : ''}
+                                            </div>
+                                        </div>
+                                        <div className="text-right">
+                                            <div className="font-medium">
+                                                {money(document.amount)}
+                                            </div>
+                                            {(document.is_acceptance_invoice ||
+                                                document.collect_before_invoice) && (
+                                                <div className="text-xs text-muted-foreground">
+                                                    Paid{' '}
+                                                    {money(
+                                                        document.paid_amount,
+                                                    )}
+                                                </div>
+                                            )}
+                                            <Badge variant="outline">
+                                                {document.collect_before_invoice &&
+                                                document.status === 'draft'
+                                                    ? document.paid_amount >=
+                                                      document.amount
+                                                        ? 'Cobrado · pendiente de facturar'
+                                                        : 'Pendiente de cobro'
+                                                    : document.status}
+                                            </Badge>
+                                        </div>
+                                    </Link>
+                                    {document.collect_before_invoice &&
+                                        document.status === 'draft' && (
+                                            <Form
+                                                action={`/sales/${document.id}/milestone`}
+                                                method="put"
+                                                className="grid gap-2 pb-3"
+                                            >
+                                                {({ errors, processing }) => (
+                                                    <>
+                                                        <FormErrorSummary
+                                                            errors={errors}
+                                                        />
+                                                        <input
+                                                            type="hidden"
+                                                            name="billing_label"
+                                                            value={
+                                                                document.billing_label ||
+                                                                'Hito de cobro'
+                                                            }
+                                                        />
+                                                        <label
+                                                            className="text-xs font-medium"
+                                                            htmlFor={`milestone-${document.id}`}
+                                                        >
+                                                            Importe previsto
+                                                            (IVA incluido)
+                                                        </label>
+                                                        <div className="flex gap-2">
+                                                            <Input
+                                                                id={`milestone-${document.id}`}
+                                                                name="billing_amount"
+                                                                type="number"
+                                                                step="0.01"
+                                                                min={Math.max(
+                                                                    0.01,
+                                                                    document.paid_amount,
+                                                                )}
+                                                                defaultValue={
+                                                                    document.amount
+                                                                }
+                                                                required
+                                                            />
+                                                            <Button
+                                                                variant="outline"
+                                                                disabled={
+                                                                    processing
+                                                                }
+                                                            >
+                                                                Guardar importe
+                                                            </Button>
+                                                        </div>
+                                                    </>
+                                                )}
+                                            </Form>
                                         )}
-                                        <Badge variant="outline">
-                                            {document.status}
-                                        </Badge>
-                                    </div>
-                                </Link>
+                                </div>
                             ))}
                             {billing.documents.length === 0 && (
                                 <div className="py-10 text-center text-sm text-muted-foreground">

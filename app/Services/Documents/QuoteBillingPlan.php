@@ -9,11 +9,12 @@ use Illuminate\Support\Collection;
 class QuoteBillingPlan
 {
     /** @return array{allocated_percentage: float, issued_percentage: float, remaining_percentage: float, allocated_amount: float, issued_amount: float, remaining_amount: float, documents: array<int, array<string, mixed>>} */
-    public function summary(Quote $quote): array
+    public function summary(Quote $quote, ?int $excludeDocumentId = null): array
     {
         $documents = SalesDocument::query()
             ->where('quote_id', $quote->id)
             ->where('type', 'invoice')
+            ->when($excludeDocumentId, fn ($query) => $query->whereKeyNot($excludeDocumentId))
             ->orderBy('billing_sequence')
             ->orderBy('id')
             ->get();
@@ -43,6 +44,7 @@ class QuoteBillingPlan
                 'billing_sequence' => $document->billing_sequence,
                 'billing_label' => $document->billing_label,
                 'is_acceptance_invoice' => $document->is_acceptance_invoice,
+                'collect_before_invoice' => $document->collect_before_invoice,
                 'amount' => (float) $document->amount,
                 'paid_amount' => (float) $document->paid_amount,
                 'issue_date' => $document->issue_date?->toDateString(),
@@ -62,10 +64,10 @@ class QuoteBillingPlan
     }
 
     /** @return array{totals: array{subtotal: float, discount_amount: float, tax_amount: float, amount: float}, lines: array<int, array<string, mixed>>} */
-    public function installmentForAmount(Quote $quote, float $amount, bool $isFinal): array
+    public function installmentForAmount(Quote $quote, float $amount, bool $isFinal, ?int $excludeDocumentId = null): array
     {
         $quote->loadMissing('lines');
-        $previousByPosition = $isFinal ? $this->previousLines($quote) : collect();
+        $previousByPosition = $isFinal ? $this->previousLines($quote, $excludeDocumentId) : collect();
         $ratio = (float) $quote->amount > 0 ? $amount / (float) $quote->amount : 0;
         $lines = $quote->lines->where('is_selected', true)->map(function ($line) use ($ratio, $isFinal, $previousByPosition): array {
             $previous = $previousByPosition->get($line->position);
@@ -122,11 +124,12 @@ class QuoteBillingPlan
         ];
     }
 
-    private function previousLines(Quote $quote): Collection
+    private function previousLines(Quote $quote, ?int $excludeDocumentId = null): Collection
     {
         return SalesDocument::query()
             ->where('quote_id', $quote->id)
             ->where('type', 'invoice')
+            ->when($excludeDocumentId, fn ($query) => $query->whereKeyNot($excludeDocumentId))
             ->with('lines')
             ->get()
             ->flatMap->lines

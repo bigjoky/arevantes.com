@@ -63,6 +63,17 @@ class AccountingSynchronizer
         return $this->customerPayment($payment, $userId);
     }
 
+    public function allocateCollectedPayments(SalesDocument $document, ?int $userId): void
+    {
+        if (! $document->collect_before_invoice) {
+            return;
+        }
+        $account = $document->customer?->receivable_account_code ?: '430';
+        foreach ($document->payments()->get() as $payment) {
+            $this->post($payment, 'invoice_allocation', $document->issue_date->toDateString(), $document->number, $userId, [['438', $payment->amount, 0], [$account, 0, $payment->amount]]);
+        }
+    }
+
     public function syncSupplierPayment(SupplierPayment $payment, ?int $userId = null): int
     {
         return $this->supplierPayment($payment, $userId);
@@ -164,7 +175,7 @@ class AccountingSynchronizer
     private function customerPayment(SalesDocumentPayment $payment, ?int $userId): int
     {
         $payment->loadMissing('document.customer');
-        $customerAccount = $payment->document?->customer?->receivable_account_code ?: '430';
+        $customerAccount = $payment->document?->collect_before_invoice && ! $payment->document->locked_at ? '438' : ($payment->document?->customer?->receivable_account_code ?: '430');
 
         return $this->post($payment, 'payment', $payment->paid_at->toDateString(), __('Customer receipt :reference', ['reference' => $payment->reference ?: $payment->id]), $userId, [
             [$payment->method === 'cash' ? '570' : '572', $payment->amount, 0], [$customerAccount, 0, $payment->amount],

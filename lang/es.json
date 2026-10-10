@@ -1361,5 +1361,10 @@
     "An authorized signatory must have the legal representative role.": "Un firmante autorizado debe tener la función de representante legal.",
     "Supplier contact added.": "Contacto del proveedor añadido.",
     "Supplier contact updated.": "Contacto del proveedor actualizado.",
-    "Supplier contact removed.": "Contacto del proveedor eliminado."
+    "Supplier contact removed.": "Contacto del proveedor eliminado.",
+    "Collect the full milestone amount before issuing its invoice.": "Registra el cobro completo del hito antes de emitir su factura.",
+    "The milestones cannot exceed the proposal total.": "Los hitos no pueden superar el importe total de la propuesta.",
+    "The milestone amount cannot be less than its registered payments.": "El importe del hito no puede ser inferior a los cobros registrados.",
+    "Payment milestone updated.": "Hito de cobro actualizado.",
+    "Payment milestone for quote :number. No invoice has been issued. Use :reference as the bank transfer reference.": "Hito de cobro de la propuesta :number. No se ha emitido ninguna factura. Usa :reference como referencia de la transferencia."
 }
