@@ -1,5 +1,6 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
 import { useState } from 'react';
+import { CommercialFieldPwa } from '@/components/commercial-field-pwa';
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -192,6 +193,7 @@ export default function CommercialField({
                         {supervisor ? 'Supervisión del equipo' : 'Mi actividad'}
                     </p>
                 </header>
+                <CommercialFieldPwa />
                 <p className="rounded-lg border p-4 text-sm">
                     Registra solo datos necesarios para la visita. No incluyas
                     información sensible ni nombres de vecinos en notas. La

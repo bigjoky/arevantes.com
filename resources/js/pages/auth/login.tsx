@@ -1,4 +1,5 @@
 import { Form, Head } from '@inertiajs/react';
+import { CommercialFieldPwa } from '@/components/commercial-field-pwa';
 import InputError from '@/components/input-error';
 import PasskeyVerify from '@/components/passkey-verify';
 import PasswordInput from '@/components/password-input';
@@ -22,6 +23,7 @@ export default function Login({ status, canResetPassword }: Props) {
             <Head title="Log in" />
 
             <PasskeyVerify />
+            <CommercialFieldPwa />
 
             <Form
                 {...store.form()}

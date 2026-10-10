@@ -63,3 +63,14 @@ createInertiaApp({
 
 // This will set light / dark mode on load...
 initializeTheme();
+
+// Public offline notice only; authenticated pages and writes always use the network.
+if ('serviceWorker' in navigator && window.isSecureContext) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker
+            .register('/commercial-field-sw.js', { updateViaCache: 'none' })
+            .catch(() => {
+                // Installation is optional: the online ERP remains available.
+            });
+    });
+}
