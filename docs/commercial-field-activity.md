@@ -142,3 +142,21 @@ Reversión: la migración inicial deja intencionadamente persona/oportunidad com
 - WebKit con dispositivo iPhone 15 emulado: login, inicio de sesión, dos visitas, pausa, conversión y acceso a la oportunidad; 393 px sin desbordamiento horizontal. Panel de supervisor comprobado en escritorio.
 - No se ha ejecutado contra PostgreSQL ni contra un staging externo o un iPhone físico. Validar esos entornos antes de autorizar un despliegue.
 - `npm audit` detecta 8 avisos preexistentes (1 moderado, 4 altos, 3 críticos) en el lockfile sin modificar: baseline-browser-mapping, brace-expansion, browserslist, concurrently, js-yaml, maplibre-gl, shell-quote y source-map-js. La remediación de maplibre-gl propuesta por npm exige una versión mayor. No se mezcló esa actualización con este módulo; revisar antes de publicar producción.
+
+## Instalar la aplicación de campo (PWA)
+
+Producción: abrir `https://arevantes.com/commercial-field?source=pwa`.
+
+1. En iPhone, abrir la dirección en Safari. Pulsar Compartir → Añadir a pantalla de inicio. Si aparece «Abrir como app web», activarlo. Confirmar Añadir.
+2. Abrir el icono AREVANTES recién instalado. Iniciar sesión con la cuenta comercial habitual; la sesión del navegador puede ser distinta de la instalada. Si se desea mantener el acceso, marcar «Recordarme» solo en un dispositivo personal y protegido.
+3. Después del inicio de sesión se vuelve directamente a Actividad de campo. Los permisos siguen siendo los de la cuenta: un comercial registra su actividad y un supervisor autorizado consulta el equipo.
+4. Cerrar y reabrir el icono para comprobar el acceso. Cerrar sesión desde AREVANTES exige identificarse de nuevo. Una sesión caducada también exige autenticación; la PWA no amplía por sí sola su duración.
+5. En Android, abrir la misma dirección y utilizar Instalar aplicación / Añadir a pantalla de inicio en el navegador. El botón de instalación aparece cuando el navegador ofrece ese mecanismo.
+
+La pantalla de login y el módulo contienen las instrucciones. La instalación usa el icono corporativo existente. No requiere App Store, nuevas contraseñas ni permisos adicionales de cuenta. La ubicación puntual conserva el permiso del navegador y está habilitada solo en la pantalla de campo; no hay seguimiento en segundo plano.
+
+**Cobertura:** esta versión necesita internet para guardar visitas, iniciar/cerrar sesiones y convertir oportunidades. No existe cola offline. Esperar la confirmación de guardado antes de cerrar; un aviso sin conexión no confirma ningún registro. Si se pierde la red al recargar, se muestra una pantalla pública con «Volver a intentar». Al volver la cobertura, reintentar y verificar la lista de visitas. El `client_uuid` existente evita duplicar un envío repetido con el mismo identificador.
+
+El service worker almacena únicamente la pantalla pública sin conexión y dos iconos. No almacena HTML autenticado, contactos, visitas, respuestas API, credenciales ni escrituras pendientes. Los datos comerciales se solicitan siempre al servidor. No cambia las políticas de sesión, MFA o recuperación de contraseña.
+
+Verificación técnica: manifest `/commercial-field.webmanifest`, worker `/commercial-field-sw.js`, arranque `/commercial-field?source=pwa`, modo `standalone`, HTTPS requerido salvo localhost. Comprobar instalación y apertura en dispositivo real; la emulación de navegador no sustituye la instalación física de iOS. No son necesarias migraciones ni variables de entorno adicionales para la PWA.
