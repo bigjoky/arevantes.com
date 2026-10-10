@@ -1,4 +1,24 @@
 {
+    "Previous sharing links will be revoked when you save. You can resend the updated invoice from its record.": {
+        "en": "Previous sharing links will be revoked when you save. You can resend the updated invoice from its record.",
+        "es": "Al guardar se invalidarán los enlaces de envío anteriores. Puedes reenviar la factura actualizada desde su ficha."
+    },
+    "Changes preserve the invoice number and are recorded in its correction history.": {
+        "en": "Changes preserve the invoice number and are recorded in its correction history.",
+        "es": "Los cambios conservan el número de factura y quedan registrados en su historial de correcciones."
+    },
+    "Save invoice changes": {
+        "en": "Save invoice changes",
+        "es": "Guardar cambios de factura"
+    },
+    "Edit issued invoice": {
+        "en": "Edit issued invoice",
+        "es": "Editar factura emitida"
+    },
+    "Invoice correction history": {
+        "en": "Invoice correction history",
+        "es": "Historial de correcciones de factura"
+    },
     "Evidence review reason": {
         "en": "Evidence review reason",
         "es": "Motivo de revisión de la evidencia"

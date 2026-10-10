@@ -70,6 +70,11 @@ class AccountingSynchronizer
 
     private function salesDocument(SalesDocument $document, ?int $userId): int
     {
+        return $this->post($document, 'document', $document->issue_date->toDateString(), $document->number, $userId, $this->salesDocumentLines($document));
+    }
+
+    public function salesDocumentLines(SalesDocument $document): array
+    {
         $creditNote = $document->type === 'credit_note';
         $document->loadMissing(['lines.product', 'customer']);
         $customerAccount = $document->customer?->receivable_account_code ?: '430';
@@ -90,7 +95,7 @@ class AccountingSynchronizer
             $lines[] = [$this->taxAccount($rate === 'default' ? null : (float) $rate, 'output'), $creditNote ? $amount : 0, $creditNote ? 0 : $amount];
         }
 
-        return $this->post($document, 'document', $document->issue_date->toDateString(), $document->number, $userId, $lines);
+        return $lines;
     }
 
     private function purchaseDocument(PurchaseDocument $document, ?int $userId): int

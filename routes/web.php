@@ -531,6 +531,8 @@ Route::middleware(['auth'])->group(function () {
     Route::post('sales-workflow/{salesDocument}/procure', [SalesOperationsController::class, 'procure'])->middleware('can:manage-catalog')->name('sales-workflow.procure');
     Route::get('sales/create', [SalesDocumentController::class, 'create'])->middleware('can:manage-installations')->name('sales-documents.create');
     Route::post('sales', [SalesDocumentController::class, 'store'])->middleware('can:manage-installations')->name('sales-documents.store');
+    Route::get('sales/{salesDocument}/edit-issued', [SalesDocumentController::class, 'editIssued'])->middleware(['can:manage-installations', 'can:manage-admin'])->name('sales-documents.edit-issued');
+    Route::put('sales/{salesDocument}/issued', [SalesDocumentController::class, 'updateIssued'])->middleware(['can:manage-installations', 'can:manage-admin'])->name('sales-documents.update-issued');
     Route::get('sales/{salesDocument}/edit', [SalesDocumentController::class, 'edit'])->middleware('can:manage-installations')->name('sales-documents.edit');
     Route::put('sales/{salesDocument}', [SalesDocumentController::class, 'update'])->middleware('can:manage-installations')->name('sales-documents.update');
     Route::get('sales/{salesDocument}', [SalesDocumentController::class, 'show'])->middleware('can:manage-installations')->name('sales-documents.show');
