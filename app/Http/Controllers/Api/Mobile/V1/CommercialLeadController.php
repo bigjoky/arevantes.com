@@ -17,6 +17,7 @@ use App\Support\BusinessLineCatalog;
 use App\Support\Crm\CommercialRoutePayload;
 use App\Support\Crm\OpportunityCatalog;
 use App\Support\PhoneNormalizer;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
@@ -146,8 +147,37 @@ class CommercialLeadController extends Controller
         OpportunitySalesCycle $salesCycle,
         LeadResponseSla $responseSla,
     ): JsonResponse {
+        return $this->createLead($request, $customerResolver, $salesCycle, $responseSla);
+    }
+
+    public function convertVisit(Request $request, CommercialVisit $visit): JsonResponse
+    {
+        return DB::transaction(function () use ($request, $visit): JsonResponse {
+            $visit = CommercialVisit::whereKey($visit->id)->lockForUpdate()->firstOrFail();
+            if ($visit->opportunity_id) {
+                return response()->json(['data' => $visit->only(['id', 'person_id', 'opportunity_id'])]);
+            }
+            abort_unless(in_array($visit->outcome, ['interested', 'follow_up'], true), 422, 'Solo se convierten visitas con interés o seguimiento.');
+            $request->merge([
+                'client_uuid' => $visit->client_uuid, 'visited_at' => $visit->visited_at->toISOString(),
+                'latitude' => $visit->latitude, 'longitude' => $visit->longitude,
+                'accuracy_meters' => $visit->accuracy_meters, 'address' => $visit->address,
+                'notes' => $visit->notes, 'source' => 'outbound',
+            ]);
+
+            return $this->createLead($request, app(OpportunityCustomerResolver::class), app(OpportunitySalesCycle::class), app(LeadResponseSla::class), $visit);
+        });
+    }
+
+    private function createLead(
+        Request $request,
+        OpportunityCustomerResolver $customerResolver,
+        OpportunitySalesCycle $salesCycle,
+        LeadResponseSla $responseSla,
+        ?CommercialVisit $existingVisit = null,
+    ): JsonResponse {
         $data = $request->validate([
-            'client_uuid' => ['required', 'uuid', 'unique:commercial_visits,client_uuid'],
+            'client_uuid' => ['required', 'uuid', Rule::unique('commercial_visits', 'client_uuid')->ignore($existingVisit?->id)],
             'first_name' => ['nullable', 'string', 'max:255', 'required_without:company_name'],
             'last_name' => ['nullable', 'string', 'max:255'],
             'company_name' => ['nullable', 'string', 'max:255', 'required_without:first_name'],
@@ -175,10 +205,15 @@ class CommercialLeadController extends Controller
             'latitude' => ['nullable', 'numeric', 'between:-90,90', 'required_with:longitude'],
             'longitude' => ['nullable', 'numeric', 'between:-180,180', 'required_with:latitude'],
             'accuracy_meters' => ['nullable', 'numeric', 'min:0', 'max:100000'],
-            'next_action_at' => ['required', 'date', 'after:visited_at'],
+            'next_action_at' => ['required', 'date', 'after:visited_at', ...($existingVisit ? ['after:now'] : [])],
         ]);
 
-        $visit = DB::transaction(function () use ($request, $data, $customerResolver, $salesCycle, $responseSla): CommercialVisit {
+        if ($existingVisit) {
+            $data['visited_at'] = $existingVisit->visited_at;
+            $data['next_action_at'] = CarbonImmutable::parse($data['next_action_at'])->timezone(config('app.timezone'));
+        }
+
+        $visit = DB::transaction(function () use ($request, $data, $customerResolver, $salesCycle, $responseSla, $existingVisit): CommercialVisit {
             $customer = $this->resolveCustomer($data, $customerResolver);
             $customerAttributes = array_filter([
                 'first_name' => $data['first_name'] ?? null,
@@ -243,14 +278,20 @@ class CommercialLeadController extends Controller
             $responseSla->start($opportunity);
             $responseSla->record($activity);
             $salesCycle->ensureNextAction($opportunity, $request->user(), [
-                'type' => $data['consent_status'] === 'denied' ? 'task' : 'call',
-                'title' => $data['consent_status'] === 'denied'
+                'type' => $customer->do_not_contact ? 'task' : 'call',
+                'title' => $customer->do_not_contact
                     ? __('Review lead without contacting the customer')
                     : __('Contact and qualify customer'),
                 'priority' => 'normal',
                 'due_at' => $data['next_action_at'],
             ]);
             $salesCycle->refreshScore($opportunity);
+
+            if ($existingVisit) {
+                $existingVisit->update(['person_id' => $customer->id, 'opportunity_id' => $opportunity->id]);
+
+                return $existingVisit;
+            }
 
             return CommercialVisit::create([
                 ...Arr::only($data, ['client_uuid', 'visited_at', 'latitude', 'longitude', 'accuracy_meters', 'address', 'notes']),
@@ -262,7 +303,7 @@ class CommercialLeadController extends Controller
 
         $visit->load('customer:id,first_name,last_name,company_name,phone,email', 'opportunity:id,code,title,stage,owner_user_id');
 
-        return response()->json(['data' => $visit], 201);
+        return response()->json(['data' => $existingVisit ? $visit->only(['id', 'person_id', 'opportunity_id']) : $visit], 201);
     }
 
     private function resolveCustomer(array $data, OpportunityCustomerResolver $resolver): Person

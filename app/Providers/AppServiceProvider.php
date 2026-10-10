@@ -19,8 +19,10 @@ use App\Models\BankTransactionPosting;
 use App\Models\BankTransfer;
 use App\Models\CollectionAction;
 use App\Models\CollectionActionEvent;
+use App\Models\CommercialFieldSession;
 use App\Models\CommercialRoutePlan;
 use App\Models\CommercialRouteStop;
+use App\Models\CommercialVisit;
 use App\Models\CompanyProfile;
 use App\Models\CorporateTaxReturn;
 use App\Models\CrmActivity;
@@ -121,6 +123,8 @@ class AppServiceProvider extends ServiceProvider
         $this->configureAreviaRateLimits();
         Person::observe(AuditableObserver::class);
         Person::observe(PartyLedgerObserver::class);
+        CommercialVisit::observe(AuditableObserver::class);
+        CommercialFieldSession::observe(AuditableObserver::class);
         CommercialRoutePlan::observe(AuditableObserver::class);
         CommercialRouteStop::observe(AuditableObserver::class);
         HrCalendarHoliday::observe(AuditableObserver::class);
@@ -223,10 +227,11 @@ class AppServiceProvider extends ServiceProvider
 
     private function configureAuthorization(): void
     {
+        Gate::define('access-commercial-field', fn (User $user) => Gate::forUser($user)->any(['record-commercial-field', 'supervise-commercial-field']));
         Gate::policy(CrmActivity::class, CrmActivityPolicy::class);
         $permissions = [
             'manage-admin', 'manage-access', 'export-audit', 'view-system-health',
-            'manage-customers', 'manage-quotes', 'approve-quotes', 'view-installations', 'manage-installations', 'sync-installations', 'publish-customer-documents',
+            'record-commercial-field', 'supervise-commercial-field', 'manage-customers', 'manage-quotes', 'approve-quotes', 'view-installations', 'manage-installations', 'sync-installations', 'publish-customer-documents',
             'use-ai', 'manage-operations', 'manage-catalog', 'view-finance', 'manage-treasury',
             'manage-accounting', 'approve-payments', 'approve-budgets', 'manage-tax', 'issue-invoices', 'prepare-credit-notes',
             'view-purchases', 'manage-purchases', 'receive-purchases', 'approve-purchase-invoices',

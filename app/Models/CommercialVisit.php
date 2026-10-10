@@ -13,6 +13,7 @@ class CommercialVisit extends Model
         'person_id',
         'opportunity_id',
         'commercial_route_plan_id',
+        'commercial_field_session_id',
         'prospect_type',
         'outcome',
         'visited_at',
@@ -31,6 +32,16 @@ class CommercialVisit extends Model
             'longitude' => 'float',
             'accuracy_meters' => 'float',
         ];
+    }
+
+    public function routePlan(): BelongsTo
+    {
+        return $this->belongsTo(CommercialRoutePlan::class, 'commercial_route_plan_id');
+    }
+
+    public function fieldSession(): BelongsTo
+    {
+        return $this->belongsTo(CommercialFieldSession::class, 'commercial_field_session_id');
     }
 
     public function commercial(): BelongsTo
