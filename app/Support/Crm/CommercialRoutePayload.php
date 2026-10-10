@@ -21,6 +21,8 @@ class CommercialRoutePayload
             'id' => $plan->id,
             'route_date' => $plan->route_date->toDateString(),
             'status' => $plan->status,
+            'sector_label' => $plan->sector_label,
+            'instructions' => $plan->instructions,
             'origin' => $plan->origin_latitude !== null && $plan->origin_longitude !== null ? [
                 'latitude' => $plan->origin_latitude,
                 'longitude' => $plan->origin_longitude,

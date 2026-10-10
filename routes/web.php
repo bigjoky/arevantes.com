@@ -12,6 +12,7 @@ use App\Http\Controllers\AssetRmaController;
 use App\Http\Controllers\BankingController;
 use App\Http\Controllers\CatalogController;
 use App\Http\Controllers\ChartOfAccountsController;
+use App\Http\Controllers\CommercialFieldController;
 use App\Http\Controllers\CorporateTaxController;
 use App\Http\Controllers\CrmSettingsController;
 use App\Http\Controllers\CustomerConsentController;
@@ -129,6 +130,14 @@ Route::middleware(ProtectCustomerPortalLinks::class)->group(function (): void {
 });
 
 Route::middleware(['auth'])->group(function () {
+    Route::post('commercial-field/routes', [CommercialFieldController::class, 'assignRoute'])->middleware('can:supervise-commercial-field')->name('commercial-field.routes.assign');
+    Route::get('commercial-field', [CommercialFieldController::class, 'index'])->middleware('can:access-commercial-field')->name('commercial-field.index');
+    Route::middleware('can:record-commercial-field')->prefix('commercial-field')->name('commercial-field.')->group(function () {
+        Route::post('visits', [CommercialFieldController::class, 'store'])->name('visits.store');
+        Route::post('sessions', [CommercialFieldController::class, 'start'])->name('sessions.start');
+        Route::patch('sessions/{session}/stop', [CommercialFieldController::class, 'stop'])->name('sessions.stop');
+        Route::post('visits/{visit}/convert', [CommercialFieldController::class, 'convert'])->middleware('can:manage-customers')->name('visits.convert');
+    });
     Route::patch('/workspace/favorite', [WorkspaceShortcutController::class, 'update'])->name('workspace.favorite');
     Route::get('dashboard', DashboardController::class)->name('dashboard');
     Route::get('dashboard/installation-map', [DashboardController::class, 'installationMap'])

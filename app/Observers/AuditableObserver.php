@@ -3,6 +3,8 @@
 namespace App\Observers;
 
 use App\Models\AuditLog;
+use App\Models\CommercialFieldSession;
+use App\Models\CommercialVisit;
 use Illuminate\Database\Eloquent\Model;
 
 class AuditableObserver
@@ -38,8 +40,11 @@ class AuditableObserver
         $sensitive = [
             'password', 'remember_token', 'two_factor_secret', 'two_factor_recovery_codes', 'mailbox_password',
             'tax_id', 'document_number', 'date_of_birth', 'emergency_contact_name', 'emergency_contact_phone',
-            'annual_reference_salary', 'phone', 'prevention_notes', 'notes', 'decision_notes',
+            'instructions', 'annual_reference_salary', 'phone', 'prevention_notes', 'notes', 'decision_notes',
         ];
+        if ($model instanceof CommercialVisit || $model instanceof CommercialFieldSession) {
+            $sensitive = [...$sensitive, 'latitude', 'longitude', 'accuracy_meters', 'address', 'visited_at', 'started_at', 'ended_at'];
+        }
         $sanitize = fn (?array $values) => $values === null ? null : collect($values)->mapWithKeys(
             fn ($value, $key) => [$key => in_array($key, $sensitive, true) ? '[REDACTED]' : $value]
         )->all();

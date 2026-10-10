@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\Mobile\V1\CommercialLeadController as MobileCommerc
 use App\Http\Controllers\Api\Mobile\V1\CommercialRouteController as MobileCommercialRouteController;
 use App\Http\Controllers\Api\Mobile\V1\DeviceController as MobileDeviceController;
 use App\Http\Controllers\Api\Mobile\V1\WorkOrderController as MobileWorkOrderController;
+use App\Http\Controllers\CommercialFieldController;
 use App\Http\Controllers\LocationController;
 use App\Http\Middleware\EnsureMobileAccess;
 use App\Http\Middleware\EnsureMobileIdempotency;
@@ -29,6 +30,14 @@ Route::prefix('mobile/v1')->name('api.mobile.v1.')->group(function () {
         Route::delete('auth/token', [MobileAuthController::class, 'logout'])->name('auth.logout');
         Route::put('devices/{deviceId}', [MobileDeviceController::class, 'update'])->whereUuid('deviceId')->name('devices.update');
         Route::delete('devices/{deviceId}', [MobileDeviceController::class, 'destroy'])->whereUuid('deviceId')->name('devices.destroy');
+        Route::post('commercial/field/routes', [CommercialFieldController::class, 'assignRoute'])->middleware(['can:supervise-commercial-field', EnsureMobileIdempotency::class])->name('commercial.field.routes.assign');
+        Route::get('commercial/field', [CommercialFieldController::class, 'index'])->middleware('can:access-commercial-field')->name('commercial.field.index');
+        Route::middleware(['can:record-commercial-field', EnsureMobileIdempotency::class])->prefix('commercial/field')->name('commercial.field.')->group(function () {
+            Route::post('visits', [CommercialFieldController::class, 'store'])->name('visits.store');
+            Route::post('sessions', [CommercialFieldController::class, 'start'])->name('sessions.start');
+            Route::patch('sessions/{session}/stop', [CommercialFieldController::class, 'stop'])->name('sessions.stop');
+            Route::post('visits/{visit}/convert', [CommercialFieldController::class, 'convert'])->middleware('can:manage-customers')->name('visits.convert');
+        });
         Route::get('commercial/dashboard', [MobileCommercialLeadController::class, 'index'])
             ->middleware('can:manage-customers')
             ->name('commercial.dashboard');

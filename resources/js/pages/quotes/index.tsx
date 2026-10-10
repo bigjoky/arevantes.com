@@ -125,10 +125,27 @@ export default function QuoteIndex({
                 />
 
                 <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                    <SummaryCard icon={FileText} label="Propuestas" value={String(summary.total)} />
-                    <SummaryCard icon={CircleDollarSign} label="Valor abierto" value={money(summary.open_value)} />
-                    <SummaryCard icon={ShieldCheck} label="Pendientes de aprobación" value={String(summary.pending_approval)} alert={summary.pending_approval > 0 && canApproveQuotes} />
-                    <SummaryCard icon={CheckCircle2} label="Valor aceptado" value={money(summary.accepted_value)} />
+                    <SummaryCard
+                        icon={FileText}
+                        label="Propuestas"
+                        value={String(summary.total)}
+                    />
+                    <SummaryCard
+                        icon={CircleDollarSign}
+                        label="Valor abierto"
+                        value={money(summary.open_value)}
+                    />
+                    <SummaryCard
+                        icon={ShieldCheck}
+                        label="Pendientes de aprobación"
+                        value={String(summary.pending_approval)}
+                        alert={summary.pending_approval > 0 && canApproveQuotes}
+                    />
+                    <SummaryCard
+                        icon={CheckCircle2}
+                        label="Valor aceptado"
+                        value={money(summary.accepted_value)}
+                    />
                 </section>
 
                 <form
@@ -139,7 +156,7 @@ export default function QuoteIndex({
                     }}
                 >
                     <div className="relative">
-                        <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                        <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
                         <Input
                             value={search}
                             onChange={(event) => setSearch(event.target.value)}
@@ -148,10 +165,30 @@ export default function QuoteIndex({
                             className="pl-9"
                         />
                     </div>
-                    <FilterSelect value={filters.status ?? 'all'} placeholder="Estado" onChange={(value) => apply('status', value)} options={Object.entries(statusLabels)} />
-                    <FilterSelect value={filters.approval ?? 'all'} placeholder="Aprobación" onChange={(value) => apply('approval', value)} options={Object.entries(approvalLabels)} />
-                    <FilterSelect value={filters.owner ? String(filters.owner) : 'all'} placeholder="Creador" onChange={(value) => apply('owner', value)} options={owners.map((owner) => [String(owner.id), owner.name])} />
-                    <Button type="submit" variant="outline"><Search /> Buscar</Button>
+                    <FilterSelect
+                        value={filters.status ?? 'all'}
+                        placeholder="Estado"
+                        onChange={(value) => apply('status', value)}
+                        options={Object.entries(statusLabels)}
+                    />
+                    <FilterSelect
+                        value={filters.approval ?? 'all'}
+                        placeholder="Aprobación"
+                        onChange={(value) => apply('approval', value)}
+                        options={Object.entries(approvalLabels)}
+                    />
+                    <FilterSelect
+                        value={filters.owner ? String(filters.owner) : 'all'}
+                        placeholder="Creador"
+                        onChange={(value) => apply('owner', value)}
+                        options={owners.map((owner) => [
+                            String(owner.id),
+                            owner.name,
+                        ])}
+                    />
+                    <Button type="submit" variant="outline">
+                        <Search /> Buscar
+                    </Button>
                 </form>
 
                 <TableViewport>
@@ -170,47 +207,155 @@ export default function QuoteIndex({
                         </thead>
                         <tbody className="divide-y">
                             {quotes.data.map((quote) => (
-                                <tr key={quote.id} className="hover:bg-muted/30">
+                                <tr
+                                    key={quote.id}
+                                    className="hover:bg-muted/30"
+                                >
                                     <td className="py-3">
-                                        <Link href={`/quotes/${quote.id}`} className="font-medium hover:underline">{quote.number}</Link>
-                                        <span className="ml-2 text-xs text-muted-foreground">v{quote.version}</span>
+                                        <Link
+                                            href={`/quotes/${quote.id}`}
+                                            className="font-medium hover:underline"
+                                        >
+                                            {quote.number}
+                                        </Link>
+                                        <span className="ml-2 text-xs text-muted-foreground">
+                                            v{quote.version}
+                                        </span>
                                     </td>
                                     <td>{customerName(quote)}</td>
-                                    <td>{quote.opportunity ? <Link href={`/opportunities/${quote.opportunity.id}`} className="hover:underline">{quote.opportunity.code}</Link> : '—'}</td>
+                                    <td>
+                                        {quote.opportunity ? (
+                                            <Link
+                                                href={`/opportunities/${quote.opportunity.id}`}
+                                                className="hover:underline"
+                                            >
+                                                {quote.opportunity.code}
+                                            </Link>
+                                        ) : (
+                                            '—'
+                                        )}
+                                    </td>
                                     <td>{quote.creator?.name || 'Sistema'}</td>
-                                    <td><Badge variant="outline">{statusLabels[quote.status] || quote.status}</Badge></td>
-                                    <td><Badge variant={quote.approval_status === 'pending' ? 'secondary' : 'outline'}>{approvalLabels[quote.approval_status] || quote.approval_status}</Badge></td>
+                                    <td>
+                                        <Badge variant="outline">
+                                            {statusLabels[quote.status] ||
+                                                quote.status}
+                                        </Badge>
+                                    </td>
+                                    <td>
+                                        <Badge
+                                            variant={
+                                                quote.approval_status ===
+                                                'pending'
+                                                    ? 'secondary'
+                                                    : 'outline'
+                                            }
+                                        >
+                                            {approvalLabels[
+                                                quote.approval_status
+                                            ] || quote.approval_status}
+                                        </Badge>
+                                    </td>
                                     <td>{dateTime(quote.updated_at)}</td>
-                                    <td className="text-right font-medium tabular-nums">{money(quote.amount)}</td>
+                                    <td className="text-right font-medium tabular-nums">
+                                        {money(quote.amount)}
+                                    </td>
                                 </tr>
                             ))}
                         </tbody>
                     </table>
-                    {quotes.data.length === 0 ? <div className="py-14 text-center text-sm text-muted-foreground">No hay propuestas que coincidan con los filtros.</div> : null}
+                    {quotes.data.length === 0 ? (
+                        <div className="py-14 text-center text-sm text-muted-foreground">
+                            No hay propuestas que coincidan con los filtros.
+                        </div>
+                    ) : null}
                 </TableViewport>
 
-                <PaginationBar links={quotes.links} total={quotes.total} noun="propuestas" />
+                <PaginationBar
+                    links={quotes.links}
+                    total={quotes.total}
+                    noun="propuestas"
+                />
             </PageShell>
         </>
     );
 }
 
-function SummaryCard({ icon: Icon, label, value, alert = false }: { icon: typeof FileText; label: string; value: string; alert?: boolean }) {
-    return <Card><CardContent className="flex items-start gap-3 p-4"><Icon className={alert ? 'mt-0.5 size-5 text-amber-600' : 'mt-0.5 size-5 text-muted-foreground'} /><div><p className="text-xs text-muted-foreground">{label}</p><p className="mt-1 text-lg font-semibold">{value}</p></div></CardContent></Card>;
+function SummaryCard({
+    icon: Icon,
+    label,
+    value,
+    alert = false,
+}: {
+    icon: typeof FileText;
+    label: string;
+    value: string;
+    alert?: boolean;
+}) {
+    return (
+        <Card>
+            <CardContent className="flex items-start gap-3 p-4">
+                <Icon
+                    className={
+                        alert
+                            ? 'mt-0.5 size-5 text-amber-600'
+                            : 'mt-0.5 size-5 text-muted-foreground'
+                    }
+                />
+                <div>
+                    <p className="text-xs text-muted-foreground">{label}</p>
+                    <p className="mt-1 text-lg font-semibold">{value}</p>
+                </div>
+            </CardContent>
+        </Card>
+    );
 }
 
-function FilterSelect({ value, placeholder, onChange, options }: { value: string; placeholder: string; onChange: (value: string) => void; options: string[][] }) {
-    return <Select value={value} onValueChange={onChange}><SelectTrigger><SelectValue placeholder={placeholder} /></SelectTrigger><SelectContent><SelectItem value="all">{placeholder}: todos</SelectItem>{options.map(([option, label]) => <SelectItem key={option} value={option}>{label}</SelectItem>)}</SelectContent></Select>;
+function FilterSelect({
+    value,
+    placeholder,
+    onChange,
+    options,
+}: {
+    value: string;
+    placeholder: string;
+    onChange: (value: string) => void;
+    options: string[][];
+}) {
+    return (
+        <Select value={value} onValueChange={onChange}>
+            <SelectTrigger>
+                <SelectValue placeholder={placeholder} />
+            </SelectTrigger>
+            <SelectContent>
+                <SelectItem value="all">{placeholder}: todos</SelectItem>
+                {options.map(([option, label]) => (
+                    <SelectItem key={option} value={option}>
+                        {label}
+                    </SelectItem>
+                ))}
+            </SelectContent>
+        </Select>
+    );
 }
 
 function customerName(quote: Quote) {
-    return quote.customer?.company_name || `${quote.customer?.first_name || ''} ${quote.customer?.last_name || ''}`.trim() || '—';
+    return (
+        quote.customer?.company_name ||
+        `${quote.customer?.first_name || ''} ${quote.customer?.last_name || ''}`.trim() ||
+        '—'
+    );
 }
 
 function money(value: string | number) {
-    return new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(Number(value));
+    return new Intl.NumberFormat('es-ES', {
+        style: 'currency',
+        currency: 'EUR',
+    }).format(Number(value));
 }
 
 function dateTime(value: string) {
-    return new Intl.DateTimeFormat('es-ES', { dateStyle: 'medium' }).format(new Date(value));
+    return new Intl.DateTimeFormat('es-ES', { dateStyle: 'medium' }).format(
+        new Date(value),
+    );
 }

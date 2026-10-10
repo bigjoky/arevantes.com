@@ -1,12 +1,133 @@
 openapi: 3.1.0
 info:
   title: Arevantes Mobile API
-  version: 1.2.0
+  version: 1.3.0
 servers:
   - url: https://arevantes.com/api/mobile/v1
 security:
   - bearerAuth: []
 paths:
+  /commercial/field:
+    get:
+      operationId: listCommercialFieldActivity
+      description: Own activity; team scope requires supervise-commercial-field. Requires mobile ability and manage-operations. Period is limited to 366 days.
+      parameters:
+        - { name: from, in: query, schema: { type: string, format: date } }
+        - { name: to, in: query, schema: { type: string, format: date } }
+        - { name: user_id, in: query, schema: { type: integer }, description: "Ignored without supervision permission" }
+        - { name: page, in: query, schema: { type: integer, minimum: 1 } }
+      responses:
+        '200': { description: "Paginated visits (30/page), actual-time KPIs, sessions, route options and catalogs in data" }
+        '403': { description: "Missing field access or mobile access" }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /commercial/field/visits:
+    post:
+      operationId: recordColdCommercialVisit
+      description: Requires record-commercial-field; no person or opportunity is created. Client UUID retries return the original visit.
+      parameters:
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [client_uuid, prospect_type, outcome, visited_at]
+              properties:
+                client_uuid: { type: string, format: uuid }
+                prospect_type: { type: string, enum: [residential, business, community] }
+                outcome: { type: string, enum: [no_answer, not_interested, interested, follow_up, not_accessible, do_not_contact] }
+                visited_at: { type: string, format: date-time, description: "Actual instant within the previous 30 days, not future" }
+                commercial_route_plan_id: { type: [integer, 'null'], description: "Own route on the visit date" }
+                latitude: { type: [number, 'null'], minimum: -90, maximum: 90 }
+                longitude: { type: [number, 'null'], minimum: -180, maximum: 180 }
+                accuracy_meters: { type: [number, 'null'], minimum: 0, maximum: 100000 }
+                address: { type: [string, 'null'], maxLength: 255 }
+                notes: { type: [string, 'null'], maxLength: 3000 }
+      responses:
+        '201': { description: "Minimal visit IDs and state; coordinates and notes are not persisted in the idempotency response" }
+        '403': { description: "Missing recording permission" }
+        '409': { description: "Client UUID belongs to another user or operation in progress" }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /commercial/field/sessions:
+    post:
+      operationId: startCommercialFieldSession
+      parameters:
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      responses:
+        '201': { description: "Session ID and server start instant" }
+        '403': { description: "Missing recording permission" }
+        '422': { description: "Session already open or missing idempotency UUID" }
+  /commercial/field/sessions/{session}/stop:
+    patch:
+      operationId: stopCommercialFieldSession
+      parameters:
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+        - { name: session, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ended_at: { type: [string, 'null'], format: date-time, description: "Optional corrected end after start and last session visit, not future; defaults to now" }
+      responses:
+        '201': { description: "Closed session; repeated close returns original end" }
+        '404': { description: "Session does not belong to user" }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /commercial/field/visits/{visit}/convert:
+    post:
+      operationId: convertColdVisitToOpportunity
+      description: Requires record-commercial-field and manage-customers. Own interested/follow_up visit only. Repeated conversion returns original linked IDs.
+      parameters:
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+        - { name: visit, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [preferred_contact_channel, consent_status, service_interest, next_action_at]
+              properties:
+                first_name: { type: [string, 'null'], maxLength: 255, description: "Required without company_name" }
+                company_name: { type: [string, 'null'], maxLength: 255 }
+                last_name: { type: [string, 'null'], maxLength: 255 }
+                phone: { type: [string, 'null'], maxLength: 40, description: "Valid mobile required without email" }
+                email: { type: [string, 'null'], format: email }
+                preferred_contact_channel: { type: string, enum: [phone, whatsapp, email, sms] }
+                consent_status: { type: string, enum: [not_recorded, granted, denied] }
+                consent_notes: { type: [string, 'null'], maxLength: 1000 }
+                service_interest: { type: string, description: "Value from field dashboard serviceInterests catalog" }
+                next_action_at: { type: string, format: date-time, description: "After visited_at" }
+                estimated_value: { type: [number, 'null'], minimum: 0 }
+      responses:
+        '201': { description: "Linked visit, person and opportunity IDs" }
+        '200': { description: "Visit was already converted; same linked IDs" }
+        '404': { description: "Visit does not belong to user" }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /commercial/field/routes:
+    post:
+      operationId: assignCommercialFieldSector
+      description: Requires supervise-commercial-field. Preserves existing route and CRM stops.
+      parameters:
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [user_id, route_date, sector_label]
+              properties:
+                user_id: { type: integer, description: "User with record-commercial-field permission" }
+                route_date: { type: string, format: date, description: "Today to 30 days ahead" }
+                sector_label: { type: string, maxLength: 150 }
+                instructions: { type: [string, 'null'], maxLength: 500 }
+      responses:
+        '201': { description: "Assigned route ID" }
+        '403': { description: "Missing supervision permission" }
+        '422': { $ref: '#/components/responses/ValidationError' }
   /auth/login:
     post:
       security: []
@@ -179,7 +300,7 @@ paths:
               type: object
               properties:
                 client_uuid: { type: [string, 'null'], format: uuid, description: Device-generated identifier used to stop an offline timer after synchronization. }
-                started_at: { type: [string, 'null'], format: date-time, description: Device capture time, no more than seven days old. }
+                started_at: { type: [string, 'null'], format: date-time, description: "Device capture time, no more than seven days old." }
       responses:
         '201': { description: Timer started }
         '422': { description: Another timer is active or order cannot be executed }
@@ -255,7 +376,7 @@ paths:
                 blocked_reason: { type: [string, 'null'], maxLength: 1000, description: Required when status is blocked. }
       responses:
         '200': { description: Work order status changed or a previous response replayed }
-        '422': { description: Transition is not allowed, reason is missing, or a timer is running }
+        '422': { description: "Transition is not allowed, reason is missing, or a timer is running" }
   /work-orders/{workOrder}/materials/{reservation}/consume:
     post:
       operationId: consumeReservedMaterial

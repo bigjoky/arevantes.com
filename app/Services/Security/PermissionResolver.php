@@ -75,7 +75,7 @@ class PermissionResolver
             return true;
         }
         $technician = ['view-installations', 'sync-installations', 'use-ai', 'manage-operations', 'view-purchases', 'receive-purchases', 'view-analytics', 'view-analytics-operations'];
-        $commercial = ['manage-customers', 'manage-quotes', 'view-installations', 'manage-installations', 'use-ai', 'manage-operations', 'manage-catalog', 'view-finance', 'manage-treasury', 'manage-accounting', 'view-purchases', 'manage-purchases', 'receive-purchases', 'approve-purchase-invoices', 'view-analytics', 'view-analytics-sales'];
+        $commercial = ['record-commercial-field', 'manage-customers', 'manage-quotes', 'view-installations', 'manage-installations', 'use-ai', 'manage-operations', 'manage-catalog', 'view-finance', 'manage-treasury', 'manage-accounting', 'view-purchases', 'manage-purchases', 'receive-purchases', 'approve-purchase-invoices', 'view-analytics', 'view-analytics-sales'];
 
         return in_array($permission, $user->hasRole('technician') ? $technician : $commercial, true);
     }
