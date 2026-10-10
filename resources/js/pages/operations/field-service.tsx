@@ -40,7 +40,12 @@ type Template = {
     estimated_duration_minutes: number;
     required_skills: string[];
     checklist: { label: string; is_required: boolean }[];
-    required_evidence: { key: string; label: string; kind: string; min_count: number }[];
+    required_evidence: {
+        key: string;
+        label: string;
+        kind: string;
+        min_count: number;
+    }[];
     handover_documents: { key: string; label: string }[];
     is_system: boolean;
     is_active: boolean;
@@ -110,9 +115,18 @@ export default function FieldServiceSettings({
                                         </Badge>
                                     </div>
                                     <div className="text-muted-foreground">
-                                        {template.service_type ? serviceLabels[template.service_type] : 'All business lines'} · {template.kind} ·{' '}
+                                        {template.service_type
+                                            ? serviceLabels[
+                                                  template.service_type
+                                              ]
+                                            : 'All business lines'}{' '}
+                                        · {template.kind} ·{' '}
                                         {template.estimated_duration_minutes}{' '}
-                                        min · {template.checklist.length} checks · {template.required_evidence?.length ?? 0} evidence
+                                        min · {template.checklist.length} checks
+                                        ·{' '}
+                                        {template.required_evidence?.length ??
+                                            0}{' '}
+                                        evidence
                                     </div>
                                     {template.required_skills.length > 0 && (
                                         <div className="mt-1">
@@ -237,8 +251,12 @@ function TemplateForm() {
     const [transitions, setTransitions] = useState(
         'planned: in_progress, blocked, cancelled\nin_progress: blocked, completed, cancelled\nblocked: planned, in_progress, cancelled\ncompleted:\ncancelled: planned',
     );
-    const [evidence, setEvidence] = useState('overview|General overview\nresult|Final result');
-    const [handover, setHandover] = useState('completion_report|Completion report');
+    const [evidence, setEvidence] = useState(
+        'overview|General overview\nresult|Final result',
+    );
+    const [handover, setHandover] = useState(
+        'completion_report|Completion report',
+    );
 
     return (
         <Card>
@@ -256,10 +274,24 @@ function TemplateForm() {
                             <Field label="Template name" name="name" />
                             <div className="grid gap-2">
                                 <Label>Business line</Label>
-                                <Select name="service_type" defaultValue="solar">
-                                    <SelectTrigger><SelectValue /></SelectTrigger>
+                                <Select
+                                    name="service_type"
+                                    defaultValue="solar"
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue />
+                                    </SelectTrigger>
                                     <SelectContent>
-                                        {Object.entries(serviceLabels).map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}
+                                        {Object.entries(serviceLabels).map(
+                                            ([value, label]) => (
+                                                <SelectItem
+                                                    key={value}
+                                                    value={value}
+                                                >
+                                                    {label}
+                                                </SelectItem>
+                                            ),
+                                        )}
                                     </SelectContent>
                                 </Select>
                             </div>
@@ -305,8 +337,19 @@ function TemplateForm() {
                                 onChange={setSkills}
                                 name="required_skills"
                             />
-                            <StructuredList label="Required evidence (key|label)" value={evidence} onChange={setEvidence} name="required_evidence" evidence />
-                            <StructuredList label="Handover documents (key|label)" value={handover} onChange={setHandover} name="handover_documents" />
+                            <StructuredList
+                                label="Required evidence (key|label)"
+                                value={evidence}
+                                onChange={setEvidence}
+                                name="required_evidence"
+                                evidence
+                            />
+                            <StructuredList
+                                label="Handover documents (key|label)"
+                                value={handover}
+                                onChange={setHandover}
+                                name="handover_documents"
+                            />
                             <div className="grid gap-2">
                                 <Label>Checklist (one item per line)</Label>
                                 <textarea
@@ -367,18 +410,61 @@ function TemplateForm() {
     );
 }
 
-function StructuredList({ label, value, onChange, name, evidence = false }: { label: string; value: string; onChange: (value: string) => void; name: string; evidence?: boolean }) {
-    const items = lines(value).map((line) => line.split('|', 2).map((part) => part.trim())).filter(([key, text]) => key && text);
+function StructuredList({
+    label,
+    value,
+    onChange,
+    name,
+    evidence = false,
+}: {
+    label: string;
+    value: string;
+    onChange: (value: string) => void;
+    name: string;
+    evidence?: boolean;
+}) {
+    const items = lines(value)
+        .map((line) => line.split('|', 2).map((part) => part.trim()))
+        .filter(([key, text]) => key && text);
 
-    return <div className="grid gap-2">
-        <Label>{label}</Label>
-        <textarea value={value} onChange={(event) => onChange(event.target.value)} className="min-h-24 rounded-md border bg-transparent p-3 text-sm" />
-        {items.map(([key, text], index) => <span key={`${key}-${index}`}>
-            <input type="hidden" name={`${name}[${index}][key]`} value={key} />
-            <input type="hidden" name={`${name}[${index}][label]`} value={text} />
-            {evidence && <><input type="hidden" name={`${name}[${index}][kind]`} value="photo" /><input type="hidden" name={`${name}[${index}][min_count]`} value="1" /></>}
-        </span>)}
-    </div>;
+    return (
+        <div className="grid gap-2">
+            <Label>{label}</Label>
+            <textarea
+                value={value}
+                onChange={(event) => onChange(event.target.value)}
+                className="min-h-24 rounded-md border bg-transparent p-3 text-sm"
+            />
+            {items.map(([key, text], index) => (
+                <span key={`${key}-${index}`}>
+                    <input
+                        type="hidden"
+                        name={`${name}[${index}][key]`}
+                        value={key}
+                    />
+                    <input
+                        type="hidden"
+                        name={`${name}[${index}][label]`}
+                        value={text}
+                    />
+                    {evidence && (
+                        <>
+                            <input
+                                type="hidden"
+                                name={`${name}[${index}][kind]`}
+                                value="photo"
+                            />
+                            <input
+                                type="hidden"
+                                name={`${name}[${index}][min_count]`}
+                                value="1"
+                            />
+                        </>
+                    )}
+                </span>
+            ))}
+        </div>
+    );
 }
 
 function TextList({
