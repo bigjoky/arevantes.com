@@ -234,6 +234,7 @@ export default function PurchaseShow({
     warehouses,
     matchDetails,
     orderSummary,
+    canEditOrder,
     creditSummary,
     creditedAmount,
     creditableShipping,
@@ -249,6 +250,7 @@ export default function PurchaseShow({
         lines: OrderProgress[];
         shipping: ShippingProgress;
     } | null;
+    canEditOrder: boolean;
     creditSummary: CreditProgress[];
     creditedAmount: number;
     creditableShipping: number;
@@ -333,6 +335,13 @@ export default function PurchaseShow({
                         </p>
                     </div>
                     <div className="flex flex-wrap gap-2">
+                        {canEditOrder && abilities.managePurchases && (
+                            <Button asChild variant="outline">
+                                <Link href={`/purchases/${document.id}/edit`}>
+                                    Editar orden de compra
+                                </Link>
+                            </Button>
+                        )}
                         {['purchase_rfq', 'purchase_order'].includes(
                             document.type,
                         ) && (

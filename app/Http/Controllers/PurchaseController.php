@@ -17,6 +17,7 @@ use App\Services\Documents\DocumentNumber;
 use App\Services\Documents\PurchaseInvoiceMatcher;
 use App\Services\Documents\PurchaseOrderApprovalWorkflow;
 use App\Services\Documents\PurchaseOrderConversion;
+use App\Services\Documents\PurchaseOrderEditor;
 use App\Services\Documents\PurchaseWorkflow;
 use App\Services\Documents\SupplierInvoiceExtraction;
 use App\Services\Inventory\ProjectMaterialAllocator;
@@ -92,6 +93,7 @@ class PurchaseController extends Controller
         $purchaseDocument->payments->each(fn ($payment) => $payment->setAttribute('source_label', $payment->sourceLabel()));
 
         return Inertia::render('purchases/show', [
+            'canEditOrder' => app(PurchaseOrderEditor::class)->eligible($purchaseDocument),
             'document' => $purchaseDocument,
             'supplierIdentity' => $purchaseDocument->supplierIdentity(),
             'matchDetails' => $purchaseDocument->type === 'supplier_invoice' ? $matcher->details($purchaseDocument) : [],
@@ -123,6 +125,30 @@ class PurchaseController extends Controller
         });
 
         return to_route('purchases.show', $document)->with('toast', ['type' => 'success', 'message' => __('Purchase document created.')]);
+    }
+
+    public function edit(PurchaseDocument $purchaseDocument, PurchaseOrderEditor $editor): Response
+    {
+        abort_unless($editor->eligible($purchaseDocument), 422, __('Only direct purchase orders without receipts, invoices or payments can be edited.'));
+
+        return Inertia::render('purchases/edit', [
+            'shippingTaxPercent' => (float) PurchaseSetting::current()->shipping_tax_percent,
+            'document' => $purchaseDocument->load('lines'), 'revision' => $editor->revision($purchaseDocument),
+            'suppliers' => Supplier::where('is_active', true)->orderBy('legal_name')->get(['id', 'legal_name', 'trade_name']),
+            'products' => Product::where('is_active', true)->with('taxRate:id,rate')->orderBy('name')->get(['id', 'name', 'sku', 'cost_price', 'tax_rate_id']),
+        ]);
+    }
+
+    public function update(Request $request, PurchaseDocument $purchaseDocument, PurchaseOrderEditor $editor): RedirectResponse
+    {
+        $request->validate(['revision' => ['required', 'string', 'size:64'], 'reason' => ['required', 'string', 'min:5', 'max:2000']]);
+        $data = $this->validateDocument($request);
+        abort_unless($data['type'] === 'purchase_order', 422);
+        $data['lines'] = array_map(fn ($line) => collect($line)->only(['product_id', 'description', 'quantity', 'unit_price', 'discount_percent', 'tax_percent'])->all(), $data['lines']);
+        $request->validate(['lines.*.quantity' => ['decimal:0,3'], 'lines.*.unit_price' => ['decimal:0,2'], 'lines.*.discount_percent' => ['decimal:0,2'], 'lines.*.tax_percent' => ['decimal:0,2'], 'shipping_cost' => ['nullable', 'decimal:0,2']]);
+        $editor->update($purchaseDocument, $data, $this->calculate($data['lines'], (float) ($data['shipping_cost'] ?? 0)), $request->string('revision')->toString(), $request->string('reason')->toString(), $request->user()->id);
+
+        return to_route('purchases.show', $purchaseDocument)->with('toast', ['type' => 'success', 'message' => __('Purchase order updated.')]);
     }
 
     public function convert(PurchaseDocument $purchaseDocument, PurchaseOrderConversion $conversion): RedirectResponse
