@@ -1366,5 +1366,9 @@
     "The milestones cannot exceed the proposal total.": "Los hitos no pueden superar el importe total de la propuesta.",
     "The milestone amount cannot be less than its registered payments.": "El importe del hito no puede ser inferior a los cobros registrados.",
     "Payment milestone updated.": "Hito de cobro actualizado.",
-    "Payment milestone for quote :number. Use :reference as the bank transfer reference.": "Hito de cobro de la propuesta :number. Usa :reference como referencia de la transferencia."
+    "Payment milestone for quote :number. Use :reference as the bank transfer reference.": "Hito de cobro de la propuesta :number. Usa :reference como referencia de la transferencia.",
+    "Only direct purchase orders without receipts, invoices or payments can be edited.": "Solo se pueden editar pedidos directos sin recepciones, facturas ni pagos.",
+    "The purchase order changed. Reload it before editing.": "El pedido ha cambiado. Vuelve a cargarlo antes de editar.",
+    "Cancelled because the purchase order was edited.": "Cancelada porque se ha editado el pedido de compra.",
+    "Purchase order updated.": "Pedido de compra actualizado."
 }

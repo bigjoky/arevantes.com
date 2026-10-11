@@ -433,6 +433,8 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('supplier-payments/{payment}', [ExpenseController::class, 'destroyPayment'])->middleware('can:manage-purchase-payments')->name('supplier-payments.destroy');
     Route::post('expenses/{expense}/payments/{payment}/cancel', [ExpenseController::class, 'cancelPayment'])->middleware('can:manage-purchase-payments')->name('expenses.payments.cancel');
     Route::post('purchases', [PurchaseController::class, 'store'])->middleware('can:manage-purchases')->name('purchases.store');
+    Route::get('purchases/{purchaseDocument}/edit', [PurchaseController::class, 'edit'])->middleware('can:manage-purchases')->name('purchases.edit');
+    Route::put('purchases/{purchaseDocument}', [PurchaseController::class, 'update'])->middleware('can:manage-purchases')->name('purchases.update');
     Route::get('purchases/{purchaseDocument}', [PurchaseController::class, 'show'])->middleware('can:view-purchases')->name('purchases.show');
     Route::patch('purchases/{purchaseDocument}/dates', [PurchaseController::class, 'correctDates'])->middleware('can:manage-purchases')->name('purchases.dates.update');
     Route::post('purchases/{purchaseDocument}/convert', [PurchaseController::class, 'convert'])->middleware('can:manage-purchases')->name('purchases.convert');
