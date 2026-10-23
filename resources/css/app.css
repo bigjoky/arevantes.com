@@ -1120,7 +1120,16 @@
     background: #003c32;
     color: white;
 }
+/* The generic sidebar rule is relative; a portalled modal must remain fixed. */
 [data-sidebar='sidebar'][data-mobile='true'] {
+    position: fixed;
+    top: 0;
+    bottom: auto;
+    height: 100vh;
+    height: 100dvh;
+    max-width: 88vw;
+    gap: 0;
+    background: linear-gradient(145deg, #003c32, #001f1a);
     padding-top: env(safe-area-inset-top);
     padding-bottom: env(safe-area-inset-bottom);
     max-height: 100dvh;
@@ -4159,3 +4168,52 @@
         flex-wrap: wrap;
     }
 }
+
+/* Mobile-only navigation: Radix owns modal focus, dismissal and scroll lock. */
+.mobile-navigation-panel > div.flex {
+    min-height: 0;
+}
+.mobile-navigation-panel [data-sidebar='header'] {
+    flex-shrink: 0;
+    padding-right: 60px;
+}
+.mobile-navigation-panel > button {
+    top: calc(12px + env(safe-area-inset-top));
+    right: 12px;
+    display: flex;
+    width: 44px;
+    height: 44px;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    opacity: 1;
+}
+.mobile-navigation-panel .sidebar-monogram { display: none; }
+.mobile-navigation-panel [data-sidebar='content'] {
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+}
+.mobile-navigation-panel [data-sidebar='footer'] { flex-shrink: 0; }
+.mobile-navigation-panel [data-sidebar='menu-button']:not(.sidebar-brand),
+.mobile-navigation-panel [data-sidebar='menu-sub-button'] { min-height: 44px; }
+.mobile-navigation-panel [data-sidebar='menu-action'] {
+    width: 44px !important;
+    height: 44px !important;
+}
+.mobile-navigation-panel[data-state] { animation-duration: 180ms; }
+@media (prefers-reduced-motion: reduce) {
+    .mobile-navigation-panel[data-state],
+    [data-slot='sheet-overlay'][data-state] { animation: none; transition: none; }
+}
+.mobile-navigation-panel .sidebar-wordmark {
+    font-size: 21px;
+    font-weight: 400;
+    letter-spacing: 0.14em;
+}
+.mobile-navigation-panel [data-sidebar='menu-action'] { color: #e4f0eb; }
+.mobile-navigation-panel [data-sidebar='menu-button'][data-active='true'],
+.mobile-navigation-panel [data-sidebar='menu-sub-button'][data-active='true'] {
+    background: #075844;
+}
+.mobile-navigation-panel .sidebar-company > svg:first-child { display: block; }
