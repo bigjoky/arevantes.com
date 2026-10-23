@@ -13,6 +13,7 @@ export function FavoritesBar() {
     const path = page.url.split('?')[0].split('#')[0];
     const current = page.props.auth.navigation
         .flatMap((item) => item.children ?? [item])
+        .flatMap((item) => [item, ...(item.links ?? [])])
         .find((item) => item.href === path);
     const favorite = favorites.some((item) => item.href === path);
     const label = translate(

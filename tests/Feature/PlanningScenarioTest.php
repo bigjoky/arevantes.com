@@ -110,7 +110,7 @@ class PlanningScenarioTest extends TestCase
                 ->has('forecastItems', 2)
                 ->where('forecastItems.0.planning_scenario_request_id', $financeRequest->id)
                 ->where('planningRequestId', $financeRequest->id));
-        $this->get(route('operations.index', ['planning_request' => $operationsRequest->id, 'status' => 'all', 'view' => 'today']))
+        $this->get(route('operations.activities', ['planning_request' => $operationsRequest->id, 'status' => 'all', 'view' => 'today']))
             ->assertInertia(fn (Assert $page) => $page
                 ->where('activities.total', 1)
                 ->where('activities.data.0.id', $activity->id)

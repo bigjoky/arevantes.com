@@ -28,7 +28,7 @@ class SalesStockAllocator
         $own = $this->activeReservations($order)->groupBy('product_id')->map->sum('remaining');
         $allReserved = StockReservation::query()->where('status', 'active')->get()
             ->groupBy('product_id')->map(fn ($rows) => $rows->sum(fn ($row) => (float) $row->quantity - (float) $row->consumed_quantity));
-        $onHand = StockMovementLine::query()->selectRaw('product_id, sum(quantity) as quantity')->groupBy('product_id')->pluck('quantity', 'product_id');
+        $onHand = StockMovementLine::query()->whereHas('warehouse', fn ($q) => $q->where('is_usable', true))->selectRaw('product_id, sum(quantity) as quantity')->groupBy('product_id')->pluck('quantity', 'product_id');
         $inbound = $this->inboundQuantities($order);
 
         $lines = $requirements->map(function (float $required, int $productId) use ($order, $own, $allReserved, $onHand, $inbound): array {
@@ -64,6 +64,8 @@ class SalesStockAllocator
 
     public function reserve(SalesDocument $order, Warehouse $warehouse, ?string $reservedUntil = null): int
     {
+        abort_unless($warehouse->is_usable, 422);
+
         return DB::transaction(function () use ($order, $warehouse, $reservedUntil): int {
             $order = SalesDocument::lockForUpdate()->with(['lines.product', 'installation'])->findOrFail($order->id);
             abort_unless($order->type === 'order', 422, __('Only sales orders can reserve stock.'));

@@ -7,6 +7,7 @@ use App\Models\HrEmploymentProfile;
 use App\Models\Person;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -34,7 +35,7 @@ class HrEmploymentController extends Controller
             'employees' => $staff->map(fn (Person $person) => [
                 'id' => $person->id,
                 'name' => $this->displayName($person),
-                'email' => $person->email,
+                'email' => Gate::allows('view-sensitive-hr') ? $person->email : null,
                 'staffRole' => $person->staff_role,
                 'employment' => $person->employmentProfile ? [
                     'employeeNumber' => $person->employmentProfile->employee_number,

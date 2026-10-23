@@ -264,8 +264,8 @@ class FinanceTest extends TestCase
         $user = User::factory()->create(['role' => 'commercial']);
 
         $this->actingAs($user)->get(route('finance.index'))->assertOk()->assertInertia(fn (Assert $page) => $page
-            ->component('finance/index')
-            ->where('year', now()->year));
+            ->component('finance/workspace')
+            ->where('capabilities.availableBalance', false));
     }
 
     public function test_budget_forecast_and_ledger_use_the_common_financial_taxonomy(): void
@@ -920,7 +920,7 @@ class FinanceTest extends TestCase
         $batch = PaymentBatch::firstOrFail();
         $this->assertSame('PAY-'.now()->year.'-00001', $batch->number);
         $this->assertSame('121.00', $batch->items()->firstOrFail()->amount);
-        $this->get(route('finance.index'))->assertOk()->assertInertia(fn (Assert $page) => $page
+        $this->get(route('finance.index', ['view' => 'manage']))->assertOk()->assertInertia(fn (Assert $page) => $page
             ->where('payables.0.payment_batch.number', $batch->number)
             ->where('paymentBatches.0.item_count', 1)
             ->where('paymentBatches.0.items.0.number', 'SUP-100')

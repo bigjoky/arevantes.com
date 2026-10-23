@@ -7,8 +7,10 @@ use App\Models\Permission;
 use App\Models\PermissionProfile;
 use App\Models\Person;
 use App\Models\User;
+use App\Support\WorkspaceNavigation;
 use App\Support\WorkspaceShortcuts;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
@@ -74,13 +76,8 @@ class WorkspaceNavigationAuthorizationTest extends TestCase
                 ->where('auth.abilities.manageInstallations', false)
                 ->where('auth.abilities.useAi', false)
                 ->where('auth.navigation', function (Collection $navigation): bool {
-                    $items = $navigation->keyBy('title');
-
-                    return $items->keys()->all() === ['Dashboard', 'My HR', 'Engineering', 'Projects']
-                        && $items['Engineering']['code'] === 'ENG'
-                        && collect($items['Engineering']['children'])->pluck('title')->all() === ['Technical dossiers']
-                        && $items['Projects']['code'] === 'PRJ'
-                        && collect($items['Projects']['children'])->pluck('title')->all() === ['Installations'];
+                    return $navigation->pluck('id')->all() === ['home', 'projects', 'company']
+                        && collect($navigation->firstWhere('id', 'projects')['children'])->pluck('id')->all() === ['projects.projects', 'projects.installations'];
                 }));
     }
 
@@ -129,14 +126,7 @@ class WorkspaceNavigationAuthorizationTest extends TestCase
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->where('auth.navigation', function (Collection $navigation): bool {
-                    $areas = $navigation->filter(fn (mixed $item): bool => isset($item['code']))->keyBy('code');
-
-                    return $areas->keys()->all() === ['PTY', 'CRM', 'SAL', 'ENG', 'PRJ', 'PLN', 'INV', 'BI']
-                        && collect($areas['PTY']['children'])->pluck('title')->all() === ['Customers', 'Suppliers']
-                        && collect($areas['SAL']['children'])->pluck('title')->all() === ['Proposals', 'Sales documents']
-                        && collect($areas['PRJ']['children'])->pluck('title')->all() === ['Installations']
-                        && collect($areas['PLN']['children'])->pluck('title')->all() === ['Planning requests']
-                        && collect($areas['INV']['children'])->pluck('title')->all() === ['Products & services', 'Stock', 'Reservations', 'Movements', 'Warehouses', 'Configuration', 'Stock counts'];
+                    return $navigation->pluck('id')->all() === ['home', 'commercial', 'projects', 'operations', 'supply', 'billing', 'company'];
                 }));
     }
 
@@ -167,13 +157,8 @@ class WorkspaceNavigationAuthorizationTest extends TestCase
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->where('auth.navigation', function (Collection $navigation): bool {
-                    $areas = $navigation->filter(fn (mixed $item): bool => isset($item['code']))->keyBy('code');
-
-                    return $areas->keys()->all() === ['PLN', 'OPS', 'AST', 'MNT', 'BI', 'QMS', 'CS', 'CTR']
-                        && collect($areas['AST']['children'])->pluck('title')->all() === ['Installed equipment']
-                        && collect($areas['MNT']['children'])->pluck('title')->all() === ['Preventive & corrective']
-                        && $areas['QMS']['children'][0]['href'] === '/quality/service'
-                        && collect($areas['CTR']['children'])->pluck('title')->all() === ['Recurring services'];
+                    return $navigation->pluck('id')->all() === ['home', 'projects', 'operations', 'company']
+                        && collect($navigation->firstWhere('id', 'operations')['children'])->pluck('id')->all() === ['operations.planning', 'operations.work-orders', 'operations.agenda'];
                 }));
     }
 
@@ -206,6 +191,57 @@ class WorkspaceNavigationAuthorizationTest extends TestCase
                 ->where('agenda', []));
 
         $this->getJson(route('dashboard.installation-map'))->assertForbidden();
+    }
+
+    public function test_canonical_modules_and_all_sections_are_authorized_real_entry_points(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+        $navigation = app(WorkspaceNavigation::class)->for($user);
+        $this->assertSame(['home', 'commercial', 'projects', 'operations', 'supply', 'billing', 'accounting', 'finance', 'tax', 'company'], array_column($navigation, 'id'));
+        $commercial = collect($navigation)->firstWhere('id', 'commercial');
+        $this->assertSame('/commercial', $commercial['href']);
+        $this->assertTrue($commercial['navigable']);
+        $this->assertCount(8, array_filter($navigation, fn ($module) => $module['navigable'] ?? false));
+        $expected = [
+            'commercial' => ['crm', 'customers', 'quotes'], 'projects' => ['projects', 'installations', 'after-sales'],
+            'operations' => ['planning', 'work-orders', 'agenda'], 'supply' => ['products', 'inventory', 'suppliers', 'purchases'],
+            'billing' => ['customers', 'suppliers', 'payments'], 'accounting' => ['overview', 'entries', 'accounts', 'reports', 'books'],
+            'finance' => ['treasury', 'banking', 'forecasts'], 'tax' => ['taxes', 'models', 'periods'], 'company' => ['staff', 'documents', 'settings'],
+        ];
+        foreach ($navigation as $module) {
+            if (! isset($module['children'])) {
+                continue;
+            }
+            $this->assertSame(array_map(fn ($id) => $module['id'].'.'.$id, $expected[$module['id']]), array_column($module['children'], 'id'));
+            foreach ($module['children'] as $section) {
+                $id = substr($section['id'], strlen($module['id']) + 1);
+                $this->get(route('workspace.module', ['module' => $module['id'], 'section' => $id]))->assertOk()
+                    ->assertInertia(fn (Assert $page) => $section['id'] === 'accounting.books' ? $page->component('accounting/workspace')->where('area', 'books') : $page->component('workspace/module')->where('section.id', $section['id']));
+                foreach ($section['links'] as $link) {
+                    $route = app('router')->getRoutes()->match(Request::create($link['href'], 'GET'));
+                    $this->assertNotNull($route->getName(), $link['href']);
+                }
+            }
+        }
+    }
+
+    public function test_reports_and_tools_stay_internal_and_missing_books_are_explicit(): void
+    {
+        $user = User::factory()->create();
+        $navigation = collect(app(WorkspaceNavigation::class)->for($user));
+        $accounting = $navigation->firstWhere('id', 'accounting');
+        $this->assertCount(5, $accounting['children']);
+        $reports = collect($accounting['children'])->firstWhere('id', 'accounting.reports');
+        $this->assertCount(6, $reports['links']);
+        $this->assertStringContainsString('view=ledger', collect($reports['links'])->first(fn ($link) => str_contains($link['href'], 'view=ledger'))['href']);
+        $books = collect($accounting['children'])->firstWhere('id', 'accounting.books');
+        $this->assertSame([], $books['links']);
+        $this->assertNotEmpty($books['pending']);
+        $this->actingAs($this->userWithPermissions(['view-installations']))
+            ->get('/workspace/modules/accounting/reports')->assertForbidden();
+        $this->get('/workspace/modules/company/settings')->assertForbidden();
+        $this->get('/workspace/modules/projects/nonexistent')->assertForbidden();
     }
 
     /** @param array<int, string> $permissionKeys */

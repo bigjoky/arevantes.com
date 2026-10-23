@@ -24,39 +24,7 @@ class InstallationController extends Controller
      */
     public function index(Request $request): Response
     {
-        $filters = $request->validate([
-            'search' => ['nullable', 'string', 'max:255'],
-            'service_type' => ['nullable', Rule::in(BusinessLineCatalog::INSTALLATION_TYPES)],
-            'status' => ['nullable', Rule::in(['lead', 'survey_booked', 'quoted', 'approved', 'scheduled', 'in_progress', 'completed', 'cancelled'])],
-        ]);
-
-        $installations = Installation::query()
-            ->with(['customer:id,first_name,last_name,company_name', 'people:id,first_name,last_name,company_name,email,phone', 'remoteStation'])
-            ->when($filters['search'] ?? null, function ($query, string $search): void {
-                $query->where(function ($query) use ($search): void {
-                    $query
-                        ->where('project_reference', 'like', "%{$search}%")
-                        ->orWhere('site_name', 'like', "%{$search}%")
-                        ->orWhere('site_address_line_1', 'like', "%{$search}%")
-                        ->orWhereHas('customer', fn ($query) => $query
-                            ->where('first_name', 'like', "%{$search}%")
-                            ->orWhere('last_name', 'like', "%{$search}%")
-                            ->orWhere('company_name', 'like', "%{$search}%"))
-                        ->orWhereHas('people', fn ($query) => $query
-                            ->where('first_name', 'like', "%{$search}%")
-                            ->orWhere('last_name', 'like', "%{$search}%")
-                            ->orWhere('company_name', 'like', "%{$search}%"));
-                });
-            })
-            ->when($filters['service_type'] ?? null, fn ($query, string $serviceType) => $query->where('service_type', $serviceType))
-            ->when($filters['status'] ?? null, fn ($query, string $status) => $query->where('status', $status))
-            ->latest()
-            ->get();
-
-        return Inertia::render('installations/index', [
-            'installations' => $installations->map(fn (Installation $installation) => $this->installationPayload($installation)),
-            'filters' => $filters,
-        ]);
+        return Inertia::render('installations/index', app(\App\Services\Projects\ProjectWorkspace::class)->listing($request, false));
     }
 
     /**
@@ -97,6 +65,11 @@ class InstallationController extends Controller
      */
     public function show(Request $request, Installation $installation, ProjectProfitability $profitability): Response
     {
+        if ($request->query('tab') !== 'manage') {
+            $workspace = app(\App\Services\Projects\ProjectWorkspace::class)->detail($request, $installation, false);
+
+            return Inertia::render('installations/show', ['workspace' => $workspace, 'installation' => $workspace['installation']]);
+        }
         $installation->load(['customer', 'people', 'remoteStation', 'assets.product:id,name,sku', 'assets.serial:id,serial_number', 'assets.sourcePurchase:id,number', 'assets.replacement:id,asset_tag,name', 'assets.events', 'assets.rmas.workOrder:id,number,title', 'assets.rmas.serviceTicket:id,number,title']);
 
         return Inertia::render('installations/show', [
@@ -110,7 +83,7 @@ class InstallationController extends Controller
             ]),
             'monitoringAlerts' => $installation->monitoringAlerts()->latest('started_at')->limit(20)->get(),
             'activities' => $installation->activities()->with('assignedUser:id,name')->latest()->limit(20)->get(),
-            'quotes' => $installation->quotes()->latest()->get(),
+            'quotes' => $request->user()->can('manage-quotes') ? $installation->quotes()->latest()->limit(15)->get() : [],
             'assets' => $installation->assets,
             'assetOptions' => [
                 'serials' => SerialNumber::with('product:id,name,sku')->where('installation_id', $installation->id)->whereDoesntHave('installationAsset')->get(),
@@ -486,7 +459,7 @@ class InstallationController extends Controller
             'survey_date' => $installation->survey_date?->toDateString(),
             'scheduled_date' => $installation->scheduled_date?->toDateString(),
             'completed_date' => $installation->completed_date?->toDateString(),
-            'estimated_budget' => $installation->estimated_budget,
+            'estimated_budget' => request()->user()->can('view-finance') ? $installation->estimated_budget : null,
             'system_power_kw' => $installation->system_power_kw,
             'panel_count' => $installation->panel_count,
             'inverter_brand' => $installation->inverter_brand,

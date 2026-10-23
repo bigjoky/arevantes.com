@@ -1,0 +1,356 @@
+.accounting-workspace {
+    --accounting-green: #00865e;
+    --background: #fafaf7;
+    --foreground: #102b3e;
+    --primary: #00865e;
+    --primary-foreground: #ffffff;
+    --card: #ffffff;
+    --card-foreground: #102b3e;
+    --border: #e5eaea;
+    --input: #dfe7e5;
+    --accent: #eef7f2;
+    --accent-foreground: #003f2d;
+    --muted-foreground: #647b92;
+    color: #102b3e;
+    background: #fafaf7;
+}
+.accounting-workspace .billing-panel {
+    border-radius: 7px;
+    box-shadow: 0 1px 3px #12322a05;
+}
+.accounting-workspace .billing-panel [data-slot='card-content'] {
+    padding: 14px;
+}
+.accounting-workspace .billing-panel [data-slot='card-title'] {
+    font-size: 14px;
+}
+.accounting-kpis {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+}
+.accounting-kpi {
+    position: relative;
+    min-height: 110px;
+    padding-left: 52px;
+}
+.accounting-kpi svg {
+    position: absolute;
+    left: 15px;
+    top: 24px;
+    color: #00865e;
+    background: #e6f8ef;
+    padding: 10px;
+    width: 44px;
+    height: 44px;
+    border-radius: 8px;
+}
+.accounting-kpi strong {
+    display: block;
+    font-size: 23px;
+    letter-spacing: -0.5px;
+}
+.accounting-kpi small {
+    display: block;
+    color: #688078;
+    font-size: 11px;
+    margin-top: 6px;
+}
+.accounting-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+.accounting-bottom {
+    grid-template-columns: minmax(230px, 1fr) minmax(0, 2fr);
+}
+.accounting-chart {
+    height: 255px;
+    width: 100%;
+    font-size: 11px;
+}
+.accounting-workspace table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+}
+.accounting-workspace th {
+    text-align: left;
+    font-size: 10px;
+    text-transform: uppercase;
+    font-weight: 500;
+    background: #f6f7f7;
+    color: #63798d;
+}
+.accounting-workspace td,
+.accounting-workspace th {
+    padding: 10px 8px;
+    border-bottom: 1px solid #edf0f0;
+}
+.accounting-workspace td a {
+    color: #345e88;
+}
+.accounting-workspace td:nth-last-child(2) {
+    white-space: nowrap;
+}
+.accounting-workspace tfoot {
+    background: #eaf6ef;
+}
+.accounting-table {
+    overflow: auto;
+    max-width: 100%;
+}
+.accounting-table table {
+    min-width: 730px;
+}
+.accounting-filters {
+    display: flex;
+    align-items: end;
+    gap: 10px;
+    flex-wrap: wrap;
+    background: white;
+    border: 1px solid #e4e9e9;
+    border-radius: 6px;
+    padding: 12px;
+}
+.accounting-filters label {
+    display: grid;
+    gap: 5px;
+    font-size: 10px;
+    color: #6b8095;
+    min-width: 95px;
+    flex: 1;
+}
+.accounting-filters label:first-of-type {
+    flex: 2;
+    min-width: 180px;
+}
+.accounting-workspace select {
+    border: 1px solid #e0e6e9;
+    background: white;
+    border-radius: 5px;
+    padding: 8px;
+    font-size: 12px;
+    height: 36px;
+    max-width: 100%;
+}
+.accounting-year {
+    font-size: 11px;
+    color: #688078;
+    max-width: 110px;
+    display: grid;
+    gap: 4px;
+}
+.accounting-state {
+    background: #e0f5e9;
+    color: #007857;
+    border-radius: 4px;
+    padding: 3px 7px;
+    white-space: nowrap;
+    font-size: 11px;
+}
+.accounting-state.draft {
+    background: #e7effb;
+    color: #245ca3;
+}
+.accounting-state.posted {
+    background: #dff5e8;
+}
+.accounting-notice {
+    font-size: 12px;
+    color: #597382;
+    padding: 12px;
+    border: 1px solid #e3ebe8;
+    border-radius: 6px;
+    background: #f6fbf8;
+}
+.accounting-alert {
+    border: 1px solid #f5b4b4;
+    background: #fff2f2;
+    color: #9a2222;
+    padding: 12px;
+    border-radius: 6px;
+}
+.accounting-muted {
+    color: #728394;
+    font-size: 12px;
+}
+.accounting-line {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    font-size: 11px;
+    padding-top: 7px;
+    white-space: normal;
+}
+.accounting-workspace nav a {
+    font-size: 12px;
+    padding: 10px 14px;
+    color: #647b92;
+}
+.accounting-workspace nav a.active {
+    color: #00865e;
+    border-bottom: 2px solid #00865e;
+}
+.accounting-report-actions {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: center;
+    font-size: 12px;
+    color: #647b92;
+}
+.accounting-books {
+    display: grid;
+    gap: 12px;
+}
+.accounting-book {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+}
+.accounting-book > svg {
+    width: 42px;
+    height: 42px;
+    color: #00865e;
+    background: #e8f8f0;
+    padding: 9px;
+    border-radius: 8px;
+    flex-shrink: 0;
+}
+.accounting-book p {
+    flex: 1;
+    font-size: 13px;
+}
+.accounting-mobile-list {
+    display: none;
+}
+.accounting-entry-form {
+    display: grid;
+    gap: 12px;
+}
+.accounting-draft-line {
+    display: grid;
+    grid-template-columns: 2fr 2fr 1fr 1fr auto;
+    gap: 8px;
+}
+.accounting-history {
+    display: grid;
+    gap: 8px;
+    font-size: 12px;
+}
+.accounting-details {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 20px;
+    font-size: 13px;
+}
+.accounting-details dt {
+    color: #6b8095;
+    font-size: 11px;
+    margin-bottom: 5px;
+}
+.accounting-workspace :focus-visible {
+    outline: 2px solid #00865e;
+    outline-offset: 3px;
+}
+@media (max-width: 1100px) {
+    .accounting-kpis {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .accounting-grid {
+        grid-template-columns: 1fr;
+    }
+    .accounting-draft-line {
+        grid-template-columns: 1fr 1fr;
+    }
+    .accounting-kpi strong {
+        font-size: 21px;
+    }
+}
+@media (max-width: 600px) {
+    .accounting-kpis {
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+    }
+    .accounting-kpi {
+        padding-left: 0;
+    }
+    .accounting-kpi svg {
+        display: none;
+    }
+    .accounting-kpi strong {
+        font-size: 18px;
+    }
+    .accounting-workspace .billing-panel [data-slot='card-content'] {
+        padding: 10px;
+    }
+    .accounting-table:not(.accounting-always-table) {
+        display: none;
+    }
+    .accounting-mobile-list {
+        display: grid;
+        gap: 8px;
+    }
+    .accounting-mobile-row {
+        display: grid;
+        gap: 7px;
+        border: 1px solid #e5eaea;
+        border-radius: 6px;
+        padding: 12px;
+        font-size: 12px;
+    }
+    .accounting-mobile-row > span:last-child {
+        display: flex;
+        justify-content: space-between;
+    }
+    .accounting-book {
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+    .accounting-book p {
+        flex-basis: 70%;
+    }
+    .accounting-details {
+        grid-template-columns: 1fr 1fr;
+    }
+    .accounting-report-actions {
+        align-items: start;
+        flex-direction: column;
+    }
+    .accounting-filters label {
+        min-width: 115px;
+    }
+    .accounting-chart {
+        height: 210px;
+    }
+}
+.accounting-workspace .shell-page-description,
+.accounting-workspace .shell-page-header [data-slot='breadcrumb-page'],
+.accounting-workspace .shell-page-header [data-slot='breadcrumb-link'] {
+    color: #647b92;
+}
+.accounting-workspace .shell-page-header .text-muted-foreground {
+    color: #647b92;
+}
+.accounting-workspace [data-slot='button'] {
+    background: #ffffff !important;
+    color: #102b3e !important;
+    border-color: #dfe7e5 !important;
+}
+.accounting-workspace [data-slot='button'].bg-primary {
+    background: #00865e !important;
+    color: #ffffff !important;
+    border-color: #00865e !important;
+}
+.accounting-workspace [data-slot='button']:hover {
+    background: #e8f5ee !important;
+}
+.accounting-workspace [data-slot='button'].bg-primary:hover {
+    background: #006c4c !important;
+}
+.accounting-workspace input {
+    background: #ffffff !important;
+    color: #102b3e !important;
+    border-color: #dfe7e5 !important;
+}

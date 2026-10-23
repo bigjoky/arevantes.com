@@ -16,7 +16,7 @@ class ReplenishmentPlanner
         $policies ??= ReplenishmentPolicy::with(['warehouse:id,code,name', 'product:id,sku,name,track_serials'])
             ->where('is_active', true)
             ->get();
-        $onHand = StockMovementLine::query()
+        $onHand = StockMovementLine::query()->whereHas('warehouse', fn ($q) => $q->where('is_usable', true))
             ->selectRaw('warehouse_id, product_id, sum(quantity) quantity')
             ->groupBy('warehouse_id', 'product_id')
             ->get()

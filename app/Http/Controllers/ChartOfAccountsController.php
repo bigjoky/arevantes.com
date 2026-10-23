@@ -6,6 +6,7 @@ use App\Models\Expense;
 use App\Models\LedgerAccount;
 use App\Models\Person;
 use App\Models\Supplier;
+use App\Services\Accounting\AccountingWorkspace;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -17,6 +18,9 @@ class ChartOfAccountsController extends Controller
 {
     public function index(Request $request): Response
     {
+        if ($request->input('mode') !== 'manage') {
+            return app(AccountingWorkspaceController::class)->index($request, app(AccountingWorkspace::class));
+        }
         $search = trim($request->string('search')->toString());
         $accounts = LedgerAccount::query()->when($search, fn ($q) => $q->where(fn ($q) => $q->where('code', 'like', "%$search%")->orWhere('name', 'like', "%$search%")))->orderBy('code')->paginate(25)->withQueryString();
 

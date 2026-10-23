@@ -15,6 +15,7 @@ import {
     Upload,
     WalletCards,
 } from 'lucide-react';
+import { useState } from 'react';
 import { FormErrorSummary } from '@/components/forms/form-layout';
 import HistoricalDocumentDate from '@/components/historical-document-date';
 import { PaymentSourceFields } from '@/components/payment-source-fields';
@@ -267,6 +268,9 @@ export default function PurchaseShow({
             };
         };
     }>().props.auth;
+    const [receiptOperationKey, setReceiptOperationKey] = useState(() =>
+        crypto.randomUUID(),
+    );
     const { locale } = useLocale();
     const canReceive =
         document.type === 'purchase_order' &&
@@ -858,9 +862,17 @@ export default function PurchaseShow({
                         </p>
                         <Form
                             action={`/purchases/${document.id}/receive`}
+                            onSuccess={() =>
+                                setReceiptOperationKey(crypto.randomUUID())
+                            }
                             method="post"
                             className="grid gap-4"
                         >
+                            <input
+                                type="hidden"
+                                name="operation_key"
+                                value={receiptOperationKey}
+                            />
                             <div className="grid gap-4 sm:grid-cols-2">
                                 <SelectWarehouse
                                     warehouses={warehouses}

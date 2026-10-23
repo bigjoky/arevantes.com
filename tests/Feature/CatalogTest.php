@@ -32,15 +32,10 @@ class CatalogTest extends TestCase
         $user = User::factory()->create(['role' => 'commercial']);
 
         $this->actingAs($user)->get(route('catalog.index'))->assertOk()->assertInertia(fn (Assert $page) => $page
-            ->component('catalog/index')
-            ->where('initialTab', 'items')
-            ->has('units', 5)
-            ->has('taxRates', 4)
-            ->has('documentSeries', 14));
+            ->component('supply/products')->has('products.data')->has('editor.units', 5)->has('editor.taxRates', 4));
 
         $this->actingAs($user)->get(route('suppliers.index'))->assertOk()->assertInertia(fn (Assert $page) => $page
-            ->component('catalog/index')
-            ->where('initialTab', 'suppliers'));
+            ->component('supply/suppliers')->has('suppliers.data'));
     }
 
     public function test_a_product_can_be_created_and_updated(): void

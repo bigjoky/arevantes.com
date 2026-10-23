@@ -21,6 +21,8 @@ export type FinancialOverview = {
         suppliers: number;
         vat: number;
     };
+    fiscal_dates: { starts_on: string; ends_on: string } | null;
+    fiscal_progress: number | null;
     fiscal_status: string | null;
     elapsed_months: number;
     posted_entries: number;

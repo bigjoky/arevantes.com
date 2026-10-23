@@ -11,6 +11,7 @@ use App\Models\Quote;
 use App\Models\SalesDocument;
 use App\Services\Documents\DocumentFingerprint;
 use App\Services\Documents\DocumentPdf;
+use App\Services\Quotes\QuoteDeliveryArchive;
 use App\Services\Quotes\QuoteSelection;
 use App\Services\Quotes\QuoteStatusWorkflow;
 use Illuminate\Http\RedirectResponse;
@@ -26,11 +27,19 @@ class DocumentDeliveryController extends Controller
 {
     public function sendQuote(Request $request, Quote $quote, QuoteStatusWorkflow $workflow, DocumentPdf $pdf): RedirectResponse
     {
-        abort_if(in_array($quote->status, ['accepted', 'rejected', 'expired'], true), 422, __('This quote can no longer be sent for acceptance.'));
-        abort_if($quote->customer?->do_not_contact, 422, __('This customer has blocked commercial communications.'));
-        $workflow->assertCanTransition($quote, 'sent');
+        abort_unless(app()->runningUnitTests() || ! in_array(config('mail.default'), ['log', 'array'], true), 422, __('Configure a real email transport before sending quotes.'));
 
-        return $this->send($request, $quote, 'quote', $pdf, $workflow);
+        return DB::transaction(function () use ($request, $quote, $workflow, $pdf): RedirectResponse {
+            $quote = Quote::lockForUpdate()->findOrFail($quote->id);
+            abort_if(in_array($quote->status, ['accepted', 'rejected', 'expired'], true), 422, __('This quote can no longer be sent for acceptance.'));
+            abort_if($quote->customer?->do_not_contact, 422, __('This customer has blocked commercial communications.'));
+            if ($request->filled('expected_version') && (int) $request->input('expected_version') !== $quote->version) {
+                return back()->withErrors(['recipient_email' => __('This quote changed. Reload before sending it.')]);
+            }
+            $workflow->assertCanTransition($quote, 'sent');
+
+            return $this->send($request, $quote, 'quote', $pdf, $workflow);
+        });
     }
 
     public function sendSalesDocument(Request $request, SalesDocument $salesDocument, DocumentPdf $pdf): RedirectResponse
@@ -146,6 +155,9 @@ class DocumentDeliveryController extends Controller
         }
         $delivery = DocumentDelivery::create([$relation => $document->id, 'sent_by' => $request->user()->id, 'recipient_email' => $data['recipient_email'] ?: $default, 'token_hash' => hash('sha256', $token), 'status' => 'pending', 'document_version' => $fingerprint['version'], 'document_hash' => $fingerprint['hash'], 'expires_at' => $expires]);
         try {
+            if ($document instanceof Quote) {
+                app(QuoteDeliveryArchive::class)->store($delivery, $pdfData);
+            }
             Mail::to($delivery->recipient_email)->send(new DocumentSharedMail($document, $kind, route('documents.shared.show', $token), $expires->format('d/m/Y'), $pdfData));
             $document->deliveries()->whereKeyNot($delivery->id)->whereIn('status', ['pending', 'sent', 'viewed'])->update(['status' => 'superseded']);
             $delivery->update(['status' => 'sent', 'sent_at' => now()]);

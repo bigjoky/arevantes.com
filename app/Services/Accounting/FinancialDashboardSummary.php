@@ -21,6 +21,11 @@ class FinancialDashboardSummary
         $today = CarbonImmutable::today();
         $from = CarbonImmutable::create($year, 1, 1);
         $to = $from->endOfYear()->min($today);
+        $fiscalYear = FiscalYear::where('year', $year)->first();
+        $fiscalStart = $fiscalYear?->starts_on ? CarbonImmutable::parse($fiscalYear->starts_on) : null;
+        $fiscalEnd = $fiscalYear?->ends_on ? CarbonImmutable::parse($fiscalYear->ends_on)->addDay() : null;
+        $fiscalDays = $fiscalStart && $fiscalEnd ? $fiscalStart->diffInDays($fiscalEnd, false) : 0;
+        $fiscalProgress = $fiscalDays > 0 ? (int) round(max(0, min(1, $fiscalStart->diffInDays($today, false) / $fiscalDays)) * 100) : null;
         $previousTo = $to->subYearNoOverflow();
         $monthly = array_fill(1, 12, ['income' => 0.0, 'expenses' => 0.0, 'result' => 0.0]);
         $current = ['income' => 0.0, 'expenses' => 0.0];
@@ -112,7 +117,9 @@ class FinancialDashboardSummary
                 'result' => $month <= ($year < $today->year ? 12 : ($year === $today->year ? $today->month : 0)) ? round($row['income'] - $row['expenses'], 2) : null,
             ])->values(),
             'balances' => array_map(fn ($value) => round($value, 2), $balances),
-            'fiscal_status' => FiscalYear::where('year', $year)->value('status'),
+            'fiscal_status' => $fiscalYear?->status,
+            'fiscal_dates' => $fiscalYear ? ['starts_on' => $fiscalYear->starts_on?->toDateString(), 'ends_on' => $fiscalYear->ends_on?->toDateString()] : null,
+            'fiscal_progress' => $fiscalProgress,
             'elapsed_months' => $year < $today->year ? 12 : ($year === $today->year ? $today->month : 0),
             'posted_entries' => (clone $entries)->where('status', 'posted')->count(),
             'pending_entries' => (clone $entries)->where('status', 'draft')->count(),

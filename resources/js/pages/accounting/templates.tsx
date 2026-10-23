@@ -1,4 +1,4 @@
-import { Form, Head, Link } from '@inertiajs/react';
+import { Form, Head, Link, usePage } from '@inertiajs/react';
 import {
     ArrowLeft,
     CalendarClock,
@@ -8,6 +8,7 @@ import {
     Trash2,
 } from 'lucide-react';
 import { useState } from 'react';
+import { PageHeader, PageShell } from '@/components/page-shell';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -66,37 +67,49 @@ export default function Templates({
     accounts: Account[];
     recurringRuns: RecurringRun[];
 }) {
+    const page = usePage();
+    const recurring =
+        new URL(page.url, 'http://localhost').searchParams.get('tab') ===
+        'recurring';
+    const visibleTemplates = recurring
+        ? templates.filter((template) => template.recurrence !== null)
+        : templates;
+
     return (
         <>
-            <Head title="Accounting templates" />
-            <div className="flex flex-1 flex-col gap-6 p-4 md:p-6">
-                <header className="flex flex-wrap items-center justify-between gap-3">
-                    <div>
-                        <h1 className="text-xl font-semibold">
-                            Entry templates
-                        </h1>
-                        <p className="text-sm text-muted-foreground">
-                            Post frequent balanced movements with fewer steps.
-                        </p>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                        <Button variant="outline" asChild>
-                            <Link href="/accounting">
-                                <ArrowLeft /> Accounting
-                            </Link>
-                        </Button>
-                        <Form action="/accounting/recurring/run" method="post">
-                            {({ processing }) => (
-                                <Button variant="outline" disabled={processing}>
-                                    <RefreshCw /> Process due entries
-                                </Button>
-                            )}
-                        </Form>
-                        <TemplateDialog accounts={accounts} />
-                    </div>
-                </header>
+            <Head title={recurring ? 'Periódicos' : 'Accounting templates'} />
+            <PageShell mode="full">
+                <PageHeader
+                    title={<>{recurring ? 'Periódicos' : 'Entry templates'}</>}
+                    description={
+                        <>Post frequent balanced movements with fewer steps.</>
+                    }
+                    actions={
+                        <>
+                            <Button variant="outline" asChild>
+                                <Link href="/accounting">
+                                    <ArrowLeft /> Accounting
+                                </Link>
+                            </Button>
+                            <Form
+                                action="/accounting/recurring/run"
+                                method="post"
+                            >
+                                {({ processing }) => (
+                                    <Button
+                                        variant="outline"
+                                        disabled={processing}
+                                    >
+                                        <RefreshCw /> Process due entries
+                                    </Button>
+                                )}
+                            </Form>
+                            <TemplateDialog accounts={accounts} />
+                        </>
+                    }
+                />
                 <div className="divide-y border-y">
-                    {templates.map((t) => (
+                    {visibleTemplates.map((t) => (
                         <section
                             key={t.id}
                             className="flex flex-wrap items-center justify-between gap-4 py-4"
@@ -159,7 +172,7 @@ export default function Templates({
                     ))}
                 </div>
                 <RecurringHistory runs={recurringRuns} />
-            </div>
+            </PageShell>
         </>
     );
 }

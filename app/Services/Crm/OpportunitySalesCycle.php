@@ -13,7 +13,7 @@ class OpportunitySalesCycle
 {
     private ?CrmSetting $settings = null;
 
-    private const CLOSED_STAGES = ['won', 'lost'];
+    public const CLOSED_STAGES = ['won', 'lost'];
 
     private const TRANSITIONS = [
         'new' => ['qualified', 'proposal', 'lost'],

@@ -78,7 +78,7 @@ class ProjectMaterialPlanner
             ->get()
             ->keyBy('product_id');
 
-        $onHand = StockMovementLine::query()
+        $onHand = StockMovementLine::query()->whereHas('warehouse', fn ($q) => $q->where('is_usable', true))
             ->whereIn('product_id', $productIds)
             ->groupBy('product_id')
             ->selectRaw('product_id, sum(quantity) as quantity')

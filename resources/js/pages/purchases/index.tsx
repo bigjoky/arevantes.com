@@ -545,7 +545,7 @@ export default function PurchasesIndex({
         </>
     );
 }
-function PurchaseDialog({
+export function PurchaseDialog({
     suppliers,
     products,
     initialOpen = false,

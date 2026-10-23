@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { useState } from 'react';
 import type React from 'react';
-import { PageTabs } from '@/components/page-shell';
+import { PageHeader, PageShell, PageTabs } from '@/components/page-shell';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -189,6 +189,9 @@ export default function AccountingIndex({
         'parties',
         'mappings',
     ];
+    const entryManagement =
+        new URL(page.url, 'http://localhost').searchParams.get('area') ===
+        'entries';
     const view: View = views.includes(requestedView as View)
         ? (requestedView as View)
         : selectedAccount
@@ -197,142 +200,191 @@ export default function AccountingIndex({
     const navigate = (params: Record<string, string | number>) =>
         router.get(
             '/accounting',
-            { year, view, ...params },
+            {
+                year,
+                view,
+                ...Object.fromEntries(
+                    [
+                        ...new URL(page.url, 'http://localhost').searchParams,
+                    ].filter(([key]) => ['area', 'entry_status'].includes(key)),
+                ),
+                ...params,
+            },
             { preserveState: true },
         );
 
-    return (
-        <>
-            <Head title={view === 'journal' ? 'Libro Diario' : 'Accounting'} />
-            <div className="flex flex-1 flex-col gap-5 bg-[#fdfdfb] p-4 text-[#092d30] md:p-8 dark:bg-background dark:text-foreground">
-                <header className="flex flex-wrap items-center justify-between gap-3">
-                    <div>
-                        <h1 className="text-3xl font-semibold tracking-tight">
-                            {view === 'journal' ? 'Libro Diario' : 'Accounting'}
-                        </h1>
-                        <p className="text-sm text-muted-foreground">
-                            {view === 'journal'
-                                ? 'Registro cronológico de todos los asientos contables.'
-                                : 'Journal, general ledger and statutory financial reports.'}
-                        </p>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                        <Dialog>
-                            <DialogTrigger asChild>
-                                <Button variant="outline">
-                                    Más opciones ···
-                                </Button>
-                            </DialogTrigger>
-                            <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-3xl">
-                                <DialogHeader>
-                                    <DialogTitle>
-                                        Opciones contables
-                                    </DialogTitle>
-                                </DialogHeader>
-                                <div className="flex flex-wrap gap-2">
-                                    <Button variant="outline" asChild>
-                                        <Link href="/finance">
-                                            <ArrowLeft /> Finance
-                                        </Link>
-                                    </Button>
-                                    <Button variant="outline" asChild>
-                                        <Link href="/tax">
-                                            <Landmark /> VAT
-                                        </Link>
-                                    </Button>
-                                    <Button variant="outline" asChild>
-                                        <Link href="/company-fiscal">
-                                            <CalendarRange /> Fiscal years
-                                        </Link>
-                                    </Button>
-                                    <Form
-                                        action="/accounting/sync"
-                                        method="post"
-                                    >
-                                        <Button>
-                                            <RefreshCw /> Sync now
-                                        </Button>
-                                    </Form>
-                                </div>
-                                <PageTabs aria-label="Accounting views">
-                                    {(
-                                        [
-                                            ['journal', 'Libro Diario'],
-                                            ['trial', 'Trial balance'],
-                                            ['profit', 'Profit & loss'],
-                                            ['balance', 'Balance sheet'],
-                                            ['ledger', 'General ledger'],
-                                            ['parties', 'Third parties'],
-                                            ['mappings', 'Mappings'],
-                                        ] as [View, string][]
-                                    ).map(([key, label]) => (
-                                        <button
-                                            key={key}
-                                            type="button"
-                                            onClick={() => {
-                                                navigate({ view: key });
-                                            }}
-                                            className={`border-b-2 px-3 py-2 text-sm font-medium whitespace-nowrap ${view === key ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
-                                        >
-                                            {label}
-                                        </button>
-                                    ))}
-                                </PageTabs>
-                                <p className="text-sm text-muted-foreground">
-                                    {summary.entries} asientos · Debe{' '}
-                                    {money(summary.debit)} · Haber{' '}
-                                    {money(summary.credit)}
-                                </p>
-                                <MonthlyClose
-                                    view={view}
-                                    year={year}
-                                    month={selectedMonth}
-                                    periods={accountingPeriods}
-                                    summary={periodSummary}
-                                    canManage={canClosePeriods}
-                                    fiscalYearOpen={
-                                        fiscalYear?.status === 'open'
-                                    }
-                                />
-                            </DialogContent>
-                        </Dialog>
-                        {fiscalYear?.status === 'open' && (
+    const renderHeader = (exportAction?: React.ReactNode) => (
+        <PageHeader
+            title={
+                <>
+                    {view === 'journal'
+                        ? entryManagement
+                            ? 'Asientos'
+                            : 'Libro Diario'
+                        : ((
+                              {
+                                  trial: 'Balance de sumas y saldos',
+                                  profit: 'Pérdidas y ganancias',
+                                  balance: 'Balance de situación',
+                                  ledger: 'Libro Mayor',
+                                  parties: 'Saldos de terceros',
+                                  mappings: 'Mapeos contables',
+                              } as Record<string, string>
+                          )[view] ?? 'Vista general')}
+                </>
+            }
+            description={
+                <>
+                    {view === 'journal'
+                        ? entryManagement
+                            ? 'Gestiona y consulta los movimientos contables de tu empresa.'
+                            : 'Registro cronológico de todos los asientos contables.'
+                        : 'Journal, general ledger and statutory financial reports.'}
+                </>
+            }
+            primaryAction={
+                <>
+                    {page.props.auth.abilities.manageAccounting &&
+                        fiscalYear?.status === 'open' && (
                             <ManualEntryDialog
                                 accounts={accounts}
                                 year={year}
                                 month={selectedMonth}
                             />
                         )}
-                        <Select
-                            value={String(year)}
-                            onValueChange={(value) =>
-                                router.get(
-                                    '/accounting',
-                                    { year: value, view },
-                                    { preserveState: true },
-                                )
-                            }
-                        >
-                            <SelectTrigger className="w-28">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {Array.from(
-                                    { length: 7 },
-                                    (_, index) =>
-                                        new Date().getFullYear() - 3 + index,
-                                ).map((value) => (
-                                    <SelectItem
-                                        key={value}
-                                        value={String(value)}
+                </>
+            }
+            secondaryActions={
+                <>
+                    {exportAction}
+                    <Dialog>
+                        <DialogTrigger asChild>
+                            <Button variant="outline">Más opciones ···</Button>
+                        </DialogTrigger>
+                        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-3xl">
+                            <DialogHeader>
+                                <DialogTitle>Opciones contables</DialogTitle>
+                            </DialogHeader>
+                            <div className="flex flex-wrap gap-2">
+                                <Button variant="outline" asChild>
+                                    <Link href="/finance">
+                                        <ArrowLeft /> Finance
+                                    </Link>
+                                </Button>
+                                <Button variant="outline" asChild>
+                                    <Link href="/tax">
+                                        <Landmark /> VAT
+                                    </Link>
+                                </Button>
+                                <Button variant="outline" asChild>
+                                    <Link href="/company-fiscal">
+                                        <CalendarRange /> Fiscal years
+                                    </Link>
+                                </Button>
+                                <Form action="/accounting/sync" method="post">
+                                    <Button>
+                                        <RefreshCw /> Sync now
+                                    </Button>
+                                </Form>
+                            </div>
+                            <PageTabs aria-label="Accounting views">
+                                {(
+                                    [
+                                        ['journal', 'Libro Diario'],
+                                        ['trial', 'Trial balance'],
+                                        ['profit', 'Profit & loss'],
+                                        ['balance', 'Balance sheet'],
+                                        ['ledger', 'General ledger'],
+                                        ['parties', 'Third parties'],
+                                        ['mappings', 'Mappings'],
+                                    ] as [View, string][]
+                                ).map(([key, label]) => (
+                                    <button
+                                        key={key}
+                                        type="button"
+                                        onClick={() => {
+                                            navigate({ view: key });
+                                        }}
+                                        className={`border-b-2 px-3 py-2 text-sm font-medium whitespace-nowrap ${view === key ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
                                     >
-                                        {value}
-                                    </SelectItem>
+                                        {label}
+                                    </button>
                                 ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
-                </header>
+                            </PageTabs>
+                            <p className="text-sm text-muted-foreground">
+                                {summary.entries} asientos · Debe{' '}
+                                {money(summary.debit)} · Haber{' '}
+                                {money(summary.credit)}
+                            </p>
+                            <MonthlyClose
+                                view={view}
+                                year={year}
+                                month={selectedMonth}
+                                periods={accountingPeriods}
+                                summary={periodSummary}
+                                canManage={canClosePeriods}
+                                fiscalYearOpen={fiscalYear?.status === 'open'}
+                            />
+                        </DialogContent>
+                    </Dialog>
+                    <Select
+                        value={String(year)}
+                        onValueChange={(value) =>
+                            router.get(
+                                '/accounting',
+                                {
+                                    year: value,
+                                    view,
+                                    ...Object.fromEntries(
+                                        [
+                                            ...new URL(
+                                                page.url,
+                                                'http://localhost',
+                                            ).searchParams,
+                                        ].filter(([key]) =>
+                                            ['area', 'entry_status'].includes(
+                                                key,
+                                            ),
+                                        ),
+                                    ),
+                                },
+                                { preserveState: true },
+                            )
+                        }
+                    >
+                        <SelectTrigger className="w-28">
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {Array.from(
+                                { length: 7 },
+                                (_, index) =>
+                                    new Date().getFullYear() - 3 + index,
+                            ).map((value) => (
+                                <SelectItem key={value} value={String(value)}>
+                                    {value}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </>
+            }
+        />
+    );
+
+    return (
+        <>
+            <Head
+                title={
+                    view === 'journal'
+                        ? entryManagement
+                            ? 'Asientos'
+                            : 'Libro Diario'
+                        : 'Accounting'
+                }
+            />
+            <PageShell mode="full">
+                {view !== 'journal' && renderHeader()}
                 {selectedFinancialCategory && (
                     <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border bg-muted/30 px-4 py-3 text-sm">
                         <div>
@@ -353,6 +405,7 @@ export default function AccountingIndex({
                 )}
                 {view === 'journal' && (
                     <Journal
+                        renderHeader={renderHeader}
                         entries={entries}
                         canReverse={fiscalYear?.status === 'open'}
                         accounts={accounts}
@@ -403,7 +456,7 @@ export default function AccountingIndex({
                         taxRates={taxRates}
                     />
                 )}
-            </div>
+            </PageShell>
         </>
     );
 }
@@ -697,7 +750,7 @@ function ManualEntryDialog({
     return (
         <Dialog defaultOpen={createRequested}>
             <DialogTrigger asChild>
-                <Button>
+                <Button className="shell-new-entry">
                     <Plus /> Nuevo asiento
                 </Button>
             </DialogTrigger>
@@ -824,11 +877,13 @@ function ManualEntryDialog({
 }
 
 function Journal({
+    renderHeader,
     entries,
     canReverse,
     accounts,
     year,
 }: {
+    renderHeader: (exportAction: React.ReactNode) => React.ReactNode;
     entries: Entry[];
     canReverse: boolean;
     accounts: Account[];
@@ -857,8 +912,12 @@ function Journal({
     const [start, setStart] = useState('');
     const [end, setEnd] = useState('');
     const [tab, setTab] = useState('detail');
+    const entryStatus = new URL(page.url, 'http://localhost').searchParams.get(
+        'entry_status',
+    );
     const filtered = entries.filter(
         (entry) =>
+            (entryStatus !== 'draft' || entry.status === 'draft') &&
             (!start || entry.entry_date.slice(0, 10) >= start) &&
             (!end || entry.entry_date.slice(0, 10) <= end) &&
             (kind === 'all' || entry.entry_kind === kind) &&
@@ -917,6 +976,12 @@ function Journal({
 
     return (
         <section data-journal-design className="space-y-6">
+            {renderHeader(
+                <Button variant="outline" onClick={exportEntries}>
+                    <Download />
+                    Exportar
+                </Button>,
+            )}
             <div className="flex flex-wrap items-center gap-3">
                 <div className="flex items-center gap-2 rounded-md border px-3 py-1">
                     <CalendarRange className="size-4 shrink-0" />
@@ -991,10 +1056,6 @@ function Journal({
                         onChange={(event) => setSearch(event.target.value)}
                     />
                 </div>
-                <Button variant="outline" onClick={exportEntries}>
-                    <Download />
-                    Exportar
-                </Button>
             </div>
             <div className="grid border-t xl:grid-cols-[minmax(0,1.08fr)_minmax(0,1fr)]">
                 <div className="min-w-0 overflow-x-auto pt-3 xl:pr-5">

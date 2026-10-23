@@ -8,8 +8,11 @@ use App\Models\Person;
 use App\Models\SavedCrmFilter;
 use App\Models\User;
 use App\Services\Customers\CustomerProfile;
+use App\Services\Customers\CustomerWorkspace;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -22,40 +25,40 @@ class PersonController extends Controller
      */
     public function index(Request $request): Response
     {
-        $search = trim((string) $request->input('search'));
-        $query = Person::query()
-            ->when($request->boolean('archived'), fn ($query) => $query->onlyTrashed())
-            ->where('category', 'customer')
-            ->when($search !== '', fn ($query) => $query->where(fn ($query) => $query
-                ->where('first_name', 'like', "%{$search}%")
-                ->orWhere('last_name', 'like', "%{$search}%")
-                ->orWhere('company_name', 'like', "%{$search}%")
-                ->orWhere('email', 'like', "%{$search}%")
-                ->orWhere('phone', 'like', "%{$search}%")
-                ->orWhere('tax_id', 'like', "%{$search}%")))
-            ->when($request->filled('customer_type'), fn ($query) => $query->where('customer_type', (string) $request->input('customer_type')))
-            ->when($request->filled('lifecycle_status'), fn ($query) => $query->where('lifecycle_status', (string) $request->input('lifecycle_status')))
-            ->when($request->filled('lead_source'), fn ($query) => $query->where('lead_source', (string) $request->input('lead_source')))
-            ->when($request->filled('tag'), fn ($query) => $query->whereHas('tags', fn ($tags) => $tags->whereKey($request->integer('tag'))))
-            ->with('tags:id,name,color')
-            ->withCount('installations')
-            ->latest();
+        return Inertia::render('people/index', $this->workspaceListing($request));
+    }
 
-        return Inertia::render('people/index', [
-            'people' => $query->paginate(20)->withQueryString()->through(fn (Person $person) => $this->personSummary($person)),
-            'filters' => $request->only(['search', 'customer_type', 'lifecycle_status', 'lead_source', 'tag', 'archived']),
+    private function workspaceListing(Request $request): array
+    {
+        $validation = Validator::make($request->query(), [
+            'search' => ['nullable', 'string', 'max:255'],
+            'customer_type' => ['nullable', Rule::in(['residential', 'business', 'community', 'public_sector'])],
+            'lifecycle_status' => ['nullable', Rule::in(['lead', 'active', 'inactive', 'former'])],
+            'province_state' => ['nullable', 'string', 'max:255'],
+            'lead_source' => ['nullable', 'string', 'max:255'],
+            'tag' => ['nullable', 'integer'],
+            'archived' => ['nullable', 'boolean'],
+            'has_opportunities' => ['nullable', 'boolean'],
+            'has_quotes' => ['nullable', 'boolean'],
+            'sort' => ['nullable', Rule::in(['name', 'created_at', 'volume', 'last_activity_at'])],
+            'direction' => ['nullable', Rule::in(['asc', 'desc'])],
+            'per_page' => ['nullable', Rule::in([15, 30, 50])],
+            'page' => ['nullable', 'integer', 'min:1'],
+            'relation_page' => ['nullable', 'integer', 'min:1'],
+            'tab' => ['nullable', Rule::in(['summary', 'opportunities', 'quotes', 'projects', 'installations', 'invoices', 'documents', 'activity'])],
+        ]);
+
+        abort_if($validation->fails(), 422, $validation->errors()->first());
+
+        return [
+            ...app(CustomerWorkspace::class)->listing($request),
+            'filters' => $request->only(['search', 'customer_type', 'lifecycle_status', 'lead_source', 'tag', 'archived', 'province_state', 'has_opportunities', 'has_quotes', 'sort', 'direction', 'per_page', 'page']),
             'tags' => CrmTag::orderBy('name')->get(['id', 'name', 'color']),
             'savedFilters' => SavedCrmFilter::where('user_id', $request->user()->id)->where('scope', 'customers')->orderByDesc('is_default')->orderBy('name')->get(['id', 'name', 'filters', 'is_default']),
-            'duplicateGroups' => $request->boolean('archived') ? [] : $this->duplicateCustomerGroups(),
-            'leadSources' => Person::query()
-                ->when($request->boolean('archived'), fn ($query) => $query->onlyTrashed())
-                ->where('category', 'customer')
-                ->whereNotNull('lead_source')
-                ->distinct()
-                ->orderBy('lead_source')
-                ->pluck('lead_source'),
+            'duplicateGroups' => Inertia::optional(fn () => $this->duplicateCustomerGroups()),
+            'leadSources' => Person::query()->where('category', 'customer')->whereNotNull('lead_source')->distinct()->orderBy('lead_source')->pluck('lead_source'),
             ...$this->sectionProps('customer'),
-        ]);
+        ];
     }
 
     private function duplicateCustomerGroups(): array
@@ -102,22 +105,24 @@ class PersonController extends Controller
     /**
      * Show a customer profile.
      */
-    public function show(Person $person, CustomerProfile $profile): Response
+    public function show(Request $request, Person $person, CustomerProfile $profile): Response
     {
         $this->ensurePersonCategory($person, 'customer');
 
         $person->load([
-            'installations' => fn ($query) => $query->latest(),
-            'sharedInstallations' => fn ($query) => $query->latest('installations.created_at'),
-            'portalAccesses' => fn ($query) => $query->latest(),
+            'installations' => fn ($query) => $query->when($request->user()->cannot('view-installations'), fn ($q) => $q->whereRaw('1 = 0'))->latest()->limit(5),
+            'sharedInstallations' => fn ($query) => $query->when($request->user()->cannot('view-installations'), fn ($q) => $q->whereRaw('1 = 0'))->latest('installations.created_at')->limit(5),
             'contacts',
             'tags:id,name,color',
             'consents.recordedBy:id,name',
         ]);
 
         return Inertia::render('people/show', [
+            ...$this->workspaceListing($request),
+            'customerWorkspace' => app(CustomerWorkspace::class)->detail($person, $request),
             'person' => [
                 ...$this->personSummary($person),
+                'created_at' => $person->created_at?->toIso8601String(),
                 'tax_id' => $person->tax_id,
                 'lead_source' => $person->lead_source,
                 'billing_email' => $person->billing_email,
@@ -157,10 +162,10 @@ class PersonController extends Controller
                     'scheduled_date' => $installation->scheduled_date?->toDateString(),
                     'relationship' => $person->sharedInstallations->firstWhere('id', $installation->id)?->pivot?->role ?? 'owner',
                 ]),
-                'portal_accesses' => $person->portalAccesses->map(fn ($access) => ['id' => $access->id, 'recipient_email' => $access->recipient_email, 'sent_at' => $access->sent_at?->toIso8601String(), 'first_accessed_at' => $access->first_accessed_at?->toIso8601String(), 'last_accessed_at' => $access->last_accessed_at?->toIso8601String(), 'expires_at' => $access->expires_at->toIso8601String(), 'revoked_at' => $access->revoked_at?->toIso8601String()]),
+                'portal_accesses' => [],
             ],
-            'customer360' => $profile->build($person),
-            'activityUsers' => User::query()->orderBy('name')->get(['id', 'name', 'role']),
+            'customer360' => Inertia::optional(fn () => $profile->build($person, $request->user())),
+            'activityUsers' => $request->user()->can('manage-operations') ? User::query()->orderBy('name')->get(['id', 'name', 'role']) : [],
             'availableTags' => CrmTag::orderBy('name')->get(['id', 'name', 'color']),
             ...$this->sectionProps('customer'),
         ]);

@@ -47,11 +47,11 @@ class AdministrativeRecoveryTest extends TestCase
         $activity = CrmActivity::create(['created_by' => $commercial->id, 'assigned_user_id' => $commercial->id, 'type' => 'meeting', 'title' => 'Customer appointment', 'priority' => 'normal', 'status' => 'pending', 'starts_at' => '2026-09-28 09:00:00', 'due_at' => '2026-09-28 10:00:00']);
         $this->actingAs($admin);
         foreach (['today', 'week', 'month', 'board'] as $view) {
-            $this->get(route('operations.index', ['view' => $view]))->assertOk();
+            $this->get(route('operations.activities', ['view' => $view]))->assertOk();
         }
-        $this->from(route('operations.index'))->patch(route('activities.update', $activity), [
+        $this->from(route('operations.activities'))->patch(route('activities.update', $activity), [
             'title' => 'Rescheduled appointment', 'starts_at' => '2026-09-29 10:00:00', 'due_at' => '2026-09-29 11:00:00',
-        ])->assertSessionHasNoErrors()->assertRedirect(route('operations.index'));
+        ])->assertSessionHasNoErrors()->assertRedirect(route('operations.activities'));
         $this->assertSame('Rescheduled appointment', $activity->fresh()->title);
         $this->assertSame('2026-09-29 10:00:00', $activity->fresh()->starts_at->format('Y-m-d H:i:s'));
         $this->patch(route('activities.update', $activity), ['status' => 'completed'])->assertSessionHasNoErrors()->assertRedirect();

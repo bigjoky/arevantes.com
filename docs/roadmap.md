@@ -927,7 +927,7 @@ para gastos nuevos publicada; las correcciones históricas y puntos 3, 5 y 6 sig
 - Verificación posterior: columna de 255 caracteres y migración aplicada en
   producción; `/up` y `/login` HTTP 200. EXP-2026-00002 conserva sus datos y
   fecha de modificación; no se corrigió ninguna factura en nombre del usuario.
-- Suite aislada: 567 pruebas SQLite correctas / 7523 aserciones (la prueba
+- Suite aislada: 568 pruebas SQLite correctas / 7523 aserciones (la prueba
   específica de capacidad se ejecuta en PostgreSQL); CI PHP 8.4/8.5 y calidad
   correctos. Integrado también en develop y validado con el directorio fiscal.
 
@@ -2514,3 +2514,510 @@ Enlaces verificados en Safari: alta manual abre formulario y el enlace a un
 asiento selecciona su detalle. No se ha enviado ningún formulario contable.
 Los documentos de Gastos conservan su moneda original al mostrar importes;
 no se presentan como euros ni se convierten con un cambio supuesto.
+
+### UI-SIDEBAR-CANONICAL — Arquitectura definitiva, 06/10/2026
+
+Sustituye la organización plana de UI-SIDEBAR: fuente canónica en
+`WorkspaceNavigation::definition()`, filtrada con los gates existentes. Inicio
+más nueve módulos y 30 secciones; escritorio, tablet y móvil consumen la misma
+respuesta autorizada. Preferencias locales por usuario; la ruta activa abre su
+módulo. Los informes, plantillas, herramientas auxiliares y favoritos conservan
+sus rutas y pasan a navegación interna. No se han publicado estos cambios.
+
+| Capacidad | Estado / dependencia / aceptación |
+| --- | --- |
+| Navegación canónica | Implantada: Comercial (CRM, Clientes, Presupuestos); Proyectos (Proyectos, Instalaciones, Postventa); Operaciones (Planificación, Órdenes de trabajo, Agenda); Almacén y compras (Productos, Inventario, Proveedores, Compras); Facturación (Facturas de clientes, Facturas de proveedores, Cobros y pagos); Contabilidad (Vista general, Asientos, Plan contable, Informes contables, Libros oficiales); Finanzas (Tesorería, Bancos y conciliación, Previsiones); Fiscal (Impuestos, Modelos, Periodos fiscales); Empresa (Personal, Documentos, Configuración) |
+| Registro de proyectos | Preparado con acceso a expedientes técnicos; pendiente entidad de proyecto independiente, permisos y relación con instalaciones/expedientes; validar ciclo completo sin duplicación |
+| Agenda | Preparada con enlace al resumen operativo existente; pendiente agenda independiente, calendario real y permisos de eventos |
+| Asientos | Actualizado localmente el 23/10/2026: listado con filtros/búsqueda/orden/paginación backend y ficha completa; creación/edición de borradores y contabilización con decimales exactos. Plantillas/periódicos existentes conservados; importación pendiente. Véase UI-ACC-04/05/06/25. |
+| Informes | Diario, Mayor, situación, resultados, sumas/saldos y terceros existentes; patrimonio neto y flujos de efectivo pendientes de fuentes contables, métodos de cálculo y contraste con ejercicios cerrados |
+| Libros oficiales | Vista implantada localmente con cinco tarjetas y pestañas; consultas Diario/Balance y libros de IVA existentes. Generación oficial, versiones, descargas de artefactos y legalización pendientes; formatos e integridad requieren dominio propio. Libros de IVA no sustituyen libros mercantiles. Véase UI-ACC-16/17/18/19. |
+| Facturación | Conserva documentos de ventas y gastos existentes; pendiente índice dedicado de facturas de clientes/proveedores y cobros/pagos con filtros, vínculos y estados reales |
+| Periodos fiscales | Vista implantada localmente: ejercicios reales y periodos trimestrales únicamente con censo vigente que confirme 303 trimestral y ejercicio natural. Pendientes entidad/calendario por impuesto y cierre independiente; véase UI-FISC-15/16/17/18. |
+| Documentos de empresa | Base de conocimiento conservada; pendiente índice documental corporativo, adjuntos, clasificación, búsqueda y permisos por documento |
+| Empresa y ejercicio | Pie usa contexto real, arquitectura existente conservada; multiempresa y selector completo dependen de UI-SIDEBAR-04. No se ofrecen empresas ficticias |
+| Validación | Rutas existentes preservadas; hubs rechazan secciones no autorizadas; comprobar navegación profunda, persistencia, escritorio y drawer tablet/móvil. Entrega local sin commit, push ni merge |
+
+Validación local de este corte: 740 pruebas correctas, 5 omitidas, 11.367
+aserciones; 11 aserciones frontend de navegación, TypeScript, ESLint dirigido,
+Pint, catálogo ES/EN y build correctos. Safari autenticado verificó el árbol y
+el despliegue de Contabilidad. Corrección de contraste en tema claro aplicada;
+verificación visual final de esta corrección y del drawer móvil/tablet pendiente
+por uso concurrente de Safari. Informe: `docs/sidebar-navigation-review.md`.
+
+### UI-SHELL — Layout general aprobado, 06/10/2026
+
+Consolidación del layout privado existente, sin alterar la arquitectura canónica
+del sidebar. `AppShell`/`AppSidebarLayout` integran sidebar y área principal;
+`AppSidebarHeader` es la topbar común. `PageShell` admite full, standard, focused
+(y formularios) y master-detail; no existe max-width universal. `PageHeader`
+recibe breadcrumbs, título, descripción, metadatos, acciones y navegación
+secundaria. Las tabs internas consumen la navegación autorizada existente y
+no duplican los módulos principales. Scroll de documento, sidebar fijo,
+topbar sticky, tablas con viewport local y safe areas declaradas.
+
+Migración: Inicio financiero y operativo; páginas contables (diario/asientos,
+mayor, saldos, balances, resultados, mapeos); plan contable; plantillas/periódicos;
+hubs de vista general, informes y libros oficiales; formulario de cliente en
+modo focused. Las páginas privadas restantes heredan la topbar/shell y los
+usuarios de PageShell/PageHeader reciben la API común. Portales, páginas públicas
+y autenticación conservan sus layouts especiales.
+
+| ID | Estado / dependencia / aceptación |
+| --- | --- |
+| UI-SHELL-01 | Implantado: topbar compacta, acciones de página, breadcrumbs discretos, tabs con overflow horizontal, modalidades de contenido y tokens limitados al shell. Mantener contrastes y probar acciones reales sin alterar sus permisos |
+| UI-SHELL-02 | Búsqueda existente reutilizada: clientes, oportunidades, instalaciones/expedientes, órdenes, ventas, compras y proveedores por gates; ⌘/Ctrl+K, combobox, flechas, Enter y Escape, diálogo móvil. Pendiente añadir presupuestos, productos, asientos y documentos con fuentes/permisos reales; no crear índices ficticios. Una command palette de acciones/navegación es evolución pendiente, no backend implantado |
+| UI-SHELL-03 | Selector de ejercicio trasladado al pie del sidebar, conservando ruta/filtros. Empresa real conservada; cambio de empresa depende del contexto multiempresa anterior. Idioma, favoritos y Arevia siguen disponibles en herramientas, sin barras permanentes duplicadas |
+| UI-SHELL-04 | Asientos: acciones existentes y CSV filtrado integrados en PageHeader; nuevo asiento mantiene formulario/backend y requiere manageAccounting/ejercicio abierto; tabs de Todos/Borradores/Periódicos/Plantillas. Importación preparada como capacidad no disponible (UI-SIDEBAR-CANONICAL), sin botón funcional falso |
+| UI-SHELL-05 | Drawer único por debajo de 1024 px; topbar móvil por debajo de 640 px; acción contable principal inferior y acciones secundarias en sheet. Tablas existentes conservan scroll horizontal; listas/cards móviles específicas se abordarán por módulo, sin reducir columnas a texto ilegible |
+| UI-SHELL-06 | Verificado con sesión autenticada en navegador independiente: escritorio 1440×900, iPad 834×1112 y móvil 390×844; drawer, Escape, búsqueda, menús, acciones y ausencia de overflow global. Ejercicio conservado entre Asientos y Periódicos. Sin errores ni warnings de consola. Informe: docs/app-shell-review.md |
+
+La validación visual pendiente del corte anterior UI-SIDEBAR queda resuelta en
+UI-SHELL-06: contraste del sidebar y drawer comprobados en navegador independiente.
+
+### UI-HOME — Inicio definitivo, 06/10/2026
+
+Inicio reutiliza el shell aprobado y FinancialDashboardSummary existente. Se
+implanta bienvenida dinámica sin breadcrumbs, cuatro KPI, gráfico mensual
+Recharts con tabla alternativa, estado real del ejercicio, saldos, accesos a
+acciones autorizadas y documentos/tareas/actividad en composición 2:1:1.
+En móvil: KPI en una columna, tareas antes de documentos y lista documental
+compacta. La vista operativa se conserva para perfiles sin view-finance.
+No se cambian sidebar, routing, modelos contables ni dependencias.
+
+| ID | Estado / dependencias / aceptación |
+| --- | --- |
+| UI-HOME-01 | Implantado: datos contables reales por ejercicio y corte temporal; comparación previa sin divisor válido devuelve null. Verificar cuentas de ingreso/gasto, exclusión del cierre y ausencia de cifras del mockup |
+| UI-HOME-02 | Implantado: fechas y progreso diario a partir de FiscalYear, limitado a 0–100; sin ejercicio configurado, fechas/progreso no disponibles. Prueba de periodo personalizado, antes y después del mismo |
+| UI-HOME-03 | Pendiente conexión del KPI IVA a ingresar: existen VatReport, VatSettlement y Model303Preview, pero no un importe fiscal validado/periodo elegido en el contrato de Inicio. Definir periodo, procedencia y distinción de estimación frente a declaración; reutilizar fuentes existentes sin cargar libros/documentos completos en cada apertura. Aceptar con trazabilidad y sin confundir saldo 472/477 con deuda a ingresar |
+| UI-HOME-04 | Pendiente contador unificado de documentos por procesar: definir fuentes, estados y permisos de gastos, ventas y compras; evitar doble conteo. Mantener null (capacidad no integrada), diferenciándolo de cero documentos consultados |
+| UI-HOME-05 | Parcial implantado: tareas reales de conciliación bancaria. Otras obligaciones, revisiones y vencimientos dependen de fuentes y permisos propios; aceptar con enlaces a acciones reales, sin task manager nuevo ni checkboxes que aparenten completar tareas |
+| UI-HOME-06 | Parcial implantado: actividad real por posted_at de asientos. Extensión a cobros, pagos y documentos depende del audit log/eventos existentes, permiso por evento, orden temporal y deduplicación; no generar un segundo historial |
+| UI-HOME-07 | Pendiente Nuevo proyecto: no hay creación de entidad de proyecto independiente. Depende de UI-SIDEBAR-CANONICAL. Se omite la acción; no se etiqueta como proyecto una instalación para rellenar el diseño |
+| UI-HOME-08 | Deuda detectada: el P&G existente consulta el año completo sin filtro posted, mientras Inicio conserva posted hasta as_of. Reutiliza la misma convención de signo/tipo de cuenta y exclusión del cierre, pero pueden diferir por borradores/fechas futuras. Armonizar posteriormente el alcance en una fuente contable única y contrastar ambos informes con fixtures; no rehacer Contabilidad en esta fase |
+| UI-HOME-09 | Contexto actual de una empresa: nombre real dinámico; los datos pertenecen al ERP actual, sin aislamiento multiempresa ficticio. Selección/filtrado multiempresa depende de UI-SIDEBAR-04 y contexto autorizado de empresa |
+| UI-HOME-10 | Rendimiento: listas limitadas a cinco por fuente y relaciones eager; agregación contable existente por cuenta/fecha, doce valores mensuales en props. Revisar crecimiento de esa agregación con profiling antes de introducir cache o resumen mensual. Carga actual síncrona de Inertia: no skeleton artificial; errores aislados/reintento por widget dependen de una futura carga parcial real |
+| UI-HOME-11 | Verificación técnica: 45 tests de Dashboard/FinancialDashboard correctos (457 aserciones), incluyendo privacidad en reload parcial, fuentes, comparativas y progreso. TypeScript, ESLint dirigido, i18n y build comprobados; visual responsive e informe en docs/home-dashboard-review.md |
+
+
+### UI-COMMERCIAL — Dashboard comercial definitivo, 06/10/2026
+
+Página independiente `/commercial`; conserva CRM, Clientes y Presupuestos y el shell canónico. Datos agregados con permisos por dominio, ámbito propio heredado de AnalyticsFilter y periodos reales. Informe: docs/commercial-dashboard-review.md.
+
+| ID | Estado / dependencia / aceptación |
+| --- | --- |
+| UI-COMMERCIAL-01 | Implantado: cuatro KPI autorizados, gráfico Recharts con tabla alternativa, pipeline, presupuestos, clientes, eventos y tareas reales. 59 pruebas/1.444 aserciones; responsive 1440, 1024, 834 y 390 px. Sin cifras del mockup |
+| UI-COMMERCIAL-02 | Pendiente catálogo configurable de etapas: hoy existen siete etapas en OpportunityCatalog, no lead_stages ni trece estados del diseño. Depende de decisión funcional y migración reversible del CRM; aceptar preservando historiales, transiciones, cierres y automatizaciones. No crear etapas desde este dashboard |
+| UI-COMMERCIAL-03 | Parcial: objetivo de ingresos reutiliza FinancialBudget revenue, prorrateado por días, solo ámbito de equipo con view-finance. Objetivos comerciales individuales/mensuales propios y configuración dependen de entidad, permisos y asignación; aceptar con trazabilidad y sin presentar presupuesto financiero como cuota individual |
+| UI-COMMERCIAL-04 | Pendiente seguimiento/inactividad >90 días: lifecycle_status no constituye última interacción comercial. Depende de definición de interacción y fuente consolidada; aceptar con fechas verificables y scope propio/equipo |
+| UI-COMMERCIAL-05 | Pendiente comparaciones históricas de pipeline/presupuestos: se muestran estados actuales de registros creados/emitidos en el periodo. No existen snapshots equivalentes para delta histórico; aceptar con reconstrucción temporal verificable, sin comparar stocks actuales como históricos |
+| UI-COMMERCIAL-06 | Pendiente normalización de importes: ventas netas sin IVA según Analytics; presupuestos amount según Quote (total). Definir base homogénea sin alterar fuentes silenciosamente; aceptar con descuentos, impuestos y abonos contrastados. Las series son métricas distintas |
+| UI-COMMERCIAL-07 | Parcial actividad: OpportunityEvent y QuoteStatusHistory existentes, seis resultados por fuente y seis combinados. Unificación de cambios de clientes y otros eventos depende del audit log existente y permisos por evento; aceptar deduplicación y trazabilidad. No crear task manager ni historial paralelo |
+| UI-COMMERCIAL-08 | Parcial tareas: acciones CRM pending/in_progress con oportunidad y vencimiento dentro del periodo. Tareas sin oportunidad/fecha o futuras fuera del periodo requieren contrato funcional; aceptar navegación real y permisos, sin checkboxes ficticios |
+| UI-COMMERCIAL-09 | Ámbito propio heredado: oportunidades por owner_user_id, presupuestos por created_by y clientes relacionados con oportunidades propias. Reasignación comercial de presupuestos y propiedad autónoma de clientes dependen de reglas/modelos existentes; aceptar exclusión de datos ajenos sin ampliar accesos |
+| UI-COMMERCIAL-10 | Rendimiento: agregaciones SQL, doce buckets, relaciones eager y límites de listas; consulta estable comprobada con veinte oportunidades. Cache/materialización e índices adicionales requieren profiling real y análisis de planes, sin migraciones especulativas |
+
+
+### UI-CRM — CRM operativo definitivo, 06/10/2026
+
+Se conserva `/opportunities` como CRM independiente de `/commercial`. Kanban
+principal, tabla paginada y agenda mensual sobre CrmActivity existente. Shell,
+sidebar, Inicio, dashboard Comercial, Clientes y Presupuestos no se rediseñan.
+Detalle, alta, notas e historial reutilizan los flujos existentes.
+
+| ID | Estado / dependencia / aceptación |
+| --- | --- |
+| UI-CRM-01 | Implantado: catálogo de siete etapas servido por OpportunityCatalog al índice y detalle; scroll horizontal independiente, cards reales, responsables, valor, antigüedad y estados vacíos. Las trece etapas conceptuales dependen de UI-COMMERCIAL-02; no se han añadido ni equiparado Accepted con Installed ni Rejected con Lost |
+| UI-CRM-02 | Implantado: ocho cards iniciales por etapa, agregado SQL completo y navegación por lotes de ocho manteniendo primer lote visible. Window ROW_NUMBER en una consulta para selección, relaciones eager. Tabla de 25 filas, orden y filtros en URL; resumen inferior limitado a ocho cards cargadas, no listado completo |
+| UI-CRM-03 | Implantado: movimiento HTML nativo y selector accesible; etapa visible permanece canónica hasta respuesta. PATCH mínimo con expected_stage y lockForUpdate, servicio de transiciones e historial existente. Fallos muestran feedback, sin optimistic stage ficticio. Lost utiliza formulario existente con motivo. Sin librería nueva ni realtime |
+| UI-CRM-04 | Implantado: búsqueda remota con debounce 350 ms por referencia/título/cliente/email/teléfono/instalación; responsable y origen canónicos, estado global separado de etapa, fecha de creación y seguimiento. Filtros guardados amplían claves existentes; estados loading/error y filtros móviles en Sheet |
+| UI-CRM-05 | Implantado: agenda mensual por due_at de CrmActivity pending/in_progress, filtrada por oportunidades, con 25 filas y paginación; no segundo modelo de calendario. No sustituye Agenda /operations ni mezcla permisos de operaciones. Pendiente cuadrícula mensual avanzada/reprogramación si aporta valor; aceptar reutilizando esas actividades y permisos |
+| UI-CRM-06 | Implantado: detalle con deep link y pantalla completa existente; edición de card fuera del primer lote soportada. Notas son OpportunityEvent note_added según modelo actual, no lead_notes; timeline conserva autor/fecha/cambios y relaciones Quote. Drawer de detalle opcional pendiente: depende de navegación Inertia del detalle y misma autorización; aceptar refresh/back/forward y sin timeline duplicada |
+| UI-CRM-07 | Permisos existentes conservados: manage-customers mediante PermissionResolver/perfiles/overrides en backend, no rol Manager/Captador inventado. CRM actual permite ámbito de equipo a quien tiene ese gate; owner=me es filtro, no frontera de seguridad. Ámbitos propios y separación Captador/Comercial/Manager requieren definición funcional y policy común para índice/detalle/alta/edición/notas/tareas/presupuestos; aceptar pruebas negativas directas por endpoint. No se ha confundido el scope analítico del dashboard Comercial con una policy CRM inexistente |
+| UI-CRM-08 | Pendiente campos no presentes: potencia estimada, lat/long del lead y trece estados comerciales/postventa. No se inventan en cards ni se añaden columnas. Dependen de modelo/relaciones reales; aceptar trazabilidad de instalación y semántica de estados sin duplicar Lead/Opportunity |
+| UI-CRM-09 | Rendimiento operativo verificado con 29 oportunidades y consulta estable; componentes no recorren pipeline completo. Deuda heredada: análisis comercial legacy y selectores completos de clientes/instalaciones/orígenes ganados del formulario. Evolución a lookup paginado/carga diferida y resumen analítico SQL depende de profiling; aceptar preservando edición de relaciones antiguas y métricas. Métricas legacy del payload operativo salvo totales monetarios se calculan sobre cards cargadas y no se presentan como KPI globales; análisis mantiene su fuente completa |
+| UI-CRM-10 | Verificación: 53 pruebas, 1.267 aserciones (CRM, Opportunity, Comercial, navegación y seguridad de presupuestos), TypeScript, ESLint dirigido, i18n y build correctos. Kanban/Tabla/agenda/ficha/formulario revisados con datos reales; iPad 834/1024 y móvil 390 sin overflow global, desktop 1440. Informe docs/crm-redesign-review.md. Ningún dato ficticio insertado en el entorno conectado ni publicación Git |
+
+### Corrección incremental de navegación Comercial (2026-10-06)
+
+- Estado: implantado localmente, pendiente de revisión; sin publicación ni operaciones Git de entrega.
+- Comercial es el padre navegable a `/commercial`; sus únicos hijos son CRM (`/opportunities`), Clientes (`/people`) y Presupuestos (`/quotes`). Sustituye la estructura anterior con hijo Comercial redundante.
+- Capacidad compartida aditiva `navigable` para nodos con ruta e hijos, aplicada únicamente a Comercial. Enlace y botón del acordeón independientes; etiquetas accesibles, teclado y objetivo táctil de 44 px.
+- Se conserva la clave de preferencias existente. El dashboard respeta el grupo contraído; entrar en una ruta hija muestra su contexto activo. Se conserva el cierre manual en la página actual.
+- Dependencias: destinos existentes y sus permisos; no requiere nuevos datos, migraciones, dependencias ni trabajo funcional del CRM/dashboard.
+- Aceptación: dashboard y CRM conservados, tres hijos correctos, coincidencia de rutas y estados activos, apertura/cierre sin navegación, persistencia y navegación responsive verificadas.
+- Verificación: 24 tests PHP (766 aserciones), 16 aserciones frontend de navegación, TypeScript, ESLint y build; comprobación interactiva de escritorio, tablet y móvil.
+
+### Comercial → Clientes: ficha 360º (2026-10-06)
+
+La navegación canónica no cambia: Comercial abre `/commercial`; Clientes abre
+`/people`; cada cliente conserva `/people/{id}`. Estado: **implantado localmente,
+pendiente de revisión**, sin commit, push, merge ni publicación.
+
+| Capacidad | Estado | Dependencias y criterio de aceptación |
+| --- | --- | --- |
+| Listado, búsqueda, filtros y ordenación | Implantado | `Person` con categoría customer; consulta remota con debounce, filtros reales de tipo/estado/provincia/origen/etiqueta/relaciones/archivo, orden y paginación en URL. Agregaciones sin N+1. |
+| Ficha 360º y deep link | Implantado | Lista y detalle en escritorio; detalle separado en tablet/móvil. Refrescar, pestañas y volver conservan el contexto de búsqueda/página. |
+| CRM y Presupuestos | Implantado | Oportunidades y presupuestos reales por person_id; enlaces al registro original; presupuesto nuevo preselecciona cliente. No duplica workflows. |
+| Proyectos e Instalaciones | Implantado | Proyectos son expedientes técnicos relacionados por oportunidad/instalación. Instalaciones incluyen titular y relación compartida. Mantiene su distinción. |
+| Facturación y volumen | Implantado | Gate real manage-installations. Volumen = suma de amount (IVA incluido) de invoice con estado issued/partial/paid/overdue, todos los periodos. Excluye draft/cancelled, no descuenta rectificativas: facturación bruta emitida, no ingreso neto. Sin permiso, no se consulta ni serializa el importe. |
+| Actividad | Implantado con alcance definido | CrmActivity, OpportunityEvent, presupuestos, facturas y órdenes de trabajo, paginados y ordenados por fecha. La columna Última actividad CRM usa MAX(created_at) de actividades directas del cliente, sin instalación/orden. No utiliza Person.updated_at ni representa última interacción de todos los dominios. |
+| Documentos | Integración disponible | Adjuntos kind=document de órdenes de trabajo vinculadas a instalaciones del cliente, con nombre, origen, tamaño, fecha y descarga autorizada. Técnicos: solo sus órdenes. No expone rutas privadas de almacenamiento. |
+| Contactos y direcciones | Conservado e integrado | CustomerContact permite contactos múltiples y roles. Reutiliza formularios existentes de contacto/etiquetas/consentimiento. Dirección general y fiscal diferenciadas; ubicaciones de instalaciones independientes. |
+| Comercial responsable del cliente | Pendiente | No existe asignación directa en Person. Definir propiedad y scopes, contrato aditivo y permisos; migración y backfill revisados. Aceptación: responsable real visible y filtro autorizado sin confundirlo con owner de oportunidades o commercial de instalaciones. |
+| Repositorio documental central del cliente | Pendiente | Definir vínculo directo cliente-documento y sus permisos sobre sistema existente. Aceptación: documentos por origen, con búsqueda/paginación y autorización de descarga; sin inventar archivos ni duplicar gestor documental. |
+| Última interacción consolidada | Pendiente | Unificar eventos comerciales, propuestas, facturación y actividades, distinguiendo interacción de edición de datos. Aceptación: fecha agregada trazable y filtros de actividad/inactividad con alcance por permisos. |
+| Sectores, imagen y sedes múltiples | Pendiente de necesidad funcional | No existe catálogo de sectores ni imagen de cliente; usa tipos reales e iniciales. Direcciones general/fiscal y ubicaciones de instalación ya disponibles. Definir catálogo y relación de sedes si se requieren; no incorporar almacenamiento solo por el mockup. |
+| Identificación fiscal y duplicados | Validación existente conservada | Validación básica del formulario y coincidencias limitadas por NIF/email/teléfono normalizado en la ficha. No es verificación fiscal completa ni deduplicación automática. Pendiente: definir política fiscal/duplicados si se necesita endurecerla. |
+
+Verificación: suite Clientes/CRM/Portal/Comercial/Navegación, tests frontend de
+URLs/formato/navegación, TypeScript, ESLint, catálogo bilingüe, Prettier, Pint y
+build. Validación interactiva a 1536, 834 y 390 px, las siete pestañas de relaciones,
+recarga, regreso con filtros, edición real y presupuesto preseleccionado.
+El detalle de fuentes, permisos, límites y resultados está en
+`docs/customers-redesign-review.md`.
+
+
+### Corrección UX incremental de Clientes — 7 de octubre de 2026
+
+Estado: implantado y verificado localmente, pendiente de entrega Git.
+Sustituye el master/detail simultáneo de la fase anterior por listado → ficha
+360º independiente, ambos a todo el ancho disponible del AppShell. Las rutas
+reales `/people` y `/people/{person}` y los parámetros del listado se conservan.
+Se reutiliza CustomerDetail, con breadcrumb de cliente, regreso visible,
+resumen responsivo y pestañas completas. No cambia backend, queries, permisos,
+modelos, relaciones ni los módulos conectados. Las carencias documentadas en la
+fase anterior siguen pendientes con las mismas dependencias.
+
+Aceptación verificada: ningún listado simultáneo en la ficha; regreso con
+búsqueda, orden y tamaño de página; deep link, refresh y atrás/adelante; siete
+pestañas; formularios existentes de edición y presupuesto; escritorio 1536 px,
+tablet 834 px y móvil 390 px sin desbordamiento. Pasan 19 tests PHP (328
+aserciones), 15 aserciones de navegación frontend, ESLint, TypeScript, i18n,
+Prettier y build. Ver `docs/customers-full-page-correction.md`.
+
+### Comercial → Presupuestos: rediseño funcional (7 octubre 2026)
+
+Implementado sobre Quote y sus servicios existentes: listado/ficha independientes,
+filtros/orden/paginación/KPI backend, vistas de consulta Kanban y agenda, versiones,
+duplicación, precisión decimal por línea, permisos relacionados, control de versión,
+archivo privado del PDF exacto de nuevos envíos y auditoría paginada. Se mantienen
+los cinco estados reales, el PDF corporativo y los efectos de aceptación/rechazo.
+No se incorporan los datos ficticios de la imagen. Informe: `quotes-redesign-review.md`.
+
+| ID | Estado y alcance | Dependencias | Criterio de aceptación |
+|---|---|---|---|
+| UI-QUOTES-01 | Pendiente: estado Preparado independiente | Definición comercial, workflow y migración de estados aprobada; compatibilidad con CRM/portal | Diferenciar preparado de aprobación; transiciones, permisos, KPI y versión verificables; no mapear pending approval como Preparado |
+| UI-QUOTES-02 | Pendiente: responsable comercial autónomo | Reglas de asignación, modelo/permisos y relación con responsable CRM | Autor y comercial separados, reasignación auditada y filtros coherentes; no renombrar created_by como comercial |
+| UI-QUOTES-03 | Pendiente: potencia y tipología contractual | Fuente técnica por servicio y unidad, modelo existente de proyecto/instalación | Mostrar datos reales o ausencia explícita, sin extraer kW de textos ni introducir cifras del mock |
+| UI-QUOTES-04 | Parcial: nuevos originales PDF archivados; históricos anteriores sin original | Archivo privado original antiguo, inventario de storage y política de conservación/backups | Recuperar solo binarios originales acreditados por entrega/hash; no regenerar un documento histórico y llamarlo original |
+| UI-QUOTES-05 | Pendiente: librería de documentos técnicos adicionales | Modelo documental/almacenamiento existente, relaciones y permisos | Fichas técnicas/esquemas reales vinculados al presupuesto con trazabilidad y acceso autorizado |
+| UI-QUOTES-06 | Parcial: Mail real reutilizado; entrega externa y resiliencia operacional pendientes | Transporte real configurado, pruebas con destinatario autorizado, diseño de outbox/idempotencia | Fallos no marcan Enviado; reintentos no duplican envíos; registrar aceptación del proveedor sin equipararla a recepción; evitar bloqueo prolongado durante transporte |
+| UI-QUOTES-07 | Parcial: consulta Kanban y agenda de página; calendario mensual/DnD pendientes | Endpoint acotado por intervalo, transición válida y permisos backend | Fechas reales del intervalo, volumen controlado, cambios auditados; sin arrastre que eluda workflow/aprobación |
+| UI-QUOTES-08 | Pendiente: scopes comerciales individuales | Policy común acordada para índice/detalle/alta/edición/PDF/envío | Acceso consistente en todos los endpoints y relaciones, sin convertir el filtro Autor en protección aparente |
+| UI-QUOTES-09 | Parcial: control optimista en nueva UI; clientes antiguos opcionales | Auditoría de consumidores previos y estrategia de compatibilidad | Versiones esperadas obligatorias tras migrar consumidores, conflictos visibles y ningún overwrite silencioso |
+| UI-QUOTES-10 | Pendiente: selectores remotos a gran escala | Endpoint de autocomplete con permisos/búsqueda/paginación | No descargar todos los clientes/autores al aumentar el volumen; filtros y contexto conservados |
+
+Aceptación de esta fase: 39 tests PHP (601 aserciones), 16 aserciones frontend,
+ESLint, TypeScript, i18n, Pint, Prettier y build; comprobación de PostgreSQL local
+además de tests SQLite. Ningún correo ni conversión de negocio real ejecutados
+para validar el diseño; fixtures solo en tests. No se requiere migración.
+
+### Proyectos: dashboard, proyectos, instalaciones y Postventa — 7 octubre 2026
+
+Estado: implantado y verificado localmente; sin entrega Git. El padre Proyectos
+abre `/execution`; su chevron mantiene la expansión independiente y sus únicos
+hijos son Proyectos, Instalaciones y Postventa. Se preservan Sidebar/AppShell y
+las pantallas canónicas anteriores. El dominio operativo existente es
+`Installation.project_reference`: se implementa su proyección como proyecto,
+sin duplicar entidades ni utilizar los proyectos públicos `PortfolioProject`.
+
+Dashboard con agregaciones SQL por cohorte de creación, estados actuales,
+valor autorizado del último presupuesto aceptado o estimación, potencia FV en
+kW, líneas de servicio y fechas de instalaciones/órdenes/planes. Listado y ficha
+independientes, filtros/orden/paginación persistidos en URL, pestañas de consulta
+con carga contextual y enlaces a la gestión existente. Postventa reutiliza
+instalaciones finalizadas, planes e incidencias y sus scopes de asignación.
+La conversión aceptada presupuesto → proyecto conserva su transacción y
+protección contra duplicados. No se incorporan cifras del mock ni revisiones
+anuales ficticias. Informe completo de 28 puntos: `projects-redesign-review.md`.
+
+| ID | Estado y alcance | Dependencias | Criterio de aceptación |
+|---|---|---|---|
+| UI-PROJECTS-01 | Parcial: unidad operativa actual basada en Installation; proyecto autónomo y relación 1:N pendientes | Decisión de dominio, modelo/migración y políticas; preservar Quote/Opportunity/Installation y numeración | Un proyecto puede agrupar instalaciones físicas distintas sin copiar registros ni perder referencias; migración y conversión idempotentes |
+| UI-PROJECTS-02 | Pendiente: taxonomía de instalación residencial/industrial/comunidad/comercial/pública | Campo y catálogo de uso del emplazamiento, validación, normalización de históricos | Clasificación real e independiente de service_type; agregación, filtros y permisos consistentes; sin inferirla del nombre del cliente |
+| UI-PROJECTS-03 | Parcial: valor aceptado/estimado disponible; base homogénea y evolución histórica pendientes | Definir IVA/moneda de estimated_budget, instantáneas históricas y periodo operativo | Total comparable con base financiera explícita, registros incompletos visibles y variaciones calculadas desde periodos equivalentes; no sumar versiones del presupuesto |
+| UI-PROJECTS-04 | Parcial: fechas e hitos existentes; fin planificado, legalización y cierre administrativo pendientes | Campos/eventos operativos con transición y responsables reales | Separar fecha prevista de finalización efectiva; hitos auditados, pendientes explícitos y fechas clave consultables sin usar CRM como ejecución |
+| UI-PROJECTS-05 | Parcial: adjuntos privados de órdenes y expedientes técnicos; biblioteca documental unificada e informe de proyecto pendientes | Modelo documental y storage existentes, vínculos/ACL, generador de informes reales | Descargar documentos propios autorizados; integrar PDFs/dossiers/materiales sin endpoints ni reportes simulados |
+| UI-PROJECTS-06 | Parcial: actividad auditada de instalación/órdenes; timeline consolidado pendiente | Eventos de presupuesto, ingeniería, materiales, mantenimiento y tickets; políticas de visibilidad | Historia consolidada paginada y ordenada, sin exponer snapshots financieros ni duplicar eventos |
+| UI-PROJECTS-07 | Parcial: planificación, equipos y materiales existentes integrados; gestión heredada aún extensa | Formularios y endpoints actuales, paginación/autocomplete y payloads por sección | Mantener mutaciones operativas y trazabilidad sin descargar grafos completos al abrir una ficha ni crear inventario paralelo |
+| UI-PROJECTS-08 | Parcial: Gate/scopes actuales respetados; segregación multiempresa e individual de proyectos pendiente | Contexto corporativo real y políticas comunes de instalaciones/proyectos; modelo actual sin company_id | Todas las lecturas/mutaciones/destinos aplican la misma segregación; filtros de cliente/técnico nunca sustituyen una policy |
+| UI-PROJECTS-09 | Parcial: listados y relaciones paginados, agregados SQL y eager loading; selectores y widget isolation pendientes | Autocomplete autorizado/paginado, índices con EXPLAIN sobre volumen real, contratos de fallos por widget | Complejidad estable por página; no descargar todos los clientes/técnicos; fallo secundario visible sin fabricar métricas ni inutilizar widgets independientes |
+| UI-PROJECTS-10 | Parcial: planes/tickets reales y fecha siguiente existentes; programa postventa y garantías avanzadas pendientes | Reglas de cobertura/frecuencia/garantía y servicios existentes, estados y pruebas | Revisiones según plan real, incidencias autorizadas y continuidad trazable; instalación finalizada sin plan conserva ausencia explícita |
+| UI-PROJECTS-11 | Parcial: PRJ existente en conversión; numeración manual unificada pendiente | Auditoría de referencias históricas y edición manual, reglas de unicidad/normalización | Alta y edición no duplican referencias; conservar códigos existentes y la conversión bloqueada/idempotente |
+
+Validación: 128 tests PHP (2317 aserciones), 63 aserciones frontend entre navegación
+canónica/clientes/presupuestos/proyectos, ESLint completo, TypeScript, i18n,
+Prettier de los archivos nuevos y build. Verificación visual en escritorio
+1536 × 1024, tablet 834 × 1194 y móvil 390 × 844 con PostgreSQL local, incluidas
+URL, filtros, regreso y tabs. Único aviso de build: chunks grandes ya existentes.
+No hay migración ni librerías adicionales. No se han ejecutado correos,
+conversiones ni cambios de datos de negocio real para probar el diseño.
+
+### Operaciones: panel, planificación, OT y Agenda — 7 octubre 2026
+
+Estado: implantación local, sin commit/push/merge. Operaciones es padre navegable
+(`/operations`), con chevron independiente y exactamente tres hijos:
+Planificación (`/operations/planning`), Órdenes de trabajo (`/work-orders`) y
+Agenda (`/operations/agenda`). Se conserva la gestión de actividades en
+`/operations/activities` y las herramientas documentales, firma, cronómetro y
+consumos en `/work-orders/manage`. Enlaces antiguos con `work_order` abren la
+ficha independiente; parámetros históricos de Operaciones conservan su destino.
+
+El panel usa fechas de ejecución y completed_at, conteos SQL y proyección semanal
+acotada. La matriz trabaja con técnicos reales, valida solapamientos, capacidad,
+cualificación y zona mediante TechnicianSchedule; reprogramación transaccional,
+registro de motivo y comprobación optimista de updated_at. OT: creación sobre
+WorkOrderFactory, listado paginado y ficha a todo el ancho con pestañas paginadas
+solo al solicitarlas. Agenda proyecta OT y actividades independientes sin copiar
+entidades ni duplicar las actividades enlazadas a una OT. Zona Europe/Madrid
+(configurable); entrada ISO normalizada en servidor. Informe: `operations-redesign-review.md`.
+
+| ID | Estado y alcance | Dependencias | Criterio de aceptación |
+|---|---|---|---|
+| UI-OPS-01 | Implantado: cuatro áreas, padre navegable, lista y ficha independiente | Modelos y permisos existentes; shell canónico | Texto e icono abren panel; chevron no navega; tres hijos; deep links y regreso funcionales |
+| UI-OPS-02 | Parcial: planificación por técnico; equipos/cuadrillas y vehículos pendientes | No existe relación operativa Team/Crew/Vehicle; decisión de modelo, disponibilidad y asignación | Recursos reales vinculados sin duplicar Personal; validación de disponibilidad y conflictos; técnicos conservan su scope |
+| UI-OPS-03 | Parcial: carga expresada como trabajos reales; porcentaje semanal pendiente | Calendario efectivo de capacidad, ausencias, festivos y disponibilidad homogénea por recurso | Fórmula horas planificadas/capacidad disponible con periodos equivalentes y datos incompletos explícitos; ningún 78% ficticio |
+| UI-OPS-04 | Implantado: asignación/reprogramación mediante formulario accesible; DnD diferido | Componente accesible, backend WorkOrderRescheduler y bloqueo existente | DnD opcional usa la misma API, valida versión, revierte errores y ofrece control equivalente por teclado |
+| UI-OPS-05 | Parcial: checklist existente consultable/completable; CRUD de tareas individuales pendiente | Endpoints/políticas para añadir y editar WorkOrderChecklistItem | CRUD con posición, obligatoriedad y auditoría; ningún checklist genérico creado por la UI; plantillas existentes preservadas |
+| UI-OPS-06 | Parcial: reservas, archivos, fotos, partes horarios y gestión existente integrados; migración de formularios auxiliares pendiente | Reutilizar WorkOrderMaterialsController, attachments/publication/signature y time entries | Formularios en las nuevas pestañas con permisos, errores inline y consultas paginadas; no pasar a gestión histórica para operar |
+| UI-OPS-07 | Parcial: parte de horas y firma existentes; PDF/impresión corporativa de parte de trabajo pendiente | No hay generador de parte OT; definir plantilla corporativa y permiso documental | Generación descargable desde datos reales, marca AREVANTES, firma existente y sin inventar nuevos documentos |
+| UI-OPS-08 | Parcial: Agenda por periodos en lista; cuadrícula gráfica mensual y fuentes adicionales pendientes | No hay biblioteca de calendario/scheduler; confirmar fechas autorizadas de instalación, mantenimiento e hitos | Proyección por rango sin crear CalendarEvent duplicados; cada evento tiene fuente/deep link; reprogramación usa API común |
+| UI-OPS-09 | Parcial: versión esperada en nueva planificación/workflow; clientes históricos opcionales | Migrar clientes previos y rescheduling por lotes | Versión requerida tras migración, conflicto visible sin overwrite; transacción y bloqueo de técnicos conservados |
+| UI-OPS-10 | Parcial: numeración WO segura y workflow real preservados; inicio resumido sin started_at propio | Inicio real en TimeEntry + AuditLog; decisión sobre campo específico y migración | Ningún inicio inferido de fecha prevista; actor/fecha trazables y varias OT por instalación verificadas; reglas de cierre de instalación explícitas |
+| UI-OPS-11 | Parcial: selectores limitados/búsqueda y proyecciones acotadas; gran escala pendiente | Autocomplete remoto, paginación de técnicos y planificación densa | No cargar todo el directorio/histórico; truncamiento visible; selección de recurso/rango conserva permisos y contexto |
+
+La base local visible no contiene OT; la comprobación visual usa esos vacíos
+reales. Asignaciones, conflictos, progreso y cierre se verifican con fixtures
+exclusivamente en la base aislada de tests. No se insertan datos del mock ni se
+alteran trabajos reales para demostrar la interfaz. Validación y límites
+concretos figuran en el informe; ninguna migración o dependencia nueva requerida.
+
+Validación de la fase: 154 tests PHP / 3059 aserciones y 63 aserciones frontend;
+ESLint, TypeScript, i18n, Pint, Prettier y build correctos. Comprobación visual
+con datos vacíos reales en escritorio, tablet y móvil; prueba de filtros GET y
+creación contextual sin guardar OT en la base visible. Snapshot Git y revisión
+de 28 puntos conservados en los documentos del área.
+
+### Almacén y compras — diseño por secciones (8 de octubre de 2026)
+
+Referencia: diseño aportado «ChatGPT Image 8 Oct 2026, 22_17_46.png» y especificación de Almacén y compras. Implantación **local, sin publicación ni commit**. Auditoría detallada: `docs/supply-redesign-review.md`.
+
+El sidebar mantiene exactamente Productos, Inventario, Proveedores y Compras. El padre abre `/supply`; su chevron despliega los hijos. No se añade Agenda ni un hijo Dashboard. Se reutilizan los productos, almacenes, proveedores, pedidos, reservas, movimientos, recepciones y números de serie existentes. Las cifras del diseño no son datos de la aplicación.
+
+| ID | Estado y capacidad | Dependencias | Criterio de aceptación |
+| --- | --- | --- | --- |
+| UI-SUP-01 | Implantado local: resumen, cuatro listados y fichas completas | Shell canónico y gates existentes | Padre navegable; listados con búsqueda/filtros/paginación; fichas sin split; volver conserva filtros y pestaña por URL; no cambios al sidebar compartido |
+| UI-SUP-02 | Implantado local: stock físico, reservas, disponible y pedidos en tránsito | StockMovementLine, StockBalance y StockPositionService | La compra no crea stock; la reserva no consume; disponibilidad excluye cuarentena; cantidades decimales y unidades reales |
+| UI-SUP-03 | Implantado local: necesidades manuales y agrupación por instalación/material | InstallationMaterialRequirement, reservas y consumos existentes | Alta autorizada sin duplicar necesidad manual; agregación suma necesidades sin multiplicar las reservas; disponible global y déficit explican que el stock se comparte y no descuentan pedidos |
+| UI-SUP-04 | Parcial: origen presupuesto/manual existente; priorización y cobertura específica por OT pendientes | ProjectMaterialPlanner, relaciones existentes y reglas de asignación por OT | Necesidad conserva origen, fecha, prioridad, OT y cantidades cubiertas por pedido; sin duplicar requerimientos ni repartir varias veces el mismo disponible |
+| UI-SUP-05 | Implantado local: recepción parcial y protección de reintentos | GoodsReceipt, StockLedger, nueva purchase_receipt_requests y clave de operación | Una clave idéntica produce una sola recepción/incidencia; cambiar payload provoca conflicto; transacción indivisible; series validadas y stock sólo por cantidad aceptada |
+| UI-SUP-06 | Implantado local: entregas y devoluciones internas físicas | Warehouses reales, reservas, StockLedger, destinatario User opcional y entrega de origen | Conserva stock global, desplaza compromiso de instalación, no crea consumo, limita retorno a lo entregado, muestra receptor y origen; serie retornada pertenece a entrega original |
+| UI-SUP-07 | Parcial: consumo por OT real e idempotente; preparación física independiente pendiente | WorkOrderMaterialConsumer y stock/reservas existentes; definir preparación por cantidad y actor | Preparar no consume; entrega separada de preparación y consumo; cantidad preparada parcial con fecha, responsable y cancelación auditada |
+| UI-SUP-08 | Implantado local: cuarentena por almacén no utilizable; liberación controlada pendiente | Campo Warehouse.is_usable aditivo, almacén real de cuarentena, evaluación de calidad | Daño mantiene existencia física con disponible cero; no reserva/entrega/consume; no cambiar flag de un almacén con movimientos/reservas; liberar daño requiere decisión auditada específica |
+| UI-SUP-09 | Parcial: series existentes y trazas recepción/traslado/consumo/devolución | SerialNumber, SerialNumberEvent y origen compra existentes | Serial instalado enlaza instalación y compra/proveedor; devoluciones verifican entrega; ficha nueva integra historial paginado y garantía sin datos inferidos |
+| UI-SUP-10 | Parcial: histórico unit_cost conservado; valoración uniforme pendiente | Decisión contable sobre PMP/FIFO, costes de transporte y material sin coste | Valoración reproducible por almacén/fecha; movimientos históricos inmutables; consumo no sustituye política de valoración por precio actual de catálogo |
+| UI-SUP-11 | Pendiente: categorías del diseño, marca, fabricante, EAN e imágenes de catálogo | Modelo taxonómico y almacenamiento de imágenes autorizados | Filtros y pestañas sólo con categorías reales; relaciones normalizadas; imágenes propias; sin deducir marca/categoría del nombre |
+| UI-SUP-12 | Parcial: unidades reales y almacenes existentes; conversiones y ubicaciones detalladas pendientes | Unit, Warehouse; definir conversiones, estantes, vehículos/equipos y asignación de receptor | Conversiones exactas por producto; almacén/ubicación física trazable; destinatario no se inventa a partir del creador; no crear obras como almacenes automáticamente |
+| UI-SUP-13 | Parcial: documentos, PDF y eventos de compra existentes reutilizados | PurchaseDocumentEvent, PDF, archivos/adjuntos existentes y auditoría | Adjuntos de entrega/recepción y actividad general unificada con permisos, fecha real y paginación; albaranes internos requieren plantilla aprobada |
+| UI-SUP-14 | Parcial: factura derivada y contabilidad existentes preservadas | PurchaseInvoiceMatcher, contabilización existente | Ningún movimiento genera asientos/facturas nuevos implícitos; migrar herramientas auxiliares a pestañas manteniendo aprobación, cotejo y reglas fiscales |
+| UI-SUP-15 | Parcial: permisos reales y redacción de importes/costes en nuevas vistas | Gates manage-catalog/view-purchases/manage-purchases/receive-purchases/view-finance | Usuario técnico recibe sin costes ni editor financiero; gestión financiera histórica requiere view-finance; añadir permisos granulares de entrega/reserva/preparación tras acordar matriz |
+| UI-SUP-16 | Parcial: continuidad entre ejercicios; aislamiento multientidad pendiente | No existe company_id universal en este dominio; contexto fiscal real | Cambiar ejercicio no reinicia stock; futura separación empresarial con migración y pruebas de no fuga entre entidades |
+| UI-SUP-17 | Parcial: páginas de 15, relaciones batch y sólo pestaña consultada; gran escala pendiente | Selectores remotos, inventario agregado SQL paginado y series mensuales agrupadas SQL | No cargar catálogo/directorio completo en editores; paginar contactos/relaciones; medir consultas y tiempos con volumen representativo |
+| UI-SUP-18 | Verificado local: escritorio y responsive; pruebas de concurrencia PostgreSQL simultánea pendientes | Base PostgreSQL de pruebas aislada y dos conexiones/procesos independientes | Dos reservas/recepciones simultáneas nunca sobreasignan/duplican; índices únicos y bloqueo de almacenes ordenado; no usar datos reales como fixtures |
+| UI-SUP-19 | Parcial: gráficos con cantidades de registros reales; indicadores monetarios/taxonomía pendientes | Valoración histórica y categorías reales | No sumar unidades distintas ni valorar consumos con precios de catálogo; gráfico y KPIs indican unidades/periodo; ausencia de capacidad diferente de conjunto vacío |
+| UI-SUP-20 | Parcial: reuso de formularios operativos históricos | Migración incremental de reservas, movimientos, almacenes, series y compras auxiliares | Formularios adaptados al diseño sin perder endpoints ni permisos; estados de envío/errores y confirmaciones accesibles; no considerar rediseñada una herramienta histórica sólo por enlazarla |
+
+Verificación: pruebas backend de stock, recepción parcial/reintentos, seriales, cuarentena, consumo y permisos; regresión de operaciones, compras, asignaciones y torre de suministro; typecheck, lint, catálogo bilingüe y build. Las pruebas automatizadas emplean SQLite en memoria. La migración aditiva se aplicó también a PostgreSQL **local**, sin crear registros de negocio de prueba. La ejecución simultánea real sobre PostgreSQL queda pendiente y no se considera verificada por el bloqueo escrito en código.
+
+
+## Facturación — diseño por secciones (11/10/2026)
+
+Estado de trabajo **local**, rama `ai/sidebar-navigation-redesign`; no publicado. Se reutilizan los dominios reales y el shell. La ausencia de capacidad se representa como `false`/`null`, distinta de una consulta vacía. Informe: [billing-redesign-review.md](billing-redesign-review.md).
+
+| ID | Estado y capacidad | Dependencias | Criterio de aceptación |
+|---|---|---|---|
+| UI-BILL-01 | Implantado local: dashboard y tres entradas canónicas | WorkspaceNavigation, shell compartido y gates existentes | Padre /billing navegable; exactamente clientes, proveedores y cobros/pagos; sin publicación ni cambio del shell. |
+| UI-BILL-02 | Implantado local: seis indicadores y evolución real; comparativas parciales | BillingWorkspace, fechas fiscales y pagos efectivos | Emisión incluye rectificativas; cobros/pagos por fecha efectiva; saldos abiertos de todos los ejercicios. Comparativas y sparklines de saldos requieren snapshots históricos reproducibles. |
+| UI-BILL-03 | Implantado local: listas y fichas completas | SalesDocument, PurchaseDocument y Expense | Filtros, orden y paginación backend; ficha a pantalla completa; facturas de proveedor independientes de pedidos; un pedido no se cuenta como factura. |
+| UI-BILL-04 | Implantado local: estados documentales y financieros separados | Documentos originales, pagos activos, créditos vinculados y vencimiento | Saldo exacto no negativo; parcial distinto de emitida/recibida; vencida sólo si fecha anterior a hoy; saldo a favor visible sin asignación ficticia. |
+| UI-BILL-05 | Parcial: cobros/pagos con bloqueo, decimales e idempotencia | Servicios contables y fuentes financieras existentes; UUID único aditivo | Reintento idéntico no duplica; payload cambiado rechazado; exceso rechazado; permiso y fuente real. Ampliar interfaz de lotes reutilizando PaymentBatch sin otro motor. |
+| UI-BILL-06 | Parcial: numeración existente reutilizada | FiscalYear, series, locks y restricciones existentes | No numerar borradores ni duplicados; emisión repetida rechazada; validar carrera real PostgreSQL aislada con dos procesos antes de declarar concurrencia verificada. |
+| UI-BILL-07 | Parcial: PDF archivado para nuevas emisiones | DocumentPdf corporativo, disco privado y hash SHA256 | PDF emitido idéntico tras cambio de empresa; archivo ausente/alterado falla. Auditar archivo histórico de facturas antiguas sin reconstruirlas como originales; reconciliar posibles archivos huérfanos tras rollback. |
+| UI-BILL-08 | Parcial: rectificativa completa de cliente protegida | Relación source_document_id y serie de rectificativas existente | Reintentar reutiliza documento; agregado emitido no supera original. Rectificación parcial, causas fiscales, devolución/compensación y ciclo múltiple requieren reglas y pruebas específicas; compras conservan sus flujos existentes. |
+| UI-BILL-09 | Parcial: anticipo asociado a aceptación existente | AcceptancePayment y conversión existente de presupuesto | No tratar cualquier cobro como anticipo fiscal. Anticipos genéricos, aplicación entre facturas, devolución y exceso requieren asignación trazable e integración contable/fiscal. |
+| UI-BILL-10 | Parcial: facturación parcial de presupuesto existente | QuoteBillingPlan y SalesDocumentConversion | Mantener porcentajes/secuencia/origen existentes. Hitos contractuales únicos, certificaciones y asignaciones pendientes; instalación terminada no genera factura automática. |
+| UI-BILL-11 | Pendiente: necesidades de facturación contractuales | Catálogo de hitos, condiciones contractuales y asignación de importes | Contrato capabilities.contractualNeeds=false y needs=null; mostrar no disponible. Tras implantar, necesidades sin doble facturación y navegación al origen real. |
+| UI-BILL-12 | Parcial: cálculo e impuestos originales preservados | TaxLines, retención Expense, revisiones fiscales y cálculos existentes | Mostrar neto, impuesto y retención real; no fijar IVA21 para todo. Migrar cálculos legacy restantes de float a decimal exacto con regresión de redondeos y rectificaciones. |
+| UI-BILL-13 | Parcial: histórico de pagos anulados de gastos | ExpensePaymentCancellation y asientos/periodos existentes | Pago anulado separado de saldo activo. Anulación general de cobros/pagos de compra requiere contraasiento, periodo abierto, conciliación y auditoría; no habilitar borrado como sustituto. |
+| UI-BILL-14 | Pendiente: calendarios de vencimiento múltiples | Modelo de cuotas/asignación e integración con tesorería | Importes y fechas de cuotas reales suman total; saldo distribuido sin duplicación. Mientras tanto usar únicamente due_date existente, no inventar cuotas. |
+| UI-BILL-15 | Parcial: formas y fuentes financieras existentes | SupplierPaymentSourceResolver, cuentas, tarjetas y empleados | Selector real con permiso y validación backend; fondos de empleado trazables. Automatismos bancarios y conciliación requieren servicios existentes y pruebas, sin reglas monetarias legales inventadas. |
+| UI-BILL-16 | Pendiente: aislamiento multientidad y multimoneda | company_id transversal, scopes, migración y tipos de cambio históricos | No fuga entre empresas. Esta proyección EUR no suma divisas heterogéneas; ampliar tras especificar política de conversión, moneda y contexto empresarial. |
+| UI-BILL-17 | Parcial: documentos y entrega por email existentes | DocumentDelivery, correo y PDF corporativo reutilizados | Registro de entrega real y errores existentes; no afirmar envío por abrir modal. Probar proveedor simulado, archivo histórico y fallos; no enviar correos reales durante validación. |
+| UI-BILL-18 | Parcial: integración de dominios existente | Presupuestos, instalaciones, compras, AccountingSynchronizer y tesorería | Links al origen real y ausencia explícita; no nuevo motor ni stock por factura; integración contractual con proyectos requiere relación normalizada cuando falte. |
+| UI-BILL-19 | Pendiente: SIF / VERI*FACTU | Auditoría normativa por entidad/régimen, registros, cadena, QR, incidencias y remisión | capabilities.sif=false; hash de PDF no es cadena fiscal. Evidenciar requisitos aplicables e implementar motor probado antes de declarar cumplimiento o habilitar remisión. |
+| UI-BILL-20 | Pendiente: factura electrónica estructurada | Aplicabilidad B2B, RD238/2026, SPFE/OrdenHAC1028/2026, formatos y transporte | capabilities.structuredInvoice=false; PDF/email no equivalen a factura estructurada. Validar formato, autenticidad, recepción, estados y conservación con integración autorizada. |
+| UI-BILL-21 | Parcial: permisos reales reutilizados | Gates view-finance, manage-installations, manage-treasury, issue-invoices, prepare-credit-notes, manage-purchase-payments y manage-catalog | Redactar importes no autorizados también en backend; no deducir permisos del nombre del rol. Matriz más granular requiere decisión explícita y tests. |
+| UI-BILL-22 | Parcial: agregación SQL y páginas acotadas | Índices aditivos, agrupación mensual SQL y selectores existentes | No agrupar todas las filas en navegador. Pendiente medir gran volumen, autocomplete de terceros y paginación de líneas/historial de fichas. |
+| UI-BILL-23 | Parcial: formularios históricos preservados | Enlaces de gestión view=manage y formularios originales | Nueva interfaz sirve acciones autorizadas principales. Editores auxiliares, revisión fiscal, lotes y configuración conservan flujo original; adaptar diseño sin considerar un enlace como rediseño completo. |
+| UI-BILL-24 | Verificado local: escritorio, tablet y móvil | Shell existente, cards móviles y Sheet de filtros | 1440×1000, 820×1180 y 390×844; sin overflow de página; filtro móvil GET devuelve seis pendientes reales; no usar datos simulados en base local. |
+| UI-BILL-25 | Parcial: pruebas y migración local | SQLite en memoria, PostgreSQL local para lectura y esquema | 68 pruebas/1061 assertions; build, lint y types. Carrera simultánea, aislamiento empresarial, normativa y correo real no verificados; no confundir locks escritos con ejecución concurrente probada. |
+
+Verificación: 68 pruebas backend pasan con 1.061 comprobaciones; 13 pertenecen a esta fase. Base de pruebas SQLite aislada; migración aditiva aplicada a PostgreSQL local y lectura visual de sus datos reales. No se han creado registros de negocio para rellenar el diseño, enviado correos ni presentado una certificación fiscal. Build pasa con aviso de chunks generales superiores a 500 kB; lint global, tipos y catálogo bilingüe pasan. La revisión de concurrencia PostgreSQL simultánea y capacidades fiscales pendientes conserva su estado pendiente.
+
+## Finanzas · rediseño por secciones (11/10/2026)
+
+Referencia: mockup de cuatro pantallas aprobado y especificación de Finanzas. Implantación local en `ai/sidebar-navigation-redesign`; informe de revisión con 31 puntos en `docs/finance-redesign-review.md`. No publicación, Nexo ni datos de muestra. Se reutilizan bancos, extractos, conciliación, reglas, facturas, pagos y TreasuryForecast; no una segunda verdad financiera.
+
+| ID | Estado y alcance | Dependencias | Criterio de aceptación |
+| --- | --- | --- | --- |
+| UI-FIN-01 | Implantado local: navegación y cuatro vistas | Shell canónico y gates existentes | Parent Finanzas navegable /finance con chevron independiente y exactamente Tesorería, Bancos y conciliación, Previsiones; rutas/deep links históricos conservados. |
+| UI-FIN-02 | Implantado local: dashboard real | FinanceWorkspace, BillingWorkspace, BankAccount/Transaction | Seis KPIs SQL; no cifras ilustrativas, crecimiento inventado ni suma de páginas frontend. Saldo registrado y estimación etiquetados correctamente. |
+| UI-FIN-03 | Implantado local: tesorería y deduplicación | Extractos y BankReconciliation | Flujo efectivo usa extractos EUR; pagos sin vínculo se listan por separado y no se suman a saldo. Transferencias propias activas excluidas del flujo consolidado; ambos movimientos conservados. |
+| UI-FIN-04 | Implantado local: posición por cuenta | Saldo inicial, operación y moneda | Apertura más operaciones hasta hoy; sin reinicio por ejercicio. Monedas distintas no sumadas como EUR; pendientes no restados otra vez. |
+| UI-FIN-05 | Pendiente: saldo disponible confirmado | Fecha de control, retenciones, pólizas y confirmación bancaria | availableBalance=false/available=null hasta fórmula de disponibilidad verificable por cuenta y fecha; no equiparar saldo registrado, contable y disponible. |
+| UI-FIN-06 | Pendiente: histórico de saldos fiables | Fecha/importe de apertura y extractos completos | historicalBalances=false; gráficos actuales son flujos de extractos. Reconstrucción debe identificar periodos cubiertos, huecos y fecha de corte sin aparentar confirmación. |
+| UI-FIN-07 | Implantado local: consulta/alta/edición/desactivación | Backend existente y endpoint PATCH con gate manage-treasury | IBAN oculto en consulta; editar nombre/entidad/estado conserva movimientos. No eliminación de cuenta con historial ni modificación arbitraria de moneda/apertura. |
+| UI-FIN-08 | Reutilizado y reforzado: CSV/Norma43 | Importadores, hash por cuenta, preview, transaction y bloqueo de cuenta | Vista previa y validación antes de inserción; dos reintentos no crean duplicados; mantener origen/fecha/usuario/resultados. Prueba simultánea PostgreSQL pendiente en FIN-19. |
+| UI-FIN-09 | Reutilizado e integrado: conciliación manual | Candidatos y relaciones únicas existentes | Revisar importe/fecha/referencia/candidato antes de confirmar; pago existente solo se vincula. Factura seleccionada crea pago únicamente mediante servicio autorizado. No autoacción al consultar. |
+| UI-FIN-10 | Pendiente: conciliación agrupada | Modelo de asignación N:M con importes y comisiones | Un movimiento con varias facturas o varias asignaciones conserva importes exactos y trazabilidad; no forzar relación 1:1 para casos que el dominio necesita. |
+| UI-FIN-11 | Reutilizado: reglas versionadas | BankReconciliationRuleEngine y gates de tesorería/contabilidad | Preview explicable, aplicación autorizada y reversión existentes. Ninguna regla IA ni conciliación por mera coincidencia de importe. |
+| UI-FIN-12 | Parcial: reversión trazada | Contraasientos y AuditLog existentes | Nuevo UI pide motivo; evento guarda usuario/fecha/motivo/snapshot. Pendiente conservar entidades de anulación íntegramente y exigir motivo a clientes antiguos sin romper compatibilidad. |
+| UI-FIN-13 | Implantado local: previsión 7/30/60/90 | TreasuryForecast existente y obligaciones con fecha | Saldo inicial + entradas - salidas; hipótesis visibles 90/70/100% y probabilidad manual. Rectificativas emitidas reducen cobro; datos sin fecha no se inventan. Sin cuenta EUR base, forecast.available=false y closing=null. |
+| UI-FIN-14 | Implantado local: previsión manual idempotente | FinancialForecastItem.operation_key único, transacción, autorización y auditoría | Reenvío mismo token/datos conserva un registro, otros datos error; cancelación conserva fila. No crear pagos reales por recurrencia. Casos simultáneos ver FIN-19. |
+| UI-FIN-15 | Parcial: vencimientos y resumen mensual | Facturación y eventos del motor existente | Listado paginado, link al origen, flujos y saldo de cierre separados por mes. Pendiente tabla paginada unificada de todos los eventos con impacto, filtros estado/origen/tipo y resumen semanal. |
+| UI-FIN-16 | Parcial: clasificación de movimientos | Categoría financiera de contrapartida contable explícita | Solo asignación simple no revertida con categoría real; resto Sin clasificar. Pendiente categorías por conciliación, reparto de líneas y reglas completas; no inferir categoría por texto o importe. |
+| UI-FIN-17 | Pendiente: multientidad y cuentas asignadas | Claves de sociedad, políticas y relaciones de obligación a cuenta | multiCompany=false. Segregación real en SQL/autorización y pruebas cruzadas antes de consolidar varias empresas. Forecast por cuenta no asigna obligaciones globales arbitrariamente. |
+| UI-FIN-18 | Parcial: exactitud monetaria heredada | BigDecimal, control bancario y PurchaseCommitmentAnalysis | Nuevo DTO y sumas de proyección exactos; consumidor anterior compatible. Pendiente convertir cálculos float restantes de compromisos, control, créditos y multidivisa; currency conversion solo con tipo/fecha autorizados. |
+| UI-FIN-19 | Pendiente: concurrencia PostgreSQL probada | Base aislada de prueba y dos conexiones/procesos reales | Verificar imports simultáneos, doble conciliación, reversión y reintento manual; una sola relación/pago/token y rollback coherente. Locks/índices escritos y pruebas SQLite no equivalen a carrera probada. |
+| UI-FIN-20 | Parcial: performance | SQL, eager sums, páginas 10/25 y filtros backend | No cargar movimientos completos en React. Pendiente benchmark con gran volumen, paginar candidatos/historial/selectores y motor de obligaciones; ordenar/buscar tercero/proyecto en lista bancaria por campos normalizados. |
+| UI-FIN-21 | Reutilizado: integración compras/proyectos/contabilidad | Facturas derivadas, compromiso residual, JournalPoster y AccountingSynchronizer | No presupuesto/oportunidad tratado como cobro garantizado; no orden confundida con factura ni doble obligación; no asientos ficticios. Relaciones de hitos/anticipos normalizadas pendientes. |
+| UI-FIN-22 | Verificado local: responsive y permisos | Shell existente, tarjetas móviles, gates y datos locales | 1440×1000, 820×1180 y 390×844 sin overflow de página; importes reales, IBAN enmascarado, 403 al no autorizado; no nóminas individuales expuestas. |
+| UI-FIN-23 | Parcial: gestión avanzada preservada | view=manage, formularios originales y deep links | Importación/reglas integradas; productos bancarios, lotes, automatismos, fiscal, presupuestos y edición avanzada conservan gestión anterior. Su acceso no equivale a adaptación visual completa. |
+| UI-FIN-24 | Verificación: pruebas y build | SQLite aislada y PostgreSQL local de lectura | 90 pruebas relacionadas/1.880 assertions; tipos, lint, catálogo y build pasan. Suite global con incidencias adicionales documentadas en informe; no certificación de seguridad multientidad ni de concurrencia real. |
+
+La migración aditiva de token de previsión se aplicó a PostgreSQL local; las pruebas usan SQLite aislada. No se han insertado datos de negocio para rellenar el diseño ni ejecutado movimientos financieros reales durante la verificación. Las capacidades incompletas permanecen false/null o en estado explícito y se planifican aquí.
+
+## Fiscal — diseño por secciones, 11/10/2026 (solo local)
+
+Referencia visual y especificación de Fiscal/Dashboard, Impuestos, Modelos y Periodos recibidas el 11/10. Incremento sobre la rama existente, sin publicar ni integrar. No altera el orden fiscal 303 → 390 → 347 ni sustituye las puertas FIN-03. Informe completo: [fiscal-redesign-review.md](fiscal-redesign-review.md).
+
+| ID | Estado / capacidad | Dependencias | Criterio de aceptación |
+| --- | --- | --- | --- |
+| UI-FISC-01 | Implantado local: Fiscal padre navegable, exactamente tres hijos y detalle a pantalla completa | WorkspaceNavigation, AppShell y permisos vigentes | Padre abre /fiscal; chevron independiente; hijo activo expandido, deep links originales y ejercicio conservados; sin hijo Dashboard |
+| UI-FISC-02 | Implantado local: cuatro vistas responsive y estados diferenciados | PageShell/PageHeader y componentes existentes | Desktop/tablet/móvil sin overflow global; consultas vacías no se confunden con capacidad ausente; no copiar cifras del mockup |
+| UI-FISC-03 | Implantado local: IVA y retenciones documentales exactos con fuentes paginadas | Documentos existentes, DECIMAL, SQL SUM y BigDecimal | Excluir borradores/cancelados y gastos fuera de ámbito EUR/factura; rectificativas con signo; cada importe trazable; ningún agregado documental prepara o presenta por sí mismo |
+| UI-FISC-04 | Pendiente: devengo fiscal completo de emitidas y anticipos | Clasificación de operaciones emitidas, snapshot/versión y normativa aplicable | Ordinarias/rectificativas/anticipos/exentas/no sujetas/ISP correctamente clasificados por fecha aplicable, sin duplicación; diagnóstico individual de fuentes excluidas |
+| UI-FISC-05 | Parcial: revisión y deducibilidad originales conservadas; agregado confirmado pendiente | ExpenseFiscalReview, PurchaseFiscalReview, Model303Preview y conciliación FIN-03 | Reutilizar revisiones actuales con evidencia válida, periodo explícito y cuotas no deducibles/pendientes separadas; no asumir deducción total de legacy ni leer todos los libros en cada render |
+| UI-FISC-06 | Pendiente: resultado 303 completo/confirmado | Puertas FIN-03.303, compensaciones, ajustes, normativa y censo | Resultado reproducible y versionado con fuentes/ajustes, revisión y ámbito; nullable hasta validación; no usar repercutido menos soportado como definitivo |
+| UI-FISC-07 | Implantado local: catálogo real de tipos y alta aditiva de IVA | TaxRate, manage-tax + view-finance y auditoría | Crear tipo decimal no modifica porcentajes históricos/default; validaciones backend, evento auditado; retenciones no se activan como IVA en consumidores genéricos |
+| UI-FISC-08 | Pendiente: vigencias, códigos y ciclo de activación/edición de tipos | TaxRate aditivo, consumidores de facturas/líneas/cuentas y periodos protegidos | Fechas explícitas sin solapamientos; porcentaje usado histórico inmutable; modificación mediante versión/nuevo tipo; no exponer borrado o activación sin backend autorizado |
+| UI-FISC-09 | Parcial: exención de catálogo conservada; tratamientos especiales de operaciones pendientes | TaxRate.kind, evidencia fiscal por línea/documento y normativa | Porcentaje cero no sustituye clase fiscal; distinguir exención, no sujeción e ISP sin reescribir documentos; distribución por tratamiento solo sobre datos verificados |
+| UI-FISC-10 | Implantado local: resumen de censo y acceso al editor versionado existente | CompanyProfile/CompanyCensusVersion, revisión de identidad, manage-tax y admin | Censo actual/revisado condiciona aplicabilidad/periodicidad; identidad modificada invalida el resumen; mantener motivo, referencia y protección de periodos preparados |
+| UI-FISC-11 | Pendiente: clasificación/obligaciones de retenciones y catálogo integrado | ExpenseTaxLine/Expense, personal cuando exista, naturaleza profesional/trabajo/alquiler/otras | Mostrar categorías separadas y periodicidad/modelo aplicable revisados; sin agrupar todo en 111; alta/activación no se habilita hasta consumidores distingan kind fiscal |
+| UI-FISC-12 | Parcial: capacidades 303/200 y declaraciones reales; catálogo de obligaciones completo pendiente | Censo, TaxReturn, CorporateTaxReturn y fuentes oficiales | No activar modelos por existencia del cálculo; 200 y restantes requieren aplicabilidad verificada; modelos informativos sin resultado económico ficticio |
+| UI-FISC-13 | Implantado local: listado y ficha de declaración, resultado guardado y evidencia | TaxReturn/CorporateTaxReturn y servicios originales | Separar borrador/revisión/preparación/presentación; archivo privado y SHA-256 coincidente más fecha/referencia; falta/corrupción/inaccesibilidad => evidencia pendiente, sin mutar el registro |
+| UI-FISC-14 | Parcial: registro manual de presentación original preservado | Endpoints y evidencias existentes, almacenamiento privado y permisos | No simular remisión AEAT; hash prueba integridad, no autenticidad; validar procedimiento/justificante real; endurecer transacciones/reintentos simultáneos de file y de Sociedades antes de ampliar automatismos |
+| UI-FISC-15 | Pendiente: calendario aplicable y vencimientos internos | Obligaciones por sociedad, fuente/versionado AEAT, periodicidad, días inhábiles y domiciliación | Guardar fecha/procedencia/modalidad confirmadas y actualizar normativa; próximos vencimientos y filtros reales; no derivar fecha de filing_date o dar por válido deadline legacy 200 sin revisión |
+| UI-FISC-16 | Parcial: consulta de ejercicios/series reales y periodos IVA condicionados por censo | FiscalYear, TaxReturn y CompanyCensus | Fechas YYYY-MM-DD sin desfase UTC; consulta no crea registros; trimestre solo con censo confirmado y ejercicio natural; ejercicios mensuales/no naturales necesitan dominio/verificación propia |
+| UI-FISC-17 | Pendiente: gestión independiente de periodos por impuesto | Periodicidad revisada y entidades equivalentes auditadas antes de migrar | Límites coherentes, no solapamientos, protección concurrente, cierre/reapertura auditados; no confundir meses contables con periodos tributarios ni suponer retenciones trimestrales |
+| UI-FISC-18 | Pendiente: cierre fiscal independiente y checklist automático completo | Obligaciones, evidencia de presentaciones, incidencias/revisiones y permisos específicos | Cerrar solo con criterios explícitos cumplidos; reapertura con motivo/auditoría y controles concurrentes; cierre contable no acredita cierre fiscal |
+| UI-FISC-19 | Pendiente: segregación backend por sociedad | Modelo de empresa activa y company_id/contexto coherente en todas las fuentes/rutas/evidencias | Pruebas de lectura/escritura/descarga cruzadas negativas; nuevas vistas rechazan múltiples CompanyProfile con 409 y multiCompany=false; FiscalEntity no representa empresa activa; no afirmar aislamiento de rutas legacy |
+| UI-FISC-20 | Parcial: documentos/exportaciones existentes preservados | Almacenamiento privado y exportación CSV original | Consultar justificantes autorizados; adaptar anexos/requerimientos/historial y exportaciones al diseño sin gestor duplicado; PDF/CSV de trabajo no se anuncian importables/presentados ante AEAT |
+| UI-FISC-21 | Parcial: integraciones contable y financiera existentes preservadas | VatLedger/VatSettlement, TaxReturnPayment, TreasuryForecast | Una obligación, sin duplicar documento ni pago; diferenciar estimado/declarado/pendiente/pagado; no trasladar KPI documental a tesorería ni pagar automáticamente |
+| UI-FISC-22 | Pendiente: migración de floats legacy y cobertura de cálculos Sociedades | VatReport/VatLedger/VatSettlement/CorporateTaxCalculator, redondeos/reglas oficiales y fixtures de regresión | Decimal exacto de extremo a extremo, histórico reproducible, umbrales/versiones comprobados; no reescritura masiva durante rediseño |
+| UI-FISC-23 | Parcial: flujos avanzados originales accesibles | Páginas /tax, /tax/models/303, /company-fiscal/census, /company-fiscal y /corporate-tax | Acceso no equivale a rediseño completo de formularios de revisión/presentación/ejercicios; adaptar incrementalmente sin cambiar transiciones ni permisos |
+| UI-FISC-24 | Parcial: validación local y suite fiscal; concurrencia específica pendiente | SQLite aislada, PostgreSQL local de lectura, entorno *_concurrency_test y EXPLAIN con volumen real | Pruebas funcionales/permisos/evidencia/fechas y regresión, responsive y build; concurrencia simultánea y límites de volumen no declarados verificados por tests omitidos |
+
+Verificación final de esta fase: 142 pruebas relacionadas (138 correctas, 4 omitidas, 2019 aserciones); tipos, lint, ES/EN, 22 comprobaciones de navegación y compilación correctos. Revisión visual de las cuatro vistas a 1440, 820 y 390 px sin desbordamiento horizontal. La suite general conserva las cuatro incidencias de fases anteriores, detalladas en el informe. Sin commit, push, merge, migraciones ni datos de negocio creados para completar el diseño; producción sin cambios.
+
+### Contabilidad — diseño por secciones, 23/10/2026 (solo local)
+
+Implementación incremental de las cinco vistas. Informe de los 37 puntos, límites y pruebas: [accounting-redesign-review.md](accounting-redesign-review.md). Reutiliza el dominio existente; no se considera publicada y no añade facturación, fiscalidad ni código Nexo.
+
+| ID | Estado y capacidad | Dependencias | Criterio de aceptación |
+| --- | --- | --- | --- |
+| UI-ACC-01 | Implantado local: cinco destinos y navegación de detalle | WorkspaceNavigation, gates y shell existentes | Jerarquía canónica conservada, Vista general explícita, Informes abre Balance, enlaces antiguos y ejercicio preservados |
+| UI-ACC-02 | Implantado local: indicadores, grupos y gráficos desde posted | LedgerAccount/JournalLine/JournalEntry | Debe/Haber exactos; draft excluido; resultado separado de patrimonio; ausencia de movimientos no se rellena con mockup |
+| UI-ACC-03 | Parcial: ecuación y balance provisional por naturaleza | Integridad del plan, aperturas y periodificación | Diferencia visible; no se presenta como definitivo ni balance estatutario; validar signo de correctoras y saldos previos |
+| UI-ACC-04 | Implantado local: listado de asientos | Consultas SQL, permisos | Búsqueda/fecha/estado/tipo/cuenta/ejercicio, ordenación y paginación backend sin límite silencioso 250 |
+| UI-ACC-05 | Implantado local: borradores y ficha completa | Misma entidad JournalEntry, líneas y audit log | Crear/editar en ejercicio/mes abierto, excluir de informes, validar al postear; mismo ID, número definitivo único; reintento sin duplicado |
+| UI-ACC-06 | Implantado local: normalización monetaria JournalPoster | Brick Math y DECIMAL existentes | No floats al validar/normalizar escritura; HALF_UP por línea, suma exacta, negativos/no finitos/doble lado/descuadre y límite de columna rechazados |
+| UI-ACC-07 | Parcial: inmutabilidad ORM y reversión | Modelos y poster existentes | No editar/borrar posted mediante endpoints/ORM; reversión trazada, original preservado, sin repetición. Pendiente protección ante SQL directo y todos los procesos externos |
+| UI-ACC-08 | Implantado local: plan/ficha y acceso a gestión | LedgerAccount y ChartOfAccountsController | Cuentas reales, jerarquía/procedencia conservadas, filtros/paginación, desactivación y cuentas con movimientos protegidas; no borrar históricos |
+| UI-ACC-09 | Parcial: saldos de cuentas y grupos | Sumas SQL de apuntes posted | Inicial, Debe/Haber y final coherentes por ejercicio; Mayor con orden estable y ventana antes de paginar. Pendiente agregación de padres por jerarquía, sin inferir saldo agregado de padre sin movimientos |
+| UI-ACC-10 | Implantado local: Diario y Mayor de trabajo | Fuente común de apuntes | Diario incluye cada línea; Mayor exige cuenta; saldo acumulado entre páginas, fechas y filtros consistentes; detalles a página completa |
+| UI-ACC-11 | Parcial: sumas y saldos de trabajo | Inicial del ejercicio y apuntes del periodo | Mostrar inicial neto, Debe/Haber y final neto exactos; incluir cuentas con inicial aunque sin movimiento del periodo; validar continuidad con aperturas |
+| UI-ACC-12 | Pendiente: matriz oficial de estados PGC | Modelo normal/abreviado/PYMES aplicable y mapeo versionado de cuentas | Activo/pasivo corriente/no corriente, patrimonio y PyG explotación/financiero/impuesto; trazabilidad, sumas y casos oficiales revisados por asesoría |
+| UI-ACC-13 | Pendiente: comparativas y detalle de informes | Periodos comparables con datos reales y matriz UI-ACC-12 | No fabricar ejercicio anterior ni porcentajes con denominador inválido; mismos filtros en pantalla/exportación |
+| UI-ACC-14 | Pendiente: ECPN y EFE contables | Matriz y movimientos patrimoniales/clasificación de flujos | Reconciliar con balances; no sustituir EFE por gráfico bancario ni inventar movimientos |
+| UI-ACC-15 | Parcial: CSV completo de apuntes contabilizados | Respuesta stream, permisos y filtros | Exportar sin límite 250, sin drafts, con periodo/cuenta/búsqueda/tipo y mitigación de fórmulas; CSV de trabajo, no libro legalizado; PDF/XLSX de estados pendientes |
+| UI-ACC-16 | Parcial: libros oficiales, consulta y capacidades explícitas | Diario, Balance y libros de IVA existentes | Cinco tarjetas, pestañas mercantiles/fiscales/configuración; sin botones de generación/estado legalizado ficticios; IVA no sustituye libros mercantiles |
+| UI-ACC-17 | Pendiente: generación/versiones de libros oficiales | Modelo de libro/artefacto/evidencia, empresa/ejercicio, formato aplicable, almacenamiento privado y permisos | Integridad previa, usuario/fecha/filtros/hash/versiones sin sobrescribir; inventarios/cuentas anuales completos, no un balance suelto |
+| UI-ACC-18 | Pendiente: actas y socios vinculados | Documentos societarios reales y permisos | No inventar decisiones/participaciones; referencias documentales auditadas sin crear sistema societario paralelo |
+| UI-ACC-19 | Pendiente: legalización verificable | Formatos, procedimiento y justificantes del Registro Mercantil | Diferenciar preparado/generado/pendiente/legalizado/incidencia; evidencia antes de legalizado; sin simular presentación |
+| UI-ACC-20 | Parcial: periodos/cierre/apertura existentes preservados | AccountingPeriodManager/FiscalYearClosing/DocumentNumber | Draft bloquea cierres y se excluye de balances legacy; continuidad y apertura única requieren revisión completa de carreras y reglas; no afirmar cierre integral validado |
+| UI-ACC-21 | Parcial: integraciones de facturación/tesorería/fiscal existentes | source/event, synchronizer, documentos, bancos y cálculos fiscales | Factura/abono/cobro/pago con trazabilidad sin duplicación; no sync al abrir vista. Revisar fallbacks 700/600, divisas/anticipos/naturaleza/retenciones y transferencias contables antes de ampliarlas |
+| UI-ACC-22 | Pendiente: aislamiento multiempresa completo | Contexto empresa activa y company_id coherente en todo el ledger | Pruebas negativas lectura/escritura/exportación cruzada; mientras, nuevas/antiguas rutas accounting rechazan múltiples CompanyProfile con 409; no declarar segregación integral por este guard |
+| UI-ACC-23 | Parcial: auditoría de cuentas/apuntes/asientos | AuditableObserver y AuditLog | Eventos de creación/cambios/reversión y draft, actor y fecha; borrado de líneas de draft auditado. Historial de libros/cierres y retención requieren circuito propio |
+| UI-ACC-24 | Pendiente: ensayo multiproceso y edición obsoleta | PostgreSQL aislado, worker/barrier y contexto transaccional | Probar contador/posteo doble/reversión/close/open/reintentos source/event; detectar edición obsoleta; los tests SQLite secuenciales no acreditan concurrencia real |
+| UI-ACC-25 | Pendiente: importador de asientos | Formato confirmado, preview, cuentas/ejercicio, reglas, duplicados y auditoría | No insertar sin validación y confirmación; rechazar descuadre; resultado trazado e idempotente; no simular importación |
+| UI-ACC-26 | Pendiente: notas/diarios/terceros/centros y adjuntos adicionales | Contratos de detalle UI-JOURNAL, datos reales y permisos | undefined/capacidad ausente distinguida de null/[] consultado vacío; no inventar campos o documentos |
+| UI-ACC-27 | Parcial: diseño, accesibilidad y validación | Componentes del shell y CSS scoped | Cinco vistas responsive, foco, etiquetas ES/EN, contraste; formularios avanzados existentes preservados; pruebas/tipos/lint/build y reporte real de fallos |
+| UI-ACC-28 | Pendiente: precisión integral de servicios legacy | Campaña de casos, cálculos de cierre/plantillas/fiscal y equivalencias verificadas | Migrar floats fuera de JournalPoster sin alterar históricos; reconciliar resultado y cierres/reaperturas, no solo redondear al final |
+
+Actualiza el alcance histórico de UI-JOURNAL-01/07/10 y de los hubs del shell: el nuevo listado tiene consulta backend y ficha completa; se conserva el acceso de gestión legacy para mapeos/cierres/terceros. La duplicación de asientos, diarios y adjuntos aún no se anuncia como disponible. Pruebas de concurrencia, dominio de libros y validación contable de estados continúan pendientes.
+
+Verificación final: 120 pruebas relacionadas correctas (2374 aserciones), 25 comprobaciones frontend de navegación y cinco vistas verificadas a 1440/820/390 px sin desbordamiento de documento. Suite general: 848 pruebas, 839 correctas, cuatro incidencias preexistentes y cinco omitidas; no se declara toda la suite verde. Tipos/lint correctos; detalle de ES/EN/build en el informe. Sin commit/push/merge; producción sin cambios.
+
+## UI-COMP — Empresa: diseño y administración corporativa, 23/10/2026
+
+Referencia: imagen «ChatGPT Image 23 Oct 2026, 01_47_22» y especificación
+«AREVANTES ERP — IMPLEMENTACIÓN DEFINITIVA DEL MÓDULO EMPRESA».
+Implantación local en `ai/sidebar-navigation-redesign`; no publicada ni integrada
+mediante commit/push/merge. Informe: [company-redesign-review.md](company-redesign-review.md).
+
+Se reutilizan Person/Staff, el dominio laboral HR, permisos, auditoría,
+CompanyProfile, datos fiscales, seguridad y herramientas administrativas. El
+archivo KnowledgeDocument mantiene su función de conocimiento de IA. Al no
+existir un archivo corporativo compatible, se añade un archivo mínimo separado,
+privado y versionado, sin copiar documentos laborales, facturas o adjuntos previos.
+
+| ID | Estado y alcance | Dependencias | Criterio de aceptación / verificación |
+| --- | --- | --- | --- |
+| UI-COMP-01 | Implantado local: Empresa navega al dashboard; hijos Personal, Documentos y Configuración | Navegación autorizada existente | Texto/icono navegan, chevron independiente, exactamente tres hijos, detalle mantiene selección; pruebas PHP/JS y revisión en navegador |
+| UI-COMP-02 | Implantado local: dashboard real | Perfiles laborales, documentos autorizados, contratos y tareas existentes | No contar usuarios ni personas sin perfil como empleados activos; excluir colaboradores externos del KPI de empleados; conteo global de vencimientos independiente del preview limitado; null restringido distinto de 0 consultado |
+| UI-COMP-03 | Implantado local: Personal y ficha completa | Person, HrEmploymentProfile, departamentos e historial existentes | Filtros/paginación SQL; alta transaccional sin usuario automático; número laboral único; edición con huella, conflicto 409 al quedar obsoleta; retorno conserva filtros |
+| UI-COMP-04 | Implantado local: contratos, acreditaciones documentales y ausencias administrativas | HrContractChange, HrEmploymentDocument y HrLeaveRequest | Historial y documentos paginados, fechas/estado reales; no motivos/diagnósticos/adjuntos médicos en Empresa; documentos laborales de otros empleados requieren permiso sensible, incluso por enlace antiguo |
+| UI-COMP-05 | Implantado local: archivo corporativo privado | Migración aditiva 2026_10_23_020000 y disco privado existente | Carga PDF/imagen/Word <=12 MB validada por contenido/extensión; metadatos, categorías, acceso restringido/administración de personal, autor, expiración; búsqueda y paginación SQL |
+| UI-COMP-06 | Implantado local: versiones y trazabilidad documental | UI-COMP-05, AuditLog y SecurityEventRecorder | No sobrescribir versiones por ORM; descarga autorizada, vínculo documento/versión, hash íntegro, sin rutas de disco en DTO; bloqueo/revisión, reintento inicial idempotente; rollback de BD limpia nuevos archivos; archivar conserva historial |
+| UI-COMP-07 | Implantado local: Configuración y accesos a herramientas reales | CompanyProfile y endpoints existentes con sus permisos | Editar datos corporativos sin copiar credenciales/IBAN al payload; identidad canónica; enlaces autorizados a usuarios, series, seguridad, auditoría y copias; sin exportaciones/restauraciones ficticias |
+| UI-COMP-08 | Implantado local: adaptación visual y validación | Shell existente, CSS de Empresa, ES/EN | Cuatro vistas revisadas a 1440/820/390 px, ficha profesional y carga móvil; formularios etiquetados/foco, tablas con scroll interno y tarjetas móviles; tipos/lint/catálogo/build y pruebas documentados |
+| UI-COMP-09 | Pendiente: contexto multiempresa integral | Empresa activa en sesión, pertenencia de HR/usuarios/almacenamiento e índices/autorización en todo el ERP | Aplicar empresa a todas las consultas, escrituras, descargas y exportaciones con pruebas IDOR; mientras exista más de un CompanyProfile, nuevas rutas Empresa bloquean con 409. No equivale a segregación global de HR legacy |
+| UI-COMP-10 | Pendiente: registro estructurado de formación | Modelo aprobado de formación, emisor, realización, acreditación y permisos | Registrar curso y acreditación sin inferirlo de un PDF; caducidades consultables, auditoría y filtros SQL. Hoy solo se consultan certificados/prevención existentes y autorizados |
+| UI-COMP-11 | Pendiente: carpetas y relaciones corporativas | Dominio de carpetas real y relación autorizada con empleado/proyecto/OT/cliente/proveedor | Crear/mover carpetas y enlaces sin duplicar archivos; aislar datos sensibles; validar permisos de ambos extremos y evitar referencias huérfanas; categorías actuales no se llaman carpetas |
+| UI-COMP-12 | Pendiente: checklist/porcentaje verificable de configuración | Definición de criterios, denominador y evidencia por apartado | Cada estado deriva de validación real; distinguir no configurado/no consultado/no autorizado; no mostrar 85% ni conexiones activas por existir un formulario |
+| UI-COMP-13 | Pendiente: conexiones y notificaciones corporativas | Catálogo de integraciones aprobado, verificaciones reales, configuración de canales y auditoría | Conectar/verificar/desconectar con permisos, errores y secretos protegidos; cambiar canales corporativos solo con backend; hoy se conservan las herramientas existentes, sin estado de salud simulado |
+| UI-COMP-14 | Pendiente: archivo reforzado y ciclo de retención | Política de retención/recuperación, antivirus configurado, bloqueo de BD/almacenamiento y operaciones | Validar recuperación real y escaneo operativo; los eventos ORM impiden sobrescritura pero no sustituyen un almacén WORM ni restricciones de escritura directa SQL. No se ofrece eliminación definitiva |
+| UI-COMP-15 | Pendiente: concurrencia integral entre formularios antiguos/nuevos | Unificación de bloqueos/revisión HR y CompanyProfile, pruebas PostgreSQL simultáneas | Dos sesiones reales no pierden cambios entre rutas legacy y nuevas; hoy se verifica edición obsoleta y bloqueo del flujo nuevo, no se certifica el sistema legacy completo |
+| UI-COMP-16 | Pendiente: calendario/listados completos de alertas y notificaciones | Servicio común de vencimientos y política de deduplicación | Alertas ligadas al origen con permisos; no duplicar tareas al consultar; dashboard actual muestra próximos 30 días y previews acotados, total KPI global |
+| UI-COMP-17 | Pendiente: revisión transversal de privacidad HR antigua | Matriz de acceso sensible y flujos HR fuera de Empresa | Revisar todos los endpoints/exports/tareas/mutaciones antiguos. Este corte protege DTO profesionales y accesos directos a fichas/documentos/lectura de ausencias; no declara una auditoría exhaustiva del ERP |
+
+Verificación del corte: 100 pruebas dirigidas aprobadas (1165 aserciones), 30
+aserciones de navegación frontend; compilación y controles frontend correctos.
+Suite global: 871 pruebas, 862 aprobadas, 3 fallos y 1 error anteriores en Catálogo,
+Analítica ejecutiva, identidad de proveedor y escenario de planificación; 5 omitidas.
+Las últimas paginaciones se verificaron adicionalmente con la selección dirigida.
+La migración fue aplicada únicamente a PostgreSQL local. No se crearon registros
+de negocio de demostración en esa base; fixtures y cargas de prueba se ejecutaron
+en SQLite aislado y almacenamiento temporal.

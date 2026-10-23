@@ -178,15 +178,16 @@ class ExecutiveAnalyticsTest extends TestCase
                 ->where('projectMargins.projects.0.reference', 'PRJ-MARGIN-1')
                 ->where('projectMargins.projects.0.sources.purchase_documents', 1));
 
-        $this->get(route('installations.show', $project))
+        $this->get(route('installations.show', [$project, 'tab' => 'costs']))
             ->assertInertia(fn (Assert $page) => $page
-                ->where('profitability.planned_margin', 400)
-                ->where('profitability.committed_margin', 300));
+                ->where('workspace.costs.planned_margin', 400)
+                ->where('workspace.costs.committed_margin', 300));
 
         $this->actingAs($technician)->get(route('analytics.index', ['period' => 'month']))
             ->assertInertia(fn (Assert $page) => $page->where('projectMargins', null));
         $this->get(route('installations.show', $project))
-            ->assertInertia(fn (Assert $page) => $page->where('profitability', null));
+            ->assertInertia(fn (Assert $page) => $page->where('workspace.costs', null));
+        $this->get(route('installations.show', [$project, 'tab' => 'costs']))->assertForbidden();
     }
 
     public function test_technician_only_sees_operations_and_assigned_scope(): void

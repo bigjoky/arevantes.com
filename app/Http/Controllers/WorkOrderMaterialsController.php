@@ -46,7 +46,7 @@ class WorkOrderMaterialsController extends Controller
     {
         $financialClearance->assertAllows($workOrder->loadMissing('installation')->installation, 'reserve');
         $data = $request->validate([
-            'warehouse_id' => ['required', 'exists:warehouses,id'],
+            'warehouse_id' => ['required', Rule::exists('warehouses', 'id')->where('is_usable', true)],
             'product_id' => ['required', Rule::exists('products', 'id')->where(fn ($query) => $query->where('track_stock', true)->where('is_active', true))],
             'quantity' => ['required', 'numeric', 'gt:0'],
             'reserved_until' => ['nullable', 'date', 'after:now'],
@@ -80,13 +80,14 @@ class WorkOrderMaterialsController extends Controller
     {
         $this->ensureAccess($request, $workOrder);
         $financialClearance->assertAllows($workOrder->loadMissing('installation')->installation, 'reserve');
-        abort_unless($reservation->work_order_id === $workOrder->id && $reservation->status === 'active', 422);
+        abort_unless($reservation->work_order_id === $workOrder->id, 422);
         $data = $request->validate([
+            'operation_key' => ['nullable', 'uuid'],
             'quantity' => ['required', 'numeric', 'gt:0'],
             'serials' => ['nullable', 'string'],
         ]);
 
-        $consumer->consume($workOrder, $reservation, (float) $data['quantity'], $data['serials'] ?? null, $request->user()->id);
+        $consumer->consume($workOrder, $reservation, (float) $data['quantity'], $data['serials'] ?? null, $request->user()->id, $data['operation_key'] ?? null);
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Material consumption recorded.')]);
     }

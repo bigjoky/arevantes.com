@@ -34,10 +34,11 @@ export function NavUser({
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                         <SidebarMenuButton
+                            aria-label={auth.user.name}
                             size="lg"
                             className={
                                 placement === 'header'
-                                    ? 'group w-auto max-w-52 text-foreground hover:bg-accent hover:text-accent-foreground data-[state=open]:bg-accent'
+                                    ? 'shell-user group w-auto max-w-52 text-foreground hover:bg-accent hover:text-accent-foreground data-[state=open]:bg-accent'
                                     : 'group text-sidebar-accent-foreground data-[state=open]:bg-sidebar-accent'
                             }
                             data-test="sidebar-menu-button"

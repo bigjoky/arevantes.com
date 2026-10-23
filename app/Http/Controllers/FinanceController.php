@@ -20,8 +20,10 @@ use App\Models\SalesDocumentPayment;
 use App\Models\SupplierPayment;
 use App\Models\User;
 use App\Services\Accounting\AccountingSynchronizer;
+use App\Services\Billing\BillingWorkspace;
 use App\Services\Documents\DocumentNumber;
 use App\Services\Finance\BudgetCsvImporter;
+use App\Services\Finance\FinanceWorkspace;
 use App\Services\Finance\FinancialAlertService;
 use App\Services\Finance\FinancialTaxonomyComparison;
 use App\Services\Finance\OutstandingBalanceCalculator;
@@ -52,6 +54,10 @@ class FinanceController extends Controller
 
     public function index(Request $request, TreasuryForecast $forecast, ProjectProfitability $profitability, FinancialTaxonomyComparison $taxonomyComparison, PurchaseCommitmentAnalysis $commitmentAnalysis, ReceivableRiskAnalysis $receivableRiskAnalysis, SupplyScenarioPlanner $supplyScenarioPlanner): Response
     {
+        if ($request->input('view') !== 'manage' && (! $request->has('year') || $request->has('area')) && ! $request->has('planning_request')) {
+            return app(FinanceWorkspaceController::class)->index($request, app(FinanceWorkspace::class), $forecast);
+        }
+
         $year = $this->year($request);
         $scenario = $request->validate(['scenario' => ['nullable', Rule::in(['conservative', 'probable', 'optimistic'])]])['scenario'] ?? 'probable';
         $taxonomyId = $request->validate(['taxonomy' => ['nullable', 'integer', 'exists:financial_categories,id']])['taxonomy'] ?? null;
@@ -313,27 +319,48 @@ class FinanceController extends Controller
     public function storeForecast(Request $request): RedirectResponse
     {
         $data = $request->validate([
+            'operation_key' => ['nullable', 'uuid'],
             'direction' => ['required', Rule::in(['in', 'out'])],
             'financial_category_id' => ['nullable', 'integer', 'exists:financial_categories,id'],
             'description' => ['required', 'string', 'max:255'],
-            'amount' => ['required', 'numeric', 'gt:0'],
+            'amount' => ['required', 'numeric', 'decimal:0,2', 'gt:0'],
             'due_on' => ['required', 'date'],
             'probability' => ['required', 'integer', 'between:0,100'],
             'recurrence' => ['nullable', Rule::in(['monthly', 'quarterly', 'annual'])],
             'installation_id' => ['nullable', 'exists:installations,id'],
         ]);
         $category = $this->activeFinancialCategory(isset($data['financial_category_id']) ? (int) $data['financial_category_id'] : null, $data['direction'] === 'in' ? 'cash_in' : 'cash_out');
-        FinancialForecastItem::create([
-            ...$data,
-            'category' => $category->code,
-            'financial_category_id' => $category->id,
-            'baseline_amount' => $data['amount'],
-            'baseline_due_on' => $data['due_on'],
-            'status' => 'planned',
-            'created_by' => $request->user()->id,
-        ]);
 
-        return back()->with('toast', ['type' => 'success', 'message' => __('Forecast item added.')]);
+        return DB::transaction(function () use ($request, $data, $category) {
+            User::whereKey($request->user()->id)->lockForUpdate()->firstOrFail();
+            if (! empty($data['operation_key'])) {
+                $previous = FinancialForecastItem::where('operation_key', $data['operation_key'])->first();
+                if ($previous) {
+                    foreach (['description', 'direction', 'due_on', 'probability', 'recurrence'] as $field) {
+                        $old = $field === 'due_on' ? $previous->due_on->toDateString() : $previous->$field;
+                        if ((string) $old !== (string) ($data[$field] ?? '')) {
+                            throw ValidationException::withMessages(['operation_key' => __('This operation key has already been used with different data.')]);
+                        }
+                    }
+                    if ((string) $previous->amount !== BillingWorkspace::decimal($data['amount']) || $previous->financial_category_id !== $category->id) {
+                        throw ValidationException::withMessages(['operation_key' => __('This operation key has already been used with different data.')]);
+                    }
+
+                    return back();
+                }
+            }
+            FinancialForecastItem::create([
+                ...$data,
+                'category' => $category->code,
+                'financial_category_id' => $category->id,
+                'baseline_amount' => $data['amount'],
+                'baseline_due_on' => $data['due_on'],
+                'status' => 'planned',
+                'created_by' => $request->user()->id,
+            ]);
+
+            return back()->with('toast', ['type' => 'success', 'message' => __('Forecast item added.')]);
+        });
     }
 
     public function storeFinancialCategory(Request $request): RedirectResponse

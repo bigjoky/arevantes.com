@@ -1,0 +1,231 @@
+ M app/Http/Controllers/AccountingController.php
+ M app/Http/Controllers/AfterSalesController.php
+ M app/Http/Controllers/BankingController.php
+ M app/Http/Controllers/ChartOfAccountsController.php
+ M app/Http/Controllers/Concerns/ManagesPersonProfiles.php
+ M app/Http/Controllers/DocumentDeliveryController.php
+ M app/Http/Controllers/ExpenseController.php
+ M app/Http/Controllers/FinanceController.php
+ M app/Http/Controllers/HrEmployeeDossierController.php
+ M app/Http/Controllers/HrEmploymentController.php
+ M app/Http/Controllers/HrLeaveController.php
+ M app/Http/Controllers/HumanResourcesController.php
+ M app/Http/Controllers/InstallationController.php
+ M app/Http/Controllers/InventoryController.php
+ M app/Http/Controllers/OpportunityController.php
+ M app/Http/Controllers/PersonController.php
+ M app/Http/Controllers/PurchaseController.php
+ M app/Http/Controllers/QuoteController.php
+ M app/Http/Controllers/SalesDocumentController.php
+ M app/Http/Controllers/SavedCrmFilterController.php
+ M app/Http/Controllers/StaffController.php
+ M app/Http/Controllers/WorkOrderController.php
+ M app/Http/Controllers/WorkOrderMaterialsController.php
+ M app/Models/FinancialForecastItem.php
+ M app/Models/GoodsReceipt.php
+ M app/Models/JournalEntry.php
+ M app/Models/JournalLine.php
+ M app/Models/SalesDocument.php
+ M app/Models/SalesDocumentPayment.php
+ M app/Models/StockMovement.php
+ M app/Models/SupplierPayment.php
+ M app/Models/Warehouse.php
+ M app/Providers/AppServiceProvider.php
+ M app/Services/Accounting/AccountingPeriodManager.php
+ M app/Services/Accounting/CorporateTaxCalculator.php
+ M app/Services/Accounting/FinancialDashboardSummary.php
+ M app/Services/Accounting/FiscalYearClosing.php
+ M app/Services/Accounting/JournalPoster.php
+ M app/Services/Analytics/AnalyticsService.php
+ M app/Services/Analytics/CommercialConversionAnalytics.php
+ M app/Services/Crm/OpportunitySalesCycle.php
+ M app/Services/Customers/CustomerProfile.php
+ M app/Services/Documents/DocumentPdf.php
+ M app/Services/Finance/OutstandingBalanceCalculator.php
+ M app/Services/Finance/TreasuryForecast.php
+ M app/Services/Inventory/ProjectMaterialAllocator.php
+ M app/Services/Inventory/ProjectMaterialPlanner.php
+ M app/Services/Inventory/SalesStockAllocator.php
+ M app/Services/Inventory/StockLedger.php
+ M app/Services/Inventory/StockPositionService.php
+ M app/Services/Inventory/WorkOrderKitAllocator.php
+ M app/Services/Inventory/WorkOrderMaterialConsumer.php
+ M app/Services/Quotes/QuoteCalculator.php
+ M app/Services/Quotes/QuoteStatusWorkflow.php
+ M app/Services/Supply/CriticalMaterialRisk.php
+ M app/Services/Supply/ReplenishmentPlanner.php
+ M app/Services/Work/WorkOrderRescheduler.php
+ M app/Support/Crm/OpportunityCatalog.php
+ M app/Support/WorkspaceNavigation.php
+ M app/Support/WorkspaceShortcuts.php
+ M docs/roadmap.md
+ M lang/en.json
+ M lang/es.json
+ M resources/css/app.css
+ M resources/js/components/app-sidebar-header.tsx
+ M resources/js/components/app-sidebar.tsx
+ M resources/js/components/dashboard/financial-home.tsx
+ M resources/js/components/favorites-bar.tsx
+ M resources/js/components/global-search.tsx
+ M resources/js/components/nav-main.tsx
+ M resources/js/components/nav-user.tsx
+ M resources/js/components/page-shell.tsx
+ M resources/js/components/quick-create.tsx
+ M resources/js/components/ui/sidebar.tsx
+ M resources/js/hooks/use-mobile.tsx
+ M resources/js/i18n/catalog.json
+ M resources/js/layouts/app/app-sidebar-layout.tsx
+ M resources/js/pages/accounting/accounts.tsx
+ M resources/js/pages/accounting/index.tsx
+ M resources/js/pages/accounting/templates.tsx
+ M resources/js/pages/banking/index.tsx
+ M resources/js/pages/catalog/index.tsx
+ M resources/js/pages/dashboard.tsx
+ M resources/js/pages/installations/index.tsx
+ M resources/js/pages/installations/show.tsx
+ M resources/js/pages/inventory/index.tsx
+ M resources/js/pages/opportunities/index.tsx
+ M resources/js/pages/opportunities/show.tsx
+ M resources/js/pages/people/create.tsx
+ M resources/js/pages/people/index.tsx
+ M resources/js/pages/people/show.tsx
+ M resources/js/pages/purchases/index.tsx
+ M resources/js/pages/purchases/show.tsx
+ M resources/js/pages/quotes/form.tsx
+ M resources/js/pages/quotes/index.tsx
+ M resources/js/pages/quotes/show.tsx
+ M resources/js/pages/work-orders/index.tsx
+ M resources/js/types/auth.ts
+ M resources/js/types/financial-dashboard.ts
+ M resources/js/types/navigation.ts
+ M resources/views/app.blade.php
+ M routes/web.php
+ M tests/Feature/AccountingTest.php
+ M tests/Feature/AdministrativeRecoveryTest.php
+ M tests/Feature/CriticalMaterialRiskTest.php
+ M tests/Feature/CustomerProfileTest.php
+ M tests/Feature/FinanceTest.php
+ M tests/Feature/FinancialDashboardTest.php
+ M tests/Feature/InventoryTest.php
+ M tests/Feature/OperationsAdminTest.php
+ M tests/Feature/PlanningScenarioTest.php
+ M tests/Feature/WorkspaceNavigationAuthorizationTest.php
+?? app/Http/Controllers/AccountingDraftController.php
+?? app/Http/Controllers/AccountingWorkspaceController.php
+?? app/Http/Controllers/BillingWorkspaceController.php
+?? app/Http/Controllers/CommercialDashboardController.php
+?? app/Http/Controllers/CompanyDocumentController.php
+?? app/Http/Controllers/CompanyStaffController.php
+?? app/Http/Controllers/CompanyWorkspaceController.php
+?? app/Http/Controllers/FinanceWorkspaceController.php
+?? app/Http/Controllers/FiscalDeclarationController.php
+?? app/Http/Controllers/FiscalWorkspaceController.php
+?? app/Http/Controllers/MaterialRequirementController.php
+?? app/Http/Controllers/MaterialTransportController.php
+?? app/Http/Controllers/OperationsWorkspaceController.php
+?? app/Http/Controllers/ProjectAreaController.php
+?? app/Http/Controllers/SupplyWorkspaceController.php
+?? app/Http/Controllers/WorkspaceModuleController.php
+?? app/Http/Middleware/AccountingCompanyContext.php
+?? app/Http/Middleware/CompanyWorkspaceContext.php
+?? app/Models/CompanyDocument.php
+?? app/Models/CompanyDocumentVersion.php
+?? app/Services/Accounting/AccountingWorkspace.php
+?? app/Services/Billing/
+?? app/Services/Commercial/
+?? app/Services/Company/
+?? app/Services/Customers/CustomerWorkspace.php
+?? app/Services/Finance/FinanceWorkspace.php
+?? app/Services/Inventory/MaterialTransport.php
+?? app/Services/Inventory/SupplyOperationFingerprint.php
+?? app/Services/Operations/OperationsWorkspace.php
+?? app/Services/Projects/
+?? app/Services/Quotes/QuoteDeliveryArchive.php
+?? app/Services/Quotes/QuoteWorkspace.php
+?? app/Services/Tax/FiscalWorkspace.php
+?? database/migrations/2026_10_08_230000_add_supply_transport_and_receipt_idempotency.php
+?? database/migrations/2026_10_11_110000_prepare_billing_integrity.php
+?? database/migrations/2026_10_11_140000_protect_manual_financial_forecast_retries.php
+?? database/migrations/2026_10_23_020000_create_corporate_document_archive.php
+?? docs/accounting-redesign-git-status.txt
+?? docs/accounting-redesign-review.md
+?? docs/app-shell-review.md
+?? docs/billing-redesign-git-status.txt
+?? docs/billing-redesign-review.md
+?? docs/commercial-dashboard-review.md
+?? docs/commercial-navigation-correction.md
+?? docs/company-redesign-git-status.txt
+?? docs/company-redesign-review.md
+?? docs/crm-redesign-review.md
+?? docs/customers-full-page-correction.md
+?? docs/customers-redesign-review.md
+?? docs/finance-redesign-git-status.txt
+?? docs/finance-redesign-review.md
+?? docs/fiscal-redesign-git-status.txt
+?? docs/fiscal-redesign-review.md
+?? docs/home-dashboard-review.md
+?? docs/operations-redesign-git-status.txt
+?? docs/operations-redesign-review.md
+?? docs/projects-redesign-git-status.txt
+?? docs/projects-redesign-review.md
+?? docs/quotes-redesign-git-status.txt
+?? docs/quotes-redesign-review.md
+?? docs/sidebar-navigation-review.md
+?? docs/supply-redesign-git-status.txt
+?? docs/supply-redesign-review.md
+?? resources/css/accounting.css
+?? resources/css/billing.css
+?? resources/css/company.css
+?? resources/css/finance.css
+?? resources/css/fiscal.css
+?? resources/css/supply.css
+?? resources/js/components/billing/
+?? resources/js/components/crm/
+?? resources/js/components/customers/
+?? resources/js/components/dashboard/commercial-activity.tsx
+?? resources/js/components/dashboard/commercial-evolution.tsx
+?? resources/js/components/dashboard/home-heading.tsx
+?? resources/js/components/module-navigation.tsx
+?? resources/js/components/operations/
+?? resources/js/components/projects/
+?? resources/js/components/quotes/
+?? resources/js/components/shell-context.tsx
+?? resources/js/components/supply/
+?? resources/js/lib/workspace-navigation.ts
+?? resources/js/pages/accounting/account.tsx
+?? resources/js/pages/accounting/entry.tsx
+?? resources/js/pages/accounting/workspace.tsx
+?? resources/js/pages/after-sales/overview.tsx
+?? resources/js/pages/banking/legacy-index.tsx
+?? resources/js/pages/billing/
+?? resources/js/pages/commercial/
+?? resources/js/pages/company/
+?? resources/js/pages/execution/
+?? resources/js/pages/finance/banks.tsx
+?? resources/js/pages/finance/workspace.tsx
+?? resources/js/pages/fiscal/
+?? resources/js/pages/installations/legacy-show.tsx
+?? resources/js/pages/operations/agenda.tsx
+?? resources/js/pages/operations/dashboard.tsx
+?? resources/js/pages/operations/planning.tsx
+?? resources/js/pages/people/legacy-index.tsx
+?? resources/js/pages/people/legacy-show.tsx
+?? resources/js/pages/supply/
+?? resources/js/pages/work-orders/create.tsx
+?? resources/js/pages/work-orders/list.tsx
+?? resources/js/pages/work-orders/show.tsx
+?? resources/js/pages/workspace/
+?? resources/js/types/commercial-dashboard.ts
+?? tests/Feature/AccountingRedesignTest.php
+?? tests/Feature/BillingRedesignTest.php
+?? tests/Feature/CommercialDashboardTest.php
+?? tests/Feature/CompanyRedesignTest.php
+?? tests/Feature/CrmRedesignTest.php
+?? tests/Feature/CustomersRedesignTest.php
+?? tests/Feature/FinanceRedesignTest.php
+?? tests/Feature/FiscalRedesignTest.php
+?? tests/Feature/OperationsRedesignTest.php
+?? tests/Feature/ProjectsRedesignTest.php
+?? tests/Feature/QuotesRedesignTest.php
+?? tests/Feature/SupplyRedesignTest.php
+?? tests/frontend/

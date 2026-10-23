@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AuditLog;
 use App\Models\BankAccount;
 use App\Models\BankFinancialProduct;
 use App\Models\BankReconciliation;
@@ -29,6 +30,7 @@ use App\Services\Banking\BankTransactionAnalyzer;
 use App\Services\Banking\BankTransactionPoster;
 use App\Services\Banking\CardSettlementSchedule;
 use App\Services\Banking\StatementImporter;
+use App\Services\Finance\FinanceWorkspace;
 use App\Services\Finance\OutstandingBalanceCalculator;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -60,7 +62,7 @@ class BankingController extends Controller
             'from' => preg_match('/^\d{4}-\d{2}-\d{2}$/', $from) ? $from : '',
             'to' => preg_match('/^\d{4}-\d{2}-\d{2}$/', $to) ? $to : '',
         ];
-        $accounts = BankAccount::withSum('transactions as transaction_total', 'amount')->orderByDesc('is_active')->orderBy('name')->get()->map(fn ($account) => [...$account->toArray(), 'balance' => round((float) $account->opening_balance + (float) ($account->transaction_total ?? 0), 2)]);
+        $accounts = BankAccount::withSum('transactions as transaction_total', 'amount')->orderByDesc('is_active')->orderBy('name')->get()->map(fn ($account) => [...$account->toArray(), 'iban' => ($request->input('view') === 'manage' && $request->user()->can('manage-treasury')) ? $account->iban : ($account->iban ? '•••• '.substr($account->iban, -4) : null), 'balance' => round((float) $account->opening_balance + (float) ($account->transaction_total ?? 0), 2)]);
         $account = BankAccount::with('ledgerAccount')->find($request->integer('account')) ?: BankAccount::with('ledgerAccount')->where('is_active', true)->first();
         $historicalAmounts = $account
             ? $account->transactions()->whereDate('booked_on', '>=', today()->subDays(180))->pluck('amount')
@@ -83,7 +85,9 @@ class BankingController extends Controller
             $candidates = $transaction->status === 'pending' ? $this->candidates($transaction, false, $candidatePool) : [];
 
             return [
-                ...$transaction->toArray(),
+                ...$transaction->makeHidden('raw_data')->toArray(),
+                'booked_on' => $transaction->booked_on?->toDateString(),
+                'value_on' => $transaction->value_on?->toDateString(),
                 'transfer' => $transaction->outgoingTransfer ?? $transaction->incomingTransfer,
                 'candidates' => $candidates,
                 'rule_suggestion' => $transaction->status === 'pending' ? $this->ruleEngine->suggest($transaction, $activeRules) : null,
@@ -145,7 +149,7 @@ class BankingController extends Controller
             ->limit(12)
             ->get()
             ->map(fn (BankStatementImport $import) => [
-                ...$import->toArray(),
+                ...$import->makeHidden('control_data')->toArray(),
                 'source_account' => ($source = data_get($import->control_data, 'account'))
                     ? $source['entity'].'-'.$source['office'].'-'.substr($source['account'], -4)
                     : null,
@@ -164,7 +168,7 @@ class BankingController extends Controller
             return [...$run->toArray(), 'posting_count' => $applied->count(), 'can_reverse' => ! $run->reversed_at && $stateIsReversible];
         }) : [];
 
-        return Inertia::render('banking/index', ['accounts' => $accounts, 'selectedAccount' => $account, 'transactions' => $transactions, 'imports' => $imports, 'control' => $account ? $this->bankControl($account) : null, 'ledgerAccounts' => LedgerAccount::where('is_active', true)->where('is_postable', true)->whereNotIn('code', ['430', '400', '410', '472', '477'])->orderBy('code')->get(['id', 'code', 'name', 'type']), 'liabilityAccounts' => LedgerAccount::where('is_active', true)->where('is_postable', true)->where('type', 'liability')->orderBy('code')->get(['id', 'code', 'name']), 'products' => $products, 'productSummary' => $productSummary, 'summary' => $summary, 'filters' => $filters, 'reconciliationRules' => $rules, 'rulePreview' => $account ? $this->ruleEngine->preview($account, $activeRules) : null, 'ruleRuns' => $ruleRuns]);
+        return Inertia::render('banking/index', ['accounts' => $accounts, 'selectedAccount' => $account ? [...$account->toArray(), 'iban' => ($request->input('view') === 'manage' && $request->user()->can('manage-treasury')) ? $account->iban : ($account->iban ? '•••• '.substr($account->iban, -4) : null)] : null, 'transactions' => $transactions, 'imports' => $imports, 'control' => $account ? $this->bankControl($account) : null, 'ledgerAccounts' => LedgerAccount::where('is_active', true)->where('is_postable', true)->whereNotIn('code', ['430', '400', '410', '472', '477'])->orderBy('code')->get(['id', 'code', 'name', 'type']), 'liabilityAccounts' => LedgerAccount::where('is_active', true)->where('is_postable', true)->where('type', 'liability')->orderBy('code')->get(['id', 'code', 'name']), 'products' => $products, 'productSummary' => $productSummary, 'summary' => $summary, 'financeAccounts' => $request->input('view') === 'manage' ? null : app(FinanceWorkspace::class)->accounts(), 'capabilities' => ['manage' => $request->user()->can('manage-treasury'), 'accounting' => $request->user()->can('manage-accounting')], 'bankTab' => in_array($request->input('tab'), ['accounts', 'reconciliation', 'import', 'rules'], true) ? $request->input('tab') : 'accounts', 'filters' => $filters, 'reconciliationRules' => $rules, 'rulePreview' => $account ? $this->ruleEngine->preview($account, $activeRules) : null, 'ruleRuns' => $ruleRuns]);
     }
 
     public function storeRule(Request $request, BankAccount $account): RedirectResponse
@@ -246,6 +250,16 @@ class BankingController extends Controller
         return to_route('banking.index', ['account' => $account->id])->with('toast', ['type' => 'success', 'message' => __('Bank account created.')]);
     }
 
+    public function updateAccount(Request $request, BankAccount $account): RedirectResponse
+    {
+        $data = $request->validate(['name' => 'required|string|max:255', 'bank_name' => 'nullable|string|max:255', 'is_active' => 'required|boolean']);
+        DB::transaction(function () use ($account, $data) {
+            BankAccount::lockForUpdate()->findOrFail($account->id)->update($data);
+        });
+
+        return back()->with('toast', ['type' => 'success', 'message' => __('Bank account updated.')]);
+    }
+
     public function storeProduct(Request $request, BankFinancialProductManager $manager): RedirectResponse
     {
         $manager->create($this->validatedProduct($request), $request->user()->id);
@@ -282,6 +296,7 @@ class BankingController extends Controller
         $data = $request->validate(['statement' => ['required', 'file', 'mimetypes:text/plain,text/csv,application/csv,application/octet-stream', 'max:10240']]);
         $file = $data['statement'];
         $result = DB::transaction(function () use ($account, $file, $importer, $request): array {
+            $account = BankAccount::lockForUpdate()->findOrFail($account->id);
             $result = $importer->import($account, $file);
             $metadata = $result['metadata'] ?? [];
             $statementImport = BankStatementImport::create(['bank_account_id' => $account->id, 'imported_by' => $request->user()->id, 'filename' => $file->getClientOriginalName(), 'file_hash' => hash_file('sha256', $file->getRealPath()), 'format' => $result['format'], 'period_from' => $metadata['period_from'] ?? null, 'period_to' => $metadata['period_to'] ?? null, 'opening_balance' => $metadata['opening_balance'] ?? null, 'closing_balance' => $metadata['closing_balance'] ?? null, 'created_transactions' => $result['created'], 'duplicate_transactions' => $result['duplicates'], 'control_valid' => $metadata['control_valid'] ?? null, 'control_data' => $metadata['control_data'] ?? null]);
@@ -450,7 +465,11 @@ class BankingController extends Controller
 
     public function undo(Request $request, BankReconciliation $reconciliation, JournalPoster $poster): RedirectResponse
     {
+        $request->validate(['reason' => ['nullable', 'string', 'min:10', 'max:500']]);
         DB::transaction(function () use ($request, $reconciliation, $poster) {
+            BankTransaction::lockForUpdate()->findOrFail($reconciliation->bank_transaction_id);
+            $reconciliation = BankReconciliation::lockForUpdate()->findOrFail($reconciliation->id);
+            AuditLog::create(['user_id' => $request->user()->id, 'event' => 'bank_reconciliation_reversed', 'auditable_type' => BankTransaction::class, 'auditable_id' => $reconciliation->bank_transaction_id, 'old_values' => $reconciliation->toArray(), 'new_values' => ['reason' => $request->input('reason'), 'reversed_at' => now()->toIso8601String()]]);
             $reconciliation->load([
                 'customerPayment.document',
                 'customerPayment.accountingEntry.lines.account:id,code',
@@ -753,9 +772,9 @@ class BankingController extends Controller
                 [$type, $id] = $this->createPaymentFromTransaction($transaction, $type, (int) $id, $userId, $accounting);
             }
             $payment = match ($type) {
-                'customer' => SalesDocumentPayment::findOrFail($id),
+                'customer' => SalesDocumentPayment::lockForUpdate()->findOrFail($id),
                 'supplier' => SupplierPayment::lockForUpdate()->findOrFail($id),
-                'tax' => TaxReturnPayment::with('taxReturn')->findOrFail($id),
+                'tax' => TaxReturnPayment::with('taxReturn')->lockForUpdate()->findOrFail($id),
             };
             $inbound = $type === 'customer' || ($type === 'tax' && (float) $payment->taxReturn->result < 0);
             abort_if($payment->reconciliation()->exists() || abs((float) $transaction->amount) !== (float) $payment->amount || ($inbound !== ((float) $transaction->amount > 0)), 422, __('The payment does not match this bank transaction.'));

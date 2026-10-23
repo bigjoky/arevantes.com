@@ -40,8 +40,8 @@ class HrEmployeeDossierController extends Controller
             'employee' => [
                 'id' => $staff->id,
                 'name' => $this->displayName($staff),
-                'email' => $staff->email,
-                'phone' => $staff->phone,
+                'email' => $canViewSensitive ? $staff->email : null,
+                'phone' => $canViewSensitive ? $staff->phone : null,
                 'staffRole' => $staff->staff_role,
                 'employment' => $profile ? [
                     'employeeNumber' => $profile->employee_number,
@@ -84,7 +84,7 @@ class HrEmployeeDossierController extends Controller
                         'isPrimary' => $contact->is_primary,
                     ]) : [],
                 'documents' => $staff->employmentDocuments
-                    ->when(! $canViewSensitive, fn ($documents) => $documents->where('visibility', 'employee'))
+                    ->when(! $canViewSensitive, fn ($documents) => $documents->filter(fn ($d) => $d->visibility === 'employee' && request()->user()->person_id === $staff->id))
                     ->sortByDesc('created_at')
                     ->values()
                     ->map(fn (HrEmploymentDocument $document) => [
@@ -171,7 +171,7 @@ class HrEmployeeDossierController extends Controller
     {
         $this->ensureStaff($staff);
         abort_unless($document->person_id === $staff->id && Storage::disk(config('filesystems.private'))->exists($document->path), 404);
-        abort_if($document->visibility === 'hr_only' && Gate::denies('view-sensitive-hr'), 403);
+        abort_unless(Gate::allows('view-sensitive-hr') || ($document->visibility === 'employee' && request()->user()->person_id === $staff->id), 403);
         $events->record('hr_document_downloaded', request()->user(), [
             'document_id' => $document->id,
             'person_id' => $staff->id,

@@ -4,6 +4,9 @@ namespace App\Support\Crm;
 
 final class OpportunityCatalog
 {
+    /** Existing CRM stages; no production stage migration is performed by the dashboard. */
+    public const STAGES = ['new' => 'Nuevo', 'qualified' => 'Cualificado', 'survey' => 'Visita técnica', 'proposal' => 'Propuesta', 'negotiation' => 'Negociación', 'won' => 'Ganada', 'lost' => 'Perdida'];
+
     /** @var array<string, string> */
     public const COMMERCIAL_KINDS = [
         'new_business' => 'Nueva venta',

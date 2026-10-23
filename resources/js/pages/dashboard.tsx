@@ -10,8 +10,9 @@ import {
 import type { LucideIcon } from 'lucide-react';
 import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import { FinancialHome } from '@/components/dashboard/financial-home';
+import { HomeHeading } from '@/components/dashboard/home-heading';
 import type { statusLabels } from '@/components/installations/installation-form';
-import { PageHeader, PageShell } from '@/components/page-shell';
+import { PageShell } from '@/components/page-shell';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -175,9 +176,9 @@ export default function Dashboard({
 
     return (
         <>
-            <Head title="Dashboard" />
+            <Head title={translate('Inicio', locale)} />
 
-            <PageShell>
+            <PageShell mode="standard">
                 {abilities.viewFinance && (
                     <Link
                         href="/dashboard"
@@ -186,10 +187,7 @@ export default function Dashboard({
                         {translate('Resumen financiero', locale)}
                     </Link>
                 )}
-                <PageHeader
-                    title="Workspace overview"
-                    description="Customers, delivery, pipeline and cash position at a glance."
-                />
+                <HomeHeading />
 
                 {hasOverview ? (
                     <section className="grid gap-px overflow-hidden rounded-lg border bg-border sm:grid-cols-2 xl:grid-cols-4">

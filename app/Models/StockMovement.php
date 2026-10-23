@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class StockMovement extends Model
 {
-    protected $fillable = ['created_by', 'sales_document_id', 'purchase_document_id', 'installation_id', 'work_order_id', 'number', 'type', 'reference', 'notes', 'posted_at'];
+    protected $fillable = ['operation_key', 'operation_hash', 'material_condition', 'source_movement_id', 'recipient_id', 'created_by', 'sales_document_id', 'purchase_document_id', 'installation_id', 'work_order_id', 'number', 'type', 'reference', 'notes', 'posted_at'];
 
     protected function casts(): array
     {
@@ -38,6 +38,16 @@ class StockMovement extends Model
     public function installation(): BelongsTo
     {
         return $this->belongsTo(Installation::class);
+    }
+
+    public function recipient(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'recipient_id');
+    }
+
+    public function sourceMovement(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'source_movement_id');
     }
 
     public function creator(): BelongsTo
