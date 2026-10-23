@@ -14,7 +14,9 @@ class AddSecurityHeaders
 
         $defaults = [
             'Referrer-Policy' => 'strict-origin-when-cross-origin',
-            'Permissions-Policy' => 'camera=(), microphone=(), geolocation=()',
+            'Permissions-Policy' => $request->routeIs('commercial-field.index')
+                ? 'camera=(), microphone=(), geolocation=(self)'
+                : 'camera=(), microphone=(), geolocation=()',
             'X-Content-Type-Options' => 'nosniff',
             'X-Frame-Options' => 'DENY',
         ];
@@ -23,6 +25,10 @@ class AddSecurityHeaders
             if (! $response->headers->has($header)) {
                 $response->headers->set($header, $value);
             }
+        }
+
+        if ($request->routeIs('commercial-field.*', 'login', 'login.store', 'logout')) {
+            $response->headers->set('Cache-Control', 'private, no-store');
         }
 
         if (app()->environment('production')) {

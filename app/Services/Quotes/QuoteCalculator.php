@@ -18,6 +18,16 @@ class QuoteCalculator
             $taxable = $lineSubtotal->minus($lineDiscount);
             $lineTax = $taxable->multipliedBy((string) $line['tax_percent'])->multipliedBy('0.01')->toScale(2, RoundingMode::HalfUp);
             $lineTotal = $taxable->plus($lineTax);
+            if (isset($line['total_with_tax']) && $line['total_with_tax'] !== '') {
+                $lineTotal = BigDecimal::of((string) $line['total_with_tax'])->toScale(2, RoundingMode::HalfUp);
+                $factor = BigDecimal::of((string) $line['tax_percent'])->multipliedBy('0.01')->plus('1');
+                $taxable = $lineTotal->dividedBy($factor, 2, RoundingMode::HalfUp);
+                $discountFactor = BigDecimal::of('1')->minus(BigDecimal::of((string) ($line['discount_percent'] ?? 0))->multipliedBy('0.01'));
+                $lineSubtotal = $discountFactor->isPositive() ? $taxable->dividedBy($discountFactor, 2, RoundingMode::HalfUp) : BigDecimal::of('0.00');
+                $lineDiscount = $lineSubtotal->minus($taxable);
+                $lineTax = $lineTotal->minus($taxable);
+                $line['unit_price'] = $lineSubtotal->dividedBy((string) $line['quantity'], 3, RoundingMode::HalfUp)->toFloat();
+            }
             $calculated[] = [...$line, 'position' => $position + 1, 'subtotal' => $lineSubtotal->toFloat(), 'discount_amount' => $lineDiscount->toFloat(), 'tax_amount' => $lineTax->toFloat(), 'total' => $lineTotal->toFloat()];
             if (array_key_exists('is_selected', $line) && ! filter_var($line['is_selected'], FILTER_VALIDATE_BOOL)) {
                 continue;

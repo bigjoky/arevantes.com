@@ -19,6 +19,46 @@ class QuoteCompositionTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_three_decimal_prices_and_vat_inclusive_line_totals_survive_saving_and_revising(): void
+    {
+        $commercial = User::factory()->create(['role' => 'commercial']);
+        $customer = Person::create(['category' => 'customer', 'first_name' => 'Cliente precisión']);
+        $payload = [
+            'person_id' => $customer->id,
+            'issue_date' => today()->toDateString(),
+            'lines' => [
+                ['description' => 'Precio preciso', 'quantity' => 100, 'unit_price' => '0.333', 'discount_percent' => 0, 'tax_percent' => 21],
+                ['description' => 'Total exacto', 'quantity' => 3, 'unit_price' => 0, 'total_with_tax' => '100.00', 'discount_percent' => 10, 'tax_percent' => 21],
+            ],
+        ];
+        $this->actingAs($commercial)->post(route('quotes.store'), $payload)->assertRedirect();
+        $quote = Quote::with('lines')->firstOrFail();
+        $this->assertSame('0.333', $quote->lines[0]->unit_price);
+        $this->assertSame('33.30', $quote->lines[0]->subtotal);
+        $this->assertSame('100.00', $quote->lines[1]->total_with_tax);
+        $this->assertSame('100.00', $quote->lines[1]->total);
+        $this->assertSame('82.64', number_format((float) $quote->lines[1]->subtotal - (float) $quote->lines[1]->discount_amount, 2, '.', ''));
+        $this->assertSame('140.29', $quote->amount);
+
+        $payload['change_note'] = 'Comprobar que el importe exacto se conserva';
+        $payload['lines'] = $quote->lines->map(fn ($line) => $line->only(['description', 'quantity', 'unit_price', 'total_with_tax', 'discount_percent', 'tax_percent']))->all();
+        $this->actingAs($commercial)->put("/quotes/{$quote->id}", $payload)->assertRedirect();
+        $this->assertSame('140.29', $quote->fresh()->amount);
+        $this->assertSame('100.00', $quote->fresh()->lines[1]->total_with_tax);
+    }
+
+    public function test_positive_vat_inclusive_total_rejects_a_full_discount(): void
+    {
+        $commercial = User::factory()->create(['role' => 'commercial']);
+        $customer = Person::create(['category' => 'customer', 'first_name' => 'Cliente descuento']);
+        $this->actingAs($commercial)->post(route('quotes.store'), [
+            'person_id' => $customer->id,
+            'issue_date' => today()->toDateString(),
+            'lines' => [['description' => 'Total incompatible', 'quantity' => 1, 'unit_price' => 1, 'total_with_tax' => 100, 'discount_percent' => 100, 'tax_percent' => 21]],
+        ])->assertSessionHasErrors('lines.0.total_with_tax');
+        $this->assertDatabaseCount('quotes', 0);
+    }
+
     public function test_custom_quote_line_components_can_be_nested_up_to_level_five(): void
     {
         $commercial = User::factory()->create(['role' => 'commercial']);

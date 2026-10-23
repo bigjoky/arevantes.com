@@ -158,6 +158,7 @@ class WorkspaceNavigation
             $this->section('CRM', 'CRM', 'briefcase-business', [
                 $this->whenAny($user, ['manage-customers', 'manage-quotes', 'manage-installations'], fn () => $this->item('Comercial', route('commercial.index', absolute: false))),
                 $this->when($user, 'manage-customers', fn () => $this->item('Opportunities', route('opportunities.index', absolute: false))),
+                $this->whenAny($user, ['record-commercial-field', 'supervise-commercial-field'], fn () => $this->item('Actividad de campo', route('commercial-field.index', absolute: false))),
             ]),
             $this->section('SAL', 'Sales', 'badge-euro', [
                 $this->when($user, 'manage-quotes', fn () => $this->item('Proposals', route('quotes.index', absolute: false))),

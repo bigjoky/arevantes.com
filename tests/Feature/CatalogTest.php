@@ -242,27 +242,27 @@ class CatalogTest extends TestCase
         $this->actingAs($user)->post(route('quotes.convert', $quote), ['type' => 'invoice'])->assertRedirect(route('sales-documents.show', $invoice));
         $this->assertSame(1, SalesDocument::count());
 
-        $this->actingAs($user)->post(route('sales-documents.issue', $invoice), [
-            'issue_date' => '2026-07-12', 'due_date' => '2026-08-12',
-        ])->assertRedirect();
-        $this->assertSame('FAC-2026-00001', $invoice->refresh()->number);
-        $this->assertSame('issued', $invoice->status);
-        $this->assertNotNull($invoice->locked_at);
-        $this->assertSame('AST-2026-000001', $invoice->accountingEntry()->firstOrFail()->number);
-
         $this->actingAs($user)->post(route('sales-documents.payments.store', $invoice), [
             'paid_at' => '2026-07-20', 'amount' => 500, 'method' => 'bank_transfer', 'reference' => 'TRX-1',
         ])->assertRedirect();
-        $this->assertSame('partial', $invoice->refresh()->status);
+        $this->assertSame('draft', $invoice->refresh()->status);
         $this->assertSame('500.00', $invoice->paid_amount);
-        $this->assertSame('AST-2026-000002', $invoice->payments()->firstOrFail()->accountingEntry()->firstOrFail()->number);
+        $this->assertSame('AST-2026-000001', $invoice->payments()->firstOrFail()->accountingEntry()->firstOrFail()->number);
 
         $this->actingAs($user)->post(route('sales-documents.payments.store', $invoice), [
             'paid_at' => '2026-07-21', 'amount' => 710, 'method' => 'card',
         ])->assertRedirect();
+        $this->actingAs($user)->post(route('sales-documents.issue', $invoice), [
+            'issue_date' => '2026-07-12', 'due_date' => '2026-08-12',
+        ])->assertRedirect();
+        $this->assertSame('FAC-2026-00001', $invoice->refresh()->number);
+        $this->assertSame('paid', $invoice->status);
+        $this->assertNotNull($invoice->locked_at);
+        $this->assertSame('AST-2026-000003', $invoice->accountingEntry()->firstOrFail()->number);
+
         $this->assertSame('paid', $invoice->refresh()->status);
         $this->assertSame('1210.00', $invoice->paid_amount);
-        $this->assertSame(3, JournalEntry::count());
+        $this->assertSame(5, JournalEntry::count());
 
         $this->actingAs($user)->post(route('sales-documents.credit-note', $invoice))->assertRedirect();
         $credit = SalesDocument::where('type', 'credit_note')->firstOrFail();
@@ -290,6 +290,7 @@ class CatalogTest extends TestCase
         $this->assertSame('30.00', $advance->billing_percentage);
         $this->assertSame('363.00', $advance->amount);
         $this->assertSame('300.00', $advance->lines()->firstOrFail()->subtotal);
+        $this->post(route('sales-documents.payments.store', $advance), ['paid_at' => '2026-07-13', 'amount' => 363, 'method' => 'bank_transfer'])->assertSessionHasNoErrors();
         $this->post(route('sales-documents.issue', $advance), ['issue_date' => '2026-07-13', 'due_date' => '2026-07-20'])->assertRedirect();
 
         $this->post(route('quotes.convert', $quote), ['type' => 'invoice', 'billing_percentage' => 40, 'billing_label' => 'Installation progress'])->assertRedirect();
@@ -303,6 +304,7 @@ class CatalogTest extends TestCase
         $this->assertSame('70.00', $final->billing_percentage);
         $this->assertSame('847.00', $final->amount);
         $this->assertSame('700.00', $final->lines()->firstOrFail()->subtotal);
+        $this->post(route('sales-documents.payments.store', $final), ['paid_at' => '2026-07-14', 'amount' => 847, 'method' => 'bank_transfer'])->assertSessionHasNoErrors();
         $this->post(route('sales-documents.issue', $final), ['issue_date' => '2026-07-14', 'due_date' => '2026-08-13'])->assertRedirect();
 
         $this->get(route('quotes.show', $quote))->assertInertia(fn (Assert $page) => $page
@@ -311,7 +313,7 @@ class CatalogTest extends TestCase
             ->where('billing.remaining_percentage', 0)
             ->where('billing.allocated_amount', 1210)
             ->has('billing.documents', 2));
-        $this->assertSame(2, JournalEntry::count());
+        $this->assertSame(6, JournalEntry::count());
         $this->assertSame(1210.0, (float) SalesDocument::where('type', 'invoice')->sum('amount'));
     }
 

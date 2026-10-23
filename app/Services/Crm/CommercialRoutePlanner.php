@@ -42,6 +42,7 @@ class CommercialRoutePlanner
                 ->get();
 
             $lastVisits = CommercialVisit::query()
+                ->whereNull('prospect_type') // Field GPS has short retention and must not be copied into route stops.
                 ->where('user_id', $commercial->id)
                 ->whereIn('person_id', $activities->pluck('person_id')->filter()->unique())
                 ->whereNotNull('latitude')

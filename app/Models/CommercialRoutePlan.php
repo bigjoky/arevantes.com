@@ -10,6 +10,8 @@ class CommercialRoutePlan extends Model
 {
     protected $fillable = [
         'user_id',
+        'sector_label',
+        'instructions',
         'route_date',
         'status',
         'origin_latitude',

@@ -30,6 +30,19 @@ class PruneRetainedData extends Command
                 $query->delete();
             }
         }
+        $locations = DB::table('commercial_visits')->whereNotNull('prospect_type')
+            ->where('visited_at', '<', now()->subDays(max(1, (int) config('commercial_field.location_retention_days'))));
+        $this->line('commercial field locations: '.(clone $locations)->whereNotNull('latitude')->count());
+        $visits = DB::table('commercial_visits')->whereNotNull('prospect_type')
+            ->where('visited_at', '<', now()->subDays(max(1, (int) config('commercial_field.activity_retention_days'))));
+        $sessions = DB::table('commercial_field_sessions')->where('started_at', '<', now()->utc()->subDays(max(1, (int) config('commercial_field.activity_retention_days'))));
+        $this->line('commercial field visits: '.(clone $visits)->count());
+        $this->line('commercial field sessions: '.(clone $sessions)->count());
+        if (! $this->option('dry-run')) {
+            $locations->update(['latitude' => null, 'longitude' => null, 'accuracy_meters' => null]);
+            $visits->delete();
+            $sessions->delete();
+        }
         if (! $this->option('dry-run') && DB::getDriverName() === 'sqlite') {
             DB::statement('PRAGMA optimize');
         }

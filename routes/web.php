@@ -19,6 +19,7 @@ use App\Http\Controllers\CommercialDashboardController;
 use App\Http\Controllers\CompanyCensusController;
 use App\Http\Controllers\CompanyDocumentController;
 use App\Http\Controllers\CompanyWorkspaceController;
+use App\Http\Controllers\CommercialFieldController;
 use App\Http\Controllers\CorporateTaxController;
 use App\Http\Controllers\CrmSettingsController;
 use App\Http\Controllers\CustomerConsentController;
@@ -164,6 +165,14 @@ Route::middleware(['auth'])->group(function () {
         Route::get('company/documents/{document}/versions/{version}/download', [CompanyDocumentController::class, 'download'])->name('company.documents.download');
     });
     Route::get('workspace/modules/{module}/{section}', WorkspaceModuleController::class)->name('workspace.module');
+    Route::post('commercial-field/routes', [CommercialFieldController::class, 'assignRoute'])->middleware('can:supervise-commercial-field')->name('commercial-field.routes.assign');
+    Route::get('commercial-field', [CommercialFieldController::class, 'index'])->middleware('can:access-commercial-field')->name('commercial-field.index');
+    Route::middleware('can:record-commercial-field')->prefix('commercial-field')->name('commercial-field.')->group(function () {
+        Route::post('visits', [CommercialFieldController::class, 'store'])->name('visits.store');
+        Route::post('sessions', [CommercialFieldController::class, 'start'])->name('sessions.start');
+        Route::patch('sessions/{session}/stop', [CommercialFieldController::class, 'stop'])->name('sessions.stop');
+        Route::post('visits/{visit}/convert', [CommercialFieldController::class, 'convert'])->middleware('can:manage-customers')->name('visits.convert');
+    });
     Route::patch('/workspace/favorite', [WorkspaceShortcutController::class, 'update'])->name('workspace.favorite');
     Route::get('dashboard', DashboardController::class)->name('dashboard');
     Route::get('dashboard/installation-map', [DashboardController::class, 'installationMap'])
@@ -506,7 +515,9 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('supplier-payments/{payment}', [ExpenseController::class, 'destroyPayment'])->middleware('can:manage-purchase-payments')->name('supplier-payments.destroy');
     Route::post('expenses/{expense}/payments/{payment}/cancel', [ExpenseController::class, 'cancelPayment'])->middleware('can:manage-purchase-payments')->name('expenses.payments.cancel');
     Route::post('purchases', [PurchaseController::class, 'store'])->middleware('can:manage-purchases')->name('purchases.store');
-    Route::get('purchases/{purchaseDocument}', [SupplyWorkspaceController::class, 'purchaseShow'])->middleware('can:view-purchases')->name('purchases.show');
+    Route::get('purchases/{purchaseDocument}/edit', [PurchaseController::class, 'edit'])->middleware('can:manage-purchases')->name('purchases.edit');
+    Route::put('purchases/{purchaseDocument}', [PurchaseController::class, 'update'])->middleware('can:manage-purchases')->name('purchases.update');
+Route::get('purchases/{purchaseDocument}', [SupplyWorkspaceController::class, 'purchaseShow'])->middleware('can:view-purchases')->name('purchases.show');
     Route::patch('purchases/{purchaseDocument}/dates', [PurchaseController::class, 'correctDates'])->middleware('can:manage-purchases')->name('purchases.dates.update');
     Route::post('purchases/{purchaseDocument}/convert', [PurchaseController::class, 'convert'])->middleware('can:manage-purchases')->name('purchases.convert');
     Route::post('purchases/{purchaseDocument}/receive', [PurchaseController::class, 'receive'])->middleware('can:receive-purchases')->name('purchases.receive');
@@ -615,12 +626,15 @@ Route::middleware(['auth'])->group(function () {
     Route::post('sales-workflow/{salesDocument}/procure', [SalesOperationsController::class, 'procure'])->middleware('can:manage-catalog')->name('sales-workflow.procure');
     Route::get('sales/create', [SalesDocumentController::class, 'create'])->middleware('can:manage-installations')->name('sales-documents.create');
     Route::post('sales', [SalesDocumentController::class, 'store'])->middleware('can:manage-installations')->name('sales-documents.store');
+    Route::get('sales/{salesDocument}/edit-issued', [SalesDocumentController::class, 'editIssued'])->middleware(['can:manage-installations', 'can:manage-admin'])->name('sales-documents.edit-issued');
+    Route::put('sales/{salesDocument}/issued', [SalesDocumentController::class, 'updateIssued'])->middleware(['can:manage-installations', 'can:manage-admin'])->name('sales-documents.update-issued');
     Route::get('sales/{salesDocument}/edit', [SalesDocumentController::class, 'edit'])->middleware('can:manage-installations')->name('sales-documents.edit');
     Route::put('sales/{salesDocument}', [SalesDocumentController::class, 'update'])->middleware('can:manage-installations')->name('sales-documents.update');
     Route::get('sales/{salesDocument}', [SalesDocumentController::class, 'show'])->middleware('can:manage-installations')->name('sales-documents.show');
     Route::delete('sales/{salesDocument}', [SalesDocumentController::class, 'destroy'])->middleware('can:manage-installations')->name('sales-documents.destroy');
     Route::get('sales/{salesDocument}/pdf', [SalesDocumentController::class, 'pdf'])->middleware('can:manage-installations')->name('sales-documents.pdf');
     Route::post('sales/{salesDocument}/send', [DocumentDeliveryController::class, 'sendSalesDocument'])->middleware('can:manage-installations')->name('sales-documents.send');
+    Route::put('sales/{salesDocument}/milestone', [SalesDocumentController::class, 'updateMilestone'])->middleware('can:manage-installations')->name('sales-documents.milestone');
     Route::post('sales/{salesDocument}/issue', [SalesDocumentController::class, 'issue'])->middleware('can:issue-invoices')->name('sales-documents.issue');
     Route::post('sales/{salesDocument}/convert', [SalesDocumentController::class, 'convertDocument'])->middleware('can:manage-installations')->name('sales-documents.convert');
     Route::post('sales/{salesDocument}/payments', [SalesDocumentController::class, 'storePayment'])->middleware('can:manage-installations')->name('sales-documents.payments.store');
