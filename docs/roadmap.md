@@ -3031,3 +3031,35 @@ API pública. Ver [registro de lanzamiento](release-general-redesign-2026-10-23.
 Las limitaciones de UI-COMP y de cada sección siguen abiertas; la publicación
 no las convierte en capacidades implantadas. Confirmación productiva pendiente
 del despliegue y smoke tests, sin datos locales de demostración.
+
+## 2026-10-23 — Instancia local única de desarrollo
+
+Se unifica la revisión local de este trabajo en `http://localhost:8000`, servida
+por la copia de este chat, con las plantillas de instalaciones de propuestas.
+Se detiene el servidor de la copia anterior; no quedan servidores de aplicación
+en 8001 ni 8023. Vite usa 5173 únicamente como auxiliar de recarga automática.
+`./scripts/dev-local.sh` fija ambos puertos y rechaza arrancar otra instancia si
+están ocupados. El criterio queda registrado en `AGENTS.md` para los siguientes
+cambios. Las bases de otras copias no se borran ni se mezclan.
+
+Verificación local: `/login` devuelve 200, el formulario de nueva propuesta abre
+en el navegador con las cuatro plantillas de demostración y el proceso de
+arranque queda separado de la sesión de comandos. El trabajo continúa local;
+no implica publicación ni integración automática de otras ramas.
+
+## 2026-10-23 — Plantillas de instalaciones para propuestas
+
+Implantado el guardado, actualización y eliminación de instalaciones predefinidas
+con permiso `manage-quotes`. La creación/edición de propuestas permite consultar
+sus líneas y añadirlas manteniendo las existentes. Se copian precios con tres
+decimales, IVA incluido, descuentos, opciones y componentes anidados con nuevos
+identificadores; las propuestas existentes quedan independientes de la plantilla.
+No se guardan datos de cliente/proyecto en la plantilla ni se generan documentos
+al guardarla. La migración crea una tabla nueva sin modificar presupuestos.
+
+Verificación: 915 pruebas correctas, seis omitidas, TypeScript, ESLint, Pint y
+build. Ensayo en navegador: plantilla solar de 12 paneles, ajuste a 14 y guardado
+de borrador y nueva plantilla, conservando las 12 unidades de la original.
+Los ejemplos/precios y usuario demo se restringen a local/testing mediante un
+seeder explícito. La publicación autorizada se tramita por PR a main y se valida
+con el monitor de Laravel Cloud y comprobaciones de rutas, esquema y assets.

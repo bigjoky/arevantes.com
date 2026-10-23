@@ -21,7 +21,7 @@ class BackendTableSecurityTest extends TestCase
                     DB::statement('CREATE ROLE "'.$role.'" NOLOGIN');
                 }
             }
-            foreach (['fiscal_entities', 'expense_fiscal_classifications', 'company_census_versions', 'purchase_fiscal_classifications', 'purchase_receipt_requests', 'company_documents', 'company_document_versions'] as $table) {
+            foreach (['fiscal_entities', 'expense_fiscal_classifications', 'company_census_versions', 'purchase_fiscal_classifications', 'purchase_receipt_requests', 'company_documents', 'company_document_versions', 'quote_templates'] as $table) {
                 // Simulate Supabase's default API grants before applying the guard.
                 DB::statement('GRANT ALL PRIVILEGES ON TABLE "'.$table.'" TO anon, authenticated, PUBLIC');
                 BackendTableSecurity::restrict($table);
