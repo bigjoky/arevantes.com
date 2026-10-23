@@ -7,8 +7,15 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class MunicipalCaseTaxObligation extends Model
 {
+    protected static function booted(): void
+    {
+        static::saving(function (self $obligation): void {
+            $obligation->liable_party = 'client';
+        });
+    }
+
     protected $fillable = [
-        'municipal_case_id', 'tax_type', 'liable_party', 'payment_mode', 'payment_status',
+        'municipal_case_id', 'tax_type', 'payment_mode', 'payment_status',
         'assessed_amount', 'notification_date', 'payment_deadline',
         'proof_private_disk', 'proof_storage_path', 'proof_verified_at',
         'proof_verified_by', 'benefit_status', 'benefit_application_deadline',
