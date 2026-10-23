@@ -50,7 +50,7 @@ class CriticalMaterialRisk
             ->selectRaw('stock_movements.installation_id, stock_movement_lines.product_id, sum(-stock_movement_lines.quantity) quantity')
             ->get()
             ->keyBy(fn ($row) => $this->key($row->installation_id, $row->product_id));
-        $onHand = StockMovementLine::query()
+        $onHand = StockMovementLine::query()->whereHas('warehouse', fn ($q) => $q->where('is_usable', true))
             ->whereIn('product_id', $productIds)
             ->groupBy('product_id')
             ->selectRaw('product_id, sum(quantity) quantity')

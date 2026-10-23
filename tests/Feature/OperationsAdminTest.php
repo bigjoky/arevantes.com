@@ -225,7 +225,7 @@ class OperationsAdminTest extends TestCase
         CrmActivity::create(['title' => 'Urgent inverter review', 'type' => 'task', 'priority' => 'high', 'status' => 'blocked', 'blocked_reason' => 'Waiting for access', 'due_at' => now()->subHour()]);
         CrmActivity::create(['title' => 'Routine call', 'type' => 'call', 'priority' => 'normal', 'status' => 'pending']);
 
-        $this->actingAs($commercial)->get(route('operations.index', ['q' => 'inverter', 'status' => 'blocked', 'view' => 'board']))
+        $this->actingAs($commercial)->get(route('operations.activities', ['q' => 'inverter', 'status' => 'blocked', 'view' => 'board']))
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->component('operations/index')
@@ -249,7 +249,7 @@ class OperationsAdminTest extends TestCase
         }
 
         $this->actingAs($commercial)
-            ->get(route('operations.index', ['view' => 'week', 'week' => '2026-08-10']))
+            ->get(route('operations.activities', ['view' => 'week', 'week' => '2026-08-10']))
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->has('planningOrders', 50)
@@ -298,7 +298,7 @@ class OperationsAdminTest extends TestCase
         ServiceTicket::create(['installation_id' => $installation->id, 'created_by' => $commercial->id, 'number' => 'SAT-2026-00999', 'kind' => 'incident', 'priority' => 'high', 'status' => 'open', 'title' => 'Inverter offline']);
         MaintenancePlan::create(['installation_id' => $installation->id, 'name' => 'Annual inspection', 'interval_months' => 12, 'starts_on' => today(), 'next_due_on' => today()->addDays(10), 'is_active' => true]);
 
-        $this->actingAs($commercial)->get(route('operations.index'))
+        $this->actingAs($commercial)->get(route('operations.activities'))
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->has('exceptions', 2)

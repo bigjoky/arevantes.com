@@ -17,11 +17,13 @@ use App\Services\Accounting\ExpenseCorrection;
 use App\Services\Accounting\ExpenseCreditorRegistry;
 use App\Services\Accounting\ExpensePaymentCancellation;
 use App\Services\Accounting\SupplierPaymentSourceResolver;
+use App\Services\Billing\BillingWorkspace;
 use App\Services\Documents\DocumentNumber;
 use App\Services\Finance\OutstandingBalanceCalculator;
 use App\Services\Tax\ExpenseDocumentaryCalculation;
 use App\Services\Tax\ExpenseDocumentaryReview;
 use App\Services\Tax\SupplierInvoiceCalculator;
+use Brick\Math\BigDecimal;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -54,8 +56,12 @@ class ExpenseController extends Controller
         ]);
     }
 
-    public function show(Expense $expense, SupplierPaymentSourceResolver $sources): Response
+    public function show(Request $request, Expense $expense, SupplierPaymentSourceResolver $sources): Response
     {
+        if ($request->input('view') !== 'manage' && in_array($expense->type, ['invoice', 'simplified_invoice'], true) && $expense->currency_code === 'EUR') {
+            return app(BillingWorkspaceController::class)->supplierShow($request, 'expense', $expense->id, app(BillingWorkspace::class));
+        }
+
         $expense->load(['category', 'supplier', 'attachments', 'taxLines']);
         $expense->load(['payments' => fn ($query) => $query->withoutGlobalScope('active_supplier_payment')->with(['ledgerAccount', 'fundingBankAccount', 'fundingCard', 'fundingEmployee', 'voidedBy:id,name', 'reconciliation:id,supplier_payment_id'])]);
         $expense->payments->each(fn (SupplierPayment $payment) => $payment->setAttribute('source_label', $payment->sourceLabel()));
@@ -410,8 +416,9 @@ class ExpenseController extends Controller
     private function storePayment(Request $request, ?Expense $expense, ?PurchaseDocument $invoice, AccountingSynchronizer $accounting): void
     {
         $data = $request->validate([
+            'idempotency_key' => ['nullable', 'uuid'],
             'paid_at' => ['required', 'date'],
-            'amount' => ['required', 'numeric', 'gt:0'],
+            'amount' => ['required', 'numeric', 'decimal:0,2', 'gt:0'],
             'method' => ['required', Rule::in(['bank_transfer', 'card', 'cash', 'direct_debit', 'employee_funds', 'other'])],
             'funding_source_type' => ['required', Rule::in(['bank_account', 'card', 'employee', 'ledger_account'])],
             'funding_source_id' => ['required', 'integer', 'min:1'],
@@ -423,13 +430,24 @@ class ExpenseController extends Controller
             $lockedExpense = $expense ? Expense::lockForUpdate()->findOrFail($expense->id) : null;
             $lockedInvoice = $invoice ? PurchaseDocument::lockForUpdate()->findOrFail($invoice->id) : null;
 
+            $existing = ! empty($data['idempotency_key']) ? SupplierPayment::withoutGlobalScopes()->where('idempotency_key', $data['idempotency_key'])->first() : null;
+            if ($existing) {
+                $same = ! $existing->voided_at && $existing->expense_id === $lockedExpense?->id && $existing->purchase_document_id === $lockedInvoice?->id
+                    && $existing->paid_at->toDateString() === $data['paid_at'] && $existing->amount === BillingWorkspace::decimal($data['amount'])
+                    && $existing->method === $data['method'] && $existing->funding_source_type === $data['funding_source_type'] && $existing->funding_source_id === $data['funding_source_id']
+                    && ($existing->reference ?? '') === ($data['reference'] ?? '') && ($existing->notes ?? '') === ($data['notes'] ?? '');
+                if (! $same) {
+                    throw ValidationException::withMessages(['amount' => __('This operation key has already been used for a different payment.')]);
+                }
+
+                return;
+            }
             abort_if($lockedInvoice?->matching_status === 'review_required', 422, __('Approve invoice variances before registering a payment.'));
 
-            $outstanding = $lockedInvoice
-                ? $this->balances->purchase($lockedInvoice)
-                : $this->balances->expense($lockedExpense);
-
-            if ($outstanding <= 0 || (float) $data['amount'] > $outstanding + 0.0005) {
+            $payable = $lockedInvoice ?? $lockedExpense;
+            $credits = $lockedInvoice ? (string) $lockedInvoice->creditNotes()->sum('amount') : '0';
+            $outstanding = BigDecimal::of($payable->amount)->minus($payable->paid_amount)->minus(BigDecimal::of($credits)->abs());
+            if (! $outstanding->isPositive() || $outstanding->isLessThan($data['amount'])) {
                 throw ValidationException::withMessages([
                     'amount' => __('The payment exceeds the outstanding document balance.'),
                 ]);

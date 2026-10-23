@@ -14,7 +14,7 @@ class WorkOrderKitAllocator
     public function reserveProducts(WorkOrder $order, array $materials): int
     {
         return DB::transaction(function () use ($order, $materials): int {
-            $warehouses = Warehouse::query()->where('is_active', true)->orderByDesc('is_default')->orderBy('id')->lockForUpdate()->get(['id']);
+            $warehouses = Warehouse::query()->where('is_active', true)->where('is_usable', true)->orderByDesc('is_default')->orderBy('id')->lockForUpdate()->get(['id']);
             $created = 0;
             foreach ($materials as $material) {
                 $productId = (int) ($material['product_id'] ?? 0);
@@ -55,7 +55,7 @@ class WorkOrderKitAllocator
         }
 
         return DB::transaction(function () use ($order): int {
-            $warehouses = Warehouse::query()->where('is_active', true)->orderByDesc('is_default')->orderBy('id')->lockForUpdate()->get(['id']);
+            $warehouses = Warehouse::query()->where('is_active', true)->where('is_usable', true)->orderByDesc('is_default')->orderBy('id')->lockForUpdate()->get(['id']);
             StockReservation::query()->where('installation_id', $order->installation_id)->whereNull('work_order_id')
                 ->where('status', 'active')->update(['work_order_id' => $order->id]);
             $requirements = $order->installation->materialRequirements()->whereNotNull('product_id')->get(['product_id', 'planned_quantity']);

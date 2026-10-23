@@ -1,0 +1,100 @@
+ M app/Http/Controllers/AfterSalesController.php
+ M app/Http/Controllers/DocumentDeliveryController.php
+ M app/Http/Controllers/InstallationController.php
+ M app/Http/Controllers/OpportunityController.php
+ M app/Http/Controllers/PersonController.php
+ M app/Http/Controllers/QuoteController.php
+ M app/Http/Controllers/SavedCrmFilterController.php
+ M app/Services/Accounting/FinancialDashboardSummary.php
+ M app/Services/Analytics/AnalyticsService.php
+ M app/Services/Analytics/CommercialConversionAnalytics.php
+ M app/Services/Crm/OpportunitySalesCycle.php
+ M app/Services/Customers/CustomerProfile.php
+ M app/Services/Quotes/QuoteCalculator.php
+ M app/Services/Quotes/QuoteStatusWorkflow.php
+ M app/Support/Crm/OpportunityCatalog.php
+ M app/Support/WorkspaceNavigation.php
+ M app/Support/WorkspaceShortcuts.php
+ M docs/roadmap.md
+ M lang/en.json
+ M lang/es.json
+ M resources/css/app.css
+ M resources/js/components/app-sidebar-header.tsx
+ M resources/js/components/app-sidebar.tsx
+ M resources/js/components/dashboard/financial-home.tsx
+ M resources/js/components/favorites-bar.tsx
+ M resources/js/components/global-search.tsx
+ M resources/js/components/nav-main.tsx
+ M resources/js/components/nav-user.tsx
+ M resources/js/components/page-shell.tsx
+ M resources/js/components/quick-create.tsx
+ M resources/js/components/ui/sidebar.tsx
+ M resources/js/hooks/use-mobile.tsx
+ M resources/js/i18n/catalog.json
+ M resources/js/layouts/app/app-sidebar-layout.tsx
+ M resources/js/pages/accounting/accounts.tsx
+ M resources/js/pages/accounting/index.tsx
+ M resources/js/pages/accounting/templates.tsx
+ M resources/js/pages/dashboard.tsx
+ M resources/js/pages/installations/index.tsx
+ M resources/js/pages/installations/show.tsx
+ M resources/js/pages/opportunities/index.tsx
+ M resources/js/pages/opportunities/show.tsx
+ M resources/js/pages/people/create.tsx
+ M resources/js/pages/people/index.tsx
+ M resources/js/pages/people/show.tsx
+ M resources/js/pages/quotes/form.tsx
+ M resources/js/pages/quotes/index.tsx
+ M resources/js/pages/quotes/show.tsx
+ M resources/js/types/auth.ts
+ M resources/js/types/financial-dashboard.ts
+ M resources/js/types/navigation.ts
+ M resources/views/app.blade.php
+ M routes/web.php
+ M tests/Feature/CustomerProfileTest.php
+ M tests/Feature/FinancialDashboardTest.php
+ M tests/Feature/WorkspaceNavigationAuthorizationTest.php
+?? app/Http/Controllers/CommercialDashboardController.php
+?? app/Http/Controllers/ProjectAreaController.php
+?? app/Http/Controllers/WorkspaceModuleController.php
+?? app/Services/Commercial/
+?? app/Services/Customers/CustomerWorkspace.php
+?? app/Services/Projects/
+?? app/Services/Quotes/QuoteDeliveryArchive.php
+?? app/Services/Quotes/QuoteWorkspace.php
+?? docs/app-shell-review.md
+?? docs/commercial-dashboard-review.md
+?? docs/commercial-navigation-correction.md
+?? docs/crm-redesign-review.md
+?? docs/customers-full-page-correction.md
+?? docs/customers-redesign-review.md
+?? docs/home-dashboard-review.md
+?? docs/projects-redesign-git-status.txt
+?? docs/projects-redesign-review.md
+?? docs/quotes-redesign-git-status.txt
+?? docs/quotes-redesign-review.md
+?? docs/sidebar-navigation-review.md
+?? resources/js/components/crm/
+?? resources/js/components/customers/
+?? resources/js/components/dashboard/commercial-activity.tsx
+?? resources/js/components/dashboard/commercial-evolution.tsx
+?? resources/js/components/dashboard/home-heading.tsx
+?? resources/js/components/module-navigation.tsx
+?? resources/js/components/projects/
+?? resources/js/components/quotes/
+?? resources/js/components/shell-context.tsx
+?? resources/js/lib/workspace-navigation.ts
+?? resources/js/pages/after-sales/overview.tsx
+?? resources/js/pages/commercial/
+?? resources/js/pages/execution/
+?? resources/js/pages/installations/legacy-show.tsx
+?? resources/js/pages/people/legacy-index.tsx
+?? resources/js/pages/people/legacy-show.tsx
+?? resources/js/pages/workspace/
+?? resources/js/types/commercial-dashboard.ts
+?? tests/Feature/CommercialDashboardTest.php
+?? tests/Feature/CrmRedesignTest.php
+?? tests/Feature/CustomersRedesignTest.php
+?? tests/Feature/ProjectsRedesignTest.php
+?? tests/Feature/QuotesRedesignTest.php
+?? tests/frontend/

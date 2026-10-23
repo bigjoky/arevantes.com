@@ -69,12 +69,28 @@ class AccountingSynchronizer
         return $this->customerPayment($payment, $userId);
     }
 
+    public function allocateCollectedPayments(SalesDocument $document, ?int $userId): void
+    {
+        if (! $document->collect_before_invoice) {
+            return;
+        }
+        $account = $document->customer?->receivable_account_code ?: '430';
+        foreach ($document->payments()->get() as $payment) {
+            $this->post($payment, 'invoice_allocation', $document->issue_date->toDateString(), $document->number, $userId, [['438', $payment->amount, 0], [$account, 0, $payment->amount]]);
+        }
+    }
+
     public function syncSupplierPayment(SupplierPayment $payment, ?int $userId = null): int
     {
         return $this->supplierPayment($payment, $userId);
     }
 
     private function salesDocument(SalesDocument $document, ?int $userId): int
+    {
+        return $this->post($document, 'document', $document->issue_date->toDateString(), $document->number, $userId, $this->salesDocumentLines($document));
+    }
+
+    public function salesDocumentLines(SalesDocument $document): array
     {
         $creditNote = $document->type === 'credit_note';
         $document->loadMissing(['lines.product', 'customer']);
@@ -96,7 +112,7 @@ class AccountingSynchronizer
             $lines[] = [$this->taxAccount($rate === 'default' ? null : (float) $rate, 'output'), $creditNote ? $amount : 0, $creditNote ? 0 : $amount];
         }
 
-        return $this->post($document, 'document', $document->issue_date->toDateString(), $document->number, $userId, $lines);
+        return $lines;
     }
 
     private function purchaseDocument(PurchaseDocument $document, ?int $userId): int
@@ -165,7 +181,7 @@ class AccountingSynchronizer
     private function customerPayment(SalesDocumentPayment $payment, ?int $userId): int
     {
         $payment->loadMissing('document.customer');
-        $customerAccount = $payment->document?->customer?->receivable_account_code ?: '430';
+        $customerAccount = $payment->document?->collect_before_invoice && ! $payment->document->locked_at ? '438' : ($payment->document?->customer?->receivable_account_code ?: '430');
 
         return $this->post($payment, 'payment', $payment->paid_at->toDateString(), __('Customer receipt :reference', ['reference' => $payment->reference ?: $payment->id]), $userId, [
             [$payment->method === 'cash' ? '570' : '572', $payment->amount, 0], [$customerAccount, 0, $payment->amount],

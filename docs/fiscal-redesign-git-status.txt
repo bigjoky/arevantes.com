@@ -1,0 +1,314 @@
+Revisión local del área Fiscal — 11/10/2026
+Rama: ai/sidebar-navigation-redesign
+
+El estado completo incluye cambios previos de otras secciones. No se atribuyen todos a Fiscal.
+No se ejecutó commit, push, merge, cambio de rama ni limpieza.
+
+Estado completo antes de guardar este inventario:
+ M app/Http/Controllers/AfterSalesController.php
+ M app/Http/Controllers/BankingController.php
+ M app/Http/Controllers/DocumentDeliveryController.php
+ M app/Http/Controllers/ExpenseController.php
+ M app/Http/Controllers/FinanceController.php
+ M app/Http/Controllers/InstallationController.php
+ M app/Http/Controllers/InventoryController.php
+ M app/Http/Controllers/OpportunityController.php
+ M app/Http/Controllers/PersonController.php
+ M app/Http/Controllers/PurchaseController.php
+ M app/Http/Controllers/QuoteController.php
+ M app/Http/Controllers/SalesDocumentController.php
+ M app/Http/Controllers/SavedCrmFilterController.php
+ M app/Http/Controllers/WorkOrderController.php
+ M app/Http/Controllers/WorkOrderMaterialsController.php
+ M app/Models/FinancialForecastItem.php
+ M app/Models/GoodsReceipt.php
+ M app/Models/SalesDocument.php
+ M app/Models/SalesDocumentPayment.php
+ M app/Models/StockMovement.php
+ M app/Models/SupplierPayment.php
+ M app/Models/Warehouse.php
+ M app/Providers/AppServiceProvider.php
+ M app/Services/Accounting/FinancialDashboardSummary.php
+ M app/Services/Analytics/AnalyticsService.php
+ M app/Services/Analytics/CommercialConversionAnalytics.php
+ M app/Services/Crm/OpportunitySalesCycle.php
+ M app/Services/Customers/CustomerProfile.php
+ M app/Services/Documents/DocumentPdf.php
+ M app/Services/Finance/OutstandingBalanceCalculator.php
+ M app/Services/Finance/TreasuryForecast.php
+ M app/Services/Inventory/ProjectMaterialAllocator.php
+ M app/Services/Inventory/ProjectMaterialPlanner.php
+ M app/Services/Inventory/SalesStockAllocator.php
+ M app/Services/Inventory/StockLedger.php
+ M app/Services/Inventory/StockPositionService.php
+ M app/Services/Inventory/WorkOrderKitAllocator.php
+ M app/Services/Inventory/WorkOrderMaterialConsumer.php
+ M app/Services/Quotes/QuoteCalculator.php
+ M app/Services/Quotes/QuoteStatusWorkflow.php
+ M app/Services/Supply/CriticalMaterialRisk.php
+ M app/Services/Supply/ReplenishmentPlanner.php
+ M app/Services/Work/WorkOrderRescheduler.php
+ M app/Support/Crm/OpportunityCatalog.php
+ M app/Support/WorkspaceNavigation.php
+ M app/Support/WorkspaceShortcuts.php
+ M docs/roadmap.md
+ M lang/en.json
+ M lang/es.json
+ M resources/css/app.css
+ M resources/js/components/app-sidebar-header.tsx
+ M resources/js/components/app-sidebar.tsx
+ M resources/js/components/dashboard/financial-home.tsx
+ M resources/js/components/favorites-bar.tsx
+ M resources/js/components/global-search.tsx
+ M resources/js/components/nav-main.tsx
+ M resources/js/components/nav-user.tsx
+ M resources/js/components/page-shell.tsx
+ M resources/js/components/quick-create.tsx
+ M resources/js/components/ui/sidebar.tsx
+ M resources/js/hooks/use-mobile.tsx
+ M resources/js/i18n/catalog.json
+ M resources/js/layouts/app/app-sidebar-layout.tsx
+ M resources/js/pages/accounting/accounts.tsx
+ M resources/js/pages/accounting/index.tsx
+ M resources/js/pages/accounting/templates.tsx
+ M resources/js/pages/banking/index.tsx
+ M resources/js/pages/catalog/index.tsx
+ M resources/js/pages/dashboard.tsx
+ M resources/js/pages/installations/index.tsx
+ M resources/js/pages/installations/show.tsx
+ M resources/js/pages/inventory/index.tsx
+ M resources/js/pages/opportunities/index.tsx
+ M resources/js/pages/opportunities/show.tsx
+ M resources/js/pages/people/create.tsx
+ M resources/js/pages/people/index.tsx
+ M resources/js/pages/people/show.tsx
+ M resources/js/pages/purchases/index.tsx
+ M resources/js/pages/purchases/show.tsx
+ M resources/js/pages/quotes/form.tsx
+ M resources/js/pages/quotes/index.tsx
+ M resources/js/pages/quotes/show.tsx
+ M resources/js/pages/work-orders/index.tsx
+ M resources/js/types/auth.ts
+ M resources/js/types/financial-dashboard.ts
+ M resources/js/types/navigation.ts
+ M resources/views/app.blade.php
+ M routes/web.php
+ M tests/Feature/AdministrativeRecoveryTest.php
+ M tests/Feature/CriticalMaterialRiskTest.php
+ M tests/Feature/CustomerProfileTest.php
+ M tests/Feature/FinanceTest.php
+ M tests/Feature/FinancialDashboardTest.php
+ M tests/Feature/InventoryTest.php
+ M tests/Feature/OperationsAdminTest.php
+ M tests/Feature/PlanningScenarioTest.php
+ M tests/Feature/WorkspaceNavigationAuthorizationTest.php
+?? app/Http/Controllers/BillingWorkspaceController.php
+?? app/Http/Controllers/CommercialDashboardController.php
+?? app/Http/Controllers/FinanceWorkspaceController.php
+?? app/Http/Controllers/FiscalDeclarationController.php
+?? app/Http/Controllers/FiscalWorkspaceController.php
+?? app/Http/Controllers/MaterialRequirementController.php
+?? app/Http/Controllers/MaterialTransportController.php
+?? app/Http/Controllers/OperationsWorkspaceController.php
+?? app/Http/Controllers/ProjectAreaController.php
+?? app/Http/Controllers/SupplyWorkspaceController.php
+?? app/Http/Controllers/WorkspaceModuleController.php
+?? app/Services/Billing/
+?? app/Services/Commercial/
+?? app/Services/Customers/CustomerWorkspace.php
+?? app/Services/Finance/FinanceWorkspace.php
+?? app/Services/Inventory/MaterialTransport.php
+?? app/Services/Inventory/SupplyOperationFingerprint.php
+?? app/Services/Operations/OperationsWorkspace.php
+?? app/Services/Projects/
+?? app/Services/Quotes/QuoteDeliveryArchive.php
+?? app/Services/Quotes/QuoteWorkspace.php
+?? app/Services/Tax/FiscalWorkspace.php
+?? database/migrations/2026_10_08_230000_add_supply_transport_and_receipt_idempotency.php
+?? database/migrations/2026_10_11_110000_prepare_billing_integrity.php
+?? database/migrations/2026_10_11_140000_protect_manual_financial_forecast_retries.php
+?? docs/app-shell-review.md
+?? docs/billing-redesign-git-status.txt
+?? docs/billing-redesign-review.md
+?? docs/commercial-dashboard-review.md
+?? docs/commercial-navigation-correction.md
+?? docs/crm-redesign-review.md
+?? docs/customers-full-page-correction.md
+?? docs/customers-redesign-review.md
+?? docs/finance-redesign-git-status.txt
+?? docs/finance-redesign-review.md
+?? docs/fiscal-redesign-review.md
+?? docs/home-dashboard-review.md
+?? docs/operations-redesign-git-status.txt
+?? docs/operations-redesign-review.md
+?? docs/projects-redesign-git-status.txt
+?? docs/projects-redesign-review.md
+?? docs/quotes-redesign-git-status.txt
+?? docs/quotes-redesign-review.md
+?? docs/sidebar-navigation-review.md
+?? docs/supply-redesign-git-status.txt
+?? docs/supply-redesign-review.md
+?? resources/css/billing.css
+?? resources/css/finance.css
+?? resources/css/fiscal.css
+?? resources/css/supply.css
+?? resources/js/components/billing/
+?? resources/js/components/crm/
+?? resources/js/components/customers/
+?? resources/js/components/dashboard/commercial-activity.tsx
+?? resources/js/components/dashboard/commercial-evolution.tsx
+?? resources/js/components/dashboard/home-heading.tsx
+?? resources/js/components/module-navigation.tsx
+?? resources/js/components/operations/
+?? resources/js/components/projects/
+?? resources/js/components/quotes/
+?? resources/js/components/shell-context.tsx
+?? resources/js/components/supply/
+?? resources/js/lib/workspace-navigation.ts
+?? resources/js/pages/after-sales/overview.tsx
+?? resources/js/pages/banking/legacy-index.tsx
+?? resources/js/pages/billing/
+?? resources/js/pages/commercial/
+?? resources/js/pages/execution/
+?? resources/js/pages/finance/banks.tsx
+?? resources/js/pages/finance/workspace.tsx
+?? resources/js/pages/fiscal/
+?? resources/js/pages/installations/legacy-show.tsx
+?? resources/js/pages/operations/agenda.tsx
+?? resources/js/pages/operations/dashboard.tsx
+?? resources/js/pages/operations/planning.tsx
+?? resources/js/pages/people/legacy-index.tsx
+?? resources/js/pages/people/legacy-show.tsx
+?? resources/js/pages/supply/
+?? resources/js/pages/work-orders/create.tsx
+?? resources/js/pages/work-orders/list.tsx
+?? resources/js/pages/work-orders/show.tsx
+?? resources/js/pages/workspace/
+?? resources/js/types/commercial-dashboard.ts
+?? tests/Feature/BillingRedesignTest.php
+?? tests/Feature/CommercialDashboardTest.php
+?? tests/Feature/CrmRedesignTest.php
+?? tests/Feature/CustomersRedesignTest.php
+?? tests/Feature/FinanceRedesignTest.php
+?? tests/Feature/FiscalRedesignTest.php
+?? tests/Feature/OperationsRedesignTest.php
+?? tests/Feature/ProjectsRedesignTest.php
+?? tests/Feature/QuotesRedesignTest.php
+?? tests/Feature/SupplyRedesignTest.php
+?? tests/frontend/
+
+Estadística completa de cambios respecto a HEAD:
+ app/Http/Controllers/AfterSalesController.php      |    8 +
+ app/Http/Controllers/BankingController.php         |   31 +-
+ .../Controllers/DocumentDeliveryController.php     |   20 +-
+ app/Http/Controllers/ExpenseController.php         |   32 +-
+ app/Http/Controllers/FinanceController.php         |   49 +-
+ app/Http/Controllers/InstallationController.php    |   43 +-
+ app/Http/Controllers/InventoryController.php       |   42 +-
+ app/Http/Controllers/OpportunityController.php     |   96 +-
+ app/Http/Controllers/PersonController.php          |   79 +-
+ app/Http/Controllers/PurchaseController.php        |   23 +-
+ app/Http/Controllers/QuoteController.php           |  153 +-
+ app/Http/Controllers/SalesDocumentController.php   |   87 +-
+ app/Http/Controllers/SavedCrmFilterController.php  |    2 +-
+ app/Http/Controllers/WorkOrderController.php       |   57 +-
+ .../Controllers/WorkOrderMaterialsController.php   |    7 +-
+ app/Models/FinancialForecastItem.php               |    2 +-
+ app/Models/GoodsReceipt.php                        |    2 +-
+ app/Models/SalesDocument.php                       |    2 +-
+ app/Models/SalesDocumentPayment.php                |    2 +-
+ app/Models/StockMovement.php                       |   12 +-
+ app/Models/SupplierPayment.php                     |    2 +-
+ app/Models/Warehouse.php                           |    4 +-
+ app/Providers/AppServiceProvider.php               |   10 +
+ .../Accounting/FinancialDashboardSummary.php       |    9 +-
+ app/Services/Analytics/AnalyticsService.php        |   22 +
+ .../Analytics/CommercialConversionAnalytics.php    |    8 +
+ app/Services/Crm/OpportunitySalesCycle.php         |    2 +-
+ app/Services/Customers/CustomerProfile.php         |   28 +-
+ app/Services/Documents/DocumentPdf.php             |   12 +
+ .../Finance/OutstandingBalanceCalculator.php       |   22 +-
+ app/Services/Finance/TreasuryForecast.php          |   80 +-
+ .../Inventory/ProjectMaterialAllocator.php         |    4 +
+ app/Services/Inventory/ProjectMaterialPlanner.php  |    2 +-
+ app/Services/Inventory/SalesStockAllocator.php     |    4 +-
+ app/Services/Inventory/StockLedger.php             |   28 +-
+ app/Services/Inventory/StockPositionService.php    |   12 +-
+ app/Services/Inventory/WorkOrderKitAllocator.php   |    4 +-
+ .../Inventory/WorkOrderMaterialConsumer.php        |   22 +-
+ app/Services/Quotes/QuoteCalculator.php            |   27 +-
+ app/Services/Quotes/QuoteStatusWorkflow.php        |   18 +-
+ app/Services/Supply/CriticalMaterialRisk.php       |    2 +-
+ app/Services/Supply/ReplenishmentPlanner.php       |    2 +-
+ app/Services/Work/WorkOrderRescheduler.php         |    4 +
+ app/Support/Crm/OpportunityCatalog.php             |    3 +
+ app/Support/WorkspaceNavigation.php                |  145 +-
+ app/Support/WorkspaceShortcuts.php                 |    3 +-
+ docs/roadmap.md                                    |  428 +-
+ lang/en.json                                       |  225 +-
+ lang/es.json                                       |  241 +-
+ resources/css/app.css                              | 3222 ++++++++++++-
+ resources/js/components/app-sidebar-header.tsx     |  155 +-
+ resources/js/components/app-sidebar.tsx            |  149 +-
+ .../js/components/dashboard/financial-home.tsx     |  714 +--
+ resources/js/components/favorites-bar.tsx          |    1 +
+ resources/js/components/global-search.tsx          |  113 +-
+ resources/js/components/nav-main.tsx               |  201 +-
+ resources/js/components/nav-user.tsx               |    3 +-
+ resources/js/components/page-shell.tsx             |  176 +-
+ resources/js/components/quick-create.tsx           |    2 +-
+ resources/js/components/ui/sidebar.tsx             |   12 +-
+ resources/js/hooks/use-mobile.tsx                  |   47 +-
+ resources/js/i18n/catalog.json                     | 4868 +++++++++++++++++++-
+ resources/js/layouts/app/app-sidebar-layout.tsx    |   40 +-
+ resources/js/pages/accounting/accounts.tsx         |   39 +-
+ resources/js/pages/accounting/index.tsx            |  325 +-
+ resources/js/pages/accounting/templates.tsx        |   73 +-
+ resources/js/pages/banking/index.tsx               | 3624 +--------------
+ resources/js/pages/catalog/index.tsx               |    4 +-
+ resources/js/pages/dashboard.tsx                   |   12 +-
+ resources/js/pages/installations/index.tsx         |  210 +-
+ resources/js/pages/installations/show.tsx          | 2194 +--------
+ resources/js/pages/inventory/index.tsx             |    6 +
+ resources/js/pages/opportunities/index.tsx         | 1349 ++----
+ resources/js/pages/opportunities/show.tsx          |   17 +-
+ resources/js/pages/people/create.tsx               |    2 +-
+ resources/js/pages/people/index.tsx                |  588 +--
+ resources/js/pages/people/show.tsx                 | 1842 +-------
+ resources/js/pages/purchases/index.tsx             |    2 +-
+ resources/js/pages/purchases/show.tsx              |   12 +
+ resources/js/pages/quotes/form.tsx                 |   12 +-
+ resources/js/pages/quotes/index.tsx                |  891 +++-
+ resources/js/pages/quotes/show.tsx                 |  771 +++-
+ resources/js/pages/work-orders/index.tsx           |   94 +-
+ resources/js/types/auth.ts                         |    4 +
+ resources/js/types/financial-dashboard.ts          |    2 +
+ resources/js/types/navigation.ts                   |    4 +
+ resources/views/app.blade.php                      |    2 +-
+ routes/web.php                                     |   63 +-
+ tests/Feature/AdministrativeRecoveryTest.php       |    6 +-
+ tests/Feature/CriticalMaterialRiskTest.php         |    2 +-
+ tests/Feature/CustomerProfileTest.php              |   16 +-
+ tests/Feature/FinanceTest.php                      |    6 +-
+ tests/Feature/FinancialDashboardTest.php           |   17 +
+ tests/Feature/InventoryTest.php                    |   30 +-
+ tests/Feature/OperationsAdminTest.php              |    6 +-
+ tests/Feature/PlanningScenarioTest.php             |    2 +-
+ .../WorkspaceNavigationAuthorizationTest.php       |   80 +-
+ 97 files changed, 13038 insertions(+), 11094 deletions(-)
+
+Archivos específicos de esta fase: véase docs/fiscal-redesign-review.md.
+Comprobación de espacios/conflictos: git diff --check correcto.
+Diff completo revisable en /tmp/fiscal-final.diff (incluye fases previas).
+
+Comparación SHA256 con inicio de esta fase: 10 archivos previos modificados; 0 eliminados.
+resources/js/lib/workspace-navigation.ts
+tests/frontend/workspace-navigation.mjs
+app/Providers/AppServiceProvider.php
+app/Support/WorkspaceNavigation.php
+docs/roadmap.md
+lang/en.json
+lang/es.json
+resources/js/i18n/catalog.json
+routes/web.php
+tests/Feature/WorkspaceNavigationAuthorizationTest.php

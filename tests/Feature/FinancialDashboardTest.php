@@ -106,6 +106,23 @@ class FinancialDashboardTest extends TestCase
         $this->get('/dashboard?year=oops')->assertSessionHasErrors('year');
     }
 
+    public function test_calendar_progress_uses_real_fiscal_dates_and_clamps_outside_period(): void
+    {
+        $this->actingAs(User::factory()->create());
+        FiscalYear::updateOrCreate(['year' => 2026], ['starts_on' => '2026-04-01', 'ends_on' => '2026-09-30', 'status' => 'open']);
+        $this->travelTo(now()->setDate(2026, 7, 1)->startOfDay());
+        $this->get('/dashboard?year=2026')->assertInertia(fn (Assert $page) => $page
+            ->where('financialOverview.fiscal_dates.starts_on', '2026-04-01')
+            ->where('financialOverview.fiscal_dates.ends_on', '2026-09-30')
+            ->where('financialOverview.fiscal_progress', 50));
+        $this->travelTo(now()->setDate(2026, 3, 1)->startOfDay());
+        $this->get('/dashboard?year=2026')->assertInertia(fn (Assert $page) => $page->where('financialOverview.fiscal_progress', 0));
+        $this->travelTo(now()->setDate(2026, 10, 6)->startOfDay());
+        $this->get('/dashboard?year=2026')->assertInertia(fn (Assert $page) => $page->where('financialOverview.fiscal_progress', 100));
+        $this->get('/dashboard?year=2027')->assertInertia(fn (Assert $page) => $page
+            ->where('financialOverview.fiscal_dates', null)->where('financialOverview.fiscal_progress', null));
+    }
+
     private function entry(string $date, string $status, string $kind, float $income, float $expense): void
     {
         $entry = JournalEntry::create(['entry_date' => $date, 'number' => 'HOME-'.(JournalEntry::count() + 1), 'description' => 'Dashboard fixture', 'status' => $status, 'entry_kind' => $kind, 'posted_at' => $status === 'posted' ? $date.' 10:00:00' : null]);

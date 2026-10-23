@@ -22,6 +22,7 @@ use App\Services\Work\WorkOrderFactory;
 use App\Services\Work\WorkOrderPlanningReadiness;
 use App\Services\Work\WorkOrderRescheduler;
 use App\Services\Work\WorkOrderStateManager;
+use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -32,6 +33,7 @@ use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 class WorkOrderController extends Controller
 {
@@ -60,15 +62,38 @@ class WorkOrderController extends Controller
             $selected->setAttribute('completion_readiness', $this->completionReadiness($selected));
         }
 
+        $canViewFinance = $request->user()->can('view-finance');
+        if (! $canViewFinance && $selected) {
+            $selected->installation->makeHidden(['estimated_budget']);
+            $selected->timeEntries->each(fn ($entry) => $entry->makeHidden(['hourly_cost', 'mileage_rate', 'cost']));
+            $selected->purchaseDocuments->each(fn ($document) => $document->makeHidden(['subtotal', 'tax_amount', 'shipping_cost', 'amount', 'match_variance_amount', 'paid_amount', 'supplier_snapshot']));
+            $plan = $selected->material_plan;
+            foreach (['planned_cost', 'actual_cost', 'variance'] as $key) {
+                $plan[$key] = null;
+            }
+            $plan['rows'] = collect($plan['rows'])->map(function ($row) {
+                foreach (['planned_cost', 'actual_cost', 'cost_variance'] as $key) {
+                    $row[$key] = null;
+                }
+
+                return $row;
+            })->all();
+            $selected->setAttribute('material_plan', $plan);
+            $planningReadiness = $selected->planning_readiness;
+            $planningReadiness['rows'] = collect($planningReadiness['rows'])->map(fn ($row) => [...$row, 'planned_cost' => null, 'actual_cost' => null, 'cost_variance' => null])->all();
+            $selected->setAttribute('planning_readiness', $planningReadiness);
+        }
+
         return Inertia::render('work-orders/index', [
+            'canViewFinance' => $canViewFinance,
             'workOrders' => $orders, 'selected' => $selected,
             'installations' => Installation::whereNotIn('status', ['completed', 'cancelled'])->orderBy('project_reference')->get(['id', 'project_reference', 'site_name']),
             'users' => User::with('fieldServiceProfile')->whereIn('role', ['technician', 'admin'])->orderBy('name')->get(['id', 'name', 'role']),
             'templates' => WorkOrderTemplate::where('is_active', true)->orderBy('name')->get(),
-            'runningEntry' => TimeEntry::with('workOrder:id,number,title')->where('user_id', $request->user()->id)->whereNull('ended_at')->first(),
+            'runningEntry' => TimeEntry::with('workOrder:id,number,title')->where('user_id', $request->user()->id)->whereNull('ended_at')->first()?->makeHidden(['hourly_cost', 'mileage_rate', 'cost']),
             'canManage' => $request->user()->can('manage-installations'), 'currentUserId' => $request->user()->id,
             'canPublishCustomerDocuments' => $request->user()->can('publish-customer-documents'),
-            'defaults' => ['hourlyCost' => config('work.default_hourly_cost'), 'mileageRate' => config('work.mileage_rate')],
+            'defaults' => ['hourlyCost' => $canViewFinance ? config('work.default_hourly_cost') : null, 'mileageRate' => $canViewFinance ? config('work.mileage_rate') : null],
             'warehouses' => Warehouse::where('is_active', true)->orderByDesc('is_default')->orderBy('name')->get(['id', 'code', 'name']),
             'products' => Product::where('track_stock', true)->where('is_active', true)->orderBy('name')->get(['id', 'sku', 'name', 'track_serials']),
             'suppliers' => Supplier::where('is_active', true)->orderBy('legal_name')->get(['id', 'legal_name', 'trade_name']),
@@ -100,6 +125,7 @@ class WorkOrderController extends Controller
 
     public function updateSchedule(Request $request, WorkOrder $workOrder, WorkOrderRescheduler $rescheduler, InstallationWorkOrderSynchronizer $installations, FinancialClearanceGuard $financialClearance): RedirectResponse
     {
+        $this->ensureAccess($request, $workOrder);
         $data = $this->validatedSchedule($request);
         $financialClearance->assertAllows($workOrder->loadMissing('installation')->installation, $data['kind'] ?? $workOrder->kind);
         $reason = $request->validate(['reschedule_reason' => ['required', 'string', 'max:1000']])['reschedule_reason'];
@@ -128,7 +154,19 @@ class WorkOrderController extends Controller
     {
         $this->ensureAccess($request, $workOrder);
         $data = $request->validate(['status' => ['required', Rule::in(['planned', 'in_progress', 'blocked', 'completed', 'cancelled'])], 'completion_notes' => ['nullable', 'string']]);
-        $states->transition($workOrder, $data['status'], $data['completion_notes'] ?? null, actorId: $request->user()->id);
+        try {
+            $states->transition($workOrder, $data['status'], $data['completion_notes'] ?? null, expectedUpdatedAt: $request->validate(['expected_updated_at' => ['nullable', 'date']])['expected_updated_at'] ?? null, actorId: $request->user()->id);
+        } catch (HttpResponseException $e) {
+            if ($e->getResponse()->getStatusCode() !== 409) {
+                throw $e;
+            }
+            throw ValidationException::withMessages(['expected_updated_at' => __('This work order changed on the server. Refresh it before retrying.')]);
+        } catch (HttpExceptionInterface $e) {
+            if (! $request->header('X-Inertia') || $e->getStatusCode() !== 422) {
+                throw $e;
+            }
+            throw ValidationException::withMessages(['status' => $e->getMessage()]);
+        }
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Work order updated.')]);
     }
@@ -200,6 +238,9 @@ class WorkOrderController extends Controller
 
     public function storeTime(Request $request, WorkOrder $workOrder): RedirectResponse
     {
+        if (! $request->user()->can('view-finance')) {
+            $request->merge(['hourly_cost' => config('work.default_hourly_cost'), 'mileage_rate' => config('work.mileage_rate')]);
+        }
         $data = $request->validate(['user_id' => ['required', 'exists:users,id'], 'started_at' => ['required', 'date'], 'ended_at' => ['required', 'date', 'after:started_at'], 'hourly_cost' => ['required', 'numeric', 'min:0'], 'travel_km' => ['nullable', 'numeric', 'min:0'], 'mileage_rate' => ['required', 'numeric', 'min:0'], 'notes' => ['nullable', 'string']]);
         $start = Carbon::parse($data['started_at']);
         $end = Carbon::parse($data['ended_at']);
@@ -363,7 +404,8 @@ class WorkOrderController extends Controller
             $request->merge(['assigned_user_id' => null]);
         }
 
-        return $request->validate([
+        $data = $request->validate([
+            'expected_updated_at' => ['nullable', 'date'],
             'installation_id' => [$creating ? 'required' : 'sometimes', 'exists:installations,id'],
             'assigned_user_id' => ['nullable', Rule::exists('users', 'id')->where(fn ($query) => $query->whereIn('role', ['technician', 'admin']))],
             'title' => [$creating ? 'required' : 'sometimes', 'string', 'max:255'],
@@ -377,6 +419,13 @@ class WorkOrderController extends Controller
             'scheduled_end' => ['nullable', 'date', 'required_with:scheduled_start', 'after:scheduled_start'],
             'instructions' => ['nullable', 'string'],
         ]);
+        foreach (['scheduled_start', 'scheduled_end'] as $field) {
+            if (! empty($data[$field])) {
+                $data[$field] = Carbon::parse($data[$field])->setTimezone(config('app.timezone'));
+            }
+        }
+
+        return $data;
     }
 
     private function syncActivity(WorkOrder $order, int $createdBy): void

@@ -17,10 +17,12 @@ use App\Services\Documents\DocumentNumber;
 use App\Services\Documents\PurchaseInvoiceMatcher;
 use App\Services\Documents\PurchaseOrderApprovalWorkflow;
 use App\Services\Documents\PurchaseOrderConversion;
+use App\Services\Documents\PurchaseOrderEditor;
 use App\Services\Documents\PurchaseWorkflow;
 use App\Services\Documents\SupplierInvoiceExtraction;
 use App\Services\Inventory\ProjectMaterialAllocator;
 use App\Services\Inventory\StockLedger;
+use App\Services\Inventory\SupplyOperationFingerprint;
 use App\Support\HistoricalDocumentDate;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -92,6 +94,7 @@ class PurchaseController extends Controller
         $purchaseDocument->payments->each(fn ($payment) => $payment->setAttribute('source_label', $payment->sourceLabel()));
 
         return Inertia::render('purchases/show', [
+            'canEditOrder' => app(PurchaseOrderEditor::class)->eligible($purchaseDocument),
             'document' => $purchaseDocument,
             'supplierIdentity' => $purchaseDocument->supplierIdentity(),
             'matchDetails' => $purchaseDocument->type === 'supplier_invoice' ? $matcher->details($purchaseDocument) : [],
@@ -125,6 +128,30 @@ class PurchaseController extends Controller
         return to_route('purchases.show', $document)->with('toast', ['type' => 'success', 'message' => __('Purchase document created.')]);
     }
 
+    public function edit(PurchaseDocument $purchaseDocument, PurchaseOrderEditor $editor): Response
+    {
+        abort_unless($editor->eligible($purchaseDocument), 422, __('Only direct purchase orders without receipts, invoices or payments can be edited.'));
+
+        return Inertia::render('purchases/edit', [
+            'shippingTaxPercent' => (float) PurchaseSetting::current()->shipping_tax_percent,
+            'document' => $purchaseDocument->load('lines'), 'revision' => $editor->revision($purchaseDocument),
+            'suppliers' => Supplier::where('is_active', true)->orderBy('legal_name')->get(['id', 'legal_name', 'trade_name']),
+            'products' => Product::where('is_active', true)->with('taxRate:id,rate')->orderBy('name')->get(['id', 'name', 'sku', 'cost_price', 'tax_rate_id']),
+        ]);
+    }
+
+    public function update(Request $request, PurchaseDocument $purchaseDocument, PurchaseOrderEditor $editor): RedirectResponse
+    {
+        $request->validate(['revision' => ['required', 'string', 'size:64'], 'reason' => ['required', 'string', 'min:5', 'max:2000']]);
+        $data = $this->validateDocument($request);
+        abort_unless($data['type'] === 'purchase_order', 422);
+        $data['lines'] = array_map(fn ($line) => collect($line)->only(['product_id', 'description', 'quantity', 'unit_price', 'discount_percent', 'tax_percent'])->all(), $data['lines']);
+        $request->validate(['lines.*.quantity' => ['decimal:0,3'], 'lines.*.unit_price' => ['decimal:0,2'], 'lines.*.discount_percent' => ['decimal:0,2'], 'lines.*.tax_percent' => ['decimal:0,2'], 'shipping_cost' => ['nullable', 'decimal:0,2']]);
+        $editor->update($purchaseDocument, $data, $this->calculate($data['lines'], (float) ($data['shipping_cost'] ?? 0)), $request->string('revision')->toString(), $request->string('reason')->toString(), $request->user()->id);
+
+        return to_route('purchases.show', $purchaseDocument)->with('toast', ['type' => 'success', 'message' => __('Purchase order updated.')]);
+    }
+
     public function convert(PurchaseDocument $purchaseDocument, PurchaseOrderConversion $conversion): RedirectResponse
     {
         $date = HistoricalDocumentDate::fromRequest(request());
@@ -148,8 +175,10 @@ class PurchaseController extends Controller
 
     public function receive(Request $request, PurchaseDocument $purchaseDocument, StockLedger $ledger, ProjectMaterialAllocator $allocator): RedirectResponse
     {
-        abort_unless($purchaseDocument->type === 'purchase_order' && in_array($purchaseDocument->status, ['ordered', 'partially_received'], true), 422);
+        abort_unless($purchaseDocument->type === 'purchase_order', 422);
+        abort_if(! in_array($purchaseDocument->status, ['ordered', 'partially_received'], true) && ! $request->filled('operation_key'), 422);
         $data = $request->validate([
+            'operation_key' => ['nullable', 'uuid'],
             'warehouse_id' => ['required', 'exists:warehouses,id'],
             'supplier_delivery_note' => ['nullable', 'string', 'max:255'],
             'quantities' => ['nullable', 'array'],
@@ -167,6 +196,15 @@ class PurchaseController extends Controller
         ]);
         $result = DB::transaction(function () use ($request, $purchaseDocument, $ledger, $allocator, $data) {
             $order = PurchaseDocument::lockForUpdate()->with('lines.product')->findOrFail($purchaseDocument->id);
+            if (! empty($data['operation_key'])) {
+                $existing = DB::table('purchase_receipt_requests')->where('operation_key', $data['operation_key'])->first();
+                if ($existing) {
+                    abort_unless($existing->purchase_document_id === $order->id && $existing->created_by === $request->user()->id && $existing->operation_hash === SupplyOperationFingerprint::for($data), 409);
+
+                    return ['receipt' => $existing->goods_receipt_id ? GoodsReceipt::findOrFail($existing->goods_receipt_id) : null, 'incident_count' => $existing->incident_count, 'status' => $order->status, 'replayed' => true];
+                }
+            }
+            abort_unless(in_array($order->status, ['ordered', 'partially_received'], true), 422);
             $acceptedLines = collect();
             $rejectedLines = collect();
 
@@ -198,7 +236,7 @@ class PurchaseController extends Controller
 
             $receipt = null;
             if ($acceptedLines->isNotEmpty()) {
-                $movement = $ledger->post(['type' => 'receipt', 'warehouse_id' => $data['warehouse_id'], 'purchase_document_id' => $order->id, 'reference' => $order->number, 'lines' => $acceptedLines->map(fn ($line) => collect($line)->except('line')->all())->all()], $request->user()->id);
+                $movement = $ledger->post(['type' => 'receipt', 'warehouse_id' => $data['warehouse_id'], 'purchase_document_id' => $order->id, 'installation_id' => $order->installation_id, 'work_order_id' => $order->work_order_id, 'reference' => $order->number, 'lines' => $acceptedLines->map(fn ($line) => collect($line)->except('line')->all())->all()], $request->user()->id);
                 foreach ($acceptedLines as $item) {
                     $item['line']->increment('received_quantity', $item['quantity']);
                 }
@@ -206,7 +244,7 @@ class PurchaseController extends Controller
                 $complete = $order->lines()->with('product')->get()->every(fn ($line) => (float) $line->received_quantity >= (float) $line->quantity || ! $line->product?->track_stock);
                 $order->update(['status' => $complete ? 'received' : 'partially_received']);
                 $issued = app(DocumentNumber::class)->next('goods_receipt', now());
-                $receipt = GoodsReceipt::create(['purchase_document_id' => $order->id, 'stock_movement_id' => $movement->id, 'warehouse_id' => $data['warehouse_id'], 'created_by' => $request->user()->id, 'number' => $issued['number'], 'supplier_delivery_note' => $data['supplier_delivery_note'] ?? null, 'received_at' => now()]);
+                $receipt = GoodsReceipt::create(['operation_key' => $data['operation_key'] ?? null, 'purchase_document_id' => $order->id, 'stock_movement_id' => $movement->id, 'warehouse_id' => $data['warehouse_id'], 'created_by' => $request->user()->id, 'number' => $issued['number'], 'supplier_delivery_note' => $data['supplier_delivery_note'] ?? null, 'received_at' => now()]);
             }
 
             foreach ($rejectedLines as $item) {
@@ -224,14 +262,18 @@ class PurchaseController extends Controller
                 ]);
             }
 
+            if (! empty($data['operation_key'])) {
+                DB::table('purchase_receipt_requests')->insert(['operation_key' => $data['operation_key'], 'operation_hash' => SupplyOperationFingerprint::for($data), 'purchase_document_id' => $order->id, 'created_by' => $request->user()->id, 'goods_receipt_id' => $receipt?->id, 'incident_count' => $rejectedLines->count(), 'created_at' => now(), 'updated_at' => now()]);
+            }
+
             return ['receipt' => $receipt, 'incident_count' => $rejectedLines->count(), 'status' => $order->fresh()->status];
         });
 
         app(PurchaseInvoiceMatcher::class)->refresh($purchaseDocument->fresh());
-        if ($result['receipt']) {
+        if ($result['receipt'] && ! ($result['replayed'] ?? false)) {
             app(PurchaseWorkflow::class)->record($purchaseDocument, 'goods_received', $request->user()->id, $purchaseDocument->status, $result['status'], ['receipt' => $result['receipt']->number]);
         }
-        if ($result['incident_count'] > 0) {
+        if ($result['incident_count'] > 0 && ! ($result['replayed'] ?? false)) {
             app(PurchaseWorkflow::class)->record($purchaseDocument, 'quality_incident_reported', $request->user()->id, $result['status'], $result['status'], ['incidents' => $result['incident_count']]);
         }
 

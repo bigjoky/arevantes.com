@@ -225,6 +225,28 @@ class AnalyticsService
         }), 2);
     }
 
+    /** Existing financial revenue budget, prorated using the canonical analytics definition. */
+    public function revenueTarget(AnalyticsFilter $filter): ?float
+    {
+        $target = $this->target(config('analytics.metrics.net_revenue'), $filter);
+
+        return $target > 0 ? $target : null;
+    }
+
+    /** Monthly net invoiced revenue, with the same document and user scopes as the metric. */
+    public function monthlyRevenue(AnalyticsFilter $filter): Collection
+    {
+        $month = match (DB::connection()->getDriverName()) {
+            'pgsql' => "TO_CHAR(sales_documents.issue_date, 'YYYY-MM')",
+            'mysql', 'mariadb' => "DATE_FORMAT(sales_documents.issue_date, '%Y-%m')",
+            default => "strftime('%Y-%m', sales_documents.issue_date)",
+        };
+
+        return $this->salesQuery($filter, $filter->from, $filter->to)
+            ->selectRaw("{$month} period, SUM(sales_documents.subtotal) value")
+            ->groupByRaw($month)->orderBy('period')->get();
+    }
+
     private function salesQuery(AnalyticsFilter $filter, CarbonImmutable $from, CarbonImmutable $to): Builder
     {
         $query = DB::table('sales_documents')->leftJoin('installations', 'installations.id', '=', 'sales_documents.installation_id')

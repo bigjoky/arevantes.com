@@ -61,8 +61,8 @@ class SupplierIdentityTest extends TestCase
         $this->actingAs($admin)->get(route('purchases.show', $order))
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
-                ->where('supplierIdentity.legal_name', 'Original Supply SL')
-                ->where('supplierIdentity.payment_terms_days', 45));
+                ->where('order.supplier.legal_name', 'Original Supply SL')
+                ->where('order.supplier.payment_terms_days', 45)->missing('order.supplier.iban')->missing('order.supplier.authorized_signatory'));
 
         $html = view('pdf.purchase-document', [
             'document' => $order->load(['supplier', 'destinationWarehouse', 'lines']),

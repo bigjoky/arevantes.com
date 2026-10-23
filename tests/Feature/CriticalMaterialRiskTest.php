@@ -138,7 +138,7 @@ class CriticalMaterialRiskTest extends TestCase
 
         $commercial = User::factory()->create(['role' => 'commercial']);
         $this->actingAs($commercial)
-            ->get(route('operations.index'))
+            ->get(route('operations.activities'))
             ->assertInertia(fn (Assert $page) => $page
                 ->where('exceptions.0.kind', 'materials')
                 ->where('exceptions.0.severity', 'critical')

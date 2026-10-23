@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Jobs\GeocodeInstallation;
 use App\Models\CrmActivity;
 use App\Models\CustomerDocumentAcceptance;
+use App\Models\DocumentDelivery;
 use App\Models\Installation;
 use App\Models\Opportunity;
 use App\Models\Person;
@@ -20,9 +21,11 @@ use App\Services\Documents\QuoteBillingPlan;
 use App\Services\Inventory\ProjectMaterialPlanner;
 use App\Services\Operations\ProjectProfitability;
 use App\Services\Quotes\QuoteCalculator;
+use App\Services\Quotes\QuoteDeliveryArchive;
 use App\Services\Quotes\QuoteMaterialReadiness;
 use App\Services\Quotes\QuoteOperationalPlanner;
 use App\Services\Quotes\QuoteStatusWorkflow;
+use App\Services\Quotes\QuoteWorkspace;
 use App\Services\Work\TechnicianSchedule;
 use App\Services\Work\WorkOrderFactory;
 use App\Services\Work\WorkOrderTemplateResolver;
@@ -41,47 +44,7 @@ class QuoteController extends Controller
 {
     public function index(Request $request): Response
     {
-        $filters = $request->validate([
-            'search' => ['nullable', 'string', 'max:100'],
-            'status' => ['nullable', Rule::in(['draft', 'sent', 'accepted', 'rejected', 'expired'])],
-            'approval' => ['nullable', Rule::in(['not_required', 'pending', 'approved', 'rejected'])],
-            'owner' => ['nullable', 'integer', 'exists:users,id'],
-        ]);
-
-        $query = Quote::query()
-            ->with([
-                'customer:id,first_name,last_name,company_name',
-                'creator:id,name',
-                'opportunity:id,code,title,stage',
-            ])
-            ->when($filters['search'] ?? null, fn ($query, string $search) => $query
-                ->where(fn ($query) => $query
-                    ->where('number', 'like', "%{$search}%")
-                    ->orWhereHas('customer', fn ($query) => $query
-                        ->where('company_name', 'like', "%{$search}%")
-                        ->orWhere('first_name', 'like', "%{$search}%")
-                        ->orWhere('last_name', 'like', "%{$search}%"))
-                    ->orWhereHas('opportunity', fn ($query) => $query
-                        ->where('code', 'like', "%{$search}%")
-                        ->orWhere('title', 'like', "%{$search}%"))))
-            ->when($filters['status'] ?? null, fn ($query, string $status) => $query->where('status', $status))
-            ->when($filters['approval'] ?? null, fn ($query, string $approval) => $query->where('approval_status', $approval))
-            ->when($filters['owner'] ?? null, fn ($query, int $owner) => $query->where('created_by', $owner));
-
-        $summary = [
-            'total' => (clone $query)->count(),
-            'open_value' => round((float) (clone $query)->whereIn('status', ['draft', 'sent'])->sum('amount'), 2),
-            'pending_approval' => (clone $query)->where('approval_status', 'pending')->count(),
-            'accepted_value' => round((float) (clone $query)->where('status', 'accepted')->sum('amount'), 2),
-        ];
-
-        return Inertia::render('quotes/index', [
-            'quotes' => $query->latest('updated_at')->paginate(25)->withQueryString(),
-            'filters' => $filters,
-            'summary' => $summary,
-            'owners' => User::query()->whereIn('role', ['admin', 'commercial'])->orderBy('name')->get(['id', 'name']),
-            'canApproveQuotes' => Gate::allows('approve-quotes'),
-        ]);
+        return Inertia::render('quotes/index', app(QuoteWorkspace::class)->listing($request));
     }
 
     public function create(Request $request): Response
@@ -109,9 +72,36 @@ class QuoteController extends Controller
 
     public function show(Quote $quote, QuoteBillingPlan $billing, ProjectProfitability $profitability, QuoteMaterialReadiness $materials): Response
     {
-        $quote->load(['customer', 'installation', 'opportunity:id,code,title', 'creator:id,name', 'approver:id,name', 'lines.components.unit:id,symbol', 'versions.createdBy:id,name', 'statusHistory.changedBy:id,name', 'deliveries:id,quote_id,recipient_email,status,sent_at,first_viewed_at,responded_at,revoked_at']);
+        $quote->load(['customer:id,first_name,last_name,company_name,email,billing_email,address_line_1,address_line_2,city,locality,province_state,postal_code,country,do_not_contact', 'installation:id,project_reference,site_name,service_type,status,estimated_budget', 'opportunity:id,code,title', 'creator:id,name', 'approver:id,name', 'lines.components.unit:id,symbol', 'versions' => fn ($q) => $q->with('createdBy:id,name')->limit(3), 'statusHistory' => fn ($q) => $q->with('changedBy:id,name')->limit(5), 'deliveries' => fn ($q) => $q->select('id', 'quote_id', 'recipient_email', 'status', 'document_version', 'document_hash', 'sent_by', 'sent_at', 'first_viewed_at', 'responded_at', 'revoked_at')->limit(5)]);
+        $quote->setAttribute('effective_status', $quote->status === 'sent' && $quote->valid_until?->lt(today()) ? 'expired' : $quote->status);
+        $tab = request()->query('tab', 'summary');
+        abort_unless(in_array($tab, ['summary', 'versions', 'customer', 'opportunity', 'installation', 'billing', 'documents', 'activity', 'workflow'], true), 422);
+        if (in_array($tab, ['customer', 'opportunity'], true)) {
+            abort_unless(Gate::allows('manage-customers'), 403);
+        }
+        if ($tab === 'installation') {
+            abort_unless(Gate::allows('view-installations'), 403);
+        }
+        if ($tab === 'billing') {
+            abort_unless(Gate::allows('manage-installations'), 403);
+        }
+        $sectionLinks = [];
+        foreach (['versions' => ['versions', 'createdBy:id,name', 'version_page'], 'activity' => ['statusHistory', 'changedBy:id,name', 'activity_page'], 'documents' => ['deliveries', null, 'delivery_page']] as $section => [$relation, $with, $pageName]) {
+            if ($tab !== $section) {
+                continue;
+            }
+            $query = $quote->$relation();
+            if ($with) {
+                $query->with($with);
+            }
+            $records = $query->paginate(15, ['*'], $pageName)->withQueryString();
+            $quote->setRelation($relation, $records->getCollection());
+            $sectionLinks[$section] = $records->linkCollection()->all();
+        }
+        $archive = app(QuoteDeliveryArchive::class);
+        $quote->deliveries->each(fn ($delivery) => $delivery->setAttribute('archived_pdf_url', $archive->exists($delivery) ? route('quotes.deliveries.pdf', [$quote, $delivery]) : null));
         [$street, $streetNumber] = $this->splitStreetAddress($quote->customer?->address_line_1);
-        $projectProfitability = $quote->installation ? $profitability->for($quote->installation, $quote) : null;
+        $projectProfitability = Gate::allows('view-installations') && $quote->installation ? $profitability->for($quote->installation, $quote) : null;
         $quote->setAttribute(
             'actual_margin_amount',
             $projectProfitability && $projectProfitability['has_actuals']
@@ -123,6 +113,9 @@ class QuoteController extends Controller
             app(QuoteStatusWorkflow::class)->availableTransitions($quote),
             ['sent'],
         ));
+        if ($quote->valid_until?->lt(today())) {
+            $availableStatuses = array_values(array_diff($availableStatuses, ['accepted']));
+        }
         $canApprove = Gate::allows('approve-quotes')
             && $quote->approval_status === 'pending'
             && (int) $quote->created_by !== (int) request()->user()->id;
@@ -131,15 +124,22 @@ class QuoteController extends Controller
             || $quote->deliveries()->exists()
             || CustomerDocumentAcceptance::where('document_type', 'quote')->where('document_id', $quote->id)->exists();
 
+        if (Gate::denies('view-installations')) {
+            $quote->setRelation('installation', null);
+        }
+
         return Inertia::render('quotes/show', [
             'quote' => $quote,
-            'billing' => $billing->summary($quote),
+            'sectionLinks' => $sectionLinks,
+            'quoteActivity' => $tab === 'activity' ? app(QuoteWorkspace::class)->activity($quote) : null,
+            'relationPermissions' => ['customer' => Gate::allows('manage-customers'), 'opportunity' => Gate::allows('manage-customers'), 'installation' => Gate::allows('view-installations'), 'billing' => Gate::allows('manage-installations')],
+            'billing' => Gate::allows('manage-installations') ? $billing->summary($quote) : ['allocated_percentage' => 0, 'issued_percentage' => 0, 'remaining_percentage' => 0, 'allocated_amount' => 0, 'issued_amount' => 0, 'remaining_amount' => 0, 'documents' => []],
             'materialPreview' => $materials->preview($quote),
             'profitability' => $projectProfitability,
             'capabilities' => [
                 'edit' => $quote->status === 'draft',
                 'changeStatus' => $availableStatuses !== [],
-                'send' => in_array($quote->status, ['draft', 'sent'], true)
+                'send' => (app()->runningUnitTests() || ! in_array(config('mail.default'), ['log', 'array'], true)) && ! $quote->valid_until?->lt(today()) && in_array($quote->status, ['draft', 'sent'], true)
                     && in_array($quote->approval_status, ['not_required', 'approved'], true)
                     && ! $quote->customer?->do_not_contact,
                 'delete' => $quote->status === 'draft' && ! $hasTraceability,
@@ -194,18 +194,69 @@ class QuoteController extends Controller
 
     public function updateDocument(Request $request, Quote $quote, QuoteCalculator $calculator): RedirectResponse
     {
-        abort_unless($quote->status === 'draft', 422, __('Only draft quotes can be edited.'));
-        DB::transaction(fn () => $this->persist($quote, $this->validateDocument($request, $quote), $calculator, ['version' => $quote->version + 1], $request->user()->id));
+        $data = $this->validateDocument($request, $quote);
+        DB::transaction(function () use ($request, $quote, $data, $calculator): void {
+            $locked = Quote::lockForUpdate()->findOrFail($quote->id);
+            abort_unless($locked->status === 'draft', 422, __('Only draft quotes can be edited.'));
+            if ($request->filled('expected_version') && (int) $request->input('expected_version') !== $locked->version) {
+                throw ValidationException::withMessages(['expected_version' => __('This quote changed while you were editing it. Reload before saving.')]);
+            }
+            $this->persist($locked, $data, $calculator, ['version' => $locked->version + 1], $request->user()->id);
+        });
 
         return to_route('quotes.show', $quote)->with('toast', ['type' => 'success', 'message' => __('Draft changes saved.')]);
     }
 
     public function updateStatus(Request $request, Quote $quote, QuoteStatusWorkflow $workflow): RedirectResponse
     {
-        $data = $request->validate(['status' => ['required', Rule::in(['accepted', 'rejected', 'expired'])]]);
-        $workflow->apply($quote, $data['status'], $request->user(), 'internal');
+        $data = $request->validate(['status' => ['required', Rule::in(['accepted', 'rejected', 'expired'])], 'reason' => ['nullable', 'string', 'max:2000']]);
+        $workflow->apply($quote, $data['status'], $request->user(), 'internal', $data['reason'] ?? null);
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Quote updated.')]);
+    }
+
+    public function duplicate(Request $request, Quote $quote, QuoteCalculator $calculator, DocumentNumber $numbers, QuoteStatusWorkflow $workflow): RedirectResponse
+    {
+        $quote->load('lines.components');
+        $data = $quote->only(['person_id', 'service_type', 'valid_until', 'notes', 'acceptance_payment_percentage', 'acceptance_payment_due_days']);
+        $data['issue_date'] = today()->toDateString();
+        $data['valid_until'] = $quote->valid_until?->gte(today()) ? $quote->valid_until->toDateString() : null;
+        $data['installation_id'] = null;
+        $data['opportunity_id'] = null;
+        $data['change_note'] = __('Duplicated from :number.', ['number' => $quote->number]);
+        $data['lines'] = $quote->lines->map(fn ($line) => [
+            ...$line->only(['product_id', 'unit_id', 'tax_rate_id', 'description', 'quantity', 'unit_price', 'discount_percent', 'tax_percent', 'selection_mode', 'option_group', 'is_selected']),
+            'client_key' => 'line-'.$line->id,
+            'parent_client_key' => $line->parent_line_id ? 'line-'.$line->parent_line_id : null,
+            'components' => $line->components->map(fn ($component) => [
+                ...$component->only(['product_id', 'unit_id', 'kind', 'fulfillment_kind', 'visibility', 'description', 'quantity', 'planned_unit_cost', 'interval_months']),
+                'client_key' => 'component-'.$component->id,
+                'parent_client_key' => $component->parent_component_id ? 'component-'.$component->parent_component_id : null,
+            ])->all(),
+        ])->all();
+        $data = $this->normalizeComponentHierarchy($data);
+        $copy = DB::transaction(function () use ($request, $quote, $data, $numbers, $calculator, $workflow): Quote {
+            $issued = $numbers->next('quote', $data['issue_date']);
+            $copy = $this->persist(new Quote, $data, $calculator, ['number' => $issued['number'], 'version' => 1, 'status' => 'draft', 'document_series_id' => $issued['series']->id, 'created_by' => $request->user()->id], $request->user()->id);
+            $createdLines = $copy->lines()->orderBy('position')->get();
+            $sourceToCopy = $quote->lines->mapWithKeys(fn ($source, $index) => [$source->id => $createdLines[$index]->id]);
+            foreach ($quote->lines as $index => $source) {
+                $createdLines[$index]->update(['parent_line_id' => $source->parent_line_id ? $sourceToCopy[$source->parent_line_id] : null, 'depth' => $source->depth]);
+            }
+            $copy->versions()->where('version', 1)->update(['lines' => $copy->lines()->with('components')->get()->toArray()]);
+            $workflow->recordInitial($copy, $request->user());
+
+            return $copy;
+        });
+
+        return to_route('quotes.show', $copy);
+    }
+
+    public function deliveryPdf(Quote $quote, DocumentDelivery $delivery): \Symfony\Component\HttpFoundation\Response
+    {
+        abort_unless((int) $delivery->quote_id === $quote->id, 404);
+
+        return response(app(QuoteDeliveryArchive::class)->bytes($delivery), 200, ['Content-Type' => 'application/pdf', 'Content-Disposition' => 'inline; filename="'.$quote->number.'-'.$delivery->id.'.pdf"']);
     }
 
     public function destroy(Quote $quote): RedirectResponse
@@ -262,6 +313,7 @@ class QuoteController extends Controller
 
         $installation = DB::transaction(function () use ($request, $quote, $data, $scheduledAt, $scheduledEnd, $materials, $operations, $orders, $surveyTemplate): Installation {
             $lockedQuote = Quote::lockForUpdate()->findOrFail($quote->id);
+            abort_unless($lockedQuote->status === 'accepted', 422, __('Only accepted quotes can start a project.'));
             abort_if($lockedQuote->installation_id, 422, __('This quote already has an installation.'));
             $opportunity = $lockedQuote->opportunity;
 
@@ -344,6 +396,7 @@ class QuoteController extends Controller
         ]);
 
         $data = $request->validate([
+            'expected_version' => ['sometimes', 'integer', 'min:1'],
             'opportunity_id' => ['nullable', 'exists:opportunities,id', Rule::unique('quotes', 'opportunity_id')->ignore($quote?->id)],
             'service_type' => ['nullable', Rule::in(BusinessLineCatalog::INSTALLATION_TYPES)],
             'person_id' => ['required', 'exists:people,id'], 'installation_id' => ['nullable', 'exists:installations,id'],
@@ -355,7 +408,8 @@ class QuoteController extends Controller
             'lines.*.client_key' => ['required', 'string', 'max:100', 'distinct'],
             'lines.*.product_id' => ['nullable', 'exists:products,id'], 'lines.*.unit_id' => ['nullable', 'exists:units,id'],
             'lines.*.tax_rate_id' => ['nullable', 'exists:tax_rates,id'], 'lines.*.description' => ['required', 'string'], 'lines.*.quantity' => ['required', 'numeric', 'gt:0'],
-            'lines.*.unit_price' => ['required', 'numeric', 'min:0'], 'lines.*.discount_percent' => ['required', 'numeric', 'between:0,100'], 'lines.*.tax_percent' => ['required', 'numeric', 'between:0,100'],
+            'lines.*.total_with_tax' => ['nullable', 'numeric', 'min:0', 'decimal:0,2'],
+            'lines.*.unit_price' => ['required', 'numeric', 'min:0', 'decimal:0,3'], 'lines.*.discount_percent' => ['required', 'numeric', 'between:0,100'], 'lines.*.tax_percent' => ['required', 'numeric', 'between:0,100'],
             'lines.*.selection_mode' => ['sometimes', Rule::in(['included', 'optional', 'alternative'])],
             'lines.*.option_group' => ['nullable', 'string', 'max:100'],
             'lines.*.is_selected' => ['sometimes', 'boolean'],
@@ -372,6 +426,15 @@ class QuoteController extends Controller
             'lines.*.components.*.planned_unit_cost' => ['nullable', 'numeric', 'min:0'],
             'lines.*.components.*.interval_months' => ['nullable', 'integer', 'between:1,120'],
         ]);
+
+        unset($data['expected_version']);
+        foreach ($data['lines'] as $index => $line) {
+            if (isset($line['total_with_tax']) && (float) $line['total_with_tax'] > 0 && (float) $line['discount_percent'] >= 100) {
+                throw ValidationException::withMessages([
+                    "lines.{$index}.total_with_tax" => __('A positive VAT-inclusive total requires a discount below 100%.'),
+                ]);
+            }
+        }
 
         return $this->normalizeComponentHierarchy($data);
     }

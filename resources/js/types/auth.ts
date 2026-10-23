@@ -49,6 +49,10 @@ export type AuthAbilities = {
 };
 
 export type WorkspaceNavItem = {
+    id?: string;
+    links?: Array<{ title: string; href: string }>;
+    pending?: string[];
+    navigable?: boolean;
     title: string;
     code?: string;
     href: string;

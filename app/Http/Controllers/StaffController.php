@@ -3,10 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\ManagesPersonProfiles;
+use App\Models\CompanyProfile;
 use App\Models\Person;
 use App\Models\User;
+use App\Services\Company\CompanyWorkspace;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -51,6 +54,11 @@ class StaffController extends Controller
     public function show(Person $staff): Response
     {
         $this->ensurePersonCategory($staff, 'staff');
+        if (Gate::denies('view-sensitive-hr')) {
+            abort_if(CompanyProfile::count() > 1, 409);
+
+            return app(CompanyWorkspaceController::class)->staff(request(), $staff, app(CompanyWorkspace::class));
+        }
         $staff->load('user:id,person_id,email,role,created_at');
 
         return Inertia::render('people/show', [
@@ -98,6 +106,11 @@ class StaffController extends Controller
     public function edit(Person $staff): Response
     {
         $this->ensurePersonCategory($staff, 'staff');
+        if (Gate::denies('view-sensitive-hr')) {
+            abort_if(CompanyProfile::count() > 1, 409);
+
+            return app(CompanyWorkspaceController::class)->staff(request(), $staff, app(CompanyWorkspace::class));
+        }
 
         return Inertia::render('people/edit', [
             'person' => [
@@ -125,6 +138,7 @@ class StaffController extends Controller
      */
     public function store(Request $request): RedirectResponse
     {
+        $this->authorizeSensitiveInput($request);
         $staff = Person::create($this->validatedPersonData($request, 'staff'));
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Staff profile added.')]);
@@ -139,6 +153,7 @@ class StaffController extends Controller
     {
         $this->ensurePersonCategory($staff, 'staff');
 
+        $this->authorizeSensitiveInput($request, $staff);
         $staff->update($this->validatedPersonData($request, 'staff'));
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Staff profile updated.')]);
@@ -160,5 +175,17 @@ class StaffController extends Controller
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Staff profile deleted.')]);
 
         return to_route('staff.index');
+    }
+
+    private function authorizeSensitiveInput(Request $request, ?Person $staff = null): void
+    {
+        if (Gate::allows('manage-sensitive-hr')) {
+            return;
+        }
+        foreach (['tax_id', 'document_number', 'date_of_birth', 'phone', 'email', 'address_line_1', 'address_line_2', 'city', 'locality', 'province_state', 'postal_code', 'country', 'emergency_contact_name', 'emergency_contact_phone', 'notes'] as $key) {
+            if ($request->exists($key) && (filled($request->input($key)) || filled($staff?->getAttribute($key)))) {
+                abort(403);
+            }
+        }
     }
 }

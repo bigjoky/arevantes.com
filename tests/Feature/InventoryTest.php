@@ -34,7 +34,7 @@ class InventoryTest extends TestCase
         $user = User::factory()->create(['role' => 'commercial']);
         foreach (['stock' => '/inventory', 'reservations' => '/inventory/reservations', 'movements' => '/inventory/movements', 'warehouses' => '/inventory/warehouses'] as $section => $url) {
             $this->actingAs($user)->get($url)->assertOk()->assertInertia(fn (Assert $page) => $page
-                ->component('inventory/index')->where('initialSection', $section));
+                ->component($section === 'stock' ? 'supply/inventory' : 'inventory/index')->where($section === 'stock' ? 'view' : 'initialSection', $section));
             $this->actingAs(User::factory()->create(['role' => 'technician']))->get($url)->assertForbidden();
         }
     }
@@ -141,15 +141,15 @@ class InventoryTest extends TestCase
         $this->get(route('inventory.index'))
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
-                ->component('inventory/index')
-                ->has('positions', 1)
-                ->where('positions.0.on_hand', 12)
-                ->where('positions.0.reserved', 3)
-                ->where('positions.0.available', 9)
-                ->where('positions.0.in_transit', 3)
-                ->where('positions.0.projected', 12)
-                ->where('positions.0.inbound_order_count', 1)
-                ->where('positions.0.next_delivery_date', '2026-08-10'));
+                ->component('supply/inventory')
+                ->has('positions.data', 1)
+                ->where('positions.data.0.on_hand', 12)
+                ->where('positions.data.0.reserved', 3)
+                ->where('positions.data.0.available', 9)
+                ->where('positions.data.0.in_transit', 3)
+                ->where('positions.data.0.projected', 12)
+                ->where('positions.data.0.inbound_order_count', 1)
+                ->where('positions.data.0.next_delivery_date', '2026-08-10'));
     }
 
     public function test_a_reserved_serialized_item_is_dispatched_to_its_installation(): void
@@ -230,7 +230,9 @@ class InventoryTest extends TestCase
         $this->assertSame('8.000', $reservation->consumed_quantity);
         $this->assertSame(2.0, (float) StockMovementLine::where('warehouse_id', $warehouse->id)->where('product_id', $product->id)->sum('quantity'));
         $this->assertSame('500.00', StockMovementLine::where('product_id', $product->id)->where('quantity', '<', 0)->firstOrFail()->unit_cost);
-        $this->get(route('work-orders.index', ['work_order' => $order->id]))
+        $this->get(route('work-orders.manage', ['work_order' => $order->id]))
+            ->assertInertia(fn (Assert $page) => $page->where('selected.material_plan.planned_cost', null)->where('selected.material_plan.rows.0.actual_quantity', 8));
+        $this->actingAs($commercial)->get(route('work-orders.manage', ['work_order' => $order->id]))
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->where('selected.material_plan.planned_cost', 4000)
@@ -261,7 +263,7 @@ class InventoryTest extends TestCase
             'warehouse_id' => $warehouse->id,
             'lines' => [['product_id' => $product->id, 'quantity' => 3, 'unit_cost' => 500]],
         ])->assertRedirect();
-        $this->get(route('work-orders.index', ['work_order' => $order->id]))
+        $this->get(route('work-orders.manage', ['work_order' => $order->id]))
             ->assertInertia(fn (Assert $page) => $page
                 ->where('selected.material_plan.rows.0.available_quantity', 3)
                 ->where('selected.material_plan.rows.0.shortage_quantity', 7)
@@ -277,7 +279,7 @@ class InventoryTest extends TestCase
         $purchaseOrder = PurchaseDocument::where('type', 'purchase_order')->firstOrFail();
         $this->assertSame($installation->id, $purchaseOrder->installation_id);
         $this->assertSame($order->id, $purchaseOrder->work_order_id);
-        $this->get(route('work-orders.index', ['work_order' => $order->id]))
+        $this->get(route('work-orders.manage', ['work_order' => $order->id]))
             ->assertInertia(fn (Assert $page) => $page
                 ->where('selected.material_plan.rows.0.inbound_quantity', 7)
                 ->where('selected.material_plan.rows.0.shortage_quantity', 0)
@@ -295,7 +297,7 @@ class InventoryTest extends TestCase
         $reservation = StockReservation::where('work_order_id', $order->id)->firstOrFail();
         $this->assertSame('7.000', $reservation->quantity);
         $this->assertSame('received', $purchaseOrder->refresh()->status);
-        $this->get(route('work-orders.index', ['work_order' => $order->id]))
+        $this->get(route('work-orders.manage', ['work_order' => $order->id]))
             ->assertInertia(fn (Assert $page) => $page
                 ->where('selected.material_plan.rows.0.available_quantity', 3)
                 ->where('selected.material_plan.rows.0.reserved_quantity', 7)

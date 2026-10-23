@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\Database\BackendTableSecurity;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -23,6 +24,7 @@ return new class extends Migration
             $table->timestamps();
             $table->index(['company_profile_id', 'year', 'id'], 'company_census_latest_index');
         });
+        BackendTableSecurity::restrict('company_census_versions');
     }
 
     public function down(): void

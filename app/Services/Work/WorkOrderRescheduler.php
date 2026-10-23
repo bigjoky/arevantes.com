@@ -18,6 +18,10 @@ class WorkOrderRescheduler
     {
         DB::transaction(function () use ($order, $changes, $reason, $userId, $batchUuid): void {
             $lockedOrder = WorkOrder::query()->lockForUpdate()->findOrFail($order->id);
+            if (isset($changes['expected_updated_at']) && ! $lockedOrder->updated_at->equalTo(Carbon::parse($changes['expected_updated_at']))) {
+                throw ValidationException::withMessages(['expected_updated_at' => __('This work order changed on the server. Refresh it before retrying.')]);
+            }
+            unset($changes['expected_updated_at']);
             $newOwner = array_key_exists('assigned_user_id', $changes) ? $changes['assigned_user_id'] : $lockedOrder->assigned_user_id;
             $this->schedule->lockTechnicians([$lockedOrder->assigned_user_id, $newOwner]);
             $this->rescheduleLocked($lockedOrder, $changes, $reason, $userId, $batchUuid);

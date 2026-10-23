@@ -9,8 +9,7 @@ class WorkspaceShortcuts
 {
     public function for(User $user, ?string $favorite = null, bool $enabled = false): array
     {
-        $items = collect(app(WorkspaceNavigation::class)->for($user))
-            ->flatMap(fn (array $item) => $item['children'] ?? [$item])
+        $items = collect(app(WorkspaceNavigation::class)->availableLinks($user))
             ->keyBy('href');
 
         if ($favorite !== null) {

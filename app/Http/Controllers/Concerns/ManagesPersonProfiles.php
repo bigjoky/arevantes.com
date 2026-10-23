@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Concerns;
 
 use App\Models\Person;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 
 trait ManagesPersonProfiles
@@ -209,6 +210,13 @@ trait ManagesPersonProfiles
      */
     protected function personSummary(Person $person): array
     {
+        if ($person->category === 'staff' && Gate::denies('view-sensitive-hr') && request()->user()?->person_id !== $person->id) {
+            $person = clone $person;
+            foreach (['document_type', 'document_number', 'phone', 'email', 'city', 'locality', 'country'] as $key) {
+                $person->setAttribute($key, null);
+            }
+        }
+
         return [
             'id' => $person->id,
             'category' => $person->category,

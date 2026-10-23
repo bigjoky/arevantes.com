@@ -15,6 +15,7 @@ import {
     Upload,
     WalletCards,
 } from 'lucide-react';
+import { useState } from 'react';
 import { FormErrorSummary } from '@/components/forms/form-layout';
 import HistoricalDocumentDate from '@/components/historical-document-date';
 import { PaymentSourceFields } from '@/components/payment-source-fields';
@@ -234,6 +235,7 @@ export default function PurchaseShow({
     warehouses,
     matchDetails,
     orderSummary,
+    canEditOrder,
     creditSummary,
     creditedAmount,
     creditableShipping,
@@ -249,6 +251,7 @@ export default function PurchaseShow({
         lines: OrderProgress[];
         shipping: ShippingProgress;
     } | null;
+    canEditOrder: boolean;
     creditSummary: CreditProgress[];
     creditedAmount: number;
     creditableShipping: number;
@@ -267,6 +270,9 @@ export default function PurchaseShow({
             };
         };
     }>().props.auth;
+    const [receiptOperationKey, setReceiptOperationKey] = useState(() =>
+        crypto.randomUUID(),
+    );
     const { locale } = useLocale();
     const canReceive =
         document.type === 'purchase_order' &&
@@ -333,6 +339,13 @@ export default function PurchaseShow({
                         </p>
                     </div>
                     <div className="flex flex-wrap gap-2">
+                        {canEditOrder && abilities.managePurchases && (
+                            <Button asChild variant="outline">
+                                <Link href={`/purchases/${document.id}/edit`}>
+                                    Editar orden de compra
+                                </Link>
+                            </Button>
+                        )}
                         {['purchase_rfq', 'purchase_order'].includes(
                             document.type,
                         ) && (
@@ -858,9 +871,17 @@ export default function PurchaseShow({
                         </p>
                         <Form
                             action={`/purchases/${document.id}/receive`}
+                            onSuccess={() =>
+                                setReceiptOperationKey(crypto.randomUUID())
+                            }
                             method="post"
                             className="grid gap-4"
                         >
+                            <input
+                                type="hidden"
+                                name="operation_key"
+                                value={receiptOperationKey}
+                            />
                             <div className="grid gap-4 sm:grid-cols-2">
                                 <SelectWarehouse
                                     warehouses={warehouses}

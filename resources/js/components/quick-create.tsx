@@ -102,7 +102,7 @@ export function QuickCreate() {
                     <DropdownMenuTrigger asChild>
                         <Button
                             size="icon"
-                            className="size-9"
+                            className="size-8 rounded-full bg-primary"
                             aria-label="Create new"
                         >
                             <Plus className="size-4" />

@@ -7,6 +7,10 @@ export type BreadcrumbItem = {
 };
 
 export type NavItem = {
+    id?: string;
+    links?: Array<{ title: string; href: string }>;
+    pending?: string[];
+    navigable?: boolean;
     title: string;
     code?: string;
     href: NonNullable<InertiaLinkProps['href']>;

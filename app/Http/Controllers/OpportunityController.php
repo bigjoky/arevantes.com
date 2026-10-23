@@ -6,6 +6,7 @@ use App\Models\CrmActivity;
 use App\Models\CrmSetting;
 use App\Models\Installation;
 use App\Models\Opportunity;
+use App\Models\OpportunityEvent;
 use App\Models\Person;
 use App\Models\SavedCrmFilter;
 use App\Models\User;
@@ -19,6 +20,7 @@ use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -27,17 +29,15 @@ use Inertia\Response;
 
 class OpportunityController extends Controller
 {
-    private const STAGES = ['new', 'qualified', 'survey', 'proposal', 'negotiation', 'won', 'lost'];
-
     public function index(Request $request): Response
     {
         $section = $request->input('section') === 'analysis' ? 'analysis' : 'pipeline';
-        $view = $request->input('view') === 'table' ? 'table' : 'kanban';
+        $view = in_array($request->input('view'), ['table', 'calendar'], true) ? $request->input('view') : 'kanban';
         $settings = CrmSetting::current();
         $query = Opportunity::query()
             ->when($request->boolean('archived'), fn ($query) => $query->onlyTrashed())
             ->with([
-                'customer:id,first_name,last_name,company_name',
+                'customer:id,first_name,last_name,company_name,phone,email,do_not_contact',
                 'installation:id,person_id,project_reference,site_name',
                 'owner:id,name',
                 'parentOpportunity:id,person_id,code,title,stage',
@@ -46,7 +46,29 @@ class OpportunityController extends Controller
                 'stageHistory.changedBy:id,name',
             ]);
         $this->applyFilters($query, $request, $settings->stale_after_days);
-        $opportunities = $query->latest()->get();
+        $filteredQuery = clone $query;
+        $stageTotals = (clone $query)->withoutEagerLoads()->reorder()->selectRaw('stage, COUNT(*) count, COALESCE(SUM(estimated_value), 0) amount, COALESCE(SUM(estimated_value * probability / 100.0), 0) weighted')->groupBy('stage')->get()->toBase()->keyBy('stage');
+        $pagination = null;
+        if ($section === 'pipeline' && $view === 'table') {
+            $sort = in_array($request->input('sort'), ['title', 'estimated_value', 'created_at'], true) ? $request->input('sort') : 'created_at';
+            $direction = $request->input('direction') === 'asc' ? 'asc' : 'desc';
+            $pagination = (clone $query)->orderBy($sort, $direction)->orderBy('id', $direction)->paginate(25)->withQueryString();
+            $opportunities = $pagination->getCollection();
+        } elseif ($section === 'pipeline') {
+            $stagePage = max(1, min(10000, $request->integer('stage_page', 1)));
+            $pageStage = $request->input('page_stage');
+            $ranked = (clone $query)->withoutEagerLoads()->reorder()->selectRaw('id, stage, ROW_NUMBER() OVER (PARTITION BY stage ORDER BY created_at DESC, id DESC) as stage_row');
+            $ids = DB::query()->fromSub($ranked->toBase(), 'ranked')->where(fn ($rows) => $rows
+                ->where('stage_row', '<=', 8)
+                ->when(array_key_exists((string) $pageStage, OpportunityCatalog::STAGES), fn ($rows) => $rows->orWhere(fn ($stageRows) => $stageRows->where('stage', $pageStage)->whereBetween('stage_row', [($stagePage - 1) * 8 + 1, $stagePage * 8]))))
+                ->pluck('id');
+            if ($request->filled('opportunity')) {
+                $ids->push($request->integer('opportunity'));
+            }
+            $opportunities = $query->whereIn('id', $ids)->latest()->get();
+        } else {
+            $opportunities = $query->latest()->get();
+        }
 
         $open = $opportunities->whereNotIn('stage', ['won', 'lost']);
         $period = in_array($request->input('period'), ['30', '90', '365', 'all'], true)
@@ -106,6 +128,11 @@ class OpportunityController extends Controller
             ->sortByDesc('breached')
             ->values() : collect();
 
+        $request->validate(['calendar_month' => ['nullable', 'date_format:Y-m']]);
+        $calendarMonth = Carbon::parse(($request->input('calendar_month') ?: now()->format('Y-m')).'-01');
+        $activitiesQuery = CrmActivity::query()->whereIn('status', ['pending', 'in_progress'])->whereNotNull('due_at')->whereIn('opportunity_id', (clone $filteredQuery)->reorder()->select('id'))->with('opportunity:id,title')->orderBy('due_at')->orderBy('id');
+        $calendar = $view === 'calendar' ? (clone $activitiesQuery)->whereBetween('due_at', [$calendarMonth->copy()->startOfMonth(), $calendarMonth->copy()->endOfMonth()])->paginate(25, ['*'], 'calendar_page')->withQueryString() : null;
+
         return Inertia::render('opportunities/index', [
             'opportunities' => $opportunities->map(function (Opportunity $item) use ($salesCycle, $responseSla, $settings): array {
                 $scoreBreakdown = $salesCycle->scoreBreakdown($item);
@@ -114,6 +141,7 @@ class OpportunityController extends Controller
 
                 return [
                     ...$data,
+                    'stage_label' => OpportunityCatalog::STAGES[$item->stage] ?? $item->stage,
                     'commercial_score' => min(100, (int) collect($scoreBreakdown)->sum('points')),
                     'expected_close_on' => $item->expected_close_on?->toDateString(),
                     'renewal_due_on' => $item->renewal_due_on?->toDateString(),
@@ -140,14 +168,21 @@ class OpportunityController extends Controller
                 ->orderByDesc('updated_at')
                 ->get(['id', 'person_id', 'code', 'title']),
             'filters' => [
-                ...$request->only(['search', 'stage', 'owner', 'source', 'commercial_kind', 'attention', 'archived']),
+                ...$request->only(['search', 'stage', 'owner', 'source', 'commercial_kind', 'attention', 'archived', 'status', 'from', 'to', 'sort', 'direction', 'page_stage', 'stage_page', 'calendar_month']),
                 'period' => $period,
                 'view' => $view,
             ],
             'section' => $section,
+            'stageOptions' => OpportunityCatalog::STAGES,
+            'stageTotals' => $stageTotals->map(fn ($row) => ['count' => (int) $row->count, 'amount' => (float) $row->amount]),
+            'pagination' => $pagination ? ['current_page' => $pagination->currentPage(), 'last_page' => $pagination->lastPage(), 'total' => $pagination->total(), 'prev' => $pagination->previousPageUrl(), 'next' => $pagination->nextPageUrl()] : null,
+            'crmTasks' => $calendar ? $calendar->items() : $activitiesQuery->limit(6)->get(),
+            'calendarPagination' => $calendar ? ['month' => $calendarMonth->format('Y-m'), 'prev_month' => $calendarMonth->copy()->subMonth()->format('Y-m'), 'next_month' => $calendarMonth->copy()->addMonth()->format('Y-m'), 'prev' => $calendar->previousPageUrl(), 'next' => $calendar->nextPageUrl(), 'total' => $calendar->total()] : null,
+            'crmEvents' => OpportunityEvent::query()->whereIn('opportunity_id', (clone $filteredQuery)->reorder()->select('id'))->with(['opportunity:id,title', 'actor:id,name'])->latest('occurred_at')->limit(6)->get(),
+            'metricsScope' => $section === 'analysis' ? 'filtered_pipeline' : 'loaded_cards_with_aggregate_values',
             'metrics' => [
-                'pipeline_value' => round((float) $open->sum('estimated_value'), 2),
-                'weighted_forecast' => round((float) $open->sum(fn (Opportunity $item) => (float) $item->estimated_value * $item->probability / 100), 2),
+                'pipeline_value' => round((float) $stageTotals->except(['won', 'lost'])->sum('amount'), 2),
+                'weighted_forecast' => round((float) $stageTotals->except(['won', 'lost'])->sum('weighted'), 2),
                 'won_value' => round((float) $won->sum('estimated_value'), 2),
                 'new_leads' => $opportunities->filter(fn (Opportunity $item) => ! $periodStart || $item->created_at->greaterThanOrEqualTo($periodStart))->count(),
                 'won_count' => $won->count(),
@@ -167,7 +202,7 @@ class OpportunityController extends Controller
                 'average_first_response_minutes' => $responseMinutes->isNotEmpty()
                     ? round((float) $responseMinutes->average(), 1)
                     : null,
-                'funnel' => collect(self::STAGES)->mapWithKeys(fn (string $stage) => [$stage => $opportunities->where('stage', $stage)->count()]),
+                'funnel' => collect(array_keys(OpportunityCatalog::STAGES))->mapWithKeys(fn (string $stage) => [$stage => $opportunities->where('stage', $stage)->count()]),
                 'stage_days' => $this->averageDaysByStage($opportunities),
             ],
             'forecast' => $section === 'analysis' && ! $request->boolean('archived') ? $this->forecast($open) : [],
@@ -208,6 +243,7 @@ class OpportunityController extends Controller
         $opportunity->quote?->unsetRelation('statusHistory');
 
         return Inertia::render('opportunities/show', [
+            'stageOptions' => OpportunityCatalog::STAGES,
             'opportunity' => [
                 ...$opportunity->toArray(),
                 'expected_close_on' => $opportunity->expected_close_on?->toDateString(),
@@ -295,6 +331,28 @@ class OpportunityController extends Controller
             $opportunity->update([...$data, 'updated_by' => $request->user()->id]);
             $salesCycle->synchronizeStage($opportunity, $request->user());
             $salesCycle->refreshScore($opportunity);
+        });
+
+        return back()->with('toast', ['type' => 'success', 'message' => __('Opportunity updated.')]);
+    }
+
+    public function changeStage(Request $request, Opportunity $opportunity, OpportunitySalesCycle $salesCycle): RedirectResponse
+    {
+        $data = $request->validate(['stage' => ['required', Rule::in(array_keys(OpportunityCatalog::STAGES))], 'expected_stage' => ['required', 'string'], 'probability' => ['required', 'integer', 'between:0,100'], 'change_note' => ['required', 'string', 'min:5', 'max:2000']]);
+        DB::transaction(function () use ($opportunity, $request, $data, $salesCycle): void {
+            $locked = Opportunity::query()->lockForUpdate()->findOrFail($opportunity->id);
+            if ($locked->stage !== $data['expected_stage']) {
+                throw ValidationException::withMessages(['stage' => __('La oportunidad ha cambiado. Recarga el pipeline antes de moverla.')]);
+            }
+            if ($data['stage'] === 'lost') {
+                throw ValidationException::withMessages(['stage' => __('Indica el motivo de pérdida en el formulario de oportunidad.')]);
+            }
+            $salesCycle->assertCanTransition($locked, $data['stage']);
+            $locked->stageChangeReason = $data['change_note'];
+            $locked->stageChangeActorId = $request->user()->id;
+            $locked->update(['stage' => $data['stage'], 'probability' => $data['stage'] === 'won' ? 100 : $data['probability'], 'updated_by' => $request->user()->id]);
+            $salesCycle->synchronizeStage($locked, $request->user());
+            $salesCycle->refreshScore($locked);
         });
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Opportunity updated.')]);
@@ -451,7 +509,7 @@ class OpportunityController extends Controller
                 'nullable',
                 'date',
             ],
-            'stage' => ['required', Rule::in(self::STAGES)],
+            'stage' => ['required', Rule::in(array_keys(OpportunityCatalog::STAGES))],
             'probability' => ['required', 'integer', 'between:0,100'],
             'estimated_value' => ['required', 'numeric', 'min:0', 'max:9999999999999.99'],
             'expected_close_on' => ['nullable', 'date'],
@@ -618,16 +676,22 @@ class OpportunityController extends Controller
 
     private function applyFilters(Builder $query, Request $request, int $staleAfterDays): void
     {
+        $request->validate(['from' => ['nullable', 'date'], 'to' => ['nullable', 'date', 'after_or_equal:from'], 'status' => ['nullable', Rule::in(['active', 'all', 'won', 'lost'])]]);
         $search = trim((string) $request->input('search'));
 
         $query
             ->when($search !== '', fn ($query) => $query->where(fn ($query) => $query
-                ->where('code', 'like', "%{$search}%")
-                ->orWhere('title', 'like', "%{$search}%")
+                ->whereLike('code', "%{$search}%")
+                ->orWhereLike('title', "%{$search}%")
+                ->orWhereHas('installation', fn ($installation) => $installation->whereLike('project_reference', "%{$search}%")->orWhereLike('site_name', "%{$search}%"))
                 ->orWhereHas('customer', fn ($customer) => $customer
-                    ->where('company_name', 'like', "%{$search}%")
-                    ->orWhere('first_name', 'like', "%{$search}%")
-                    ->orWhere('last_name', 'like', "%{$search}%"))))
+                    ->whereLike('company_name', "%{$search}%")
+                    ->orWhereLike('first_name', "%{$search}%")
+                    ->orWhereLike('last_name', "%{$search}%")->orWhereLike('email', "%{$search}%")->orWhereLike('phone', "%{$search}%"))))
+            ->when($request->input('status') === 'active', fn ($query) => $query->whereNotIn('stage', ['won', 'lost']))
+            ->when(in_array($request->input('status'), ['won', 'lost']), fn ($query) => $query->where('stage', $request->input('status')))
+            ->when($request->filled('from'), fn ($query) => $query->whereDate('created_at', '>=', $request->input('from')))
+            ->when($request->filled('to'), fn ($query) => $query->whereDate('created_at', '<=', $request->input('to')))
             ->when($request->filled('stage'), fn ($query) => $query->where('stage', (string) $request->input('stage')))
             ->when($request->filled('owner'), fn ($query) => $query->where(
                 'owner_user_id',
@@ -669,7 +733,7 @@ class OpportunityController extends Controller
 
     private function averageDaysByStage($opportunities): array
     {
-        $durations = array_fill_keys(self::STAGES, []);
+        $durations = array_fill_keys(array_keys(OpportunityCatalog::STAGES), []);
 
         foreach ($opportunities as $opportunity) {
             $history = $opportunity->stageHistory->sortBy('changed_at')->values();

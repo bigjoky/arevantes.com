@@ -90,13 +90,13 @@ class CustomerProfileTest extends TestCase
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->component('people/show')
-                ->where('customer360.metrics.billed', 121)
-                ->where('customer360.metrics.outstanding', 101)
-                ->where('customer360.metrics.open_activities', 1)
-                ->where('customer360.metrics.active_work_orders', 1)
-                ->has('customer360.quotes', 1)
-                ->has('customer360.documents', 1)
-                ->has('customer360.timeline', 4));
+                ->where('customerWorkspace.financial.billed', 121)
+                ->where('customerWorkspace.financial.outstanding', 101)
+                ->where('customerWorkspace.domains.activity.total', 4)
+                ->where('customerWorkspace.domains.installations.total', 1)
+                ->has('customerWorkspace.domains.quotes.data', 1)
+                ->has('customerWorkspace.domains.invoices.data', 1)
+                ->has('customerWorkspace.domains.activity.data', 3));
     }
 
     public function test_new_quote_can_preselect_a_customer(): void
@@ -197,7 +197,7 @@ class CustomerProfileTest extends TestCase
         Quote::create(['person_id' => $customer->id, 'number' => 'PRE-PRIVATE', 'status' => 'draft', 'issue_date' => today(), 'subtotal' => 100, 'discount_amount' => 0, 'tax_amount' => 21, 'amount' => 121, 'customer_snapshot' => []]);
         CrmActivity::create(['assigned_user_id' => $technician->id, 'title' => 'Technical visit', 'status' => 'pending', 'type' => 'visit']);
 
-        $this->actingAs($technician)->get(route('operations.index'))
+        $this->actingAs($technician)->get(route('operations.activities'))
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->component('operations/index')

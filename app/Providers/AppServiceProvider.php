@@ -19,8 +19,10 @@ use App\Models\BankTransactionPosting;
 use App\Models\BankTransfer;
 use App\Models\CollectionAction;
 use App\Models\CollectionActionEvent;
+use App\Models\CommercialFieldSession;
 use App\Models\CommercialRoutePlan;
 use App\Models\CommercialRouteStop;
+use App\Models\CommercialVisit;
 use App\Models\CompanyProfile;
 use App\Models\CorporateTaxReturn;
 use App\Models\CrmActivity;
@@ -44,12 +46,16 @@ use App\Models\HrLeavePolicy;
 use App\Models\HrLeaveRequest;
 use App\Models\Installation;
 use App\Models\InstallationAsset;
+use App\Models\InstallationMaterialRequirement;
 use App\Models\JournalEntry;
+use App\Models\JournalLine;
+use App\Models\LedgerAccount;
 use App\Models\MaintenancePlan;
 use App\Models\Opportunity;
 use App\Models\PaymentBatch;
 use App\Models\PaymentBatchItem;
 use App\Models\Person;
+use App\Models\Product;
 use App\Models\PurchaseDocument;
 use App\Models\PurchaseDocumentLine;
 use App\Models\Quote;
@@ -61,8 +67,11 @@ use App\Models\ServiceCorrectiveProposal;
 use App\Models\ServiceCorrectiveProposalApplication;
 use App\Models\ServiceCycleDeviation;
 use App\Models\ServiceTicket;
+use App\Models\StockMovement;
+use App\Models\StockReservation;
 use App\Models\Supplier;
 use App\Models\SupplierPayment;
+use App\Models\TaxRate;
 use App\Models\TaxReturn;
 use App\Models\TaxReturnPayment;
 use App\Models\User;
@@ -121,6 +130,8 @@ class AppServiceProvider extends ServiceProvider
         $this->configureAreviaRateLimits();
         Person::observe(AuditableObserver::class);
         Person::observe(PartyLedgerObserver::class);
+        CommercialVisit::observe(AuditableObserver::class);
+        CommercialFieldSession::observe(AuditableObserver::class);
         CommercialRoutePlan::observe(AuditableObserver::class);
         CommercialRouteStop::observe(AuditableObserver::class);
         HrCalendarHoliday::observe(AuditableObserver::class);
@@ -135,6 +146,10 @@ class AppServiceProvider extends ServiceProvider
         HrLeavePolicy::observe(AuditableObserver::class);
         HrLeaveRequest::observe(AuditableObserver::class);
         Supplier::observe(AuditableObserver::class);
+        Product::observe(AuditableObserver::class);
+        StockReservation::observe(AuditableObserver::class);
+        StockMovement::observe(AuditableObserver::class);
+        InstallationMaterialRequirement::observe(AuditableObserver::class);
         Supplier::observe(PartyLedgerObserver::class);
         Installation::observe(AuditableObserver::class);
         InstallationAsset::observe(AuditableObserver::class);
@@ -177,6 +192,8 @@ class AppServiceProvider extends ServiceProvider
         SalesDocument::observe(SalesDocumentFinancialObserver::class);
         SupplierPayment::observe(AuditableObserver::class);
         JournalEntry::observe(AuditableObserver::class);
+        JournalLine::observe(AuditableObserver::class);
+        LedgerAccount::observe(AuditableObserver::class);
         FinancialForecastItem::observe(AuditableObserver::class);
         FinancialBudget::observe(AuditableObserver::class);
         FinancialBudgetPeriod::observe(AuditableObserver::class);
@@ -186,6 +203,7 @@ class AppServiceProvider extends ServiceProvider
         CollectionActionEvent::observe(AuditableObserver::class);
         PaymentBatch::observe(AuditableObserver::class);
         PaymentBatchItem::observe(AuditableObserver::class);
+        TaxRate::observe(AuditableObserver::class);
         TaxReturn::observe(AuditableObserver::class);
         TaxReturnPayment::observe(AuditableObserver::class);
         CorporateTaxReturn::observe(AuditableObserver::class);
@@ -223,10 +241,11 @@ class AppServiceProvider extends ServiceProvider
 
     private function configureAuthorization(): void
     {
+        Gate::define('access-commercial-field', fn (User $user) => Gate::forUser($user)->any(['record-commercial-field', 'supervise-commercial-field']));
         Gate::policy(CrmActivity::class, CrmActivityPolicy::class);
         $permissions = [
             'manage-admin', 'manage-access', 'export-audit', 'view-system-health',
-            'manage-customers', 'manage-quotes', 'approve-quotes', 'view-installations', 'manage-installations', 'sync-installations', 'publish-customer-documents',
+            'record-commercial-field', 'supervise-commercial-field', 'manage-customers', 'manage-quotes', 'approve-quotes', 'view-installations', 'manage-installations', 'sync-installations', 'publish-customer-documents',
             'use-ai', 'manage-operations', 'manage-catalog', 'view-finance', 'manage-treasury',
             'manage-accounting', 'approve-payments', 'approve-budgets', 'manage-tax', 'issue-invoices', 'prepare-credit-notes',
             'view-purchases', 'manage-purchases', 'receive-purchases', 'approve-purchase-invoices',
