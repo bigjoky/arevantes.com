@@ -11,7 +11,7 @@ class WorkOrderEvidenceRequirements
     {
         $counts = $order->relationLoaded('attachments')
             ? $order->attachments->whereNotNull('evidence_key')->countBy('evidence_key')
-            : $order->attachments()->whereNotNull('evidence_key')
+            : $order->attachments()->reorder()->whereNotNull('evidence_key')
                 ->selectRaw('evidence_key, count(*) as aggregate')->groupBy('evidence_key')
                 ->pluck('aggregate', 'evidence_key');
 

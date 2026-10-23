@@ -3144,3 +3144,9 @@ en `docs/pwa-production-release.md`; el éxito se confirma en Cloud tras CI.
 - Implantado en local: listado y detalle apilados hasta pantallas amplias (2xl), columnas sin anchura mínima intrínseca y desplazamiento horizontal limitado a cada tabla. Cabecera del detalle adaptable a varias filas.
 - Verificación: TypeScript y ESLint correctos. Vista móvil comprobada con una orden ficticia local; pendiente publicación en producción.
 - Criterio de aceptación: listado y detalle legibles sin solapamientos ni contenido cortado en la división, manteniendo accesibles las acciones y el desplazamiento de tablas.
+
+
+### Cierre de órdenes: consulta de evidencias compatible con PostgreSQL (2026-10-24)
+
+- Corregido el orden heredado por fecha en la consulta agrupada de evidencias, que causaba un error 500 al completar una orden en producción. Las validaciones de firma, fotos, checklist y materiales se conservan.
+- Verificación: 10 pruebas / 85 aserciones correctas; regresión falla sin el arreglo; consulta corregida probada en PostgreSQL de producción sin modificar la orden. Publicación pendiente.
