@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Http\Controllers\SalesDocumentController;
 use App\Models\AccountingPeriod;
 use App\Models\AuditLog;
+use App\Models\CompanyProfile;
 use App\Models\DocumentDelivery;
 use App\Models\FiscalYear;
 use App\Models\JournalEntry;
@@ -18,6 +19,7 @@ use App\Services\Accounting\AccountingSynchronizer;
 use App\Services\Accounting\IssuedInvoiceCorrection;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
@@ -46,6 +48,46 @@ class IssuedInvoiceCorrectionTest extends TestCase
             'issue_date' => $invoice->issue_date->toDateString(), 'due_date' => $invoice->due_date?->toDateString(),
             'revision' => IssuedInvoiceCorrection::revision($invoice), 'correction_reason' => 'Corregir los datos de la factura',
             'lines' => $invoice->lines()->get()->map->only(['id', 'product_id', 'unit_id', 'description', 'quantity', 'unit_price', 'discount_percent', 'tax_percent'])->all()];
+    }
+
+    public function test_correction_archives_current_pdf_and_retains_the_previous_issued_file(): void
+    {
+        Storage::fake(config('filesystems.private'));
+        $invoice = $this->invoice();
+        $oldPath = $invoice->archived_pdf_path;
+        $oldBytes = Storage::disk(config('filesystems.private'))->get($oldPath);
+        $payload = [...$this->payload($invoice), 'notes' => 'Texto corregido para el PDF', 'lines' => [['description' => 'Partida corregida', 'quantity' => 1, 'unit_price' => 150, 'discount_percent' => 0, 'tax_percent' => 21]]];
+        $this->put(route('sales-documents.update-issued', $invoice), $payload)->assertRedirect()->assertSessionHasNoErrors();
+        $invoice->refresh();
+        $this->assertNotSame($oldPath, $invoice->archived_pdf_path);
+        $newBytes = $this->get(route('sales-documents.pdf', $invoice))->assertOk()->getContent();
+        $this->assertNotSame($oldBytes, $newBytes);
+        $this->assertSame(hash('sha256', $newBytes), $invoice->archived_pdf_hash);
+        $this->assertSame($oldBytes, Storage::disk(config('filesystems.private'))->get($oldPath));
+        CompanyProfile::firstOrFail()->update(['legal_name' => 'Changed after correction']);
+        $this->assertSame($newBytes, $this->get(route('sales-documents.pdf', $invoice))->assertOk()->getContent());
+    }
+
+    public function test_failed_correction_rolls_back_the_new_pdf_without_deleting_the_original(): void
+    {
+        Storage::fake(config('filesystems.private'));
+        $invoice = $this->invoice();
+        $oldHash = $invoice->archived_pdf_hash;
+        $files = Storage::disk(config('filesystems.private'))->allFiles();
+        AuditLog::creating(function ($log) {
+            if ($log->event === 'issued_invoice_corrected') {
+                throw new \RuntimeException('Correction audit failed');
+            }
+        });
+        $this->withoutExceptionHandling();
+        try {
+            $this->put(route('sales-documents.update-issued', $invoice), [...$this->payload($invoice), 'notes' => 'Will roll back']);
+            $this->fail('Expected audit failure');
+        } catch (\RuntimeException $exception) {
+            $this->assertSame('Correction audit failed', $exception->getMessage());
+        }
+        $this->assertSame($oldHash, $invoice->fresh()->archived_pdf_hash);
+        $this->assertSame($files, Storage::disk(config('filesystems.private'))->allFiles());
     }
 
     public function test_admin_can_edit_all_fields_and_repeat_corrections_without_rewriting_original_entry(): void
