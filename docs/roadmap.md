@@ -3031,3 +3031,13 @@ API pública. Ver [registro de lanzamiento](release-general-redesign-2026-10-23.
 Las limitaciones de UI-COMP y de cada sección siguen abiertas; la publicación
 no las convierte en capacidades implantadas. Confirmación productiva pendiente
 del despliegue y smoke tests, sin datos locales de demostración.
+
+## Menú móvil — 23/10/2026
+
+| ID | Estado | Dependencias | Criterio de aceptación / evidencia |
+| --- | --- | --- | --- |
+| UI-MOB-NAV-01 | Implantado local en 8000 | Radix Sheet y auth.navigation existentes | Panel fixed visible sobre overlay; cierres X/Escape/exterior/navegación, foco y scroll restaurados; navegación y permisos existentes. Ver mobile-navigation-review.md; 14 pruebas frontend y 11 pruebas de permisos (515 aserciones), tipos/lint/build correctos |
+| UI-MOB-NAV-02 | Pendiente validación en Safari iPhone y modo instalado | iPhone físico o simulador iOS disponible y sesión autorizada | Repetir aperturas, navegación, scroll, rotación y barras Safari expandidas/contraídas; controles fuera de safe areas y sin bloqueo residual. Pruebas a 320/390/820/1440 px en navegador de escritorio no equivalen a esta validación |
+
+No se añaden capacidades de negocio ni se duplican catálogos de rutas. Este corte
+permanece local y no modifica el sidebar desktop aprobado.
