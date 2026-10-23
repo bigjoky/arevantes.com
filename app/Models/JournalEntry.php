@@ -7,9 +7,24 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
+use Illuminate\Validation\ValidationException;
 
 class JournalEntry extends Model
 {
+    protected static function booted(): void
+    {
+        static::updating(function (self $entry) {
+            if ($entry->getOriginal('status') === 'posted' && $entry->isDirty()) {
+                throw ValidationException::withMessages(['entry' => __('Posted journal entries are immutable; use a reversal.')]);
+            }
+        });
+        static::deleting(function (self $entry) {
+            if ($entry->status === 'posted') {
+                throw ValidationException::withMessages(['entry' => __('Posted journal entries are immutable; use a reversal.')]);
+            }
+        });
+    }
+
     protected $fillable = ['fiscal_year_id', 'created_by', 'entry_date', 'number', 'description', 'source_type', 'source_id', 'event', 'entry_kind', 'reverses_entry_id', 'status', 'posted_at'];
 
     protected function casts(): array

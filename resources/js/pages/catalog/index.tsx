@@ -460,7 +460,7 @@ export default function CatalogIndex({
     );
 }
 
-function ProductDialog({
+export function ProductDialog({
     product,
     units,
     taxRates,
@@ -977,7 +977,7 @@ function ProductDialog({
     );
 }
 
-function SupplierDialog({ supplier }: { supplier?: Supplier }) {
+export function SupplierDialog({ supplier }: { supplier?: Supplier }) {
     const [open, setOpen] = useState(false);
 
     return (

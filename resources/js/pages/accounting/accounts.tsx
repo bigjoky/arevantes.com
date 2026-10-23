@@ -1,6 +1,7 @@
 import { Form, Head, Link, usePage } from '@inertiajs/react';
 import { ArrowLeft, Pencil, Plus, Search, Trash2 } from 'lucide-react';
 import { useState } from 'react';
+import { PageHeader, PageShell } from '@/components/page-shell';
 import { PaginationBar, TableViewport } from '@/components/page-shell';
 import type { PaginationLink } from '@/components/page-shell';
 import { Badge } from '@/components/ui/badge';
@@ -48,37 +49,35 @@ export default function Accounts({
     parents: Account[];
     search: string;
 }) {
-    const admin =
-        usePage<{ auth: { user: { role: string } } }>().props.auth.user.role ===
-        'admin';
+    const admin = usePage<{ auth: { abilities: { manageStaff: boolean } } }>()
+        .props.auth.abilities.manageStaff;
 
     return (
         <>
             <Head title="Chart of accounts" />
-            <div className="flex flex-1 flex-col gap-6 p-4 md:p-6">
-                <header className="flex flex-wrap items-center justify-between gap-3">
-                    <div>
-                        <h1 className="text-xl font-semibold">
-                            Chart of accounts
-                        </h1>
-                        <p className="text-sm text-muted-foreground">
-                            Official PGC structure and company subaccounts.
-                        </p>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                        <Button variant="outline" asChild>
-                            <Link href="/accounting">
-                                <ArrowLeft /> Accounting
-                            </Link>
-                        </Button>
-                        {admin && <AccountDialog parents={parents} />}
-                    </div>
-                </header>
+            <PageShell mode="master-detail">
+                <PageHeader
+                    title={<>Chart of accounts</>}
+                    description={
+                        <>Official PGC structure and company subaccounts.</>
+                    }
+                    actions={
+                        <>
+                            <Button variant="outline" asChild>
+                                <Link href="/accounting">
+                                    <ArrowLeft /> Accounting
+                                </Link>
+                            </Button>
+                            {admin && <AccountDialog parents={parents} />}
+                        </>
+                    }
+                />
                 <Form
                     action="/accounting/accounts"
                     method="get"
                     className="flex max-w-xl gap-2"
                 >
+                    <input type="hidden" name="mode" value="manage" />
                     <Input
                         name="search"
                         defaultValue={search}
@@ -162,7 +161,7 @@ export default function Accounts({
                     total={accounts.total}
                     noun="accounts"
                 />
-            </div>
+            </PageShell>
         </>
     );
 }

@@ -13,6 +13,7 @@ use App\Models\SalesDocumentPayment;
 use App\Models\Warehouse;
 use App\Services\Accounting\AccountingSynchronizer;
 use App\Services\Accounting\IssuedInvoiceCorrection;
+use App\Services\Billing\BillingWorkspace;
 use App\Services\Documents\DocumentNumber;
 use App\Services\Documents\DocumentPdf;
 use App\Services\Documents\QuoteBillingPlan;
@@ -24,10 +25,13 @@ use App\Services\Operations\FinancialClearanceGuard;
 use App\Services\Quotes\QuoteCalculator;
 use App\Services\Security\SecurityEventRecorder;
 use App\Support\HistoricalDocumentDate;
+use Brick\Math\BigDecimal;
+use Brick\Math\RoundingMode;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -51,6 +55,10 @@ class SalesDocumentController extends Controller
 
     public function index(Request $request): Response
     {
+        if (request('view') !== 'manage' && ! in_array(request('type'), ['order', 'delivery_note'], true)) {
+            return app(BillingWorkspaceController::class)->customers(request(), app(BillingWorkspace::class));
+        }
+
         $filters = $request->validate([
             'search' => ['nullable', 'string', 'max:100'],
             'type' => ['nullable', Rule::in(['order', 'delivery_note', 'invoice', 'credit_note'])],
@@ -83,6 +91,10 @@ class SalesDocumentController extends Controller
 
     public function show(Request $request, SalesDocument $salesDocument, SalesDocumentConversion $conversion): Response
     {
+        if ($request->input('view') !== 'manage' && in_array($salesDocument->type, ['invoice', 'credit_note'], true)) {
+            return app(BillingWorkspaceController::class)->customerShow($request, $salesDocument, app(BillingWorkspace::class));
+        }
+
         $isRecurring = $salesDocument->recurringServiceBilling()->exists()
             || $salesDocument->sourceDocument?->recurringServiceBilling()->exists();
         $salesDocument->setAttribute('can_issue_invoice', $request->user()->can('issue-invoices')
@@ -284,6 +296,14 @@ class SalesDocumentController extends Controller
                     ->addDays($salesDocument->collect_before_invoice ? 0 : (int) (data_get($salesDocument->customer_snapshot, 'payment_terms_days') ?? 30))
                     ->toDateString();
             }
+            if ($salesDocument->type === 'credit_note') {
+                $original = SalesDocument::lockForUpdate()->findOrFail($salesDocument->source_document_id);
+                abort_unless($original->type === 'invoice' && $original->locked_at, 422);
+                $credited = BigDecimal::of((string) $original->childDocuments()->where('type', 'credit_note')->where('status', '<>', 'draft')->sum('amount'))->abs();
+                if ($credited->plus(BigDecimal::of($salesDocument->amount)->abs())->isGreaterThan($original->amount)) {
+                    throw ValidationException::withMessages(['issue_date' => __('Credit notes cannot exceed the original invoice amount.')]);
+                }
+            }
             if ($salesDocument->collect_before_invoice && round((float) $salesDocument->payments()->sum('amount'), 2) < (float) $salesDocument->amount) {
                 throw ValidationException::withMessages(['issue_date' => __('Collect the full milestone amount before issuing its invoice.')]);
             }
@@ -295,6 +315,14 @@ class SalesDocumentController extends Controller
             if ($salesDocument->collect_before_invoice) {
                 $this->refreshPaymentStatus($salesDocument);
             }
+            $bytes = app(DocumentPdf::class)->render($salesDocument->refresh(), $salesDocument->type, final: true);
+            $hash = hash('sha256', $bytes);
+            $path = 'issued-invoices/'.$salesDocument->id.'/'.$hash.'.pdf';
+            if (! Storage::disk(config('filesystems.private'))->put($path, $bytes)) {
+                throw new \RuntimeException('The issued invoice PDF could not be archived.');
+            }
+            $salesDocument->forceFill(['archived_pdf_path' => $path, 'archived_pdf_hash' => $hash])->save();
+
             if ($salesDocument->type === 'invoice') {
                 $salesDocument->recurringServiceBilling?->update(['status' => 'issued', 'issued_by' => $request->user()->id, 'issued_at' => now()]);
             } elseif ($salesDocument->type === 'credit_note') {
@@ -307,25 +335,48 @@ class SalesDocumentController extends Controller
 
     public function storePayment(Request $request, SalesDocument $salesDocument, AccountingSynchronizer $accounting): RedirectResponse
     {
-        abort_unless($salesDocument->type === 'invoice' && (($salesDocument->collect_before_invoice && $salesDocument->status === 'draft' && ! $salesDocument->locked_at) || ($salesDocument->locked_at && in_array($salesDocument->status, ['issued', 'partial', 'overdue'], true))), 422, __('Payments can only be registered against issued invoices.'));
-        $outstanding = round((float) $salesDocument->amount - (float) $salesDocument->paid_amount, 2);
-        $data = $request->validate(['paid_at' => ['required', 'date'], 'amount' => ['required', 'numeric', 'gt:0', 'max:'.$outstanding], 'method' => ['required', Rule::in(['bank_transfer', 'card', 'cash', 'direct_debit', 'other'])], 'reference' => ['nullable', 'string', 'max:255'], 'notes' => ['nullable', 'string']]);
+        abort_unless($request->user()->can('manage-treasury'), 403);
+        $data = $request->validate(['idempotency_key' => ['nullable', 'uuid'], 'paid_at' => ['required', 'date'], 'amount' => ['required', 'numeric', 'decimal:0,2', 'gt:0'], 'method' => ['required', Rule::in(['bank_transfer', 'card', 'cash', 'direct_debit', 'other'])], 'reference' => ['nullable', 'string', 'max:255'], 'notes' => ['nullable', 'string']]);
         DB::transaction(function () use ($request, $salesDocument, $data, $accounting) {
             if ($salesDocument->quote_id) {
                 Quote::lockForUpdate()->findOrFail($salesDocument->quote_id);
             }
             $document = SalesDocument::lockForUpdate()->findOrFail($salesDocument->id);
-            abort_unless($document->type === 'invoice' && (($document->collect_before_invoice && $document->status === 'draft' && ! $document->locked_at) || ($document->locked_at && in_array($document->status, ['issued', 'partial', 'overdue'], true))), 422, __('Payments can only be registered against issued invoices.'));
-            $outstanding = round((float) $document->amount - (float) $document->payments()->sum('amount'), 2);
-            if ((float) $data['amount'] > $outstanding) {
-                throw ValidationException::withMessages(['amount' => __('The payment exceeds the current outstanding invoice balance.')]);
+            $existing = ! empty($data['idempotency_key']) ? SalesDocumentPayment::where('idempotency_key', $data['idempotency_key'])->first() : null;
+            if ($existing) {
+                $same = $existing->sales_document_id === $document->id && $existing->paid_at->toDateString() === $data['paid_at'] && $existing->amount === BillingWorkspace::decimal($data['amount']) && $existing->method === $data['method'] && ($existing->reference ?? '') === ($data['reference'] ?? '') && ($existing->notes ?? '') === ($data['notes'] ?? '');
+                if (! $same) {
+                    throw ValidationException::withMessages(['amount' => __('This operation key has already been used for a different payment.')]);
+                }
+
+                return;
             }
-            $payment = $document->payments()->create([...$data, 'created_by' => $request->user()->id]);
+            abort_unless($document->type === 'invoice' && (($document->collect_before_invoice && $document->status === 'draft' && ! $document->locked_at) || ($document->locked_at && in_array($document->status, ['issued', 'partial', 'overdue'], true))), 422, __('Payments can only be registered against issued invoices.'));
+            $credits = $document->childDocuments()->where('type', 'credit_note')->where('status', '<>', 'draft')->sum('amount');
+            $balance = BigDecimal::of($document->amount)->minus((string) $document->payments()->sum('amount'))->plus((string) $credits);
+            if ($balance->isLessThan($data['amount'])) {
+                throw ValidationException::withMessages(['amount' => __('The payment exceeds the outstanding document balance.')]);
+            }
+            $payment = $document->payments()->create([...$data, 'amount' => BillingWorkspace::decimal($data['amount']), 'created_by' => $request->user()->id]);
             $accounting->syncCustomerPayment($payment, $request->user()->id);
             $this->refreshPaymentStatus($document);
         });
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Payment registered.')]);
+    }
+
+    public function duplicate(Request $request, SalesDocument $salesDocument): RedirectResponse
+    {
+        abort_unless($salesDocument->type === 'invoice', 422);
+        $copy = DB::transaction(function () use ($request, $salesDocument) {
+            $source = SalesDocument::with('lines')->lockForUpdate()->findOrFail($salesDocument->id);
+            $copy = SalesDocument::create([...$source->only(['person_id', 'installation_id', 'subtotal', 'discount_amount', 'tax_amount', 'amount', 'customer_snapshot', 'notes']), 'type' => 'invoice', 'status' => 'draft', 'number' => 'DRAFT-INV-'.Str::upper(Str::random(12)), 'created_by' => $request->user()->id, 'issue_date' => today()->toDateString(), 'paid_amount' => '0.00']);
+            $copy->lines()->createMany($source->lines->map(fn ($line) => $line->only(['product_id', 'unit_id', 'position', 'description', 'quantity', 'unit_price', 'discount_percent', 'tax_percent', 'subtotal', 'discount_amount', 'tax_amount', 'total']))->all());
+
+            return $copy;
+        });
+
+        return to_route('sales-documents.show', $copy);
     }
 
     public function destroyPayment(SalesDocument $salesDocument, SalesDocumentPayment $payment): RedirectResponse
@@ -346,14 +397,20 @@ class SalesDocumentController extends Controller
     {
         abort_unless($salesDocument->type === 'invoice' && $salesDocument->locked_at, 422, __('Only issued invoices can be corrected.'));
         $document = DB::transaction(function () use ($request, $salesDocument) {
+            $salesDocument = SalesDocument::with('lines')->lockForUpdate()->findOrFail($salesDocument->id);
+            $existing = $salesDocument->childDocuments()->where('type', 'credit_note')->oldest('id')->first();
+            if ($existing) {
+                return $existing;
+            }
+            $negative = fn ($value) => (string) BigDecimal::of((string) $value)->abs()->negated();
             $credit = SalesDocument::create([
                 'type' => 'credit_note', 'source_document_id' => $salesDocument->id, 'person_id' => $salesDocument->person_id, 'installation_id' => $salesDocument->installation_id,
                 'created_by' => $request->user()->id, 'number' => 'DRAFT-CN-'.Str::upper(Str::random(8)), 'status' => 'draft', 'issue_date' => now()->toDateString(),
                 'billing_percentage' => $salesDocument->billing_percentage, 'billing_sequence' => $salesDocument->billing_sequence, 'billing_label' => $salesDocument->billing_label,
-                'subtotal' => -abs((float) $salesDocument->subtotal), 'discount_amount' => -abs((float) $salesDocument->discount_amount), 'tax_amount' => -abs((float) $salesDocument->tax_amount),
-                'amount' => -abs((float) $salesDocument->amount), 'customer_snapshot' => $salesDocument->customer_snapshot, 'notes' => __('Correction of invoice :number', ['number' => $salesDocument->number]),
+                'subtotal' => $negative($salesDocument->subtotal), 'discount_amount' => $negative($salesDocument->discount_amount), 'tax_amount' => $negative($salesDocument->tax_amount),
+                'amount' => $negative($salesDocument->amount), 'customer_snapshot' => $salesDocument->customer_snapshot, 'notes' => __('Correction of invoice :number', ['number' => $salesDocument->number]),
             ]);
-            $credit->lines()->createMany($salesDocument->lines->map(fn ($line) => [...$line->only(['product_id', 'unit_id', 'position', 'description', 'unit_price', 'discount_percent', 'tax_percent']), 'quantity' => -abs((float) $line->quantity), 'subtotal' => -abs((float) $line->subtotal), 'discount_amount' => -abs((float) $line->discount_amount), 'tax_amount' => -abs((float) $line->tax_amount), 'total' => -abs((float) $line->total)])->all());
+            $credit->lines()->createMany($salesDocument->lines->map(fn ($line) => [...$line->only(['product_id', 'unit_id', 'position', 'description', 'unit_price', 'discount_percent', 'tax_percent']), 'quantity' => $negative($line->quantity), 'subtotal' => $negative($line->subtotal), 'discount_amount' => $negative($line->discount_amount), 'tax_amount' => $negative($line->tax_amount), 'total' => $negative($line->total)])->all());
 
             return $credit;
         });
@@ -452,9 +509,11 @@ class SalesDocumentController extends Controller
 
     private function refreshPaymentStatus(SalesDocument $document): void
     {
-        $paid = round((float) $document->payments()->sum('amount'), 2);
-        $status = $paid >= (float) $document->amount ? 'paid' : ($paid > 0 ? 'partial' : ($document->due_date?->isPast() ? 'overdue' : 'issued'));
-        $document->update(['paid_amount' => $paid, 'status' => $document->locked_at ? $status : 'draft']);
+        $paid = BigDecimal::of((string) $document->payments()->sum('amount'))->toScale(2, RoundingMode::HalfUp);
+        $credits = BigDecimal::of((string) $document->childDocuments()->where('type', 'credit_note')->where('status', '<>', 'draft')->sum('amount'));
+        $net = BigDecimal::of($document->amount)->plus($credits);
+        $status = $paid->isGreaterThanOrEqualTo($net) ? 'paid' : ($paid->isPositive() ? 'partial' : ($document->due_date?->lt(today()) ? 'overdue' : 'issued'));
+        $document->update(['paid_amount' => (string) $paid, 'status' => $document->locked_at ? $status : 'draft']);
         $document->recurringServiceBilling?->update(['status' => $status]);
     }
 

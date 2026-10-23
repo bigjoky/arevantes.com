@@ -23,7 +23,7 @@ export default function PeopleCreate({
         <>
             <Head title={createTitle} />
 
-            <PageShell>
+            <PageShell mode="focused">
                 <PageHeader
                     title={createTitle}
                     description={createDescription}

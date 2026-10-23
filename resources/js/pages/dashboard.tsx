@@ -9,8 +9,10 @@ import {
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
+import { FinancialHome } from '@/components/dashboard/financial-home';
+import { HomeHeading } from '@/components/dashboard/home-heading';
 import type { statusLabels } from '@/components/installations/installation-form';
-import { PageHeader, PageShell } from '@/components/page-shell';
+import { PageShell } from '@/components/page-shell';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -18,6 +20,7 @@ import { useLocale } from '@/hooks/use-locale';
 import { translate } from '@/i18n';
 import type { serviceLabels } from '@/lib/business-lines';
 import { dashboard } from '@/routes';
+import type { FinancialOverview } from '@/types/financial-dashboard';
 
 const loadInstallationMap = () =>
     import('@/components/dashboard/installation-map');
@@ -61,6 +64,7 @@ export type DashboardInstallation = {
 };
 
 type DashboardProps = {
+    financialOverview: FinancialOverview | null;
     peopleSummary: {
         total: number;
         customers: number;
@@ -88,12 +92,19 @@ type DashboardProps = {
 };
 
 export default function Dashboard({
+    financialOverview,
     peopleSummary,
     installationSummary,
     businessSummary,
     agenda,
 }: DashboardProps) {
-    const { abilities } = usePage().props.auth;
+    const page = usePage();
+    const { abilities } = page.props.auth;
+    const showFinance =
+        abilities.viewFinance &&
+        financialOverview !== null &&
+        new URL(page.url, 'http://localhost').searchParams.get('section') !==
+            'operations';
     const { locale } = useLocale();
     const [mapInstallations, setMapInstallations] = useState<
         DashboardInstallation[] | null
@@ -142,7 +153,7 @@ export default function Dashboard({
     }, []);
 
     useEffect(() => {
-        if (!abilities.viewInstallations) {
+        if (!abilities.viewInstallations || showFinance) {
             return;
         }
 
@@ -157,17 +168,26 @@ export default function Dashboard({
         }, 60_000);
 
         return () => window.clearInterval(interval);
-    }, [abilities.viewInstallations, loadMap, mapRequested]);
+    }, [abilities.viewInstallations, loadMap, mapRequested, showFinance]);
+
+    if (showFinance && financialOverview) {
+        return <FinancialHome overview={financialOverview} />;
+    }
 
     return (
         <>
-            <Head title="Dashboard" />
+            <Head title={translate('Inicio', locale)} />
 
-            <PageShell>
-                <PageHeader
-                    title="Workspace overview"
-                    description="Customers, delivery, pipeline and cash position at a glance."
-                />
+            <PageShell mode="standard">
+                {abilities.viewFinance && (
+                    <Link
+                        href="/dashboard"
+                        className="text-sm text-emerald-700"
+                    >
+                        {translate('Resumen financiero', locale)}
+                    </Link>
+                )}
+                <HomeHeading />
 
                 {hasOverview ? (
                     <section className="grid gap-px overflow-hidden rounded-lg border bg-border sm:grid-cols-2 xl:grid-cols-4">

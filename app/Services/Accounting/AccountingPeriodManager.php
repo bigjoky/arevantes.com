@@ -42,7 +42,7 @@ class AccountingPeriodManager
         return [
             'journalEntries' => $entries->count(),
             'unbalancedEntries' => $entries->filter(fn (JournalEntry $entry) => abs((float) $entry->debit_total - (float) $entry->credit_total) > 0.005)->count(),
-            'unpostedItems' => $this->unpostedItems($year, $month),
+            'unpostedItems' => $this->unpostedItems($year, $month) + JournalEntry::where('status', 'draft')->whereYear('entry_date', $year)->whereMonth('entry_date', $month)->count(),
             'unreconciledBankTransactions' => BankTransaction::whereYear('booked_on', $year)->whereMonth('booked_on', $month)->where('status', 'pending')->count(),
         ];
     }

@@ -54,6 +54,9 @@ class ExpenseCorrection
                     $this->fail('A prepared or filed tax return protects this expense.');
                 }
             }
+            if ($expense->creditor_account_code && (string) ($data['supplier_id'] ?? '') !== (string) ($expense->supplier_id ?? '')) {
+                $data = app(ExpenseCreditorRegistry::class)->newInvoice($data);
+            }
             if ($paid > 0 && ((string) ($data['supplier_id'] ?? '') !== (string) ($expense->supplier_id ?? '') || $data['currency_code'] !== $expense->currency_code)) {
                 $this->fail('Cancel existing payments before changing the supplier or currency.');
             }

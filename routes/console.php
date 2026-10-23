@@ -5,8 +5,10 @@ use App\Models\MonitoringReading;
 use App\Models\PurchaseDocument;
 use App\Models\SalesDocument;
 use App\Models\WebVitalSample;
+use App\Services\Accounting\AccountingHealthReport;
 use App\Services\Accounting\AccountingSynchronizer;
 use App\Services\Accounting\RecurringEntryProcessor;
+use App\Services\Accounting\SupplierMasterRecovery;
 use App\Services\AfterSales\ServiceWorkGenerator;
 use App\Services\AfterSales\SlaManager;
 use Illuminate\Foundation\Inspiring;
@@ -18,6 +20,14 @@ Artisan::command('accounting:sync', function (AccountingSynchronizer $synchroniz
     $count = $synchronizer->sync();
     $this->info("{$count} accounting entries generated.");
 })->purpose('Generate missing accounting entries from financial records');
+
+Artisan::command('accounting:health', function (AccountingHealthReport $report) {
+    $this->line(json_encode($report->make(), JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR));
+})->purpose('Read-only accounting integrity diagnostics, not a compliance certificate');
+
+Artisan::command('accounting:supplier-masters {--apply}', function (SupplierMasterRecovery $recovery) {
+    $this->line(json_encode($recovery->run((bool) $this->option('apply')), JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR));
+})->purpose('Preview or restore supplier masters from invoice issuers without changing documents or journals');
 
 Artisan::command('accounting:recurring', function (RecurringEntryProcessor $processor) {
     $result = $processor->process();

@@ -31,6 +31,9 @@ class FiscalYearClosing
                 'year' => __('Close all monthly accounting periods before the fiscal year. Missing months: :months.', ['months' => $missingMonths->implode(', ')]),
             ]);
         }
+        if (JournalEntry::where('fiscal_year_id', $year->id)->where('status', 'draft')->exists()) {
+            throw ValidationException::withMessages(['year' => __('Resolve draft entries before closing the fiscal year.')]);
+        }
         $this->synchronizer->sync($userId);
 
         DB::transaction(function () use ($year, $userId) {
@@ -143,7 +146,7 @@ class FiscalYearClosing
 
     private function balances(FiscalYear $year, array $types)
     {
-        return LedgerAccount::whereIn('type', $types)->withSum(['lines as debit' => fn ($query) => $query->whereHas('entry', fn ($entry) => $entry->where('fiscal_year_id', $year->id))], 'debit')->withSum(['lines as credit' => fn ($query) => $query->whereHas('entry', fn ($entry) => $entry->where('fiscal_year_id', $year->id))], 'credit')->get()->filter(fn ($account) => round((float) $account->debit - (float) $account->credit, 2) !== 0.0);
+        return LedgerAccount::whereIn('type', $types)->withSum(['lines as debit' => fn ($query) => $query->whereHas('entry', fn ($entry) => $entry->where('status', 'posted')->where('fiscal_year_id', $year->id))], 'debit')->withSum(['lines as credit' => fn ($query) => $query->whereHas('entry', fn ($entry) => $entry->where('status', 'posted')->where('fiscal_year_id', $year->id))], 'credit')->get()->filter(fn ($account) => round((float) $account->debit - (float) $account->credit, 2) !== 0.0);
     }
 
     private function line(string $code, float $debit, float $credit): array

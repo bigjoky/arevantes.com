@@ -12,6 +12,8 @@ use Illuminate\Validation\ValidationException;
 
 class QuoteStatusWorkflow
 {
+    public const STATUSES = ['draft', 'sent', 'accepted', 'rejected', 'expired'];
+
     private const TRANSITIONS = [
         'draft' => ['sent', 'accepted', 'rejected', 'expired'],
         'sent' => ['accepted', 'rejected', 'expired'],
@@ -29,6 +31,10 @@ class QuoteStatusWorkflow
 
     public function assertCanTransition(Quote $quote, string $status): void
     {
+        if (in_array($status, ['sent', 'accepted'], true) && $quote->valid_until?->lt(today())) {
+            throw ValidationException::withMessages(['status' => __('This quote has expired. Duplicate it with a new validity date before continuing.')]);
+        }
+
         if (in_array($status, ['sent', 'accepted'], true) && ! in_array($quote->approval_status, ['not_required', 'approved'], true)) {
             throw ValidationException::withMessages([
                 'status' => $quote->approval_status === 'rejected'
@@ -66,12 +72,14 @@ class QuoteStatusWorkflow
 
     public function apply(Quote $quote, string $status, ?User $actor = null, string $channel = 'internal', ?string $reason = null): void
     {
-        $this->assertCanTransition($quote, $status);
-        if ($quote->status === $status) {
-            return;
-        }
-
         DB::transaction(function () use ($quote, $status, $actor, $channel, $reason): void {
+            $locked = Quote::lockForUpdate()->findOrFail($quote->id);
+            $quote->setRawAttributes($locked->getAttributes(), true);
+            $quote->unsetRelations();
+            $this->assertCanTransition($quote, $status);
+            if ($quote->status === $status) {
+                return;
+            }
             $from = $quote->status;
             $quote->update([
                 'status' => $status,

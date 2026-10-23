@@ -5,6 +5,7 @@ namespace App\Services\Inventory;
 use App\Models\PurchaseDocument;
 use App\Models\StockMovementLine;
 use App\Models\StockReservation;
+use App\Models\Warehouse;
 use App\Services\Documents\SalesDocumentConversion;
 use Illuminate\Support\Collection;
 
@@ -17,6 +18,9 @@ class ProjectMaterialAllocator
      */
     public function allocate(PurchaseDocument $document, int $warehouseId, Collection $receivedLines): int
     {
+        if (! Warehouse::whereKey($warehouseId)->where('is_usable', true)->exists()) {
+            return 0;
+        }
         if ($document->sales_document_id) {
             return $this->allocateSalesOrder($document, $warehouseId, $receivedLines);
         }

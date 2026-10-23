@@ -2,7 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Expense;
 use App\Models\LedgerAccount;
+use App\Models\Person;
+use App\Models\Supplier;
+use App\Services\Accounting\AccountingWorkspace;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -14,6 +18,9 @@ class ChartOfAccountsController extends Controller
 {
     public function index(Request $request): Response
     {
+        if ($request->input('mode') !== 'manage') {
+            return app(AccountingWorkspaceController::class)->index($request, app(AccountingWorkspace::class));
+        }
         $search = trim($request->string('search')->toString());
         $accounts = LedgerAccount::query()->when($search, fn ($q) => $q->where(fn ($q) => $q->where('code', 'like', "%$search%")->orWhere('name', 'like', "%$search%")))->orderBy('code')->paginate(25)->withQueryString();
 
@@ -31,6 +38,9 @@ class ChartOfAccountsController extends Controller
     public function update(Request $request, LedgerAccount $account): RedirectResponse
     {
         $data = $this->validated($request, false);
+        if ($account->lines()->exists() && ($data['type'] !== $account->type || $data['parent_code'] !== $account->parent_code)) {
+            throw ValidationException::withMessages(['account' => __('The nature and hierarchy of an account with journal movements cannot be changed.')]);
+        }
         if ($data['parent_code'] === $account->code || $this->isDescendant($data['parent_code'], $account->code)) {
             throw ValidationException::withMessages(['parent_code' => __('An account cannot be placed below itself or one of its children.')]);
         }
@@ -44,7 +54,10 @@ class ChartOfAccountsController extends Controller
 
     public function destroy(LedgerAccount $account): RedirectResponse
     {
-        if (! in_array($account->source, ['custom', 'customized'], true) || $account->lines()->exists() || LedgerAccount::where('parent_code', $account->code)->exists()) {
+        if (! in_array($account->source, ['custom', 'customized'], true) || $account->lines()->exists() || LedgerAccount::where('parent_code', $account->code)->exists()
+            || Supplier::where('payable_account_code', $account->code)->orWhere('service_payable_account_code', $account->code)->exists()
+            || Person::where('receivable_account_code', $account->code)->exists()
+            || Expense::where('creditor_account_code', $account->code)->exists()) {
             throw ValidationException::withMessages(['account' => __('Only unused custom accounts without child accounts can be deleted.')]);
         }
         $account->delete();

@@ -9,6 +9,7 @@ use App\Models\HrLeaveRequest;
 use App\Models\Person;
 use App\Services\Planning\WorkforceCapacityForecast;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -54,7 +55,7 @@ class HumanResourcesController extends Controller
                 ->map(fn (Person $person) => [
                     'id' => $person->id,
                     'name' => $this->displayName($person),
-                    'email' => $person->email,
+                    'email' => Gate::allows('view-sensitive-hr') ? $person->email : null,
                     'staffRole' => $person->staff_role,
                     'accessRole' => $person->user?->role,
                     'createdAt' => $person->created_at?->toDateString(),

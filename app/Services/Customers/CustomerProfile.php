@@ -11,28 +11,30 @@ use App\Models\Quote;
 use App\Models\SalesDocument;
 use App\Models\SalesDocumentPayment;
 use App\Models\ServiceTicket;
+use App\Models\User;
 use App\Models\WorkOrder;
 use Illuminate\Support\Collection;
 
 class CustomerProfile
 {
     /** @return array<string, mixed> */
-    public function build(Person $customer): array
+    public function build(Person $customer, ?User $user = null): array
     {
-        $quotes = Quote::query()
+        $can = fn (string $ability) => $user === null || $user->can($ability);
+        $quotes = Quote::query()->when(! $can('manage-quotes'), fn ($q) => $q->whereRaw('1 = 0'))
             ->with('installation:id,project_reference,site_name')
             ->where('person_id', $customer->id)
             ->latest('issue_date')
             ->latest('id')
             ->limit(12)
             ->get();
-        $documents = SalesDocument::query()
+        $documents = SalesDocument::query()->when(! $can('manage-installations'), fn ($q) => $q->whereRaw('1 = 0'))
             ->where('person_id', $customer->id)
             ->latest('issue_date')
             ->latest('id')
             ->limit(12)
             ->get();
-        $activities = CrmActivity::query()
+        $activities = CrmActivity::query()->when($user?->hasRole('technician'), fn ($q) => $q->where('assigned_user_id', $user->id))->when(! $can('manage-operations'), fn ($q) => $q->whereRaw('1 = 0'))
             ->with('installation:id,project_reference,site_name')
             ->where(fn ($query) => $query
                 ->where('person_id', $customer->id)
@@ -40,7 +42,7 @@ class CustomerProfile
             ->latest()
             ->limit(12)
             ->get();
-        $workOrders = WorkOrder::query()
+        $workOrders = WorkOrder::query()->when($user?->hasRole('technician'), fn ($q) => $q->where('assigned_user_id', $user->id))->when(! $can('manage-operations'), fn ($q) => $q->whereRaw('1 = 0'))
             ->with('installation:id,project_reference,site_name')
             ->whereHas('installation', fn ($query) => $query->where('person_id', $customer->id))
             ->latest()
@@ -56,19 +58,19 @@ class CustomerProfile
             ->latest('occurred_at')
             ->limit(20)
             ->get();
-        $payments = SalesDocumentPayment::query()
+        $payments = SalesDocumentPayment::query()->when(! $can('manage-installations'), fn ($q) => $q->whereRaw('1 = 0'))
             ->with('document:id,person_id,number')
             ->whereHas('document', fn ($query) => $query->where('person_id', $customer->id))
             ->latest('paid_at')
             ->limit(12)
             ->get();
-        $tickets = ServiceTicket::query()
+        $tickets = ServiceTicket::query()->when(! $can('manage-operations'), fn ($q) => $q->whereRaw('1 = 0'))
             ->with('installation:id,person_id,project_reference,site_name')
             ->whereHas('installation', fn ($query) => $query->where('person_id', $customer->id))
             ->latest()
             ->limit(12)
             ->get();
-        $communications = DocumentDelivery::query()
+        $communications = DocumentDelivery::query()->when(! $can('manage-quotes') || ! $can('manage-installations'), fn ($q) => $q->whereRaw('1 = 0'))
             ->with(['quote:id,person_id,number', 'salesDocument:id,person_id,number'])
             ->where(fn ($query) => $query
                 ->whereHas('quote', fn ($quote) => $quote->where('person_id', $customer->id))
@@ -77,19 +79,19 @@ class CustomerProfile
             ->limit(12)
             ->get();
 
-        $invoices = SalesDocument::query()->where('person_id', $customer->id)->where('type', 'invoice');
+        $invoices = SalesDocument::query()->when(! $can('manage-installations'), fn ($q) => $q->whereRaw('1 = 0'))->where('person_id', $customer->id)->where('type', 'invoice');
 
         return [
             'metrics' => [
                 'billed' => round((float) (clone $invoices)->sum('amount'), 2),
                 'outstanding' => round((float) (clone $invoices)->whereIn('status', ['issued', 'partial', 'overdue'])->selectRaw('coalesce(sum(amount - paid_amount), 0) as total')->value('total'), 2),
-                'open_activities' => CrmActivity::query()
+                'open_activities' => CrmActivity::query()->when($user?->hasRole('technician'), fn ($q) => $q->where('assigned_user_id', $user->id))->when(! $can('manage-operations'), fn ($q) => $q->whereRaw('1 = 0'))
                     ->where(fn ($query) => $query
                         ->where('person_id', $customer->id)
                         ->orWhereHas('installation', fn ($installation) => $installation->where('person_id', $customer->id)))
                     ->whereIn('status', ['pending', 'in_progress'])
                     ->count(),
-                'active_work_orders' => WorkOrder::query()
+                'active_work_orders' => WorkOrder::query()->when($user?->hasRole('technician'), fn ($q) => $q->where('assigned_user_id', $user->id))->when(! $can('manage-operations'), fn ($q) => $q->whereRaw('1 = 0'))
                     ->whereHas('installation', fn ($query) => $query->where('person_id', $customer->id))
                     ->whereNotIn('status', ['completed', 'cancelled'])
                     ->count(),
@@ -97,11 +99,11 @@ class CustomerProfile
                     ->where('person_id', $customer->id)
                     ->whereNotIn('stage', ['won', 'lost'])
                     ->sum('estimated_value'), 2),
-                'open_tickets' => ServiceTicket::query()
+                'open_tickets' => ServiceTicket::query()->when(! $can('manage-operations'), fn ($q) => $q->whereRaw('1 = 0'))
                     ->whereHas('installation', fn ($query) => $query->where('person_id', $customer->id))
                     ->whereNotIn('status', ['resolved', 'closed', 'cancelled'])
                     ->count(),
-                'collected' => round((float) SalesDocumentPayment::query()
+                'collected' => round((float) SalesDocumentPayment::query()->when(! $can('manage-installations'), fn ($q) => $q->whereRaw('1 = 0'))
                     ->whereHas('document', fn ($query) => $query->where('person_id', $customer->id))
                     ->sum('amount'), 2),
             ],

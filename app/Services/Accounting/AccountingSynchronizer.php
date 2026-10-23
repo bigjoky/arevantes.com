@@ -5,36 +5,42 @@ namespace App\Services\Accounting;
 use App\Models\Expense;
 use App\Models\FiscalYear;
 use App\Models\JournalEntry;
-use App\Models\LedgerAccount;
 use App\Models\PurchaseDocument;
 use App\Models\SalesDocument;
 use App\Models\SalesDocumentPayment;
 use App\Models\SupplierPayment;
 use App\Models\TaxRate;
-use App\Services\Documents\DocumentNumber;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class AccountingSynchronizer
 {
-    public function __construct(private AccountingPeriodManager $periods, private DocumentNumber $numbers) {}
-
-    private array $accounts = [];
+    public function __construct(private AccountingPeriodManager $periods) {}
 
     private array $taxAccounts = [];
 
     public function sync(?int $userId = null): int
     {
         $created = 0;
-        SalesDocument::whereIn('type', ['invoice', 'credit_note'])->whereNot('status', 'draft')->each(fn ($document) => $created += $this->salesDocument($document, $userId));
-        PurchaseDocument::whereIn('type', ['supplier_invoice', 'supplier_credit_note'])
+        foreach (SalesDocument::whereIn('type', ['invoice', 'credit_note'])->whereNot('status', 'draft')->lazyById() as $document) {
+            $created += $this->salesDocument($document, $userId);
+        }
+        foreach (PurchaseDocument::whereIn('type', ['supplier_invoice', 'supplier_credit_note'])
             ->whereNotIn('status', ['draft', 'review_required'])
             ->where(fn ($query) => $query->whereNull('matching_status')->orWhereNot('matching_status', 'review_required'))
-            ->each(fn ($document) => $created += $this->purchaseDocument($document, $userId));
-        Expense::each(fn ($expense) => $created += $this->expense($expense, $userId));
-        SalesDocumentPayment::each(fn ($payment) => $created += $this->customerPayment($payment, $userId));
-        SupplierPayment::each(fn ($payment) => $created += $this->supplierPayment($payment, $userId));
+            ->lazyById() as $document) {
+            $created += $this->purchaseDocument($document, $userId);
+        }
+        foreach (Expense::lazyById() as $expense) {
+            $created += $this->expense($expense, $userId);
+        }
+        foreach (SalesDocumentPayment::lazyById() as $payment) {
+            $created += $this->customerPayment($payment, $userId);
+        }
+        foreach (SupplierPayment::lazyById() as $payment) {
+            $created += $this->supplierPayment($payment, $userId);
+        }
 
         return $created;
     }
@@ -149,7 +155,7 @@ class AccountingSynchronizer
     public function expenseLines(Expense $expense): array
     {
         $expense->loadMissing(['category', 'supplier', 'taxLines']);
-        $creditorAccount = $expense->supplier?->payable_account_code ?: '410';
+        $creditorAccount = $expense->creditor_account_code ?: ($expense->supplier?->payable_account_code ?: '410');
         $deductibleTax = round((float) $expense->taxLines->sum('deductible_amount'), 2);
         if ($expense->taxLines->isEmpty()) {
             $deductibleTax = (float) $expense->tax_amount;
@@ -185,7 +191,7 @@ class AccountingSynchronizer
     private function supplierPayment(SupplierPayment $payment, ?int $userId): int
     {
         $payment->loadMissing(['expense.supplier', 'purchaseDocument.supplier', 'ledgerAccount']);
-        $supplierAccount = $payment->expense?->supplier?->payable_account_code ?? $payment->purchaseDocument?->supplier?->payable_account_code ?? ($payment->expense_id ? '410' : '400');
+        $supplierAccount = $payment->expense?->creditor_account_code ?: ($payment->expense?->supplier?->payable_account_code ?? $payment->purchaseDocument?->supplier?->payable_account_code ?? ($payment->expense_id ? '410' : '400'));
         $fundingAccount = $payment->ledgerAccount?->code ?: ($payment->method === 'cash' ? '570' : '572');
 
         return $this->post($payment, 'payment', $payment->paid_at->toDateString(), __('Supplier payment :reference', ['reference' => $payment->reference ?: $payment->id]), $userId, [
@@ -206,31 +212,17 @@ class AccountingSynchronizer
 
         $this->periods->assertOpen($date);
 
-        DB::transaction(function () use ($source, $event, $date, $description, $userId, $lines) {
-            $year = FiscalYear::whereDate('starts_on', '<=', $date)->whereDate('ends_on', '>=', $date)->first();
-            if ($year?->status === 'closed') {
-                throw ValidationException::withMessages(['accounting' => __('The fiscal year for :date is closed.', ['date' => $date])]);
+        return DB::transaction(function () use ($source, $event, $date, $description, $userId, $lines) {
+            FiscalYear::whereDate('starts_on', '<=', $date)->whereDate('ends_on', '>=', $date)->lockForUpdate()->first();
+            if (JournalEntry::whereMorphedTo('source', $source)->where('event', $event)->exists()) {
+                return 0;
             }
-            $entry = JournalEntry::create(['fiscal_year_id' => $year?->id, 'created_by' => $userId, 'entry_date' => $date, 'number' => $this->number($date), 'description' => $description, 'source_type' => $source->getMorphClass(), 'source_id' => $source->getKey(), 'event' => $event, 'status' => 'posted', 'posted_at' => now()]);
-            foreach ($lines as [$code, $debit, $credit]) {
-                if ((float) $debit === 0.0 && (float) $credit === 0.0) {
-                    continue;
-                }
-                $entry->lines()->create(['ledger_account_id' => $this->account($code), 'debit' => $debit, 'credit' => $credit]);
-            }
+            $mapped = collect($lines)->filter(fn ($line) => (float) $line[1] !== 0.0 || (float) $line[2] !== 0.0)
+                ->map(fn ($line) => ['account_code' => (string) $line[0], 'debit' => $line[1], 'credit' => $line[2]])->values()->all();
+            app(JournalPoster::class)->post($date, $description, $mapped, $userId, 'automatic', $source, $event);
+
+            return 1;
         });
-
-        return 1;
-    }
-
-    private function account(string $code): int
-    {
-        return $this->accounts[$code] ??= LedgerAccount::where('code', $code)->valueOrFail('id');
-    }
-
-    private function number(string $date): string
-    {
-        return $this->numbers->next('journal_entry', $date, 6)['number'];
     }
 
     private function taxAccount(?float $rate, string $direction): string

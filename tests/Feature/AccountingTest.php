@@ -133,7 +133,7 @@ class AccountingTest extends TestCase
             'reversal_days' => 1,
         ])->assertSessionHasNoErrors();
 
-        $this->get(route('accounting.index', ['year' => 2026, 'month' => 7]))
+        $this->get(route('accounting.index', ['area' => 'management', 'year' => 2026, 'month' => 7]))
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page->where('periodSummary.unpostedItems', 1));
 
@@ -315,7 +315,7 @@ class AccountingTest extends TestCase
         $invoice->payments()->create(['created_by' => $user->id, 'paid_at' => now()->subDays(40), 'amount' => 21, 'method' => 'bank_transfer']);
         app(AccountingSynchronizer::class)->sync($user->id);
 
-        $this->actingAs($user)->get(route('accounting.index', ['year' => now()->year]))->assertOk()->assertInertia(fn (Assert $page) => $page
+        $this->actingAs($user)->get(route('accounting.index', ['area' => 'management', 'year' => now()->year]))->assertOk()->assertInertia(fn (Assert $page) => $page
             ->has('thirdParties.customers', 1)
             ->where('thirdParties.customers.0.accountCode', $customer->fresh()->receivable_account_code)
             ->where('thirdParties.customers.0.ledgerBalance', 100)
@@ -338,7 +338,7 @@ class AccountingTest extends TestCase
         }
         $this->actingAs($user)->post(route('accounting.sync'))->assertRedirect();
         $this->assertSame(3, JournalEntry::count());
-        $this->actingAs($user)->get(route('accounting.index', ['year' => 2026, 'account' => '430']))->assertOk()->assertInertia(fn (Assert $page) => $page
+        $this->actingAs($user)->get(route('accounting.index', ['area' => 'management', 'year' => 2026, 'account' => '430']))->assertOk()->assertInertia(fn (Assert $page) => $page
             ->component('accounting/index')
             ->where('summary.entries', 3)
             ->where('reports.profitAndLoss.income', 100)
@@ -457,7 +457,7 @@ class AccountingTest extends TestCase
                 ->count(),
         );
 
-        $this->get(route('accounting.index', ['year' => 2026, 'month' => 7]))
+        $this->get(route('accounting.index', ['area' => 'management', 'year' => 2026, 'month' => 7]))
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->where('selectedMonth', 7)
@@ -487,7 +487,7 @@ class AccountingTest extends TestCase
         $this->actingAs($admin)->post(route('accounting.years.close', $year), ['confirmation' => (string) $year->year])->assertRedirect()->assertSessionHasNoErrors();
         $this->assertSame('closed', $year->fresh()->status);
         $this->assertDatabaseHas('journal_entries', ['entry_kind' => 'closing', 'source_id' => $year->id]);
-        $this->get(route('accounting.index', ['year' => $year->year]))
+        $this->get(route('accounting.index', ['area' => 'management', 'year' => $year->year]))
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->where('reports.profitAndLoss.income', 100)

@@ -24,6 +24,7 @@ import { useLocale } from '@/hooks/use-locale';
 import { translate } from '@/i18n';
 
 type Warehouse = {
+    is_usable: boolean;
     id: number;
     code: string;
     name: string;
@@ -881,6 +882,11 @@ function WarehouseDialog({ warehouse }: { warehouse?: Warehouse }) {
                             value={warehouse?.city}
                         />
                     </div>
+                    <Bool
+                        name="is_usable"
+                        label="Stock utilizable"
+                        checked={warehouse?.is_usable ?? true}
+                    />
                     <Bool
                         name="is_default"
                         label="Default warehouse"

@@ -9,7 +9,7 @@ class CorporateTaxCalculator
 {
     public function accountingResult(FiscalYear $year): float
     {
-        $rows = JournalLine::query()->join('journal_entries', 'journal_entries.id', '=', 'journal_lines.journal_entry_id')->join('ledger_accounts', 'ledger_accounts.id', '=', 'journal_lines.ledger_account_id')->where('journal_entries.fiscal_year_id', $year->id)->where('journal_entries.entry_kind', '!=', 'closing')->whereIn('ledger_accounts.type', ['income', 'expense'])->where('ledger_accounts.code', 'not like', '630%')->selectRaw('ledger_accounts.type, sum(journal_lines.debit) debit, sum(journal_lines.credit) credit')->groupBy('ledger_accounts.type')->get()->keyBy('type');
+        $rows = JournalLine::query()->join('journal_entries', 'journal_entries.id', '=', 'journal_lines.journal_entry_id')->join('ledger_accounts', 'ledger_accounts.id', '=', 'journal_lines.ledger_account_id')->where('journal_entries.status', 'posted')->where('journal_entries.fiscal_year_id', $year->id)->where('journal_entries.entry_kind', '!=', 'closing')->whereIn('ledger_accounts.type', ['income', 'expense'])->where('ledger_accounts.code', 'not like', '630%')->selectRaw('ledger_accounts.type, sum(journal_lines.debit) debit, sum(journal_lines.credit) credit')->groupBy('ledger_accounts.type')->get()->keyBy('type');
         $income = (float) (($rows['income']->credit ?? 0) - ($rows['income']->debit ?? 0));
         $expense = (float) (($rows['expense']->debit ?? 0) - ($rows['expense']->credit ?? 0));
 

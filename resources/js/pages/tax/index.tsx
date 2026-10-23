@@ -35,6 +35,8 @@ type VatRow = {
     rate: number;
     base: number;
     vat: number;
+    deductible_vat: number | null;
+    non_deductible_vat: number | null;
     total: number;
 };
 type Rate = {
@@ -49,6 +51,8 @@ type Summary = {
     outputVat: number;
     taxableBaseReceived: number;
     deductibleVat: number;
+    supportedVat: number;
+    nonDeductibleVat: number;
     result: number;
 };
 type Check = {
@@ -57,6 +61,51 @@ type Check = {
     outputDifference: number;
     inputDifference: number;
     matches: boolean;
+};
+type SettlementPreview = {
+    lines: { account_code: string; debit: number; credit: number }[];
+    debit: number;
+    credit: number;
+    ready: boolean;
+    checks: {
+        code: string;
+        label: string;
+        passed: boolean;
+        details?: string[];
+    }[];
+};
+type DraftDocument = {
+    number: string;
+    party: string;
+    tax_id: string | null;
+    date: string;
+    base: number;
+    vat: number;
+    deductible_vat: number;
+    breakdown: {
+        rate: number;
+        base: number;
+        vat: number;
+        deductible_vat: number | null;
+    }[];
+};
+type DraftComparison = {
+    totals: Record<
+        string,
+        { before: number; after: number; difference: number }
+    >;
+    counts: { added: number; removed: number; modified: number };
+    documents: {
+        key: string;
+        kind: string;
+        before: DraftDocument | null;
+        after: DraftDocument | null;
+    }[];
+    accounting_changed: boolean;
+    truncated: boolean;
+};
+type SettlementReadiness = Pick<SettlementPreview, 'ready' | 'checks'> & {
+    comparison: DraftComparison;
 };
 type TaxReturn = {
     id: number;
@@ -78,6 +127,16 @@ type TaxReturn = {
         method: string;
         reference: string | null;
     }[];
+    snapshot: {
+        entry?: SettlementPreview;
+        review_history?: {
+            action: string;
+            user_id: number;
+            reason: string;
+            at: string;
+            comparison?: DraftComparison;
+        }[];
+    };
 };
 
 type TaxSection = 'summary' | 'issued' | 'received';
@@ -97,6 +156,8 @@ export default function TaxIndex({
     rates,
     accountingCheck,
     taxReturn,
+    settlementPreview,
+    settlementReadiness,
 }: {
     initialSection: TaxSection;
     canManageTax: boolean;
@@ -107,6 +168,8 @@ export default function TaxIndex({
     rates: Rate[];
     accountingCheck: Check;
     taxReturn: TaxReturn | null;
+    settlementPreview: SettlementPreview | null;
+    settlementReadiness: SettlementReadiness | null;
 }) {
     const tab = initialSection;
     const { locale } = useLocale();
@@ -134,6 +197,13 @@ export default function TaxIndex({
                         </p>
                     </div>
                     <div className="flex flex-wrap gap-2">
+                        {canManageTax ? (
+                            <Button variant="outline" asChild>
+                                <Link href={`/tax/models/303?${query}`}>
+                                    {translate('Model 303', locale)}
+                                </Link>
+                            </Button>
+                        ) : null}
                         <Button variant="outline" asChild>
                             <Link href="/accounting">
                                 <ArrowLeft /> Accounting
@@ -192,7 +262,7 @@ export default function TaxIndex({
                         </Select>
                     </div>
                 </header>
-                <section className="grid grid-cols-2 border-y lg:grid-cols-4">
+                <section className="grid grid-cols-2 border-y lg:grid-cols-3 xl:grid-cols-6">
                     <Metric
                         label="Output VAT"
                         value={money(summary.outputVat)}
@@ -200,6 +270,14 @@ export default function TaxIndex({
                     <Metric
                         label="Deductible VAT"
                         value={money(summary.deductibleVat)}
+                    />
+                    <Metric
+                        label={translate('Supported VAT', locale)}
+                        value={money(summary.supportedVat)}
+                    />
+                    <Metric
+                        label={translate('Non-deductible VAT', locale)}
+                        value={money(summary.nonDeductibleVat)}
                     />
                     <Metric
                         label={
@@ -219,10 +297,9 @@ export default function TaxIndex({
                         taxReturn={taxReturn}
                         period={{ year: period.year, quarter: period.quarter }}
                         canManageTax={canManageTax}
-                        canPrepare={
-                            accountingCheck.matches &&
-                            (issued.length > 0 || received.length > 0)
-                        }
+                        canPrepare={settlementPreview?.ready ?? false}
+                        preview={settlementPreview}
+                        readiness={settlementReadiness}
                     />
                 )}
                 {tab === 'summary' && (
@@ -244,6 +321,7 @@ export default function TaxIndex({
                     <Book
                         title="Received invoice register"
                         rows={received}
+                        received
                         exportUrl={`/tax/export?book=received&${query}`}
                     />
                 )}
@@ -257,12 +335,18 @@ function ReturnStatus({
     period,
     canManageTax,
     canPrepare,
+    preview,
+    readiness,
 }: {
     taxReturn: TaxReturn | null;
     period: { year: number; quarter: number };
     canManageTax: boolean;
     canPrepare: boolean;
+    preview: SettlementPreview | null;
+    readiness: SettlementReadiness | null;
 }) {
+    const { locale } = useLocale();
+
     if (!taxReturn) {
         return (
             <section className="flex flex-wrap items-center justify-between gap-3 border-y py-3">
@@ -275,17 +359,259 @@ function ReturnStatus({
                 </div>
                 {canManageTax && (
                     <Form action="/tax/returns" method="post">
-                        <input type="hidden" name="year" value={period.year} />
-                        <input
-                            type="hidden"
-                            name="quarter"
-                            value={period.quarter}
-                        />
-                        <Button disabled={!canPrepare}>
-                            <FileCheck2 /> Prepare return
-                        </Button>
+                        {({ processing, errors }) => (
+                            <>
+                                <input
+                                    type="hidden"
+                                    name="year"
+                                    value={period.year}
+                                />
+                                <input
+                                    type="hidden"
+                                    name="quarter"
+                                    value={period.quarter}
+                                />
+                                <Button disabled={!canPrepare || processing}>
+                                    <FileCheck2 />{' '}
+                                    {translate(
+                                        'Create settlement draft',
+                                        locale,
+                                    )}
+                                </Button>
+                                {Object.entries(errors).map(
+                                    ([field, message]) => (
+                                        <p
+                                            key={field}
+                                            className="text-sm text-destructive"
+                                        >
+                                            {message}
+                                        </p>
+                                    ),
+                                )}
+                            </>
+                        )}
                     </Form>
                 )}
+                <details className="w-full rounded border p-3">
+                    <summary className="cursor-pointer text-sm font-medium">
+                        {translate('Settlement entry preview', locale)}
+                    </summary>
+                    <p className="my-3 text-sm text-muted-foreground">
+                        {translate(
+                            'Creating a draft does not post entries. Review and approve it before posting the settlement.',
+                            locale,
+                        )}
+                    </p>
+                    {!preview?.ready && (
+                        <p className="mb-3 text-sm text-destructive">
+                            {translate(
+                                'Resolve accounting differences or missing VAT movements before posting.',
+                                locale,
+                            )}
+                        </p>
+                    )}
+                    <SettlementChecks checks={preview?.checks ?? []} />
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                            <thead>
+                                <tr>
+                                    <th className="text-left">
+                                        {translate('Account', locale)}
+                                    </th>
+                                    <th className="text-right">
+                                        {translate('Debit', locale)}
+                                    </th>
+                                    <th className="text-right">
+                                        {translate('Credit', locale)}
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {preview?.lines.map((line) => (
+                                    <tr key={line.account_code}>
+                                        <td>{line.account_code}</td>
+                                        <td className="text-right">
+                                            {money(line.debit)}
+                                        </td>
+                                        <td className="text-right">
+                                            {money(line.credit)}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                            <tfoot>
+                                <tr>
+                                    <th className="text-left">
+                                        {translate('Total', locale)}
+                                    </th>
+                                    <td className="text-right">
+                                        {money(preview?.debit ?? 0)}
+                                    </td>
+                                    <td className="text-right">
+                                        {money(preview?.credit ?? 0)}
+                                    </td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </details>
+            </section>
+        );
+    }
+
+    if (taxReturn.status === 'draft' || taxReturn.status === 'approved') {
+        return (
+            <section className="space-y-3 rounded border p-4">
+                <h2 className="font-medium">
+                    {translate('Settlement draft review', locale)}
+                </h2>
+                <p className="text-sm">
+                    {translate(
+                        taxReturn.status === 'draft' ? 'Draft' : 'Approved',
+                        locale,
+                    )}{' '}
+                    · {money(Number(taxReturn.result))}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                    {translate(
+                        'Creating a draft does not post entries. Review and approve it before posting the settlement.',
+                        locale,
+                    )}
+                </p>
+                <SettlementChecks checks={readiness?.checks ?? []} />
+                {readiness && (
+                    <DraftChanges comparison={readiness.comparison} />
+                )}
+                <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                        <thead>
+                            <tr>
+                                <th className="text-left">
+                                    {translate('Account', locale)}
+                                </th>
+                                <th className="text-right">
+                                    {translate('Debit', locale)}
+                                </th>
+                                <th className="text-right">
+                                    {translate('Credit', locale)}
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {taxReturn.snapshot.entry?.lines.map((line) => (
+                                <tr key={line.account_code}>
+                                    <td>{line.account_code}</td>
+                                    <td className="text-right">
+                                        {money(line.debit)}
+                                    </td>
+                                    <td className="text-right">
+                                        {money(line.credit)}
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+                {canManageTax && (
+                    <Form
+                        action={`/tax/returns/${taxReturn.id}/review`}
+                        method="post"
+                    >
+                        {({ processing, errors }) => (
+                            <div className="space-y-2">
+                                <Label htmlFor="vat-review-reason">
+                                    {translate('Review reason', locale)}
+                                </Label>
+                                <Input
+                                    id="vat-review-reason"
+                                    name="reason"
+                                    required
+                                    maxLength={1000}
+                                />
+                                {(errors.reason || errors.review) && (
+                                    <p className="text-sm text-destructive">
+                                        {errors.reason || errors.review}
+                                    </p>
+                                )}
+                                <div className="flex flex-wrap gap-2">
+                                    {taxReturn.status === 'draft' && (
+                                        <Button
+                                            disabled={
+                                                processing || !readiness?.ready
+                                            }
+                                        >
+                                            {translate('Approve draft', locale)}
+                                        </Button>
+                                    )}
+                                    <Button
+                                        variant="outline"
+                                        name="refresh"
+                                        value="1"
+                                        disabled={processing}
+                                    >
+                                        {translate(
+                                            'Refresh draft for review',
+                                            locale,
+                                        )}
+                                    </Button>
+                                </div>
+                            </div>
+                        )}
+                    </Form>
+                )}
+                {canManageTax && taxReturn.status === 'approved' && (
+                    <Form
+                        action={`/tax/returns/${taxReturn.id}/post`}
+                        method="post"
+                    >
+                        {({ processing, errors }) => (
+                            <div className="space-y-2">
+                                {Object.entries(errors).map(
+                                    ([field, message]) => (
+                                        <p
+                                            key={field}
+                                            className="text-sm text-destructive"
+                                        >
+                                            {message}
+                                        </p>
+                                    ),
+                                )}
+                                <Button
+                                    disabled={processing || !readiness?.ready}
+                                >
+                                    {translate(
+                                        'Post approved settlement',
+                                        locale,
+                                    )}
+                                </Button>
+                            </div>
+                        )}
+                    </Form>
+                )}
+                {taxReturn.snapshot.review_history?.map((event, index) => (
+                    <p key={index} className="text-xs text-muted-foreground">
+                        {translate(
+                            event.action === 'approved'
+                                ? 'Approved'
+                                : 'Refreshed',
+                            locale,
+                        )}{' '}
+                        · {new Date(event.at).toLocaleString(locale)} ·{' '}
+                        {translate('User', locale)} #{event.user_id} ·{' '}
+                        {event.reason}
+                        {event.comparison && (
+                            <>
+                                {' '}
+                                · {translate('Documents added', locale)}:{' '}
+                                {event.comparison.counts.added} ·{' '}
+                                {translate('Documents removed', locale)}:{' '}
+                                {event.comparison.counts.removed} ·{' '}
+                                {translate('Documents modified', locale)}:{' '}
+                                {event.comparison.counts.modified}
+                            </>
+                        )}
+                    </p>
+                ))}
             </section>
         );
     }
@@ -339,6 +665,164 @@ function ReturnStatus({
                 )}
             </div>
         </section>
+    );
+}
+
+function SettlementChecks({ checks }: { checks: SettlementPreview['checks'] }) {
+    const { locale } = useLocale();
+
+    return (
+        <div className="my-3 space-y-2">
+            <h3 className="text-sm font-medium">
+                {translate('Settlement readiness checks', locale)}
+            </h3>
+            {checks.map((check) => (
+                <div
+                    key={check.code}
+                    className="flex flex-wrap items-start gap-2 text-sm"
+                >
+                    <Badge variant={check.passed ? 'outline' : 'destructive'}>
+                        {translate(check.passed ? 'Ready' : 'Blocked', locale)}
+                    </Badge>
+                    <span>
+                        {translate(check.label, locale)}
+                        {check.details?.length
+                            ? ` · ${check.details.join(', ')}`
+                            : ''}
+                    </span>
+                </div>
+            ))}
+        </div>
+    );
+}
+
+function DraftChanges({ comparison }: { comparison: DraftComparison }) {
+    const { locale } = useLocale();
+    const labels: Record<string, string> = {
+        outputVat: 'Output VAT',
+        supportedVat: 'Supported VAT',
+        deductibleVat: 'Deductible VAT',
+        nonDeductibleVat: 'Non-deductible VAT',
+        result: 'Result',
+    };
+    const document = (value: DraftDocument | null) =>
+        value ? (
+            <div className="space-y-1">
+                <p>
+                    {value.number} · {value.party}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                    {value.date} · {value.tax_id || '—'}
+                </p>
+                <p>
+                    {translate('Taxable base', locale)}: {money(value.base)} ·{' '}
+                    {translate('VAT', locale)}: {money(value.vat)}
+                </p>
+                <p>
+                    {translate('Deductible VAT', locale)}:{' '}
+                    {money(value.deductible_vat)}
+                </p>
+                {value.breakdown.map((row, index) => (
+                    <p key={index} className="text-xs text-muted-foreground">
+                        {row.rate}% · {translate('Taxable base', locale)}:{' '}
+                        {money(row.base)} · {translate('VAT', locale)}:{' '}
+                        {money(row.vat)}
+                    </p>
+                ))}
+            </div>
+        ) : (
+            '—'
+        );
+
+    return (
+        <details className="rounded border p-3">
+            <summary className="cursor-pointer text-sm font-medium">
+                {translate('Compare draft with current books', locale)}
+            </summary>
+            <p className="my-3 text-sm">
+                {translate('Documents added', locale)}:{' '}
+                {comparison.counts.added} ·{' '}
+                {translate('Documents removed', locale)}:{' '}
+                {comparison.counts.removed} ·{' '}
+                {translate('Documents modified', locale)}:{' '}
+                {comparison.counts.modified}
+            </p>
+            {comparison.accounting_changed && (
+                <p className="mb-3 text-sm">
+                    {translate(
+                        'Accounting movements have changed since this draft.',
+                        locale,
+                    )}
+                </p>
+            )}
+            <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                    <thead>
+                        <tr>
+                            <th className="text-left">
+                                {translate('Amount', locale)}
+                            </th>
+                            <th className="text-right">
+                                {translate('Draft amount', locale)}
+                            </th>
+                            <th className="text-right">
+                                {translate('Current amount', locale)}
+                            </th>
+                            <th className="text-right">
+                                {translate('Difference', locale)}
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {Object.entries(comparison.totals).map(
+                            ([key, value]) => (
+                                <tr key={key}>
+                                    <td>
+                                        {translate(labels[key] ?? key, locale)}
+                                    </td>
+                                    <td className="text-right">
+                                        {money(value.before)}
+                                    </td>
+                                    <td className="text-right">
+                                        {money(value.after)}
+                                    </td>
+                                    <td className="text-right">
+                                        {money(value.difference)}
+                                    </td>
+                                </tr>
+                            ),
+                        )}
+                    </tbody>
+                </table>
+            </div>
+            {comparison.documents.map((change) => (
+                <div
+                    key={change.key}
+                    className="mt-3 grid gap-3 border-t pt-3 text-sm sm:grid-cols-2"
+                >
+                    <div>
+                        <p className="mb-1 font-medium">
+                            {translate('Draft evidence', locale)}
+                        </p>
+                        {document(change.before)}
+                    </div>
+                    <div>
+                        <p className="mb-1 font-medium">
+                            {translate('Current evidence', locale)}
+                        </p>
+                        {document(change.after)}
+                    </div>
+                </div>
+            ))}
+            {comparison.truncated && (
+                <p className="mt-3 text-sm text-muted-foreground">
+                    {translate(
+                        'Showing the first 50 changed documents. Counts include all changes.',
+                        locale,
+                    )}
+                </p>
+            )}
+        </details>
     );
 }
 
@@ -621,11 +1105,15 @@ function Book({
     title,
     rows,
     exportUrl,
+    received = false,
 }: {
     title: string;
     rows: VatRow[];
     exportUrl: string;
+    received?: boolean;
 }) {
+    const { locale } = useLocale();
+
     return (
         <section className="overflow-x-auto">
             <div className="mb-3 flex items-center justify-between">
@@ -645,8 +1133,28 @@ function Book({
                         <th>Party</th>
                         <th className="text-right">Rate</th>
                         <th className="text-right">Base</th>
-                        <th className="text-right">VAT</th>
-                        <th className="text-right">Total</th>
+                        <th className="text-right">
+                            {translate(
+                                received ? 'Supported VAT' : 'VAT',
+                                locale,
+                            )}
+                        </th>
+                        {received && (
+                            <th className="text-right">
+                                {translate('Deductible VAT', locale)}
+                            </th>
+                        )}
+                        {received && (
+                            <th className="text-right">
+                                {translate('Non-deductible VAT', locale)}
+                            </th>
+                        )}
+                        <th className="text-right">
+                            {translate(
+                                received ? 'Base + VAT' : 'Total',
+                                locale,
+                            )}
+                        </th>
                     </tr>
                 </thead>
                 <tbody>
@@ -662,6 +1170,16 @@ function Book({
                             <td className="text-right">{row.rate}%</td>
                             <td className="text-right">{money(row.base)}</td>
                             <td className="text-right">{money(row.vat)}</td>
+                            {received && (
+                                <td className="text-right">
+                                    {money(row.deductible_vat ?? 0)}
+                                </td>
+                            )}
+                            {received && (
+                                <td className="text-right">
+                                    {money(row.non_deductible_vat ?? 0)}
+                                </td>
+                            )}
                             <td className="text-right font-medium">
                                 {money(row.total)}
                             </td>

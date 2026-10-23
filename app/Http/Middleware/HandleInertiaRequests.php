@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\CompanyProfile;
 use App\Support\WorkspaceNavigation;
 use App\Support\WorkspaceShortcuts;
 use Illuminate\Http\Request;
@@ -102,6 +103,10 @@ class HandleInertiaRequests extends Middleware
                     'url' => $notification->data['url'] ?? route('dashboard'),
                 ]) : [],
             ],
+            'workspaceContext' => fn () => $sharesWorkspace ? [
+                'companyName' => CompanyProfile::value('legal_name') ?: config('company.legal_name'),
+                'currentYear' => now()->year,
+            ] : null,
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
         ];
     }

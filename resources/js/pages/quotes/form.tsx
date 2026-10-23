@@ -105,6 +105,7 @@ type Line = {
 type Quote = {
     id: number;
     number: string;
+    version: number;
     opportunity_id: number | null;
     person_id: number;
     installation_id: number | null;
@@ -147,12 +148,13 @@ export default function QuoteForm({
     const { locale } = useLocale();
     const pageTitle = quote
         ? `${translate('Edit', locale)} ${quote.number}`
-        : translate('Nueva propuesta', locale);
+        : translate('Nuevo presupuesto', locale);
     const initialCustomerId = quote?.person_id ?? defaultCustomerId ?? null;
     const initialPaymentTerms =
         customers.find((customer) => customer.id === initialCustomerId)
             ?.payment_terms_days ?? acceptancePaymentDefaults.due_days;
     const form = useForm({
+        expected_version: quote?.version,
         opportunity_id: String(
             quote?.opportunity_id ?? opportunityDraft?.id ?? '',
         ),
@@ -403,9 +405,7 @@ export default function QuoteForm({
                         </p>
                     </div>
                     <Button variant="outline" asChild>
-                        <Link
-                            href={quote ? `/quotes/${quote.id}` : '/operations'}
-                        >
+                        <Link href={quote ? `/quotes/${quote.id}` : '/quotes'}>
                             <ArrowLeft /> {translate('Back', locale)}
                         </Link>
                     </Button>
@@ -1696,7 +1696,7 @@ function Total({
 }
 QuoteForm.layout = {
     breadcrumbs: [
-        { title: 'Propuestas', href: '/quotes' },
-        { title: 'Propuesta', href: '#' },
+        { title: 'Comercial', href: '/commercial' },
+        { title: 'Presupuestos', href: '/quotes' },
     ],
 };

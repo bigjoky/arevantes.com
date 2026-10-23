@@ -37,8 +37,8 @@ class StockPositionService
         $keys = $onHand->keys()->merge($reserved->keys())->merge($inTransit->keys())->unique();
         $warehouseIds = $keys->map(fn (string $key) => (int) explode(':', $key)[0])->unique();
         $productIds = $keys->map(fn (string $key) => (int) explode(':', $key)[1])->unique();
-        $warehouses = Warehouse::whereKey($warehouseIds)->get(['id', 'code', 'name'])->keyBy('id');
-        $products = Product::whereKey($productIds)->get(['id', 'sku', 'name', 'track_serials'])->keyBy('id');
+        $warehouses = Warehouse::whereKey($warehouseIds)->get(['id', 'code', 'name', 'is_usable'])->keyBy('id');
+        $products = Product::whereKey($productIds)->with('unit:id,symbol')->get(['id', 'sku', 'name', 'track_serials', 'unit_id'])->keyBy('id');
 
         return $keys->map(function (string $key) use ($onHand, $reserved, $inTransit, $warehouses, $products): ?array {
             [$warehouseId, $productId] = array_map('intval', explode(':', $key));
@@ -51,16 +51,16 @@ class StockPositionService
             $physical = round((float) ($onHand[$key]->quantity ?? 0), 3);
             $committed = round((float) ($reserved[$key]->quantity ?? 0), 3);
             $incoming = round(max(0, (float) ($inTransit[$key]->quantity ?? 0)), 3);
-            $available = round($physical - $committed, 3);
+            $available = $warehouse->is_usable ? round($physical - $committed, 3) : 0;
 
             return [
-                'warehouse' => $warehouse->only(['id', 'code', 'name']),
-                'product' => $product->only(['id', 'sku', 'name', 'track_serials']),
+                'warehouse' => $warehouse->only(['id', 'code', 'name', 'is_usable']),
+                'product' => $product->only(['id', 'sku', 'name', 'track_serials', 'unit']),
                 'on_hand' => $physical,
                 'reserved' => $committed,
                 'available' => $available,
                 'in_transit' => $incoming,
-                'projected' => round($available + $incoming, 3),
+                'projected' => ($warehouse->is_usable ? round($available + $incoming, 3) : 0),
                 'inbound_order_count' => (int) ($inTransit[$key]->order_count ?? 0),
                 'next_delivery_date' => $inTransit[$key]->next_delivery_date ?? null,
             ];

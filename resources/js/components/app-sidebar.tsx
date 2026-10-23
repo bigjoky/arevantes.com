@@ -1,6 +1,7 @@
-import { Link, usePage } from '@inertiajs/react';
+import { Link, router, usePage } from '@inertiajs/react';
 import {
     BadgeEuro,
+    ChevronDown,
     BookOpenText,
     Boxes,
     BriefcaseBusiness,
@@ -10,6 +11,8 @@ import {
     ChartNoAxesCombined,
     ChartSpline,
     Headphones,
+    Home,
+    FileText,
     LayoutGrid,
     Scale,
     Settings2,
@@ -21,9 +24,15 @@ import {
     Wrench,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import AppLogo from '@/components/app-logo';
+import AppLogoIcon from '@/components/app-logo-icon';
 import { NavMain } from '@/components/nav-main';
-import { NavUser } from '@/components/nav-user';
+import { useShellContext } from '@/components/shell-context';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import {
     Sidebar,
     SidebarContent,
@@ -37,6 +46,8 @@ import { dashboard } from '@/routes';
 import type { NavItem, WorkspaceNavItem } from '@/types';
 
 const icons: Record<string, LucideIcon> = {
+    home: Home,
+    'file-text': FileText,
     'badge-euro': BadgeEuro,
     'book-open-text': BookOpenText,
     boxes: Boxes,
@@ -59,6 +70,7 @@ const icons: Record<string, LucideIcon> = {
 };
 
 const toNavItem = (item: WorkspaceNavItem): NavItem => ({
+    ...item,
     title: item.title,
     code: item.code,
     href: item.href,
@@ -70,24 +82,145 @@ export function AppSidebar() {
     const page = usePage();
     const navigation = page.props.auth.navigation.map(toNavItem);
 
+    const { year } = useShellContext();
+    const company = page.props.workspaceContext?.companyName;
+    const companySettings = page.props.auth.navigation
+        .flatMap((item) => item.children ?? [item])
+        .flatMap(
+            (item) => item.links ?? [{ title: item.title, href: item.href }],
+        )
+        .find((item) => item.href === '/company-fiscal');
+
     return (
-        <Sidebar collapsible="icon" variant="inset">
-            <SidebarHeader>
+        <Sidebar
+            collapsible="icon"
+            variant="sidebar"
+            className="arevantes-sidebar"
+        >
+            <div aria-hidden="true" className="sidebar-monogram">
+                <AppLogoIcon />
+            </div>
+            <SidebarHeader className="relative px-6 pt-4 pb-4 group-data-[collapsible=icon]:px-2 group-data-[collapsible=icon]:pb-4">
                 <SidebarMenu>
                     <SidebarMenuItem>
-                        <SidebarMenuButton size="lg" asChild>
-                            <Link href={dashboard()} prefetch>
-                                <AppLogo />
+                        <SidebarMenuButton
+                            asChild
+                            className="sidebar-brand h-auto rounded-none p-0 hover:bg-transparent"
+                        >
+                            <Link
+                                href={dashboard()}
+                                prefetch
+                                aria-label="AREVANTES · Inicio"
+                            >
+                                <span className="sidebar-wordmark text-[27px] font-medium tracking-[0.1em]">
+                                    AREVANTES
+                                </span>
+                                <AppLogoIcon className="hidden size-7 fill-current group-data-[collapsible=icon]:block" />
                             </Link>
                         </SidebarMenuButton>
                     </SidebarMenuItem>
                 </SidebarMenu>
             </SidebarHeader>
-            <SidebarContent>
-                <NavMain items={navigation} />
+            <SidebarContent className="relative gap-0 pb-4">
+                <nav aria-label="Navegación principal">
+                    <NavMain items={navigation} />
+                </nav>
             </SidebarContent>
-            <SidebarFooter>
-                <NavUser />
+            <SidebarFooter className="relative p-3">
+                <SidebarMenu>
+                    <SidebarMenuItem>
+                        {
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <SidebarMenuButton
+                                        aria-label="Empresa y ejercicios fiscales"
+                                        className="sidebar-company h-auto min-h-11 border border-white/15 bg-transparent px-3 py-2"
+                                    >
+                                        <Building2 className="hidden group-data-[collapsible=icon]:block" />
+                                        <span className="grid gap-0.5 group-data-[collapsible=icon]:hidden">
+                                            <span className="truncate font-semibold">
+                                                {company || 'Empresa'}
+                                            </span>
+                                            <span className="text-xs font-normal">
+                                                Ejercicio{' '}
+                                                {year ??
+                                                    page.props.workspaceContext
+                                                        ?.currentYear}
+                                            </span>
+                                        </span>
+                                        <ChevronDown className="ml-auto size-3 group-data-[collapsible=icon]:hidden" />
+                                    </SidebarMenuButton>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent
+                                    side="top"
+                                    align="start"
+                                    className="min-w-56"
+                                >
+                                    {companySettings && (
+                                        <DropdownMenuItem asChild>
+                                            <Link href={companySettings.href}>
+                                                <Settings2 />
+                                                Empresa y ejercicios fiscales
+                                            </Link>
+                                        </DropdownMenuItem>
+                                    )}
+                                    <div className="border-t px-2 py-2">
+                                        <label className="flex items-center justify-between gap-2 text-xs">
+                                            Ejercicio
+                                            <select
+                                                aria-label="Ejercicio"
+                                                className="rounded border bg-background px-2 py-1"
+                                                value={
+                                                    year ??
+                                                    page.props.workspaceContext
+                                                        ?.currentYear
+                                                }
+                                                onChange={(event) => {
+                                                    const url = new URL(
+                                                        page.url,
+                                                        window.location.origin,
+                                                    );
+                                                    url.searchParams.set(
+                                                        'year',
+                                                        event.target.value,
+                                                    );
+                                                    router.get(
+                                                        `${url.pathname}${url.search}${url.hash}`,
+                                                    );
+                                                }}
+                                            >
+                                                {Array.from(
+                                                    { length: 7 },
+                                                    (_, index) =>
+                                                        (year ??
+                                                            page.props
+                                                                .workspaceContext
+                                                                ?.currentYear ??
+                                                            new Date().getFullYear()) -
+                                                        3 +
+                                                        index,
+                                                )
+                                                    .filter(
+                                                        (value) =>
+                                                            value >= 2000 &&
+                                                            value <= 2100,
+                                                    )
+                                                    .map((value) => (
+                                                        <option
+                                                            key={value}
+                                                            value={value}
+                                                        >
+                                                            {value}
+                                                        </option>
+                                                    ))}
+                                            </select>
+                                        </label>
+                                    </div>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        }
+                    </SidebarMenuItem>
+                </SidebarMenu>
             </SidebarFooter>
         </Sidebar>
     );

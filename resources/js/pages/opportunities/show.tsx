@@ -117,15 +117,6 @@ type Opportunity = {
     }>;
 };
 
-const stageLabels: Record<string, string> = {
-    new: 'Nueva',
-    qualified: 'Cualificada',
-    survey: 'Visita técnica',
-    proposal: 'Propuesta',
-    negotiation: 'Negociación',
-    won: 'Ganada',
-    lost: 'Perdida',
-};
 const fieldLabels: Record<string, string> = {
     title: 'Título',
     owner_user_id: 'Responsable',
@@ -146,12 +137,14 @@ const fieldLabels: Record<string, string> = {
 
 export default function OpportunityShow({
     opportunity,
+    stageOptions: stageLabels,
     timeline,
     sourceOptions,
     commercialKindOptions,
     users,
 }: {
     opportunity: Opportunity;
+    stageOptions: Record<string, string>;
     timeline: TimelineItem[];
     sourceOptions: Record<string, string>;
     commercialKindOptions: Record<string, string>;
@@ -302,6 +295,7 @@ export default function OpportunityShow({
                                                             <p className="text-sm text-muted-foreground">
                                                                 {timelineDescription(
                                                                     item,
+                                                                    stageLabels,
                                                                 )}
                                                             </p>
                                                         ) : null}
@@ -959,7 +953,10 @@ function ChangeList({
     );
 }
 
-function timelineDescription(item: TimelineItem) {
+function timelineDescription(
+    item: TimelineItem,
+    stageLabels: Record<string, string>,
+) {
     if (item.type === 'stage_changed' && item.description) {
         return item.description
             .split(' → ')

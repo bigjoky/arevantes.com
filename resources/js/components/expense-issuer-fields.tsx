@@ -9,24 +9,27 @@ import { translate } from '@/i18n';
 type Candidate = {
     legal_name: string;
     trade_name: string | null;
-    source: 'expense' | 'supplier';
+    source: 'expense' | 'supplier' | 'directory';
     reference: string | null;
 };
 
 export function ExpenseIssuerFields({
     errors,
+    countries,
 }: {
     errors: Record<string, string>;
+    countries: { code: string; name: string }[];
 }) {
     const { locale } = useLocale();
     const [fields, setFields] = useState({
         taxId: '',
+        country: 'ES',
         legalName: '',
         tradeName: '',
         autoLegal: false,
         autoTrade: false,
     });
-    const { taxId, legalName, tradeName } = fields;
+    const { taxId, country, legalName, tradeName } = fields;
     const [candidates, setCandidates] = useState<Candidate[]>([]);
     const [status, setStatus] = useState<
         'idle' | 'loading' | 'ready' | 'error'
@@ -45,7 +48,7 @@ export function ExpenseIssuerFields({
 
             try {
                 const response = await fetch(
-                    `/expenses/issuer-lookup?tax_id=${encodeURIComponent(value)}`,
+                    `/expenses/issuer-lookup?tax_id=${encodeURIComponent(value)}&country=${encodeURIComponent(country)}`,
                     {
                         headers: { Accept: 'application/json' },
                         signal: controller.signal,
@@ -74,6 +77,7 @@ export function ExpenseIssuerFields({
                             current.taxId
                                 .replace(/[ .-]/g, '')
                                 .toUpperCase() !== value ||
+                            current.country !== country ||
                             current.legalName.trim() ||
                             current.tradeName.trim()
                         ) {
@@ -100,10 +104,42 @@ export function ExpenseIssuerFields({
             window.clearTimeout(timeout);
             controller.abort();
         };
-    }, [taxId]);
+    }, [taxId, country]);
 
     return (
         <div className="grid gap-4 sm:col-span-2 sm:grid-cols-2">
+            <label className="grid gap-2 text-sm">
+                {translate('Country', locale)}
+                <select
+                    name="issuer_country"
+                    className="h-9 rounded-md border bg-background px-3"
+                    value={country}
+                    onChange={(event) => {
+                        const value = event.target.value;
+                        setFields((current) => ({
+                            ...current,
+                            country: value,
+                            legalName: current.autoLegal
+                                ? ''
+                                : current.legalName,
+                            tradeName: current.autoTrade
+                                ? ''
+                                : current.tradeName,
+                            autoLegal: false,
+                            autoTrade: false,
+                        }));
+                        setCandidates([]);
+                        setStatus('idle');
+                    }}
+                >
+                    {countries.map((option) => (
+                        <option key={option.code} value={option.code}>
+                            {translate(option.name, locale)} ({option.code})
+                        </option>
+                    ))}
+                </select>
+                <InputError message={errors.issuer_country} />
+            </label>
             <div className="grid gap-2">
                 <Label htmlFor="expense-issuer-tax-id">
                     {translate('Issuer tax ID / VAT number', locale)}
@@ -116,6 +152,7 @@ export function ExpenseIssuerFields({
                     onChange={(event) => {
                         const value = event.target.value;
                         setFields((current) => ({
+                            ...current,
                             taxId: value,
                             legalName: current.autoLegal
                                 ? ''
@@ -220,7 +257,14 @@ export function ExpenseIssuerFields({
                         {candidate.trade_name
                             ? ` · ${candidate.trade_name}`
                             : ''}{' '}
-                        · {candidate.reference || translate('Supplier', locale)}
+                        ·{' '}
+                        {candidate.reference ||
+                            translate(
+                                candidate.source === 'directory'
+                                    ? 'Fiscal directory'
+                                    : 'Supplier',
+                                locale,
+                            )}
                     </Button>
                 ))}
             </div>

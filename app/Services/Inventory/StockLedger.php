@@ -8,6 +8,7 @@ use App\Models\StockBalance;
 use App\Models\StockMovement;
 use App\Models\StockMovementLine;
 use App\Models\StockReservation;
+use App\Models\Warehouse;
 use App\Services\Supply\SupplyNumber;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -20,10 +21,25 @@ class StockLedger
     public function post(array $data, int $userId): StockMovement
     {
         return DB::transaction(function () use ($data, $userId) {
+            // Serialize each transport/consumption on its real origin, including retries.
+            if (! empty($data['source_movement_id'])) {
+                StockMovement::whereKey($data['source_movement_id'])->lockForUpdate()->firstOrFail();
+            }
+            if (! empty($data['operation_key'])) {
+                $existing = StockMovement::where('operation_key', $data['operation_key'])->first();
+                if ($existing) {
+                    abort_unless($existing->created_by === $userId && $existing->installation_id === ($data['installation_id'] ?? null) && $existing->type === $data['type'] && $existing->operation_hash === SupplyOperationFingerprint::for($data), 409);
+
+                    return $existing;
+                }
+            }
+            if (in_array($data['type'], ['transfer', 'delivery', 'internal_return'], true)) {
+                abort_if($data['source_warehouse_id'] === $data['destination_warehouse_id'], 422);
+            }
             $balances = $this->lockBalances($data);
             $date = now()->format('Ymd');
             $number = $this->numbers->next("stock_movement:{$date}", "MOV-{$date}-", 'stock_movements');
-            $movement = StockMovement::create(['created_by' => $userId, 'sales_document_id' => $data['sales_document_id'] ?? null, 'purchase_document_id' => $data['purchase_document_id'] ?? null, 'installation_id' => $data['installation_id'] ?? null, 'work_order_id' => $data['work_order_id'] ?? null, 'number' => $number, 'type' => $data['type'], 'reference' => $data['reference'] ?? null, 'notes' => $data['notes'] ?? null, 'posted_at' => now()]);
+            $movement = StockMovement::create(['operation_key' => $data['operation_key'] ?? null, 'operation_hash' => ! empty($data['operation_key']) ? SupplyOperationFingerprint::for($data) : null, 'material_condition' => $data['material_condition'] ?? null, 'source_movement_id' => $data['source_movement_id'] ?? null, 'recipient_id' => $data['recipient_id'] ?? null, 'created_by' => $userId, 'sales_document_id' => $data['sales_document_id'] ?? null, 'purchase_document_id' => $data['purchase_document_id'] ?? null, 'installation_id' => $data['installation_id'] ?? null, 'work_order_id' => $data['work_order_id'] ?? null, 'number' => $number, 'type' => $data['type'], 'reference' => $data['reference'] ?? null, 'notes' => $data['notes'] ?? null, 'posted_at' => now()]);
             foreach ($data['lines'] as $input) {
                 $product = Product::findOrFail($input['product_id']);
                 if (! $product->track_stock) {
@@ -38,7 +54,7 @@ class StockLedger
                     throw ValidationException::withMessages(['lines' => __('Provide one serial number per unit for :product.', ['product' => $product->name])]);
                 }
 
-                if ($data['type'] === 'transfer') {
+                if (in_array($data['type'], ['transfer', 'delivery', 'internal_return'], true)) {
                     $this->line($movement, $data['source_warehouse_id'], $product->id, -$quantity, $input['unit_cost'] ?? null);
                     $this->applyBalance($balances[$this->balanceKey($data['source_warehouse_id'], $product->id)], -$quantity);
                     $this->line($movement, $data['destination_warehouse_id'], $product->id, $quantity, $input['unit_cost'] ?? null);
@@ -80,8 +96,14 @@ class StockLedger
     /** @return Collection<string, StockBalance> */
     private function lockBalances(array $data): Collection
     {
+        $warehouseIds = in_array($data['type'], ['transfer', 'delivery', 'internal_return'], true) ? [$data['source_warehouse_id'], $data['destination_warehouse_id']] : [$data['warehouse_id']];
+        $warehouses = Warehouse::whereIn('id', $warehouseIds)->orderBy('id')->lockForUpdate()->get()->keyBy('id');
+        $source = $data['source_warehouse_id'] ?? $data['warehouse_id'] ?? null;
+        if (in_array($data['type'], ['issue', 'transfer', 'delivery'], true) && ! $warehouses[$source]->is_usable) {
+            throw ValidationException::withMessages(['lines' => __('Quarantined material cannot be delivered or consumed.')]);
+        }
         $positions = collect($data['lines'])->flatMap(function (array $line) use ($data): array {
-            $warehouseIds = $data['type'] === 'transfer'
+            $warehouseIds = in_array($data['type'], ['transfer', 'delivery', 'internal_return'], true)
                 ? [$data['source_warehouse_id'], $data['destination_warehouse_id']]
                 : [$data['warehouse_id']];
 

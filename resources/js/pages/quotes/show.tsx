@@ -1,18 +1,20 @@
-import { Form, Head, Link, useForm } from '@inertiajs/react';
+import { Form, Head, Link, useForm, usePage } from '@inertiajs/react';
 import {
     ArrowLeft,
     CircleDollarSign,
     FileDown,
     Pencil,
     Send,
-    ShieldCheck,
     Trash2,
     Wrench,
 } from 'lucide-react';
 import { useState } from 'react';
+import { Breadcrumbs } from '@/components/breadcrumbs';
 import { FormErrorSummary } from '@/components/forms/form-layout';
 import HistoricalDocumentDate from '@/components/historical-document-date';
 import InputError from '@/components/input-error';
+import { PageShell, PaginationBar } from '@/components/page-shell';
+import { quoteUrl, quoteMoney, quoteDate } from '@/components/quotes/types';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -39,10 +41,13 @@ import type { ServiceType } from '@/lib/business-lines';
 
 type Quote = {
     id: number;
+    person_id: number | null;
+    customer_snapshot: Record<string, string | null> | null;
     number: string;
     service_type: ServiceType | null;
     version: number;
     status: string;
+    effective_status?: string;
     approval_status: string;
     approval_notes: string | null;
     approved_at: string | null;
@@ -113,6 +118,8 @@ type Quote = {
     }[];
     deliveries: {
         id: number;
+        archived_pdf_url: string | null;
+        document_version: string | null;
         recipient_email: string;
         status: string;
         sent_at: string | null;
@@ -129,6 +136,12 @@ type Quote = {
         amount: string;
         expected_margin_amount: string | null;
         change_note: string | null;
+        lines: {
+            description: string;
+            quantity: string;
+            unit_price: string;
+            total: number;
+        }[];
         created_at: string;
         created_by: { id: number; name: string } | null;
     }>;
@@ -145,10 +158,10 @@ type Quote = {
 
 const quoteStatuses = [
     ['draft', 'Borrador'],
-    ['sent', 'Enviada'],
-    ['accepted', 'Aceptada'],
-    ['rejected', 'Rechazada'],
-    ['expired', 'Caducada'],
+    ['sent', 'Enviado'],
+    ['accepted', 'Aceptado'],
+    ['rejected', 'Rechazado'],
+    ['expired', 'Caducado'],
 ] as const;
 type ProjectDefaults = {
     service_type: ServiceType | null;
@@ -228,6 +241,9 @@ export default function QuoteShow({
     projectDefaults,
     capabilities,
     availableStatuses,
+    sectionLinks,
+    quoteActivity,
+    relationPermissions,
 }: {
     quote: Quote;
     billing: BillingPlan;
@@ -237,8 +253,62 @@ export default function QuoteShow({
     projectDefaults: ProjectDefaults;
     capabilities: QuoteCapabilities;
     availableStatuses: string[];
+    quoteActivity: {
+        data: {
+            id: string;
+            type: string;
+            title: string;
+            detail: string | null;
+            actor: string | null;
+            occurred_at: string;
+        }[];
+        total: number;
+        links: { url: string | null; label: string; active: boolean }[];
+    } | null;
+    sectionLinks: Record<
+        string,
+        { url: string | null; label: string; active: boolean }[]
+    >;
+    relationPermissions: {
+        customer: boolean;
+        opportunity: boolean;
+        installation: boolean;
+        billing: boolean;
+    };
 }) {
     const { locale } = useLocale();
+    const todayKey = new Intl.DateTimeFormat('en-CA').format(new Date());
+    const eventKinds = { status: 'status', version: 'version' };
+    const page = usePage();
+    const params = new URL(page.url, 'http://localhost').searchParams;
+    const tab = params.get('tab') ?? 'summary';
+    const filters = Object.fromEntries(
+        [...params.entries()].filter(
+            ([key]) =>
+                ![
+                    'tab',
+                    'relation_page',
+                    'version_page',
+                    'activity_page',
+                    'delivery_page',
+                ].includes(key),
+        ),
+    );
+    const tabs = [
+        ['summary', 'Resumen'],
+        ['versions', 'Versiones'],
+        ...(relationPermissions.customer ? [['customer', 'Cliente']] : []),
+        ...(relationPermissions.opportunity && quote.opportunity
+            ? [['opportunity', 'Oportunidad']]
+            : []),
+        ...(relationPermissions.installation && quote.installation
+            ? [['installation', 'Proyecto / Instalación']]
+            : []),
+        ...(relationPermissions.billing ? [['billing', 'Facturación']] : []),
+        ['documents', 'Documentos'],
+        ['activity', 'Actividad'],
+        ['workflow', 'Gestión'],
+    ];
     const [projectOpen, setProjectOpen] = useState(false);
     const [billingOpen, setBillingOpen] = useState(false);
     const [billingPercentage, setBillingPercentage] = useState(
@@ -263,74 +333,269 @@ export default function QuoteShow({
         site_postal_code: projectDefaults.site_postal_code || '',
         site_country: projectDefaults.site_country || 'Spain',
     });
-    const customer = quote.customer
-        ? quote.customer.company_name ||
-          `${quote.customer.first_name} ${quote.customer.last_name || ''}`.trim()
-        : 'Legacy quote without customer';
+    const snapshotName =
+        quote.customer_snapshot?.company_name ||
+        `${quote.customer_snapshot?.first_name || ''} ${quote.customer_snapshot?.last_name || ''}`.trim();
+    const customer =
+        snapshotName ||
+        (quote.customer
+            ? quote.customer.company_name ||
+              `${quote.customer.first_name} ${quote.customer.last_name || ''}`.trim()
+            : 'Legacy quote without customer');
 
     return (
         <>
             <Head title={quote.number} />
-            <div className="flex min-w-0 flex-1 flex-col gap-6 overflow-x-hidden p-4 md:p-6">
-                <header className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                        <div className="flex items-center gap-2">
-                            <h1 className="text-xl font-semibold">
-                                {quote.number}
+            <PageShell className="quotes-workspace quotes-detail">
+                <header className="shell-page-header quotes-detail-header">
+                    <Breadcrumbs
+                        breadcrumbs={[
+                            { title: 'Comercial', href: '/commercial' },
+                            { title: 'Presupuestos', href: quoteUrl(filters) },
+                            {
+                                title: quote.number,
+                                href: quoteUrl(filters, quote.id),
+                            },
+                        ]}
+                    />
+                    <Link className="quotes-back" href={quoteUrl(filters)}>
+                        <ArrowLeft size={15} />
+                        Volver a presupuestos
+                    </Link>
+                    <div className="quotes-detail-heading">
+                        <div>
+                            <h1>
+                                {quote.number}{' '}
+                                <Badge variant="outline">
+                                    {quoteStatusLabel(
+                                        quote.effective_status ?? quote.status,
+                                    )}
+                                </Badge>
                             </h1>
-                            <Badge variant="outline">
-                                {quoteStatusLabel(quote.status)}
-                            </Badge>
+                            <p>
+                                {customer} · v{quote.version}
+                                {quote.opportunity
+                                    ? ' · ' + quote.opportunity.title
+                                    : ''}
+                            </p>
                         </div>
-                        <p className="text-sm text-muted-foreground">
-                            {customer} · version {quote.version}
+                        <div className="quotes-detail-actions">
+                            {capabilities.edit && (
+                                <Button variant="outline" asChild>
+                                    <Link href={`/quotes/${quote.id}/edit`}>
+                                        <Pencil />
+                                        Editar
+                                    </Link>
+                                </Button>
+                            )}
+                            <Form
+                                action={`/quotes/${quote.id}/duplicate`}
+                                method="post"
+                            >
+                                {({ processing }) => (
+                                    <Button
+                                        variant="outline"
+                                        disabled={processing}
+                                    >
+                                        <FileDown />
+                                        Duplicar
+                                    </Button>
+                                )}
+                            </Form>
+                            <Button variant="outline" asChild>
+                                <a
+                                    href={`/quotes/${quote.id}/pdf`}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                >
+                                    <FileDown />
+                                    Generar PDF
+                                </a>
+                            </Button>
+                            {capabilities.send && (
+                                <Button asChild>
+                                    <Link
+                                        href={quoteUrl(
+                                            filters,
+                                            quote.id,
+                                            'workflow',
+                                        )}
+                                    >
+                                        <Send />
+                                        Enviar por email
+                                    </Link>
+                                </Button>
+                            )}
+                            <details className="quotes-actions-menu">
+                                <summary>Más acciones</summary>
+                                <div>
+                                    <Link
+                                        href={quoteUrl(
+                                            filters,
+                                            quote.id,
+                                            'workflow',
+                                        )}
+                                    >
+                                        Gestión comercial
+                                    </Link>
+                                    {capabilities.exportWithoutWatermark && (
+                                        <a
+                                            href={`/quotes/${quote.id}/pdf/without-watermark`}
+                                        >
+                                            {translate(
+                                                'PDF without watermark',
+                                                locale,
+                                            )}
+                                        </a>
+                                    )}
+                                </div>
+                            </details>
+                        </div>
+                    </div>
+                </header>
+                <nav
+                    className="quotes-detail-tabs"
+                    aria-label="Secciones del presupuesto"
+                >
+                    {tabs.map(([key, label]) => (
+                        <Link
+                            key={key}
+                            href={quoteUrl(filters, quote.id, key)}
+                            aria-current={tab === key ? 'page' : undefined}
+                        >
+                            {label}
+                        </Link>
+                    ))}
+                </nav>
+                {quote.status === 'sent' &&
+                    quote.valid_until &&
+                    quote.valid_until.slice(0, 10) < todayKey && (
+                        <p className="quotes-expiry-notice">
+                            Validez vencida. El documento enviado se conserva;
+                            no puede aceptarse ni reenviarse.
                         </p>
-                        {quote.opportunity && (
+                    )}
+                {tab === 'activity' && quoteActivity && (
+                    <section className="quote-panel">
+                        <h2>Actividad del presupuesto</h2>
+                        {quoteActivity.data.map((event) => (
+                            <article
+                                className="quotes-document-row"
+                                key={event.id}
+                            >
+                                <strong>
+                                    {event.type === eventKinds.status
+                                        ? quoteStatusLabel(event.title)
+                                        : event.type === eventKinds.version
+                                          ? `v${event.title}`
+                                          : deliveryStatusLabel(event.title)}
+                                </strong>
+                                <span>{event.detail}</span>
+                                <span>{event.actor || '—'}</span>
+                                <time>{dateTime(event.occurred_at)}</time>
+                            </article>
+                        ))}
+                        {!quoteActivity.total && (
+                            <p>Sin actividad registrada.</p>
+                        )}
+                        <PaginationBar
+                            links={quoteActivity.links}
+                            total={quoteActivity.total}
+                            noun="eventos"
+                        />
+                    </section>
+                )}
+                {tab === 'summary' && (
+                    <QuoteOverview
+                        quote={quote}
+                        customer={customer}
+                        billing={billing}
+                        relationPermissions={relationPermissions}
+                        capabilities={capabilities}
+                        onProject={() => setProjectOpen(true)}
+                        filters={filters}
+                    />
+                )}
+                {tab === 'customer' && relationPermissions.customer && (
+                    <section className="quote-panel">
+                        <h2>Cliente</h2>
+                        <p>{customer}</p>
+                        <p>{quote.customer_snapshot?.tax_id}</p>
+                        <p>{quote.customer_snapshot?.email}</p>
+                        {quote.person_id && (
+                            <Link href={`/people/${quote.person_id}`}>
+                                Ver ficha de cliente
+                            </Link>
+                        )}
+                    </section>
+                )}
+                {tab === 'opportunity' &&
+                    relationPermissions.opportunity &&
+                    quote.opportunity && (
+                        <section className="quote-panel">
+                            <h2>Oportunidad</h2>
                             <Link
                                 href={`/opportunities/${quote.opportunity.id}`}
-                                className="text-xs text-muted-foreground underline-offset-4 hover:underline"
                             >
                                 {quote.opportunity.code} ·{' '}
                                 {quote.opportunity.title}
                             </Link>
-                        )}
-                    </div>
-                    <div className="flex flex-wrap justify-end gap-2">
-                        <Button variant="outline" asChild>
-                            <Link href="/quotes">
-                                <ArrowLeft /> Propuestas
-                            </Link>
-                        </Button>
-                        <Button variant="outline" asChild>
-                            <a
-                                href={`/quotes/${quote.id}/pdf`}
-                                target="_blank"
-                                rel="noreferrer"
+                        </section>
+                    )}
+                {tab === 'installation' &&
+                    relationPermissions.installation &&
+                    quote.installation && (
+                        <section className="quote-panel">
+                            <h2>Proyecto / Instalación</h2>
+                            <Link
+                                href={`/installations/${quote.installation.id}`}
                             >
-                                <FileDown /> PDF
-                            </a>
-                        </Button>
-                        {capabilities.exportWithoutWatermark && (
-                            <Button variant="outline" asChild>
-                                <a
-                                    href={`/quotes/${quote.id}/pdf/without-watermark`}
-                                >
-                                    <ShieldCheck />
-                                    {translate('PDF without watermark', locale)}
-                                </a>
-                            </Button>
+                                {quote.installation.project_reference ||
+                                    quote.installation.site_name}
+                            </Link>
+                        </section>
+                    )}
+                {tab === 'documents' && (
+                    <section className="quote-panel">
+                        <h2>Documentos enviados</h2>
+                        {quote.deliveries.map((d) => (
+                            <div className="quotes-document-row" key={d.id}>
+                                <strong>{d.document_version || '—'}</strong>
+                                <span>
+                                    {d.recipient_email} · {d.status}
+                                </span>
+                                <time>{quoteDate(d.sent_at)}</time>
+                                {d.archived_pdf_url ? (
+                                    <a
+                                        href={d.archived_pdf_url}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                    >
+                                        PDF original
+                                    </a>
+                                ) : (
+                                    <span>Sin PDF histórico archivado</span>
+                                )}
+                            </div>
+                        ))}
+                        {!quote.deliveries.length && (
+                            <p>No hay documentos enviados.</p>
                         )}
-                        {capabilities.edit && (
-                            <Button asChild>
-                                <Link href={`/quotes/${quote.id}/edit`}>
-                                    <Pencil /> Editar
-                                </Link>
-                            </Button>
-                        )}
-                    </div>
-                </header>
+                        <a
+                            href={`/quotes/${quote.id}/pdf`}
+                            target="_blank"
+                            rel="noreferrer"
+                        >
+                            PDF de la versión actual
+                        </a>
+                    </section>
+                )}
                 {quote.status === 'draft' && (
-                    <section className="rounded-lg border border-dashed bg-muted/30 p-4">
+                    <section
+                        hidden={!['workflow'].includes(tab)}
+                        data-quote-section="workflow"
+                        className="rounded-lg border border-dashed bg-muted/30 p-4"
+                    >
                         <div className="font-medium">
                             Propuesta guardada como borrador
                         </div>
@@ -344,6 +609,8 @@ export default function QuoteShow({
                 )}
                 {materialPreview.items > 0 && (
                     <section
+                        hidden={!['installation'].includes(tab)}
+                        data-quote-section="installation"
                         className={`rounded-lg border-l-4 p-4 ${materialPreview.shortage_items > 0 ? 'border-l-amber-500 bg-amber-50 dark:bg-amber-950/20' : 'border-l-green-600 bg-green-50 dark:bg-green-950/20'}`}
                     >
                         <div className="font-medium">
@@ -368,7 +635,11 @@ export default function QuoteShow({
                         )}
                     </section>
                 )}
-                <section className="rounded-lg border bg-card p-4 shadow-xs">
+                <section
+                    hidden={!['workflow'].includes(tab)}
+                    data-quote-section="workflow"
+                    className="rounded-lg border bg-card p-4 shadow-xs"
+                >
                     {capabilities.changeStatus ? (
                         <Form
                             action={`/quotes/${quote.id}/status`}
@@ -391,7 +662,10 @@ export default function QuoteShow({
                                             className="h-11 w-full rounded-md border border-input bg-background px-3 text-base font-medium shadow-xs"
                                         >
                                             <option value={quote.status}>
-                                                {quoteStatusLabel(quote.status)}
+                                                {quoteStatusLabel(
+                                                    quote.effective_status ??
+                                                        quote.status,
+                                                )}
                                             </option>
                                             {quoteStatuses
                                                 .filter(([value]) =>
@@ -409,6 +683,19 @@ export default function QuoteShow({
                                                 ))}
                                         </select>
                                     </div>
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="quote_reason">
+                                            Motivo / notas
+                                        </Label>
+                                        <Textarea
+                                            id="quote_reason"
+                                            name="reason"
+                                            maxLength={2000}
+                                        />
+                                    </div>
+                                    <InputError
+                                        message={errors.status || errors.reason}
+                                    />
                                     <Button
                                         disabled={processing}
                                         className="w-full sm:w-auto"
@@ -422,7 +709,9 @@ export default function QuoteShow({
                         <div>
                             <Label>Estado de la oferta</Label>
                             <p className="mt-2 text-base font-medium">
-                                {quoteStatusLabel(quote.status)}
+                                {quoteStatusLabel(
+                                    quote.effective_status ?? quote.status,
+                                )}
                             </p>
                             <p className="mt-1 text-sm text-muted-foreground">
                                 Este es un estado final y no admite cambios
@@ -431,7 +720,11 @@ export default function QuoteShow({
                         </div>
                     )}
                 </section>
-                <section className="grid gap-4 border-y py-4 text-sm sm:grid-cols-2 lg:grid-cols-4">
+                <section
+                    hidden={!['never'].includes(tab)}
+                    data-quote-section="never"
+                    className="grid gap-4 border-y py-4 text-sm sm:grid-cols-2 lg:grid-cols-4"
+                >
                     <Info label="Customer" value={customer} />
                     <Info
                         label="Installation"
@@ -446,7 +739,11 @@ export default function QuoteShow({
                 </section>
                 {(quote.status === 'accepted' ||
                     quote.financial_status !== 'not_required') && (
-                    <section className="grid gap-4 rounded-md border p-4 text-sm md:grid-cols-4">
+                    <section
+                        hidden={!['billing'].includes(tab)}
+                        data-quote-section="billing"
+                        className="grid gap-4 rounded-md border p-4 text-sm md:grid-cols-4"
+                    >
                         <div className="flex flex-wrap items-center gap-2 md:col-span-4">
                             <h2 className="font-semibold">
                                 Financial activation
@@ -487,7 +784,11 @@ export default function QuoteShow({
                         />
                     </section>
                 )}
-                <section className="grid gap-4 rounded-md border p-4 lg:grid-cols-[1fr_1fr]">
+                <section
+                    hidden={!['versions', 'workflow'].includes(tab)}
+                    data-quote-section="versions,activity,workflow"
+                    className="grid gap-4 rounded-md border p-4 lg:grid-cols-[1fr_1fr]"
+                >
                     <div>
                         <div className="flex flex-wrap items-center gap-2">
                             <h2 className="font-semibold">
@@ -606,30 +907,27 @@ export default function QuoteShow({
                                     Historial de estado
                                 </div>
                                 <div className="mt-2 grid gap-2">
-                                    {quote.status_history
-                                        .slice(0, 5)
-                                        .map((entry) => (
-                                            <div
-                                                key={entry.id}
-                                                className="flex flex-wrap justify-between gap-2 text-xs"
-                                            >
-                                                <span>
-                                                    {entry.from_status
-                                                        ? `${quoteStatusLabel(entry.from_status)} → `
-                                                        : ''}
-                                                    {quoteStatusLabel(
-                                                        entry.to_status,
-                                                    )}{' '}
-                                                    · {entry.channel}
-                                                </span>
-                                                <span className="text-muted-foreground">
-                                                    {entry.changed_by?.name ||
-                                                        'Cliente'}{' '}
-                                                    ·{' '}
-                                                    {dateTime(entry.changed_at)}
-                                                </span>
-                                            </div>
-                                        ))}
+                                    {quote.status_history.map((entry) => (
+                                        <div
+                                            key={entry.id}
+                                            className="flex flex-wrap justify-between gap-2 text-xs"
+                                        >
+                                            <span>
+                                                {entry.from_status
+                                                    ? `${quoteStatusLabel(entry.from_status)} → `
+                                                    : ''}
+                                                {quoteStatusLabel(
+                                                    entry.to_status,
+                                                )}{' '}
+                                                · {entry.channel}
+                                            </span>
+                                            <span className="text-muted-foreground">
+                                                {entry.changed_by?.name ||
+                                                    'Cliente'}{' '}
+                                                · {dateTime(entry.changed_at)}
+                                            </span>
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
                         )}
@@ -660,13 +958,30 @@ export default function QuoteShow({
                                     <span className="font-medium tabular-nums">
                                         {money(version.amount)}
                                     </span>
+                                    <details className="quotes-version-lines">
+                                        <summary>
+                                            Líneas de esta versión
+                                        </summary>
+                                        {version.lines?.map((line, index) => (
+                                            <div key={index}>
+                                                {line.description} ·{' '}
+                                                {line.quantity} ×{' '}
+                                                {money(line.unit_price)} ·{' '}
+                                                {money(line.total)}
+                                            </div>
+                                        ))}
+                                    </details>
                                 </div>
                             ))}
                         </div>
                     </div>
                 </section>
-                <section className="max-w-full overflow-x-auto overscroll-x-contain">
-                    <table className="w-full min-w-[48rem] text-sm">
+                <section
+                    hidden={!['summary'].includes(tab)}
+                    data-quote-section="summary"
+                    className="max-w-full overflow-x-auto overscroll-x-contain"
+                >
+                    <table className="quotes-lines-table w-full min-w-[48rem] text-sm">
                         <thead>
                             <tr className="border-b text-left text-muted-foreground">
                                 <th className="py-2">Description</th>
@@ -742,8 +1057,18 @@ export default function QuoteShow({
                                     </td>
                                     <td>{Number(line.quantity)}</td>
                                     <td>{money(line.unit_price, 3)}</td>
-                                    <td>{line.discount_percent}%</td>
-                                    <td>{line.tax_percent}%</td>
+                                    <td>
+                                        {new Intl.NumberFormat('es-ES').format(
+                                            Number(line.discount_percent),
+                                        )}
+                                        %
+                                    </td>
+                                    <td>
+                                        {new Intl.NumberFormat('es-ES').format(
+                                            Number(line.tax_percent),
+                                        )}
+                                        %
+                                    </td>
                                     <td className="text-right font-medium">
                                         {money(line.total)}
                                     </td>
@@ -751,8 +1076,36 @@ export default function QuoteShow({
                             ))}
                         </tbody>
                     </table>
+                    <div className="quotes-lines-mobile">
+                        {quote.lines.map((line) => (
+                            <article key={line.id}>
+                                <strong>{line.description}</strong>
+                                <span>
+                                    {Number(line.quantity)} ×{' '}
+                                    {money(line.unit_price)}
+                                </span>
+                                <span>
+                                    IVA{' '}
+                                    {new Intl.NumberFormat('es-ES').format(
+                                        Number(line.tax_percent),
+                                    )}
+                                    % · {money(line.total)}
+                                </span>
+                                <small>
+                                    {line.selection_mode === 'included' ||
+                                    line.is_selected
+                                        ? 'Seleccionada'
+                                        : 'No incluida'}
+                                </small>
+                            </article>
+                        ))}
+                    </div>
                 </section>
-                <section className="grid gap-6 border-t pt-5 lg:grid-cols-[1fr_22rem]">
+                <section
+                    hidden={!['never'].includes(tab)}
+                    data-quote-section="never"
+                    className="grid gap-6 border-t pt-5 lg:grid-cols-[1fr_22rem]"
+                >
                     <div>
                         <h2 className="mb-2 font-semibold">Notes</h2>
                         <p className="text-sm whitespace-pre-wrap text-muted-foreground">
@@ -771,7 +1124,11 @@ export default function QuoteShow({
                 </section>
                 {(quote.status === 'accepted' ||
                     billing.documents.length > 0) && (
-                    <section className="grid gap-5 border-t pt-5 lg:grid-cols-[minmax(18rem,.7fr)_minmax(0,1.3fr)]">
+                    <section
+                        hidden={!['billing'].includes(tab)}
+                        data-quote-section="billing"
+                        className="grid gap-5 border-t pt-5 lg:grid-cols-[minmax(18rem,.7fr)_minmax(0,1.3fr)]"
+                    >
                         <div>
                             <div className="flex items-center justify-between gap-3">
                                 <div>
@@ -952,7 +1309,11 @@ export default function QuoteShow({
                         </div>
                     </section>
                 )}
-                <section className="grid gap-6 border-t pt-5 lg:grid-cols-[minmax(20rem,.7fr)_minmax(0,1.3fr)]">
+                <section
+                    hidden={!['workflow'].includes(tab)}
+                    data-quote-section="workflow"
+                    className="grid gap-6 border-t pt-5 lg:grid-cols-[minmax(20rem,.7fr)_minmax(0,1.3fr)]"
+                >
                     {capabilities.send ? (
                         <Form
                             action={`/quotes/${quote.id}/send`}
@@ -974,6 +1335,11 @@ export default function QuoteShow({
                                 <label className="text-sm font-medium">
                                     Correo destinatario
                                 </label>
+                                <input
+                                    type="hidden"
+                                    name="expected_version"
+                                    value={quote.version}
+                                />
                                 <input
                                     name="recipient_email"
                                     type="email"
@@ -1003,7 +1369,10 @@ export default function QuoteShow({
                     )}
                     <DeliveryHistory deliveries={quote.deliveries} />
                 </section>
-                <footer className="flex flex-wrap items-end justify-between gap-4 border-t pt-5">
+                <footer
+                    hidden={tab !== 'workflow'}
+                    className="flex flex-wrap items-end justify-between gap-4 border-t pt-5"
+                >
                     {(capabilities.startProject || capabilities.convert) && (
                         <div className="flex flex-wrap gap-2">
                             {capabilities.startProject && (
@@ -1052,7 +1421,14 @@ export default function QuoteShow({
                         </Form>
                     )}
                 </footer>
-            </div>
+                {tab !== 'activity' && sectionLinks[tab] && (
+                    <PaginationBar
+                        links={sectionLinks[tab]}
+                        total={1}
+                        noun=""
+                    />
+                )}
+            </PageShell>
             <Dialog open={projectOpen} onOpenChange={setProjectOpen}>
                 <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
                     <form
@@ -1566,7 +1942,9 @@ function DeliveryHistory({ deliveries }: { deliveries: Quote['deliveries'] }) {
                             </div>
                         </div>
                         <div className="flex items-center gap-2">
-                            <Badge variant="outline">{delivery.status}</Badge>
+                            <Badge variant="outline">
+                                {deliveryStatusLabel(delivery.status)}
+                            </Badge>
                             {!delivery.revoked_at &&
                                 !['revoked', 'superseded', 'failed'].includes(
                                     delivery.status,
@@ -1619,7 +1997,7 @@ function Total({
     );
 }
 function money(value: string | number, maximumFractionDigits = 2) {
-    return new Intl.NumberFormat(undefined, {
+    return new Intl.NumberFormat('es-ES', {
         style: 'currency',
         currency: 'EUR',
         maximumFractionDigits,
@@ -1668,20 +2046,202 @@ function roundCurrency(value: number) {
 }
 function date(value: string | null) {
     return value
-        ? new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(
+        ? new Intl.DateTimeFormat('es-ES', { dateStyle: 'medium' }).format(
               new Date(`${value.slice(0, 10)}T12:00:00`),
           )
         : '—';
 }
 function dateTime(value: string) {
-    return new Intl.DateTimeFormat(undefined, {
+    return new Intl.DateTimeFormat('es-ES', {
         dateStyle: 'medium',
         timeStyle: 'short',
     }).format(new Date(value));
 }
 QuoteShow.layout = {
     breadcrumbs: [
-        { title: 'Propuestas', href: '/quotes' },
-        { title: 'Propuesta', href: '#' },
+        { title: 'Comercial', href: '/commercial' },
+        { title: 'Presupuestos', href: '/quotes' },
     ],
 };
+
+function QuoteOverview({
+    quote,
+    customer,
+    billing,
+    relationPermissions,
+    capabilities,
+    onProject,
+    filters,
+}: {
+    quote: Quote;
+    customer: string;
+    billing: BillingPlan;
+    relationPermissions: {
+        customer: boolean;
+        opportunity: boolean;
+        installation: boolean;
+        billing: boolean;
+    };
+    capabilities: QuoteCapabilities;
+    onProject: () => void;
+    filters: Record<string, string>;
+}) {
+    return (
+        <div className="quotes-summary-grid">
+            <section className="quote-panel">
+                <h2>Información del presupuesto</h2>
+                <dl className="quotes-info-grid">
+                    <Info label="Referencia" value={quote.number} />
+                    <Info
+                        label="Estado"
+                        value={quoteStatusLabel(
+                            quote.effective_status ?? quote.status,
+                        )}
+                    />
+                    <Info label="Fecha" value={quoteDate(quote.issue_date)} />
+                    <Info
+                        label="Validez"
+                        value={quoteDate(quote.valid_until)}
+                    />
+                    <Info
+                        label="Enviado"
+                        value={quoteDate(
+                            quote.deliveries.find((d) => d.sent_at)?.sent_at,
+                        )}
+                    />
+                    <Info label="Autor" value={quote.creator?.name || '—'} />
+                    <Info label="Versión" value={String(quote.version)} />
+                    <Info
+                        label="Importe total"
+                        value={quoteMoney(quote.amount)}
+                    />
+                </dl>
+            </section>
+            <section className="quote-panel">
+                <h2>Cliente</h2>
+                <strong>{customer}</strong>
+                <p>{quote.customer_snapshot?.tax_id}</p>
+                <p>{quote.customer_snapshot?.address_line_1}</p>
+                <p>{quote.customer_snapshot?.email}</p>
+                <p>{quote.customer_snapshot?.phone}</p>
+                {relationPermissions.customer && quote.person_id && (
+                    <Link href={`/people/${quote.person_id}`}>
+                        Ver ficha de cliente
+                    </Link>
+                )}
+                <h3>Autor</h3>
+                <p>{quote.creator?.name || '—'}</p>
+                {relationPermissions.opportunity && quote.opportunity && (
+                    <Link href={`/opportunities/${quote.opportunity.id}`}>
+                        {quote.opportunity.code} · {quote.opportunity.title}
+                    </Link>
+                )}
+            </section>
+            <section className="quote-panel">
+                <h2>Totales</h2>
+                <dl className="quotes-totals">
+                    <Info
+                        label="Base antes de descuentos"
+                        value={quoteMoney(quote.subtotal)}
+                    />
+                    <Info
+                        label="Descuentos"
+                        value={quoteMoney(quote.discount_amount)}
+                    />
+                    <Info
+                        label="Base imponible"
+                        value={quoteMoney(
+                            Number(quote.subtotal) -
+                                Number(quote.discount_amount),
+                        )}
+                    />
+                    <Info label="IVA" value={quoteMoney(quote.tax_amount)} />
+                    <Info label="Total" value={quoteMoney(quote.amount)} />
+                </dl>
+            </section>
+            {quote.notes && (
+                <section className="quote-panel">
+                    <h2>Notes</h2>
+                    <p className="whitespace-pre-wrap">{quote.notes}</p>
+                </section>
+            )}
+            <section className="quote-panel">
+                <h2>Versiones</h2>
+                {quote.versions.slice(0, 3).map((v) => (
+                    <div className="quotes-state-row" key={v.id}>
+                        <strong>v{v.version}</strong>
+                        <time>{quoteDate(v.created_at)}</time>
+                        <span>{quoteMoney(v.amount)}</span>
+                    </div>
+                ))}
+                <Link href={quoteUrl(filters, quote.id, 'versions')}>
+                    Ver todas las versiones
+                </Link>
+            </section>
+            <section className="quote-panel">
+                <h2>Conversión</h2>
+                {relationPermissions.installation && quote.installation ? (
+                    <Link href={`/installations/${quote.installation.id}`}>
+                        Ver proyecto
+                    </Link>
+                ) : capabilities.startProject ? (
+                    <Button onClick={onProject}>
+                        <Wrench />
+                        Crear proyecto
+                    </Button>
+                ) : (
+                    <p>
+                        La conversión requiere un presupuesto aceptado y permiso
+                        de proyectos.
+                    </p>
+                )}
+                {relationPermissions.billing && (
+                    <p>
+                        {billing.documents.length} documentos de facturación
+                        relacionados.
+                    </p>
+                )}
+            </section>
+            <section className="quote-panel">
+                <h2>Documentos</h2>
+                <a
+                    href={`/quotes/${quote.id}/pdf`}
+                    target="_blank"
+                    rel="noreferrer"
+                >
+                    PDF de la versión actual
+                </a>
+                {quote.deliveries
+                    .filter((d) => d.archived_pdf_url)
+                    .slice(0, 3)
+                    .map((d) => (
+                        <a
+                            className="quotes-document-row"
+                            href={d.archived_pdf_url!}
+                            key={d.id}
+                            target="_blank"
+                            rel="noreferrer"
+                        >
+                            {d.document_version} · {quoteDate(d.sent_at)}
+                        </a>
+                    ))}
+                <Link href={quoteUrl(filters, quote.id, 'documents')}>
+                    Ver documentos enviados
+                </Link>
+            </section>
+        </div>
+    );
+}
+
+function deliveryStatusLabel(status: string) {
+    const labels: Record<string, string> = {
+        pending: 'Pendiente',
+        sent: 'Enviado',
+        failed: 'Fallido',
+        viewed: 'Visto',
+        revoked: 'Revocado',
+        superseded: 'Sustituido',
+    };
+
+    return labels[status] ?? status;
+}

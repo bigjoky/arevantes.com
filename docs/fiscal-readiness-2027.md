@@ -1,5 +1,10 @@
 # Revisión financiera y preparación fiscal 2027
 
+Actualización de planificación, 28/09/2026: el [plan de modelos 303, 390 y 347](fiscal-models-303-390-347.md)
+desarrolla FIN-02/03/05 del roadmap, con diagnóstico adicional de libros,
+dependencias, validaciones y calendario interno. Este documento conserva la
+revisión inicial y sus evidencias; no implica que los modelos estén implementados.
+
 Fecha: 12/09/2026. Anexo de diagnóstico del [roadmap unificado](roadmap.md).
 Objetivo solicitado: funcionamiento el 01/01/2027; puesta en marcha interna
 prevista antes del 18/12/2026 para reservar margen de estabilización.
@@ -239,6 +244,27 @@ desactivar obligaciones de remisión. No se remiten facturas históricas como
 altas nuevas por hacer un backfill.
 
 ## Pruebas y puertas de salida
+
+### Ensayo PostgreSQL independiente — 05/10/2026
+
+`tests/Feature/FiscalConcurrencyTest.php` ejecuta trabajadores independientes
+de `tests/Support/fiscal-concurrency-worker.php`. Cuatro escenarios comprobados:
+borrador IVA concurrente, contabilización IVA concurrente, numeración concurrente
+y emisión directa concurrente de una misma factura (34 aserciones).
+
+La prueba solo admite PostgreSQL y una base cuyo nombre termine en
+`_concurrency_test`; reinicia esa base con datos de prueba. Nunca apuntar a una
+base de trabajo o producción. Ejecución tras crear una base temporal vacía:
+
+```sh
+DB_CONNECTION=pgsql DB_DATABASE=arevantes_fiscal_concurrency_test DB_URL='' vendor/bin/phpunit tests/Feature/FiscalConcurrencyTest.php
+```
+
+Las credenciales locales siguen en `.env`; no se incluyen en el comando ni en
+el repositorio. Ambas conexiones deben estar esperando bloqueos en
+`pg_stat_activity` antes de liberar el ejercicio. El ensayo verifica estos
+cuatro casos, no cierra FIN-01: faltan conversiones, rectificaciones, pagos,
+cierres y cobertura completa de accesos.
 
 - FIN-01: peticiones simultáneas y reintentos no renumeran ni duplican; cambio de
   empresa/proveedor no altera documentos/libros históricos; roles sin permiso

@@ -8,7 +8,9 @@ use App\Models\Opportunity;
 use App\Models\Person;
 use App\Models\SalesDocument;
 use App\Models\WorkOrder;
+use App\Services\Accounting\FinancialDashboardSummary;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
@@ -19,7 +21,7 @@ class DashboardController extends Controller
     /**
      * Show the dashboard.
      */
-    public function __invoke(): Response
+    public function __invoke(Request $request, FinancialDashboardSummary $financial): Response
     {
         $canViewCustomers = Gate::allows('manage-customers');
         $canViewInstallations = Gate::allows('view-installations');
@@ -34,7 +36,11 @@ class DashboardController extends Controller
                 ->first()
             : null;
 
+        $year = (int) ($request->validate(['year' => ['nullable', 'integer', 'min:2000', 'max:2100']])['year'] ?? now()->year);
+
         return Inertia::render('dashboard', [
+            'year' => $year,
+            'financialOverview' => fn () => $canViewFinance ? $financial->forYear($year) : null,
             'peopleSummary' => [
                 'total' => $customerCount + $staffCount,
                 'customers' => $customerCount,

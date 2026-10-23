@@ -1,19 +1,25 @@
 import { usePage } from '@inertiajs/react';
+import { Menu, MoreHorizontal } from 'lucide-react';
 import { ActionCenter } from '@/components/action-center';
 import { AreviaChat } from '@/components/arevia-chat';
-import { Breadcrumbs } from '@/components/breadcrumbs';
 import { FavoritesBar } from '@/components/favorites-bar';
 import { GlobalSearch } from '@/components/global-search';
 import { LanguageSelector } from '@/components/language-selector';
+import { NavUser } from '@/components/nav-user';
 import { QuickCreate } from '@/components/quick-create';
-import { SidebarTrigger } from '@/components/ui/sidebar';
-import type { BreadcrumbItem as BreadcrumbItemType } from '@/types';
+import { Button } from '@/components/ui/button';
+import {
+    Sheet,
+    SheetContent,
+    SheetDescription,
+    SheetHeader,
+    SheetTitle,
+    SheetTrigger,
+} from '@/components/ui/sheet';
+import { SidebarTrigger, useSidebar } from '@/components/ui/sidebar';
 
-export function AppSidebarHeader({
-    breadcrumbs = [],
-}: {
-    breadcrumbs?: BreadcrumbItemType[];
-}) {
+export function AppSidebarHeader() {
+    const { isMobile, toggleSidebar } = useSidebar();
     const { abilities } = usePage().props.auth;
     const canSearch =
         abilities.manageCustomers ||
@@ -30,23 +36,60 @@ export function AppSidebarHeader({
         abilities.viewFinance;
 
     return (
-        <>
-            <header className="flex h-16 shrink-0 items-center gap-2 border-b border-sidebar-border/50 px-3 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12 md:px-4">
-                <div className="flex min-w-0 items-center gap-2">
-                    <SidebarTrigger className="-ml-1" />
-                    <div className="hidden min-w-0 md:block">
-                        <Breadcrumbs breadcrumbs={breadcrumbs} />
-                    </div>
-                </div>
-                <div className="ml-auto flex min-w-0 items-center gap-1">
-                    <LanguageSelector />
-                    {canSearch && <GlobalSearch />}
+        <header className="shell-topbar">
+            {isMobile ? (
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={toggleSidebar}
+                    aria-label="Mostrar u ocultar la barra lateral"
+                >
+                    <Menu className="size-4" />
+                </Button>
+            ) : (
+                <SidebarTrigger />
+            )}
+            <span className="shell-mobile-wordmark">AREVANTES</span>
+            <div className="shell-search">
+                {canSearch && <GlobalSearch expanded />}
+            </div>
+            <div className="shell-topbar-actions">
+                <div className="hidden sm:block">
                     <QuickCreate />
-                    {hasActionCenter && <ActionCenter />}
-                    {abilities.useAi && <AreviaChat />}
                 </div>
-            </header>
-            <FavoritesBar />
-        </>
+                {hasActionCenter && <ActionCenter />}
+                <NavUser placement="header" />
+                <Sheet>
+                    <SheetTrigger asChild>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            aria-label="Más herramientas"
+                        >
+                            <MoreHorizontal className="size-4" />
+                        </Button>
+                    </SheetTrigger>
+                    <SheetContent className="overflow-y-auto">
+                        <SheetHeader>
+                            <SheetTitle>
+                                Herramientas del espacio de trabajo
+                            </SheetTitle>
+                            <SheetDescription>
+                                Idioma, favoritos y accesos disponibles para tu
+                                perfil.
+                            </SheetDescription>
+                        </SheetHeader>
+                        <div className="space-y-4 p-4">
+                            <LanguageSelector />
+                            <div className="sm:hidden">
+                                <QuickCreate />
+                            </div>
+                            {abilities.useAi && <AreviaChat />}
+                            <FavoritesBar />
+                        </div>
+                    </SheetContent>
+                </Sheet>
+            </div>
+        </header>
     );
 }

@@ -16,6 +16,7 @@ use App\Services\Security\SecurityEventRecorder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -25,8 +26,11 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class HrLeaveController extends Controller
 {
-    public function index(LeaveBalanceCalculator $balances, LeaveCoverageService $coverage): Response
+    public function index(LeaveBalanceCalculator $balances, LeaveCoverageService $coverage): Response|RedirectResponse
     {
+        if (Gate::denies('view-sensitive-hr')) {
+            return to_route('company.staff', ['tab' => 'absences']);
+        }
         $staff = Person::query()
             ->where('category', 'staff')
             ->with('user:id,person_id')

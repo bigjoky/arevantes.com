@@ -63,9 +63,9 @@ type MaterialPlanRow = {
     planned_quantity: number;
     actual_quantity: number;
     quantity_variance: number;
-    planned_cost: number;
-    actual_cost: number;
-    cost_variance: number;
+    planned_cost: number | null;
+    actual_cost: number | null;
+    cost_variance: number | null;
     remaining_quantity: number;
     available_quantity: number;
     reserved_quantity: number;
@@ -74,9 +74,9 @@ type MaterialPlanRow = {
     is_unplanned: boolean;
 };
 type MaterialPlan = {
-    planned_cost: number;
-    actual_cost: number;
-    variance: number;
+    planned_cost: number | null;
+    actual_cost: number | null;
+    variance: number | null;
     shortage_items: number;
     shortage_quantity: number;
     rows: MaterialPlanRow[];
@@ -133,11 +133,11 @@ type Entry = {
     started_at: string;
     ended_at: string | null;
     duration_minutes: number | null;
-    hourly_cost: string;
+    hourly_cost?: string;
     travel_km: string;
-    mileage_rate: string;
+    mileage_rate?: string;
     notes: string | null;
-    cost: number;
+    cost?: number;
     user: User;
 };
 type Checklist = {
@@ -215,7 +215,7 @@ export default function WorkOrdersIndex({
     canManage: boolean;
     canPublishCustomerDocuments: boolean;
     currentUserId: number;
-    defaults: { hourlyCost: number; mileageRate: number };
+    defaults: { hourlyCost: number | null; mileageRate: number | null };
     planningMetrics: {
         scheduled: number;
         unscheduled: number;
@@ -445,16 +445,15 @@ function WorkOrderDetail({
     canManage: boolean;
     canPublishCustomerDocuments: boolean;
     currentUserId: number;
-    defaults: { hourlyCost: number; mileageRate: number };
+    defaults: { hourlyCost: number | null; mileageRate: number | null };
     warehouses: Warehouse[];
     products: Product[];
     suppliers: Supplier[];
 }) {
     const own = order.assigned_user?.id === currentUserId || canManage;
-    const labourCost = order.time_entries.reduce(
-        (sum, e) => sum + Number(e.cost),
-        0,
-    );
+    const labourCost = order.time_entries.every((entry) => entry.cost == null)
+        ? null
+        : order.time_entries.reduce((sum, e) => sum + Number(e.cost), 0);
 
     return (
         <div className="grid gap-6">
@@ -1259,7 +1258,7 @@ function MaterialMetric({
 }: {
     label: string;
     value: string;
-    variance?: number;
+    variance?: number | null;
     attention?: boolean;
 }) {
     return (
@@ -1271,7 +1270,7 @@ function MaterialMetric({
                         ? 'text-destructive'
                         : variance === undefined || variance === 0
                           ? ''
-                          : variance > 0
+                          : (variance ?? 0) > 0
                             ? 'text-destructive'
                             : 'text-emerald-700 dark:text-emerald-400'
                 }`}
@@ -1362,9 +1361,9 @@ function MaterialForecast({ plan }: { plan: MaterialPlan }) {
                             </td>
                             <td
                                 className={`px-3 text-right font-medium ${
-                                    row.cost_variance > 0
+                                    (row.cost_variance ?? 0) > 0
                                         ? 'text-destructive'
-                                        : row.cost_variance < 0
+                                        : (row.cost_variance ?? 0) < 0
                                           ? 'text-emerald-700 dark:text-emerald-400'
                                           : ''
                                 }`}
@@ -1543,6 +1542,7 @@ function ConsumeMaterialDialog({
     remaining: number;
 }) {
     const [open, setOpen] = useState(false);
+    const [operationKey, setOperationKey] = useState(() => crypto.randomUUID());
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
@@ -1560,11 +1560,19 @@ function ConsumeMaterialDialog({
                 <Form
                     action={`/work-orders/${order.id}/materials/${reservation.id}/consume`}
                     method="post"
-                    onSuccess={() => setOpen(false)}
+                    onSuccess={() => {
+                        setOpen(false);
+                        setOperationKey(crypto.randomUUID());
+                    }}
                     className="grid gap-4"
                 >
                     {({ errors, processing }) => (
                         <>
+                            <input
+                                type="hidden"
+                                name="operation_key"
+                                value={operationKey}
+                            />
                             <div className="text-sm text-muted-foreground">
                                 Remaining reservation: {number(remaining)}
                             </div>
@@ -2158,9 +2166,10 @@ function ManualTimeDialog({
 }: {
     order: Selected;
     users: User[];
-    defaults: { hourlyCost: number; mileageRate: number };
+    defaults: { hourlyCost: number | null; mileageRate: number | null };
 }) {
     const [open, setOpen] = useState(false);
+    const canViewFinance = Boolean(usePage().props.canViewFinance);
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
@@ -2195,24 +2204,28 @@ function ManualTimeDialog({
                             name="ended_at"
                             type="datetime-local"
                         />
-                        <Field
-                            label="Hourly cost"
-                            name="hourly_cost"
-                            type="number"
-                            value={String(defaults.hourlyCost)}
-                        />
+                        {canViewFinance && (
+                            <Field
+                                label="Hourly cost"
+                                name="hourly_cost"
+                                type="number"
+                                value={String(defaults.hourlyCost)}
+                            />
+                        )}
                         <Field
                             label="Travel km"
                             name="travel_km"
                             type="number"
                             value="0"
                         />
-                        <Field
-                            label="Mileage rate"
-                            name="mileage_rate"
-                            type="number"
-                            value={String(defaults.mileageRate)}
-                        />
+                        {canViewFinance && (
+                            <Field
+                                label="Mileage rate"
+                                name="mileage_rate"
+                                type="number"
+                                value={String(defaults.mileageRate)}
+                            />
+                        )}
                     </div>
                     <Button>Add entry</Button>
                 </Form>
@@ -2321,18 +2334,21 @@ const localIso = (date: Date) => {
     return local.toISOString().slice(0, 19);
 };
 const minutes = (v: number) => `${Math.floor(v / 60)}h ${v % 60}m`;
-const money = (v: number) =>
-    new Intl.NumberFormat(undefined, {
-        style: 'currency',
-        currency: 'EUR',
-    }).format(v);
+const money = (v: number | null | undefined) =>
+    v == null
+        ? '—'
+        : new Intl.NumberFormat(undefined, {
+              style: 'currency',
+              currency: 'EUR',
+          }).format(v);
 const number = (value: number) =>
     new Intl.NumberFormat(undefined, { maximumFractionDigits: 3 }).format(
         value,
     );
 const signedNumber = (value: number) =>
     `${value > 0 ? '+' : ''}${number(value)}`;
-const signedMoney = (value: number) => `${value > 0 ? '+' : ''}${money(value)}`;
+const signedMoney = (value: number | null) =>
+    value == null ? '—' : `${value > 0 ? '+' : ''}${money(value)}`;
 WorkOrdersIndex.layout = {
     breadcrumbs: [{ title: 'Work orders', href: '/work-orders' }],
 };

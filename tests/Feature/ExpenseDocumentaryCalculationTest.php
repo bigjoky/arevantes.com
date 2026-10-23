@@ -148,7 +148,7 @@ class ExpenseDocumentaryCalculationTest extends TestCase
         $payload = $this->payload();
         ExpenseCategory::findOrFail($payload['expense_category_id'])->update(['expense_account_code' => 'MISSING-ACCOUNT']);
         $response = $this->storeWithPreview($payload);
-        $this->assertGreaterThanOrEqual(400, $response->status());
+        $response->assertRedirect()->assertSessionHasErrors('lines');
         $this->assertSame(0, Expense::count());
         $this->assertSame(0, JournalEntry::count());
     }

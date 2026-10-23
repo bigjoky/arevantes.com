@@ -86,7 +86,7 @@
 <html lang="{{ str_replace('_', '-', $locale) }}" @class(['dark' => ! $isPublicWebsite && ($appearance ?? 'system') == 'dark'])>
     <head>
         <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
         <meta name="csrf-token" content="{{ csrf_token() }}">
         <meta name="theme-color" content="#18181b">
         <link rel="manifest" href="/commercial-field.webmanifest">
@@ -127,7 +127,7 @@
         @fonts
 
         @viteReactRefresh
-        @vite(['resources/css/app.css', 'resources/js/app.tsx', "resources/js/pages/{$page['component']}.tsx"])
+        @vite(['resources/css/app.css', 'resources/js/app.tsx'])
         <x-inertia::head>
             @if ($isHomepage)
                 <title data-inertia="title">{{ $siteTitle }}</title>

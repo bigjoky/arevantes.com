@@ -5,14 +5,15 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
 
 class Expense extends Model
 {
     protected $fillable = [
-        'expense_category_id', 'supplier_id', 'installation_id', 'created_by', 'number',
+        'expense_category_id', 'supplier_id', 'creditor_account_code', 'installation_id', 'created_by', 'number',
         'type', 'document_number', 'invoice_series', 'merchant_name', 'issuer_legal_name',
-        'issuer_tax_id', 'expense_date', 'operation_date', 'due_date', 'currency_code',
+        'issuer_tax_id', 'issuer_country', 'expense_date', 'operation_date', 'due_date', 'currency_code',
         'tax_regime', 'subtotal', 'tax_amount', 'withholding_rate', 'withholding_amount',
         'deductible_expense_percent', 'amount', 'paid_amount', 'status', 'notes',
         'tax_calculation_version', 'tax_calculation_snapshot',
@@ -53,6 +54,11 @@ class Expense extends Model
     public function taxLines(): HasMany
     {
         return $this->hasMany(ExpenseTaxLine::class)->orderBy('position');
+    }
+
+    public function fiscalClassification(): HasOne
+    {
+        return $this->hasOne(ExpenseFiscalClassification::class);
     }
 
     public function payments(): HasMany

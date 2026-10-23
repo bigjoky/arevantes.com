@@ -29,6 +29,14 @@ class CommercialConversionAnalytics
         return $this->report($from, $to, $commercial->id, null, false);
     }
 
+    /** Dashboard composition reuses closure semantics without loading commercial breakdowns. */
+    public function forDashboard(AnalyticsFilter $filter): array
+    {
+        $base = $this->closedOpportunities($filter->from, $filter->to, $filter->restrictsToOwnCommercialScope() ? $filter->user->id : null, null);
+
+        return ['summary' => $this->summary($this->sourceRows($base)), 'trend' => $this->trendRows($base)];
+    }
+
     /** @return array<string, mixed> */
     private function report(CarbonInterface $from, CarbonInterface $to, ?int $commercialId, ?int $projectId, bool $includeCommercialBreakdown): array
     {

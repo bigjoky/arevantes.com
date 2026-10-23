@@ -2,9 +2,19 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\CompanyProfile;
+use App\Models\Expense;
+use App\Models\PurchaseDocument;
+use App\Models\SalesDocument;
 use App\Models\TaxReturn;
 use App\Models\TaxReturnPayment;
 use App\Services\Accounting\JournalPoster;
+use App\Services\Tax\CompanyCensus;
+use App\Services\Tax\ExpenseFiscalReview;
+use App\Services\Tax\Model303Preview;
+use App\Services\Tax\Model303Reconciliation;
+use App\Services\Tax\Model303SavedComparison;
+use App\Services\Tax\PurchaseFiscalReview;
 use App\Services\Tax\VatReport;
 use App\Services\Tax\VatSettlement;
 use Illuminate\Http\RedirectResponse;
@@ -19,19 +29,77 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class TaxController extends Controller
 {
-    public function index(Request $request, VatReport $report): Response
+    public function model303(Request $request, VatReport $report, Model303Preview $preview, ExpenseFiscalReview $review): Response
+    {
+        $data = $request->validate(['year' => ['nullable', 'integer', 'between:2020,2100'], 'quarter' => ['nullable', 'integer', 'between:1,4']]);
+        $year = (int) ($data['year'] ?? now()->year);
+        $quarter = (int) ($data['quarter'] ?? now()->quarter);
+        $books = $report->make($year, $quarter);
+        $originalBooks = $books;
+        $documents = SalesDocument::whereIn('id', collect($books['issued'])->pluck('source_id')->unique())
+            ->get(['id', 'type', 'customer_snapshot'])->mapWithKeys(fn ($document) => [$document->id => [
+                'type' => $document->type, 'country' => $document->customer_snapshot['country'] ?? null,
+            ]])->all();
+
+        $bookExpenseIds = collect($books['received'])->where('source_type', 'expense')->pluck('source_id')->unique();
+        $expenses = Expense::where(fn ($query) => $query->whereIn('id', $bookExpenseIds)
+            ->orWhereHas('fiscalClassification', fn ($classification) => $classification->where('deduction_year', $year)->where('deduction_quarter', $quarter)))
+            ->with(['taxLines', 'fiscalClassification'])->get();
+        $classifications = $expenses->mapWithKeys(fn ($expense) => ['expense:'.$expense->id => [
+            'current' => $review->isCurrent($expense), 'operation_class' => $expense->fiscalClassification?->operation_class,
+            'registered_on' => $expense->fiscalClassification?->registered_on?->toDateString(),
+            'deduction_year' => $expense->fiscalClassification?->deduction_year,
+            'deduction_quarter' => $expense->fiscalClassification?->deduction_quarter,
+        ]])->all();
+        $books['received'] = collect($books['received'])->concat($expenses
+            ->reject(fn ($expense) => $bookExpenseIds->contains($expense->id))->flatMap(fn ($expense) => $review->rows($expense)))->values();
+
+        $purchaseEvidence = app(PurchaseFiscalReview::class);
+        $bookPurchaseIds = collect($books['received'])->where('source_type', 'purchase_document')->pluck('source_id')->unique();
+        $purchases = PurchaseDocument::where(fn ($query) => $query->whereIn('id', $bookPurchaseIds)
+            ->orWhereHas('fiscalClassification', fn ($classification) => $classification->where('deduction_year', $year)->where('deduction_quarter', $quarter)))
+            ->with(['lines', 'fiscalClassification'])->get();
+        $classifications += $purchases->mapWithKeys(fn ($purchase) => ['purchase_document:'.$purchase->id => [
+            'current' => $purchaseEvidence->isCurrent($purchase),
+            'operation_class' => $purchase->fiscalClassification?->operation_class,
+            'registered_on' => $purchase->fiscalClassification?->registered_on?->toDateString(),
+            'deduction_year' => $purchase->fiscalClassification?->deduction_year,
+            'deduction_quarter' => $purchase->fiscalClassification?->deduction_quarter,
+            'issues' => ['purchase_review_pending', ...$purchaseEvidence->issues($purchase)],
+        ]])->all();
+        // Additional reviewed documents belong to this deduction period only. Legacy books remain unchanged.
+        $books['received'] = collect($books['received'])->concat($purchases
+            ->reject(fn ($purchase) => $bookPurchaseIds->contains($purchase->id))
+            ->flatMap(fn ($purchase) => $purchaseEvidence->rows($purchase)))->values();
+
+        $projection = $preview->make($books, $documents, $classifications);
+        $reconciliation = app(Model303Reconciliation::class)->make($originalBooks, $projection);
+        $saved = TaxReturn::where(['tax_type' => 'vat', 'year' => $year, 'quarter' => $quarter])
+            ->first(['id', 'status', 'output_vat', 'input_vat', 'result', 'snapshot']);
+
+        return Inertia::render('tax/model303', ['preview' => $projection,
+            'reconciliation' => $reconciliation,
+            'savedComparison' => app(Model303SavedComparison::class)->make($saved, $originalBooks, $reconciliation),
+            'census' => app(CompanyCensus::class)->check(CompanyProfile::firstOrFail(), $year)]);
+    }
+
+    public function index(Request $request, VatReport $report, VatSettlement $settlement): Response
     {
         [$year, $quarter] = $this->period($request);
+        $data = $report->make($year, $quarter);
+        $taxReturn = $quarter ? TaxReturn::with(['journalEntry:id,number', 'payments:id,tax_return_id,paid_on,amount,method,reference'])->where(['tax_type' => 'vat', 'year' => $year, 'quarter' => $quarter])->first() : null;
 
         return Inertia::render('tax/index', [
-            ...$report->make($year, $quarter),
+            ...$data,
+            'settlementPreview' => $quarter ? $settlement->preview($data) : null,
             'initialSection' => match ($request->route()->getName()) {
                 'tax.issued' => 'issued',
                 'tax.received' => 'received',
                 default => 'summary',
             },
             'canManageTax' => $request->user()->can('manage-tax'),
-            'taxReturn' => $quarter ? TaxReturn::with(['journalEntry:id,number', 'payments:id,tax_return_id,paid_on,amount,method,reference'])->where(['tax_type' => 'vat', 'year' => $year, 'quarter' => $quarter])->first() : null,
+            'taxReturn' => $taxReturn,
+            'settlementReadiness' => $taxReturn && in_array($taxReturn->status, ['draft', 'approved'], true) ? $settlement->readiness($taxReturn, $data) : null,
         ]);
     }
 
@@ -39,6 +107,21 @@ class TaxController extends Controller
     {
         $data = $request->validate(['year' => ['required', 'integer', 'between:2020,2100'], 'quarter' => ['required', 'integer', 'between:1,4']]);
         $settlement->prepare((int) $data['year'], (int) $data['quarter'], $request->user()->id);
+
+        return back()->with('toast', ['type' => 'success', 'message' => __('VAT settlement draft created.')]);
+    }
+
+    public function review(Request $request, TaxReturn $taxReturn, VatSettlement $settlement): RedirectResponse
+    {
+        $data = $request->validate(['reason' => ['required', 'string', 'max:1000'], 'refresh' => ['nullable', 'boolean']]);
+        $settlement->review($taxReturn, $request->user()->id, $data['reason'], (bool) ($data['refresh'] ?? false));
+
+        return back()->with('toast', ['type' => 'success', 'message' => __('VAT settlement review saved.')]);
+    }
+
+    public function post(Request $request, TaxReturn $taxReturn, VatSettlement $settlement): RedirectResponse
+    {
+        $settlement->post($taxReturn, $request->user()->id);
 
         return back()->with('toast', ['type' => 'success', 'message' => __('VAT return prepared and settlement entry posted.')]);
     }
@@ -127,9 +210,17 @@ class TaxController extends Controller
         return response()->streamDownload(function () use ($data, $book) {
             $out = fopen('php://output', 'w');
             fwrite($out, "\xEF\xBB\xBF");
-            fputcsv($out, ['date', 'number', 'tax_id', 'party', 'vat_rate', 'taxable_base', 'vat', 'total'], ';');
+            $headers = ['date', 'number', 'tax_id', 'party', 'vat_rate', 'taxable_base', $book === 'received' ? 'supported_vat' : 'vat', $book === 'received' ? 'base_plus_vat' : 'total'];
+            if ($book === 'received') {
+                $headers = [...$headers, 'deductible_vat', 'non_deductible_vat'];
+            }
+            fputcsv($out, $headers, ';');
             foreach ($data[$book] as $row) {
-                fputcsv($out, [$row['date'], $row['number'], $row['tax_id'], $row['party'], number_format($row['rate'], 2, ',', ''), number_format($row['base'], 2, ',', ''), number_format($row['vat'], 2, ',', ''), number_format($row['total'], 2, ',', '')], ';');
+                $values = [$row['date'], $row['number'], $row['tax_id'], $row['party'], number_format($row['rate'], 2, ',', ''), number_format($row['base'], 2, ',', ''), number_format($row['vat'], 2, ',', ''), number_format($row['total'], 2, ',', '')];
+                if ($book === 'received') {
+                    $values = [...$values, number_format($row['deductible_vat'], 2, ',', ''), number_format($row['non_deductible_vat'], 2, ',', '')];
+                }
+                fputcsv($out, $values, ';');
             }
             fclose($out);
         }, "vat-book-{$book}-{$year}".($quarter ? "-Q{$quarter}" : '').'.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);

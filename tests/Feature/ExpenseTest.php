@@ -125,7 +125,7 @@ class ExpenseTest extends TestCase
         $journalLines = $expense->accountingEntry->lines->groupBy(fn ($line) => $line->account->code);
         $this->assertSame(23.5, (float) $journalLines['472']->sum('debit'));
         $this->assertSame('22.50', $journalLines['4751']->first()->credit);
-        $creditorCode = $supplier->refresh()->payable_account_code ?: '410';
+        $creditorCode = $expense->creditor_account_code;
         $this->assertSame('158.70', $journalLines[$creditorCode]->first()->credit);
     }
 

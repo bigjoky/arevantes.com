@@ -25,6 +25,7 @@ export default function ExpenseEdit({
     categories,
     suppliers,
     installations,
+    countries,
     canUseGroupedCalculation,
 }: {
     expense: Expense;
@@ -36,6 +37,7 @@ export default function ExpenseEdit({
         project_reference: string | null;
         site_name: string | null;
     }[];
+    countries: { code: string; name: string }[];
     canUseGroupedCalculation: boolean;
 }) {
     const { locale } = useLocale();
@@ -143,6 +145,16 @@ export default function ExpenseEdit({
                 'intra_community',
                 'import',
             ].map((value) => [value, t(value)]),
+        ],
+        [
+            'issuer_country',
+            'Country',
+            [
+                ['', '—'],
+                ...countries.map(
+                    (item) => [item.code, t(item.name)] as [string, string],
+                ),
+            ],
         ],
     ];
 

@@ -17,6 +17,7 @@ use App\Services\AfterSales\ServiceWorkGenerator;
 use App\Services\AfterSales\SlaManager;
 use App\Services\Analytics\RecurringServiceEconomics;
 use App\Services\Planning\RecurringServiceCapacityForecast;
+use App\Services\Projects\ProjectWorkspace;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -30,6 +31,10 @@ class AfterSalesController extends Controller
 {
     public function index(Request $request, RecurringServiceCapacityForecast $capacity, RecurringServiceEconomics $economics): Response
     {
+        if ($request->query('view') === 'installations') {
+            return Inertia::render('after-sales/overview', app(ProjectWorkspace::class)->afterSales($request));
+        }
+
         return $this->renderWorkspace($request, $capacity, $economics, 'tickets');
     }
 
@@ -50,6 +55,8 @@ class AfterSalesController extends Controller
 
     private function renderWorkspace(Request $request, RecurringServiceCapacityForecast $capacity, RecurringServiceEconomics $economics, string $section): Response
     {
+        $context = $request->validate(['installation' => ['nullable', 'integer', 'exists:installations,id']]);
+        $installationId = $context['installation'] ?? null;
         $showsTickets = $section === 'tickets';
         $showsPlans = in_array($section, ['maintenance', 'contracts'], true);
         $showsAssets = $section === 'assets';
@@ -57,6 +64,7 @@ class AfterSalesController extends Controller
         $tickets = $showsTickets
             ? ServiceTicket::with(['installation:id,project_reference,site_name,service_type', 'assignedUser:id,name', 'workOrder:id,number,status'])
                 ->when($request->user()->hasRole('technician'), fn ($query) => $query->where(fn ($query) => $query->where('assigned_user_id', $request->user()->id)->orWhereNull('assigned_user_id')))
+                ->when($installationId, fn ($query) => $query->where('installation_id', $installationId))
                 ->orderByRaw("case priority when 'urgent' then 0 when 'high' then 1 when 'normal' then 2 else 3 end")
                 ->orderByRaw("case when status in ('resolved','closed') then 1 else 0 end")
                 ->latest()
@@ -79,6 +87,7 @@ class AfterSalesController extends Controller
                 'renewalOpportunity:id,code,title,stage',
             ])
                 ->when($request->user()->hasRole('technician'), fn ($query) => $query->where(fn ($scope) => $scope->where('assigned_user_id', $request->user()->id)->orWhereNull('assigned_user_id')))
+                ->when($installationId, fn ($query) => $query->where('installation_id', $installationId))
                 ->orderBy('next_due_on')
                 ->get()
             : collect();

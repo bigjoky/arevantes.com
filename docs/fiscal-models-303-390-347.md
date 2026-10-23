@@ -1,13 +1,141 @@
 # Plan de entrega fiscal: 303, 390 y 347
 
-Fecha de revisión: 28/09/2026. Anexo ejecutable del [roadmap unificado](roadmap.md),
-no un roadmap paralelo. Estado: **planificado, no implementado ni presentado**.
+Fecha de revisión: 05/10/2026. Anexo ejecutable del [roadmap unificado](roadmap.md),
+no un roadmap paralelo. Estado: **303 con proyección preliminar en develop;
+390/347 planificados. Ningún modelo está listo para presentación oficial**.
 Responsable técnico: desarrollo de Arevantes. La aplicabilidad, los casos fiscales
 de referencia y la aprobación de declaraciones requieren validación de la empresa
 y su asesoría. Ninguna publicación habilita envíos o pagos reales automáticamente.
 
 ## Objetivo y secuencia
 
+Dependencia ACC-PGC.01 (05/10): revisión del PGC y corrección del circuito de
+proveedores/acreedores y motor de asientos. Evidencia en
+[revisión contable](accounting-pgc-review-2026-10-05.md). No modifica las casillas
+del 303 ni convierte el diagnóstico en declaración oficial. Recuperar maestros
+no concilia automáticamente los saldos de facturas antiguas. ACC-PGC.02 y la
+validación de naturaleza/IVA por documento son puertas previas a la preparación
+fiscal nueva; conservar históricos y declaraciones protegidas. Se mantiene el
+orden 303, 390 y 347 en el único roadmap integrado.
+
+Comparación de liquidación guardada (05/10): nueva sección en el 303, develop,
+con cuotas y saldo de la liquidación contable del mismo periodo frente a la
+proyección. Se compara el snapshot de libros compatible con sus datos actuales,
+incluyendo cambios documentales sin variación monetaria. Evidencia antigua
+incompleta/desconocida no se trata como cero ni se declara coincidente. El saldo
+provisional no se etiqueta como casilla 71: las
+[instrucciones AEAT 2026, 2T–4T](https://sede.agenciatributaria.gob.es/Sede/todas-gestiones/impuestos-tasas/iva/modelo-303-iva-autoliquidacion_/instrucciones-2026/instrucciones-02-12-2t-4t-2026.html)
+definen ajustes, compensaciones y situaciones adicionales para el resultado.
+Alcance contable diagnóstico, no formulario oficial guardado. Ni preparar ni
+presentar, tampoco rectificar automáticamente una liquidación protegida.
+Siguiente: resolución auditada de diferencias y revisión del IVA devengado;
+posteriormente expediente fiscal/versiones y controles de resultado, compensaciones
+y validación de casillas antes de generar ficheros oficiales.
+
+Conciliación, primera fase diagnóstica (05/10): comparación en la pantalla del
+303 entre cuotas candidatas, libros originales y saldos contables. Desglose de
+diferencias por documento, sumado en céntimos, incluyendo pendientes y cambios
+de periodo. Diferencias netas cero no ocultan documentos excluidos o incorporados;
+resúmenes incompatibles con sus filas quedan como diferencia sin explicar.
+Solo lectura, sin alterar libros ni preparar/asentar liquidaciones. Las
+liquidaciones existentes mantienen su lógica compatible por fecha de factura.
+No sustituirla con candidatos del 303 mientras falten clases/regímenes. Coincidir
+no equivale a validación fiscal; `ready=false` siempre. Pendiente comparar borradores
+persistidos, resolver diferencias de manera auditada y definir la puerta nueva
+de preparación fiscal, conservando el flujo contable compatible y su evidencia.
+Referencia contrastada: [AEAT, IVA deducible 2026](https://sede.agenciatributaria.gob.es/Sede/iva/pre-303/2026/iva-deducible.html).
+
+Periodo de deducción de gastos (05/10), proyección v4: referencia documental,
+fecha de registro y periodo explícitos desde `/tax/expenses/{expense}/classification`.
+Base documental completa y cuota realmente deducible, conservando deducción
+parcial. Mismas reglas de compras para cronología y protección del origen,
+registro y asignación anterior/nueva. Revisiones sin periodo requieren nueva
+confirmación; no se rellenan registros históricos. Documentos diferidos se
+incluyen una sola vez en destino, sin modificar factura, pagos ni asientos.
+Evidencia obsoleta permanece pendiente también en destino. Alcance 2026, 2T–4T;
+sin preparación ni presentación oficial. Próxima prioridad: reconciliar esta
+proyección con libros y liquidaciones compatibles, mostrando diferencias y
+bloqueando preparación mientras existan discrepancias no justificadas.
+
+Periodo de deducción de compras (05/10): fecha de registro y trimestre explícitos,
+auditados, sin cambiar la fecha de factura ni el libro compatible. Se incluyen
+compras revisadas por su periodo de deducción, aunque su fecha de factura quede
+fuera del trimestre; origen muestra asignación a otro periodo sin duplicar cuotas.
+Revisiones anteriores sin esos datos requieren confirmación nueva. Evidencia
+obsoleta queda visible como pendiente también en el destino. Registro posterior
+o igual a factura y no futuro; trimestre de deducción no anterior al registro.
+Primer alcance: mismo ejercicio 2026, diseños 2T–4T; revisión interior soportada
+sin portes/diferencias y con deducción íntegra. Origen, mes registral, destino
+anterior y nuevo protegidos contra cierres/declaraciones preparadas o presentadas.
+No reubica facturas de periodos contables ya protegidos. Gastos completados en v4;
+ejercicios posteriores siguen pendientes; también reconciliación de esta proyección con
+libros y liquidaciones compatibles antes de habilitar presentación oficial.
+
+Revisión de compras (05/10), evolución del diagnóstico: clasificación persistida
+y auditada desde `/tax/purchases/{purchaseDocument}/classification`. Confirma
+documento cotejado, moneda EUR, régimen interior general sin caja, clase única,
+IVA íntegramente deducible y mismo trimestre. Corriente/inversión/pendiente;
+autor, motivo, referencia y snapshot conservados, con control de versión del
+formulario. Casillas candidatas 28/29 y 30/31 solo con revisión vigente y desglose
+exacto 4/10/21, sin portes ni diferencias; líneas libres admitidas. Cambios
+fiscales invalidan revisión, no pagos/recepciones. Periodos y liquidaciones
+protegidos bloquean nuevas revisiones. Alcance pendiente: deducción parcial,
+deducción posterior con periodo registral propio, portes documentados,
+rectificativas y regímenes especiales. No modifica libros ni habilita envíos.
+Referencia: [AEAT, IVA deducible 2026](https://sede.agenciatributaria.gob.es/Sede/iva/pre-303/2026/iva-deducible.html).
+
+Diagnóstico de compras (05/10): evidencia recibida del 303 explica los bloqueos
+documentales de cada factura y enlaza su ficha. Comprueba snapshot de proveedor,
+número de factura, registro, país, portes, tipos y coherencia exacta de importes
+de líneas/cabecera, incluidas líneas libres sin inventario. No recalcula IVA ni
+convierte en evidencia fiscal el 21 % estimado de portes del libro compatible.
+Incluso sin incidencias de desglose, la compra permanece pendiente de revisión
+de clasificación, deducción y periodo registral. No hay asignación automática,
+persistencia de revisión ni nuevas casillas oficiales en este incremento.
+Próximo paso: revisión auditada de compras; después portes/diferencias con
+asignación documental, deducción parcial y periodos de deducción posteriores.
+
+Perfil censal inicial (05/10): `/company-fiscal/census`, anual, sin valores
+afirmativos por defecto. Guarda borradores y versiones revisadas con referencia,
+autor, motivo y snapshot de identidad. Revisión humana, no consulta ni alta AEAT.
+El 303 separa perfil vigente de alcance técnico admitido. La identidad fiscal
+modificada o un borrador más reciente dejan el perfil sin revisión vigente.
+Guardar no modifica libros, liquidaciones, pagos ni declaraciones. No se deduce
+automáticamente obligación/exoneración del 390 o del 347. Cambios dentro del año,
+situaciones adicionales de identificación oficial y regímenes fuera del alcance
+requieren ampliar el perfil por periodos antes de habilitar presentación.
+
+Segundo incremento 05/10: clasificación fiscal persistida de gastos en
+`/tax/expenses/{expense}/classification`, enlazada desde documentos del 303.
+Solo administradores; corriente / inversión / pendiente, autor, motivo y
+confirmación explícita del territorio IVA, régimen sin caja, clase única y
+deducción en el mismo periodo de la factura. Casillas candidatas 28/29 y 30/31
+desde evidencia documental agrupada válida: base completa y cuota deducible.
+La factura modificada deja la clasificación obsoleta. Se puede volver a pendiente
+sin borrar el historial. No cambia importes, pagos, cuentas ni liquidaciones.
+Periodo cerrado o liquidación preparada/presentada impiden nuevas revisiones.
+Quedan fuera las compras, facturas mixtas, cuotas deducibles cero, regímenes
+especiales, rectificaciones recibidas y deducciones en periodos posteriores.
+No equivale a perfil censal aprobado ni a modelo presentable.
+
+Referencia adicional: [Pre303 de AEAT, datos de liquidación 2026](https://sede.agenciatributaria.gob.es/Sede/iva/pre-303/servicios-especificos-sii/2026-notas/datos-liquidacion.html).
+Reglas de cálculo por casilla: [IVA deducible Pre303 2026](https://sede.agenciatributaria.gob.es/Sede/iva/pre-303/2026/iva-deducible.html).
+
+Incremento 05/10: `/tax/models/303`, accesible a administradores desde IVA,
+documento de trabajo de solo lectura basado en instrucciones AEAT 2T–4T/2026.
+Casillas candidatas 01–09 y 14/15 con evidencia documental y céntimos originales.
+Solo candidatos con snapshot de país ES y tipo 4/10/21; territorio, régimen y
+devengo siguen sujetos a validación. No equivalen a clasificación fiscal aprobada.
+Operaciones a tipo cero, exentas, extranjeras, sin identidad y tipos desconocidos
+quedan pendientes. Compras/gastos no se asignan indiscriminadamente a 28/29:
+requieren clase de operación, corriente/inversión y periodo de deducción.
+Las casillas pendientes conservan valor desconocido, nunca cero ficticio.
+No hay resultado 71, compensación, exportación AEAT ni cambios en asientos/pagos.
+Próximo corte: clasificación fiscal persistida y perfil censal; después bases y
+cuotas deducibles por clase, compensaciones, totales oficiales y casos de asesoría.
+Otros ejercicios y 1T/2026 no reutilizan automáticamente este diseño.
+
+Referencia: [instrucciones oficiales AEAT 2T–4T/2026](https://sede.agenciatributaria.gob.es/Sede/todas-gestiones/impuestos-tasas/iva/modelo-303-iva-autoliquidacion_/instrucciones-2026/instrucciones-02-12-2t-4t-2026.html).
 Preparar, revisar, conciliar y conservar los tres modelos cuando correspondan al
 perfil censal. Mantener el objetivo operativo del 01/01/2027 y la puesta en marcha
 controlada del 18/12/2026. No confundir estas fechas internas con vencimientos AEAT.
@@ -58,6 +186,20 @@ Brechas observadas que se convierten en tareas FIN-02:
   de deducción/devengo, sin desplazar fechas originales para encajar trimestres.
 - `VatSettlement::prepare` sincroniza contabilidad y genera asiento: separar
   vista previa sin escrituras, revisión, aprobación y contabilización explícita.
+  Incremento 04/10 en develop: vista previa de asiento sin escrituras y retirada
+  de sincronización implícita al preparar; exige conciliación previa. Continúan
+  pendientes aprobación separada, concurrencia y snapshot de fuentes/versiones.
+  Segundo incremento 04/10 en develop: borrador, aprobación motivada y
+  contabilización independientes; fuentes de libros y cuentas conservadas con
+  huella, revisión invalidada por cambios y protección contra repetir el asiento.
+  Pendientes ensayos de concurrencia independientes y fuentes/versiones fiscales
+  completas; no representa todavía un modelo 303 oficial.
+  Controles previos visibles añadidos: ejercicio y periodo abiertos, cuentas
+  activas/contabilizables, equilibrio, movimientos y coincidencia de evidencia.
+  Se validan otra vez en servidor antes de aprobar y contabilizar.
+  Comparación documental añadida: altas/bajas/modificaciones, cambios de
+  identidad, tipos y cuotas; actualización con resumen y huella previa en el
+  historial. No sustituye la trazabilidad normativa por casillas del 303.
 - La ausencia de movimientos actualmente impide preparar una liquidación:
   soportar el escenario sin actividad cuando corresponda, sin equipararlo
   automáticamente a todas las declaraciones de resultado cero.
