@@ -3137,3 +3137,10 @@ conservando el trabajo local y el hotfix anterior. Sin migraciones nuevas ni
 infraestructura adicional. Las validaciones físicas de UI-PWA-09 y las demás
 capacidades pendientes continúan abiertas. Evidencia de preparación y límites
 en `docs/pwa-production-release.md`; el éxito se confirma en Cloud tras CI.
+
+
+### Órdenes de trabajo: contenido cortado bajo el calendario (2026-10-24)
+
+- Implantado en local: listado y detalle apilados hasta pantallas amplias (2xl), columnas sin anchura mínima intrínseca y desplazamiento horizontal limitado a cada tabla. Cabecera del detalle adaptable a varias filas.
+- Verificación: TypeScript y ESLint correctos. Vista móvil comprobada con una orden ficticia local; pendiente publicación en producción.
+- Criterio de aceptación: listado y detalle legibles sin solapamientos ni contenido cortado en la división, manteniendo accesibles las acciones y el desplazamiento de tablas.
