@@ -3079,3 +3079,10 @@ Verificación: 12 pruebas relevantes / 66 aserciones, tipos, ESLint y revisión 
 navegador de selección y guardado de Electricidad e Instalaciones solares en el
 usuario ficticio local. Sin migraciones ni cambios a perfiles de producción
 como parte de la publicación.
+
+
+### Órdenes de trabajo: contenido cortado bajo el calendario (2026-10-24)
+
+- Implantado en local: listado y detalle apilados hasta pantallas amplias (2xl), columnas sin anchura mínima intrínseca y desplazamiento horizontal limitado a cada tabla. Cabecera del detalle adaptable a varias filas.
+- Verificación: TypeScript y ESLint correctos. La base local no contiene órdenes; pendiente comprobación visual con una orden y publicación en producción.
+- Criterio de aceptación: listado y detalle legibles sin solapamientos ni contenido cortado en la división, manteniendo accesibles las acciones y el desplazamiento de tablas.
