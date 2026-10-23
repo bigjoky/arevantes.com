@@ -19,7 +19,7 @@ import {
 import { SidebarTrigger, useSidebar } from '@/components/ui/sidebar';
 
 export function AppSidebarHeader() {
-    const { isMobile, toggleSidebar } = useSidebar();
+    const { isMobile, toggleSidebar, openMobile, mobileTriggerRef } = useSidebar();
     const { abilities } = usePage().props.auth;
     const canSearch =
         abilities.manageCustomers ||
@@ -42,6 +42,9 @@ export function AppSidebarHeader() {
                     variant="ghost"
                     size="icon"
                     onClick={toggleSidebar}
+                    ref={mobileTriggerRef}
+                    aria-expanded={openMobile}
+                    aria-haspopup="dialog"
                     aria-label="Mostrar u ocultar la barra lateral"
                 >
                     <Menu className="size-4" />

@@ -41,8 +41,8 @@ export function NavMain({
 }) {
     const page = usePage();
     const { year } = useShellContext();
-    const { state, setOpen, setOpenMobile } = useSidebar();
-    const key = `arevantes:sidebar-modules:v1:${page.props.auth.user.id}`;
+    const { state, setOpen, setOpenMobile, isMobile } = useSidebar();
+    const key = `arevantes:sidebar-modules:${isMobile ? "mobile:" : ""}v1:${page.props.auth.user.id}`;
     const read = useCallback(() => {
         try {
             return window.localStorage.getItem(key) ?? '{}';
@@ -81,7 +81,7 @@ export function NavMain({
 
         setDismissed(open ? null : { id, url: page.url });
 
-        if (open && state === 'collapsed') {
+        if (open && !isMobile && state === 'collapsed') {
             setOpen(true);
         }
     };
