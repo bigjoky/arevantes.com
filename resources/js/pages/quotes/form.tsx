@@ -1,4 +1,4 @@
-import { Head, Link, useForm } from '@inertiajs/react';
+import { Head, Link, router, useForm } from '@inertiajs/react';
 import {
     ArrowLeft,
     ChevronDown,
@@ -102,6 +102,13 @@ type Line = {
     is_selected: boolean;
     components: Component[];
 };
+type InstallationTemplate = {
+    id: number;
+    name: string;
+    service_type: ServiceType | null;
+    lines: Line[];
+};
+
 type Quote = {
     id: number;
     number: string;
@@ -136,7 +143,9 @@ export default function QuoteForm({
     defaultCustomerId,
     opportunityDraft,
     acceptancePaymentDefaults,
+    installationTemplates = [],
 }: {
+    installationTemplates?: InstallationTemplate[];
     customers: Customer[];
     installations: Installation[];
     products: Product[];
@@ -223,6 +232,119 @@ export default function QuoteForm({
                   ]
                 : [blankLine()]),
     });
+    const [selectedTemplateId, setSelectedTemplateId] = useState('');
+    const [templateName, setTemplateName] = useState('');
+    const templateForm = useForm({
+        name: '',
+        service_type: form.data.service_type,
+        lines: form.data.lines,
+    });
+    const selectedTemplate = installationTemplates.find(
+        (template) => String(template.id) === selectedTemplateId,
+    );
+    const [templateNotice, setTemplateNotice] = useState('');
+    function saveInstallationTemplate(update = false) {
+        templateForm.transform(() => ({
+            name: templateName,
+            service_type: form.data.service_type,
+            lines: form.data.lines,
+        }));
+        const options = {
+            preserveScroll: true,
+            onSuccess: () =>
+                setTemplateNotice(
+                    'Plantilla guardada. Puedes usarla en otras propuestas.',
+                ),
+        };
+
+        if (update && selectedTemplate) {
+            templateForm.put(
+                `/quote-templates/${selectedTemplate.id}`,
+                options,
+            );
+        } else {
+            templateForm.post('/quote-templates', options);
+        }
+    }
+    function applyInstallationTemplate() {
+        if (!selectedTemplate) {
+            return;
+        }
+
+        const groupPrefix = blankLine().client_key;
+        const groupKeys = new Map(
+            [
+                ...new Set(
+                    selectedTemplate.lines
+                        .map((line) => line.option_group)
+                        .filter(Boolean),
+                ),
+            ].map((group, index) => [group, `${groupPrefix}-option-${index}`]),
+        );
+        const imported = selectedTemplate.lines.map((source) => {
+            const key = blankLine().client_key;
+            const componentKeys = new Map(
+                (source.components || []).map((component, index) => [
+                    component.client_key,
+                    `${key}-component-${index}`,
+                ]),
+            );
+
+            return {
+                ...source,
+                client_key: key,
+                depth: 1,
+                option_group: source.option_group
+                    ? groupKeys.get(source.option_group) || ''
+                    : '',
+                quantity: String(source.quantity),
+                unit_price: String(source.unit_price),
+                total_with_tax:
+                    source.total_with_tax == null
+                        ? ''
+                        : String(source.total_with_tax),
+                discount_percent: String(source.discount_percent),
+                tax_percent: String(source.tax_percent),
+                components: (source.components || []).map((component) => ({
+                    ...component,
+                    client_key: componentKeys.get(component.client_key)!,
+                    parent_client_key: component.parent_client_key
+                        ? (componentKeys.get(component.parent_client_key) ??
+                          null)
+                        : null,
+                    quantity: String(component.quantity),
+                    planned_unit_cost: String(
+                        component.planned_unit_cost ?? '',
+                    ),
+                    interval_months:
+                        component.interval_months == null
+                            ? ''
+                            : String(component.interval_months),
+                })),
+            };
+        });
+        const existing = form.data.lines.filter(
+            (line) =>
+                line.description.trim() ||
+                line.product_id ||
+                line.components.length ||
+                Number(line.unit_price) ||
+                Number(line.total_with_tax),
+        );
+        form.setData((data) => ({
+            ...data,
+            service_type:
+                data.service_type || selectedTemplate.service_type || '',
+            lines: [...existing, ...imported],
+        }));
+        setExpandedLines(
+            (keys) =>
+                new Set([...keys, ...imported.map((line) => line.client_key)]),
+        );
+        setTemplateNotice(
+            `${imported.length} líneas añadidas desde «${selectedTemplate.name}». Puedes ajustarlas sin modificar la plantilla.`,
+        );
+    }
     const selectedCustomer = customers.find(
         (customer) => customer.id === Number(form.data.person_id),
     );
@@ -418,6 +540,217 @@ export default function QuoteForm({
                     className="grid gap-8"
                 >
                     <FormErrorSummary errors={form.errors} />
+                    <section className="grid gap-4 rounded-xl border bg-muted/20 p-5">
+                        <div>
+                            <h2 className="text-lg font-semibold">
+                                Instalaciones predefinidas
+                            </h2>
+                            <p className="text-sm text-muted-foreground">
+                                Añade una instalación completa y ajusta después
+                                sus líneas, cantidades y precios para este
+                                cliente.
+                            </p>
+                        </div>
+                        <div className="flex flex-wrap items-end gap-3">
+                            <label className="grid min-w-64 flex-1 gap-2 text-sm font-medium">
+                                Plantilla de instalación
+                                <select
+                                    className="h-10 rounded-md border bg-background px-3"
+                                    value={selectedTemplateId}
+                                    onChange={(event) => {
+                                        setSelectedTemplateId(
+                                            event.target.value,
+                                        );
+                                        setTemplateName(
+                                            installationTemplates.find(
+                                                (item) =>
+                                                    String(item.id) ===
+                                                    event.target.value,
+                                            )?.name || '',
+                                        );
+                                        setTemplateNotice('');
+                                    }}
+                                >
+                                    <option value="">
+                                        Selecciona una instalación
+                                    </option>
+                                    {installationTemplates.map((template) => (
+                                        <option
+                                            key={template.id}
+                                            value={template.id}
+                                        >
+                                            {template.name} ·{' '}
+                                            {template.lines.length} líneas
+                                        </option>
+                                    ))}
+                                </select>
+                            </label>
+                            <Button
+                                type="button"
+                                onClick={applyInstallationTemplate}
+                                disabled={!selectedTemplate}
+                            >
+                                Añadir líneas al presupuesto
+                            </Button>
+                        </div>
+                        {selectedTemplate && (
+                            <details className="rounded-md border bg-background p-3 text-sm">
+                                <summary className="cursor-pointer font-medium">
+                                    Ver contenido ·{' '}
+                                    {money(
+                                        calculate(
+                                            selectedTemplate.lines.map(
+                                                (line) => ({
+                                                    ...line,
+                                                    total_with_tax:
+                                                        line.total_with_tax ??
+                                                        '',
+                                                }),
+                                            ),
+                                        ).total,
+                                    )}
+                                </summary>
+                                <ul className="mt-3 grid gap-2">
+                                    {selectedTemplate.lines.map((line) => (
+                                        <li
+                                            key={line.client_key}
+                                            className="flex justify-between gap-3"
+                                        >
+                                            <span>
+                                                {line.quantity} ×{' '}
+                                                {line.description}
+                                                {line.components?.length
+                                                    ? ` · ${line.components.length} componentes`
+                                                    : ''}
+                                            </span>
+                                            <span className="shrink-0">
+                                                {money(Number(line.unit_price))}{' '}
+                                                / ud.
+                                            </span>
+                                        </li>
+                                    ))}
+                                </ul>
+                                <p className="mt-3 text-xs text-muted-foreground">
+                                    Se conservan precios, IVA, descuentos,
+                                    opciones y componentes. Las líneas actuales
+                                    del presupuesto se mantienen.
+                                </p>
+                            </details>
+                        )}
+                        {installationTemplates.length === 0 && (
+                            <p className="text-sm text-muted-foreground">
+                                Crea las líneas de tu instalación habitual y
+                                guárdalas aquí como primera plantilla.
+                            </p>
+                        )}
+                        <details className="border-t pt-3">
+                            <summary className="cursor-pointer text-sm font-medium">
+                                Guardar o actualizar una plantilla con las
+                                líneas actuales
+                            </summary>
+                            <div className="mt-3 grid gap-3">
+                                <FormErrorSummary
+                                    errors={templateForm.errors}
+                                />
+                                <label className="grid gap-2 text-sm">
+                                    Nombre de la instalación
+                                    <Input
+                                        value={templateName}
+                                        onChange={(event) =>
+                                            setTemplateName(event.target.value)
+                                        }
+                                        placeholder="Ej.: Solar 6 kW con batería"
+                                        maxLength={150}
+                                    />
+                                </label>
+                                <div className="flex flex-wrap gap-2">
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        disabled={
+                                            templateForm.processing ||
+                                            !templateName.trim()
+                                        }
+                                        onClick={() =>
+                                            saveInstallationTemplate()
+                                        }
+                                    >
+                                        Guardar como nueva plantilla
+                                    </Button>
+                                    {selectedTemplate && (
+                                        <>
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                disabled={
+                                                    templateForm.processing ||
+                                                    !templateName.trim()
+                                                }
+                                                onClick={() => {
+                                                    if (
+                                                        confirm(
+                                                            '¿Actualizar la plantilla con las líneas actuales? Las propuestas existentes se conservarán.',
+                                                        )
+                                                    ) {
+                                                        saveInstallationTemplate(
+                                                            true,
+                                                        );
+                                                    }
+                                                }}
+                                            >
+                                                Actualizar plantilla
+                                                seleccionada
+                                            </Button>
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                onClick={() => {
+                                                    if (
+                                                        confirm(
+                                                            `¿Eliminar la plantilla «${selectedTemplate.name}»? Los presupuestos existentes se conservarán.`,
+                                                        )
+                                                    ) {
+                                                        router.delete(
+                                                            `/quote-templates/${selectedTemplate.id}`,
+                                                            {
+                                                                preserveScroll: true,
+                                                                preserveState: true,
+                                                                onSuccess:
+                                                                    () => {
+                                                                        setSelectedTemplateId(
+                                                                            '',
+                                                                        );
+                                                                        setTemplateName(
+                                                                            '',
+                                                                        );
+                                                                    },
+                                                            },
+                                                        );
+                                                    }
+                                                }}
+                                            >
+                                                Eliminar plantilla
+                                            </Button>
+                                        </>
+                                    )}
+                                </div>
+                                <p className="text-xs text-muted-foreground">
+                                    Se guardan las líneas y sus componentes. Los
+                                    datos del cliente y del proyecto quedan
+                                    fuera de la plantilla. Guardar la plantilla
+                                    no crea una propuesta.
+                                </p>
+                            </div>
+                        </details>
+                        {templateNotice && (
+                            <p
+                                role="status"
+                                className="text-sm font-medium text-primary"
+                            >
+                                {templateNotice}
+                            </p>
+                        )}
+                    </section>
 
                     <FormSection
                         title={translate('Proposal context', locale)}

@@ -11,6 +11,7 @@ use App\Models\Opportunity;
 use App\Models\Person;
 use App\Models\Product;
 use App\Models\Quote;
+use App\Models\QuoteTemplate;
 use App\Models\SalesDocument;
 use App\Models\TaxRate;
 use App\Models\User;
@@ -365,6 +366,63 @@ class QuoteController extends Controller
         return to_route('installations.show', $installation)->with('toast', ['type' => 'success', 'message' => __('Project, survey and work order created.')]);
     }
 
+    public function saveTemplate(Request $request, ?QuoteTemplate $quoteTemplate = null): RedirectResponse
+    {
+        $lineFields = ['client_key', 'product_id', 'unit_id', 'tax_rate_id', 'description', 'quantity', 'unit_price', 'total_with_tax', 'discount_percent', 'tax_percent', 'selection_mode', 'option_group', 'is_selected', 'components'];
+        $componentFields = ['client_key', 'parent_client_key', 'product_id', 'unit_id', 'kind', 'fulfillment_kind', 'visibility', 'description', 'quantity', 'planned_unit_cost', 'interval_months'];
+        $request->merge(['lines' => collect($request->input('lines', []))->map(function ($line) use ($lineFields, $componentFields) {
+            if (! is_array($line)) {
+                return $line;
+            }
+            $line = collect($line)->only($lineFields)->all();
+            $line['components'] = collect($line['components'] ?? [])->map(fn ($component) => is_array($component) ? collect($component)->only($componentFields)->all() : $component)->all();
+
+            return $line;
+        })->all()]);
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:150'],
+            'service_type' => ['nullable', Rule::in(BusinessLineCatalog::INSTALLATION_TYPES)],
+            'lines' => ['required', 'array', 'min:1', 'max:100'],
+            'lines.*.client_key' => ['required', 'string', 'max:100', 'distinct'],
+            'lines.*.product_id' => ['nullable', 'exists:products,id'], 'lines.*.unit_id' => ['nullable', 'exists:units,id'],
+            'lines.*.tax_rate_id' => ['nullable', 'exists:tax_rates,id'], 'lines.*.description' => ['required', 'string'], 'lines.*.quantity' => ['required', 'numeric', 'gt:0'],
+            'lines.*.total_with_tax' => ['nullable', 'numeric', 'min:0', 'decimal:0,2'],
+            'lines.*.unit_price' => ['required', 'numeric', 'min:0', 'decimal:0,3'], 'lines.*.discount_percent' => ['required', 'numeric', 'between:0,100'], 'lines.*.tax_percent' => ['required', 'numeric', 'between:0,100'],
+            'lines.*.selection_mode' => ['sometimes', Rule::in(['included', 'optional', 'alternative'])],
+            'lines.*.option_group' => ['nullable', 'string', 'max:100'],
+            'lines.*.is_selected' => ['sometimes', 'boolean'],
+            'lines.*.components' => ['sometimes', 'array', 'max:200'],
+            'lines.*.components.*.client_key' => ['required', 'string', 'max:100'],
+            'lines.*.components.*.parent_client_key' => ['nullable', 'string', 'max:100'],
+            'lines.*.components.*.product_id' => ['nullable', 'exists:products,id'],
+            'lines.*.components.*.unit_id' => ['nullable', 'exists:units,id'],
+            'lines.*.components.*.kind' => ['required', Rule::in(['material', 'labor', 'service', 'document', 'other'])],
+            'lines.*.components.*.fulfillment_kind' => ['required', Rule::in(['stock', 'activity', 'recurring', 'none'])],
+            'lines.*.components.*.visibility' => ['required', Rule::in(['detailed', 'summary', 'hidden'])],
+            'lines.*.components.*.description' => ['required', 'string', 'max:1000'],
+            'lines.*.components.*.quantity' => ['required', 'numeric', 'gt:0'],
+            'lines.*.components.*.planned_unit_cost' => ['nullable', 'numeric', 'min:0'],
+            'lines.*.components.*.interval_months' => ['nullable', 'integer', 'between:1,120'],
+        ]);
+        foreach ($data['lines'] as $index => $line) {
+            if ((float) ($line['total_with_tax'] ?? 0) > 0 && (float) $line['discount_percent'] >= 100) {
+                throw ValidationException::withMessages(["lines.{$index}.total_with_tax" => __('A positive VAT-inclusive total requires a discount below 100%.')]);
+            }
+        }
+        $data = $this->normalizeComponentHierarchy($data);
+        $template = $quoteTemplate ?? new QuoteTemplate(['created_by' => $request->user()->id]);
+        $template->fill($data)->save();
+
+        return back()->with('toast', ['type' => 'success', 'message' => 'Plantilla de instalación guardada.']);
+    }
+
+    public function destroyTemplate(QuoteTemplate $quoteTemplate): RedirectResponse
+    {
+        $quoteTemplate->delete();
+
+        return back()->with('toast', ['type' => 'success', 'message' => 'Plantilla eliminada. Los presupuestos existentes se conservan.']);
+    }
+
     private function formData(): array
     {
         $products = Product::with(['unit:id,symbol', 'taxRate:id,rate', 'components.product.unit:id,symbol'])->where('is_active', true)->orderBy('name')->get();
@@ -375,6 +433,7 @@ class QuoteController extends Controller
             'customers' => Person::where('category', 'customer')->orderBy('company_name')->orderBy('first_name')->get(['id', 'first_name', 'last_name', 'company_name', 'payment_terms_days']),
             'installations' => Installation::orderBy('project_reference')->get(['id', 'person_id', 'project_reference', 'site_name']),
             'products' => $products,
+            'installationTemplates' => QuoteTemplate::orderBy('name')->get(['id', 'name', 'service_type', 'lines']),
             'acceptancePaymentDefaults' => config('crm.acceptance_payment'),
         ];
     }
