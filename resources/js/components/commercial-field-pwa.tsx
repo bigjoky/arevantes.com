@@ -68,7 +68,7 @@ export function CommercialFieldPwa() {
         <div className="space-y-2 text-sm">
             {!online && (
                 <p role="status" className="rounded-lg border p-3">
-                    Sin conexión. Necesitas internet para guardar visitas.
+                    Sin conexión. Necesitas internet para guardar cambios.
                     Espera la confirmación de guardado antes de cerrar la
                     aplicación.
                 </p>
@@ -86,14 +86,13 @@ export function CommercialFieldPwa() {
                         </p>
                         <p>
                             Abre el icono AREVANTES e inicia sesión con tu
-                            cuenta comercial. Marca «Recordarme» solo en tu
-                            teléfono personal. La aplicación abre directamente
-                            Actividad de campo.
+                            cuenta autorizada. Marca «Recordarme» solo en tu
+                            teléfono personal. La aplicación abre Inicio.
                         </p>
                         <p>
                             En Android: utiliza Instalar aplicación o Añadir a
                             pantalla de inicio en el menú del navegador.
-                            Necesitas conexión para guardar visitas.
+                            Necesitas conexión para guardar cambios.
                         </p>
                         {installPrompt && (
                             <Button

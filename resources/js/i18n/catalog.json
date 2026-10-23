@@ -23674,5 +23674,221 @@
     "Emitir factura": {
         "en": "Issue invoice",
         "es": "Emitir factura"
+    },
+    "Sin conexión. Necesitas internet para guardar cambios. Espera la confirmación de guardado antes de cerrar la aplicación.": {
+        "en": "Offline. You need internet to save changes. Wait for confirmation before closing the app.",
+        "es": "Sin conexión. Necesitas internet para guardar cambios. Espera la confirmación de guardado antes de cerrar la aplicación."
+    },
+    "Abre el icono AREVANTES e inicia sesión con tu cuenta autorizada. Marca «Recordarme» solo en tu teléfono personal. La aplicación abre Inicio.": {
+        "en": "Open the AREVANTES icon and sign in with your authorized account. Use Remember me only on your personal phone. The app opens Home.",
+        "es": "Abre el icono AREVANTES e inicia sesión con tu cuenta autorizada. Marca «Recordarme» solo en tu teléfono personal. La aplicación abre Inicio."
+    },
+    "En Android: utiliza Instalar aplicación o Añadir a pantalla de inicio en el menú del navegador. Necesitas conexión para guardar cambios.": {
+        "en": "On Android, use Install app or Add to Home screen in the browser menu. You need a connection to save changes.",
+        "es": "En Android: utiliza Instalar aplicación o Añadir a pantalla de inicio en el menú del navegador. Necesitas conexión para guardar cambios."
+    },
+    "Tipos de resultado": {
+        "en": "Result types",
+        "es": "Tipos de resultado"
+    },
+    "Escribe al menos dos caracteres para buscar en los registros autorizados.": {
+        "en": "Enter at least two characters to search authorized records.",
+        "es": "Escribe al menos dos caracteres para buscar en los registros autorizados."
+    },
+    "No se ha podido consultar la búsqueda. Comprueba tu conexión y vuelve a intentarlo.": {
+        "en": "Search could not be completed. Check your connection and try again.",
+        "es": "No se ha podido consultar la búsqueda. Comprueba tu conexión y vuelve a intentarlo."
+    },
+    "Vista de agenda": {
+        "en": "Agenda view",
+        "es": "Vista de agenda"
+    },
+    "Semana": {
+        "en": "Week",
+        "es": "Semana"
+    },
+    "list": {
+        "en": "list",
+        "es": "list"
+    },
+    "Próximas": {
+        "en": "Upcoming",
+        "es": "Próximas"
+    },
+    "· Próximas dentro del rango seleccionado": {
+        "en": "· Upcoming within the selected range",
+        "es": "· Próximas dentro del rango seleccionado"
+    },
+    "No hay eventos autorizados en este rango.": {
+        "en": "No authorized events in this range.",
+        "es": "No hay eventos autorizados en este rango."
+    },
+    "Cada evento conserva su origen y abre su ficha real.": {
+        "en": "Each event keeps its source and opens its record.",
+        "es": "Cada evento conserva su origen y abre su ficha real."
+    },
+    "Volver": {
+        "en": "Back",
+        "es": "Volver"
+    },
+    "Hay avisos no leídos": {
+        "en": "There are unread alerts",
+        "es": "Hay avisos no leídos"
+    },
+    "Sin conexión. No podrás guardar hasta recuperar internet.": {
+        "en": "Offline. You cannot save until your connection is restored.",
+        "es": "Sin conexión. No podrás guardar hasta recuperar internet."
+    },
+    "create": {
+        "en": "create",
+        "es": "create"
+    },
+    "menu": {
+        "en": "menu",
+        "es": "menu"
+    },
+    "search": {
+        "en": "search",
+        "es": "search"
+    },
+    "profile": {
+        "en": "profile",
+        "es": "profile"
+    },
+    "Crear": {
+        "en": "Create",
+        "es": "Crear"
+    },
+    "Acciones disponibles para tu perfil.": {
+        "en": "Actions available to your profile.",
+        "es": "Acciones disponibles para tu perfil."
+    },
+    "Menú": {
+        "en": "Menu",
+        "es": "Menú"
+    },
+    "Buscar módulos y secciones…": {
+        "en": "Search modules and sections…",
+        "es": "Buscar módulos y secciones…"
+    },
+    "Buscar módulos": {
+        "en": "Search modules",
+        "es": "Buscar módulos"
+    },
+    "Favoritos": {
+        "en": "Favorites",
+        "es": "Favoritos"
+    },
+    "Módulos de AREVANTES": {
+        "en": "AREVANTES modules",
+        "es": "Módulos de AREVANTES"
+    },
+    "No hay módulos para esta búsqueda.": {
+        "en": "No modules match this search.",
+        "es": "No hay módulos para esta búsqueda."
+    },
+    "Últimos avisos no leídos de tu cuenta. El historial completo y las prioridades están pendientes de integración.": {
+        "en": "Your latest unread alerts. Full history and priorities are not yet available.",
+        "es": "Últimos avisos no leídos de tu cuenta. El historial completo y las prioridades están pendientes de integración."
+    },
+    "Marcar todos como leídos": {
+        "en": "Mark all as read",
+        "es": "Marcar todos como leídos"
+    },
+    "No tienes avisos pendientes.": {
+        "en": "You have no pending alerts.",
+        "es": "No tienes avisos pendientes."
+    },
+    "Perfil": {
+        "en": "Profile",
+        "es": "Perfil"
+    },
+    "Cerrar sesión": {
+        "en": "Sign out",
+        "es": "Cerrar sesión"
+    },
+    "Sin conciliaciones pendientes. Otras tareas y vencimientos pendientes de integración.": {
+        "en": "No pending reconciliations. Other tasks and due dates are not yet available.",
+        "es": "Sin conciliaciones pendientes. Otras tareas y vencimientos pendientes de integración."
+    },
+    "Evolución mensual ·": {
+        "en": "Monthly trend ·",
+        "es": "Evolución mensual ·"
+    },
+    "Importes del ejercicio, calculados por el servicio contable existente.": {
+        "en": "Amounts for the fiscal year, calculated by the accounting service.",
+        "es": "Importes del ejercicio, calculados por el servicio contable existente."
+    },
+    "Ingresos, gastos y resultado mensual": {
+        "en": "Monthly income, expenses and result",
+        "es": "Ingresos, gastos y resultado mensual"
+    },
+    "Hay una nueva versión. Guarda tus cambios antes de actualizar.": {
+        "en": "A new version is available. Save your changes before updating.",
+        "es": "Hay una nueva versión. Guarda tus cambios antes de actualizar."
+    },
+    "Actualizar": {
+        "en": "Update",
+        "es": "Actualizar"
+    },
+    "Menú principal de AREVANTES": {
+        "en": "AREVANTES main menu",
+        "es": "Menú principal de AREVANTES"
+    },
+    "Navega por los módulos y secciones autorizados.": {
+        "en": "Browse authorized modules and sections.",
+        "es": "Navega por los módulos y secciones autorizados."
+    },
+    "Tu cuenta": {
+        "en": "Your account",
+        "es": "Tu cuenta"
+    },
+    "Cierra el formulario después de guardar o descartar sus cambios antes de actualizar.": {
+        "en": "Close the form after saving or discarding your changes before updating.",
+        "es": "Cierra el formulario después de guardar o descartar sus cambios antes de actualizar."
+    },
+    "Título de la tarea": {
+        "en": "Task title",
+        "es": "Título de la tarea"
+    },
+    "Media": {
+        "en": "Medium",
+        "es": "Media"
+    },
+    "Asignada a ti. Puedes vincular instalaciones y clientes desde Operaciones.": {
+        "en": "Assigned to you. You can link installations and customers from Operations.",
+        "es": "Asignada a ti. Puedes vincular instalaciones y clientes desde Operaciones."
+    },
+    "Necesitas conexión para crear la tarea.": {
+        "en": "You need a connection to create the task.",
+        "es": "Necesitas conexión para crear la tarea."
+    },
+    "Abrir Operaciones": {
+        "en": "Open Operations",
+        "es": "Abrir Operaciones"
+    },
+    "Otras acciones": {
+        "es": "Otras acciones",
+        "en": "Other actions"
+    },
+    "Espera a que termine el envío antes de cerrar.": {
+        "es": "Espera a que termine el envío antes de cerrar.",
+        "en": "Wait for the request to finish before closing."
+    },
+    "¿Descartar los cambios?": {
+        "es": "¿Descartar los cambios?",
+        "en": "Discard changes?"
+    },
+    "La tarea tiene cambios sin guardar. Si los descartas, no podrás recuperarlos.": {
+        "es": "La tarea tiene cambios sin guardar. Si los descartas, no podrás recuperarlos.",
+        "en": "The task has unsaved changes. Discarded changes cannot be recovered."
+    },
+    "Seguir editando": {
+        "es": "Seguir editando",
+        "en": "Keep editing"
+    },
+    "Descartar cambios": {
+        "es": "Descartar cambios",
+        "en": "Discard changes"
     }
 }

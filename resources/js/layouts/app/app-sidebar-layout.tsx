@@ -4,7 +4,9 @@ import { AppShell } from '@/components/app-shell';
 import { AppSidebar } from '@/components/app-sidebar';
 import { AppSidebarHeader } from '@/components/app-sidebar-header';
 import { Breadcrumbs } from '@/components/breadcrumbs';
+import { MobileExperience } from '@/components/mobile/mobile-experience';
 import { ShellContext } from '@/components/shell-context';
+import { useIsMobile } from '@/hooks/use-mobile';
 import type { AppLayoutProps } from '@/types';
 
 export default function AppSidebarLayout({
@@ -12,6 +14,7 @@ export default function AppSidebarLayout({
     breadcrumbs = [],
 }: AppLayoutProps) {
     const page = usePage();
+    const isMobile = useIsMobile(1024);
     const requestedYear = Number(
         new URL(page.url, 'http://localhost').searchParams.get('year'),
     );
@@ -27,18 +30,24 @@ export default function AppSidebarLayout({
     return (
         <ShellContext.Provider value={{ breadcrumbs, year }}>
             <AppShell variant="sidebar">
-                <AppSidebar />
+                {!isMobile && <AppSidebar />}
                 <AppContent
                     variant="sidebar"
                     className="min-w-0 overflow-x-clip"
                 >
-                    <AppSidebarHeader />
-                    {breadcrumbs.length > 0 && (
-                        <div className="shell-legacy-breadcrumbs">
-                            <Breadcrumbs breadcrumbs={breadcrumbs} />
-                        </div>
+                    {isMobile ? (
+                        <MobileExperience>{children}</MobileExperience>
+                    ) : (
+                        <>
+                            <AppSidebarHeader />
+                            {breadcrumbs.length > 0 && (
+                                <div className="shell-legacy-breadcrumbs">
+                                    <Breadcrumbs breadcrumbs={breadcrumbs} />
+                                </div>
+                            )}
+                            {children}{' '}
+                        </>
                     )}
-                    {children}
                 </AppContent>
             </AppShell>
         </ShellContext.Provider>
