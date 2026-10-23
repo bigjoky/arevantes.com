@@ -3079,3 +3079,13 @@ Verificación: 12 pruebas relevantes / 66 aserciones, tipos, ESLint y revisión 
 navegador de selección y guardado de Electricidad e Instalaciones solares en el
 usuario ficticio local. Sin migraciones ni cambios a perfiles de producción
 como parte de la publicación.
+
+## Menú móvil — 23/10/2026
+
+| ID | Estado | Dependencias | Criterio de aceptación / evidencia |
+| --- | --- | --- | --- |
+| UI-MOB-NAV-01 | Implantado local en 8000 | Radix Sheet y auth.navigation existentes | Panel fixed visible sobre overlay; cierres X/Escape/exterior/navegación, foco y scroll restaurados; navegación y permisos existentes. Ver mobile-navigation-review.md; 14 pruebas frontend y 11 pruebas de permisos (515 aserciones), tipos/lint/build correctos |
+| UI-MOB-NAV-02 | Pendiente validación en Safari iPhone y modo instalado | iPhone físico o simulador iOS disponible y sesión autorizada | Repetir aperturas, navegación, scroll, rotación y barras Safari expandidas/contraídas; controles fuera de safe areas y sin bloqueo residual. Pruebas a 320/390/820/1440 px en navegador de escritorio no equivalen a esta validación |
+
+No se añaden capacidades de negocio ni se duplican catálogos de rutas. Este corte
+permanece local y no modifica el sidebar desktop aprobado.
