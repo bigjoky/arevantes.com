@@ -28,6 +28,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 type Detail = {
+    collect_before_invoice?: boolean;
     supplier_number?: string;
     document_number?: string;
     notes: string | null;
@@ -306,7 +307,10 @@ export default function InvoiceDetail({
     const canPay =
         Number(invoice.balance) > 0 &&
         (customer
-            ? capabilities.recordReceipt && invoice.locked_at !== null
+            ? capabilities.recordReceipt &&
+              (invoice.locked_at !== null ||
+                  (detail.collect_before_invoice === true &&
+                      invoice.document_state === 'draft'))
             : capabilities.recordPayment &&
               invoice.status !== 'review_required');
     const pdf = customer
@@ -353,6 +357,14 @@ export default function InvoiceDetail({
                 ]}
                 actions={
                     <>
+                        {capabilities.correct && (
+                            <Button variant="outline" asChild>
+                                <Link href={managementHref}>
+                                    <Pencil />
+                                    Corregir factura
+                                </Link>
+                            </Button>
+                        )}
                         {capabilities.edit && (
                             <Button variant="outline" asChild>
                                 <Link

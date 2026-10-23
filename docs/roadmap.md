@@ -3021,3 +3021,13 @@ Las últimas paginaciones se verificaron adicionalmente con la selección dirigi
 La migración fue aplicada únicamente a PostgreSQL local. No se crearon registros
 de negocio de demostración en esa base; fixtures y cargas de prueba se ejecutaron
 en SQLite aislado y almacenamiento temporal.
+
+## Publicación general solicitada — 23/10/2026
+
+El usuario autoriza publicar el diseño acumulado y continuar los detalles por
+incrementos. Candidato reconciliado con `develop` y las funciones vigentes de
+`main`; copia privada previa verificada y tablas nuevas protegidas frente a
+API pública. Ver [registro de lanzamiento](release-general-redesign-2026-10-23.md).
+Las limitaciones de UI-COMP y de cada sección siguen abiertas; la publicación
+no las convierte en capacidades implantadas. Confirmación productiva pendiente
+del despliegue y smoke tests, sin datos locales de demostración.

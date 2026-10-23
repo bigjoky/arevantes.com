@@ -16,10 +16,11 @@ use App\Http\Controllers\BillingWorkspaceController;
 use App\Http\Controllers\CatalogController;
 use App\Http\Controllers\ChartOfAccountsController;
 use App\Http\Controllers\CommercialDashboardController;
+use App\Http\Controllers\CommercialFieldController;
 use App\Http\Controllers\CompanyCensusController;
 use App\Http\Controllers\CompanyDocumentController;
+use App\Http\Controllers\CompanyStaffController;
 use App\Http\Controllers\CompanyWorkspaceController;
-use App\Http\Controllers\CommercialFieldController;
 use App\Http\Controllers\CorporateTaxController;
 use App\Http\Controllers\CrmSettingsController;
 use App\Http\Controllers\CustomerConsentController;
@@ -153,8 +154,8 @@ Route::middleware(['auth'])->group(function () {
     Route::middleware(CompanyWorkspaceContext::class)->group(function () {
         Route::get('company', [CompanyWorkspaceController::class, 'index'])->name('company.index');
         Route::get('company/staff', [CompanyWorkspaceController::class, 'index'])->name('company.staff');
-        Route::post('company/staff', [\App\Http\Controllers\CompanyStaffController::class, 'store'])->middleware('can:manage-staff')->name('company.staff.store');
-        Route::put('company/staff/{staff}', [\App\Http\Controllers\CompanyStaffController::class, 'update'])->middleware('can:manage-staff')->name('company.staff.update');
+        Route::post('company/staff', [CompanyStaffController::class, 'store'])->middleware('can:manage-staff')->name('company.staff.store');
+        Route::put('company/staff/{staff}', [CompanyStaffController::class, 'update'])->middleware('can:manage-staff')->name('company.staff.update');
         Route::get('company/staff/{staff}', [CompanyWorkspaceController::class, 'staff'])->name('company.staff.show');
         Route::get('company/documents', [CompanyWorkspaceController::class, 'index'])->name('company.documents');
         Route::get('company/settings', [CompanyWorkspaceController::class, 'index'])->name('company.settings');
@@ -517,7 +518,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('purchases', [PurchaseController::class, 'store'])->middleware('can:manage-purchases')->name('purchases.store');
     Route::get('purchases/{purchaseDocument}/edit', [PurchaseController::class, 'edit'])->middleware('can:manage-purchases')->name('purchases.edit');
     Route::put('purchases/{purchaseDocument}', [PurchaseController::class, 'update'])->middleware('can:manage-purchases')->name('purchases.update');
-Route::get('purchases/{purchaseDocument}', [SupplyWorkspaceController::class, 'purchaseShow'])->middleware('can:view-purchases')->name('purchases.show');
+    Route::get('purchases/{purchaseDocument}', [SupplyWorkspaceController::class, 'purchaseShow'])->middleware('can:view-purchases')->name('purchases.show');
     Route::patch('purchases/{purchaseDocument}/dates', [PurchaseController::class, 'correctDates'])->middleware('can:manage-purchases')->name('purchases.dates.update');
     Route::post('purchases/{purchaseDocument}/convert', [PurchaseController::class, 'convert'])->middleware('can:manage-purchases')->name('purchases.convert');
     Route::post('purchases/{purchaseDocument}/receive', [PurchaseController::class, 'receive'])->middleware('can:receive-purchases')->name('purchases.receive');

@@ -22,6 +22,7 @@ use App\Services\Documents\PurchaseWorkflow;
 use App\Services\Documents\SupplierInvoiceExtraction;
 use App\Services\Inventory\ProjectMaterialAllocator;
 use App\Services\Inventory\StockLedger;
+use App\Services\Inventory\SupplyOperationFingerprint;
 use App\Support\HistoricalDocumentDate;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -175,7 +176,7 @@ class PurchaseController extends Controller
     public function receive(Request $request, PurchaseDocument $purchaseDocument, StockLedger $ledger, ProjectMaterialAllocator $allocator): RedirectResponse
     {
         abort_unless($purchaseDocument->type === 'purchase_order', 422);
-        abort_if(!in_array($purchaseDocument->status, ['ordered', 'partially_received'], true) && !$request->filled('operation_key'), 422);
+        abort_if(! in_array($purchaseDocument->status, ['ordered', 'partially_received'], true) && ! $request->filled('operation_key'), 422);
         $data = $request->validate([
             'operation_key' => ['nullable', 'uuid'],
             'warehouse_id' => ['required', 'exists:warehouses,id'],
@@ -198,7 +199,8 @@ class PurchaseController extends Controller
             if (! empty($data['operation_key'])) {
                 $existing = DB::table('purchase_receipt_requests')->where('operation_key', $data['operation_key'])->first();
                 if ($existing) {
-                    abort_unless($existing->purchase_document_id === $order->id && $existing->created_by === $request->user()->id && $existing->operation_hash === \App\Services\Inventory\SupplyOperationFingerprint::for($data), 409);
+                    abort_unless($existing->purchase_document_id === $order->id && $existing->created_by === $request->user()->id && $existing->operation_hash === SupplyOperationFingerprint::for($data), 409);
+
                     return ['receipt' => $existing->goods_receipt_id ? GoodsReceipt::findOrFail($existing->goods_receipt_id) : null, 'incident_count' => $existing->incident_count, 'status' => $order->status, 'replayed' => true];
                 }
             }
@@ -260,9 +262,10 @@ class PurchaseController extends Controller
                 ]);
             }
 
-            if (!empty($data['operation_key'])) {
-                DB::table('purchase_receipt_requests')->insert(['operation_key' => $data['operation_key'], 'operation_hash' => \App\Services\Inventory\SupplyOperationFingerprint::for($data), 'purchase_document_id' => $order->id, 'created_by' => $request->user()->id, 'goods_receipt_id' => $receipt?->id, 'incident_count' => $rejectedLines->count(), 'created_at' => now(), 'updated_at' => now()]);
+            if (! empty($data['operation_key'])) {
+                DB::table('purchase_receipt_requests')->insert(['operation_key' => $data['operation_key'], 'operation_hash' => SupplyOperationFingerprint::for($data), 'purchase_document_id' => $order->id, 'created_by' => $request->user()->id, 'goods_receipt_id' => $receipt?->id, 'incident_count' => $rejectedLines->count(), 'created_at' => now(), 'updated_at' => now()]);
             }
+
             return ['receipt' => $receipt, 'incident_count' => $rejectedLines->count(), 'status' => $order->fresh()->status];
         });
 
@@ -270,7 +273,7 @@ class PurchaseController extends Controller
         if ($result['receipt'] && ! ($result['replayed'] ?? false)) {
             app(PurchaseWorkflow::class)->record($purchaseDocument, 'goods_received', $request->user()->id, $purchaseDocument->status, $result['status'], ['receipt' => $result['receipt']->number]);
         }
-        if ($result['incident_count'] > 0 && !($result['replayed'] ?? false)) {
+        if ($result['incident_count'] > 0 && ! ($result['replayed'] ?? false)) {
             app(PurchaseWorkflow::class)->record($purchaseDocument, 'quality_incident_reported', $request->user()->id, $result['status'], $result['status'], ['incidents' => $result['incident_count']]);
         }
 

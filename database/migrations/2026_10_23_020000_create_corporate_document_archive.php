@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\Database\BackendTableSecurity;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
@@ -41,6 +42,8 @@ return new class extends Migration
             $table->timestamps();
             $table->unique(['company_document_id', 'version']);
         });
+        BackendTableSecurity::restrict('company_documents');
+        BackendTableSecurity::restrict('company_document_versions');
     }
 
     public function down(): void

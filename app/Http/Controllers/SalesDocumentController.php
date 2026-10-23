@@ -12,8 +12,8 @@ use App\Models\SalesDocument;
 use App\Models\SalesDocumentPayment;
 use App\Models\Warehouse;
 use App\Services\Accounting\AccountingSynchronizer;
-use App\Services\Billing\BillingWorkspace;
 use App\Services\Accounting\IssuedInvoiceCorrection;
+use App\Services\Billing\BillingWorkspace;
 use App\Services\Documents\DocumentNumber;
 use App\Services\Documents\DocumentPdf;
 use App\Services\Documents\QuoteBillingPlan;
@@ -338,7 +338,9 @@ class SalesDocumentController extends Controller
         abort_unless($request->user()->can('manage-treasury'), 403);
         $data = $request->validate(['idempotency_key' => ['nullable', 'uuid'], 'paid_at' => ['required', 'date'], 'amount' => ['required', 'numeric', 'decimal:0,2', 'gt:0'], 'method' => ['required', Rule::in(['bank_transfer', 'card', 'cash', 'direct_debit', 'other'])], 'reference' => ['nullable', 'string', 'max:255'], 'notes' => ['nullable', 'string']]);
         DB::transaction(function () use ($request, $salesDocument, $data, $accounting) {
-            if ($salesDocument->quote_id) { Quote::lockForUpdate()->findOrFail($salesDocument->quote_id); }
+            if ($salesDocument->quote_id) {
+                Quote::lockForUpdate()->findOrFail($salesDocument->quote_id);
+            }
             $document = SalesDocument::lockForUpdate()->findOrFail($salesDocument->id);
             $existing = ! empty($data['idempotency_key']) ? SalesDocumentPayment::where('idempotency_key', $data['idempotency_key'])->first() : null;
             if ($existing) {

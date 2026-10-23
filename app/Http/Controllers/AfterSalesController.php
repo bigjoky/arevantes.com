@@ -17,6 +17,7 @@ use App\Services\AfterSales\ServiceWorkGenerator;
 use App\Services\AfterSales\SlaManager;
 use App\Services\Analytics\RecurringServiceEconomics;
 use App\Services\Planning\RecurringServiceCapacityForecast;
+use App\Services\Projects\ProjectWorkspace;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -31,7 +32,7 @@ class AfterSalesController extends Controller
     public function index(Request $request, RecurringServiceCapacityForecast $capacity, RecurringServiceEconomics $economics): Response
     {
         if ($request->query('view') === 'installations') {
-            return Inertia::render('after-sales/overview', app(\App\Services\Projects\ProjectWorkspace::class)->afterSales($request));
+            return Inertia::render('after-sales/overview', app(ProjectWorkspace::class)->afterSales($request));
         }
 
         return $this->renderWorkspace($request, $capacity, $economics, 'tickets');

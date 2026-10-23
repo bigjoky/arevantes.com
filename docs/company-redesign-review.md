@@ -215,6 +215,5 @@ El diseño de referencia orienta la composición; datos, permisos y capacidades
 reales prevalecen sobre cifras y acciones dibujadas. Trabajo local revisable,
 pendientes explícitos: no se declara una implantación productiva completa.
 
-Commit: NO realizado  
-Push: NO realizado  
-Merge: NO realizado
+Estado al cierre original de este informe: commit, push y merge no realizados.
+La publicación posterior se documenta en release-general-redesign-2026-10-23.md.

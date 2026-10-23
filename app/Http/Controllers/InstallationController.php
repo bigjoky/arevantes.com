@@ -8,6 +8,7 @@ use App\Models\RemoteStation;
 use App\Models\SerialNumber;
 use App\Models\User;
 use App\Services\Operations\ProjectProfitability;
+use App\Services\Projects\ProjectWorkspace;
 use App\Support\BusinessLineCatalog;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -24,7 +25,7 @@ class InstallationController extends Controller
      */
     public function index(Request $request): Response
     {
-        return Inertia::render('installations/index', app(\App\Services\Projects\ProjectWorkspace::class)->listing($request, false));
+        return Inertia::render('installations/index', app(ProjectWorkspace::class)->listing($request, false));
     }
 
     /**
@@ -66,7 +67,7 @@ class InstallationController extends Controller
     public function show(Request $request, Installation $installation, ProjectProfitability $profitability): Response
     {
         if ($request->query('tab') !== 'manage') {
-            $workspace = app(\App\Services\Projects\ProjectWorkspace::class)->detail($request, $installation, false);
+            $workspace = app(ProjectWorkspace::class)->detail($request, $installation, false);
 
             return Inertia::render('installations/show', ['workspace' => $workspace, 'installation' => $workspace['installation']]);
         }

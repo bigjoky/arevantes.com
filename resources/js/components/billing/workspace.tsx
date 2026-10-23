@@ -16,6 +16,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import '@/../css/billing.css';
 
 export type Capabilities = {
+    correct?: boolean;
     customers: boolean;
     suppliers: boolean;
     payments: boolean;

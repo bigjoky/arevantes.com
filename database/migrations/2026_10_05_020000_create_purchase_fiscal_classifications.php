@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\Database\BackendTableSecurity;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -20,6 +21,7 @@ return new class extends Migration
             $table->string('source_reference', 255);
             $table->timestamps();
         });
+        BackendTableSecurity::restrict('purchase_fiscal_classifications');
     }
 
     public function down(): void

@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\Database\BackendTableSecurity;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -28,6 +29,7 @@ return new class extends Migration
         Schema::table('goods_receipts', function (Blueprint $table) {
             $table->uuid('operation_key')->nullable()->unique();
         });
+        BackendTableSecurity::restrict('purchase_receipt_requests');
     }
 
     public function down(): void

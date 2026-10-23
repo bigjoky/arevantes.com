@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\Database\BackendTableSecurity;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -22,6 +23,7 @@ return new class extends Migration
             $table->unique(['country', 'tax_id_key']);
         });
         Schema::table('expenses', fn (Blueprint $table) => $table->char('issuer_country', 2)->nullable());
+        BackendTableSecurity::restrict('fiscal_entities');
     }
 
     public function down(): void

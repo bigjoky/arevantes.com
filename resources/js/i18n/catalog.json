@@ -23250,5 +23250,429 @@
     "Acceptance creates a payment milestone. Register its collection first and issue the invoice manually afterwards. Use 0% when no acceptance payment is required.": {
         "es": "La aceptación crea un hito de cobro. Registra primero el cobro y emite la factura manualmente después. Usa 0% cuando no se requiera anticipo.",
         "en": "Acceptance creates a payment milestone. Register its collection first and issue the invoice manually afterwards. Use 0% when no acceptance payment is required."
+    },
+    "Sin conexión. Necesitas internet para guardar visitas. Espera la confirmación de guardado antes de cerrar la aplicación.": {
+        "en": "Offline. You need an internet connection to save visits. Wait for the save confirmation before closing the application.",
+        "es": "Sin conexión. Necesitas internet para guardar visitas. Espera la confirmación de guardado antes de cerrar la aplicación."
+    },
+    "Instalar AREVANTES en el teléfono": {
+        "en": "Install AREVANTES on your phone",
+        "es": "Instalar AREVANTES en el teléfono"
+    },
+    "En iPhone: abre esta web en Safari, pulsa Compartir → Añadir a pantalla de inicio y confirma Añadir. Si aparece «Abrir como app web», actívalo.": {
+        "en": "On iPhone: open this website in Safari, tap Share → Add to Home Screen and confirm Add. Enable “Open as Web App” if shown.",
+        "es": "En iPhone: abre esta web en Safari, pulsa Compartir → Añadir a pantalla de inicio y confirma Añadir. Si aparece «Abrir como app web», actívalo."
+    },
+    "Abre el icono AREVANTES e inicia sesión con tu cuenta comercial. Marca «Recordarme» solo en tu teléfono personal. La aplicación abre directamente Actividad de campo.": {
+        "en": "Open the AREVANTES icon and sign in with your commercial account. Choose “Remember me” only on your personal phone. The app opens Field activity directly.",
+        "es": "Abre el icono AREVANTES e inicia sesión con tu cuenta comercial. Marca «Recordarme» solo en tu teléfono personal. La aplicación abre directamente Actividad de campo."
+    },
+    "En Android: utiliza Instalar aplicación o Añadir a pantalla de inicio en el menú del navegador. Necesitas conexión para guardar visitas.": {
+        "en": "On Android: choose Install app or Add to Home Screen in your browser menu. An internet connection is required to save visits.",
+        "es": "En Android: utiliza Instalar aplicación o Añadir a pantalla de inicio en el menú del navegador. Necesitas conexión para guardar visitas."
+    },
+    "Instalar AREVANTES": {
+        "en": "Install AREVANTES",
+        "es": "Instalar AREVANTES"
+    },
+    "Corregir factura": {
+        "en": "Correct invoice",
+        "es": "Corregir factura"
+    },
+    "Actividad comercial de campo": {
+        "en": "Commercial field activity",
+        "es": "Actividad comercial de campo"
+    },
+    "Puerta fría ·": {
+        "en": "Cold calling ·",
+        "es": "Puerta fría ·"
+    },
+    "Supervisión del equipo": {
+        "en": "Team supervision",
+        "es": "Supervisión del equipo"
+    },
+    "Mi actividad": {
+        "en": "My activity",
+        "es": "Mi actividad"
+    },
+    "Registra solo datos necesarios para la visita. No incluyas información sensible ni nombres de vecinos en notas. La ubicación es opcional y puntual; no hay seguimiento continuo. Las sesiones miden prospección, no sustituyen el fichaje laboral. Puedes solicitar revisión o rectificación a la persona responsable de AREVANTES.": {
+        "en": "Record only information needed for the visit. Do not include sensitive information or neighbors’ names in notes. Location is optional and captured once, with no continuous tracking. Sessions measure prospecting time and do not replace employee timekeeping. You may request a review or correction from the person responsible at AREVANTES.",
+        "es": "Registra solo datos necesarios para la visita. No incluyas información sensible ni nombres de vecinos en notas. La ubicación es opcional y puntual; no hay seguimiento continuo. Las sesiones miden prospección, no sustituyen el fichaje laboral. Puedes solicitar revisión o rectificación a la persona responsable de AREVANTES."
+    },
+    "Tiempo de prospección": {
+        "en": "Prospecting time",
+        "es": "Tiempo de prospección"
+    },
+    "Pausa al descansar o cambiar de actividad. Reanudar inicia una nueva sesión. Solo las sesiones cerradas entran en el cálculo por hora.": {
+        "en": "Pause when resting or changing activity. Resuming starts a new session. Only closed sessions are included in the hourly calculation.",
+        "es": "Pausa al descansar o cambiar de actividad. Reanudar inicia una nueva sesión. Solo las sesiones cerradas entran en el cálculo por hora."
+    },
+    "En curso desde": {
+        "en": "Running since",
+        "es": "En curso desde"
+    },
+    "Fin real (opcional si olvidaste parar)": {
+        "en": "Actual end time (optional if you forgot to stop)",
+        "es": "Fin real (opcional si olvidaste parar)"
+    },
+    "Pausar / finalizar sesión": {
+        "en": "Pause / end session",
+        "es": "Pausar / finalizar sesión"
+    },
+    "Iniciar / reanudar prospección": {
+        "en": "Start / resume prospecting",
+        "es": "Iniciar / reanudar prospección"
+    },
+    "Mis últimas sesiones": {
+        "en": "My recent sessions",
+        "es": "Mis últimas sesiones"
+    },
+    "Abierta": {
+        "en": "Open",
+        "es": "Abierta"
+    },
+    "Registrar visita puerta fría": {
+        "en": "Record cold call visit",
+        "es": "Registrar visita puerta fría"
+    },
+    "Sin sesión abierta: se guardará la visita, pero no contará en visitas por hora.": {
+        "en": "No open session: the visit will be saved but will not count toward visits per hour.",
+        "es": "Sin sesión abierta: se guardará la visita, pero no contará en visitas por hora."
+    },
+    "Tipo de prospecto": {
+        "en": "Prospect type",
+        "es": "Tipo de prospecto"
+    },
+    "Usar hora actual al guardar": {
+        "en": "Use current time when saving",
+        "es": "Usar hora actual al guardar"
+    },
+    "Fecha y hora real": {
+        "en": "Actual date and time",
+        "es": "Fecha y hora real"
+    },
+    "Ruta opcional de hoy": {
+        "en": "Optional route for today",
+        "es": "Ruta opcional de hoy"
+    },
+    "Sin ruta": {
+        "en": "No route",
+        "es": "Sin ruta"
+    },
+    "Ruta #": {
+        "en": "Route #",
+        "es": "Ruta #"
+    },
+    "Dirección o referencia (opcional)": {
+        "en": "Address or reference (optional)",
+        "es": "Dirección o referencia (opcional)"
+    },
+    "Notas necesarias (opcional)": {
+        "en": "Necessary notes (optional)",
+        "es": "Notas necesarias (opcional)"
+    },
+    "Obteniendo ubicación…": {
+        "en": "Getting location…",
+        "es": "Obteniendo ubicación…"
+    },
+    "Añadir ubicación puntual": {
+        "en": "Add one-time location",
+        "es": "Añadir ubicación puntual"
+    },
+    "Quitar ubicación": {
+        "en": "Remove location",
+        "es": "Quitar ubicación"
+    },
+    "Guardar visita": {
+        "en": "Save visit",
+        "es": "Guardar visita"
+    },
+    "Panel de supervisor": {
+        "en": "Supervisor panel",
+        "es": "Panel de supervisor"
+    },
+    "Mis indicadores": {
+        "en": "My indicators",
+        "es": "Mis indicadores"
+    },
+    "Aplicar período": {
+        "en": "Apply period",
+        "es": "Aplicar período"
+    },
+    "Visitas/h = visitas dentro de sesiones cerradas ÷ horas reales de esas sesiones en el período. Las sesiones abiertas y visitas sin tiempo se muestran por separado. No se presupone una jornada fija.": {
+        "en": "Visits/h = visits within closed sessions ÷ actual hours of those sessions in the period. Open sessions and visits without measured time are shown separately. No fixed workday is assumed.",
+        "es": "Visitas/h = visitas dentro de sesiones cerradas ÷ horas reales de esas sesiones en el período. Las sesiones abiertas y visitas sin tiempo se muestran por separado. No se presupone una jornada fija."
+    },
+    "No hay actividad en este período.": {
+        "en": "There is no activity in this period.",
+        "es": "No hay actividad en este período."
+    },
+    "Visitas": {
+        "en": "Visits",
+        "es": "Visitas"
+    },
+    "Sesiones abiertas": {
+        "en": "Open sessions",
+        "es": "Sesiones abiertas"
+    },
+    "Horas cerradas": {
+        "en": "Closed session hours",
+        "es": "Horas cerradas"
+    },
+    "Visitas/hora": {
+        "en": "Visits/hour",
+        "es": "Visitas/hora"
+    },
+    "Sin tiempo medido": {
+        "en": "Without measured time",
+        "es": "Sin tiempo medido"
+    },
+    "Sin tiempo cerrado": {
+        "en": "No closed session time",
+        "es": "Sin tiempo cerrado"
+    },
+    "Interesados": {
+        "en": "Interested",
+        "es": "Interesados"
+    },
+    "Convertidos": {
+        "en": "Converted",
+        "es": "Convertidos"
+    },
+    "Resultados": {
+        "en": "Results",
+        "es": "Resultados"
+    },
+    "Visitas registradas": {
+        "en": "Recorded visits",
+        "es": "Visitas registradas"
+    },
+    "Ruta:": {
+        "en": "Route:",
+        "es": "Ruta:"
+    },
+    "Ver oportunidad": {
+        "en": "View opportunity",
+        "es": "Ver oportunidad"
+    },
+    "Convertir a oportunidad": {
+        "en": "Convert to opportunity",
+        "es": "Convertir a oportunidad"
+    },
+    "Páginas de visitas": {
+        "en": "Visit pages",
+        "es": "Páginas de visitas"
+    },
+    "Asignar sector a una ruta": {
+        "en": "Assign sector to a route",
+        "es": "Asignar sector a una ruta"
+    },
+    "Selecciona un comercial": {
+        "en": "Select a salesperson",
+        "es": "Selecciona un comercial"
+    },
+    "Día de ruta": {
+        "en": "Route date",
+        "es": "Día de ruta"
+    },
+    "Sector / zona": {
+        "en": "Sector / area",
+        "es": "Sector / zona"
+    },
+    "Asignar sector": {
+        "en": "Assign sector",
+        "es": "Asignar sector"
+    },
+    "Se actualiza la ruta del día o se crea una ruta de prospección sin clientes ficticios. Sus paradas CRM existentes se conservan.": {
+        "en": "Updates today’s route or creates a prospecting route without fictional customers. Existing CRM stops are retained.",
+        "es": "Se actualiza la ruta del día o se crea una ruta de prospección sin clientes ficticios. Sus paradas CRM existentes se conservan."
+    },
+    "Convertir visita #": {
+        "en": "Convert visit #",
+        "es": "Convertir visita #"
+    },
+    "Introduce el contacto real y su siguiente acción. El CRM registrará los datos de contacto y la decisión indicada; no presupone consentimiento.": {
+        "en": "Enter the actual contact and their next action. The CRM will record the contact details and indicated decision; consent is not assumed.",
+        "es": "Introduce el contacto real y su siguiente acción. El CRM registrará los datos de contacto y la decisión indicada; no presupone consentimiento."
+    },
+    "Nombre real o empresa": {
+        "en": "Actual name or company",
+        "es": "Nombre real o empresa"
+    },
+    "Móvil (o correo)": {
+        "en": "Mobile (or email)",
+        "es": "Móvil (o correo)"
+    },
+    "Correo": {
+        "en": "Email",
+        "es": "Correo"
+    },
+    "Canal preferido": {
+        "en": "Preferred channel",
+        "es": "Canal preferido"
+    },
+    "phone": {
+        "en": "Phone",
+        "es": "Teléfono"
+    },
+    "whatsapp": {
+        "en": "WhatsApp",
+        "es": "WhatsApp"
+    },
+    "sms": {
+        "en": "SMS",
+        "es": "SMS"
+    },
+    "Consentimiento del contacto": {
+        "en": "Contact consent",
+        "es": "Consentimiento del contacto"
+    },
+    "No registrado": {
+        "en": "Not recorded",
+        "es": "No registrado"
+    },
+    "Otorgado": {
+        "en": "Granted",
+        "es": "Otorgado"
+    },
+    "Denegado / no contactar": {
+        "en": "Denied / do not contact",
+        "es": "Denegado / no contactar"
+    },
+    "Evidencia de la decisión": {
+        "en": "Evidence of the decision",
+        "es": "Evidencia de la decisión"
+    },
+    "Servicio de interés": {
+        "en": "Service of interest",
+        "es": "Servicio de interés"
+    },
+    "Siguiente acción": {
+        "en": "Next action",
+        "es": "Siguiente acción"
+    },
+    "Crear oportunidad": {
+        "en": "Create opportunity",
+        "es": "Crear oportunidad"
+    },
+    "Editar orden de compra": {
+        "en": "Edit purchase order",
+        "es": "Editar orden de compra"
+    },
+    "Cambia el proveedor y las partidas. El número del pedido se conserva y se registra el motivo del cambio.": {
+        "en": "Change the supplier and lines. The order number is retained and the reason for the change is recorded.",
+        "es": "Cambia el proveedor y las partidas. El número del pedido se conserva y se registra el motivo del cambio."
+    },
+    "Volver al pedido": {
+        "en": "Back to order",
+        "es": "Volver al pedido"
+    },
+    "Fecha del pedido": {
+        "en": "Order date",
+        "es": "Fecha del pedido"
+    },
+    "Partida": {
+        "en": "Line",
+        "es": "Partida"
+    },
+    "Quitar partida": {
+        "en": "Remove line",
+        "es": "Quitar partida"
+    },
+    "Concepto libre": {
+        "en": "Custom item",
+        "es": "Concepto libre"
+    },
+    "quantity": {
+        "en": "Quantity",
+        "es": "Cantidad"
+    },
+    "unit_price": {
+        "en": "Unit price",
+        "es": "Precio unitario"
+    },
+    "Precio unitario sin IVA": {
+        "en": "Unit price excluding VAT",
+        "es": "Precio unitario sin IVA"
+    },
+    "discount_percent": {
+        "en": "Discount percentage",
+        "es": "Porcentaje de descuento"
+    },
+    "Descuento %": {
+        "en": "Discount %",
+        "es": "Descuento %"
+    },
+    "tax_percent": {
+        "en": "VAT percentage",
+        "es": "Porcentaje de IVA"
+    },
+    "IVA %": {
+        "en": "VAT %",
+        "es": "IVA %"
+    },
+    "Añadir producto o concepto": {
+        "en": "Add product or custom item",
+        "es": "Añadir producto o concepto"
+    },
+    "Portes sin IVA": {
+        "en": "Shipping excluding VAT",
+        "es": "Portes sin IVA"
+    },
+    "Total IVA incluido:": {
+        "en": "Total including VAT:",
+        "es": "Total IVA incluido:"
+    },
+    "Se volverán a comprobar las aprobaciones necesarias. Si ya se había enviado el pedido, podrás reenviar la versión corregida desde su ficha.": {
+        "en": "Required approvals will be checked again. If the order was already sent, you can resend the corrected version from its detail page.",
+        "es": "Se volverán a comprobar las aprobaciones necesarias. Si ya se había enviado el pedido, podrás reenviar la versión corregida desde su ficha."
+    },
+    "Editar pedido": {
+        "en": "Edit order",
+        "es": "Editar pedido"
+    },
+    "Line total incl. VAT": {
+        "en": "Line total including VAT",
+        "es": "Total de línea con IVA"
+    },
+    "Total de línea con IVA": {
+        "en": "Line total including VAT",
+        "es": "Total de línea con IVA"
+    },
+    "Planifica los importes, registra los cobros y emite cada factura cuando tú lo indiques.": {
+        "en": "Plan amounts, record collections and issue each invoice when you choose.",
+        "es": "Planifica los importes, registra los cobros y emite cada factura cuando tú lo indiques."
+    },
+    "Editar importe · registrar cobro": {
+        "en": "Edit amount · record collection",
+        "es": "Editar importe · registrar cobro"
+    },
+    "Cobrado · pendiente de facturar": {
+        "en": "Collected · awaiting invoicing",
+        "es": "Cobrado · pendiente de facturar"
+    },
+    "Importe previsto (IVA incluido)": {
+        "en": "Planned amount (including VAT)",
+        "es": "Importe previsto (IVA incluido)"
+    },
+    "Guardar importe": {
+        "en": "Save amount",
+        "es": "Guardar importe"
+    },
+    "Hito de cobro · pendiente de facturar": {
+        "en": "Collection milestone · awaiting invoicing",
+        "es": "Hito de cobro · pendiente de facturar"
+    },
+    "Registra el cobro primero. La factura solo se emitirá cuando esté cobrado por completo y pulses «Emitir factura».": {
+        "en": "Record the collection first. The invoice will only be issued after it has been collected in full and you click “Issue invoice”.",
+        "es": "Registra el cobro primero. La factura solo se emitirá cuando esté cobrado por completo y pulses «Emitir factura»."
+    },
+    "Importe del hito (IVA incluido)": {
+        "en": "Milestone amount (including VAT)",
+        "es": "Importe del hito (IVA incluido)"
+    },
+    "Emitir factura": {
+        "en": "Issue invoice",
+        "es": "Emitir factura"
     }
 }
