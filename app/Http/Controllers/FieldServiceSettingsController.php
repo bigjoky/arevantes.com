@@ -6,6 +6,7 @@ use App\Models\FieldServiceProfile;
 use App\Models\User;
 use App\Models\WorkOrderTemplate;
 use App\Support\BusinessLineCatalog;
+use App\Support\TechnicianSkills;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -18,6 +19,7 @@ class FieldServiceSettingsController extends Controller
     {
         return Inertia::render('operations/field-service', [
             'users' => User::with('fieldServiceProfile')->whereIn('role', ['technician', 'admin'])->orderBy('name')->get(['id', 'name', 'role']),
+            'skillOptions' => TechnicianSkills::options(),
             'templates' => WorkOrderTemplate::orderBy('kind')->orderBy('name')->get(),
         ]);
     }
@@ -35,6 +37,7 @@ class FieldServiceSettingsController extends Controller
             'skills.*' => ['string', 'max:100'],
             'is_available' => ['required', 'boolean'],
         ]);
+        $data['skills'] = array_values(array_unique($data['skills'] ?? []));
         FieldServiceProfile::updateOrCreate(['user_id' => $user->id], $data);
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Field-service profile updated.')]);
@@ -43,7 +46,7 @@ class FieldServiceSettingsController extends Controller
     public function storeTemplate(Request $request): RedirectResponse
     {
         $data = $this->validateTemplate($request);
-        WorkOrderTemplate::create([...$data, 'is_active' => true]);
+        WorkOrderTemplate::create([...$data, 'required_skills' => $data['required_skills'] ?? [], 'is_active' => true]);
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Work-order template created.')]);
     }
