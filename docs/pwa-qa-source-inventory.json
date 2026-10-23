@@ -1,0 +1,288 @@
+{
+  "date": "2026-10-23",
+  "local_head": "457ae23ba80c9826cbb748f662edf19a402421d5",
+  "main_reference": "f79866655e90b34c491c261158d8c747808ac9b6",
+  "note": "Snapshot before adding the private-staging plan and this inventory. Includes untracked files; excludes ignored secrets/build outputs.",
+  "files": [
+    {
+      "path": "docs/mobile-navigation-review.md",
+      "sha256": "b91212fc6723123c3b9f76682081593b9a4f86aa1018d750831384e7c0ca64fe",
+      "bytes": 4957,
+      "exists_in_main": true,
+      "identical_to_main": false
+    },
+    {
+      "path": "docs/pwa-e01-confirmation.png",
+      "sha256": "d9826d20182f3b2c9eaf58deda63ec6d44e95845dfb5cb5f8a24c8907dd624df",
+      "bytes": 20962,
+      "exists_in_main": false,
+      "identical_to_main": false
+    },
+    {
+      "path": "docs/pwa-e01-correction-and-staging-proposal.md",
+      "sha256": "0d05b05eeda794c544f9fc471c2e9ee0e09af55d573eac120d7e662345671257",
+      "bytes": 17671,
+      "exists_in_main": false,
+      "identical_to_main": false
+    },
+    {
+      "path": "docs/pwa-native-review.md",
+      "sha256": "3c22e12fd7f1b85fd8c80ed524105b665ec4836bfe92088a9a198d99375c6fd8",
+      "bytes": 16039,
+      "exists_in_main": false,
+      "identical_to_main": false
+    },
+    {
+      "path": "docs/pwa-stabilization-desktop.png",
+      "sha256": "1aac94ac7c287328f729e1024e1e67534cb2fe91a5c147fc6b736bc048371075",
+      "bytes": 76369,
+      "exists_in_main": false,
+      "identical_to_main": false
+    },
+    {
+      "path": "docs/pwa-stabilization-mobile.png",
+      "sha256": "1d742bc73518792280667233622603348e3501b858753e6c08f0d184e50db0b7",
+      "bytes": 21705,
+      "exists_in_main": false,
+      "identical_to_main": false
+    },
+    {
+      "path": "docs/pwa-stabilization-real-device-testing.md",
+      "sha256": "0cc8451832eff5c75844e7a9afa060e694cac1458580ead79d06abc96452b166",
+      "bytes": 21283,
+      "exists_in_main": false,
+      "identical_to_main": false
+    },
+    {
+      "path": "docs/roadmap.md",
+      "sha256": "18a97577bc4ea83691121ca44260601f4cfab7abeacb9d373d9597ca2a8a7f6f",
+      "bytes": 282087,
+      "exists_in_main": true,
+      "identical_to_main": false
+    },
+    {
+      "path": "public/commercial-field-sw.js",
+      "sha256": "9fcbd5a27ec9624ffd163cd02bc9600158bf54c1df1ab3e591f81962bc05b05b",
+      "bytes": 1482,
+      "exists_in_main": true,
+      "identical_to_main": false
+    },
+    {
+      "path": "public/commercial-field.webmanifest",
+      "sha256": "e7917d6dded4d0d198411169a0156a89aacd4e2080f725cfb1ba34c79be519fd",
+      "bytes": 687,
+      "exists_in_main": true,
+      "identical_to_main": false
+    },
+    {
+      "path": "public/pwa/offline.html",
+      "sha256": "cce660edeea471cf8ffeadeec16bab544033d21097c47a295ab94569a2346080",
+      "bytes": 1043,
+      "exists_in_main": true,
+      "identical_to_main": false
+    },
+    {
+      "path": "resources/css/app.css",
+      "sha256": "02ccc575c122a391a80ff564937ba355d1dd15a820227ebad8836137306b902e",
+      "bytes": 91512,
+      "exists_in_main": true,
+      "identical_to_main": false
+    },
+    {
+      "path": "resources/css/mobile-app.css",
+      "sha256": "f3472bd5a1a05c57ffd518433b628edd9c1d3f474afd64031e79e971c85d5b72",
+      "bytes": 22729,
+      "exists_in_main": false,
+      "identical_to_main": false
+    },
+    {
+      "path": "resources/js/components/app-sidebar-header.tsx",
+      "sha256": "c7f86de6b0dfc2743a5c291cd610cc4d17972f15ea51b0bccccb5cb06250a791",
+      "bytes": 3824,
+      "exists_in_main": true,
+      "identical_to_main": true
+    },
+    {
+      "path": "resources/js/components/app-sidebar.tsx",
+      "sha256": "766c389ab9ade2cd35c402539b709ba8cecb3306ed7e12427382d3599e2b54dd",
+      "bytes": 10387,
+      "exists_in_main": true,
+      "identical_to_main": false
+    },
+    {
+      "path": "resources/js/components/commercial-field-pwa.tsx",
+      "sha256": "8961f381497745317f84677a96884ad90cedab0ad0b18c5ceff46284eba8c31c",
+      "bytes": 4129,
+      "exists_in_main": true,
+      "identical_to_main": false
+    },
+    {
+      "path": "resources/js/components/dashboard/financial-home.tsx",
+      "sha256": "e375ea8d237dad96884ad8a25abdda7c8dc897c49e5c16cc4ab19f6fa59d6aba",
+      "bytes": 35080,
+      "exists_in_main": true,
+      "identical_to_main": false
+    },
+    {
+      "path": "resources/js/components/global-search.tsx",
+      "sha256": "fb651d0b20986b149cf360848357cc226361b5a3ab0e802f0987512f46011dc5",
+      "bytes": 11573,
+      "exists_in_main": true,
+      "identical_to_main": false
+    },
+    {
+      "path": "resources/js/components/mobile/mobile-agenda.tsx",
+      "sha256": "4827b5de035897df073848b2b6b9792622bdc504428f2ed77452bb4a98619fc1",
+      "bytes": 6236,
+      "exists_in_main": false,
+      "identical_to_main": false
+    },
+    {
+      "path": "resources/js/components/mobile/mobile-experience.tsx",
+      "sha256": "97f99aa2dbb2fee8c6ccdde09eb6df56fd97bfbc22f04937fae1a7618e6f1201",
+      "bytes": 33725,
+      "exists_in_main": false,
+      "identical_to_main": false
+    },
+    {
+      "path": "resources/js/components/mobile/mobile-financial-home.tsx",
+      "sha256": "d02e57bb9e297eea3acaa63d3584531d23c4f88658e5e937eafd45dea4699f15",
+      "bytes": 7201,
+      "exists_in_main": false,
+      "identical_to_main": false
+    },
+    {
+      "path": "resources/js/components/mobile/mobile-task-form.tsx",
+      "sha256": "ba174ec4f1e450e8c9f03f01e20a11288d07a12970818d22f75876aa5f8a3ccf",
+      "bytes": 4095,
+      "exists_in_main": false,
+      "identical_to_main": false
+    },
+    {
+      "path": "resources/js/components/mobile/pwa-update.tsx",
+      "sha256": "0ab7fb8bb998cb61a26933fe4c83f54dcca3c723a766e3631e6586f74076dbc8",
+      "bytes": 3334,
+      "exists_in_main": false,
+      "identical_to_main": false
+    },
+    {
+      "path": "resources/js/components/nav-main.tsx",
+      "sha256": "d4e8fd2fbafbbd82f73507e35d9e0648a7c7ef4bc7db5e58ad09cf7e3e9d06b8",
+      "bytes": 11093,
+      "exists_in_main": true,
+      "identical_to_main": true
+    },
+    {
+      "path": "resources/js/components/quick-create.tsx",
+      "sha256": "6568277eadcb33cd1dda6897c2d999d1f92f09f74ace2c49a5af8ff7b0515ae0",
+      "bytes": 4048,
+      "exists_in_main": true,
+      "identical_to_main": false
+    },
+    {
+      "path": "resources/js/components/ui/sidebar.tsx",
+      "sha256": "896c39eceb00df53679cb81e69fc14cc8cc5ae4bd1af022c64c2a18195438143",
+      "bytes": 22384,
+      "exists_in_main": true,
+      "identical_to_main": true
+    },
+    {
+      "path": "resources/js/hooks/use-mobile-viewport.ts",
+      "sha256": "abbd734c870c7c940fe154941839b8615704e4d24044cedfa204f28a8071d754",
+      "bytes": 1329,
+      "exists_in_main": false,
+      "identical_to_main": false
+    },
+    {
+      "path": "resources/js/i18n/catalog.json",
+      "sha256": "1cca2cc8f8e60aefbf8652ec2e0cbd2071fe5dad8a9ba4e8bbba0f18c410941a",
+      "bytes": 771957,
+      "exists_in_main": true,
+      "identical_to_main": false
+    },
+    {
+      "path": "resources/js/layouts/app/app-sidebar-layout.tsx",
+      "sha256": "2928d68c22c4a1752e36b4b1f901235a22c86b8b871df702eca90e16df3884fe",
+      "bytes": 1969,
+      "exists_in_main": true,
+      "identical_to_main": false
+    },
+    {
+      "path": "resources/js/lib/mobile/navigation.ts",
+      "sha256": "ff13c7188ad83a1720596ecc3e3c6098c06b224d28d6233513b8fd1077fe2174",
+      "bytes": 2712,
+      "exists_in_main": false,
+      "identical_to_main": false
+    },
+    {
+      "path": "resources/js/lib/mobile/task-draft-guard.ts",
+      "sha256": "3a2db2a7294a1c7e9a671b4802e3faedd246512785ef62e610755abc112a2020",
+      "bytes": 2081,
+      "exists_in_main": false,
+      "identical_to_main": false
+    },
+    {
+      "path": "resources/js/pages/operations/agenda.tsx",
+      "sha256": "ff9722b42e3e165f0da99bd12d7e2c57a2e0f09161da2c0cf05ba14ebf9c7bab",
+      "bytes": 3316,
+      "exists_in_main": true,
+      "identical_to_main": false
+    },
+    {
+      "path": "resources/js/types/auth.ts",
+      "sha256": "7a40c533e43a8938623cdddb5c3fba1debcda99915e1c9b12d8b4a33e2f01e95",
+      "bytes": 2009,
+      "exists_in_main": true,
+      "identical_to_main": false
+    },
+    {
+      "path": "resources/js/types/mobile.ts",
+      "sha256": "90531d68b06a464a03df859f385fd17f534d461293de72edf913688a54485fac",
+      "bytes": 780,
+      "exists_in_main": false,
+      "identical_to_main": false
+    },
+    {
+      "path": "resources/views/app.blade.php",
+      "sha256": "894c336afc552389d9091eec870245d4b7a621d9c38726ad12f762e5992b3cef",
+      "bytes": 17473,
+      "exists_in_main": true,
+      "identical_to_main": false
+    },
+    {
+      "path": "tests/Feature/MobileTaskSubmissionTest.php",
+      "sha256": "4bd69d41fe35c74b88522fa84c8e929efe49f2b0db92b4fe681365cf25481618",
+      "bytes": 1816,
+      "exists_in_main": false,
+      "identical_to_main": false
+    },
+    {
+      "path": "tests/commercial-field-pwa.test.mjs",
+      "sha256": "1410568c6bbb4c726b8c2441858c7c16983b49e2a03a7ac03f3a8c7722efc8be",
+      "bytes": 3893,
+      "exists_in_main": true,
+      "identical_to_main": false
+    },
+    {
+      "path": "tests/mobile-navigation.test.mjs",
+      "sha256": "112121aa0c29da01eda40c0c7adce4ca37bb37847da9312cca2c31641eb4e266",
+      "bytes": 1752,
+      "exists_in_main": true,
+      "identical_to_main": true
+    },
+    {
+      "path": "tests/pwa-navigation.test.mjs",
+      "sha256": "b9a324b4694aa82a5c97ec1da39b1934bee26f1527d15efd5a6cd3e87295f07c",
+      "bytes": 2500,
+      "exists_in_main": false,
+      "identical_to_main": false
+    },
+    {
+      "path": "tests/task-draft-guard.test.mjs",
+      "sha256": "c06588ff1e68361f3a2ce1f2bb0b52f3857f44c1f9b72c8880ad332c76af9889",
+      "bytes": 3521,
+      "exists_in_main": false,
+      "identical_to_main": false
+    }
+  ]
+}

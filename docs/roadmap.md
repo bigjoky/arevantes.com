@@ -3089,3 +3089,51 @@ como parte de la publicación.
 
 No se añaden capacidades de negocio ni se duplican catálogos de rutas. Este corte
 permanece local y no modifica el sidebar desktop aprobado.
+
+## PWA adaptativa iOS / Android — 23/10/2026
+
+El nuevo corte es local en 8000 y conserva el trabajo anterior. La corrección
+anterior del drawer sí se publicó como v2026.10.23.4 (f79866655e90b34c491c261158d8c747808ac9b6);
+el rediseño PWA posterior no forma parte de ese despliegue.
+
+| ID | Estado | Dependencias | Criterio de aceptación |
+| --- | --- | --- | --- |
+| UI-PWA-01 | Implantado local: shell móvil y cinco destinos autorizados | Inertia, auth.navigation, Radix y shell existentes | Una barra inferior, Menú completo buscable, grupos y favoritos reales, cabecera sin drawer principal; historial/retroceso de Inertia y escritorio conservado |
+| UI-PWA-02 | Implantado local: Inicio financiero, Agenda y detalles | FinancialOverview, OperationsWorkspace y fichas existentes | Métricas sin demo; eventos cronológicos con origen/rango/zona horaria y enlaces; vistas táctiles y tablas de evolución legibles; fichas a una columna y vuelta contextual |
+| UI-PWA-03 | Implantado local: búsqueda, cuenta y acciones disponibles | GlobalSearch, selector corporativo y QuickCreate existentes | Cancelación de consulta obsoleta, agrupación/filtro/error, datos de cuenta reales, acciones solo autorizadas, hoja Radix y logout con vaciado de prefetch/historial cifrado |
+| UI-PWA-04 | Implantado local: manifest/caché/actualización | Manifest y worker existentes, iconos corporativos aprobados | ID estable, Inicio como arranque; solo aviso offline e iconos en CacheStorage; datos privados/escrituras siempre red; activación explícita sin recarga automática; bloquear actualización si hay formulario abierto |
+| UI-PWA-05 | Pendiente: bandeja completa de notificaciones | Endpoint paginado personal, read individual, prioridades reales, autorización y pruebas IDOR | Todas/no leídas/importantes y contador total real; no inferir prioridad ni total desde preview limitado. Hoy se reutilizan los últimos cinco avisos no leídos y marcar todos; contratos aditivos en types/mobile.ts |
+| UI-PWA-06 | Implantado local: crear tarea operativa personal | Endpoint /operations/activities y permiso manageOperations existentes | Hoja móvil con título, vencimiento, prioridad y asignación al usuario actual; procesamiento/errores del backend y bloqueo sin conexión. No hay otro sistema de tareas; asociaciones avanzadas en el formulario existente de Operaciones |
+| UI-PWA-07 | Pendiente: Web Push | Suscripciones por usuario/dispositivo, VAPID/servicio, revocación/logout y consentimiento contextual | Alta/baja tras gesto explícito y verificación de entrega; iOS Home Screen y Chrome Android real, sin prometer entrega garantizada. No solicitar permisos automáticamente |
+| UI-PWA-08 | Pendiente: icono maskable certificado | Recurso corporativo aprobado con zona segura verificada | Máscaras Android no recortan la marca; se conservan iconos any y apple-touch-icon, sin declarar maskable un archivo no verificado |
+| UI-PWA-09 | Pendiente validación en dispositivos reales | iPhone/Safari y Android/Chrome, instalación y sesión autorizada | Safe areas, teclado, rotación, gestos/retroceso, logout+atrás, pérdida de conexión y actualización en modo instalado. Emulación de tamaño desktop no equivale a estas pruebas |
+
+| UI-PWA-10 | Pendiente: medición y ajuste de rendimiento en dispositivo | Dispositivos reales, métricas de carga y revisión de chunks existentes | Medir Inicio/Agenda y formularios con red móvil; separar gráficos pesados si la medición lo exige. Continúa el aviso previo de chunks >500 kB; no se añade una dependencia de animación ni se afirma rendimiento nativo |
+
+Evidencias y alcance de cada pantalla en `docs/pwa-native-review.md`. No se crea
+otra aplicación, otra entidad calendario ni caché de operaciones privadas.
+
+### Estabilización posterior de la PWA — E-01 / E-02 (23/10/2026)
+
+| ID | Estado | Dependencias | Criterio de aceptación / evidencia |
+| --- | --- | --- | --- |
+| UI-PWA-E01 | Corregido local; pendiente certificación en teléfonos | Form Inertia, Dialog/Sheet Radix y endpoint operativo existentes | Cierre limpio directo; cambios requieren Seguir editando/Descartar; cancelar conserva título/fecha/prioridad/errores; reset solo al descarte o éxito. Botón/Escape/exterior/retroceso protegidos; guard de petición/doble envío. 10 pruebas frontend nuevas y 2 backend; recorrido de cierres real en viewport móvil. Sin persistencia del borrador ni cambios de negocio. |
+| UI-PWA-E02 | Corregido local; pendiente VoiceOver/TalkBack | Foco del shell móvil y retroceso Inertia | Tras Menú → retroceso nativo, foco en BUTTON Menú comprobado. Confirmación enfoca Seguir editando; cancelar devuelve foco a la hoja. |
+| UI-PWA-QA | Propuesta preparada, infraestructura NO creada | Aprobación, presupuesto, barrera de ingreso verificada, corte Git autorizado, recursos QA aislados y TLS | Aplicación QA separada sin recursos/secretos productivos, datos sintéticos y cuentas por rol; prueba iPhone/Android normal e instalada, red lenta/errores/sesión/actualizaciones. Detalles y límites en docs/pwa-e01-correction-and-staging-proposal.md. |
+
+Auditoría QA privada (23/10/2026): `docs/pwa-private-staging-execution-plan.md`
+y fotografía SHA-256 de los 40 archivos pendientes en
+`docs/pwa-qa-source-inventory.json`. Cloud confirma Basic Auth en edge para
+Growth+; plan contratado pendiente de verificar en Billing. No se confirma
+allowlist de entrada. Propuesta: aplicación independiente, PostgreSQL y bucket
+QA exclusivos, sesiones/cache database, sin workers/scheduler/integraciones.
+Infraestructura, cambio de plan, corte Git y publicación siguen sin autorizar.
+
+### Publicación directa PWA autorizada — 24/10/2026
+
+El usuario autoriza llevar el corte PWA actual a producción sin crear staging.
+Se prepara desde main en una copia aislada con E-01/E-02 y los archivos nuevos,
+conservando el trabajo local y el hotfix anterior. Sin migraciones nuevas ni
+infraestructura adicional. Las validaciones físicas de UI-PWA-09 y las demás
+capacidades pendientes continúan abiertas. Evidencia de preparación y límites
+en `docs/pwa-production-release.md`; el éxito se confirma en Cloud tras CI.
