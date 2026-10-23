@@ -51,7 +51,7 @@ salvaguarda excepcional, sin alterar esa configuración ni ejecutar purgas:
 
 ## Verificación del candidato
 
-- Suite completa: 916 pruebas, 910 aprobadas y 6 omitidas; sin fallos.
+- Suite completa: 918 pruebas, 912 aprobadas y 6 omitidas (14.157 aserciones); sin fallos.
 - PostgreSQL aislado: 5 pruebas, 105 aserciones (concurrencia fiscal y guardas RLS).
 - Navegación frontend: 30 + 16 + 16 + 15 aserciones correctas.
 - TypeScript, ESLint, catálogo bilingüe, Composer y build comprobados.
@@ -63,6 +63,33 @@ salvaguarda excepcional, sin alterar esa configuración ni ejecutar purgas:
 
 ## Publicación
 
-Candidato preparado para PR a develop y posterior PR de lanzamiento a main.
-Producción todavía debe confirmarse con el despliegue, commit efectivo,
-migraciones y comprobaciones HTTP. Se completará este registro tras desplegar.
+Publicado en https://arevantes.com con la versión `v2026.10.23.1`.
+
+- PR #144: integración general a develop; PR #146: archivo PDF actualizado tras
+  corrección auditada de factura, conservando la versión previa y limpiando solo
+  archivos nuevos si falla la transacción. PR #145: lanzamiento develop → main.
+- CI de calidad y PHP 8.4/8.5 aprobado antes de las fusiones.
+- Commit productivo: `c8086d5e534fb6350163ab73ccbedf2474c0bac1`.
+- Laravel Cloud: `depl-a30c93b6-4926-48b9-b1f5-e5dd612fde7a`,
+  `deployment.succeeded`, 23/10/2026 08:28:51–08:31:14 UTC.
+  La API confirma ese despliegue como actual y el entorno en ejecución.
+- Se ejecutó `deploy:monitor`; como el despliegue ya había terminado, la CLI
+  esperaba otro despliegue activo. Se detuvo esa espera y se verificó el resultado
+  exacto mediante la API, sin provocar una segunda publicación.
+- Web pública, salud, login y JavaScript compilado: HTTP 200. Rutas protegidas
+  sin sesión: redirección al login.
+- Comprobación remota de solo lectura: 16 GET autenticados mediante el kernel
+  Laravel, HTTP 200 y componente Inertia esperado en todos los módulos.
+  No sustituye una prueba visual completa con sesión de navegador en producción.
+- Migraciones pendientes: 0. Siete tablas nuevas con RLS activo y SELECT
+  revocado para anon/authenticated. APP_DEBUG desactivado.
+- Salvaguarda cifrada presente en el disco privado S3. No se copiaron fixtures,
+  usuarios de prueba ni documentos locales a producción.
+
+## Seguimiento
+
+Los detalles y capacidades pendientes de cada sección siguen en el roadmap.
+Quedan pendientes las copias PostgreSQL regulares y un simulacro completo de
+restauración: la salvaguarda excepcional verificada no cierra esa necesidad.
+Las comprobaciones del lanzamiento no equivalen a una auditoría exhaustiva de
+seguridad ni a la implantación de capacidades que siguen pendientes.

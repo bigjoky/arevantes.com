@@ -3029,5 +3029,15 @@ incrementos. Candidato reconciliado con `develop` y las funciones vigentes de
 `main`; copia privada previa verificada y tablas nuevas protegidas frente a
 API pública. Ver [registro de lanzamiento](release-general-redesign-2026-10-23.md).
 Las limitaciones de UI-COMP y de cada sección siguen abiertas; la publicación
-no las convierte en capacidades implantadas. Confirmación productiva pendiente
-del despliegue y smoke tests, sin datos locales de demostración.
+no las convierte en capacidades implantadas.
+
+Publicado en producción el 23/10/2026: versión `v2026.10.23.1`, commit
+`c8086d5e534fb6350163ab73ccbedf2474c0bac1`. Despliegue Laravel Cloud correcto,
+16 rutas autenticadas comprobadas con HTTP 200 y componente esperado,
+migraciones pendientes 0 y protección RLS de las siete tablas nuevas verificada.
+Suite final: 912 aprobadas y 6 omitidas; CI aprobado. Sin datos locales de
+demostración en producción. Evidencia y límites en el registro de lanzamiento.
+
+| Seguimiento operativo | Estado | Dependencias | Criterio de aceptación |
+| --- | --- | --- | --- |
+| Copias PostgreSQL regulares y recuperación | Pendiente; salvaguarda excepcional cifrada creada para este lanzamiento | Configuración de copias, retención y custodia de claves aprobadas | Copias periódicas verificadas y simulacro completo de restauración en una base aislada; medir recuperación y conservar evidencia |
