@@ -5,6 +5,7 @@ namespace App\Services\Work;
 use App\Models\FieldServiceProfile;
 use App\Models\User;
 use App\Models\WorkOrder;
+use App\Support\TechnicianSkills;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
@@ -24,7 +25,7 @@ class TechnicianSchedule
         }
         $missingSkills = array_values(array_diff($requiredSkills, $profile?->skills ?? []));
         if ($missingSkills !== []) {
-            throw ValidationException::withMessages(['assigned_user_id' => __('Technician lacks required skills: :skills.', ['skills' => implode(', ', $missingSkills)])]);
+            throw ValidationException::withMessages(['assigned_user_id' => __('Technician lacks required skills: :skills.', ['skills' => implode(', ', array_map(TechnicianSkills::label(...), $missingSkills))])]);
         }
         if ($serviceZone && filled($profile?->service_zones) && ! in_array($serviceZone, $profile->service_zones, true)) {
             throw ValidationException::withMessages(['assigned_user_id' => __('Technician does not cover service zone :zone.', ['zone' => $serviceZone])]);
@@ -152,7 +153,7 @@ class TechnicianSchedule
             $profile = $profiles->get($order->assigned_user_id);
             $missing = array_values(array_diff($order->required_skills ?? [], $profile?->skills ?? []));
             if ($missing !== []) {
-                $issues[$order->id][] = ['type' => 'skills', 'severity' => 'critical', 'message' => __('Missing skills: :skills', ['skills' => implode(', ', $missing)])];
+                $issues[$order->id][] = ['type' => 'skills', 'severity' => 'critical', 'message' => __('Missing skills: :skills', ['skills' => implode(', ', array_map(TechnicianSkills::label(...), $missing))])];
             }
             if ($order->installation?->materialRequirements?->isNotEmpty() && $order->stockReservations?->where('status', 'active')->isEmpty()) {
                 $issues[$order->id][] = ['type' => 'materials', 'severity' => 'warning', 'message' => __('Materials pending')];

@@ -17,6 +17,8 @@ import {
 import { serviceLabels } from '@/lib/business-lines';
 import type { ServiceType } from '@/lib/business-lines';
 
+type SkillOption = { value: string; label: string };
+
 type Profile = {
     daily_capacity_minutes: number;
     max_travel_km: number;
@@ -54,9 +56,11 @@ type Template = {
 export default function FieldServiceSettings({
     users,
     templates,
+    skillOptions,
 }: {
     users: User[];
     templates: Template[];
+    skillOptions: SkillOption[];
 }) {
     return (
         <>
@@ -82,12 +86,16 @@ export default function FieldServiceSettings({
                     <h2 className="mb-3 font-semibold">Technicians</h2>
                     <div className="grid gap-4 xl:grid-cols-2">
                         {users.map((user) => (
-                            <ProfileForm key={user.id} user={user} />
+                            <ProfileForm
+                                key={user.id}
+                                user={user}
+                                skillOptions={skillOptions}
+                            />
                         ))}
                     </div>
                 </section>
                 <section className="grid gap-6 xl:grid-cols-[1fr_1.2fr]">
-                    <TemplateForm />
+                    <TemplateForm skillOptions={skillOptions} />
                     <Card>
                         <CardHeader>
                             <CardTitle>Work templates</CardTitle>
@@ -128,12 +136,24 @@ export default function FieldServiceSettings({
                                             0}{' '}
                                         evidence
                                     </div>
-                                    {template.required_skills.length > 0 && (
+                                    {(template.required_skills?.length ?? 0) >
+                                        0 && (
                                         <div className="mt-1">
                                             Skills:{' '}
-                                            {template.required_skills.join(
-                                                ', ',
-                                            )}
+                                            {(template.required_skills || [])
+                                                .map(
+                                                    (key) =>
+                                                        skillOptions.find(
+                                                            (option) =>
+                                                                option.value ===
+                                                                key,
+                                                        )?.label ||
+                                                        key.replaceAll(
+                                                            '_',
+                                                            ' ',
+                                                        ),
+                                                )
+                                                .join(', ')}
                                         </div>
                                     )}
                                 </div>
@@ -151,9 +171,15 @@ export default function FieldServiceSettings({
     );
 }
 
-function ProfileForm({ user }: { user: User }) {
+function ProfileForm({
+    user,
+    skillOptions,
+}: {
+    user: User;
+    skillOptions: SkillOption[];
+}) {
     const profile = user.field_service_profile;
-    const [skills, setSkills] = useState((profile?.skills || []).join(', '));
+    const [skills, setSkills] = useState<string[]>(profile?.skills || []);
     const [zones, setZones] = useState(
         (profile?.service_zones || []).join(', '),
     );
@@ -197,11 +223,12 @@ function ProfileForm({ user }: { user: User }) {
                                 name="home_postal_code"
                                 value={profile?.home_postal_code || ''}
                             />
-                            <TextList
-                                label="Skills"
+                            <SkillChecklist
+                                label="Habilidades del técnico"
                                 value={skills}
                                 onChange={setSkills}
                                 name="skills"
+                                options={skillOptions}
                             />
                             <TextList
                                 label="Service zones"
@@ -243,8 +270,8 @@ function ProfileForm({ user }: { user: User }) {
     );
 }
 
-function TemplateForm() {
-    const [skills, setSkills] = useState('');
+function TemplateForm({ skillOptions }: { skillOptions: SkillOption[] }) {
+    const [skills, setSkills] = useState<string[]>([]);
     const [checklist, setChecklist] = useState(
         'Prepare work area\nPerform technical checks\nCapture completion evidence',
     );
@@ -331,11 +358,12 @@ function TemplateForm() {
                                 />
                             </div>
                             <Field label="Default title" name="title" />
-                            <TextList
-                                label="Required skills"
+                            <SkillChecklist
+                                label="Habilidades necesarias"
                                 value={skills}
                                 onChange={setSkills}
                                 name="required_skills"
+                                options={skillOptions}
                             />
                             <StructuredList
                                 label="Required evidence (key|label)"
@@ -464,6 +492,56 @@ function StructuredList({
                 </span>
             ))}
         </div>
+    );
+}
+
+function SkillChecklist({
+    label,
+    value,
+    onChange,
+    name,
+    options,
+}: {
+    label: string;
+    value: string[];
+    onChange: (value: string[]) => void;
+    name: string;
+    options: SkillOption[];
+}) {
+    return (
+        <fieldset className="grid gap-3">
+            <legend className="mb-2 text-sm font-medium">{label}</legend>
+            <p className="text-xs text-muted-foreground">
+                Marca las habilidades que correspondan. No necesitas escribir
+                códigos.
+            </p>
+            <div className="grid gap-2 sm:grid-cols-2">
+                {options.map((option) => (
+                    <label
+                        key={option.value}
+                        className="flex cursor-pointer items-start gap-2 rounded-md border p-3 text-sm"
+                    >
+                        <input
+                            type="checkbox"
+                            name={`${name}[]`}
+                            value={option.value}
+                            checked={value.includes(option.value)}
+                            onChange={(event) =>
+                                onChange(
+                                    event.target.checked
+                                        ? [...value, option.value]
+                                        : value.filter(
+                                              (key) => key !== option.value,
+                                          ),
+                                )
+                            }
+                            className="mt-0.5 size-4 shrink-0 accent-primary"
+                        />
+                        {option.label}
+                    </label>
+                ))}
+            </div>
+        </fieldset>
     );
 }
 

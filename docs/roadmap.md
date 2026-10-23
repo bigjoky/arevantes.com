@@ -3063,3 +3063,19 @@ de borrador y nueva plantilla, conservando las 12 unidades de la original.
 Los ejemplos/precios y usuario demo se restringen a local/testing mediante un
 seeder explícito. La publicación autorizada se tramita por PR a main y se valida
 con el monitor de Laravel Cloud y comprobaciones de rutas, esquema y assets.
+
+## 2026-10-23 — Habilidades técnicas mediante casillas
+
+Se sustituye la introducción de códigos de habilidades por una lista de casillas
+con nombres legibles en perfiles de técnicos y en nuevas plantillas de trabajo.
+El catálogo reúne las capacidades estándar y las ya utilizadas en perfiles,
+plantillas y órdenes, preservando las habilidades personalizadas. Los códigos
+internos permanecen estables para mantener las asignaciones existentes.
+Los avisos de asignación y la lista de plantillas muestran los nombres legibles.
+Desmarcar todas las casillas vacía correctamente la lista del técnico. Se conservan
+los permisos de gestión de instalaciones y las comprobaciones de disponibilidad.
+
+Verificación: 12 pruebas relevantes / 66 aserciones, tipos, ESLint y revisión en
+navegador de selección y guardado de Electricidad e Instalaciones solares en el
+usuario ficticio local. Sin migraciones ni cambios a perfiles de producción
+como parte de la publicación.
