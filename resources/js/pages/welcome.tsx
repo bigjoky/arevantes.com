@@ -909,14 +909,14 @@ export default function Welcome({
                                                         error={errors.name}
                                                     />
                                                     <ContactField
-                                                        label="Correo electrónico"
+                                                        label="Correo electrónico (o indica teléfono)"
                                                         name="email"
                                                         type="email"
                                                         autoComplete="email"
                                                         error={errors.email}
                                                     />
                                                     <ContactField
-                                                        label="Teléfono"
+                                                        label="Teléfono (o indica email)"
                                                         name="phone"
                                                         type="tel"
                                                         autoComplete="tel"
@@ -1212,7 +1212,7 @@ function ContactField({
                 aria-invalid={error ? true : undefined}
                 aria-describedby={error ? errorId : undefined}
                 className="h-12 rounded-xl border border-zinc-300 bg-white px-3 font-normal transition outline-none focus:border-[#217a3b] focus:ring-3 focus:ring-[#217a3b]/25"
-                required={name === 'name' || name === 'email'}
+                required={name === 'name'}
             />
             {error && (
                 <span

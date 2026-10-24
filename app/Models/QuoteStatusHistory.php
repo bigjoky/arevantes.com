@@ -7,7 +7,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class QuoteStatusHistory extends Model
 {
-    protected $fillable = ['quote_id', 'changed_by', 'from_status', 'to_status', 'channel', 'reason', 'changed_at'];
+    protected $fillable = ['quote_id', 'changed_by', 'from_status', 'to_status', 'channel', 'reason', 'changed_at', 'signed_by_name', 'proof_path', 'proof_name', 'document_version'];
+
+    protected $hidden = ['proof_path'];
 
     protected function casts(): array
     {

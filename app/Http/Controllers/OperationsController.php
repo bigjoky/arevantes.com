@@ -271,17 +271,18 @@ class OperationsController extends Controller
             'kind' => ['required', Rule::in(['survey', 'installation', 'commissioning', 'maintenance', 'repair'])],
             'scheduled_end' => ['nullable', 'date'],
         ]);
+        $technicalAssignee = $activity->assignedUser?->hasRole('technician', 'admin') ? $activity->assigned_user_id : null;
         $start = $activity->starts_at;
         $end = $data['scheduled_end'] ?? $activity->due_at;
         abort_if($start && $end && Carbon::parse($end)->lessThanOrEqualTo($start), 422, __('The scheduled end must be after the start.'));
         if ($start && $end) {
-            $schedule->assertAvailable($activity->assigned_user_id, $start, $end);
+            $schedule->assertAvailable($technicalAssignee, $start, $end);
         }
 
         $order = $factory->create([
             'installation_id' => $activity->installation_id,
             'activity_id' => $activity->id,
-            'assigned_user_id' => $activity->assigned_user_id,
+            'assigned_user_id' => $technicalAssignee,
             'title' => $activity->title,
             'kind' => $data['kind'],
             'scheduled_start' => $start,

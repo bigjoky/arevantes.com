@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Services\Crm\OpportunitySalesCycle;
 use App\Services\Finance\AcceptancePaymentManager;
 use App\Services\Inventory\ProjectMaterialPlanner;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -29,9 +30,9 @@ class QuoteStatusWorkflow
         private readonly AcceptancePaymentManager $acceptancePayments,
     ) {}
 
-    public function assertCanTransition(Quote $quote, string $status): void
+    public function assertCanTransition(Quote $quote, string $status, ?Carbon $effectiveAt = null): void
     {
-        if (in_array($status, ['sent', 'accepted'], true) && $quote->valid_until?->lt(today())) {
+        if (in_array($status, ['sent', 'accepted'], true) && $quote->valid_until?->lt(($effectiveAt ?? today())->copy()->startOfDay())) {
             throw ValidationException::withMessages(['status' => __('This quote has expired. Duplicate it with a new validity date before continuing.')]);
         }
 
@@ -70,13 +71,13 @@ class QuoteStatusWorkflow
             ->all();
     }
 
-    public function apply(Quote $quote, string $status, ?User $actor = null, string $channel = 'internal', ?string $reason = null): void
+    public function apply(Quote $quote, string $status, ?User $actor = null, string $channel = 'internal', ?string $reason = null, ?Carbon $effectiveAt = null): void
     {
-        DB::transaction(function () use ($quote, $status, $actor, $channel, $reason): void {
+        DB::transaction(function () use ($quote, $status, $actor, $channel, $reason, $effectiveAt): void {
             $locked = Quote::lockForUpdate()->findOrFail($quote->id);
             $quote->setRawAttributes($locked->getAttributes(), true);
             $quote->unsetRelations();
-            $this->assertCanTransition($quote, $status);
+            $this->assertCanTransition($quote, $status, $effectiveAt);
             if ($quote->status === $status) {
                 return;
             }

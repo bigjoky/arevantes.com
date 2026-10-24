@@ -23,7 +23,12 @@ class WorkOrderWorkflow
         if ($to === $order->status) {
             return;
         }
+        $order->loadMissing('installation');
+        if ($order->installation->dossier_closed_at && in_array($order->kind, ['installation', 'commissioning'], true)) {
+            throw ValidationException::withMessages(['status' => 'Reabre el expediente antes de modificar la ejecución.']);
+        }
         if (in_array($to, ['in_progress', 'completed'], true)) {
+            app(TechnicalExecutionGuard::class)->assertAllows($order->loadMissing('installation')->installation, $order->kind);
             $this->financialClearance->assertAllows($order->loadMissing('installation')->installation, $order->kind);
         }
         $transitions = $order->allowed_transitions_snapshot ?: self::DEFAULT_TRANSITIONS;

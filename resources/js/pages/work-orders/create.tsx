@@ -10,6 +10,7 @@ type Props = Workspace & {
         service_type: string;
     }[];
     selectedInstallation: number | null;
+    selectedKind?: string;
     templates: {
         id: number;
         name: string;
@@ -22,7 +23,7 @@ export default function Create(data: Props) {
         installation_id: String(data.selectedInstallation ?? ''),
         assigned_user_id: '',
         title: '',
-        kind: 'installation',
+        kind: data.selectedKind || 'installation',
         work_order_template_id: '',
         scheduled_start: '',
         scheduled_end: '',

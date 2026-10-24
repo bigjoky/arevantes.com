@@ -3,6 +3,8 @@
 namespace App\Services\Work;
 
 use App\Models\FieldServiceProfile;
+use App\Models\HrEmploymentProfile;
+use App\Models\HrLeaveRequest;
 use App\Models\User;
 use App\Models\WorkOrder;
 use App\Support\TechnicianSkills;
@@ -13,7 +15,7 @@ use Illuminate\Validation\ValidationException;
 class TechnicianSchedule
 {
     /** @param array<int, string> $requiredSkills */
-    public function assertAvailable(?int $userId, mixed $start, mixed $end, ?int $exceptOrderId = null, array $requiredSkills = [], ?string $serviceZone = null): void
+    public function assertAvailable(?int $userId, mixed $start, mixed $end, ?int $exceptOrderId = null, array $requiredSkills = [], ?string $serviceZone = null, bool $allowPendingAbsenceWarning = false): void
     {
         if (! $userId) {
             return;
@@ -42,6 +44,17 @@ class TechnicianSchedule
         $end = Carbon::parse($end);
         if ($end->lessThanOrEqualTo($start)) {
             throw ValidationException::withMessages(['scheduled_end' => __('The scheduled end must be after the scheduled start.')]);
+        }
+
+        $personId = User::whereKey($userId)->value('person_id');
+        if ($personId) {
+            $employment = HrEmploymentProfile::where('person_id', $personId)->first();
+            if ($employment && ($employment->status !== 'active' || ($employment->start_date && $employment->start_date->gt($start->copy()->startOfDay())) || ($employment->end_date && $employment->end_date->lt($start->copy()->startOfDay())))) {
+                throw ValidationException::withMessages(['assigned_user_id' => 'El técnico no tiene una relación laboral activa para esta fecha.']);
+            }
+            if (HrLeaveRequest::where('person_id', $personId)->whereIn('status', $allowPendingAbsenceWarning ? ['approved'] : ['pending', 'approved'])->whereDate('start_date', '<=', $end->copy()->subSecond()->toDateString())->whereDate('end_date', '>=', $start->toDateString())->exists()) {
+                throw ValidationException::withMessages(['assigned_user_id' => 'El técnico tiene una ausencia aprobada o pendiente de resolver para esta fecha.']);
+            }
         }
 
         $conflict = WorkOrder::query()

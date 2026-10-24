@@ -493,7 +493,10 @@ export default function InvoiceDetail({
                                     ['Proyecto', invoice.project || '—'],
                                     [
                                         'Fecha de emisión',
-                                        date(invoice.issue_date),
+                                        invoice.kind === 'customer' &&
+                                        invoice.status === 'draft'
+                                            ? 'Sin emitir · borrador'
+                                            : date(invoice.issue_date),
                                     ],
                                     [
                                         'Fecha de vencimiento',

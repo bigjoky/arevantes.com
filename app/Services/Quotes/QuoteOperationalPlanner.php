@@ -33,6 +33,7 @@ class QuoteOperationalPlanner
                         'opportunity_id' => $quote->opportunity_id,
                         'assigned_user_id' => $installation->technician_user_id,
                         'created_by' => $actorId,
+                        'required_for_closure' => $component->fulfillment_kind === 'legalization',
                         'priority' => 'normal',
                         'status' => 'pending',
                         'due_at' => now()->addDays(14),

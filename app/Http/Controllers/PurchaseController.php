@@ -103,7 +103,7 @@ class PurchaseController extends Controller
             'creditableShipping' => $purchaseDocument->type === 'supplier_invoice' ? $matcher->creditableShipping($purchaseDocument) : 0,
             'creditedAmount' => $purchaseDocument->type === 'supplier_invoice' ? abs((float) $purchaseDocument->creditNotes()->sum('amount')) : 0,
             'extractionComparison' => in_array($purchaseDocument->type, ['supplier_invoice', 'supplier_credit_note'], true) ? app(SupplierInvoiceExtraction::class)->comparison($purchaseDocument) : [],
-            'warehouses' => Warehouse::where('is_active', true)->orderByDesc('is_default')->orderBy('name')->get(['id', 'code', 'name']),
+            'warehouses' => Warehouse::where('is_active', true)->orderByDesc('is_default')->orderBy('name')->get(['id', 'code', 'name', 'is_usable']),
             'paymentSources' => $paymentSources->options(),
         ]);
     }

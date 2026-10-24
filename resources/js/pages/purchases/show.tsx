@@ -20,6 +20,7 @@ import { FormErrorSummary } from '@/components/forms/form-layout';
 import HistoricalDocumentDate from '@/components/historical-document-date';
 import { PaymentSourceFields } from '@/components/payment-source-fields';
 import type { PaymentSources } from '@/components/payment-source-fields';
+import ReceiptWarehouseCorrection from '@/components/receipt-warehouse-correction';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -118,6 +119,7 @@ type Document = {
     destination_warehouse: Warehouse | null;
     lines: Line[];
     receipts: {
+        warehouse_id: number;
         id: number;
         number: string;
         supplier_delivery_note: string | null;
@@ -1341,11 +1343,17 @@ export default function PurchaseShow({
                             {document.receipts.map((receipt) => (
                                 <div
                                     key={receipt.id}
-                                    className="flex justify-between gap-4 border-b py-3 text-sm last:border-0"
+                                    className="grid gap-3 border-b py-3 text-sm last:border-0 sm:grid-cols-[auto_minmax(0,1fr)_auto]"
                                 >
                                     <span className="font-medium">
                                         {receipt.number}
                                     </span>
+                                    <ReceiptWarehouseCorrection
+                                        orderId={document.id}
+                                        receiptId={receipt.id}
+                                        warehouseId={receipt.warehouse_id}
+                                        warehouses={warehouses}
+                                    />
                                     <span className="text-muted-foreground">
                                         {receipt.supplier_delivery_note ||
                                             receipt.movement.number}

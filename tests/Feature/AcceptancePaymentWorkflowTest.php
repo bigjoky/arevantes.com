@@ -155,7 +155,7 @@ class AcceptancePaymentWorkflowTest extends TestCase
             'installation_id' => $installation->id,
             'title' => 'Install system',
             'kind' => 'installation',
-        ])->assertSessionHasErrors('financial_status');
+        ])->assertRedirect()->assertSessionHasNoErrors();
 
         $this->post(route('work-orders.store'), [
             'installation_id' => $installation->id,

@@ -361,7 +361,12 @@ export function InvoiceTable({
                                 </td>
                                 <td>{r.party || 'Sin tercero identificado'}</td>
                                 {!compact && <td>{r.project || '—'}</td>}
-                                <td>{date(r.issue_date)}</td>
+                                <td>
+                                    {r.kind === 'customer' &&
+                                    r.status === 'draft'
+                                        ? 'Sin emitir · borrador'
+                                        : date(r.issue_date)}
+                                </td>
                                 {!compact && <td>{date(r.due_date)}</td>}
                                 {!compact && (
                                     <td className="amount">{money(r.base)}</td>
@@ -409,7 +414,10 @@ export function InvoiceTable({
                             <strong>{r.number}</strong>
                             <span>{r.party}</span>
                             <small>
-                                {date(r.issue_date)} · {date(r.due_date)}
+                                {r.kind === 'customer' && r.status === 'draft'
+                                    ? 'Sin emitir · borrador'
+                                    : date(r.issue_date)}{' '}
+                                · {date(r.due_date)}
                             </small>
                         </div>
                         <div>

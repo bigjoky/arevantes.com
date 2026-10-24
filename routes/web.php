@@ -43,6 +43,7 @@ use App\Http\Controllers\FiscalSettingsController;
 use App\Http\Controllers\FiscalWorkspaceController;
 use App\Http\Controllers\GeocodingController;
 use App\Http\Controllers\GlobalSearchController;
+use App\Http\Controllers\GoodsReceiptCorrectionController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\HrDepartmentController;
 use App\Http\Controllers\HrEmployeeDossierController;
@@ -74,6 +75,7 @@ use App\Http\Controllers\PlanningScenarioRequestController;
 use App\Http\Controllers\PortfolioProjectAdminController;
 use App\Http\Controllers\PortfolioProjectImageController;
 use App\Http\Controllers\ProjectAreaController;
+use App\Http\Controllers\ProjectDossierController;
 use App\Http\Controllers\PublicProjectController;
 use App\Http\Controllers\PublicServiceController;
 use App\Http\Controllers\PurchaseApprovalRuleController;
@@ -86,6 +88,7 @@ use App\Http\Controllers\PurchaseMailboxController;
 use App\Http\Controllers\PurchaseSettingsController;
 use App\Http\Controllers\PurchaseWorkflowController;
 use App\Http\Controllers\QuoteController;
+use App\Http\Controllers\QuotePaperAcceptanceController;
 use App\Http\Controllers\RecurringServiceCorrectivePlanController;
 use App\Http\Controllers\RecurringServiceImprovementController;
 use App\Http\Controllers\RecurringServiceQualityController;
@@ -520,6 +523,7 @@ Route::middleware(['auth'])->group(function () {
     Route::put('purchases/{purchaseDocument}', [PurchaseController::class, 'update'])->middleware('can:manage-purchases')->name('purchases.update');
     Route::get('purchases/{purchaseDocument}', [SupplyWorkspaceController::class, 'purchaseShow'])->middleware('can:view-purchases')->name('purchases.show');
     Route::patch('purchases/{purchaseDocument}/dates', [PurchaseController::class, 'correctDates'])->middleware('can:manage-purchases')->name('purchases.dates.update');
+    Route::post('purchases/{purchaseDocument}/receipts/{receipt}/warehouse', [GoodsReceiptCorrectionController::class, 'update'])->middleware(['can:manage-purchases', 'can:manage-catalog'])->name('purchase-receipts.warehouse');
     Route::post('purchases/{purchaseDocument}/convert', [PurchaseController::class, 'convert'])->middleware('can:manage-purchases')->name('purchases.convert');
     Route::post('purchases/{purchaseDocument}/receive', [PurchaseController::class, 'receive'])->middleware('can:receive-purchases')->name('purchases.receive');
     Route::post('purchases/{purchaseDocument}/approve', [PurchaseController::class, 'approveOrder'])->middleware('can:approve-purchase-orders')->name('purchases.approve');
@@ -623,6 +627,8 @@ Route::middleware(['auth'])->group(function () {
     Route::post('quotes/{quote}/send', [DocumentDeliveryController::class, 'sendQuote'])->middleware('can:manage-quotes')->name('quotes.send');
     Route::get('quotes/{quote}/pdf', [SalesDocumentController::class, 'quotePdf'])->middleware('can:manage-quotes')->name('quotes.pdf');
     Route::get('quotes/{quote}/pdf/without-watermark', [SalesDocumentController::class, 'quotePdfWithoutWatermark'])->middleware('can:manage-admin')->name('quotes.pdf.without-watermark');
+    Route::post('quotes/{quote}/paper-acceptance', [QuotePaperAcceptanceController::class, 'store'])->middleware('can:manage-quotes')->name('quotes.paper-acceptance');
+    Route::get('quotes/{quote}/paper-acceptance/{history}', [QuotePaperAcceptanceController::class, 'download'])->middleware('can:manage-quotes')->name('quotes.paper-acceptance.download');
     Route::post('quotes/{quote}/convert', [SalesDocumentController::class, 'convert'])->middleware('can:manage-installations')->name('quotes.convert');
     Route::get('sales', [SalesDocumentController::class, 'index'])->middleware('can:manage-installations')->name('sales.index');
     Route::get('sales-workflow', [SalesOperationsController::class, 'index'])->middleware('can:manage-installations')->name('sales-workflow.index');
@@ -661,6 +667,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('execution', [ProjectAreaController::class, 'dashboard'])->middleware('can:view-installations')->name('execution.dashboard');
     Route::get('execution/projects', [ProjectAreaController::class, 'index'])->middleware('can:view-installations')->name('execution.projects.index');
     Route::get('execution/projects/create', [ProjectAreaController::class, 'create'])->middleware(['can:view-installations', 'can:manage-installations', 'can:manage-quotes'])->name('execution.projects.create');
+    Route::post('installations/{installation}/dossier', [ProjectDossierController::class, 'update'])->middleware('can:manage-admin')->name('installations.dossier.update');
     Route::get('execution/projects/{installation}', [ProjectAreaController::class, 'show'])->middleware('can:view-installations')->name('execution.projects.show');
 
     Route::post('installations/{installation}/ai/briefing', [InstallationAiController::class, 'briefing'])

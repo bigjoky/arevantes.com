@@ -98,7 +98,9 @@ export default function FieldServiceSettings({
                     <TemplateForm skillOptions={skillOptions} />
                     <Card>
                         <CardHeader>
-                            <CardTitle>Work templates</CardTitle>
+                            <CardTitle>
+                                Plantillas técnicas de órdenes de trabajo
+                            </CardTitle>
                         </CardHeader>
                         <CardContent className="grid gap-3">
                             {templates.map((template) => (
@@ -288,7 +290,9 @@ function TemplateForm({ skillOptions }: { skillOptions: SkillOption[] }) {
     return (
         <Card>
             <CardHeader>
-                <CardTitle>New work template</CardTitle>
+                <CardTitle>
+                    Nueva plantilla técnica: habilidades, tareas y evidencias
+                </CardTitle>
             </CardHeader>
             <CardContent>
                 <Form

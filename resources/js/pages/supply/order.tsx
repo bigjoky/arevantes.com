@@ -1,6 +1,7 @@
 import { Head, Link, useForm } from '@inertiajs/react';
 import InputError from '@/components/input-error';
 import { PageHeader, PageShell } from '@/components/page-shell';
+import ReceiptWarehouseCorrection from '@/components/receipt-warehouse-correction';
 import { useSupplyDetailNavigation } from '@/components/supply/workspace';
 import {
     date,
@@ -74,6 +75,7 @@ export default function PurchaseOrder({
     receipts: {
         id: number;
         number: string;
+        warehouse_id: number;
         received_at: string;
         supplier_delivery_note: string | null;
         movement: Movement;
@@ -85,7 +87,12 @@ export default function PurchaseOrder({
         user: { name: string } | null;
     }[];
     related: { id: number; number: string; type: string; status: string }[];
-    warehouses: { id: number; name: string }[];
+    warehouses: {
+        id: number;
+        name: string;
+        code: string;
+        is_usable?: boolean;
+    }[];
     capabilities: Capabilities & { receive: boolean };
 }) {
     const { tab, setTab, back } = useSupplyDetailNavigation('/purchases', tabs);
@@ -306,6 +313,12 @@ export default function PurchaseOrder({
                                             {date(r.received_at)} ·{' '}
                                             {r.supplier_delivery_note ?? '—'}
                                         </p>
+                                        <ReceiptWarehouseCorrection
+                                            orderId={order.id}
+                                            receiptId={r.id}
+                                            warehouseId={r.warehouse_id}
+                                            warehouses={warehouses}
+                                        />
                                         <Movements rows={[r.movement]} />
                                     </div>
                                 ))

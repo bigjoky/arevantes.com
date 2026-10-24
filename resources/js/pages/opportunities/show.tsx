@@ -14,6 +14,8 @@ import {
 } from 'lucide-react';
 import { useState } from 'react';
 import InputError from '@/components/input-error';
+import ProjectJourney from '@/components/project-journey';
+import type { Journey } from '@/components/project-journey';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -162,6 +164,8 @@ export default function OpportunityShow({
           `${opportunity.customer.first_name} ${opportunity.customer.last_name || ''}`.trim()
         : 'Sin cliente';
 
+    const journey = usePage<{ journey?: Journey }>().props.journey;
+
     return (
         <>
             <Head title={`${opportunity.code} · ${opportunity.title}`} />
@@ -223,6 +227,10 @@ export default function OpportunityShow({
                         </Button>
                     </div>
                 </header>
+                <ProjectJourney
+                    key={journey?.closure?.revision}
+                    journey={journey}
+                />
 
                 <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                     <Metric

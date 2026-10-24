@@ -198,10 +198,10 @@ class SupplyWorkspaceController extends Controller
                 'amount' => Gate::allows('view-finance') ? $purchaseDocument->amount : null,
             ],
             'lines' => $lines,
-            'receipts' => $purchaseDocument->receipts->map(fn ($row) => ['id' => $row->id, 'number' => $row->number, 'received_at' => $row->received_at, 'supplier_delivery_note' => $row->supplier_delivery_note, 'movement' => $this->movement($row->movement)]),
+            'receipts' => $purchaseDocument->receipts->map(fn ($row) => ['id' => $row->id, 'warehouse_id' => $row->warehouse_id, 'number' => $row->number, 'received_at' => $row->received_at, 'supplier_delivery_note' => $row->supplier_delivery_note, 'movement' => $this->movement($row->movement)]),
             'events' => $purchaseDocument->events->map(fn ($row) => $row->only(['id', 'event', 'created_at', 'user'])),
             'related' => $purchaseDocument->derivedDocuments,
-            'warehouses' => Warehouse::where('is_active', true)->orderBy('name')->get(['id', 'name']),
+            'warehouses' => Warehouse::where('is_active', true)->orderBy('name')->get(['id', 'name', 'code', 'is_usable']),
             'capabilities' => [...$this->capabilities(), 'receive' => Gate::allows('receive-purchases')],
         ]);
     }
