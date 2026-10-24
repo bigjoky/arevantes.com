@@ -113,6 +113,7 @@ class WorkOrderController extends Controller
         $data = $factory->prepare($data);
         $ownerId = isset($data['assigned_user_id']) ? (int) $data['assigned_user_id'] : null;
         $order = DB::transaction(function () use ($schedule, $factory, $data, $request, $ownerId): WorkOrder {
+            Installation::whereKey($data['installation_id'])->lockForUpdate()->firstOrFail();
             $schedule->lockTechnicians([$ownerId]);
             $schedule->assertAvailable($ownerId, $data['scheduled_start'] ?? null, $data['scheduled_end'] ?? null, null, $data['required_skills'] ?? [], $data['service_zone'] ?? null);
 
@@ -127,7 +128,6 @@ class WorkOrderController extends Controller
     {
         $this->ensureAccess($request, $workOrder);
         $data = $this->validatedSchedule($request);
-        $financialClearance->assertAllows($workOrder->loadMissing('installation')->installation, $data['kind'] ?? $workOrder->kind);
         $reason = $request->validate(['reschedule_reason' => ['required', 'string', 'max:1000']])['reschedule_reason'];
         $rescheduler->reschedule($workOrder, $data, $reason, $request->user()->id);
         $installations->sync($workOrder);
@@ -160,7 +160,9 @@ class WorkOrderController extends Controller
             if ($e->getResponse()->getStatusCode() !== 409) {
                 throw $e;
             }
-            throw ValidationException::withMessages(['expected_updated_at' => __('This work order changed on the server. Refresh it before retrying.')]);
+            throw ValidationException::withMessages(['expected_updated_at' => __('This work order changed on the server. Refresh it before retrying.'), 'status' => __('This work order changed on the server. Refresh it before retrying.')]);
+        } catch (ValidationException $e) {
+            throw ValidationException::withMessages([...$e->errors(), 'status' => collect($e->errors())->flatten()->join(' ')]);
         } catch (HttpExceptionInterface $e) {
             if (! $request->header('X-Inertia') || $e->getStatusCode() !== 422) {
                 throw $e;

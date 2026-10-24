@@ -8,12 +8,14 @@ use App\Models\Installation;
 use App\Models\Opportunity;
 use App\Models\OpportunityEvent;
 use App\Models\Person;
+use App\Models\Quote;
 use App\Models\SavedCrmFilter;
 use App\Models\User;
 use App\Services\Crm\LeadResponseSla;
 use App\Services\Crm\OpportunityDossier;
 use App\Services\Crm\OpportunitySalesCycle;
 use App\Services\Customers\OpportunityCustomerResolver;
+use App\Services\Projects\ProjectJourney;
 use App\Support\Crm\OpportunityCatalog;
 use App\Support\PhoneNormalizer;
 use Carbon\CarbonInterface;
@@ -238,6 +240,10 @@ class OpportunityController extends Controller
             ]),
         ]);
 
+        $currentQuote = Quote::where('opportunity_id', $opportunity->id)->where('status', 'accepted')->latest('id')->first() ?? Quote::where('opportunity_id', $opportunity->id)->latest('id')->first();
+        $currentQuote?->load(['versions.createdBy:id,name', 'statusHistory.changedBy:id,name']);
+        $opportunity->setRelation('quote', $currentQuote);
+
         $timeline = $dossier->timeline($opportunity);
         $opportunity->unsetRelation('events')->unsetRelation('stageHistory');
         $opportunity->quote?->unsetRelation('statusHistory');
@@ -252,6 +258,7 @@ class OpportunityController extends Controller
                 'score_breakdown' => $salesCycle->scoreBreakdown($opportunity),
             ],
             'timeline' => $timeline,
+            'journey' => app(ProjectJourney::class)->for(request()->user(), opportunity: $opportunity),
             'sourceOptions' => OpportunityCatalog::SOURCES,
             'commercialKindOptions' => OpportunityCatalog::COMMERCIAL_KINDS,
             'users' => User::whereIn('role', ['admin', 'commercial'])->orderBy('name')->get(['id', 'name']),

@@ -7,6 +7,7 @@ use App\Models\WorkOrder;
 use App\Models\WorkOrderTemplate;
 use App\Services\Operations\OperationsWorkspace;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 
 class OperationsWorkspaceController extends Controller
@@ -41,10 +42,10 @@ class OperationsWorkspaceController extends Controller
 
     public function create(Request $r, OperationsWorkspace $w)
     {
-        $filters = $r->validate(['installation' => ['nullable', 'integer', 'exists:installations,id'], 'q' => ['nullable', 'string', 'max:150']]);
+        $filters = $r->validate(['kind' => ['nullable', Rule::in(['survey', 'installation', 'commissioning', 'maintenance', 'repair'])], 'installation' => ['nullable', 'integer', 'exists:installations,id'], 'q' => ['nullable', 'string', 'max:150']]);
         $installations = Installation::query()->where('status', '!=', 'cancelled')->when($filters['installation'] ?? null, fn ($q, $id) => $q->whereKey($id))->when($filters['q'] ?? null, fn ($q, $search) => $q->where(fn ($s) => $s->where('project_reference', 'like', '%'.$search.'%')->orWhere('site_name', 'like', '%'.$search.'%')))->orderByDesc('id')->limit(100)->get(['id', 'project_reference', 'site_name', 'service_type']);
 
-        return Inertia::render('work-orders/create', [...$w->common($r), 'installations' => $installations, 'selectedInstallation' => $filters['installation'] ?? null, 'templates' => WorkOrderTemplate::query()->where('is_active', true)->orderBy('name')->get(['id', 'name', 'kind', 'service_type'])]);
+        return Inertia::render('work-orders/create', [...$w->common($r), 'installations' => $installations, 'selectedInstallation' => $filters['installation'] ?? null, 'selectedKind' => $filters['kind'] ?? 'installation', 'templates' => WorkOrderTemplate::query()->where('is_active', true)->orderBy('name')->get(['id', 'name', 'kind', 'service_type'])]);
     }
 
     public function show(Request $r, WorkOrder $workOrder, OperationsWorkspace $w)

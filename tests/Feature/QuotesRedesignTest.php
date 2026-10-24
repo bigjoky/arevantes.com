@@ -114,7 +114,7 @@ class QuotesRedesignTest extends TestCase
         $this->assertSame($quote->person_id, $installation->person_id);
         $this->assertSame($quote->amount, $installation->estimated_budget);
         $this->get('/quotes/'.$quote->id.'?tab=installation')->assertOk()->assertInertia(fn (Assert $p) => $p->where('quote.installation.status', 'survey_booked')->where('profitability.status', 'survey_booked'));
-        $this->post('/quotes/'.$quote->id.'/project', $data)->assertUnprocessable();
+        $this->post('/quotes/'.$quote->id.'/project', $data)->assertRedirect()->assertSessionHasNoErrors();
         $this->assertDatabaseCount('installations', 1);
     }
 

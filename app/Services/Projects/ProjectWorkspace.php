@@ -237,7 +237,7 @@ class ProjectWorkspace
         $dossiers = $installation->engineeringDossiers()->latest()->limit(5)->get(['id', 'code', 'title', 'status']);
         $materialRequested = Gate::allows('view-purchases') ? $installation->purchaseDocuments()->where('type', 'purchase_order')->whereNotIn('status', ['draft', 'cancelled'])->min('created_at') : null;
 
-        return ['installation' => $record, 'quote' => Gate::allows('manage-quotes') ? $quote : null, 'opportunity' => $opportunity, 'tab' => $tab, 'mode' => $project ? 'projects' : 'installations',
+        return ['journey' => app(ProjectJourney::class)->for($request->user(), $installation), 'installation' => $record, 'quote' => Gate::allows('manage-quotes') ? $quote : null, 'opportunity' => $opportunity, 'tab' => $tab, 'mode' => $project ? 'projects' : 'installations',
             'records' => $records, 'dossiers' => $dossiers, 'permissions' => $this->permissions(),
             'costs' => $tab === 'costs' ? app(ProjectProfitability::class)->for($installation) : null,
             'milestones' => ['created' => $installation->created_at?->toISOString(), 'accepted' => $quote?->accepted_at?->toISOString(), 'materials' => $materialRequested, 'scheduled' => $installation->scheduled_date?->toDateString(), 'completed' => $installation->status === 'completed' ? $installation->completed_date?->toDateString() : null]];

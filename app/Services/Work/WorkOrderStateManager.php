@@ -2,11 +2,13 @@
 
 namespace App\Services\Work;
 
+use App\Models\Installation;
 use App\Models\WorkOrder;
 use App\Services\AfterSales\ServiceCycleCompletionWorkflow;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class WorkOrderStateManager
 {
@@ -28,6 +30,7 @@ class WorkOrderStateManager
     ): WorkOrder {
         return DB::transaction(function () use ($order, $status, $completionNotes, $blockedReason, $expectedUpdatedAt, $actorId): WorkOrder {
             $serviceCycle = $status === 'completed' ? $this->serviceCycles->lockContext($order->id) : null;
+            Installation::whereKey($order->installation_id)->lockForUpdate()->firstOrFail();
             $locked = WorkOrder::query()->with(['template', 'installation'])->lockForUpdate()->findOrFail($order->id);
             if ($expectedUpdatedAt !== null && ! $locked->updated_at->equalTo(Carbon::parse($expectedUpdatedAt))) {
                 $locked->loadMissing(['assignedUser:id,name', 'activities:id,work_order_id,priority']);
@@ -55,6 +58,14 @@ class WorkOrderStateManager
                 ], 409));
             }
             $this->workflow->assertTransition($locked, $status);
+            if (in_array($status, ['in_progress', 'completed'], true) && in_array($locked->kind, ['installation', 'commissioning'], true)) {
+                if (! $locked->assigned_user_id) {
+                    throw ValidationException::withMessages(['status' => 'Asigna un técnico cualificado antes de iniciar o completar la instalación.']);
+                }
+                $start = $locked->scheduled_start ?: now();
+                $end = $locked->scheduled_end ?: $start->copy()->addMinutes($locked->estimated_duration_minutes ?: 120);
+                app(TechnicianSchedule::class)->assertAvailable($locked->assigned_user_id, $start, $end, $locked->id, $locked->required_skills ?? [], $locked->service_zone);
+            }
             if ($status === 'in_progress') {
                 $readiness = $this->readiness->for($locked);
                 abort_if(! $readiness['material_ready_now'], 422, __('Required materials are not physically available for this work yet.'));

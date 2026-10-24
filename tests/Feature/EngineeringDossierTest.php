@@ -53,9 +53,12 @@ class EngineeringDossierTest extends TestCase
         $this->assertSame(0, WorkOrder::count());
         $profile->update(['is_available' => true]);
         $installation->update(['financial_status' => 'pending']);
-        $this->post(route('engineering.work-order', $dossier), $data)->assertSessionHasErrors('financial_status');
-        $this->assertSame(0, WorkOrder::count());
-        $this->assertNull($dossier->scheduleProposals()->first()->work_order_id);
+        $this->post(route('engineering.work-order', $dossier), $data)->assertSessionHasNoErrors();
+        $this->assertSame(1, WorkOrder::count());
+        $this->assertNotNull($dossier->scheduleProposals()->first()->work_order_id);
+        $this->assertSame('planned', WorkOrder::firstOrFail()->status);
+        $this->assertDatabaseCount('stock_reservations', 0);
+        $this->patch(route('work-orders.update', WorkOrder::firstOrFail()), ['status' => 'in_progress'])->assertSessionHasErrors('financial_status');
         $installation->update(['financial_status' => 'paid']);
         $dossier->update(['scope' => 'Unexpected source mutation']);
         $this->post(route('engineering.work-order', $dossier), $data)->assertSessionHasErrors('expected_fingerprint');

@@ -2,6 +2,7 @@
 
 namespace App\Services\Work;
 
+use App\Models\Installation;
 use App\Models\WorkOrder;
 use App\Services\AfterSales\ServiceCycleScheduleWorkflow;
 use Illuminate\Support\Carbon;
@@ -17,6 +18,7 @@ class WorkOrderRescheduler
     public function reschedule(WorkOrder $order, array $changes, string $reason, ?int $userId, ?string $batchUuid = null): void
     {
         DB::transaction(function () use ($order, $changes, $reason, $userId, $batchUuid): void {
+            Installation::whereKey($order->installation_id)->lockForUpdate()->firstOrFail();
             $lockedOrder = WorkOrder::query()->lockForUpdate()->findOrFail($order->id);
             if (isset($changes['expected_updated_at']) && ! $lockedOrder->updated_at->equalTo(Carbon::parse($changes['expected_updated_at']))) {
                 throw ValidationException::withMessages(['expected_updated_at' => __('This work order changed on the server. Refresh it before retrying.')]);
@@ -37,6 +39,8 @@ class WorkOrderRescheduler
         DB::transaction(function () use ($items, $reason, $userId, $batch): void {
             $orderIds = collect($items)->pluck('work_order_id')->map(fn ($id) => (int) $id)->unique()->sort()->values();
             abort_unless($orderIds->count() === count($items), 422, __('A work order can only appear once in a rescheduling batch.'));
+            $installationIds = WorkOrder::whereKey($orderIds)->pluck('installation_id')->unique()->sort()->values();
+            Installation::whereKey($installationIds)->orderBy('id')->lockForUpdate()->get(['id']);
             $orders = WorkOrder::query()->whereKey($orderIds)->orderBy('id')->lockForUpdate()->get()->keyBy('id');
             abort_unless($orders->count() === $orderIds->count(), 404);
             $owners = collect($items)->pluck('assigned_user_id')->merge($orders->pluck('assigned_user_id'))->all();
@@ -60,6 +64,7 @@ class WorkOrderRescheduler
     /** @param array<string, mixed> $changes */
     private function rescheduleLocked(WorkOrder $order, array $changes, string $reason, ?int $userId, ?string $batchUuid): void
     {
+        abort_if($order->loadMissing('installation')->installation->dossier_closed_at && in_array($order->kind, ['installation', 'commissioning'], true), 422, 'Reabre el expediente antes de reprogramar la ejecución.');
         $newStart = $changes['scheduled_start'] ?? $order->scheduled_start;
         $newEnd = $changes['scheduled_end'] ?? $order->scheduled_end;
         $newStart = $newStart ? Carbon::parse($newStart) : null;

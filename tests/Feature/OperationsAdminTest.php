@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\CrmActivity;
+use App\Models\FieldServiceProfile;
 use App\Models\Installation;
 use App\Models\MaintenancePlan;
 use App\Models\MonitoringAlert;
@@ -264,6 +265,7 @@ class OperationsAdminTest extends TestCase
     {
         $commercial = User::factory()->create(['role' => 'commercial']);
         $technician = User::factory()->create(['role' => 'technician']);
+        FieldServiceProfile::create(['user_id' => $technician->id, 'skills' => ['solar', 'electrical'], 'is_available' => true]);
         $installation = Installation::create(['service_type' => 'solar', 'status' => 'approved', 'site_address_line_1' => 'Calle Solar 8']);
         $activity = CrmActivity::create([
             'installation_id' => $installation->id,

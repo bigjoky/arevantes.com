@@ -50,6 +50,7 @@ class Installation extends Model
         'deye_synced_at',
         'huawei_station_code', 'huawei_station_name', 'huawei_status', 'huawei_current_power_kw', 'huawei_today_energy_kwh', 'huawei_status_message', 'huawei_data', 'huawei_synced_at',
         'status',
+        'dossier_delivery_confirmed_at', 'dossier_delivery_confirmed_by', 'technical_validation_required', 'dossier_closed_at', 'dossier_closed_by', 'dossier_closure_reason',
         'financial_status',
         'financially_cleared_at',
         'project_reference',
@@ -201,6 +202,7 @@ class Installation extends Model
     protected function casts(): array
     {
         return [
+            'dossier_delivery_confirmed_at' => 'datetime', 'technical_validation_required' => 'boolean', 'dossier_closed_at' => 'datetime',
             'survey_date' => 'date',
             'scheduled_date' => 'date',
             'completed_date' => 'date',

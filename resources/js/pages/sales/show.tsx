@@ -275,8 +275,16 @@ export default function SalesShow({
                 <section className="grid gap-4 border-y py-4 text-sm sm:grid-cols-2 lg:grid-cols-4">
                     <Info label="Customer" value={customer} />
                     <Info
-                        label="Issue date"
-                        value={date(document.issue_date)}
+                        label={
+                            document.status === 'draft'
+                                ? 'Fecha prevista del borrador · no emitida'
+                                : 'Fecha de emisión'
+                        }
+                        value={
+                            document.status === 'draft'
+                                ? 'Sin emitir'
+                                : date(document.issue_date)
+                        }
                     />
                     <Info
                         label="Due date"

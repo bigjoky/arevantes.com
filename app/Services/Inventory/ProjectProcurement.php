@@ -2,6 +2,7 @@
 
 namespace App\Services\Inventory;
 
+use App\Models\Installation;
 use App\Models\Product;
 use App\Models\PurchaseDocument;
 use App\Models\WorkOrder;
@@ -21,6 +22,7 @@ class ProjectProcurement
     public function createRfq(WorkOrder $workOrder, int $supplierId, int $userId): PurchaseDocument
     {
         return DB::transaction(function () use ($workOrder, $supplierId, $userId): PurchaseDocument {
+            Installation::whereKey($workOrder->installation_id)->lockForUpdate()->firstOrFail();
             $workOrder = WorkOrder::with('installation')->lockForUpdate()->findOrFail($workOrder->id);
             $this->financialClearance->assertAllows($workOrder->installation, 'procure');
             $shortages = collect($this->materials->summary($workOrder->installation)['rows'])

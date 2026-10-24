@@ -64,7 +64,7 @@ class TechnicalScheduleAvailability
             }
         }
         try {
-            app(TechnicianSchedule::class)->assertAvailable($user->id, $start, $end);
+            app(TechnicianSchedule::class)->assertAvailable($user->id, $start, $end, allowPendingAbsenceWarning: true);
         } catch (ValidationException $exception) {
             $issues = [...$issues, ...array_merge(...array_values($exception->errors()))];
         }

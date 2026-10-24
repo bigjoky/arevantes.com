@@ -543,7 +543,8 @@ export default function QuoteForm({
                     <section className="grid gap-4 rounded-xl border bg-muted/20 p-5">
                         <div>
                             <h2 className="text-lg font-semibold">
-                                Instalaciones predefinidas
+                                Instalaciones predefinidas · plantillas
+                                comerciales
                             </h2>
                             <p className="text-sm text-muted-foreground">
                                 Añade una instalación completa y ajusta después
@@ -643,9 +644,9 @@ export default function QuoteForm({
                                 guárdalas aquí como primera plantilla.
                             </p>
                         )}
-                        <details className="border-t pt-3">
+                        <details open className="border-t pt-3">
                             <summary className="cursor-pointer text-sm font-medium">
-                                Guardar o actualizar una plantilla con las
+                                Crear o actualizar plantilla comercial con las
                                 líneas actuales
                             </summary>
                             <div className="mt-3 grid gap-3">
