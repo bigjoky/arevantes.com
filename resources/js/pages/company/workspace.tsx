@@ -745,7 +745,7 @@ function CompanyData({
             <div className="company-stack">
                 <Panel title="Logo y marca">
                     <div className="company-logo">
-                        <BrandLogo />
+                        <BrandLogo surface="light" />
                     </div>
                     <p className="company-note">
                         {brand.custom

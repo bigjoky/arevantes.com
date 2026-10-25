@@ -102,9 +102,15 @@ export function AppSidebar() {
                                 aria-label="AREVANTES · Inicio"
                             >
                                 <span className="sidebar-wordmark text-[27px] font-medium tracking-[0.1em]">
-                                    <BrandLogo className="h-6 max-w-32" />
+                                    <BrandLogo
+                                        surface="dark"
+                                        className="h-6 max-w-32"
+                                    />
                                 </span>
-                                <AppLogoIcon className="hidden size-7 fill-current group-data-[collapsible=icon]:block" />
+                                <AppLogoIcon
+                                    surface="dark"
+                                    className="hidden size-7 fill-current group-data-[collapsible=icon]:block"
+                                />
                             </Link>
                         </SidebarMenuButton>
                     </SidebarMenuItem>

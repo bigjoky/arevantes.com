@@ -71,3 +71,11 @@ Inicialización exclusivamente local: la base SQLite tenía un logo WebP previo;
 A petición expresa del usuario se elimina la línea decorativa externa (`.sidebar-brand::after`) y se aplica `brightness(0) invert(1)` únicamente a las imágenes de `.sidebar-brand`, tanto desplegado como plegado. Es una excepción visual autorizada para el sidebar; no modifica el SVG ni crea otra versión. Su trazo original se mantiene y también se presenta blanco. Fuera del sidebar se mantienen los colores oficiales.
 
 Verificación del ajuste: navegador en `localhost:8000`, pseudoelemento `::after` ausente, filtro blanco en los dos logos del sidebar y `filter: none` en la vista previa de Empresa. SVG idéntico al original; Prettier y build correctos en ambas copias. Captura: `output/playwright/sidebar-white-logo.png`. Cuenta temporal de verificación eliminada.
+
+## Originales principal y oscuro aportados posteriormente
+
+Los nuevos archivos autorizados sustituyen la anterior identidad basada en Group.svg. Principal: `public/brand/arevantes-logo.svg`, copia exacta de `logo.svg` (SHA-256 `a8874c40789e6cc39489e0c0598784151c15cb8fd9cb9fad29407984d483907e`). Variante para fondos oscuros: `public/brand/arevantes-logo-dark.svg`, copia exacta de `logo_dark.svg` (SHA-256 `269be205829ef12a4a39ab21e78543d3463664ea1a5eef4ba17d5195512526f9`). Se conservan sus colores y geometría originales; no se generan variantes ni se aplican filtros.
+
+`CompanyBrand` añade `darkLogoUrl` y `canonicalDarkLogoUrl`. `BrandLogo` admite `surface=auto|light|dark`; auto sigue el mecanismo de apariencia existente, mientras que un fondo fijo puede especificar la variante aunque el tema global sea diferente. Sidebar desplegado/plegado y panel oscuro de acceso usan dark; la previsualización de Empresa, sobre un panel blanco, usa light. El resto de componentes compartidos siguen el tema. Los logotipos de páginas públicas con fondo claro y los PDF sobre papel blanco conservan el principal. Si existe un logo personalizado, se mantiene ese recurso en ambos temas; no se inventa una variante personalizada.
+
+Este ajuste sustituye la excepción anterior de filtro blanco en sidebar. Las referencias históricas anteriores describen v2026.10.25.2. Actualización integrada en la instancia local única; aún no publicada en producción.

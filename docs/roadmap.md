@@ -10,6 +10,8 @@
 
 - **Ajuste solicitado de sidebar:** retirada la línea decorativa CSS `::after` bajo el logo; presentación blanca exclusivamente dentro de `.sidebar-brand` con filtro CSS, autorizada expresamente por el usuario. El trazo integrado en el SVG se conserva y se ve blanco junto con el resto del logo. Maestro y colores de las demás vistas/PDF intactos.
 
+- **BRAND.05 · Nuevos originales, implantados en local:** `logo.svg` sustituye el maestro principal (`arevantes-logo.svg`, SHA-256 `a8874c40789e6cc39489e0c0598784151c15cb8fd9cb9fad29407984d483907e`); `logo_dark.svg` se incorpora como variante oficial para fondo oscuro (`arevantes-logo-dark.svg`, SHA-256 `269be205829ef12a4a39ab21e78543d3463664ea1a5eef4ba17d5195512526f9`). Ambos conservados byte por byte. Contrato Inertia aditivo para variante oscura y fallback; componente común elige según tema o fondo explícito. Sidebar y panel oscuro de acceso usan variante oscura sin filtros; previsualización de Empresa sobre blanco mantiene principal. Una personalización existente mantiene su propio recurso en ambos temas, sin sustituirla por otra marca. Pruebas de selección de tema/fondo, contrato y hashes. Esta actualización posterior a v2026.10.25.2 está integrada en localhost:8000, no publicada.
+
 ## Estado vigente y orden de ejecución — 05/10/2026
 
 **Prioridad ACC-PGC.01 (05/10):** revisión solicitada frente al PGC del BOE.

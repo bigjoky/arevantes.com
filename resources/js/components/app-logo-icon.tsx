@@ -1,8 +1,6 @@
-import type { ImgHTMLAttributes } from 'react';
+import type { ComponentProps } from 'react';
 import BrandLogo from '@/components/brand-logo';
 
-export default function AppLogoIcon(
-    props: ImgHTMLAttributes<HTMLImageElement>,
-) {
+export default function AppLogoIcon(props: ComponentProps<typeof BrandLogo>) {
     return <BrandLogo {...props} />;
 }

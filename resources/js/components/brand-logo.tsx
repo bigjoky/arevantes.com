@@ -1,36 +1,35 @@
 import { usePage } from '@inertiajs/react';
 import type { ImgHTMLAttributes } from 'react';
+import { useAppearance } from '@/hooks/use-appearance';
+import { resolveCompanyLogo } from '@/lib/company-brand';
+import type { CompanyBranding, BrandSurface } from '@/lib/company-brand';
 import { cn } from '@/lib/utils';
 
-type Branding = {
-    name: string;
-    logoUrl: string;
-    canonicalLogoUrl: string;
-    custom: boolean;
-};
-
 export function useCompanyBrand() {
-    return usePage<{ branding: Branding }>().props.branding;
+    return usePage<{ branding: CompanyBranding }>().props.branding;
 }
 
 export default function BrandLogo({
     className,
     compact = false,
+    surface = 'auto',
     ...props
-}: ImgHTMLAttributes<HTMLImageElement> & { compact?: boolean }) {
+}: ImgHTMLAttributes<HTMLImageElement> & {
+    compact?: boolean;
+    surface?: BrandSurface;
+}) {
     const brand = useCompanyBrand();
+    const { resolvedAppearance } = useAppearance();
+    const logo = resolveCompanyLogo(brand, surface, resolvedAppearance);
 
     return (
         <img
             {...props}
-            src={brand.logoUrl}
+            src={logo.src}
             alt={brand.name}
             onError={(event) => {
-                if (
-                    event.currentTarget.getAttribute('src') !==
-                    brand.canonicalLogoUrl
-                ) {
-                    event.currentTarget.src = brand.canonicalLogoUrl;
+                if (event.currentTarget.getAttribute('src') !== logo.fallback) {
+                    event.currentTarget.src = logo.fallback;
                 }
             }}
             className={cn(
