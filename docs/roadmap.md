@@ -3175,3 +3175,11 @@ Verificación local completada: suite general 938 aprobadas / 8 omitidas (14.362
 
 
 Actualización de cierre económico (24/10/2026): decisión del usuario confirmada. Administración puede autorizar expresamente una excepción económica con motivo obligatorio. Se conservan cobros y facturas pendientes y su visibilidad; la auditoría registra actor, fecha, motivo e importes/documentos de la decisión. La excepción no omite órdenes o documentación obligatoria ni emite facturas o registra cobros. Implantado solo en local. Sustituye el criterio económico provisional anterior.
+
+
+### CRM: apertura de oportunidades con proyecto vinculado (25/10/2026)
+
+- Error reproducido localmente y confirmado con una consulta de lectura en producción: la relación de instalación del CRM solo cargaba campos de identidad. El recorrido leía requisitos, estado económico y revisión ausentes, y fallaba al formatear `updated_at`.
+- Corrección: el recorrido recupera el proyecto persistido completo antes de evaluar sus estados; no se oculta la ausencia de datos con valores por defecto. Sin migraciones ni cambios en documentos o cobros.
+- Regresión HTTP: abrir oportunidad con propuesta aceptada y proyecto vinculado debe responder 200 y conservar requisitos, revisión, fecha de actualización, entrega y cierre reales. La prueba falla con el código anterior; incluye acceso a la propuesta vinculada.
+- Estado: corregido localmente; pruebas y despliegue del hotfix en preparación.

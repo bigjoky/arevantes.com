@@ -26,6 +26,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
+use Inertia\Testing\AssertableInertia;
 use Tests\TestCase;
 
 class ProjectJourneyWorkflowTest extends TestCase
@@ -43,6 +44,31 @@ class ProjectJourneyWorkflowTest extends TestCase
         Queue::fake([GeocodeInstallation::class]);
 
         return $quote;
+    }
+
+    public function test_crm_opportunity_with_linked_project_opens_with_complete_journey_metadata(): void
+    {
+        $quote = $this->quote();
+        $installation = Installation::create([
+            'person_id' => $quote->person_id, 'service_type' => 'solar', 'status' => 'completed',
+            'site_address_line_1' => 'Prueba local', 'project_reference' => 'PRJ-CRM-REGRESSION',
+            'technical_validation_required' => true, 'dossier_closed_at' => now(),
+            'dossier_delivery_confirmed_at' => now(), 'dossier_closure_reason' => 'Cierre de prueba',
+        ]);
+        $installation->increment('dossier_revision', 7);
+        $quote->update(['installation_id' => $installation->id]);
+        $quote->opportunity->update(['installation_id' => $installation->id]);
+
+        $this->get(route('opportunities.show', $quote->opportunity_id))->assertOk()->assertInertia(fn (AssertableInertia $page) => $page
+            ->component('opportunities/show')
+            ->where('opportunity.quote.id', $quote->id)
+            ->where('journey.closure.installation_id', $installation->id)
+            ->where('journey.closure.technical_required', true)
+            ->where('journey.closure.revision', 7)
+            ->where('journey.closure.updated_at', $installation->fresh()->updated_at->toISOString())
+            ->where('journey.closure.closed_at', $installation->fresh()->dossier_closed_at->toISOString())
+            ->where('journey.closure.delivery_confirmed_at', $installation->fresh()->dossier_delivery_confirmed_at->toISOString()));
+        $this->get(route('quotes.show', $quote))->assertOk();
     }
 
     public function test_accepted_quote_creates_project_without_date_technician_or_survey_and_retries_reuse_it(): void
