@@ -18,7 +18,10 @@ export default function AuthSplitLayout({
                     href={home()}
                     className="relative z-20 flex items-center text-lg font-medium"
                 >
-                    <BrandLogo className="h-20 bg-transparent p-0 shadow-none" />
+                    <BrandLogo
+                        surface="dark"
+                        className="h-20 bg-transparent p-0 shadow-none"
+                    />
                     <span className="sr-only">{name}</span>
                 </Link>
             </div>

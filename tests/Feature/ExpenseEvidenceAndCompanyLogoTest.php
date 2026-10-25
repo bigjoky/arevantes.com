@@ -82,6 +82,8 @@ class ExpenseEvidenceAndCompanyLogoTest extends TestCase
         $this->actingAs(User::factory()->create(['role' => 'admin']))
             ->get('/company/settings')->assertInertia(fn ($page) => $page
             ->where('branding.logoUrl', $brand['logoUrl'])
+            ->where('branding.darkLogoUrl', '/brand/arevantes-logo-dark.svg')
+            ->where('branding.canonicalDarkLogoUrl', '/brand/arevantes-logo-dark.svg')
             ->where('branding.custom', false));
         $profile->update(['logo_path' => 'company/missing.svg']);
         $this->assertSame($brand['logoUrl'], app(CompanyBrand::class)->for($profile)['logoUrl']);
@@ -91,7 +93,7 @@ class ExpenseEvidenceAndCompanyLogoTest extends TestCase
     {
         Storage::fake('local');
         $bytes = file_get_contents(public_path('brand/arevantes-logo.svg'));
-        $this->assertSame('ccf9d9cb2ef4a56ed3ba9e89f8f87cd51ff378a10e8671ff971dbc7607a10394', hash('sha256', $bytes));
+        $this->assertSame('a8874c40789e6cc39489e0c0598784151c15cb8fd9cb9fad29407984d483907e', hash('sha256', $bytes));
         $this->actingAs(User::factory()->create(['role' => 'technician']))
             ->post('/company-fiscal/branding', ['logo' => UploadedFile::fake()->createWithContent('logo.svg', $bytes)])->assertForbidden();
         $this->actingAs(User::factory()->create(['role' => 'admin']))
@@ -100,6 +102,7 @@ class ExpenseEvidenceAndCompanyLogoTest extends TestCase
         $this->assertSame($bytes, Storage::disk('local')->get($profile->logo_path));
         $this->get('/company/settings')->assertInertia(fn ($page) => $page
             ->where('branding.logoUrl', '/company-fiscal/logo?v='.rawurlencode($profile->logo_path))
+            ->where('branding.darkLogoUrl', '/company-fiscal/logo?v='.rawurlencode($profile->logo_path))
             ->where('branding.custom', true));
         $this->get('/company-fiscal/logo')->assertOk()->assertHeader('X-Content-Type-Options', 'nosniff');
         foreach (['<script>alert(1)</script>', '<path onload="alert(1)"/>', '<image href="https://evil.test/x"/>', '<path fill="url(https://evil.test/x)"/>', '<foreignObject/>', '<path style="fill:url(https://evil.test/x)"/>', '<?xml-stylesheet href="https://evil.test/x"?>'] as $payload) {

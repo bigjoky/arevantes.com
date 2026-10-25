@@ -9,6 +9,8 @@ class CompanyBrand
 {
     public const LOGO = '/brand/arevantes-logo.svg';
 
+    public const DARK_LOGO = '/brand/arevantes-logo-dark.svg';
+
     public function customPath(?CompanyProfile $profile): ?string
     {
         $path = $profile?->logo_path;
@@ -24,6 +26,8 @@ class CompanyBrand
             'name' => $profile?->trade_name ?: ($profile?->legal_name ?: config('company.legal_name', 'AREVANTES')),
             'logoUrl' => $path ? '/company-fiscal/logo?v='.rawurlencode($path) : self::LOGO,
             'canonicalLogoUrl' => self::LOGO,
+            'darkLogoUrl' => $path ? '/company-fiscal/logo?v='.rawurlencode($path) : self::DARK_LOGO,
+            'canonicalDarkLogoUrl' => self::DARK_LOGO,
             'custom' => $path !== null,
         ];
     }

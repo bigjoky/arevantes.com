@@ -361,10 +361,6 @@
     align-items: flex-start;
     gap: 5px;
 }
-/* Sidebar-only white treatment; keep the canonical SVG unchanged. */
-.sidebar-brand img {
-    filter: brightness(0) invert(1);
-}
 [data-collapsible='icon'] .sidebar-wordmark,
 [data-collapsible='icon'] .sidebar-monogram {
     display: none;
