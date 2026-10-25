@@ -20,6 +20,8 @@ class ProjectJourney
     public function for(User $user, ?Installation $installation = null, ?Opportunity $opportunity = null): array
     {
         $installation ??= $opportunity?->installation;
+        // CRM relations may contain only identity fields; evaluate persisted requirements and revision.
+        $installation = $installation?->fresh();
         $quotes = Quote::query()->when($installation, fn ($q) => $q->where('installation_id', $installation->id), fn ($q) => $q->where('opportunity_id', $opportunity?->id));
         $quote = (clone $quotes)->where('status', 'accepted')->latest('id')->first() ?? $quotes->latest('id')->first();
         $opportunity ??= $quote?->opportunity ?? $installation?->opportunities()->latest('id')->first();
