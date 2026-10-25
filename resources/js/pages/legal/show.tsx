@@ -1,6 +1,7 @@
 import { Head, Link } from '@inertiajs/react';
 import { ArrowLeft, Cookie, Scale, ShieldCheck } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { useCompanyBrand } from '@/components/brand-logo';
 import { LanguageSelector } from '@/components/language-selector';
 
 type DocumentKind = 'notice' | 'privacy' | 'cookies';
@@ -52,6 +53,7 @@ export default function LegalPage({
     siteUrl: string;
     company: Company;
 }) {
+    const brand = useCompanyBrand();
     const metadata = documents[document];
     const Icon = metadata.icon;
     const paths: Record<DocumentKind, string> = {
@@ -78,7 +80,7 @@ export default function LegalPage({
                     <div className="mx-auto flex h-20 max-w-5xl items-center justify-between px-5 sm:px-8">
                         <Link href="/" aria-label="Arevantes, inicio">
                             <img
-                                src="/brand/arevantes-logo-light.svg"
+                                src={brand.logoUrl}
                                 alt="Arevantes"
                                 className="h-7 w-auto sm:h-8"
                             />

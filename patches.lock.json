@@ -1,0 +1,17 @@
+{
+    "_hash": "e314ed452743e0a64030eb9065f9db2fe6e3cc1fff5e601f8ddba25445e8c241",
+    "patches": {
+        "dompdf/php-svg-lib": [
+            {
+                "package": "dompdf/php-svg-lib",
+                "description": "Support static Display P3 SVG colors without rewriting SVG assets",
+                "url": "patches/php-svg-lib-display-p3.patch",
+                "sha256": "815d7c4c1f83b8291bb105e7b85f1b3a5567582f915c8365b082d41c6d8d9539",
+                "depth": 1,
+                "extra": {
+                    "provenance": "root"
+                }
+            }
+        ]
+    }
+}

@@ -1,9 +1,11 @@
 import { Link } from '@inertiajs/react';
 import { ArrowRight, ChevronRight, Menu, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { useCompanyBrand } from '@/components/brand-logo';
 import { LanguageSelector } from '@/components/language-selector';
 
 export function PublicSiteHeader({ active }: { active?: 'projects' }) {
+    const brand = useCompanyBrand();
     const [open, setOpen] = useState(false);
 
     useEffect(() => {
@@ -35,7 +37,7 @@ export function PublicSiteHeader({ active }: { active?: 'projects' }) {
             <div className="mx-auto flex h-20 max-w-7xl items-center justify-between gap-6 px-5 sm:px-8 lg:px-10">
                 <Link href="/" aria-label="Arevantes, inicio">
                     <img
-                        src="/brand/arevantes-logo-light.svg"
+                        src={brand.logoUrl}
                         alt="Arevantes"
                         className="h-7 w-auto sm:h-8"
                     />

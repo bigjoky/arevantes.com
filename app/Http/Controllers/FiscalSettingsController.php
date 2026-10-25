@@ -10,7 +10,9 @@ use App\Models\JournalEntry;
 use App\Models\PurchaseDocument;
 use App\Models\Quote;
 use App\Models\SalesDocument;
+use App\Rules\SafeCompanyLogo;
 use App\Services\Accounting\FiscalYearClosing;
+use App\Support\CompanyBrand;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -19,7 +21,6 @@ use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
-use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class FiscalSettingsController extends Controller
 {
@@ -39,9 +40,15 @@ class FiscalSettingsController extends Controller
         return Inertia::render('fiscal-settings/index', ['company' => CompanyProfile::firstOrFail(), 'fiscalYears' => $years]);
     }
 
-    public function updateCompany(Request $request): RedirectResponse
+    public function updateLogo(Request $request): RedirectResponse
     {
-        $data = $request->validate(['legal_name' => ['required', 'string', 'max:255'], 'trade_name' => ['nullable', 'string', 'max:255'], 'tax_id' => ['required', 'string', 'max:30'], 'address' => ['required', 'string', 'max:255'], 'postal_code' => ['required', 'string', 'max:20'], 'city' => ['required', 'string', 'max:255'], 'province' => ['required', 'string', 'max:255'], 'country' => ['required', 'string', 'max:255'], 'email' => ['required', 'email'], 'phone' => ['nullable', 'string', 'max:40'], 'website' => ['nullable', 'url'], 'iban' => ['nullable', 'string', 'max:34'], 'bic' => ['nullable', 'string', 'max:11'], 'commercial_registry' => ['nullable', 'string', 'max:255'], 'invoice_footer' => ['nullable', 'string', 'max:2000'], 'logo' => ['nullable', 'image', 'mimes:png,jpg,jpeg,webp', 'max:2048']]);
+        return $this->updateCompany($request, true);
+    }
+
+    public function updateCompany(Request $request, bool $logoOnly = false): RedirectResponse
+    {
+        $rules = ['legal_name' => ['required', 'string', 'max:255'], 'trade_name' => ['nullable', 'string', 'max:255'], 'tax_id' => ['required', 'string', 'max:30'], 'address' => ['required', 'string', 'max:255'], 'postal_code' => ['required', 'string', 'max:20'], 'city' => ['required', 'string', 'max:255'], 'province' => ['required', 'string', 'max:255'], 'country' => ['required', 'string', 'max:255'], 'email' => ['required', 'email'], 'phone' => ['nullable', 'string', 'max:40'], 'website' => ['nullable', 'url'], 'iban' => ['nullable', 'string', 'max:34'], 'bic' => ['nullable', 'string', 'max:11'], 'commercial_registry' => ['nullable', 'string', 'max:255'], 'invoice_footer' => ['nullable', 'string', 'max:2000'], 'logo' => ['bail', 'nullable', 'file', 'max:2048', new SafeCompanyLogo]];
+        $data = $request->validate($logoOnly ? ['logo' => $rules['logo']] : $rules);
         $request->validate(['remove_logo' => ['nullable', 'boolean']]);
         $logo = $data['logo'] ?? null;
         unset($data['logo']);
@@ -74,12 +81,15 @@ class FiscalSettingsController extends Controller
         return back()->with('toast', ['type' => 'success', 'message' => __('Company details updated.')]);
     }
 
-    public function logo(): StreamedResponse
+    public function logo(): \Symfony\Component\HttpFoundation\Response
     {
-        $profile = CompanyProfile::firstOrFail();
-        abort_unless($profile->logo_path && Storage::disk(config('filesystems.private'))->exists($profile->logo_path), 404);
+        $path = app(CompanyBrand::class)->customPath(CompanyProfile::first());
+        $headers = ['Content-Disposition' => 'inline', 'Cache-Control' => 'private, no-store', 'X-Content-Type-Options' => 'nosniff', 'Content-Security-Policy' => "default-src 'none'; sandbox"];
+        if (! $path) {
+            return response()->file(public_path(ltrim(CompanyBrand::LOGO, '/')), $headers);
+        }
 
-        return Storage::disk(config('filesystems.private'))->download($profile->logo_path, 'company-logo', ['Content-Disposition' => 'inline', 'Cache-Control' => 'private, no-store']);
+        return Storage::disk(config('filesystems.private'))->download($path, 'company-logo', $headers);
     }
 
     public function storeYear(Request $request): RedirectResponse

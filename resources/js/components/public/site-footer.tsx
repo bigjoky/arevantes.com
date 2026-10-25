@@ -1,14 +1,17 @@
 import { Link } from '@inertiajs/react';
 import { MapPin } from 'lucide-react';
+import { useCompanyBrand } from '@/components/brand-logo';
 
 export function PublicSiteFooter() {
+    const brand = useCompanyBrand();
+
     return (
         <footer className="px-5 py-12 sm:px-8">
             <div className="mx-auto flex max-w-7xl flex-col gap-8 border-t border-zinc-200 pt-10 sm:flex-row sm:items-end sm:justify-between">
                 <div>
                     <Link href="/">
                         <img
-                            src="/brand/arevantes-logo-light.svg"
+                            src={brand.logoUrl}
                             alt="Arevantes"
                             className="h-7 w-auto"
                         />

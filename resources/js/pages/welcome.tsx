@@ -15,6 +15,7 @@ import {
     Zap,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { useCompanyBrand } from '@/components/brand-logo';
 import { LanguageSelector } from '@/components/language-selector';
 import { ProjectCard } from '@/components/public/project-card';
 import { dashboard, login } from '@/routes';
@@ -107,6 +108,7 @@ export default function Welcome({
     siteUrl: string;
     projects: PublicProjectSummary[];
 }) {
+    const brand = useCompanyBrand();
     const { auth, localization } = usePage().props;
     const isSpanish = localization.current === 'es';
     const siteTitle = isSpanish
@@ -232,7 +234,7 @@ export default function Welcome({
                         name: 'Arevantes',
                         legalName: 'AREVANTES, S.L.',
                         url: siteUrl,
-                        logo: `${siteUrl}/brand/arevantes-logo-light.svg`,
+                        logo: `${siteUrl}${brand.logoUrl}`,
                         email: 'contact@arevantes.com',
                         address: {
                             '@type': 'PostalAddress',
@@ -279,7 +281,7 @@ export default function Welcome({
                             onClick={closeMenu}
                         >
                             <img
-                                src="/brand/arevantes-logo-light.svg"
+                                src={brand.logoUrl}
                                 alt="Arevantes"
                                 className="h-7 w-auto sm:h-8"
                             />
@@ -1125,7 +1127,7 @@ export default function Welcome({
                     <div className="mx-auto flex max-w-7xl flex-col gap-8 border-t border-zinc-200 pt-10 sm:flex-row sm:items-end sm:justify-between">
                         <div>
                             <img
-                                src="/brand/arevantes-logo-light.svg"
+                                src={brand.logoUrl}
                                 alt="Arevantes"
                                 className="h-7 w-auto"
                             />

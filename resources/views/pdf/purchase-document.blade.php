@@ -18,7 +18,7 @@
 </style></head>
 <body>
 <header>
-    @if($company['logo_data'] ?? null)<img src="{{ $company['logo_data'] }}" style="max-width:48mm;max-height:15mm">@else<strong>{{ $company['trade_name'] ?: $company['legal_name'] }}</strong>@endif
+    <img src="{{ $company['logo_data'] ?? app(\App\Support\CompanyBrand::class)->dataUri(null) }}" style="max-width:48mm;max-height:15mm">
     <div class="title">{{ $document->type === 'purchase_rfq' ? 'Solicitud de oferta' : 'Pedido de compra' }}<br><span class="muted" style="font-size:9pt">{{ $document->number }}</span></div>
 </header>
 <table class="parties"><tr>

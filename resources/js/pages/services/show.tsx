@@ -12,6 +12,7 @@ import {
     Zap,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { useCompanyBrand } from '@/components/brand-logo';
 import { LanguageSelector } from '@/components/language-selector';
 import { ProjectCard } from '@/components/public/project-card';
 import type { PublicProjectSummary } from '@/types/public-project';
@@ -55,6 +56,7 @@ export default function ServicePage({
     projects: PublicProjectSummary[];
     siteUrl: string;
 }) {
+    const brand = useCompanyBrand();
     const Icon = icons[service.slug as keyof typeof icons] ?? Gauge;
     const canonical = `${siteUrl}/servicios/${service.slug}`;
     const contactUrl = `/?servicio=${service.form_value}#contacto`;
@@ -167,7 +169,7 @@ export default function ServicePage({
                     <div className="mx-auto flex h-20 max-w-7xl items-center justify-between gap-6 px-5 sm:px-8 lg:px-10">
                         <Link href="/" aria-label="Arevantes, inicio">
                             <img
-                                src="/brand/arevantes-logo-light.svg"
+                                src={brand.logoUrl}
                                 alt="Arevantes"
                                 className="h-7 w-auto sm:h-8"
                             />
@@ -569,7 +571,7 @@ export default function ServicePage({
                     <div className="mx-auto flex max-w-7xl flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
                         <Link href="/">
                             <img
-                                src="/brand/arevantes-logo-light.svg"
+                                src={brand.logoUrl}
                                 alt="Arevantes"
                                 className="h-7 w-auto"
                             />

@@ -1,0 +1,37 @@
+--- a/src/Svg/Style.php
++++ b/src/Svg/Style.php
+@@ -212,6 +212,34 @@
+     static function parseColor($color)
+     {
+         $color = strtolower(trim($color));
++
++        // CSS Color 4: decode Display P3, pass through D65 XYZ, encode sRGB.
++        // This is renderer colour-space handling; the source SVG stays untouched.
++        if (preg_match('/^color\(display-p3\s+([+-]?[0-9]*\.?[0-9]+)\s+([+-]?[0-9]*\.?[0-9]+)\s+([+-]?[0-9]*\.?[0-9]+)\s*\)$/D', $color, $matches)) {
++            $linear = array_map(static function ($value) {
++                $value = (float) $value;
++                return $value <= 0.04045 ? $value / 12.92 : pow(($value + 0.055) / 1.055, 2.4);
++            }, array_slice($matches, 1));
++            $p3ToXyz = [
++                [608311 / 1250200, 189793 / 714400, 198249 / 1000160],
++                [35783 / 156275, 247089 / 357200, 198249 / 2500400],
++                [0, 32229 / 714400, 5220557 / 5000800],
++            ];
++            $xyzToSrgb = [
++                [12831 / 3959, -329 / 214, -1974 / 3959],
++                [-851781 / 878810, 1648619 / 878810, 36519 / 878810],
++                [705 / 12673, -2585 / 12673, 705 / 667],
++            ];
++            $multiply = static function ($matrix, $vector) {
++                return array_map(static function ($row) use ($vector) {
++                    return $row[0] * $vector[0] + $row[1] * $vector[1] + $row[2] * $vector[2];
++                }, $matrix);
++            };
++            return array_merge(array_map(static function ($value) {
++                $encoded = $value <= 0.0031308 ? 12.92 * $value : 1.055 * pow($value, 1 / 2.4) - 0.055;
++                return max(0, min(1, $encoded)) * 255;
++            }, $multiply($xyzToSrgb, $multiply($p3ToXyz, $linear))), [1.0]);
++        }
+ 
+         $parts = preg_split('/[^,]\s+/', $color, 2);
+ 
