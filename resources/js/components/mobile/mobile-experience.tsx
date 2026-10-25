@@ -28,6 +28,7 @@ import {
     SidebarCompany,
     workspaceNavigationIcons,
 } from '@/components/app-sidebar';
+import BrandLogo from '@/components/brand-logo';
 import { CommercialFieldPwa } from '@/components/commercial-field-pwa';
 import { FavoritesBar } from '@/components/favorites-bar';
 import { GlobalSearch } from '@/components/global-search';
@@ -374,7 +375,7 @@ export function MobileExperience({ children }: { children: ReactNode }) {
                     className="mobile-wordmark"
                     aria-label="AREVANTES · Inicio"
                 >
-                    AREVANTES
+                    <BrandLogo className="h-6 max-w-32" />
                 </Link>
                 <div className="mobile-header-actions">
                     {(auth.abilities.manageCustomers ||

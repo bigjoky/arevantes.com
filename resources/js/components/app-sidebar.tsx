@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import AppLogoIcon from '@/components/app-logo-icon';
+import BrandLogo from '@/components/brand-logo';
 import { NavMain } from '@/components/nav-main';
 import { useShellContext } from '@/components/shell-context';
 import {
@@ -88,9 +89,6 @@ export function AppSidebar() {
             variant="sidebar"
             className="arevantes-sidebar"
         >
-            <div aria-hidden="true" className="sidebar-monogram">
-                <AppLogoIcon />
-            </div>
             <SidebarHeader className="relative px-6 pt-4 pb-4 group-data-[collapsible=icon]:px-2 group-data-[collapsible=icon]:pb-4">
                 <SidebarMenu>
                     <SidebarMenuItem>
@@ -104,7 +102,7 @@ export function AppSidebar() {
                                 aria-label="AREVANTES · Inicio"
                             >
                                 <span className="sidebar-wordmark text-[27px] font-medium tracking-[0.1em]">
-                                    AREVANTES
+                                    <BrandLogo className="h-6 max-w-32" />
                                 </span>
                                 <AppLogoIcon className="hidden size-7 fill-current group-data-[collapsible=icon]:block" />
                             </Link>

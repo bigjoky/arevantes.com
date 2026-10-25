@@ -1,5 +1,15 @@
 # Roadmap unificado de Arevantes
 
+## Identidad corporativa — 25/10/2026
+
+- **BRAND.01 · Implantado e integrado en local:** maestro `public/brand/arevantes-logo.svg`, idéntico a `Group.svg`, SHA-256 `ccf9d9cb2ef4a56ed3ba9e89f8f87cd51ff378a10e8671ff971dbc7607a10394`. Único SVG oficial; retiradas variante antigua y recreaciones del shell y PDF. Sidebar y navegación conservados; retirado el símbolo decorativo sesgado para no deformar la marca.
+- **BRAND.02 · Implantado y probado:** edición directa de Empresa → Configuración → Logo y marca, archivos privados, campo existente `CompanyProfile.logo_path`, permiso `manage-tax`, sin migraciones. Servicio `CompanyBrand`, contrato Inertia `branding`, fallback oficial para recurso no configurado/ausente y restauración. SVG validado con lista permitida y bloqueo de contenido activo/referencias externas, sin modificar los aceptados. Raster existentes admitidos. Vistas públicas reciben maestro; área autenticada y documentos reciben recurso configurado.
+- **BRAND.03 · Resuelto y verificado:** soporte de los colores estáticos Display P3 del maestro en el lector SVG de Dompdf mediante parche Composer bloqueado por hash. Conversión de espacio de color a sRGB al emitir vectores PDF; no altera el archivo ni genera otra versión ni rasteriza. Alcance y límites en `patches/README.md`. Pruebas de ambos colores y ausencia de objetos raster; revisión visual de las tres páginas del presupuesto. Servicios/plantillas de venta y compra probados. PDF archivados inmutables.
+- **BRAND.04 · Integrado y comprobado en la instancia única:** cambios de `d539` fusionados en `ffe1`, respetando trabajo ajeno; visible en `http://localhost:8000/company/settings`. Comprobados en navegador subida, guardado, persistencia tras recargar, restauración y carga del maestro. Inicialización local al SVG oficial con archivo WebP previo conservado; cuenta QA temporal eliminada. No publicado en producción.
+- **Verificación:** 37 pruebas, 380 aserciones; TypeScript, build, Pint, ESLint y Prettier correctos. SVG idéntico byte por byte. Captura en `output/playwright/company-branding-restored.png`; detalles y archivos en [implementación del branding](company-branding.md).
+
+- **Ajuste solicitado de sidebar:** retirada la línea decorativa CSS `::after` bajo el logo; presentación blanca exclusivamente dentro de `.sidebar-brand` con filtro CSS, autorizada expresamente por el usuario. El trazo integrado en el SVG se conserva y se ve blanco junto con el resto del logo. Maestro y colores de las demás vistas/PDF intactos.
+
 ## Estado vigente y orden de ejecución — 05/10/2026
 
 **Prioridad ACC-PGC.01 (05/10):** revisión solicitada frente al PGC del BOE.

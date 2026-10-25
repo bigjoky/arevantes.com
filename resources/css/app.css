@@ -361,14 +361,11 @@
     align-items: flex-start;
     gap: 5px;
 }
-.sidebar-brand::after {
-    content: '';
-    width: 41px;
-    height: 4px;
-    background: #00d37e;
+/* Sidebar-only white treatment; keep the canonical SVG unchanged. */
+.sidebar-brand img {
+    filter: brightness(0) invert(1);
 }
 [data-collapsible='icon'] .sidebar-wordmark,
-[data-collapsible='icon'] .sidebar-brand::after,
 [data-collapsible='icon'] .sidebar-monogram {
     display: none;
 }

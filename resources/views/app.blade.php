@@ -53,7 +53,7 @@
         'name' => 'Arevantes',
         'legalName' => config('company.legal_name'),
         'url' => $siteUrl,
-        'logo' => $siteUrl.'/brand/arevantes-logo-light.svg',
+        'logo' => $siteUrl.\App\Support\CompanyBrand::LOGO,
         'email' => config('company.email'),
         'telephone' => config('company.phone'),
         'address' => [

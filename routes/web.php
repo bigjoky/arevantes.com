@@ -494,7 +494,8 @@ Route::middleware(['auth'])->group(function () {
     Route::get('company-fiscal/census', [CompanyCensusController::class, 'index'])->middleware('can:manage-tax')->name('company-census.index');
     Route::post('company-fiscal/census', [CompanyCensusController::class, 'store'])->middleware('can:manage-tax')->name('company-census.store');
     Route::post('company-fiscal/company', [FiscalSettingsController::class, 'updateCompany'])->middleware('can:manage-tax')->name('fiscal-settings.company.update');
-    Route::get('company-fiscal/logo', [FiscalSettingsController::class, 'logo'])->middleware('can:manage-tax')->name('fiscal-settings.logo');
+    Route::post('company-fiscal/branding', [FiscalSettingsController::class, 'updateLogo'])->middleware('can:manage-tax')->name('fiscal-settings.branding.update');
+    Route::get('company-fiscal/logo', [FiscalSettingsController::class, 'logo'])->name('fiscal-settings.logo');
     Route::post('company-fiscal/years', [FiscalSettingsController::class, 'storeYear'])->middleware('can:manage-tax')->name('fiscal-settings.years.store');
     Route::post('company-fiscal/years/{fiscalYear}/close', [FiscalSettingsController::class, 'closeYear'])->middleware('can:manage-tax')->name('fiscal-settings.years.close');
     Route::post('company-fiscal/years/{fiscalYear}/reopen', [FiscalSettingsController::class, 'reopenYear'])->middleware('can:manage-tax')->name('fiscal-settings.years.reopen');

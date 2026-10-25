@@ -11,6 +11,7 @@ use App\Models\SecurityEvent;
 use App\Models\Unit;
 use App\Models\User;
 use App\Services\Documents\DocumentPdf;
+use App\Support\CompanyBrand;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
@@ -30,6 +31,8 @@ class QuotePdfTest extends TestCase
             'isDraft' => true,
         ])->render();
 
+        $this->assertStringNotContainsString('<span class="brand">', $html);
+        $this->assertStringContainsString(app(CompanyBrand::class)->dataUri(null), $html);
         $this->assertStringContainsString('Propuesta comercial', $html);
         $this->assertStringContainsString('Alcance e inversión', $html);
         $this->assertStringContainsString('Opciones disponibles no incluidas', $html);

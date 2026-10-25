@@ -8,6 +8,7 @@ import {
     UnlockKeyhole,
 } from 'lucide-react';
 import { useState } from 'react';
+import BrandLogo from '@/components/brand-logo';
 import InputError from '@/components/input-error';
 import { PageHeader, PageShell, TableViewport } from '@/components/page-shell';
 import { Badge } from '@/components/ui/badge';
@@ -178,17 +179,11 @@ export default function FiscalSettings({
                                     />
                                     <div className="grid gap-2 xl:col-span-2">
                                         <Label>Logo</Label>
-                                        {company.logo_path && (
-                                            <img
-                                                src={`/company-fiscal/logo?v=${encodeURIComponent(company.logo_path)}`}
-                                                alt="Company logo"
-                                                className="h-16 w-fit object-contain"
-                                            />
-                                        )}
+                                        <BrandLogo className="h-16" />
                                         <Input
                                             name="logo"
                                             type="file"
-                                            accept="image/png,image/jpeg,image/webp"
+                                            accept="image/svg+xml,image/png,image/jpeg,image/webp"
                                         />
                                         <InputError message={errors.logo} />
                                         {company.logo_path && (

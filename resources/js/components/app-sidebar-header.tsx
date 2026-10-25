@@ -2,6 +2,7 @@ import { usePage } from '@inertiajs/react';
 import { Menu, MoreHorizontal } from 'lucide-react';
 import { ActionCenter } from '@/components/action-center';
 import { AreviaChat } from '@/components/arevia-chat';
+import BrandLogo from '@/components/brand-logo';
 import { FavoritesBar } from '@/components/favorites-bar';
 import { GlobalSearch } from '@/components/global-search';
 import { LanguageSelector } from '@/components/language-selector';
@@ -19,7 +20,8 @@ import {
 import { SidebarTrigger, useSidebar } from '@/components/ui/sidebar';
 
 export function AppSidebarHeader() {
-    const { isMobile, toggleSidebar, openMobile, mobileTriggerRef } = useSidebar();
+    const { isMobile, toggleSidebar, openMobile, mobileTriggerRef } =
+        useSidebar();
     const { abilities } = usePage().props.auth;
     const canSearch =
         abilities.manageCustomers ||
@@ -52,7 +54,7 @@ export function AppSidebarHeader() {
             ) : (
                 <SidebarTrigger />
             )}
-            <span className="shell-mobile-wordmark">AREVANTES</span>
+            <BrandLogo className="shell-mobile-wordmark h-6 max-w-32" />
             <div className="shell-search">
                 {canSearch && <GlobalSearch expanded />}
             </div>

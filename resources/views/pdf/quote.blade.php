@@ -102,11 +102,7 @@
 @endphp
 
 <header>
-    @if(($company['logo_data'] ?? null) && !($company['logo_is_fallback'] ?? false))
-        <img class="logo" src="{{ $company['logo_data'] }}" alt="{{ $companyName }}">
-    @else
-        <span class="brand">{{ strtoupper($companyName) }}</span>
-    @endif
+    <img class="logo" src="{{ $company['logo_data'] ?? app(\App\Support\CompanyBrand::class)->dataUri(null) }}" alt="{{ $companyName }}">
     <div class="header-reference"><strong>{{ $document->number }}</strong>Propuesta comercial · versión {{ $document->version ?? 1 }}</div>
 </header>
 
@@ -216,7 +212,7 @@
         @if($visibleComponents->isNotEmpty())
             @if($loop->first)
                 <table class="continuation-header"><tr>
-                    <td><span class="brand">{{ strtoupper($companyName) }}</span></td>
+                    <td><img class="logo" src="{{ $company['logo_data'] ?? app(\App\Support\CompanyBrand::class)->dataUri(null) }}" alt="{{ $companyName }}"></td>
                     <td><span class="strong">{{ $document->number }}</span><br>Continuación de la propuesta · versión {{ $document->version ?? 1 }}</td>
                 </tr></table>
             @endif
