@@ -3239,3 +3239,12 @@ Las tarjetas CRM distinguen pipeline cargado de listado paginado; Tabla permite
 recorrer resultados. No se fabrican registros ni etapas. La ausencia de una
 capacidad pendiente no se representa como un dato consultado vacío. Publicación,
 merge, manifest, service worker e infraestructura requieren su autorización aparte.
+
+### Iconos de PWA y aplicación web — 26/10/2026
+
+- UI-PWA-ICONS-01 — Implantado en código local: nueva identidad facilitada por el usuario. `Icon-iOS-Default-1024@1x.png` origina los PNG opacos de Apple de 180, 167 y 152 px; el SVG proporcionado origina el favicon vectorial, el ICO de 16/32/48 px y los iconos Android de 192/512 px. El SVG conserva el dibujo visible, convierte los colores Display P3 a sRGB y elimina el bitmap oculto por el fondo opaco. No se cambia el logotipo de la navegación interna.
+- Android dispone además de un icono de 512 px con `purpose: maskable`, fondo opaco y la marca dentro de la zona circular segura. Se actualizan el manifiesto, los enlaces Apple/favicon y la versión de caché pública del service worker; se mantiene la activación de actualizaciones por el usuario.
+- Verificación: 9 pruebas de PWA y navegación aprobadas; dimensiones y opacidad de los seis PNG, resoluciones del ICO y zona segura del icono adaptable comprobadas. Revisión visual de Apple, Android y máscara circular en `output/icons/preview.png` (artefacto local, no versionado).
+- Pendiente — UI-PWA-ICONS-02: publicación y comprobación de instalación real en iPhone/iPad y Android. Dependencias: desplegar este corte y comprobar cómo cada dispositivo actualiza el icono de instalaciones anteriores. Criterio de aceptación: favicon nuevo en navegador y nueva marca en pantalla de inicio, sin recortes de la A ni la línea verde. Una instalación existente puede conservar el icono anterior hasta que el sistema lo actualice o se reinstale el acceso.
+- Las variantes nativas Clear/Tinted y watchOS del export no se anuncian como disponibles: esta aplicación sirve una PWA, sin catálogo nativo de iconos de Apple. Se usa la variante estándar mediante los enlaces `apple-touch-icon` admitidos por Safari.
+- Estado: publicación en producción autorizada el 26/10/2026; integración del cambio sobre main y despliegue en preparación. Verificación HTTP remota y validación física de instalaciones existentes pendientes.
