@@ -989,10 +989,14 @@ para gastos nuevos publicada; las correcciones históricas y puntos 3, 5 y 6 sig
 - Verificado localmente: compilación, 92 pruebas de flujos afectados (1066
   aserciones) y seis pruebas PostgreSQL con procesos independientes (48
   aserciones), incluidas carreras de reservas y primera inicialización.
-- Publicación y activación de las reservas pendientes. Criterio de aceptación:
-  despliegue correcto, migración aplicada y reservas 10/6 pendientes en
-  producción; sin altas ficticias ni modificación de los contadores existentes.
-  Procedimiento en `docs/commercial-number-reservations.md`.
+- Suite completa SQLite: 951 pruebas correctas, 10 omitidas y 14494 aserciones;
+  los cinco casos de reservas pasan también en PostgreSQL (21 aserciones).
+  Script de activación ejecutado dos veces en PostgreSQL local aislado: mantiene
+  exactamente dos reservas pendientes, sin adelantar la serie.
+- La publicación aplica la migración y activa las reservas 10/6 sin altas
+  ficticias ni modificación de los contadores existentes. El estado y las
+  comprobaciones de producción se registran en la PR #158; procedimiento
+  en `docs/commercial-number-reservations.md`.
 
 ## Recuperación administrativa: CRM, agenda y compras — 26/09/2026
 
