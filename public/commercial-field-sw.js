@@ -1,7 +1,7 @@
 /* Only a public offline notice and brand icons are cached. No CRM data, HTML
  * responses, API results, credentials or pending writes are stored here. */
-const CACHE = 'arevantes-field-public-v2';
-const PUBLIC_FILES = ['/pwa/offline.html', '/pwa/icon-192.png', '/pwa/icon-512.png'];
+const CACHE = 'arevantes-field-public-v3';
+const PUBLIC_FILES = ['/pwa/offline.html', '/pwa/icon-192.png', '/pwa/icon-512.png', '/pwa/icon-maskable-512.png'];
 
 self.addEventListener('install', (event) => {
     event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(PUBLIC_FILES)));
