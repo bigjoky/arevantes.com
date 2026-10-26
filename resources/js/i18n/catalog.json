@@ -24762,5 +24762,85 @@
     "Material pedido": {
         "en": "Ordered material",
         "es": "Material pedido"
+    },
+    "Fotografías o documentos": {
+        "en": "Photos or documents",
+        "es": "Fotografías o documentos"
+    },
+    "Hasta 12 archivos JPG, PNG, WebP o PDF, de 12 MB cada uno. Uso interno; no se publican al cliente.": {
+        "en": "Up to 12 JPG, PNG, WebP or PDF files, 12 MB each. Internal use; not published to the customer.",
+        "es": "Hasta 12 archivos JPG, PNG, WebP o PDF, de 12 MB cada uno. Uso interno; no se publican al cliente."
+    },
+    "Observaciones de la evidencia": {
+        "en": "Evidence notes",
+        "es": "Observaciones de la evidencia"
+    },
+    "Añadir evidencias": {
+        "en": "Add evidence",
+        "es": "Añadir evidencias"
+    },
+    "Temporizador en curso:": {
+        "en": "Running timer:",
+        "es": "Temporizador en curso:"
+    },
+    "Actuación realizada": {
+        "en": "Work performed",
+        "es": "Actuación realizada"
+    },
+    "Desplazamiento (km)": {
+        "en": "Travel (km)",
+        "es": "Desplazamiento (km)"
+    },
+    "Registra el tiempo de esta actuación. Se aplican las validaciones operativas existentes.": {
+        "en": "Record time for this work. Existing operational validations apply.",
+        "es": "Registra el tiempo de esta actuación. Se aplican las validaciones operativas existentes."
+    },
+    "Guardar actuación y detener": {
+        "en": "Save work and stop",
+        "es": "Guardar actuación y detener"
+    },
+    "Iniciar actuación": {
+        "en": "Start work",
+        "es": "Iniciar actuación"
+    },
+    "Consulta tus trabajos y registra la actividad en campo.": {
+        "en": "Check your jobs and record work in the field.",
+        "es": "Consulta tus trabajos y registra la actividad en campo."
+    },
+    "Accesos operativos": {
+        "en": "Operational shortcuts",
+        "es": "Accesos operativos"
+    },
+    "Trabajos de hoy": {
+        "en": "Today's jobs",
+        "es": "Trabajos de hoy"
+    },
+    "Solo se muestran las órdenes autorizadas para tu usuario.": {
+        "en": "Only work orders authorized for your user are shown.",
+        "es": "Solo se muestran las órdenes autorizadas para tu usuario."
+    },
+    "En ejecución": {
+        "en": "In progress",
+        "es": "En ejecución"
+    },
+    "Próximos trabajos": {
+        "en": "Upcoming jobs",
+        "es": "Próximos trabajos"
+    },
+    "Los resúmenes muestran los trabajos cargados. Abre Mis trabajos para consultar el listado completo.": {
+        "en": "Summaries show loaded jobs. Open My jobs for the full list.",
+        "es": "Los resúmenes muestran los trabajos cargados. Abre Mis trabajos para consultar el listado completo."
+    },
+    "← Volver al listado o agenda": {
+        "en": "← Back to list or agenda",
+        "es": "← Volver al listado o agenda"
+    },
+    "Abrir ubicación en mapas": {
+        "en": "Open location in maps",
+        "es": "Abrir ubicación en mapas"
+    },
+    "Sin observaciones registradas": {
+        "en": "No notes recorded",
+        "es": "Sin observaciones registradas"
     }
 }

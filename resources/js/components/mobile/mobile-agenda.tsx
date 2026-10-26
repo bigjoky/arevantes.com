@@ -1,3 +1,4 @@
+import { usePage } from '@inertiajs/react';
 import { Head, Link } from '@inertiajs/react';
 import { CalendarDays, ChevronLeft, ChevronRight, Clock3 } from 'lucide-react';
 import { useState } from 'react';
@@ -5,6 +6,7 @@ import type { Order, Workspace } from '@/components/operations/workspace';
 import { statuses } from '@/components/operations/workspace';
 import { PageShell } from '@/components/page-shell';
 import { useLocale } from '@/hooks/use-locale';
+import { operationsOrderUrl } from '@/lib/operations/navigation';
 
 type Activity = {
     id: number;
@@ -21,6 +23,7 @@ export function MobileAgenda({
     data: Workspace;
     activities: Activity[];
 }) {
+    const { url } = usePage();
     const { locale } = useLocale();
     const formatLocale = locale === 'es' ? 'es-ES' : 'en-GB';
     const [now] = useState(() => new Date());
@@ -40,7 +43,7 @@ export function MobileAgenda({
             title: order.title || order.number,
             subtitle: `${order.number} · ${order.installation?.site_name ?? ''}`,
             at: order.scheduled_start,
-            href: `/work-orders/${order.id}`,
+            href: operationsOrderUrl(order.id, url),
             kind: 'Orden de trabajo',
             status: statuses[order.status] ?? order.status,
         })),

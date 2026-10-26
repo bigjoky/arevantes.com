@@ -1,5 +1,9 @@
-import { Link } from '@inertiajs/react';
+import { Link, usePage } from '@inertiajs/react';
 import { useState } from 'react';
+import {
+    OrderEvidenceUpload,
+    OrderTimer,
+} from '@/components/operations/mobile-execution';
 import {
     Frame,
     Card,
@@ -14,6 +18,10 @@ import {
 } from '@/components/operations/workspace';
 import type { Workspace, Order } from '@/components/operations/workspace';
 import { Button } from '@/components/ui/button';
+import {
+    operationsOrderUrl,
+    operationsReturnUrl,
+} from '@/lib/operations/navigation';
 type Item = {
     id: number;
     label?: string;
@@ -35,6 +43,7 @@ type Item = {
 };
 type Props = Workspace & {
     order: Order;
+    runningTimer: { id: number; started_at: string } | null;
     tab: string;
     transitions: string[];
     content: {
@@ -58,6 +67,13 @@ const tabs = [
 ];
 export default function Detail(data: Props) {
     const o = data.order;
+    const { url } = usePage();
+    const returnTo = operationsReturnUrl(
+        new URL(url, 'https://operations.invalid').searchParams.get(
+            'return_to',
+        ),
+    );
+    const orderLink = (tab?: string) => operationsOrderUrl(o.id, returnTo, tab);
     const [scheduling, setScheduling] = useState(false);
     const summary = data.tab === tabs[0][0];
     const tasks = data.tab === tabs[1][0];
@@ -72,7 +88,8 @@ export default function Detail(data: Props) {
                     {data.canManage && (
                         <Button
                             variant="outline"
-                            onClick={() => setScheduling(!scheduling)}
+                            disabled={scheduling}
+                            onClick={() => setScheduling(true)}
                         >
                             Reprogramar
                         </Button>
@@ -85,14 +102,14 @@ export default function Detail(data: Props) {
                 </div>
             }
         >
-            <Link href="/work-orders">← Volver a órdenes de trabajo</Link>
+            <Link href={returnTo}>← Volver al listado o agenda</Link>
             <Badge status={o.status} />
             <nav className="ops-tabs">
                 {tabs.map(([key, label]) => (
                     <Link
                         className={data.tab === key ? 'active' : ''}
                         key={key}
-                        href={`/work-orders/${o.id}?tab=${key}`}
+                        href={orderLink(key)}
                     >
                         {label}
                     </Link>
@@ -169,6 +186,15 @@ export default function Detail(data: Props) {
                             </p>
                             <p>{o.installation.site_city}</p>
                             <small>Ubicación de la instalación</small>
+                            {o.installation.site_address_line_1 && (
+                                <a
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([o.installation.site_address_line_1, o.installation.site_city].filter(Boolean).join(', '))}`}
+                                >
+                                    Abrir ubicación en mapas
+                                </a>
+                            )}
                         </Card>
                     </div>
                     <div className="ops-dashboard-bottom">
@@ -177,27 +203,33 @@ export default function Detail(data: Props) {
                                 {o.completed_tasks_count} de{' '}
                                 {o.checklist_items_count} completadas
                             </p>
-                            <Link href={`/work-orders/${o.id}?tab=tasks`}>
+                            <Link href={orderLink('tasks')}>
                                 Ver checklist →
                             </Link>
                         </Card>
                         <Card title="Materiales asignados">
-                            <Link href={`/work-orders/${o.id}?tab=materials`}>
+                            <Link href={orderLink('materials')}>
                                 Ver reservas de almacén →
                             </Link>
                         </Card>
                         <Card title="Documentos">
-                            <Link href={`/work-orders/${o.id}?tab=documents`}>
+                            <Link href={orderLink('documents')}>
                                 Ver documentos de la orden →
                             </Link>
                         </Card>
                     </div>
+                    <Card title="Observaciones">
+                        <p className="whitespace-pre-wrap">
+                            {o.completion_notes ||
+                                'Sin observaciones registradas'}
+                        </p>
+                    </Card>
                     <Card title="Instrucciones">
                         <p className="whitespace-pre-wrap">
                             {o.instructions ?? 'Sin instrucciones registradas'}
                         </p>
                     </Card>
-                    {!!data.transitions.length && (
+                    {!scheduling && !!data.transitions.length && (
                         <Card title="Estado de la orden">
                             <Transition
                                 order={o}
@@ -219,6 +251,17 @@ export default function Detail(data: Props) {
                         tabs.find(([key]) => key === data.tab)?.[1] ?? data.tab
                     }
                 >
+                    {files && <OrderEvidenceUpload orderId={o.id} />}
+                    {data.tab === 'reports' && (
+                        <OrderTimer
+                            orderId={o.id}
+                            running={data.runningTimer}
+                            canStart={
+                                o.status === 'in_progress' ||
+                                data.transitions.includes('in_progress')
+                            }
+                        />
+                    )}
                     {data.content?.data.map((item) => (
                         <div className="ops-backlog" key={item.id}>
                             {tasks ? (

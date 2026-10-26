@@ -1,4 +1,5 @@
 import { Link } from '@inertiajs/react';
+import { MobileOperationsHome } from '@/components/operations/mobile-home';
 import {
     Card,
     Frame,
@@ -7,6 +8,7 @@ import {
     metricIcons,
 } from '@/components/operations/workspace';
 import type { Workspace, Order } from '@/components/operations/workspace';
+import { useIsMobile } from '@/hooks/use-mobile';
 type Props = Workspace & {
     metrics: Record<string, number>;
     attention: Order[];
@@ -20,6 +22,12 @@ type Props = Workspace & {
     }[];
 };
 export default function Dashboard(data: Props) {
+    const mobile = useIsMobile(1024);
+
+    if (mobile) {
+        return <MobileOperationsHome data={data} />;
+    }
+
     const labels = [
         'Trabajos de hoy',
         'Pendientes de planificar',

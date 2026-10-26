@@ -2,6 +2,7 @@ import { Link, useForm } from '@inertiajs/react';
 import { Frame, Card, kinds } from '@/components/operations/workspace';
 import type { Workspace } from '@/components/operations/workspace';
 import { Button } from '@/components/ui/button';
+import { useOperationsFormProtection } from '@/hooks/use-operations-form-protection';
 type Props = Workspace & {
     installations: {
         id: number;
@@ -30,11 +31,14 @@ export default function Create(data: Props) {
         instructions: '',
     });
 
+    const protection = useOperationsFormProtection(() => form);
+
     return (
         <Frame
             title="Nueva orden de trabajo"
             description="Crea un trabajo vinculado a una instalación real."
         >
+            {protection.confirmation}
             <Link href="/work-orders">← Volver a órdenes de trabajo</Link>
             <Card title="Información de la orden">
                 <form method="get" className="ops-filters">
@@ -51,12 +55,20 @@ export default function Create(data: Props) {
                     className="ops-schedule-form"
                     onSubmit={(e) => {
                         e.preventDefault();
+
+                        if (!protection.beginSubmit()) {
+                            return;
+                        }
+
                         form.transform((d) => ({
                             ...d,
                             scheduled_start: d.scheduled_start,
                             scheduled_end: d.scheduled_end,
                         }));
-                        form.post('/work-orders');
+                        form.post('/work-orders', {
+                            onSuccess: () => protection.saved(),
+                            onFinish: protection.finishSubmit,
+                        });
                     }}
                 >
                     <label>

@@ -1,0 +1,140 @@
+/* Scoped to operations; desktop rules remain in the existing workspace stylesheet. */
+@media (max-width: 1023px) {
+    .ops-workspace {
+        min-width: 0;
+        overflow-wrap: anywhere;
+        padding-bottom: max(1rem, env(safe-area-inset-bottom));
+    }
+    .ops-workspace > *,
+    .ops-workspace .ops-card,
+    .ops-workspace .ops-info dd {
+        min-width: 0;
+    }
+    .ops-workspace .ops-order-card {
+        display: grid;
+        grid-template-columns: 20px minmax(0, 1fr);
+        gap: 0.75rem;
+        padding: 1rem;
+    }
+    .ops-workspace .ops-order-card > div:last-of-type {
+        grid-column: 2;
+        text-align: left;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+    .ops-workspace .ops-order-card p {
+        margin-block: 0.4rem;
+        font-weight: 600;
+    }
+    .ops-workspace .ops-tabs {
+        overflow-x: auto;
+        flex-wrap: nowrap;
+        max-width: 100%;
+    }
+    .ops-workspace .ops-tabs a {
+        flex-shrink: 0;
+        min-height: 44px;
+        display: inline-flex;
+        align-items: center;
+    }
+    .ops-workspace .ops-schedule-form {
+        grid-template-columns: minmax(0, 1fr);
+    }
+    .ops-workspace .ops-schedule-form label {
+        min-width: 0;
+    }
+    .ops-workspace input:not([type='checkbox']),
+    .ops-workspace select,
+    .ops-workspace textarea {
+        min-width: 0;
+        width: 100%;
+        min-height: 44px;
+        font-size: 16px;
+    }
+    .ops-workspace textarea {
+        min-height: 100px;
+    }
+    .ops-workspace button,
+    .ops-workspace .ops-backlog a {
+        min-height: 44px;
+    }
+    .ops-workspace .ops-detail-top,
+    .ops-workspace .ops-dashboard-bottom {
+        grid-template-columns: minmax(0, 1fr);
+    }
+    .ops-mobile-shortcuts {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.6rem;
+    }
+    .ops-mobile-shortcuts a {
+        padding: 0.75rem;
+        min-height: 44px;
+        border: 1px solid var(--border);
+        border-radius: 0.6rem;
+        background: var(--card);
+    }
+    .ops-workspace .ops-info {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 0.3rem;
+    }
+    .ops-workspace .ops-info dd {
+        margin: 0 0 0.75rem;
+    }
+    .ops-workspace .ops-backlog {
+        flex-wrap: wrap;
+        gap: 0.75rem;
+    }
+    .ops-workspace .ops-backlog label {
+        min-height: 44px;
+    }
+    .ops-workspace .ops-filters {
+        flex-wrap: wrap;
+    }
+    .ops-workspace .ops-filters > label {
+        flex: 1 1 100%;
+    }
+}
+@media (max-width: 1023px) {
+    .ops-workspace .ops-table-desktop,
+    .ops-workspace .ops-matrix {
+        display: none;
+    }
+    .ops-workspace .ops-list-mobile,
+    .ops-workspace .ops-planning-mobile {
+        display: block;
+    }
+    .ops-workspace .ops-order-card > div:last-of-type {
+        max-width: none;
+    }
+    .ops-workspace .ops-planning-layout {
+        grid-template-columns: minmax(0, 1fr);
+    }
+    .ops-workspace .ops-filter-options {
+        max-width: 100%;
+        flex-wrap: wrap;
+    }
+}
+@media (max-width: 1023px) {
+    .ops-workspace .ops-filter-more {
+        width: 100%;
+    }
+    .ops-workspace .ops-filter-more summary {
+        display: block;
+        cursor: pointer;
+        min-height: 44px;
+        padding: 0.75rem;
+    }
+    .ops-workspace .ops-filter-more:not([open]) > .ops-filter-options {
+        display: none;
+    }
+    .ops-workspace .ops-filter-options > label {
+        flex: 1 1 100%;
+    }
+    .ops-workspace .ops-filter-options .ops-mine-filter {
+        flex-direction: row;
+        align-items: center;
+        min-height: 44px;
+    }
+}

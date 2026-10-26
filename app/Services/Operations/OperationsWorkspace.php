@@ -144,7 +144,7 @@ class OperationsWorkspace
             default => null
         };
 
-        return [...$this->common($request), 'order' => $order, 'tab' => $tab, 'content' => $content, 'transitions' => ($order->allowed_transitions_snapshot ?: WorkOrderWorkflow::DEFAULT_TRANSITIONS)[$order->status] ?? []];
+        return [...$this->common($request), 'order' => $order, 'tab' => $tab, 'content' => $content, 'runningTimer' => $order->timeEntries()->where('user_id', $request->user()->id)->whereNull('ended_at')->first(['id', 'started_at'])?->setAppends([]), 'transitions' => ($order->allowed_transitions_snapshot ?: WorkOrderWorkflow::DEFAULT_TRANSITIONS)[$order->status] ?? []];
     }
 
     public function agenda(Request $request): array

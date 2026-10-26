@@ -6350,3 +6350,20 @@ merge, manifest, service worker e infraestructura requieren su autorización apa
 - Fuente disponible: el nombre solicitado `PRE-2026-00006-sin-marca.pdf` no existía en la ruta indicada. Se revisó el `PRE-2026-00006.pdf` del Escritorio: versión 3, tres páginas y el mismo defecto en la segunda página. No se modificó el archivo del usuario ni ningún dato productivo.
 - PDF-QUOTE-HEADER-02 — Limitación de validación: los ejemplos mínimos de la plantilla vigente, incluso sin partidas, paginan a dos páginas al conservar todos sus bloques. No se presenta como verificado un presupuesto completo de una página ni se compacta o rediseña la plantilla para forzarlo. Pendiente disponer de un ejemplo real de una página para ampliar esa comprobación específica; la unicidad del encabezado se prueba en cada página renderizada.
 - Estado: implantado y verificado localmente sobre main; publicación en producción autorizada por el usuario. Preparación de PR, CI y despliegue; la verificación productiva se registrará tras confirmar su éxito.
+## Operaciones Móvil 02 (26/10/2026)
+
+Estado: implementación en checkout independiente desde main `dc7074e`, pendiente de publicación. No se modifica producción, Comercial, identidad, manifest, worker ni Cloud.
+
+| Capacidad | Estado y dependencia | Criterio de aceptación |
+|---|---|---|
+| Inicio y órdenes móviles | Implantado: resúmenes reales, Mis trabajos, búsqueda y filtros existentes, tarjetas y escritorio conservado | Técnico solo consulta órdenes autorizadas; estado/fechas/consulta mantienen el contrato del backend |
+| Ficha y ejecución | Implantado: instrucciones, observaciones, ubicación registrada, checklist, transiciones, temporizador/partes y adjuntos privados | No se omiten firma, checklist, evidencias, autorización por registro ni reglas de cierre |
+| Formularios y agenda | Implantado: guardas publicadas reutilizadas, bloqueo síncrono de envíos, errores/valores conservados y retorno seguro a vista/fecha original | Menú → Volver, descarte y 1023/1024 mantienen una sola instancia y el borrador |
+| Prioridad propia de orden | No disponible en el contrato/modelo de orden; no se deduce del tipo ni de la actividad asociada | Definir origen y semántica autorizados antes de añadir campo y filtro |
+| Llamada/email directo | Pendiente de proyección autorizada y validada de contactos de cliente; se conserva acceso a su ficha | Mostrar enlaces solo con datos reales válidos y permisos adecuados |
+| Múltiples técnicos | El contrato operativo usa un responsable asignado; no se fabrica un equipo | Definir asignaciones múltiples y autorización antes de ampliar la proyección |
+| Evidencias especializadas | Fotos/PDF privados disponibles; clasificación documental y firmas siguen en gestión existente | La carga móvil no publica ni certifica automáticamente; ampliaciones reutilizarán requisitos/documentos existentes |
+| Gestión avanzada heredada | Accesible por enlaces existentes; no se reconstruyen sus formularios administrativos en esta entrega | Migrar sus controles solo con revisión de contratos y guardas de cada formulario; no afirmar protección nueva en esa pantalla |
+| Verificación física | Pendiente iPhone/Android instalados: teclado, cámara mediante selector de archivos, safe areas y lectores de pantalla | Recorrido con datos sintéticos en HTTPS autorizado; no solicitar ubicación/cámara anticipadamente |
+
+Verificación y límites de esta entrega: [operations-mobile-02.md](operations-mobile-02.md). El backend de partes acepta kilometraje nullable pero la columna existente es no nula: el nuevo formulario normaliza vacío a cero, probado con guardado real en SQLite QA. No se alteró la API ni el esquema; revisar coherencia de esa validación en una corrección de backend independiente si se amplía su uso.

@@ -1,4 +1,5 @@
-import { Head, Link, router, useForm } from '@inertiajs/react';
+import '../../../css/operations-mobile.css';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import {
     CalendarDays,
     CheckCircle2,
@@ -12,7 +13,9 @@ import type { ReactNode } from 'react';
 import { useCustomerNavigation } from '@/components/customers/use-customer-navigation';
 import { PageShell, PageHeader } from '@/components/page-shell';
 import { Button } from '@/components/ui/button';
+import { useOperationsFormProtection } from '@/hooks/use-operations-form-protection';
 import { businessDateTimeInput, scheduleInput } from '@/lib/business-time';
+import { operationsOrderUrl } from '@/lib/operations/navigation';
 
 export type Order = {
     id: number;
@@ -142,12 +145,14 @@ export function Pagination({ page }: { page: Page<unknown> }) {
     );
 }
 export function OrderCards({ orders }: { orders: Order[] }) {
+    const { url } = usePage();
+
     return orders.length ? (
         <div className="ops-order-cards">
             {orders.map((o) => (
                 <Link
                     className="ops-order-card"
-                    href={`/work-orders/${o.id}`}
+                    href={operationsOrderUrl(o.id, url)}
                     key={o.id}
                 >
                     <ClipboardList size={18} />
@@ -250,88 +255,105 @@ export function ScheduleForm({
         expected_updated_at: order.updated_at,
     });
 
+    const protection = useOperationsFormProtection(() => form);
+
     return (
-        <form
-            className="ops-schedule-form"
-            onSubmit={(e) => {
-                e.preventDefault();
-                form.transform((d) => ({
-                    ...d,
-                    scheduled_start: scheduleInput(
-                        d.scheduled_start,
-                        order.scheduled_start,
-                    ),
-                    scheduled_end: scheduleInput(
-                        d.scheduled_end,
-                        order.scheduled_end,
-                    ),
-                }));
-                form.patch(`/work-orders/${order.id}/schedule`, {
-                    preserveScroll: true,
-                    onSuccess: onClose,
-                });
-            }}
-        >
-            <h3>{order.number} · Asignar / reprogramar</h3>
-            <label>
-                Técnico
-                <select
-                    required
-                    value={form.data.assigned_user_id}
-                    onChange={(e) =>
-                        form.setData('assigned_user_id', e.target.value)
+        <>
+            {protection.confirmation}
+            <form
+                className="ops-schedule-form"
+                onSubmit={(e) => {
+                    e.preventDefault();
+
+                    if (!protection.beginSubmit()) {
+                        return;
                     }
+
+                    form.transform((d) => ({
+                        ...d,
+                        scheduled_start: scheduleInput(
+                            d.scheduled_start,
+                            order.scheduled_start,
+                        ),
+                        scheduled_end: scheduleInput(
+                            d.scheduled_end,
+                            order.scheduled_end,
+                        ),
+                    }));
+                    form.patch(`/work-orders/${order.id}/schedule`, {
+                        preserveScroll: true,
+                        onSuccess: () => protection.saved(onClose),
+                        onFinish: protection.finishSubmit,
+                    });
+                }}
+            >
+                <h3>{order.number} · Asignar / reprogramar</h3>
+                <label>
+                    Técnico
+                    <select
+                        required
+                        value={form.data.assigned_user_id}
+                        onChange={(e) =>
+                            form.setData('assigned_user_id', e.target.value)
+                        }
+                    >
+                        <option value="">Seleccionar</option>
+                        {users.map((u) => (
+                            <option key={u.id} value={u.id}>
+                                {u.name}
+                            </option>
+                        ))}
+                    </select>
+                </label>
+                <label>
+                    Inicio
+                    <input
+                        required
+                        type="datetime-local"
+                        value={form.data.scheduled_start}
+                        onChange={(e) =>
+                            form.setData('scheduled_start', e.target.value)
+                        }
+                    />
+                </label>
+                <label>
+                    Fin previsto
+                    <input
+                        required
+                        type="datetime-local"
+                        value={form.data.scheduled_end}
+                        onChange={(e) =>
+                            form.setData('scheduled_end', e.target.value)
+                        }
+                    />
+                </label>
+                <label>
+                    Motivo
+                    <input
+                        required
+                        value={form.data.reschedule_reason}
+                        onChange={(e) =>
+                            form.setData('reschedule_reason', e.target.value)
+                        }
+                    />
+                </label>
+                {Object.values(form.errors).map((error) => (
+                    <p role="alert" key={error}>
+                        {error}
+                    </p>
+                ))}
+                <Button disabled={form.processing}>
+                    Guardar planificación
+                </Button>
+                <Button
+                    variant="outline"
+                    type="button"
+                    onClick={() => protection.requestClose(onClose)}
                 >
-                    <option value="">Seleccionar</option>
-                    {users.map((u) => (
-                        <option key={u.id} value={u.id}>
-                            {u.name}
-                        </option>
-                    ))}
-                </select>
-            </label>
-            <label>
-                Inicio
-                <input
-                    required
-                    type="datetime-local"
-                    value={form.data.scheduled_start}
-                    onChange={(e) =>
-                        form.setData('scheduled_start', e.target.value)
-                    }
-                />
-            </label>
-            <label>
-                Fin previsto
-                <input
-                    required
-                    type="datetime-local"
-                    value={form.data.scheduled_end}
-                    onChange={(e) =>
-                        form.setData('scheduled_end', e.target.value)
-                    }
-                />
-            </label>
-            <label>
-                Motivo
-                <input
-                    required
-                    value={form.data.reschedule_reason}
-                    onChange={(e) =>
-                        form.setData('reschedule_reason', e.target.value)
-                    }
-                />
-            </label>
-            {Object.values(form.errors).map((error) => (
-                <p role="alert" key={error}>
-                    {error}
-                </p>
-            ))}
-            <Button disabled={form.processing}>Guardar planificación</Button>
-            <Button variant="outline" type="button" onClick={onClose}>
-                Cancelar
-            </Button>
-        </form>
+                    Cancelar
+                </Button>
+            </form>
+        </>
     );
 }
 export function Planning({
@@ -397,7 +419,10 @@ export function Planning({
                                                     key={o.id}
                                                 >
                                                     <Link
-                                                        href={`/work-orders/${o.id}`}
+                                                        href={operationsOrderUrl(
+                                                            o.id,
+                                                            '/operations/planning',
+                                                        )}
                                                     >
                                                         <b>{o.number}</b>
                                                         <small>
@@ -429,6 +454,9 @@ export function Planning({
                                                     {!compact &&
                                                         data.canManage && (
                                                             <button
+                                                                disabled={
+                                                                    !!selected
+                                                                }
                                                                 onClick={() =>
                                                                     setSelected(
                                                                         o,
@@ -453,6 +481,7 @@ export function Planning({
                                 <Button
                                     key={o.id}
                                     variant="outline"
+                                    disabled={!!selected}
                                     onClick={() => setSelected(o)}
                                 >
                                     Reprogramar {o.number}
@@ -475,7 +504,12 @@ export function Planning({
                     <Card title="Pendientes de planificar">
                         {data.backlog.data.map((o) => (
                             <div className="ops-backlog" key={o.id}>
-                                <Link href={`/work-orders/${o.id}`}>
+                                <Link
+                                    href={operationsOrderUrl(
+                                        o.id,
+                                        '/operations/planning',
+                                    )}
+                                >
                                     <b>{o.number}</b>
                                     <p>{o.title}</p>
                                 </Link>
@@ -483,6 +517,7 @@ export function Planning({
                                     <Button
                                         size="sm"
                                         variant="outline"
+                                        disabled={!!selected}
                                         onClick={() => setSelected(o)}
                                     >
                                         Asignar
@@ -500,7 +535,7 @@ export function Planning({
 }
 export function Filters({ data }: { data: Workspace }) {
     return (
-        <form className="ops-filters" method="get">
+        <form className="ops-filters" method="get" action="/work-orders">
             <label>
                 Buscar
                 <input
@@ -554,7 +589,7 @@ export function Filters({ data }: { data: Workspace }) {
                             ))}
                         </select>
                     </label>
-                    <label>
+                    <label className="ops-mine-filter">
                         <input
                             type="checkbox"
                             name="mine"
@@ -652,49 +687,77 @@ export function Transition({
         expected_updated_at: order.updated_at,
     });
 
+    const protection = useOperationsFormProtection(() => form);
+
     return (
-        <form
-            className="ops-schedule-form"
-            onSubmit={(e) => {
-                e.preventDefault();
-                form.patch(`/work-orders/${order.id}`, {
-                    preserveScroll: true,
-                });
-            }}
-        >
-            <label>
-                Estado
-                <select
-                    required
-                    value={form.data.status}
-                    onChange={(e) => form.setData('status', e.target.value)}
-                >
-                    <option value="">Seleccionar transición</option>
-                    {transitions.map((s) => (
-                        <option key={s} value={s}>
-                            {statuses[s]}
-                        </option>
-                    ))}
-                </select>
-            </label>
-            <label>
-                Notas de finalización
-                <textarea
-                    value={form.data.completion_notes}
-                    onChange={(e) =>
-                        form.setData('completion_notes', e.target.value)
+        <>
+            {protection.confirmation}
+            <form
+                className="ops-schedule-form"
+                onSubmit={(e) => {
+                    e.preventDefault();
+
+                    if (!protection.beginSubmit()) {
+                        return;
                     }
-                />
-            </label>
-            {Object.values(form.errors).map((e) => (
-                <p key={e} role="alert">
-                    {e}
-                </p>
-            ))}
-            <Button disabled={form.processing || !form.data.status}>
-                Actualizar estado
-            </Button>
-        </form>
+
+                    form.transform((values) => ({
+                        ...values,
+                        expected_updated_at: order.updated_at,
+                    }));
+                    form.patch(`/work-orders/${order.id}`, {
+                        preserveScroll: true,
+                        onSuccess: (page) => {
+                            const updated = page.props.order as Order;
+                            protection.saved(() => {
+                                const clean = {
+                                    status: '',
+                                    completion_notes:
+                                        updated.completion_notes ?? '',
+                                    expected_updated_at: updated.updated_at,
+                                };
+                                form.setDefaults(clean);
+                                form.setData(clean);
+                            });
+                        },
+                        onFinish: protection.finishSubmit,
+                    });
+                }}
+            >
+                <label>
+                    Estado
+                    <select
+                        required
+                        value={form.data.status}
+                        onChange={(e) => form.setData('status', e.target.value)}
+                    >
+                        <option value="">Seleccionar transición</option>
+                        {transitions.map((s) => (
+                            <option key={s} value={s}>
+                                {statuses[s]}
+                            </option>
+                        ))}
+                    </select>
+                </label>
+                <label>
+                    Notas de finalización
+                    <textarea
+                        value={form.data.completion_notes}
+                        onChange={(e) =>
+                            form.setData('completion_notes', e.target.value)
+                        }
+                    />
+                </label>
+                {Object.values(form.errors).map((e) => (
+                    <p key={e} role="alert">
+                        {e}
+                    </p>
+                ))}
+                <Button disabled={form.processing || !form.data.status}>
+                    Actualizar estado
+                </Button>
+            </form>
+        </>
     );
 }
 export function completeTask(orderId: number, id: number, completed: boolean) {

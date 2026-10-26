@@ -1,4 +1,4 @@
-import { Link } from '@inertiajs/react';
+import { Link, usePage } from '@inertiajs/react';
 import {
     Frame,
     Filters,
@@ -11,9 +11,14 @@ import {
     date,
 } from '@/components/operations/workspace';
 import type { Workspace } from '@/components/operations/workspace';
+import {
+    operationsOrderUrl,
+    operationsFilterUrl,
+} from '@/lib/operations/navigation';
 export default function List(
     data: Workspace & { counts: Record<string, number> },
 ) {
+    const { url } = usePage();
     const page = data.orders as Exclude<Workspace['orders'], Array<unknown>>;
 
     return (
@@ -26,12 +31,12 @@ export default function List(
             <nav className="ops-tabs">
                 <Link
                     className={!data.filters.status ? 'active' : ''}
-                    href="/work-orders"
+                    href={operationsFilterUrl(url)}
                 >
                     Todas
                 </Link>
                 {data.statuses.map((s) => (
-                    <Link key={s} href={`/work-orders?status=${s}`}>
+                    <Link key={s} href={operationsFilterUrl(url, s)}>
                         {statuses[s]} <b>{data.counts[s] ?? 0}</b>
                     </Link>
                 ))}
@@ -59,7 +64,9 @@ export default function List(
                             {page.data.map((o) => (
                                 <tr key={o.id}>
                                     <td>
-                                        <Link href={`/work-orders/${o.id}`}>
+                                        <Link
+                                            href={operationsOrderUrl(o.id, url)}
+                                        >
                                             {o.number}
                                         </Link>
                                         <small>{o.title}</small>
