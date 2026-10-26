@@ -44,7 +44,7 @@ throw new Error('offline');
 test('install caches only public notice and canonical icons; activation preserves unrelated caches', async () => {
     const w = worker();
     await w.dispatch('install');
-    assert.deepEqual(w.writes, ['/pwa/offline.html', '/pwa/icon-192.png', '/pwa/icon-512.png']);
+    assert.deepEqual(w.writes, ['/pwa/offline.html', '/pwa/icon-192.png', '/pwa/icon-512.png', '/pwa/icon-maskable-512.png']);
     await w.dispatch('activate');
     assert.deepEqual(w.deleted, ['arevantes-field-public-v0']);
 });
