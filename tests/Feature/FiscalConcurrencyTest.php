@@ -7,6 +7,7 @@ use App\Models\Expense;
 use App\Models\ExpenseCategory;
 use App\Models\FiscalYear;
 use App\Models\JournalEntry;
+use App\Models\Opportunity;
 use App\Models\SalesDocument;
 use App\Models\User;
 use App\Services\Accounting\AccountingSynchronizer;
@@ -45,7 +46,11 @@ class FiscalConcurrencyTest extends TestCase
         $names = ['fiscal-race-'.bin2hex(random_bytes(6)), 'fiscal-race-'.bin2hex(random_bytes(6))];
         DB::beginTransaction();
         try {
-            FiscalYear::where('year', 2026)->lockForUpdate()->firstOrFail();
+            if ($operation === 'commercial-opportunity') {
+                DB::statement('LOCK TABLE opportunities IN SHARE MODE');
+            } else {
+                FiscalYear::where('year', 2026)->lockForUpdate()->firstOrFail();
+            }
             foreach ($names as $name) {
                 $process = new Process([PHP_BINARY, base_path('tests/Support/fiscal-concurrency-worker.php'), $name, $operation, (string) $userId, (string) $returnId], base_path(), timeout: 20);
                 $process->start();
@@ -80,6 +85,39 @@ class FiscalConcurrencyTest extends TestCase
                 }
             }
         }
+    }
+
+    public function test_concurrent_opportunities_consume_the_gap_once_and_initialize_the_normal_counter(): void
+    {
+        Opportunity::create(['title' => 'Existing', 'stage' => 'new', 'code' => 'OPP-2026-00014']);
+        DB::table('commercial_number_reservations')->insert([
+            'document_type' => 'opportunity', 'year' => 2026, 'number' => 10,
+            'reason' => 'Authorized duplicate removal', 'created_at' => now(),
+        ]);
+
+        $results = $this->race('commercial-opportunity', 0);
+        $numbers = array_column($results, 'result');
+        sort($numbers);
+        $this->assertSame(['OPP-2026-00010', 'OPP-2026-00015'], $numbers);
+        $this->assertSame(16, (int) DB::table('opportunity_number_sequences')->where('year', 2026)->value('next_number'));
+        $this->assertDatabaseMissing('commercial_number_reservations', ['document_type' => 'opportunity', 'consumed_at' => null]);
+    }
+
+    public function test_concurrent_quotes_consume_the_gap_once_without_skipping_eight(): void
+    {
+        $series = DocumentSeries::where('document_type', 'quote')->where('fiscal_year_id', FiscalYear::where('year', 2026)->firstOrFail()->id)->firstOrFail();
+        $series->update(['next_number' => 8]);
+        DB::table('commercial_number_reservations')->insert([
+            'document_type' => 'quote', 'year' => 2026, 'number' => 6,
+            'reason' => 'Authorized duplicate removal', 'created_at' => now(),
+        ]);
+
+        $results = $this->race('commercial-quote', 0);
+        $numbers = array_column($results, 'result');
+        sort($numbers);
+        $this->assertSame(['PRE-2026-00006', 'PRE-2026-00008'], $numbers);
+        $this->assertSame(9, (int) $series->fresh()->next_number);
+        $this->assertDatabaseMissing('commercial_number_reservations', ['document_type' => 'quote', 'consumed_at' => null]);
     }
 
     public function test_concurrent_draft_creation_keeps_one_period_and_no_settlement_entries(): void

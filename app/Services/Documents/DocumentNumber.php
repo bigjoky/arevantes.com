@@ -24,6 +24,15 @@ class DocumentNumber
         if (! $series) {
             throw ValidationException::withMessages(['issue_date' => __('No active document series exists for this fiscal year.')]);
         }
+        if ($type === 'quote') {
+            $reserved = app(CommercialNumberReservation::class)->consume('quote', (int) $year->year, $series->prefix, $padding);
+            if ($reserved !== null) {
+                $series->update(['last_issued_at' => now()]);
+
+                return ['series' => $series, 'number' => $reserved, 'fiscalYear' => $year];
+            }
+        }
+
         $number = $series->prefix.'-'.$year->year.'-'.str_pad((string) $series->next_number, $padding, '0', STR_PAD_LEFT);
         $series->update(['next_number' => $series->next_number + 1, 'last_issued_at' => now()]);
 

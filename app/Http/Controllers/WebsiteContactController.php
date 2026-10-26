@@ -10,6 +10,7 @@ use App\Services\Crm\LeadAssignment;
 use App\Services\Crm\LeadResponseSla;
 use App\Services\Crm\OpportunitySalesCycle;
 use App\Services\Customers\OpportunityCustomerResolver;
+use App\Services\Documents\OpportunityNumber;
 use App\Support\BusinessLineCatalog;
 use App\Support\PhoneNormalizer;
 use Illuminate\Http\RedirectResponse;
@@ -112,7 +113,7 @@ class WebsiteContactController extends Controller
                 'notes' => $notes,
             ]);
             $opportunity->update([
-                'code' => 'OPP-'.now()->format('Y').'-'.str_pad((string) $opportunity->id, 5, '0', STR_PAD_LEFT),
+                'code' => app(OpportunityNumber::class)->next($opportunity->id),
             ]);
             $responseSla->start($opportunity);
             $salesCycle->ensureNextAction($opportunity, $opportunity->owner);

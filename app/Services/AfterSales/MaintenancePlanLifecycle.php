@@ -8,6 +8,7 @@ use App\Models\MaintenancePlan;
 use App\Models\Opportunity;
 use App\Models\User;
 use App\Services\Crm\OpportunitySalesCycle;
+use App\Services\Documents\OpportunityNumber;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -96,7 +97,7 @@ class MaintenancePlanLifecycle
                 'source' => 'recurring_customer',
                 'notes' => __('Prepared from service plan #:id version :version. Human review is required before contacting the customer.', ['id' => $locked->id, 'version' => $locked->version]),
             ]);
-            $opportunity->update(['code' => 'OPP-'.now()->format('Y').'-'.str_pad((string) $opportunity->id, 5, '0', STR_PAD_LEFT)]);
+            $opportunity->update(['code' => app(OpportunityNumber::class)->next($opportunity->id)]);
             $this->salesCycle->ensureNextAction($opportunity, $actor, [
                 'type' => 'task',
                 'title' => __('Review renewal scope and prepare customer contact'),
