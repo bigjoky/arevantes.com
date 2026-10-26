@@ -15,6 +15,7 @@ use App\Services\Crm\LeadResponseSla;
 use App\Services\Crm\OpportunityDossier;
 use App\Services\Crm\OpportunitySalesCycle;
 use App\Services\Customers\OpportunityCustomerResolver;
+use App\Services\Documents\OpportunityNumber;
 use App\Services\Projects\ProjectJourney;
 use App\Support\Crm\OpportunityCatalog;
 use App\Support\PhoneNormalizer;
@@ -302,7 +303,7 @@ class OpportunityController extends Controller
             $this->ensureCommercialOrigin($data);
 
             $opportunity = Opportunity::create([...$data, 'created_by' => $request->user()->id, 'updated_by' => $request->user()->id]);
-            $opportunity->update(['code' => 'OPP-'.now()->format('Y').'-'.str_pad((string) $opportunity->id, 5, '0', STR_PAD_LEFT)]);
+            $opportunity->update(['code' => app(OpportunityNumber::class)->next($opportunity->id)]);
             $responseSla->start($opportunity);
             $salesCycle->ensureNextAction($opportunity, $request->user(), $nextActionInput);
             $salesCycle->refreshScore($opportunity);

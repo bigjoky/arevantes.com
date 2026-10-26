@@ -1,14 +1,18 @@
 <?php
 
 use App\Http\Controllers\SalesDocumentController;
+use App\Models\Opportunity;
+use App\Models\Quote;
 use App\Models\SalesDocument;
 use App\Models\TaxReturn;
 use App\Models\User;
 use App\Services\Accounting\AccountingSynchronizer;
 use App\Services\Documents\DocumentNumber;
+use App\Services\Documents\OpportunityNumber;
 use App\Services\Tax\VatSettlement;
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpKernel\Exception\HttpException;
@@ -34,6 +38,19 @@ try {
         'draft' => app(VatSettlement::class)->prepare(2026, 3, (int) $argv[3])->id,
         'post' => app(VatSettlement::class)->post(TaxReturn::findOrFail((int) $argv[4]), (int) $argv[3])->journal_entry_id,
         'number' => DB::transaction(fn () => app(DocumentNumber::class)->next('expense', '2026-09-15')['number']),
+        'commercial-opportunity' => DB::transaction(function () {
+            Carbon::setTestNow('2026-10-26 12:00:00');
+            $opportunity = Opportunity::create(['title' => 'Concurrent real opportunity', 'stage' => 'new']);
+            $opportunity->update(['code' => app(OpportunityNumber::class)->next($opportunity->id)]);
+
+            return $opportunity->code;
+        }),
+        'commercial-quote' => DB::transaction(function () {
+            $issued = app(DocumentNumber::class)->next('quote', '2026-10-26');
+            Quote::create(['number' => $issued['number'], 'document_series_id' => $issued['series']->id, 'status' => 'draft', 'amount' => 0]);
+
+            return $issued['number'];
+        }),
         'issue' => $issue(),
         default => throw new RuntimeException('Unknown operation.'),
     };

@@ -12,6 +12,7 @@ use App\Services\Analytics\CommercialConversionAnalytics;
 use App\Services\Crm\LeadResponseSla;
 use App\Services\Crm\OpportunitySalesCycle;
 use App\Services\Customers\OpportunityCustomerResolver;
+use App\Services\Documents\OpportunityNumber;
 use App\Services\Geocoding\NominatimGeocoder;
 use App\Support\BusinessLineCatalog;
 use App\Support\Crm\CommercialRoutePayload;
@@ -259,7 +260,7 @@ class CommercialLeadController extends Controller
                 'source_detail' => $data['source'] === 'other' ? $data['source_detail'] : null,
                 'notes' => $data['notes'] ?? null,
             ], $request->user()));
-            $opportunity->update(['code' => 'OPP-'.now()->format('Y').'-'.str_pad((string) $opportunity->id, 5, '0', STR_PAD_LEFT)]);
+            $opportunity->update(['code' => app(OpportunityNumber::class)->next($opportunity->id)]);
 
             $activity = CrmActivity::create([
                 'opportunity_id' => $opportunity->id,

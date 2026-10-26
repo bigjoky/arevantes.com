@@ -977,6 +977,23 @@ para gastos nuevos publicada; las correcciones históricas y puntos 3, 5 y 6 sig
   búsqueda del emisor de EXP-2026-00002; gasto sin cambios, estado pagado.
   Salud y acceso responden HTTP 200. Las fases 2 y 3 siguen pendientes.
 
+## Reutilización puntual de numeración comercial — 26/10/2026
+
+- Eliminado en producción el duplicado OPP-2026-00010 con PRE-2026-00006,
+  versiones, actividades e historiales; cliente conservado. Sin facturas,
+  pedidos, envíos ni aceptación vinculados. Ausencia verificada tras commit.
+- Implementada reserva explícita de un solo uso para ambos códigos, con motivo
+  y consumo transaccional. No se rellenan otros huecos ni se reutilizan IDs.
+  CRM, web, móvil y renovaciones comparten contador de oportunidades; los
+  presupuestos mantienen su serie. Continuación prevista: OPP 00015 y PRE 00008.
+- Verificado localmente: compilación, 92 pruebas de flujos afectados (1066
+  aserciones) y seis pruebas PostgreSQL con procesos independientes (48
+  aserciones), incluidas carreras de reservas y primera inicialización.
+- Publicación y activación de las reservas pendientes. Criterio de aceptación:
+  despliegue correcto, migración aplicada y reservas 10/6 pendientes en
+  producción; sin altas ficticias ni modificación de los contadores existentes.
+  Procedimiento en `docs/commercial-number-reservations.md`.
+
 ## Recuperación administrativa: CRM, agenda y compras — 26/09/2026
 
 - OPP-2026-00005: confirmado el archivado en producción. La ficha normal
