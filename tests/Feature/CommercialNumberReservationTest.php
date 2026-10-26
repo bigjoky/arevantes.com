@@ -34,7 +34,7 @@ class CommercialNumberReservationTest extends TestCase
 
     public function test_opportunity_reuses_only_the_reserved_gap_then_continues_after_existing_numbers(): void
     {
-        Opportunity::forceCreate(['id' => 14, 'code' => 'OPP-2026-00014', 'title' => 'Existing', 'stage' => 'new']);
+        $existing = Opportunity::create(['code' => 'OPP-2026-00014', 'title' => 'Existing', 'stage' => 'new']);
         $this->reserve('opportunity', 10);
 
         // Internal IDs continue upwards; business codes consume the reservation.
@@ -45,7 +45,7 @@ class CommercialNumberReservationTest extends TestCase
 
                 return $opportunity;
             });
-            $this->assertGreaterThan(14, $opportunity->id);
+            $this->assertGreaterThan($existing->id, $opportunity->id);
             $this->assertSame($expected, $opportunity->fresh()->code);
         }
 
