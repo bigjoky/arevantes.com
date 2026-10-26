@@ -108,20 +108,38 @@ const titles: Record<MobileView, string> = {
     create: 'Crear',
 };
 
-export function MobileExperience({ children }: { children: ReactNode }) {
+function focusShellOpener(opener: HTMLElement | null) {
+    if (opener?.isConnected) {
+        opener.focus();
+
+        return;
+    }
+
+    document.querySelector<HTMLElement>('.mobile-tabbar button, [data-slot="sidebar-trigger"]')?.focus();
+}
+
+export function MobileExperience({
+    children,
+    active = true,
+    desktopChrome,
+}: {
+    children: ReactNode;
+    active?: boolean;
+    desktopChrome?: ReactNode;
+}) {
     const initials = useInitials();
     const viewport = useMobileViewport();
     const page = usePage();
     const { auth } = page.props;
     useEffect(() => {
-        if (!page.encryptHistory) {
+        if (active && !page.encryptHistory) {
             router.replace({
                 encryptHistory: true,
                 preserveState: true,
                 preserveScroll: true,
             });
         }
-    }, [page.encryptHistory]);
+    }, [active, page.encryptHistory]);
     const view = mobileView(page.url);
     // Keep the sheet mounted while a history traversal is being confirmed.
     const [createOpen, setCreateOpen] = useState(view === 'create');
@@ -162,6 +180,10 @@ export function MobileExperience({ children }: { children: ReactNode }) {
     const [platform, connection] = environment.split(':');
     const offline = connection === 'offline';
     useEffect(() => {
+        if (!active) {
+            return;
+        }
+
         if (view && view !== 'create') {
             heading.current?.focus();
         } else if (
@@ -170,11 +192,11 @@ export function MobileExperience({ children }: { children: ReactNode }) {
             previousView.current !== 'create'
         ) {
             // Also runs after native back, which does not call close().
-            opener.current?.focus();
+            focusShellOpener(opener.current);
         }
 
         previousView.current = view;
-    }, [view]);
+    }, [active, view]);
     const open = (next: MobileView, target?: HTMLButtonElement) => {
         if (next === 'create') {
             createActive.current = true;
@@ -217,7 +239,7 @@ export function MobileExperience({ children }: { children: ReactNode }) {
             });
         }
 
-        opener.current?.focus();
+        focusShellOpener(opener.current);
     }, [page.url]);
     const finishTaskClose = useCallback(() => {
         createActive.current = false;
@@ -230,7 +252,7 @@ export function MobileExperience({ children }: { children: ReactNode }) {
         ) {
             close();
         } else {
-            requestAnimationFrame(() => opener.current?.focus());
+            requestAnimationFrame(() => focusShellOpener(opener.current));
         }
     }, [close]);
     const requestTaskClose = useCallback(() => {
@@ -243,6 +265,7 @@ export function MobileExperience({ children }: { children: ReactNode }) {
         }
     }, [taskGuard, finishTaskClose]);
     useEffect(() => {
+
         const pop = () => {
             traversing.current = true;
         };
@@ -327,7 +350,7 @@ export function MobileExperience({ children }: { children: ReactNode }) {
         };
     }, [taskGuard, finishTaskClose, requestTaskClose]);
     useEffect(() => {
-        if (!view || view === 'create') {
+        if (!active || !view || view === 'create') {
             return;
         }
 
@@ -340,7 +363,7 @@ export function MobileExperience({ children }: { children: ReactNode }) {
         window.addEventListener('keydown', escape);
 
         return () => window.removeEventListener('keydown', escape);
-    }, [view, close]);
+    }, [active, view, close]);
 
     const destinations = mobileDestinations(auth.navigation);
     const allowedActions = quickCreateActions.filter((action) =>
@@ -353,86 +376,94 @@ export function MobileExperience({ children }: { children: ReactNode }) {
 
     return (
         <div
-            className="mobile-app"
+            className={active ? 'mobile-app' : 'contents'}
+            data-responsive-shell={active ? 'mobile' : 'desktop'}
             data-platform={platform}
             data-display={environment.split(':')[2]}
             data-keyboard={viewport.keyboard || undefined}
         >
-            <PwaUpdate />
-            <header className="mobile-topbar">
-                {isDetail && !view ? (
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        aria-label="Volver"
-                        onClick={() => window.history.back()}
-                    >
-                        <ArrowLeft />
-                    </Button>
-                ) : null}
-                <Link
-                    href="/dashboard"
-                    className="mobile-wordmark"
-                    aria-label="AREVANTES · Inicio"
-                >
-                    <BrandLogo className="h-6 max-w-32" />
-                </Link>
-                <div className="mobile-header-actions">
-                    {(auth.abilities.manageCustomers ||
-                        auth.abilities.viewInstallations ||
-                        auth.abilities.manageInstallations ||
-                        auth.abilities.manageCatalog ||
-                        auth.abilities.viewPurchases ||
-                        auth.abilities.manageOperations) && (
+            {active && <PwaUpdate />}
+            {!active && desktopChrome}
+            {active && (
+                <header className="mobile-topbar">
+                    {isDetail && !view ? (
                         <Button
                             variant="ghost"
                             size="icon"
-                            aria-label="Búsqueda global"
-                            onClick={(e) => open('search', e.currentTarget)}
+                            aria-label="Volver"
+                            onClick={() => window.history.back()}
                         >
-                            <Search />
+                            <ArrowLeft />
                         </Button>
-                    )}
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        className="relative"
-                        aria-label="Notificaciones"
-                        onClick={(e) => open('notifications', e.currentTarget)}
+                    ) : null}
+                    <Link
+                        href="/dashboard"
+                        className="mobile-wordmark"
+                        aria-label="AREVANTES · Inicio"
                     >
-                        <Bell />
-                        {notifications.length > 0 && (
-                            <span
-                                className="mobile-count"
-                                aria-label="Hay avisos no leídos"
+                        <BrandLogo className="h-6 max-w-32" />
+                    </Link>
+                    <div className="mobile-header-actions">
+                        {(auth.abilities.manageCustomers ||
+                            auth.abilities.viewInstallations ||
+                            auth.abilities.manageInstallations ||
+                            auth.abilities.manageCatalog ||
+                            auth.abilities.viewPurchases ||
+                            auth.abilities.manageOperations) && (
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                aria-label="Búsqueda global"
+                                onClick={(e) => open('search', e.currentTarget)}
                             >
-                                •
-                            </span>
+                                <Search />
+                            </Button>
                         )}
-                    </Button>
-                    <Button
-                        variant="ghost"
-                        className="mobile-avatar"
-                        aria-label={`Cuenta de ${auth.user.name}`}
-                        onClick={(e) => open('profile', e.currentTarget)}
-                    >
-                        {initials(auth.user.name)}
-                    </Button>
-                </div>
-            </header>
-            {offline && (
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="relative"
+                            aria-label="Notificaciones"
+                            onClick={(e) =>
+                                open('notifications', e.currentTarget)
+                            }
+                        >
+                            <Bell />
+                            {notifications.length > 0 && (
+                                <span
+                                    className="mobile-count"
+                                    aria-label="Hay avisos no leídos"
+                                >
+                                    •
+                                </span>
+                            )}
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            className="mobile-avatar"
+                            aria-label={`Cuenta de ${auth.user.name}`}
+                            onClick={(e) => open('profile', e.currentTarget)}
+                        >
+                            {initials(auth.user.name)}
+                        </Button>
+                    </div>
+                </header>
+            )}
+            {active && offline && (
                 <p role="status" className="mobile-offline">
                     Sin conexión. No podrás guardar hasta recuperar internet.
                 </p>
             )}
             <div
-                hidden={Boolean(view && view !== 'create')}
-                inert={Boolean(view && view !== 'create')}
-                className="mobile-page-content"
+                key="inertia-page-content"
+                hidden={Boolean(active && view && view !== 'create')}
+                inert={Boolean(active && view && view !== 'create')}
+                className={active ? 'mobile-page-content' : 'contents'}
+                data-inertia-page-container
             >
                 {children}
             </div>
-            {view && view !== 'create' && (
+            {active && view && view !== 'create' && (
                 <section
                     className="mobile-screen"
                     aria-labelledby="mobile-screen-title"
@@ -484,7 +515,7 @@ export function MobileExperience({ children }: { children: ReactNode }) {
                     }}
                     onCloseAutoFocus={(event) => {
                         event.preventDefault();
-                        opener.current?.focus();
+                        focusShellOpener(opener.current);
                     }}
                 >
                     <div className="mobile-sheet-handle" aria-hidden="true" />
@@ -593,7 +624,8 @@ export function MobileExperience({ children }: { children: ReactNode }) {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
-            {!isDetail &&
+            {active &&
+                !isDetail &&
                 !/[?&](create|edit)=/.test(page.url) &&
                 canCreate &&
                 !/\/(create|edit)(?:\?|$)/.test(page.url) && (
@@ -607,36 +639,39 @@ export function MobileExperience({ children }: { children: ReactNode }) {
                         <Plus />
                     </button>
                 )}
-            <nav className="mobile-tabbar" aria-label="Navegación móvil">
-                {destinations.map((item) => {
-                    const Icon = tabIcons[item.key as keyof typeof tabIcons];
-                    const active =
-                        !view && mobileTabActive(page.url, item.href);
+            {active && (
+                <nav className="mobile-tabbar" aria-label="Navegación móvil">
+                    {destinations.map((item) => {
+                        const Icon =
+                            tabIcons[item.key as keyof typeof tabIcons];
+                        const active =
+                            !view && mobileTabActive(page.url, item.href);
 
-                    return (
-                        <Link
-                            key={item.key}
-                            href={item.href}
-                            aria-current={active ? 'page' : undefined}
-                        >
-                            <span>
-                                <Icon />
-                            </span>
-                            {item.title}
-                        </Link>
-                    );
-                })}
-                <button
-                    type="button"
-                    aria-current={view === 'menu' ? 'page' : undefined}
-                    onClick={(e) => open('menu', e.currentTarget)}
-                >
-                    <span>
-                        <Menu />
-                    </span>
-                    Menú
-                </button>
-            </nav>
+                        return (
+                            <Link
+                                key={item.key}
+                                href={item.href}
+                                aria-current={active ? 'page' : undefined}
+                            >
+                                <span>
+                                    <Icon />
+                                </span>
+                                {item.title}
+                            </Link>
+                        );
+                    })}
+                    <button
+                        type="button"
+                        aria-current={view === 'menu' ? 'page' : undefined}
+                        onClick={(e) => open('menu', e.currentTarget)}
+                    >
+                        <span>
+                            <Menu />
+                        </span>
+                        Menú
+                    </button>
+                </nav>
+            )}
         </div>
     );
 }

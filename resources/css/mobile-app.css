@@ -946,3 +946,47 @@
         color: #536878;
     }
 }
+
+/* R-02: an already-open task sheet keeps its form when the shell becomes desktop. */
+@media (min-width: 1024px) {
+    .mobile-action-sheet {
+        width: min(640px, calc(100% - 32px));
+        margin-inline: auto;
+        padding: 24px;
+        overflow-y: auto;
+        background: #fff;
+        color: #092035;
+        color-scheme: light;
+        border-radius: 16px 16px 0 0;
+    }
+    .mobile-task-form {
+        display: grid;
+        gap: 12px;
+    }
+    .mobile-task-form :is(input, select) {
+        min-height: 40px;
+        background: #fff;
+        color: #092035;
+    }
+}
+
+@media (min-width: 1024px) {
+    .mobile-action-sheet [data-slot='sheet-title'],
+    .mobile-discard-dialog [data-slot='dialog-title'] {
+        color: #092035;
+    }
+    .mobile-action-sheet [data-slot='sheet-description'],
+    .mobile-discard-dialog [data-slot='dialog-description'] {
+        color: #536878;
+    }
+    .mobile-discard-dialog {
+        background: #fff;
+        color: #092035;
+        color-scheme: light;
+    }
+    .mobile-task-form button[type='submit'] {
+        min-height: 40px;
+        background: #00845d;
+        color: #fff;
+    }
+}

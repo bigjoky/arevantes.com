@@ -3216,3 +3216,26 @@ Actualización de cierre económico (24/10/2026): decisión del usuario confirma
 - Corrección: el recorrido recupera el proyecto persistido completo antes de evaluar sus estados; no se oculta la ausencia de datos con valores por defecto. Sin migraciones ni cambios en documentos o cobros.
 - Regresión HTTP: abrir oportunidad con propuesta aceptada y proyecto vinculado debe responder 200 y conservar requisitos, revisión, fecha de actualización, entrega y cierre reales. La prueba falla con el código anterior; incluye acceso a la propuesta vinculada.
 - Estado: corregido localmente; pruebas y despliegue del hotfix en preparación.
+
+## Comercial Móvil 01 — Candidata 01D / integración 01E (26/10/2026)
+
+Corte aprobado para preparar PR desde main, sin publicación productiva. Se integra
+exclusivamente el alcance y las correcciones descritos en
+[commercial-mobile-release.md](commercial-mobile-release.md), conservando los
+contratos, permisos, formularios, cálculos y PDFs existentes. No se copia el roadmap
+concurrente completo ni se incorporan sus otros cambios.
+
+| ID | Estado / capacidad real | Dependencias | Criterio de aceptación |
+|---|---|---|---|
+| CM-01 | CRM, Clientes y Presupuestos adaptados a móvil; candidato aprobado | Backend y permisos existentes | Tarjetas/fichas y formularios utilizables, datos reales, sin acciones sin autorización |
+| CM-R01 | Corregido en candidata: Menú → Volver conserva borrador y contexto | Historial Inertia y guardas existentes | Volver al mismo formulario mantiene valores, sin descarte y con foco recuperado |
+| CM-R02 | Corregido en candidata: continuidad 1023/1024 y hoja de tareas | Shell estable y diálogos existentes | Una sola instancia del formulario, valores/errores conservados y cierre correcto tras Adelante en escritorio |
+| CM-VERIFY | 01D: 50 frontend, 90 backend/1633 aserciones, build/tipos/lint y 70 comprobaciones de viewport correctos | Corte SHA-256 documentado; CI de la futura PR | Repetir controles sobre el commit de integración y revisar CI antes del merge |
+| CM-DEVICE | Pendiente: iPhone/Android físicos, teclado, safe areas, accesibilidad y actualización | Entorno HTTPS de pruebas autorizado y datos sintéticos | Recorridos de instalación/navegación/formularios/sesión/actualización sin pérdida accidental de trabajo |
+| CM-SLOW | Pendiente: guardado válido con latencia y doble toque en dispositivo | Entorno de prueba y herramientas de red | Un único guardado, errores y borrador conservados; guardas automatizadas ya verificadas |
+| CM-I18N | Deuda preexistente: 79 cadenas; no aumentada por el corte | Trabajo de traducción independiente | Resolver en fase propia sin mezclar cambios ajenos a esta integración |
+
+Las tarjetas CRM distinguen pipeline cargado de listado paginado; Tabla permite
+recorrer resultados. No se fabrican registros ni etapas. La ausencia de una
+capacidad pendiente no se representa como un dato consultado vacío. Publicación,
+merge, manifest, service worker e infraestructura requieren su autorización aparte.

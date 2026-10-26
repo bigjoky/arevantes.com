@@ -35,19 +35,23 @@ export default function AppSidebarLayout({
                     variant="sidebar"
                     className="min-w-0 overflow-x-clip"
                 >
-                    {isMobile ? (
-                        <MobileExperience>{children}</MobileExperience>
-                    ) : (
-                        <>
-                            <AppSidebarHeader />
-                            {breadcrumbs.length > 0 && (
-                                <div className="shell-legacy-breadcrumbs">
-                                    <Breadcrumbs breadcrumbs={breadcrumbs} />
-                                </div>
-                            )}
-                            {children}{' '}
-                        </>
-                    )}
+                    <MobileExperience
+                        active={isMobile}
+                        desktopChrome={
+                            <>
+                                <AppSidebarHeader />
+                                {breadcrumbs.length > 0 && (
+                                    <div className="shell-legacy-breadcrumbs">
+                                        <Breadcrumbs
+                                            breadcrumbs={breadcrumbs}
+                                        />
+                                    </div>
+                                )}
+                            </>
+                        }
+                    >
+                        {children}
+                    </MobileExperience>
                 </AppContent>
             </AppShell>
         </ShellContext.Provider>

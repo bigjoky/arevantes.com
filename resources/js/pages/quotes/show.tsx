@@ -1,3 +1,4 @@
+import '../../../css/commercial-mobile.css';
 import { Form, Head, Link, useForm, usePage } from '@inertiajs/react';
 import {
     ArrowLeft,
@@ -1126,6 +1127,7 @@ export default function QuoteShow({
                                     )}
                                     % · {money(line.total)}
                                 </span>
+                                <span>Descuento: {Number(line.discount_percent)}%</span>
                                 <small>
                                     {line.selection_mode === 'included' ||
                                     line.is_selected

@@ -42,6 +42,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { useCommercialFormProtection } from '@/hooks/use-commercial-form-protection';
 import {
     interestLabel,
     interestOptions,
@@ -357,6 +358,7 @@ export default function OpportunitiesIndex({
         'idle' | 'checking' | 'found' | 'new' | 'invalid'
     >('idle');
     const form = useForm<FormData>(emptyForm);
+    const protection = useCommercialFormProtection(() => form, open);
     const availableInstallations = useMemo(
         () =>
             installations.filter(
@@ -477,7 +479,7 @@ export default function OpportunitiesIndex({
         setMatchedCustomer(customer || null);
         setCustomerLookup(customer ? 'found' : 'idle');
         form.clearErrors();
-        form.setData({
+        const editorData = {
             ...emptyForm,
             person_id: customer ? String(customer.id) : '',
             customer_phone: customer?.phone || '',
@@ -486,7 +488,13 @@ export default function OpportunitiesIndex({
             customer_consent_channel:
                 customer?.preferred_contact_channel || 'phone',
             next_action_due_at: nextBusinessAction(),
-        });
+        };
+        form.setData(editorData);
+
+        if (protection.mobile) {
+            form.setDefaults(editorData);
+        }
+
         setOpen(true);
     }
 
@@ -495,7 +503,7 @@ export default function OpportunitiesIndex({
         setMatchedCustomer(null);
         setCustomerLookup('idle');
         form.clearErrors();
-        form.setData({
+        const editorData = {
             person_id: String(item.person_id),
             customer_phone: '',
             customer_first_name: '',
@@ -531,7 +539,13 @@ export default function OpportunitiesIndex({
             next_action_title: 'Contactar y cualificar al cliente',
             next_action_priority: 'normal',
             next_action_due_at: nextBusinessAction(),
-        });
+        };
+        form.setData(editorData);
+
+        if (protection.mobile) {
+            form.setDefaults(editorData);
+        }
+
         setOpen(true);
     }
 
@@ -539,7 +553,9 @@ export default function OpportunitiesIndex({
         event.preventDefault();
         const options = {
             preserveScroll: true,
-            onSuccess: () => setOpen(false),
+            onBefore: protection.beginSubmit,
+            onFinish: protection.finishSubmit,
+            onSuccess: () => protection.saved(() => setOpen(false)),
         };
 
         if (editing) {
@@ -865,8 +881,27 @@ export default function OpportunitiesIndex({
                 )}
             </PageShell>
 
-            <Dialog open={open} onOpenChange={setOpen}>
-                <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+            <Dialog
+                open={open}
+                onOpenChange={(value) => {
+                    if (value) {
+                        setOpen(true);
+                    } else if (!protection.confirmationOpen) {
+                        protection.requestClose(() => setOpen(false));
+                    }
+                }}
+            >
+                <DialogContent
+                    className="commercial-opportunity-dialog max-h-[90vh] overflow-y-auto sm:max-w-2xl"
+                    onInteractOutside={(event) => {
+                        event.preventDefault();
+
+                        if (!protection.confirmationOpen) {
+                            protection.requestClose(() => setOpen(false));
+                        }
+                    }}
+                >
+                    {protection.confirmation}
                     <form onSubmit={submit} className="grid gap-5">
                         <DialogHeader>
                             <DialogTitle>
@@ -1676,7 +1711,11 @@ export default function OpportunitiesIndex({
                                 <Button
                                     type="button"
                                     variant="outline"
-                                    onClick={() => setOpen(false)}
+                                    onClick={() =>
+                                        protection.requestClose(() =>
+                                            setOpen(false),
+                                        )
+                                    }
                                 >
                                     Cancel
                                 </Button>

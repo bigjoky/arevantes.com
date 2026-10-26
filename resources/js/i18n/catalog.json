@@ -23890,5 +23890,45 @@
     "Descartar cambios": {
         "es": "Descartar cambios",
         "en": "Discard changes"
+    },
+    "Oportunidades en tarjetas": {
+        "es": "Oportunidades en tarjetas",
+        "en": "Opportunity cards"
+    },
+    "Etapa de": {
+        "es": "Etapa de",
+        "en": "Stage for"
+    },
+    "Vista de los registros del pipeline cargado. Usa Tabla para recorrer resultados paginados.": {
+        "es": "Vista de los registros del pipeline cargado. Usa Tabla para recorrer resultados paginados.",
+        "en": "Showing loaded pipeline records. Use Table to browse paginated results."
+    },
+    "Llamar": {
+        "es": "Llamar",
+        "en": "Call"
+    },
+    "Hay cambios sin guardar. Puedes continuar editando o descartarlos antes de salir.": {
+        "es": "Hay cambios sin guardar. Puedes continuar editando o descartarlos antes de salir.",
+        "en": "There are unsaved changes. Keep editing or discard them before leaving."
+    },
+    "Espera a que termine el envío antes de salir.": {
+        "es": "Espera a que termine el envío antes de salir.",
+        "en": "Wait for the request to finish before leaving."
+    },
+    "Descuento:": {
+        "es": "Descuento:",
+        "en": "Discount:"
+    },
+    "Contacto de": {
+        "es": "Contacto de",
+        "en": "Contact for"
+    },
+    "Llamar a": {
+        "es": "Llamar a",
+        "en": "Call to"
+    },
+    "Enviar email a": {
+        "es": "Enviar email a",
+        "en": "Send email to"
     }
 }

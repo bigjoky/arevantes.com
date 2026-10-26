@@ -1,3 +1,4 @@
+import '../../../css/commercial-mobile.css';
 import { Form, Link } from '@inertiajs/react';
 import {
     ArrowLeft,

@@ -1,3 +1,4 @@
+import '../../../css/commercial-mobile.css';
 import { Form, Head, Link, usePage } from '@inertiajs/react';
 import {
     ArrowLeft,
@@ -40,6 +41,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useLocale } from '@/hooks/use-locale';
 import { translate } from '@/i18n';
 import { appendOutcome, followUpDateTime } from '@/lib/commercial-follow-up';
+import { commercialListUrl } from '@/lib/mobile/commercial-navigation';
 import { interestLabel } from '@/lib/opportunity-interest';
 
 type User = { id: number; name: string };
@@ -164,12 +166,14 @@ export default function OpportunityShow({
           `${opportunity.customer.first_name} ${opportunity.customer.last_name || ''}`.trim()
         : 'Sin cliente';
 
-    const journey = usePage<{ journey?: Journey }>().props.journey;
+    const currentPage = usePage<{ journey?: Journey }>();
+    const journey = currentPage.props.journey;
+    const usePageUrl = currentPage.url;
 
     return (
         <>
             <Head title={`${opportunity.code} · ${opportunity.title}`} />
-            <div className="space-y-6 p-4 md:p-6">
+            <div className="commercial-opportunity-detail space-y-6 p-4 md:p-6">
                 <header className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                     <div className="space-y-3">
                         <Button
@@ -178,7 +182,7 @@ export default function OpportunityShow({
                             size="sm"
                             className="-ml-3"
                         >
-                            <Link href="/opportunities">
+                            <Link href={commercialListUrl(usePageUrl,'/opportunities')}>
                                 <ArrowLeft /> Oportunidades
                             </Link>
                         </Button>
