@@ -11,14 +11,91 @@ use App\Models\SecurityEvent;
 use App\Models\Unit;
 use App\Models\User;
 use App\Services\Documents\DocumentPdf;
+use App\Services\Quotes\QuoteCalculator;
 use App\Support\CompanyBrand;
+use Dompdf\Dompdf;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Inertia\Testing\AssertableInertia as Assert;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 class QuotePdfTest extends TestCase
 {
     use RefreshDatabase;
+
+    public static function paginationCases(): array
+    {
+        return [
+            'short proposal' => [1, false, 2],
+            'composition on a new page' => [1, true, 2],
+            'automatic table breaks' => [20, false, 3],
+            'long table followed by composition' => [20, true, 3],
+        ];
+    }
+
+    #[DataProvider('paginationCases')]
+    public function test_every_rendered_page_has_one_corporate_header_and_footer(int $lineCount, bool $components, int $minimumPages): void
+    {
+        $quote = $this->representativeQuote();
+        $quote->lines()->where('position', '>', 1)->delete();
+        $firstLine = $quote->lines()->firstOrFail();
+        if (! $components) {
+            $firstLine->components()->delete();
+        }
+        for ($position = 2; $position <= $lineCount; $position++) {
+            $quote->lines()->create([
+                'position' => $position, 'selection_mode' => 'included', 'is_selected' => true,
+                'description' => sprintf('Partida de prueba %02d - suministro e instalación', $position),
+                'quantity' => 1, 'unit_price' => 10, 'discount_percent' => 0, 'tax_percent' => 21,
+                'subtotal' => 10, 'discount_amount' => 0, 'tax_amount' => 2.1, 'total' => 12.1,
+            ]);
+        }
+        $totals = app(QuoteCalculator::class)->calculate($quote->lines()->get()->toArray());
+        $quote->update([...collect($totals)->except('lines')->all(), 'notes' => null]);
+        $quote->load(['lines.components.unit', 'opportunity', 'installation']);
+        $before = $quote->only(['subtotal', 'discount_amount', 'tax_amount', 'amount']);
+        $beforeLines = $quote->lines->toArray();
+        $company = CompanyProfile::firstOrFail()->toArray();
+        $company['logo_data'] = app(CompanyBrand::class)->dataUri(null);
+        $company['iban'] = null;
+        $company['invoice_footer'] = null;
+        $html = view('pdf.quote', ['document' => $quote, 'company' => $company, 'isDraft' => false])->render();
+
+        // Count actual rendered frames on each page, including Dompdf's fixed-element copies.
+        $pages = [];
+        $pdf = new Dompdf;
+        $pdf->setCallbacks([['event' => 'begin_frame', 'f' => function ($frame, $canvas) use (&$pages): void {
+            $node = $frame->get_node();
+            if (! $node instanceof \DOMElement) {
+                return;
+            }
+            $page = $canvas->get_page_number();
+            $pages[$page] ??= ['headers' => 0, 'logos' => 0, 'footers' => 0];
+            if ($node->nodeName === 'header') {
+                $pages[$page]['headers']++;
+            }
+            if ($node->nodeName === 'img' && $node->getAttribute('class') === 'logo') {
+                $pages[$page]['logos']++;
+            }
+            if ($node->nodeName === 'footer') {
+                $pages[$page]['footers']++;
+            }
+        }]]);
+        $pdf->loadHtml($html);
+        $pdf->setPaper('A4');
+        $pdf->render();
+        if (($directory = getenv('GENERATE_QUOTE_PAGINATION_ARTIFACTS')) && ($components || $lineCount === 1)) {
+            file_put_contents($directory.'/quote-'.$lineCount.($components ? '-components' : '').'.pdf', $pdf->output());
+        }
+
+        $this->assertGreaterThanOrEqual($minimumPages, $pdf->getCanvas()->get_page_count());
+        foreach ($pages as $number => $counts) {
+            $this->assertSame(['headers' => 1, 'logos' => 1, 'footers' => 1], $counts, 'Duplicate or missing branding on page '.$number);
+        }
+        $this->assertStringNotContainsString('Continuación de la propuesta', $html);
+        $this->assertSame($before, $quote->fresh()->only(array_keys($before)));
+        $this->assertSame($beforeLines, $quote->fresh(['lines.components.unit'])->lines->toArray());
+    }
 
     public function test_proposal_pdf_separates_scope_options_components_totals_and_acceptance_terms(): void
     {

@@ -49,10 +49,8 @@
         .components { margin-top: 2mm; padding-top: 1.5mm; border-top: 1px dotted #ccd7d1; color: #526159; font-size: 7.5pt; }
         .component { margin: .7mm 0; page-break-inside: avoid; }
         .component-bullet { color: #2f7b52; font-weight: bold; }
-        .continuation-header { width: 100%; margin-bottom: 5mm; border-collapse: collapse; border-bottom: 1.5px solid #1f6b45; page-break-before: always; }
-        .continuation-header td { padding: 0 0 3mm; vertical-align: bottom; }
-        .continuation-header td:last-child { color: #526159; font-size: 8pt; text-align: right; }
         .scope-details { margin-top: 3mm; padding: 3mm 3.5mm; border: 1px solid #d8e1dc; background: #fafcfb; page-break-inside: avoid; }
+        .scope-details-start { page-break-before: always; }
         .scope-details-title { margin-bottom: 1.5mm; color: #183e2b; font-size: 8pt; font-weight: bold; }
         .scope-details .components { margin-top: 0; padding-top: 0; border-top: none; }
         .option-box { margin-top: 6mm; padding: 3.5mm; border: 1px solid #cfdad4; background: #fafcfb; page-break-inside: avoid; }
@@ -210,13 +208,7 @@
     @foreach($includedLines as $line)
         @php($visibleComponents = $line->relationLoaded('components') ? $line->components->where('visibility', '!=', 'hidden') : collect())
         @if($visibleComponents->isNotEmpty())
-            @if($loop->first)
-                <table class="continuation-header"><tr>
-                    <td><img class="logo" src="{{ $company['logo_data'] ?? app(\App\Support\CompanyBrand::class)->dataUri(null) }}" alt="{{ $companyName }}"></td>
-                    <td><span class="strong">{{ $document->number }}</span><br>Continuación de la propuesta · versión {{ $document->version ?? 1 }}</td>
-                </tr></table>
-            @endif
-            <div class="scope-details">
+            <div @class(['scope-details', 'scope-details-start' => $loop->first])>
                 <div class="scope-details-title">Composición de {{ str_pad((string) $line->position, 2, '0', STR_PAD_LEFT) }} · {{ $line->description }}</div>
                 <div class="components">
                     @foreach($visibleComponents as $component)
