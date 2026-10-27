@@ -5,6 +5,7 @@ namespace App\Services\Work;
 use App\Models\Installation;
 use App\Models\WorkOrder;
 use App\Services\AfterSales\ServiceCycleScheduleWorkflow;
+use App\Support\Time\BusinessTime;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -49,8 +50,8 @@ class WorkOrderRescheduler
             foreach ($items as $item) {
                 $order = $orders->get((int) $item['work_order_id']);
                 $changes = collect($item)->except('work_order_id')->all();
-                $changes['scheduled_start'] = Carbon::parse($changes['scheduled_start']);
-                $changes['scheduled_end'] = Carbon::parse($changes['scheduled_end']);
+                $changes['scheduled_start'] = BusinessTime::parse($changes['scheduled_start'], 'scheduled_start');
+                $changes['scheduled_end'] = BusinessTime::parse($changes['scheduled_end'], 'scheduled_end');
                 $this->rescheduleLocked($order, $changes, $reason, $userId, $batch);
             }
         });
@@ -67,8 +68,8 @@ class WorkOrderRescheduler
         abort_if($order->loadMissing('installation')->installation->dossier_closed_at && in_array($order->kind, ['installation', 'commissioning'], true), 422, 'Reabre el expediente antes de reprogramar la ejecución.');
         $newStart = $changes['scheduled_start'] ?? $order->scheduled_start;
         $newEnd = $changes['scheduled_end'] ?? $order->scheduled_end;
-        $newStart = $newStart ? Carbon::parse($newStart) : null;
-        $newEnd = $newEnd ? Carbon::parse($newEnd) : null;
+        $newStart = $newStart ? BusinessTime::parse($newStart, 'scheduled_start') : null;
+        $newEnd = $newEnd ? BusinessTime::parse($newEnd, 'scheduled_end') : null;
         $newOwner = array_key_exists('assigned_user_id', $changes) ? $changes['assigned_user_id'] : $order->assigned_user_id;
         $commitment = $order->loadMissing('serviceTicket.serviceCycleCommitment')->serviceTicket?->serviceCycleCommitment;
         if ($commitment && $newStart && ($newStart->toDateString() < $commitment->period_starts_on->toDateString() || $newStart->toDateString() > $commitment->period_ends_on->toDateString())) {

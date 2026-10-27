@@ -2,6 +2,9 @@
 
 namespace App\Models;
 
+use App\Casts\PreciseInstant;
+use App\Models\Concerns\HasPreciseInstants;
+use App\Support\Time\BusinessTime;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -9,6 +12,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class PortfolioProject extends Model
 {
+    use HasPreciseInstants;
+
     protected $fillable = [
         'installation_id',
         'created_by',
@@ -30,7 +35,7 @@ class PortfolioProject extends Model
         return [
             'completed_on' => 'date',
             'is_featured' => 'boolean',
-            'published_at' => 'datetime',
+            'published_at' => PreciseInstant::class.':latest',
         ];
     }
 
@@ -56,6 +61,6 @@ class PortfolioProject extends Model
 
     public function scopePublished(Builder $query): Builder
     {
-        return $query->whereNotNull('published_at')->where('published_at', '<=', now());
+        return $query->whereNotNull('published_at')->whereInstant('published_at', '<=', BusinessTime::now());
     }
 }

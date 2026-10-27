@@ -145,7 +145,10 @@ const walk = (directory) => {
 
 walk(sourceRoot);
 
-const missing = [...discovered].filter(([key]) => !catalog[key]);
+const reviewedExclusions = JSON.parse(fs.readFileSync(path.join(root, 'scripts/i18n/reviewed-exclusions.json'), 'utf8'));
+const excluded = ([key, file]) => reviewedExclusions.some((entry) => entry.value === key && entry.file === file);
+const ignored = [...discovered].filter(excluded);
+const missing = [...discovered].filter((entry) => !catalog[entry[0]] && !excluded(entry));
 const malformed = Object.entries(catalog).filter(
     ([, value]) =>
         typeof value !== 'object' ||
@@ -161,6 +164,7 @@ if (process.env.I18N_REPORT_PATH) {
         `${JSON.stringify(
             {
                 discovered: Object.fromEntries(discovered),
+                reviewedTechnicalExclusions: Object.fromEntries(ignored),
                 missing: Object.fromEntries(missing),
             },
             null,
@@ -188,5 +192,5 @@ if (missing.length || malformed.length) {
 }
 
 console.log(
-    `Translation catalog complete: ${discovered.size} visible strings, ${Object.keys(catalog).length} bilingual entries.`,
+    `Translation catalog complete: ${discovered.size - ignored.length} visible strings, ${ignored.length} reviewed technical exclusions, ${Object.keys(catalog).length} bilingual entries.`,
 );

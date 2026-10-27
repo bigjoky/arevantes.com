@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\CrmActivity;
 use App\Services\Crm\LeadResponseSla;
 use App\Services\Crm\OpportunitySalesCycle;
+use App\Support\Time\BusinessTime;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -62,7 +63,7 @@ class ActivityController extends Controller
             $locked->update([
                 'status' => $data['status'],
                 'blocked_reason' => $data['status'] === 'blocked' ? $data['blocked_reason'] : null,
-                'completed_at' => $data['status'] === 'completed' ? now() : null,
+                'completed_at' => $data['status'] === 'completed' ? BusinessTime::now() : null,
             ]);
             $responseSla->record($locked);
             if ($locked->opportunity) {

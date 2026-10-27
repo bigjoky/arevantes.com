@@ -30,7 +30,8 @@
     $customer = $document->customer_snapshot ?? [];
     $customerName = $customer['company_name'] ?? trim(($customer['first_name'] ?? '').' '.($customer['last_name'] ?? ''));
 @endphp
-<header><img src="{{ $company['logo_data'] ?? app(\App\Support\CompanyBrand::class)->dataUri(null) }}" style="max-width:48mm;max-height:17mm"><div class="doc-title">{{ $titles[$kind] ?? $kind }}<br><span class="muted" style="font-size:9pt">{{ $document->number }}</span></div></header>
+<header>@unless($isReconstruction ?? false)<img src="{{ $company['logo_data'] ?? app(\App\Support\CompanyBrand::class)->dataUri(null) }}" style="max-width:48mm;max-height:17mm">@endunless<div class="doc-title">{{ $titles[$kind] ?? $kind }}<br><span class="muted" style="font-size:9pt">{{ $document->number }}</span></div></header>
+@if($isReconstruction ?? false)<div style="position:fixed;top:30%;left:0;right:0;font-size:23pt;color:#c4c4c4;text-align:center;z-index:-1">RECONSTRUCCIÓN INFORMATIVA<br>NO ES EL ORIGINAL</div><p><strong>RECONSTRUCCIÓN INFORMATIVA — NO ES EL DOCUMENTO ORIGINAL.</strong> Representación de los datos disponibles. No acredita el contenido exacto emitido ni sustituye al original fiscal.</p>@endif
 @if($isDraft ?? (isset($document->status) && $document->status === 'draft'))<div style="position:fixed;top:44%;left:20%;transform:rotate(-28deg);font-size:52pt;color:#e1e7e3;z-index:-1;font-weight:bold">BORRADOR</div>@endif
 <footer><span>{{ $company['legal_name'] }} @if($company['tax_id']) · {{ $company['tax_id'] }} @endif · {{ $company['email'] }}</span><span style="float:right">Página <span class="page"></span></span></footer>
 

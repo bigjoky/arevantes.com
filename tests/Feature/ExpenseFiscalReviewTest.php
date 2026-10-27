@@ -12,10 +12,12 @@ use App\Models\JournalEntry;
 use App\Models\SupplierPayment;
 use App\Models\TaxReturn;
 use App\Models\User;
+use App\Services\Finance\ReceivedInvoiceIdentity;
 use App\Services\Tax\ExpenseDocumentaryCalculation;
 use App\Services\Tax\ExpenseFiscalReview;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Inertia\Testing\AssertableInertia as Assert;
+use Tests\Support\EconomicFixture;
 use Tests\TestCase;
 
 class ExpenseFiscalReviewTest extends TestCase
@@ -30,7 +32,7 @@ class ExpenseFiscalReviewTest extends TestCase
         ], 'Supplier documentary quota');
         $lines = $calculation['tax_lines'];
         unset($calculation['tax_lines']);
-        $expense = Expense::create([...$calculation, 'expense_category_id' => ExpenseCategory::firstOrFail()->id,
+        $expense = EconomicFixture::expense([...$calculation, 'expense_category_id' => ExpenseCategory::firstOrFail()->id,
             'number' => 'EXP-FISCAL-1', 'type' => 'invoice', 'document_number' => 'SUP-123',
             'issuer_legal_name' => 'Supplier SA', 'issuer_tax_id' => 'A12345678', 'issuer_country' => 'ES',
             'expense_date' => '2026-09-15', 'currency_code' => 'EUR', 'tax_regime' => 'standard', 'status' => 'pending']);
@@ -81,7 +83,7 @@ class ExpenseFiscalReviewTest extends TestCase
         $fresh = $this->payload($expense);
         $this->post(route('tax.expenses.classification.update', $expense), $fresh)->assertSessionHasNoErrors();
         $this->post(route('tax.expenses.classification.update', $expense), [...$fresh, 'operation_class' => 'domestic_investment'])->assertSessionHasErrors('operation_class');
-        $expense->update(['document_number' => 'NEW-123']);
+        ReceivedInvoiceIdentity::correctingExpense($expense->id, fn () => $expense->update(['document_number' => 'NEW-123']));
         $this->assertFalse(app(ExpenseFiscalReview::class)->isCurrent($expense->fresh()));
         $this->actingAs(auth()->user())->get('/tax/models/303?year=2026&quarter=3')->assertOk()
             ->assertInertia(fn (Assert $page) => $page->where('preview.deductions.0.base', null)->has('preview.pendingReceived', 1));
@@ -162,7 +164,7 @@ class ExpenseFiscalReviewTest extends TestCase
         $this->get('/tax/models/303?year=2026&quarter=3')->assertOk()->assertInertia(fn (Assert $page) => $page
             ->where('preview.deductions.0.base', 100)->where('preview.deductions.0.vat', 10.5)->has('preview.pendingReceived', 0));
         $this->assertSame('2026-06-30', $expense->fresh()->expense_date->format('Y-m-d'));
-        $expense->update(['document_number' => 'CORRECTED']);
+        ReceivedInvoiceIdentity::correctingExpense($expense->id, fn () => $expense->update(['document_number' => 'CORRECTED']));
         $this->get('/tax/models/303?year=2026&quarter=3')->assertOk()->assertInertia(fn (Assert $page) => $page
             ->has('preview.pendingReceived', 1)->where('preview.deductions.0.base', null));
     }

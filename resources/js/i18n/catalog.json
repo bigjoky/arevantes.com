@@ -23930,5 +23930,837 @@
     "Enviar email a": {
         "es": "Enviar email a",
         "en": "Send email to"
+    },
+    "Original archivado. Integridad del archivo verificada mediante SHA-256; esta comprobación no equivale a una firma electrónica.": {
+        "en": "Original archived. File integrity verified using SHA-256; this check is not an electronic signature.",
+        "es": "Original archivado. Integridad del archivo verificada mediante SHA-256; esta comprobación no equivale a una firma electrónica."
+    },
+    "El original no supera la comprobación de integridad. Descarga bloqueada: requiere revisión documental.": {
+        "en": "The original failed its integrity check. Download blocked: documentary review is required.",
+        "es": "El original no supera la comprobación de integridad. Descarga bloqueada: requiere revisión documental."
+    },
+    "Documento histórico sin original localizado. Descarga bloqueada: requiere revisión documental. No se generará un original sustitutivo.": {
+        "en": "Historical document with no original located. Download blocked: documentary review is required. No replacement original will be generated.",
+        "es": "Documento histórico sin original localizado. Descarga bloqueada: requiere revisión documental. No se generará un original sustitutivo."
+    },
+    "Descargar reconstrucción informativa (no es el original)": {
+        "en": "Download informative reconstruction (not the original)",
+        "es": "Descargar reconstrucción informativa (no es el original)"
+    },
+    "original_archived": {
+        "en": "Original archived",
+        "es": "Original archivado"
+    },
+    "integrity_failed": {
+        "en": "Integrity check failed",
+        "es": "Integridad fallida"
+    },
+    "historical_original_missing": {
+        "en": "Historical original not located",
+        "es": "Histórico sin original localizado"
+    },
+    "Sin emitir · borrador": {
+        "en": "Not issued · draft",
+        "es": "Sin emitir · borrador"
+    },
+    "Recorrido del expediente": {
+        "en": "Dossier workflow",
+        "es": "Recorrido del expediente"
+    },
+    "Aceptación, cobro, preparación, ejecución y cierre son hechos distintos.": {
+        "en": "Acceptance, payment, preparation, execution and closure are separate events.",
+        "es": "Aceptación, cobro, preparación, ejecución y cierre son hechos distintos."
+    },
+    "Siguiente paso:": {
+        "en": "Next step:",
+        "es": "Siguiente paso:"
+    },
+    "Resolver pendiente": {
+        "en": "Resolve outstanding item",
+        "es": "Resolver pendiente"
+    },
+    "Responsable:": {
+        "en": "Responsible:",
+        "es": "Responsable:"
+    },
+    "Ver material necesario, pedido, recibido y consumido": {
+        "en": "View materials required, ordered, received and consumed",
+        "es": "Ver material necesario, pedido, recibido y consumido"
+    },
+    "Necesario": {
+        "en": "Required",
+        "es": "Necesario"
+    },
+    "Recibido neto": {
+        "en": "Net received",
+        "es": "Recibido neto"
+    },
+    "Disponible libre": {
+        "en": "Unreserved stock",
+        "es": "Disponible libre"
+    },
+    "Pedido no equivale a recibido. La reserva no equivale a consumo. Disponible libre es existencia física sin reservar.": {
+        "en": "Ordered does not mean received. A reservation is not consumption. Unreserved stock is physical stock that has not been reserved.",
+        "es": "Pedido no equivale a recibido. La reserva no equivale a consumo. Disponible libre es existencia física sin reservar."
+    },
+    "Gestionar cierre y requisitos del expediente": {
+        "en": "Manage dossier closure and requirements",
+        "es": "Gestionar cierre y requisitos del expediente"
+    },
+    "Cerrar expediente": {
+        "en": "Close dossier",
+        "es": "Cerrar expediente"
+    },
+    "Reabrir expediente": {
+        "en": "Reopen dossier",
+        "es": "Reabrir expediente"
+    },
+    "Confirmar entrega documental revisada": {
+        "en": "Confirm reviewed document handover",
+        "es": "Confirmar entrega documental revisada"
+    },
+    "Actualizar tareas obligatorias para el cierre": {
+        "en": "Update mandatory closure tasks",
+        "es": "Actualizar tareas obligatorias para el cierre"
+    },
+    "Requerir visita o ingeniería antes de ejecutar": {
+        "en": "Require a visit or engineering approval before execution",
+        "es": "Requerir visita o ingeniería antes de ejecutar"
+    },
+    "Marcar validación técnica como no necesaria": {
+        "en": "Mark technical validation as unnecessary",
+        "es": "Marcar validación técnica como no necesaria"
+    },
+    "Selecciona únicamente las tareas que condicionan la entrega": {
+        "en": "Select only the tasks required for handover",
+        "es": "Selecciona únicamente las tareas que condicionan la entrega"
+    },
+    "No hay tareas independientes registradas.": {
+        "en": "No independent tasks have been recorded.",
+        "es": "No hay tareas independientes registradas."
+    },
+    "Autorizar excepción económica como administrador: cerrar con cobros o facturas pendientes. El motivo quedará registrado; los pendientes se conservarán.": {
+        "en": "Authorize a financial exception as an administrator: close with outstanding payments or invoices. The reason will be recorded and outstanding items will remain.",
+        "es": "Autorizar excepción económica como administrador: cerrar con cobros o facturas pendientes. El motivo quedará registrado; los pendientes se conservarán."
+    },
+    "El cierre requiere ejecución terminada, entrega confirmada y tareas obligatorias resueltas. Los pendientes económicos requieren una excepción expresa de administrador con motivo. Las tareas informativas no bloquean.": {
+        "en": "Closure requires completed execution, confirmed handover and resolved mandatory tasks. Financial items require an explicit administrator exception with a reason. Informational tasks do not block closure.",
+        "es": "El cierre requiere ejecución terminada, entrega confirmada y tareas obligatorias resueltas. Los pendientes económicos requieren una excepción expresa de administrador con motivo. Las tareas informativas no bloquean."
+    },
+    "Motivo obligatorio": {
+        "en": "Reason required",
+        "es": "Motivo obligatorio"
+    },
+    "Registrar decisión": {
+        "en": "Record decision",
+        "es": "Registrar decisión"
+    },
+    "Fotografía no disponible": {
+        "en": "Photograph unavailable",
+        "es": "Fotografía no disponible"
+    },
+    "Navegación de pie de página": {
+        "en": "Footer navigation",
+        "es": "Navegación de pie de página"
+    },
+    "Proceso": {
+        "en": "Process",
+        "es": "Proceso"
+    },
+    "Información legal": {
+        "en": "Legal information",
+        "es": "Información legal"
+    },
+    "Todos los servicios": {
+        "en": "All services",
+        "es": "Todos los servicios"
+    },
+    "Nuestro proceso": {
+        "en": "Our process",
+        "es": "Nuestro proceso"
+    },
+    "¿Hablamos de tu proyecto?": {
+        "en": "Shall we discuss your project?",
+        "es": "¿Hablamos de tu proyecto?"
+    },
+    "Estudiaremos tu caso y te propondremos la solución más adecuada.": {
+        "en": "We will review your case and propose the most suitable solution.",
+        "es": "Estudiaremos tu caso y te propondremos la solución más adecuada."
+    },
+    "LAN / WLAN": {
+        "en": "LAN / WLAN",
+        "es": "LAN / WLAN"
+    },
+    "Infraestructura conectada": {
+        "en": "Connected infrastructure",
+        "es": "Infraestructura conectada"
+    },
+    "Saber más": {
+        "en": "Learn more",
+        "es": "Saber más"
+    },
+    "Proyectos destacados": {
+        "en": "Featured projects",
+        "es": "Proyectos destacados"
+    },
+    "No hay proyectos publicados en esta sección por el momento.": {
+        "en": "There are currently no published projects in this section.",
+        "es": "No hay proyectos publicados en esta sección por el momento."
+    },
+    "Consultar una instalación similar": {
+        "en": "Ask about a similar installation",
+        "es": "Consultar una instalación similar"
+    },
+    "Aceptación firmada en papel": {
+        "en": "Acceptance signed on paper",
+        "es": "Aceptación firmada en papel"
+    },
+    "Firmante:": {
+        "en": "Signatory:",
+        "es": "Firmante:"
+    },
+    "· Fecha:": {
+        "en": "· Date:",
+        "es": "· Fecha:"
+    },
+    "· Registrada por:": {
+        "en": "· Recorded by:",
+        "es": "· Registrada por:"
+    },
+    "Sin registrar": {
+        "en": "Not recorded",
+        "es": "Sin registrar"
+    },
+    "Descargar justificante firmado": {
+        "en": "Download signed evidence",
+        "es": "Descargar justificante firmado"
+    },
+    "Registrar aceptación firmada en papel · cliente sin email": {
+        "en": "Record acceptance signed on paper · customer without email",
+        "es": "Registrar aceptación firmada en papel · cliente sin email"
+    },
+    "Registra la firma sin enviar correo. La aceptación no crea una visita ni emite una factura.": {
+        "en": "Record the signature without sending email. Acceptance does not create a visit or issue an invoice.",
+        "es": "Registra la firma sin enviar correo. La aceptación no crea una visita ni emite una factura."
+    },
+    "Fecha de firma": {
+        "en": "Signature date",
+        "es": "Fecha de firma"
+    },
+    "Nombre de la persona firmante": {
+        "en": "Signatory's name",
+        "es": "Nombre de la persona firmante"
+    },
+    "Justificante firmado (PDF, JPG o PNG; máximo 10 MB)": {
+        "en": "Signed evidence (PDF, JPG or PNG; maximum 10 MB)",
+        "es": "Justificante firmado (PDF, JPG o PNG; máximo 10 MB)"
+    },
+    "Registrar aceptación en papel": {
+        "en": "Record paper acceptance",
+        "es": "Registrar aceptación en papel"
+    },
+    "Almacén registrado:": {
+        "en": "Recorded warehouse:",
+        "es": "Almacén registrado:"
+    },
+    "Corregir almacén de recepción": {
+        "en": "Correct receiving warehouse",
+        "es": "Corregir almacén de recepción"
+    },
+    "Se registra un traslado compensatorio. No altera las cantidades recibidas. Material consumido, trasladado o reservado requiere revisión previa.": {
+        "en": "A compensating transfer is recorded. Received quantities are unchanged. Consumed, transferred or reserved materials require prior review.",
+        "es": "Se registra un traslado compensatorio. No altera las cantidades recibidas. Material consumido, trasladado o reservado requiere revisión previa."
+    },
+    "Almacén correcto": {
+        "en": "Correct warehouse",
+        "es": "Almacén correcto"
+    },
+    "Registrar corrección": {
+        "en": "Record correction",
+        "es": "Registrar corrección"
+    },
+    "Recurso corporativo personalizado. El SVG oficial de AREVANTES se conserva como respaldo.": {
+        "en": "Custom corporate asset. The official AREVANTES SVG is retained as a fallback.",
+        "es": "Recurso corporativo personalizado. El SVG oficial de AREVANTES se conserva como respaldo."
+    },
+    "Recurso canónico oficial: arevantes-logo.svg.": {
+        "en": "Official canonical asset: arevantes-logo.svg.",
+        "es": "Recurso canónico oficial: arevantes-logo.svg."
+    },
+    "Sustituir logo (SVG, PNG, JPEG o WebP; máximo 2 MB)": {
+        "en": "Replace logo (SVG, PNG, JPEG or WebP; maximum 2 MB)",
+        "es": "Sustituir logo (SVG, PNG, JPEG o WebP; máximo 2 MB)"
+    },
+    "Restaurar SVG oficial de AREVANTES": {
+        "en": "Restore the official AREVANTES SVG",
+        "es": "Restaurar SVG oficial de AREVANTES"
+    },
+    "Guardar logo": {
+        "en": "Save logo",
+        "es": "Guardar logo"
+    },
+    "Plantillas técnicas de órdenes de trabajo": {
+        "en": "Technical work order templates",
+        "es": "Plantillas técnicas de órdenes de trabajo"
+    },
+    "Habilidades del técnico": {
+        "en": "Technician skills",
+        "es": "Habilidades del técnico"
+    },
+    "Nueva plantilla técnica: habilidades, tareas y evidencias": {
+        "en": "New technical template: skills, tasks and evidence",
+        "es": "Nueva plantilla técnica: habilidades, tareas y evidencias"
+    },
+    "Habilidades necesarias": {
+        "en": "Required skills",
+        "es": "Habilidades necesarias"
+    },
+    "Marca las habilidades que correspondan. No necesitas escribir códigos.": {
+        "en": "Select the relevant skills. You do not need to enter codes.",
+        "es": "Marca las habilidades que correspondan. No necesitas escribir códigos."
+    },
+    "Una selección de instalaciones publicadas de AREVANTES. Consulta el alcance y las características de cada proyecto.": {
+        "en": "A selection of published AREVANTES installations. View each project's scope and characteristics.",
+        "es": "Una selección de instalaciones publicadas de AREVANTES. Consulta el alcance y las características de cada proyecto."
+    },
+    "Instalaciones reales,": {
+        "en": "Real installations,",
+        "es": "Instalaciones reales,"
+    },
+    "resultados medibles.": {
+        "en": "measurable results.",
+        "es": "resultados medibles."
+    },
+    "Cada espacio plantea condiciones distintas. Descubre cómo se ha resuelto cada instalación.": {
+        "en": "Every space presents different conditions. Discover how each installation was delivered.",
+        "es": "Cada espacio plantea condiciones distintas. Descubre cómo se ha resuelto cada instalación."
+    },
+    "Filtrar proyectos por servicio": {
+        "en": "Filter projects by service",
+        "es": "Filtrar proyectos por servicio"
+    },
+    "Sin proyectos publicados.": {
+        "en": "No published projects.",
+        "es": "Sin proyectos publicados."
+    },
+    "Todavía no hay casos publicados para esta selección. Puedes consultarnos sobre una instalación similar.": {
+        "en": "There are no published case studies for this selection yet. You can ask us about a similar installation.",
+        "es": "Todavía no hay casos publicados para esta selección. Puedes consultarnos sobre una instalación similar."
+    },
+    "El proyecto.": {
+        "en": "The project.",
+        "es": "El proyecto."
+    },
+    "Fotografías del proyecto": {
+        "en": "Project photographs",
+        "es": "Fotografías del proyecto"
+    },
+    "Otros proyectos realizados.": {
+        "en": "Other completed projects.",
+        "es": "Otros proyectos realizados."
+    },
+    "Empezamos por escucharte": {
+        "en": "We start by listening",
+        "es": "Empezamos por escucharte"
+    },
+    "Cuéntanos qué necesitas.": {
+        "en": "Tell us what you need.",
+        "es": "Cuéntanos qué necesitas."
+    },
+    "Indica dónde se encuentra el inmueble y qué te gustaría resolver. Déjanos un correo electrónico o un teléfono para poder responderte.": {
+        "en": "Tell us where the property is and what you would like to resolve. Leave an email address or phone number so we can reply.",
+        "es": "Indica dónde se encuentra el inmueble y qué te gustaría resolver. Déjanos un correo electrónico o un teléfono para poder responderte."
+    },
+    "contact@arevantes.com ↗": {
+        "en": "contact@arevantes.com ↗",
+        "es": "contact@arevantes.com ↗"
+    },
+    "Para redes y sistemas, escríbenos directamente por correo. El formulario recoge las categorías actualmente disponibles.": {
+        "en": "For networks and systems, email us directly. The form covers the categories currently available.",
+        "es": "Para redes y sistemas, escríbenos directamente por correo. El formulario recoge las categorías actualmente disponibles."
+    },
+    "Solicitud recibida.": {
+        "en": "Request received.",
+        "es": "Solicitud recibida."
+    },
+    "Gracias por contarnos tu proyecto. Nuestro equipo revisará tu consulta y se pondrá en contacto contigo.": {
+        "en": "Thank you for telling us about your project. Our team will review your enquiry and contact you.",
+        "es": "Gracias por contarnos tu proyecto. Nuestro equipo revisará tu consulta y se pondrá en contacto contigo."
+    },
+    "Nombre y apellidos": {
+        "en": "Full name",
+        "es": "Nombre y apellidos"
+    },
+    "Tu proyecto": {
+        "en": "Your project",
+        "es": "Tu proyecto"
+    },
+    "Entre 20 y 2.000 caracteres. No incluyas información sensible.": {
+        "en": "Between 20 and 2,000 characters. Do not include sensitive information.",
+        "es": "Entre 20 y 2.000 caracteres. No incluyas información sensible."
+    },
+    "Dejar vacío": {
+        "en": "Leave empty",
+        "es": "Dejar vacío"
+    },
+    "He leído la": {
+        "en": "I have read the",
+        "es": "He leído la"
+    },
+    "y acepto el tratamiento de mis datos para atender esta consulta.": {
+        "en": "and consent to my data being processed to handle this enquiry.",
+        "es": "y acepto el tratamiento de mis datos para atender esta consulta."
+    },
+    "Los datos se utilizarán para gestionar tu solicitud. Consulta el responsable, tus derechos y el resto de información en la política de privacidad.": {
+        "en": "Your data will be used to handle your request. See the privacy policy for the data controller, your rights and further information.",
+        "es": "Los datos se utilizarán para gestionar tu solicitud. Consulta el responsable, tus derechos y el resto de información en la política de privacidad."
+    },
+    "Enviar consulta": {
+        "en": "Send enquiry",
+        "es": "Enviar consulta"
+    },
+    "Arevantes · Instalaciones y tecnología": {
+        "en": "Arevantes · Installations and technology",
+        "es": "Arevantes · Instalaciones y tecnología"
+    },
+    "Quiénes somos": {
+        "en": "About us",
+        "es": "Quiénes somos"
+    },
+    "Un interlocutor.": {
+        "en": "One point of contact.",
+        "es": "Un interlocutor."
+    },
+    "Una visión de conjunto.": {
+        "en": "An overall perspective.",
+        "es": "Una visión de conjunto."
+    },
+    "AREVANTES trabaja en soluciones de energía, electricidad, seguridad y comunicaciones. Nuestro punto de partida es entender cómo utilizas tu espacio y qué necesitas que resuelva la instalación.": {
+        "en": "AREVANTES works on energy, electrical, security and communications solutions. We start by understanding how you use your space and what you need the installation to do.",
+        "es": "AREVANTES trabaja en soluciones de energía, electricidad, seguridad y comunicaciones. Nuestro punto de partida es entender cómo utilizas tu espacio y qué necesitas que resuelva la instalación."
+    },
+    "Desde Baena, Córdoba, atendemos proyectos en Andalucía con una forma de trabajar cercana: alcance claro, coordinación técnica y atención durante la puesta en servicio.": {
+        "en": "Based in Baena, Córdoba, we serve projects across Andalusia with clear scope, technical coordination and support during commissioning.",
+        "es": "Desde Baena, Córdoba, atendemos proyectos en Andalucía con una forma de trabajar cercana: alcance claro, coordinación técnica y atención durante la puesta en servicio."
+    },
+    "Nuestra manera de trabajar": {
+        "en": "How we work",
+        "es": "Nuestra manera de trabajar"
+    },
+    "Lo que cuidamos": {
+        "en": "What we care about",
+        "es": "Lo que cuidamos"
+    },
+    "Criterio técnico": {
+        "en": "Technical judgement",
+        "es": "Criterio técnico"
+    },
+    "Cada propuesta parte de las condiciones reales y de la compatibilidad de las soluciones.": {
+        "en": "Every proposal considers actual conditions and solution compatibility.",
+        "es": "Cada propuesta parte de las condiciones reales y de la compatibilidad de las soluciones."
+    },
+    "Comunicación clara": {
+        "en": "Clear communication",
+        "es": "Comunicación clara"
+    },
+    "Explicamos qué incluye la intervención y resolvemos las dudas antes de empezar.": {
+        "en": "We explain what the work includes and answer questions before starting.",
+        "es": "Explicamos qué incluye la intervención y resolvemos las dudas antes de empezar."
+    },
+    "Calidad de ejecución": {
+        "en": "Quality workmanship",
+        "es": "Calidad de ejecución"
+    },
+    "Cuidamos la instalación, las comprobaciones y la documentación correspondiente al trabajo contratado.": {
+        "en": "We take care of installation, checks and the documentation required for the contracted work.",
+        "es": "Cuidamos la instalación, las comprobaciones y la documentación correspondiente al trabajo contratado."
+    },
+    "Decisiones claras": {
+        "en": "Clear decisions",
+        "es": "Decisiones claras"
+    },
+    "en cada fase.": {
+        "en": "at every stage.",
+        "es": "en cada fase."
+    },
+    "Para empezar, cuéntanos el tipo de inmueble, su ubicación y qué necesitas resolver. En proyectos de autoconsumo, el perfil de consumo y la información de la cubierta ayudan a preparar el estudio.": {
+        "en": "Start by telling us the property type, location and what you need to resolve. For self-consumption projects, consumption patterns and roof information help prepare the study.",
+        "es": "Para empezar, cuéntanos el tipo de inmueble, su ubicación y qué necesitas resolver. En proyectos de autoconsumo, el perfil de consumo y la información de la cubierta ayudan a preparar el estudio."
+    },
+    "La propuesta concreta el alcance, los plazos y la documentación aplicable. Las ampliaciones o cambios se revisan antes de ejecutarlos. Al finalizar, comprobamos el funcionamiento y explicamos el uso de los equipos.": {
+        "en": "The proposal specifies the scope, schedule and applicable documentation. Extensions or changes are reviewed before execution. On completion, we check operation and explain how to use the equipment.",
+        "es": "La propuesta concreta el alcance, los plazos y la documentación aplicable. Las ampliaciones o cambios se revisan antes de ejecutarlos. Al finalizar, comprobamos el funcionamiento y explicamos el uso de los equipos."
+    },
+    "Preparar mi consulta": {
+        "en": "Prepare my enquiry",
+        "es": "Preparar mi consulta"
+    },
+    "La base de una": {
+        "en": "The foundation of a",
+        "es": "La base de una"
+    },
+    "buena conexión.": {
+        "en": "good connection.",
+        "es": "buena conexión."
+    },
+    "El cableado estructurado, los puntos de red y la cobertura inalámbrica deben responder al uso del edificio. Estudiamos la distribución, el número de dispositivos y las necesidades de conectividad antes de plantear una solución.": {
+        "en": "Structured cabling, network outlets and wireless coverage must suit the building's use. We study the layout, device count and connectivity needs before proposing a solution.",
+        "es": "El cableado estructurado, los puntos de red y la cobertura inalámbrica deben responder al uso del edificio. Estudiamos la distribución, el número de dispositivos y las necesidades de conectividad antes de plantear una solución."
+    },
+    "La organización del cableado y la identificación de los puntos facilitan el mantenimiento y las futuras ampliaciones.": {
+        "en": "Organized cabling and identified outlets make maintenance and future expansion easier.",
+        "es": "La organización del cableado y la identificación de los puntos facilitan el mantenimiento y las futuras ampliaciones."
+    },
+    "Consultar por correo": {
+        "en": "Enquire by email",
+        "es": "Consultar por correo"
+    },
+    "Cableado estructurado": {
+        "en": "Structured cabling",
+        "es": "Cableado estructurado"
+    },
+    "Planificación de tomas, recorridos y organización del armario de comunicaciones.": {
+        "en": "Planning outlets, cable routes and communications cabinet layout.",
+        "es": "Planificación de tomas, recorridos y organización del armario de comunicaciones."
+    },
+    "Redes y conectividad": {
+        "en": "Networks and connectivity",
+        "es": "Redes y conectividad"
+    },
+    "Distribución de conexiones y cobertura Wi-Fi adaptada al espacio y a los dispositivos.": {
+        "en": "Connection distribution and Wi-Fi coverage suited to the space and devices.",
+        "es": "Distribución de conexiones y cobertura Wi-Fi adaptada al espacio y a los dispositivos."
+    },
+    "Configuración y comprobación": {
+        "en": "Configuration and checks",
+        "es": "Configuración y comprobación"
+    },
+    "Revisión del funcionamiento y documentación de la solución acordada.": {
+        "en": "Checking operation and documenting the agreed solution.",
+        "es": "Revisión del funcionamiento y documentación de la solución acordada."
+    },
+    "Instalaciones predefinidas · plantillas comerciales": {
+        "en": "Predefined installations · commercial templates",
+        "es": "Instalaciones predefinidas · plantillas comerciales"
+    },
+    "Añade una instalación completa y ajusta después sus líneas, cantidades y precios para este cliente.": {
+        "en": "Add a complete installation, then adjust its lines, quantities and prices for this customer.",
+        "es": "Añade una instalación completa y ajusta después sus líneas, cantidades y precios para este cliente."
+    },
+    "Plantilla de instalación": {
+        "en": "Installation template",
+        "es": "Plantilla de instalación"
+    },
+    "Selecciona una instalación": {
+        "en": "Select an installation",
+        "es": "Selecciona una instalación"
+    },
+    "líneas": {
+        "en": "lines",
+        "es": "líneas"
+    },
+    "Añadir líneas al presupuesto": {
+        "en": "Add lines to the proposal",
+        "es": "Añadir líneas al presupuesto"
+    },
+    "Ver contenido ·": {
+        "en": "View contents ·",
+        "es": "Ver contenido ·"
+    },
+    "/ ud.": {
+        "en": "/ unit",
+        "es": "/ ud."
+    },
+    "Se conservan precios, IVA, descuentos, opciones y componentes. Las líneas actuales del presupuesto se mantienen.": {
+        "en": "Prices, VAT, discounts, options and components are retained. Existing proposal lines remain.",
+        "es": "Se conservan precios, IVA, descuentos, opciones y componentes. Las líneas actuales del presupuesto se mantienen."
+    },
+    "Crea las líneas de tu instalación habitual y guárdalas aquí como primera plantilla.": {
+        "en": "Create your usual installation lines and save them here as your first template.",
+        "es": "Crea las líneas de tu instalación habitual y guárdalas aquí como primera plantilla."
+    },
+    "Crear o actualizar plantilla comercial con las líneas actuales": {
+        "en": "Create or update a commercial template using the current lines",
+        "es": "Crear o actualizar plantilla comercial con las líneas actuales"
+    },
+    "Nombre de la instalación": {
+        "en": "Installation name",
+        "es": "Nombre de la instalación"
+    },
+    "Ej.: Solar 6 kW con batería": {
+        "en": "E.g. 6 kW solar with battery",
+        "es": "Ej.: Solar 6 kW con batería"
+    },
+    "Guardar como nueva plantilla": {
+        "en": "Save as a new template",
+        "es": "Guardar como nueva plantilla"
+    },
+    "Actualizar plantilla seleccionada": {
+        "en": "Update selected template",
+        "es": "Actualizar plantilla seleccionada"
+    },
+    "Eliminar plantilla": {
+        "en": "Delete template",
+        "es": "Eliminar plantilla"
+    },
+    "Se guardan las líneas y sus componentes. Los datos del cliente y del proyecto quedan fuera de la plantilla. Guardar la plantilla no crea una propuesta.": {
+        "en": "Lines and their components are saved. Customer and project details are excluded. Saving a template does not create a proposal.",
+        "es": "Se guardan las líneas y sus componentes. Los datos del cliente y del proyecto quedan fuera de la plantilla. Guardar la plantilla no crea una propuesta."
+    },
+    "Revisa la clasificación de materiales antes de aceptar": {
+        "en": "Review material classification before accepting",
+        "es": "Revisa la clasificación de materiales antes de aceptar"
+    },
+    "Estos conceptos no generan por sí solos necesidades de almacén. Si son material, vincula un producto con control de inventario; si son servicios, define sus componentes operativos.": {
+        "en": "These items do not generate warehouse requirements on their own. For materials, link an inventory-controlled product; for services, define their operational components.",
+        "es": "Estos conceptos no generan por sí solos necesidades de almacén. Si son material, vincula un producto con control de inventario; si son servicios, define sus componentes operativos."
+    },
+    "Crea el proyecto sin fecha ni técnico. Solo se crea una visita si introduces una fecha; una visita existente no se duplica.": {
+        "en": "Create the project without a date or technician. A visit is created only if you enter a date; an existing visit is not duplicated.",
+        "es": "Crea el proyecto sin fecha ni técnico. Solo se crea una visita si introduces una fecha; una visita existente no se duplica."
+    },
+    "Fecha de visita técnica (opcional)": {
+        "en": "Technical visit date (optional)",
+        "es": "Fecha de visita técnica (opcional)"
+    },
+    "Requiere visita o ingeniería validada antes de ejecutar la instalación": {
+        "en": "Requires a validated visit or engineering approval before installation",
+        "es": "Requiere visita o ingeniería validada antes de ejecutar la instalación"
+    },
+    "Motivo de dispensa técnica (solo administración)": {
+        "en": "Reason for technical waiver (administrators only)",
+        "es": "Motivo de dispensa técnica (solo administración)"
+    },
+    "Energías renovables": {
+        "en": "Renewable energy",
+        "es": "Energías renovables"
+    },
+    "Solicitar asesoramiento": {
+        "en": "Request advice",
+        "es": "Solicitar asesoramiento"
+    },
+    "Imagen ilustrativa del servicio": {
+        "en": "Illustrative service image",
+        "es": "Imagen ilustrativa del servicio"
+    },
+    "Ahorro en la factura": {
+        "en": "Lower electricity bills",
+        "es": "Ahorro en la factura"
+    },
+    "Aprovecha la energía que produces.": {
+        "en": "Make use of the energy you generate.",
+        "es": "Aprovecha la energía que produces."
+    },
+    "Mayor independencia": {
+        "en": "Greater independence",
+        "es": "Mayor independencia"
+    },
+    "Reduce tu dependencia de la red.": {
+        "en": "Reduce your reliance on the grid.",
+        "es": "Reduce tu dependencia de la red."
+    },
+    "Soluciones fiables": {
+        "en": "Reliable solutions",
+        "es": "Soluciones fiables"
+    },
+    "Equipos adecuados a tu instalación.": {
+        "en": "Equipment suited to your installation.",
+        "es": "Equipos adecuados a tu instalación."
+    },
+    "Consumo sostenible": {
+        "en": "Sustainable consumption",
+        "es": "Consumo sostenible"
+    },
+    "Una energía más limpia.": {
+        "en": "Cleaner energy.",
+        "es": "Una energía más limpia."
+    },
+    "Soluciones": {
+        "en": "Solutions",
+        "es": "Soluciones"
+    },
+    "Instalaciones a medida": {
+        "en": "Tailored installations",
+        "es": "Instalaciones a medida"
+    },
+    "La monitorización permite conocer la producción y el consumo. Estudiamos su integración, las baterías y la recarga según la compatibilidad de los equipos y tus necesidades.": {
+        "en": "Monitoring provides insight into generation and consumption. We assess its integration, batteries and charging based on equipment compatibility and your needs.",
+        "es": "La monitorización permite conocer la producción y el consumo. Estudiamos su integración, las baterías y la recarga según la compatibilidad de los equipos y tus necesidades."
+    },
+    "Marcas habituales de trabajo": {
+        "en": "Brands we commonly work with",
+        "es": "Marcas habituales de trabajo"
+    },
+    "LONGi": {
+        "en": "LONGi",
+        "es": "LONGi"
+    },
+    "HUAWEI": {
+        "en": "HUAWEI",
+        "es": "HUAWEI"
+    },
+    "Deye": {
+        "en": "Deye",
+        "es": "Deye"
+    },
+    "FelicityESS": {
+        "en": "FelicityESS",
+        "es": "FelicityESS"
+    },
+    "La elección depende del estudio técnico. Esta mención no implica vinculación ni acreditación oficial.": {
+        "en": "The choice depends on the technical study. This mention does not imply affiliation or official accreditation.",
+        "es": "La elección depende del estudio técnico. Esta mención no implica vinculación ni acreditación oficial."
+    },
+    "Para cada espacio": {
+        "en": "For every space",
+        "es": "Para cada espacio"
+    },
+    "Tipos de instalaciones": {
+        "en": "Installation types",
+        "es": "Tipos de instalaciones"
+    },
+    "Soluciones para cada necesidad.": {
+        "en": "Solutions for every need.",
+        "es": "Soluciones para cada necesidad."
+    },
+    "Viviendas unifamiliares": {
+        "en": "Single-family homes",
+        "es": "Viviendas unifamiliares"
+    },
+    "Autoconsumo adaptado al perfil de consumo de tu hogar y al espacio de cubierta disponible.": {
+        "en": "Self-consumption suited to your household's consumption pattern and available roof space.",
+        "es": "Autoconsumo adaptado al perfil de consumo de tu hogar y al espacio de cubierta disponible."
+    },
+    "Empresas e industria": {
+        "en": "Businesses and industry",
+        "es": "Empresas e industria"
+    },
+    "Instalaciones dimensionadas según la actividad, los horarios y la demanda energética.": {
+        "en": "Installations sized for your activity, operating hours and energy demand.",
+        "es": "Instalaciones dimensionadas según la actividad, los horarios y la demanda energética."
+    },
+    "Baterías de almacenamiento": {
+        "en": "Storage batteries",
+        "es": "Baterías de almacenamiento"
+    },
+    "Aprovecha los excedentes cuando los necesitas, según la capacidad y compatibilidad del sistema.": {
+        "en": "Use surplus energy when you need it, subject to system capacity and compatibility.",
+        "es": "Aprovecha los excedentes cuando los necesitas, según la capacidad y compatibilidad del sistema."
+    },
+    "Cargadores para vehículo eléctrico": {
+        "en": "Electric vehicle chargers",
+        "es": "Cargadores para vehículo eléctrico"
+    },
+    "Recarga coordinada con la potencia disponible y la producción fotovoltaica.": {
+        "en": "Charging coordinated with available power and solar generation.",
+        "es": "Recarga coordinada con la potencia disponible y la producción fotovoltaica."
+    },
+    "Consultar solución": {
+        "en": "Enquire about a solution",
+        "es": "Consultar solución"
+    },
+    "Del estudio a la puesta en servicio.": {
+        "en": "From study to commissioning.",
+        "es": "Del estudio a la puesta en servicio."
+    },
+    "Proyectos relacionados.": {
+        "en": "Related projects.",
+        "es": "Proyectos relacionados."
+    },
+    "Resolvemos tus dudas": {
+        "en": "We answer your questions",
+        "es": "Resolvemos tus dudas"
+    },
+    "Antes de empezar.": {
+        "en": "Before starting.",
+        "es": "Antes de empezar."
+    },
+    "Soluciones técnicas para un futuro más eficiente": {
+        "en": "Technical solutions for a more efficient future",
+        "es": "Soluciones técnicas para un futuro más eficiente"
+    },
+    "Electricidad, energías renovables, seguridad y redes para viviendas y empresas. Diseño, instalación y acompañamiento técnico.": {
+        "en": "Electrical, renewable energy, security and network solutions for homes and businesses. Design, installation and technical support.",
+        "es": "Electricidad, energías renovables, seguridad y redes para viviendas y empresas. Diseño, instalación y acompañamiento técnico."
+    },
+    "Instalación fotovoltaica sobre la cubierta de una vivienda. Imagen ilustrativa.": {
+        "en": "Solar installation on a home's roof. Illustrative image.",
+        "es": "Instalación fotovoltaica sobre la cubierta de una vivienda. Imagen ilustrativa."
+    },
+    "Instalaciones · Energía · Tecnología": {
+        "en": "Installations · Energy · Technology",
+        "es": "Instalaciones · Energía · Tecnología"
+    },
+    "Soluciones técnicas": {
+        "en": "Technical solutions",
+        "es": "Soluciones técnicas"
+    },
+    "para un futuro": {
+        "en": "for a more",
+        "es": "para un futuro"
+    },
+    "más eficiente.": {
+        "en": "efficient future.",
+        "es": "más eficiente."
+    },
+    "Diseñamos y ejecutamos proyectos de electricidad, energías renovables, seguridad y redes para viviendas y empresas.": {
+        "en": "We design and deliver electrical, renewable energy, security and network projects for homes and businesses.",
+        "es": "Diseñamos y ejecutamos proyectos de electricidad, energías renovables, seguridad y redes para viviendas y empresas."
+    },
+    "Conocer servicios": {
+        "en": "Explore services",
+        "es": "Conocer servicios"
+    },
+    "Imagen ilustrativa de autoconsumo": {
+        "en": "Illustrative self-consumption image",
+        "es": "Imagen ilustrativa de autoconsumo"
+    },
+    "Cuatro áreas de servicio,": {
+        "en": "Four service areas,",
+        "es": "Cuatro áreas de servicio,"
+    },
+    "una visión común.": {
+        "en": "one shared vision.",
+        "es": "una visión común."
+    },
+    "Soluciones técnicas integradas, adaptadas a cada proyecto y con un enfoque en la eficiencia, la seguridad y la tecnología.": {
+        "en": "Integrated technical solutions tailored to each project, focused on efficiency, safety and technology.",
+        "es": "Soluciones técnicas integradas, adaptadas a cada proyecto y con un enfoque en la eficiencia, la seguridad y la tecnología."
+    },
+    "Ver todos los servicios": {
+        "en": "View all services",
+        "es": "Ver todos los servicios"
+    },
+    "Una manera de trabajar": {
+        "en": "A way of working",
+        "es": "Una manera de trabajar"
+    },
+    "Del análisis al resultado.": {
+        "en": "From analysis to results.",
+        "es": "Del análisis al resultado."
+    },
+    "Conoce nuestro proceso": {
+        "en": "Discover our process",
+        "es": "Conoce nuestro proceso"
+    },
+    "La técnica, al servicio": {
+        "en": "Technology in service",
+        "es": "La técnica, al servicio"
+    },
+    "de las personas.": {
+        "en": "of people.",
+        "es": "de las personas."
+    },
+    "Detrás de cada instalación hay una necesidad concreta. La escuchamos, estudiamos las alternativas y cuidamos la ejecución para que tengas una solución que entiendas y puedas utilizar con confianza.": {
+        "en": "Behind every installation is a specific need. We listen, study the options and take care of execution to provide a solution you understand and can use with confidence.",
+        "es": "Detrás de cada instalación hay una necesidad concreta. La escuchamos, estudiamos las alternativas y cuidamos la ejecución para que tengas una solución que entiendas y puedas utilizar con confianza."
+    },
+    "Conoce la empresa": {
+        "en": "Meet the company",
+        "es": "Conoce la empresa"
+    },
+    "Material pedido": {
+        "en": "Ordered material",
+        "es": "Material pedido"
     }
 }

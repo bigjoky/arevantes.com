@@ -3,6 +3,9 @@
 namespace App\Services\Analytics;
 
 use App\Models\FinancialBudget;
+use App\Models\TimeEntry;
+use App\Models\WorkOrder;
+use App\Support\Time\InstantSql;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Collection;
@@ -88,8 +91,8 @@ class AnalyticsService
                     'url' => route('installations.show', $row->id),
                 ]),
             'work_order_completion' => $this->limitQuery($this->workOrderQuery($filter, $filter->from, $filter->to)
-                ->select(['work_orders.id', 'work_orders.number', 'work_orders.title', 'work_orders.status', 'work_orders.scheduled_start', 'installations.project_reference'])
-                ->orderByDesc('work_orders.scheduled_start'), $limit)->get()->map(fn ($row) => [
+                ->select(['work_orders.id', 'work_orders.number', 'work_orders.title', 'work_orders.status', DB::raw(InstantSql::iso(WorkOrder::class, 'work_orders.scheduled_start').' AS scheduled_start'), 'installations.project_reference'])
+                ->orderByRaw(InstantSql::forModel(WorkOrder::class, 'work_orders.scheduled_start').' DESC'), $limit)->get()->map(fn ($row) => [
                     'id' => $row->id, 'date' => $row->scheduled_start, 'reference' => $row->number ?: $row->title,
                     'project' => $row->project_reference, 'status' => $row->status, 'value' => $row->status === 'completed' ? 1 : 0,
                     'url' => route('work-orders.index', ['work_order' => $row->id]),
@@ -320,7 +323,7 @@ class AnalyticsService
         $query = DB::table('work_orders')->leftJoin('installations', 'installations.id', '=', 'work_orders.installation_id')
             ->whereNotNull('work_orders.scheduled_start')
             ->where('work_orders.status', '!=', 'cancelled')
-            ->whereBetween('work_orders.scheduled_start', [$from, $to]);
+            ->whereBetween(DB::raw(InstantSql::forModel(WorkOrder::class, 'work_orders.scheduled_start')), [$from->timestamp, $to->timestamp]);
         if ($filter->user->hasRole('technician')) {
             $query->where('work_orders.assigned_user_id', $filter->user->id);
         }
@@ -387,7 +390,7 @@ class AnalyticsService
         $query = DB::table('time_entries')
             ->join('work_orders', 'work_orders.id', '=', 'time_entries.work_order_id')
             ->leftJoin('installations', 'installations.id', '=', 'work_orders.installation_id')
-            ->whereBetween('time_entries.started_at', [$from, $to]);
+            ->whereBetween(DB::raw(InstantSql::forModel(TimeEntry::class, 'time_entries.started_at')), [$from->timestamp, $to->timestamp]);
 
         return $this->scopeInstallation($query, $filter);
     }
@@ -405,8 +408,8 @@ class AnalyticsService
                 'url' => $row->installation_id ? route('installations.show', $row->installation_id) : route('inventory.index'),
             ]);
         $labour = $this->limitQuery($this->labourQuery($filter, $filter->from, $filter->to)
-            ->select(['time_entries.id', 'time_entries.started_at', 'time_entries.duration_minutes', 'time_entries.hourly_cost', 'work_orders.id as work_order_id', 'work_orders.number', 'installations.project_reference'])
-            ->orderByDesc('time_entries.started_at'), $limit)->get()->map(fn ($row) => [
+            ->select(['time_entries.id', DB::raw(InstantSql::iso(TimeEntry::class, 'time_entries.started_at').' AS started_at'), 'time_entries.duration_minutes', 'time_entries.hourly_cost', 'work_orders.id as work_order_id', 'work_orders.number', 'installations.project_reference'])
+            ->orderByRaw(InstantSql::forModel(TimeEntry::class, 'time_entries.started_at').' DESC'), $limit)->get()->map(fn ($row) => [
                 'id' => $row->id, 'date' => $row->started_at, 'reference' => $row->number,
                 'project' => $row->project_reference, 'status' => __('Mano de obra directa'),
                 'value' => -round(((float) ($row->duration_minutes ?? 0) / 60) * (float) $row->hourly_cost, 2),

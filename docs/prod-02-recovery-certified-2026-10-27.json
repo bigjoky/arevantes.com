@@ -1,0 +1,143 @@
+{
+  "capture-receipt-redacted.json": {
+    "data_reader": "supabase_read_only_user",
+    "read_only": true,
+    "atomic_data_snapshot_single_select": true,
+    "tables": 214,
+    "total_rows": 96405,
+    "data_bytes": 16396904,
+    "data_sha256": "c96de14177ebf089199f9fed32cbe10176211182c9e854efbd40c19c938d0cc3",
+    "schema_dump_sha256": "fd7f3c6254387d71e9bdecd5ea76806e55648f857238a13ed44c2b6c152d9760",
+    "capture_seconds": 5.484,
+    "snapshot_utc": "2026-10-27T21:49:51.575991+00:00",
+    "credentials_exported_as_config": false,
+    "production_writes": false,
+    "format": "native pg_dump public schema plus atomic typed JSON row snapshot; native strings preserve numeric precision"
+  },
+  "baseline-restore-receipt-redacted.json": {
+    "baseline_database": "arevantes_prod02_protected_restore_verify_test",
+    "marker_verified": true,
+    "native_schema_restored": true,
+    "all_rows_and_types_restored": true,
+    "tables_verified": 214,
+    "rows_verified": 96405,
+    "restore_sql_seconds": 30.518,
+    "source_written": false,
+    "passwords_or_users_enabled_on_target": false,
+    "constraints_and_indexes_restored": true,
+    "new_TIME_ECO_triggers_not_expected_in_old_baseline": true
+  },
+  "restored-schema-redacted.json": {
+    "constraints": {
+      "source": 919,
+      "restored": 919,
+      "match": true
+    },
+    "indexes": {
+      "source": 713,
+      "restored": 713,
+      "match": true
+    },
+    "columns": {
+      "source": 2949,
+      "restored": 2949,
+      "match": true
+    },
+    "locale": {
+      "exact_provider_locale_version_match": true,
+      "locale": "en-US",
+      "icu_collation_version": "153.121"
+    },
+    "rls": {
+      "enabled": 214,
+      "forced": 0
+    },
+    "integrity": {
+      "disabled_triggers": 0,
+      "invalid_indexes": 0,
+      "unbalanced_posted_journals": 0
+    },
+    "protected_role_flags": "Imported ACL role names NOLOGIN; local restore owner mapped to prod02_local, no production credentials/authentication enabled",
+    "passed": true
+  },
+  "document-recovery-redacted.json": {
+    "known_historical_invoice_without_archive": [
+      11
+    ],
+    "cut_utc": "2026-10-27T21:49:51.575991+00:00",
+    "same_snapshot_references": true,
+    "all_objects_last_modified_before_cut_with_margin": true,
+    "head_get_head_etag_size_last_modified_verified": true,
+    "signature_mutable_key_checked_by_authoritative_last_modified_before_cut": true,
+    "no_bucket_wide_listing": true,
+    "copy_seconds": 9.265,
+    "private_object_count": 10,
+    "code_asset_count": 3,
+    "private_bytes": 1285892,
+    "hashes_verified_against_existing_records": 3
+  },
+  "document-restore-redacted.json": {
+    "authenticated_packages": true,
+    "manifest_signed": true,
+    "restored_files_verified": 13,
+    "known_historical_invoice_without_archive": [
+      11
+    ],
+    "altered_document_rejected": true,
+    "missing_document_detected": true,
+    "document_restore_seconds": 0.012,
+    "all_files_inside_encrypted_perimeter": true,
+    "no_original_file_deleted_or_overwritten": true
+  },
+  "migration-rehearsal-redacted.json": {
+    "migrations_applied": 10,
+    "legacy_tables_preserved": 214,
+    "all_original_column_values_unchanged": true,
+    "enabled_TIME_ECO_triggers": 16,
+    "invalid_indexes": 0,
+    "baseline_preserved_unmodified": true,
+    "clone_marker_verified": true,
+    "postgres_version": "17.6",
+    "icu_collation": "en-US /153.121",
+    "seconds": 9.682,
+    "production_migrations": false
+  },
+  "encryption-proof-redacted.json": {
+    "packages": [
+      {
+        "file": "public-schema.dump",
+        "sha256": "fd7f3c6254387d71e9bdecd5ea76806e55648f857238a13ed44c2b6c152d9760",
+        "encrypted_sha256": "49b4f36945d1e78033050ed7e63adb18e7983be0d30b58bf2c1e2dec0d0f8c75",
+        "authenticated_roundtrip": true
+      },
+      {
+        "file": "public-data-snapshot.json",
+        "sha256": "c96de14177ebf089199f9fed32cbe10176211182c9e854efbd40c19c938d0cc3",
+        "encrypted_sha256": "2ef707e2f8c2b229c81925c1cf1ee55cb6a009925e369ffd407caffcebb9e86f",
+        "authenticated_roundtrip": true
+      }
+    ],
+    "manifest_signed": true
+  },
+  "production_published": false,
+  "baseline_commit": "341a76709d0d42c3318917017d8da73ffbd3ef3a",
+  "certified_source_commit": "498a2b4cbbace500b281332a6df433f85287ed8e",
+  "historical_missing_original_authorized": [
+    11
+  ],
+  "retention_deadline_madrid": "2026-11-03T22:49:51.575991+01:00",
+  "verification": {
+    "frontend_passed": 59,
+    "types": true,
+    "lint": true,
+    "i18n": true,
+    "build": true,
+    "phpunit_passed_initial": 1027,
+    "phpunit_skipped": 42,
+    "svg_dependency_patch_reinstalled_and_retested": {
+      "passed": 3,
+      "assertions": 9
+    }
+  },
+  "merge_resolution": "Preserved later production opportunity numbering, mobile navigation, maskable PWA, PDF pagination; integrated certified public-site component set, precise temporal casts and archived-original custody. No root working-copy changes."
+}

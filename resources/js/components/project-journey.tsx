@@ -135,7 +135,7 @@ export default function ProjectJourney({ journey }: { journey?: Journey }) {
                                     {[
                                         'Material',
                                         'Necesario',
-                                        'Pedido',
+                                        'Material pedido',
                                         'Recibido neto',
                                         'Reservado',
                                         'Consumido',

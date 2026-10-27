@@ -5,7 +5,6 @@ namespace Tests\Feature;
 use App\Models\AuditLog;
 use App\Models\CompanyCensusVersion;
 use App\Models\CompanyProfile;
-use App\Models\Expense;
 use App\Models\ExpenseCategory;
 use App\Models\FiscalYear;
 use App\Models\Permission;
@@ -19,6 +18,7 @@ use App\Support\WorkspaceNavigation;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Assert;
+use Tests\Support\EconomicFixture;
 use Tests\TestCase;
 
 class FiscalRedesignTest extends TestCase
@@ -52,8 +52,8 @@ class FiscalRedesignTest extends TestCase
         $this->invoice('100.00', ['status' => 'cancelled']);
         $this->invoice('100.00', ['issue_date' => '2025-08-01']);
         $this->invoice('100.00', ['issue_date' => '2026-10-01']);
-        Expense::create(['expense_category_id' => ExpenseCategory::firstOrFail()->id, 'created_by' => $user->id, 'number' => 'EXP-EUR', 'type' => 'invoice', 'expense_date' => '2026-08-01', 'currency_code' => 'EUR', 'subtotal' => '100.00', 'tax_amount' => '21.03', 'withholding_amount' => '15.01', 'amount' => '106.02', 'status' => 'pending']);
-        Expense::create(['expense_category_id' => ExpenseCategory::firstOrFail()->id, 'created_by' => $user->id, 'number' => 'EXP-USD', 'type' => 'invoice', 'expense_date' => '2026-08-01', 'currency_code' => 'USD', 'subtotal' => '100.00', 'tax_amount' => '99.00', 'amount' => '199.00', 'status' => 'pending']);
+        EconomicFixture::expense(['expense_category_id' => ExpenseCategory::firstOrFail()->id, 'created_by' => $user->id, 'number' => 'EXP-EUR', 'type' => 'invoice', 'expense_date' => '2026-08-01', 'currency_code' => 'EUR', 'subtotal' => '100.00', 'tax_amount' => '21.03', 'withholding_amount' => '15.01', 'amount' => '106.02', 'status' => 'pending']);
+        EconomicFixture::expense(['expense_category_id' => ExpenseCategory::firstOrFail()->id, 'created_by' => $user->id, 'number' => 'EXP-USD', 'type' => 'invoice', 'expense_date' => '2026-08-01', 'currency_code' => 'USD', 'subtotal' => '100.00', 'tax_amount' => '99.00', 'amount' => '199.00', 'status' => 'pending']);
         $this->get('/fiscal?year=2026&quarter=3')->assertOk()->assertInertia(fn (Assert $p) => $p->component('fiscal/workspace')->where('metrics.outputVat', '19.99')->where('metrics.supportedVat', '21.03')->where('metrics.withholding', '15.01')->where('metrics.result', null)->where('metrics.deductibleVat', null)->where('metrics.nextDeadline', null)->where('documents.total', 3)->where('excludedForeignExpenses', 1)->where('series.0.outputVat', '19.99')->where('capabilities.multiCompany', false));
     }
 

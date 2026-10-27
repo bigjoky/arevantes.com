@@ -2,12 +2,15 @@
 
 namespace App\Models;
 
+use App\Casts\PreciseInstant;
+use App\Models\Concerns\HasPreciseInstants;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class CrmActivity extends Model
 {
+    use HasPreciseInstants;
     use SoftDeletes;
 
     protected $touches = ['workOrder'];
@@ -16,7 +19,7 @@ class CrmActivity extends Model
 
     protected function casts(): array
     {
-        return ['required_for_closure' => 'boolean', 'starts_at' => 'datetime', 'due_at' => 'datetime', 'completed_at' => 'datetime'];
+        return ['required_for_closure' => 'boolean', 'starts_at' => PreciseInstant::class, 'due_at' => PreciseInstant::class.':latest', 'completed_at' => PreciseInstant::class];
     }
 
     public function installation(): BelongsTo

@@ -4,6 +4,7 @@ namespace App\Services\Quotes;
 
 use Brick\Math\BigDecimal;
 use Brick\Math\RoundingMode;
+use Illuminate\Validation\ValidationException;
 
 class QuoteCalculator
 {
@@ -23,6 +24,9 @@ class QuoteCalculator
                 $factor = BigDecimal::of((string) $line['tax_percent'])->multipliedBy('0.01')->plus('1');
                 $taxable = $lineTotal->dividedBy($factor, 2, RoundingMode::HalfUp);
                 $discountFactor = BigDecimal::of('1')->minus(BigDecimal::of((string) ($line['discount_percent'] ?? 0))->multipliedBy('0.01'));
+                if (! $discountFactor->isPositive() && $lineTotal->isPositive()) {
+                    throw ValidationException::withMessages(["lines.{$position}.total_with_tax" => 'Un importe IVA incluido positivo no es compatible con un descuento del 100 %.']);
+                }
                 $lineSubtotal = $discountFactor->isPositive() ? $taxable->dividedBy($discountFactor, 2, RoundingMode::HalfUp) : BigDecimal::of('0.00');
                 $lineDiscount = $lineSubtotal->minus($taxable);
                 $lineTax = $lineTotal->minus($taxable);

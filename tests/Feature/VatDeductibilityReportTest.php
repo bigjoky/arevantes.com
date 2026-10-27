@@ -10,6 +10,7 @@ use App\Services\Accounting\AccountingSynchronizer;
 use App\Services\Tax\VatReport;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use PHPUnit\Framework\Attributes\DataProvider;
+use Tests\Support\EconomicFixture;
 use Tests\TestCase;
 
 class VatDeductibilityReportTest extends TestCase
@@ -20,7 +21,7 @@ class VatDeductibilityReportTest extends TestCase
     {
         $user = User::factory()->create(['role' => 'admin']);
         $this->actingAs($user);
-        $expense = Expense::create(['expense_category_id' => ExpenseCategory::firstOrFail()->id, 'created_by' => $user->id,
+        $expense = EconomicFixture::expense(['expense_category_id' => ExpenseCategory::firstOrFail()->id, 'created_by' => $user->id,
             'number' => 'EXP-DEDUCTION', 'type' => 'invoice', 'document_number' => 'TEST-1', 'issuer_legal_name' => 'Supplier',
             'expense_date' => '2026-09-15', 'subtotal' => 100, 'tax_amount' => 21, 'amount' => 121, 'status' => 'pending']);
         $expense->taxLines()->create(['kind' => 'vat', 'position' => 1, 'taxable_base' => 100, 'tax_rate' => 21,

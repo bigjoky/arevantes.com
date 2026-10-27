@@ -7,6 +7,7 @@ use App\Models\Opportunity;
 use App\Models\User;
 use App\Notifications\LeadResponseSlaBreachedNotification;
 use App\Notifications\LeadResponseSlaEscalatedNotification;
+use App\Support\Time\BusinessTime;
 use Illuminate\Support\Facades\DB;
 
 class LeadResponseSlaNotifier
@@ -20,7 +21,7 @@ class LeadResponseSlaNotifier
             ->whereNull('first_responded_at')
             ->whereNull('first_response_sla_alerted_at')
             ->whereNotNull('first_response_due_at')
-            ->where('first_response_due_at', '<=', now())
+            ->whereInstant('first_response_due_at', '<=', BusinessTime::now())
             ->whereNotIn('stage', ['won', 'lost'])
             ->orderBy('id')
             ->chunkById(200, function ($opportunities) use (&$count): void {
@@ -36,7 +37,7 @@ class LeadResponseSlaNotifier
                         }
 
                         $locked->owner->notify(new LeadResponseSlaBreachedNotification($locked));
-                        $locked->update(['first_response_sla_alerted_at' => now()]);
+                        $locked->update(['first_response_sla_alerted_at' => BusinessTime::now()]);
                         $count++;
                     });
                 }
@@ -48,13 +49,13 @@ class LeadResponseSlaNotifier
     public function escalatePersistentBreaches(): int
     {
         $count = 0;
-        $escalateBefore = now()->subMinutes(CrmSetting::current()->lead_response_escalation_minutes);
+        $escalateBefore = BusinessTime::now()->subMinutes(CrmSetting::current()->lead_response_escalation_minutes);
 
         Opportunity::query()
             ->whereNull('first_responded_at')
             ->whereNull('first_response_sla_escalated_at')
             ->whereNotNull('first_response_sla_alerted_at')
-            ->where('first_response_sla_alerted_at', '<=', $escalateBefore)
+            ->whereInstant('first_response_sla_alerted_at', '<=', $escalateBefore)
             ->whereNotIn('stage', ['won', 'lost'])
             ->orderBy('id')
             ->chunkById(200, function ($opportunities) use (&$count, $escalateBefore): void {
@@ -74,7 +75,7 @@ class LeadResponseSlaNotifier
                         }
 
                         $recipients->each->notify(new LeadResponseSlaEscalatedNotification($locked));
-                        $locked->update(['first_response_sla_escalated_at' => now()]);
+                        $locked->update(['first_response_sla_escalated_at' => BusinessTime::now()]);
                         $count++;
                     });
                 }
@@ -88,7 +89,7 @@ class LeadResponseSlaNotifier
         return $opportunity->owner !== null
             && $opportunity->first_responded_at === null
             && $opportunity->first_response_sla_alerted_at === null
-            && $opportunity->first_response_due_at?->isPast()
+            && $opportunity->first_response_due_at?->lt(BusinessTime::now())
             && ! in_array($opportunity->stage, ['won', 'lost'], true);
     }
 

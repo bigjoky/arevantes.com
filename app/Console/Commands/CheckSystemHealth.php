@@ -56,8 +56,8 @@ class CheckSystemHealth extends Command
             ];
 
             $restoreEnabled = (bool) config('backup.postgres.restore_enabled');
-            $latestRestore = BackupRestoration::query()->where('engine', 'pgsql')->where('status', 'healthy')->latest('verified_at')->first();
-            $restoreFresh = $restoreEnabled && $latestRestore?->verified_at?->greaterThanOrEqualTo(now()->subDays((int) config('backup.postgres.restore_max_age_days', 8)));
+            $latestRestore = BackupRestoration::query()->where('engine', 'pgsql')->whereNotNull('verified_at')->latest('verified_at')->latest('id')->first();
+            $restoreFresh = $restoreEnabled && $latestRestore?->status === 'healthy' && $latestRestore?->verified_at?->greaterThanOrEqualTo(now()->subDays((int) config('backup.postgres.restore_max_age_days', 8)));
             $checks[] = [
                 'database-restore',
                 $restoreFresh ? 'healthy' : 'failed',

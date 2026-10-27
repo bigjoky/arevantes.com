@@ -14,6 +14,7 @@ use App\Services\Documents\DocumentPdf;
 use App\Services\Quotes\QuoteDeliveryArchive;
 use App\Services\Quotes\QuoteSelection;
 use App\Services\Quotes\QuoteStatusWorkflow;
+use App\Support\Time\BusinessTime;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -62,7 +63,7 @@ class DocumentDeliveryController extends Controller
             abort_unless(hash_equals($delivery->document_version, $currentFingerprint['version']) && hash_equals($delivery->document_hash, $currentFingerprint['hash']), 409, __('This shared document has been replaced by a newer version.'));
         }
         if (! $delivery->first_viewed_at) {
-            $delivery->update(['first_viewed_at' => now(), 'status' => $delivery->status === 'sent' ? 'viewed' : $delivery->status]);
+            $delivery->update(['first_viewed_at' => BusinessTime::now(), 'status' => $delivery->status === 'sent' ? 'viewed' : $delivery->status]);
             if ($document->customer) {
                 CustomerPortalEvent::record($document->customer, 'document_viewed', null, $request, $document, ['number' => $document->number, 'delivery_id' => $delivery->id]);
             }
@@ -96,7 +97,7 @@ class DocumentDeliveryController extends Controller
             }
 
             $workflow->apply($quote, $data['response'], null, 'shared_link');
-            $delivery->update(['status' => $data['response'], 'responded_at' => now(), 'response_ip' => $request->ip(), 'response_user_agent' => Str::limit((string) $request->userAgent(), 1000, '')]);
+            $delivery->update(['status' => $data['response'], 'responded_at' => BusinessTime::now(), 'response_ip' => $request->ip(), 'response_user_agent' => Str::limit((string) $request->userAgent(), 1000, '')]);
 
             if ($data['response'] === 'accepted') {
                 $fingerprint = app(DocumentFingerprint::class)->for($quote);
@@ -108,7 +109,7 @@ class DocumentDeliveryController extends Controller
                     'document_version' => $fingerprint['version'],
                 ], [
                     'document_hash' => $fingerprint['hash'],
-                    'accepted_at' => now(),
+                    'accepted_at' => BusinessTime::now(),
                     'ip_address' => $request->ip(),
                     'user_agent' => Str::limit((string) $request->userAgent(), 1000, ''),
                 ]);
@@ -129,7 +130,7 @@ class DocumentDeliveryController extends Controller
         $kind = $delivery->quote_id ? 'quote' : $delivery->salesDocument->type;
         $currentFingerprint = app(DocumentFingerprint::class)->for($document);
         abort_unless($delivery->document_version && $delivery->document_hash && hash_equals($delivery->document_version, $currentFingerprint['version']) && hash_equals($delivery->document_hash, $currentFingerprint['hash']), 409, __('This shared document has been replaced by a newer version.'));
-        $delivery->update(['last_downloaded_at' => now()]);
+        $delivery->update(['last_downloaded_at' => BusinessTime::now()]);
         if ($document->customer) {
             CustomerPortalEvent::record($document->customer, 'document_downloaded', null, $request, $document, ['number' => $document->number, 'delivery_id' => $delivery->id]);
         }
@@ -143,7 +144,7 @@ class DocumentDeliveryController extends Controller
         $default = $snapshot['billing_email'] ?? $snapshot['email'] ?? null;
         $data = $request->validate(['recipient_email' => ['required', 'email', 'max:255']]);
         $token = Str::random(64);
-        $expires = now()->addDays($kind === 'quote' ? 30 : 90);
+        $expires = BusinessTime::now()->addDays($kind === 'quote' ? 30 : 90);
         $relation = $document instanceof Quote ? 'quote_id' : 'sales_document_id';
         $fingerprint = app(DocumentFingerprint::class)->for($document);
         try {
@@ -160,7 +161,7 @@ class DocumentDeliveryController extends Controller
             }
             Mail::to($delivery->recipient_email)->send(new DocumentSharedMail($document, $kind, route('documents.shared.show', $token), $expires->format('d/m/Y'), $pdfData));
             $document->deliveries()->whereKeyNot($delivery->id)->whereIn('status', ['pending', 'sent', 'viewed'])->update(['status' => 'superseded']);
-            $delivery->update(['status' => 'sent', 'sent_at' => now()]);
+            $delivery->update(['status' => 'sent', 'sent_at' => BusinessTime::now()]);
             if ($document instanceof Quote && $document->status === 'draft') {
                 $quoteWorkflow?->apply($document, 'sent', $request->user(), 'email');
             }
@@ -181,7 +182,7 @@ class DocumentDeliveryController extends Controller
     {
         $document = $delivery->quote ?: $delivery->salesDocument;
         abort_unless($document, 404);
-        $delivery->update(['status' => 'revoked', 'revoked_at' => now(), 'revoked_by' => $request->user()->id]);
+        $delivery->update(['status' => 'revoked', 'revoked_at' => BusinessTime::now(), 'revoked_by' => $request->user()->id]);
         if ($document->customer) {
             CustomerPortalEvent::record($document->customer, 'document_revoked', null, $request, $document, ['number' => $document->number, 'delivery_id' => $delivery->id]);
         }
@@ -196,7 +197,7 @@ class DocumentDeliveryController extends Controller
             $query->lockForUpdate();
         }
         $delivery = $query->firstOrFail();
-        abort_if($delivery->revoked_at || $delivery->expires_at->isPast() || in_array($delivery->status, ['superseded', 'failed', 'revoked'], true), 410, __('This document link has expired.'));
+        abort_if($delivery->revoked_at || ! $delivery->expires_at || $delivery->expires_at->lessThanOrEqualTo(BusinessTime::now()) || in_array($delivery->status, ['superseded', 'failed', 'revoked'], true), 410, __('This document link has expired.'));
 
         return $delivery;
     }

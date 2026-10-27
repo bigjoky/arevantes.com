@@ -1,0 +1,35 @@
+[
+  {
+    "width": 1023,
+    "ax": "Browser tab: 3, Title: \"Add customer - Arevantes\", URL: \"http://localhost:8000/people/create\".\nThe following is a diff from the previous accessibility tree with ~ and + representing changed and added elements, respectively. Removed elements are summarized by ID range.\n~\t\t\t\t32 text field (settable) Nombre, Value: 01C Cliente sin guardar, ID: first_name\n~\t\t\t\t34 text field (settable) Apellidos, Value: Conservación de estado, ID: last_name\n~\t\t\t\t111 text entry area (settable) Notas, Value: Borrador efímero R-02, ID: notes\nThe focused UI element is 111 text entry area (settable) Notas, Value: Borrador efímero R-02, ID: notes",
+    "dom": {
+      "forms": 1,
+      "inputs": 1,
+      "navs": 1,
+      "pageHosts": 1,
+      "sidebar": 0
+    }
+  },
+  {
+    "width": 1024,
+    "ax": "Browser tab: 3, Title: \"Add customer - Arevantes\", URL: \"http://localhost:8000/people/create\".\nThe following is a diff from the previous accessibility tree with ~ and + representing changed and added elements, respectively. Removed elements are summarized by ID range.\nRemoved element IDs: 4-9, 119-126\n+\t\t128 container\n+\t\t\t129 content list\n+\t\t\t\t130 link Description: AREVANTES · Inicio, Value: localhost:8000/dashboard\n+\t\t\t131 container Navegación principal\n+\t\t\t\t132 content list\n+\t\t\t\t\t133 link Description: Inicio, Value: localhost:8000/dashboard\n+\t\t\t\t\t134 container\n+\t\t\t\t\t\t135 link Description: Comercial, Value: localhost:8000/commercial\n+\t\t\t\t\t\t136 button (expanded) Description: Contraer Comercial, Secondary Actions: Collapse\n+\t\t\t\t\t\t\t137 image\n+\t\t\t\t\t\t138 content list\n+\t\t\t\t\t\t\t139 link Description: CRM, Value: localhost:8000/opportunities\n+\t\t\t\t\t\t\t140 link Description: Clientes, Value: localhost:8000/people\n+\t\t\t\t\t\t\t141 link Description: Presupuestos, Value: localhost:8000/quotes\n+\t\t\t\t\t142 container\n+\t\t\t\t\t\t143 link Description: Proyectos, Value: localhost:8000/execution\n+\t\t\t\t\t\t144 button (collapsed) Description: Expandir Proyectos, Secondary Actions: Expand\n+\t\t\t\t\t\t\t145 image\n+\t\t\t\t\t146 container\n+\t\t\t\t\t\t147 link Description: Operaciones, Value: localhost:8000/operations\n+\t\t\t\t\t\t148 button (collapsed) Description: Expandir Operaciones, Secondary Actions: Expand\n+\t\t\t\t\t\t\t149 image\n+\t\t\t\t\t150 container\n+\t\t\t\t\t\t151 link Description: Almacén y compras, Value: localhost:8000/supply\n+\t\t\t\t\t\t152 button (collapsed) Description: Expandir Almacén y compras, Secondary Actions: Expand\n+\t\t\t\t\t\t\t153 image\n+\t\t\t\t\t154 container\n+\t\t\t\t\t\t155 link Description: Facturación, Value: localhost:8000/billing\n+\t\t\t\t\t\t156 button (collapsed) Description: Expandir Facturación, Secondary Actions: Expand\n+\t\t\t\t\t\t\t157 image\n+\t\t\t\t\t158 button (collapsed) Contabilidad, Secondary Actions: Expand\n+\t\t\t\t\t\t159 image\n+\t\t\t\t\t\t160 text Contabilidad\n+\t\t\t\t\t\t161 image\n+\t\t\t\t\t162 container\n+\t\t\t\t\t\t163 link Description: Finanzas, Value: localhost:8000/finance\n+\t\t\t\t\t\t164 button (collapsed) Description: Expandir Finanzas, Secondary Actions: Expand\n+\t\t\t\t\t\t\t165 image\n+\t\t\t\t\t166 container\n+\t\t\t\t\t\t167 link Description: Fiscal, Value: localhost:8000/fiscal\n+\t\t\t\t\t\t168 button (collapsed) Description: Expandir Fiscal, Secondary Actions: Expand\n+\t\t\t\t\t\t\t169 image\n+\t\t\t\t\t170 container\n+\t\t\t\t\t\t171 link Description: Empresa, Value: localhost:8000/company\n+\t\t\t\t\t\t172 button (collapsed) Description: Expandir Empresa, Secondary Actions: Expand\n+\t\t\t\t\t\t\t173 image\n+\t\t\t174 content list\n+\t\t\t\t175 pop up button (collapsed) Description: Empresa y ejercicios fiscales, ID: radix-_r_1o_, Secondary Actions: Expand\n+\t\t\t\t\t176 text AREVANTES, S.L.\n+\t\t\t\t\t177 text Ejercicio\n+\t\t\t\t\t178 text 2026\n+\t\t\t\t\t179 image\n+\t\t\t180 button Mostrar u ocultar la barra lateral\n+\t\t\t\t181 image\n+\t\t\t\t182 text Mostrar u ocultar la barra lateral\n+\t\t\t183 container\n+\t\t\t\t184 image\n+\t\t\t\t185 combo box (collapsed, settable) Description: Búsqueda global, Secondary Actions: Expand\n+\t\t\t\t186 text ⌘ K\n+\t\t\t187 pop up button (collapsed) Description: Crear nuevo, ID: radix-_r_1r_, Secondary Actions: Expand\n+\t\t\t\t188 image\n+\t\t\t189 pop up button (collapsed) Description: Centro de acción, Secondary Actions: Expand\n+\t\t\t\t190 image\n+\t\t\t191 content list\n+\t\t\t\t192 pop up button (collapsed) Description: Prueba de plantillas, ID: radix-_r_22_, Secondary Actions: Expand\n+\t\t\t\t\t193 text PP\n+\t\t\t\t\t194 text Prueba de plantillas\n+\t\t\t\t\t195 image\n+\t\t\t196 pop up button (collapsed) Description: Más herramientas, Secondary Actions: Expand\n+\t\t\t\t197 image\n+\t\t\t198 container Ruta de navegación\n+\t\t\t\t199 content list\n+\t\t\t\t\t200 link (disabled) Agregar perfil\n+\t\t\t\t\t\t201 text Agregar perfil\nThe focused UI element is 111 text entry area (settable) Notas, Value: Borrador efímero R-02, ID: notes",
+    "dom": {
+      "forms": 1,
+      "inputs": 1,
+      "navs": 0,
+      "pageHosts": 1,
+      "sidebar": 1
+    }
+  },
+  {
+    "width": 1023,
+    "ax": "Browser tab: 3, Title: \"Add customer - Arevantes\", URL: \"http://localhost:8000/people/create\".\nThe following is a diff from the previous accessibility tree with ~ and + representing changed and added elements, respectively. Removed elements are summarized by ID range.\nRemoved element IDs: 128-201\n+\t\t\t128 link Description: AREVANTES · Inicio, Value: localhost:8000/dashboard\n+\t\t\t129 button Búsqueda global\n+\t\t\t\t130 image\n+\t\t\t131 button Notificaciones\n+\t\t\t\t132 image\n+\t\t\t133 button Cuenta de Prueba de plantillas\n+\t\t\t134 container Navegación móvil\n+\t\t\t\t135 link Description: Inicio, Value: localhost:8000/dashboard\n+\t\t\t\t136 link Description: Agenda, Value: localhost:8000/operations/agenda\n+\t\t\t\t137 link Description: Comercial, Value: localhost:8000/commercial\n+\t\t\t\t138 link Description: Operaciones, Value: localhost:8000/operations\n+\t\t\t\t139 button Menú\n+\t\t\t\t\t140 image\n+\t\t\t\t\t141 text Menú\nThe focused UI element is 111 text entry area (settable) Notas, Value: Borrador efímero R-02, ID: notes",
+    "dom": {
+      "forms": 1,
+      "inputs": 1,
+      "navs": 1,
+      "pageHosts": 1,
+      "sidebar": 0
+    }
+  }
+]

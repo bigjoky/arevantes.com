@@ -18,6 +18,6 @@ return [
         'restore_enabled' => (bool) env('POSTGRES_RESTORE_VERIFICATION_ENABLED', false),
         'restore_connection' => env('POSTGRES_RESTORE_CONNECTION', 'backup_restore'),
         'allow_same_host_restore' => (bool) env('POSTGRES_RESTORE_ALLOW_SAME_HOST', false),
-        'restore_database_pattern' => env('POSTGRES_RESTORE_DATABASE_PATTERN', '/(backup|restore|isolated|verify)/i'),
+        'restore_database_pattern' => env('POSTGRES_RESTORE_DATABASE_PATTERN', '/^[a-z][a-z0-9_]*_restore_verify_test$/D'),
     ],
 ];

@@ -9,7 +9,6 @@ use App\Models\Product;
 use App\Models\PurchaseApprovalRule;
 use App\Models\PurchaseDocument;
 use App\Models\SerialNumber;
-use App\Models\Supplier;
 use App\Models\TaxRate;
 use App\Models\Unit;
 use App\Models\User;
@@ -17,6 +16,7 @@ use App\Models\Warehouse;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
+use Tests\Support\EconomicFixture;
 use Tests\TestCase;
 
 class PurchaseTest extends TestCase
@@ -34,7 +34,7 @@ class PurchaseTest extends TestCase
     public function test_custom_purchase_lines_can_be_invoiced_without_catalog_or_stock(): void
     {
         $user = User::factory()->create(['role' => 'admin']);
-        $supplier = Supplier::create(['legal_name' => 'Custom supplier', 'country' => 'ES']);
+        $supplier = EconomicFixture::supplier(['legal_name' => 'Custom supplier', 'country' => 'ES']);
         $this->actingAs($user)->post(route('purchases.store'), [
             'type' => 'purchase_order', 'supplier_id' => $supplier->id, 'issue_date' => now()->toDateString(),
             'lines' => [['product_id' => null, 'description' => 'Special transport', 'quantity' => 2, 'unit_price' => 100, 'discount_percent' => 10, 'tax_percent' => 21]],
@@ -65,7 +65,7 @@ class PurchaseTest extends TestCase
     public function test_custom_lines_do_not_bypass_purchase_approval(): void
     {
         $user = User::factory()->create(['role' => 'commercial']);
-        $supplier = Supplier::create(['legal_name' => 'Custom approval', 'country' => 'ES']);
+        $supplier = EconomicFixture::supplier(['legal_name' => 'Custom approval', 'country' => 'ES']);
         $this->actingAs($user)->post(route('purchases.store'), [
             'type' => 'purchase_order', 'supplier_id' => $supplier->id, 'issue_date' => now()->toDateString(),
             'lines' => [['description' => 'External work', 'quantity' => 1, 'unit_price' => 10000, 'discount_percent' => 0, 'tax_percent' => 21]],
@@ -77,7 +77,7 @@ class PurchaseTest extends TestCase
     public function test_mixed_rfq_converts_and_only_receives_its_stock_product(): void
     {
         $user = User::factory()->create(['role' => 'admin']);
-        $supplier = Supplier::create(['legal_name' => 'Mixed supplier', 'country' => 'ES']);
+        $supplier = EconomicFixture::supplier(['legal_name' => 'Mixed supplier', 'country' => 'ES']);
         $warehouse = Warehouse::create(['code' => 'MIXED', 'name' => 'Mixed warehouse']);
         $product = Product::create(['type' => 'product', 'name' => 'Stock item', 'unit_id' => Unit::firstOrFail()->id, 'tax_rate_id' => TaxRate::firstOrFail()->id, 'cost_price' => 100, 'sale_price' => 120, 'track_stock' => true, 'is_active' => true]);
         $this->actingAs($user)->post(route('purchases.store'), [
@@ -109,7 +109,7 @@ class PurchaseTest extends TestCase
     public function test_a_purchase_order_includes_transport_cost_in_its_total(): void
     {
         $user = User::factory()->create(['role' => 'commercial']);
-        $supplier = Supplier::create(['legal_name' => 'Transport Supply SL', 'country' => 'ES']);
+        $supplier = EconomicFixture::supplier(['legal_name' => 'Transport Supply SL', 'country' => 'ES']);
         $product = Product::create(['type' => 'product', 'sku' => 'SHIP-10', 'name' => 'Panel', 'unit_id' => Unit::firstOrFail()->id, 'tax_rate_id' => TaxRate::firstOrFail()->id, 'sale_price' => 150, 'cost_price' => 100, 'is_active' => true]);
 
         $this->actingAs($user)->post(route('purchases.store'), [
@@ -146,7 +146,7 @@ class PurchaseTest extends TestCase
         });
         $creator = User::factory()->create(['role' => 'commercial']);
         $approver = User::factory()->create(['role' => 'commercial']);
-        $supplier = Supplier::create(['legal_name' => 'Strategic Supply SL', 'country' => 'ES']);
+        $supplier = EconomicFixture::supplier(['legal_name' => 'Strategic Supply SL', 'country' => 'ES']);
         $warehouse = Warehouse::create(['code' => 'APPROVAL', 'name' => 'Approval warehouse']);
         $product = Product::create([
             'type' => 'product',
@@ -219,7 +219,7 @@ class PurchaseTest extends TestCase
     {
         $creator = User::factory()->create(['role' => 'commercial']);
         $approver = User::factory()->create(['role' => 'commercial']);
-        $supplier = Supplier::create(['legal_name' => 'Matrix Supply SL', 'country' => 'ES']);
+        $supplier = EconomicFixture::supplier(['legal_name' => 'Matrix Supply SL', 'country' => 'ES']);
         $product = Product::create([
             'type' => 'product',
             'sku' => 'MATRIX-10',
@@ -288,7 +288,7 @@ class PurchaseTest extends TestCase
     {
         $creator = User::factory()->create(['role' => 'commercial']);
         $approver = User::factory()->create(['role' => 'commercial']);
-        $supplier = Supplier::create(['legal_name' => 'Rejected Supply SL', 'country' => 'ES']);
+        $supplier = EconomicFixture::supplier(['legal_name' => 'Rejected Supply SL', 'country' => 'ES']);
         $product = Product::create(['type' => 'service', 'sku' => 'REJECT-10', 'name' => 'Commissioning', 'unit_id' => Unit::firstOrFail()->id, 'tax_rate_id' => TaxRate::firstOrFail()->id, 'sale_price' => 500, 'cost_price' => 300, 'is_active' => true]);
         PurchaseApprovalRule::create(['name' => 'Service review', 'product_type' => 'service', 'min_amount' => 100, 'priority' => 10, 'is_active' => true, 'created_by' => $approver->id]);
         PurchaseApprovalRule::create(['name' => 'Supplier review', 'supplier_id' => $supplier->id, 'min_amount' => 100, 'priority' => 20, 'is_active' => true, 'created_by' => $approver->id]);
@@ -314,7 +314,7 @@ class PurchaseTest extends TestCase
     public function test_a_purchase_order_receives_serialized_stock_and_creates_a_supplier_invoice(): void
     {
         $user = User::factory()->create(['role' => 'commercial']);
-        $supplier = Supplier::create(['legal_name' => 'Energy Supply SL', 'country' => 'ES', 'payment_terms_days' => 30]);
+        $supplier = EconomicFixture::supplier(['legal_name' => 'Energy Supply SL', 'country' => 'ES', 'payment_terms_days' => 30]);
         $warehouse = Warehouse::create(['code' => 'MAIN', 'name' => 'Main warehouse']);
         $product = Product::create(['type' => 'product', 'sku' => 'INV-10', 'name' => 'Inverter', 'unit_id' => Unit::firstOrFail()->id, 'tax_rate_id' => TaxRate::firstOrFail()->id, 'sale_price' => 1200, 'cost_price' => 800, 'track_stock' => true, 'track_serials' => true, 'is_active' => true]);
         $this->actingAs($user);
@@ -361,7 +361,7 @@ class PurchaseTest extends TestCase
     public function test_an_invoice_variance_requires_approval_before_accounting_or_payment(): void
     {
         $user = User::factory()->create(['role' => 'commercial']);
-        $supplier = Supplier::create(['legal_name' => 'Variance Supply SL', 'country' => 'ES', 'payment_terms_days' => 30]);
+        $supplier = EconomicFixture::supplier(['legal_name' => 'Variance Supply SL', 'country' => 'ES', 'payment_terms_days' => 30]);
         $warehouse = Warehouse::create(['code' => 'VAR', 'name' => 'Variance warehouse']);
         $product = Product::create(['type' => 'product', 'sku' => 'VAR-10', 'name' => 'Battery', 'unit_id' => Unit::firstOrFail()->id, 'tax_rate_id' => TaxRate::firstOrFail()->id, 'sale_price' => 1200, 'cost_price' => 800, 'track_stock' => true, 'track_serials' => false, 'is_active' => true]);
         $this->actingAs($user);
@@ -413,7 +413,7 @@ class PurchaseTest extends TestCase
     public function test_transport_is_invoiced_once_across_partial_invoices_and_can_be_credited(): void
     {
         $user = User::factory()->create(['role' => 'commercial']);
-        $supplier = Supplier::create(['legal_name' => 'Freight Supplier SL', 'country' => 'ES']);
+        $supplier = EconomicFixture::supplier(['legal_name' => 'Freight Supplier SL', 'country' => 'ES']);
         $product = Product::create(['type' => 'service', 'sku' => 'FREIGHT-SERVICE', 'name' => 'Service', 'unit_id' => Unit::firstOrFail()->id, 'tax_rate_id' => TaxRate::firstOrFail()->id, 'sale_price' => 150, 'cost_price' => 100, 'track_stock' => false, 'is_active' => true]);
         $this->actingAs($user);
 
@@ -454,7 +454,7 @@ class PurchaseTest extends TestCase
     public function test_an_order_supports_partial_invoices_supplier_credits_and_goods_returns(): void
     {
         $user = User::factory()->create(['role' => 'commercial']);
-        $supplier = Supplier::create(['legal_name' => 'Partial Supply SL', 'country' => 'ES', 'payment_terms_days' => 30]);
+        $supplier = EconomicFixture::supplier(['legal_name' => 'Partial Supply SL', 'country' => 'ES', 'payment_terms_days' => 30]);
         $warehouse = Warehouse::create(['code' => 'PART', 'name' => 'Partial warehouse']);
         $product = Product::create(['type' => 'product', 'sku' => 'PART-10', 'name' => 'Solar panel', 'unit_id' => Unit::firstOrFail()->id, 'tax_rate_id' => TaxRate::firstOrFail()->id, 'sale_price' => 1200, 'cost_price' => 800, 'track_stock' => true, 'track_serials' => false, 'is_active' => true]);
         $this->actingAs($user);
@@ -531,8 +531,8 @@ class PurchaseTest extends TestCase
         $this->actingAs($user);
 
         $orders = collect(['A', 'B'])->map(function (string $suffix) use ($user, $product): PurchaseDocument {
-            $supplier = Supplier::create(['legal_name' => "Supplier {$suffix}", 'country' => 'ES']);
-            $order = PurchaseDocument::create([
+            $supplier = EconomicFixture::supplier(['legal_name' => "Supplier {$suffix}", 'country' => 'ES']);
+            $order = EconomicFixture::purchase([
                 'type' => 'purchase_order',
                 'supplier_id' => $supplier->id,
                 'created_by' => $user->id,

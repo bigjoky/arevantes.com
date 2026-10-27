@@ -43,7 +43,8 @@ class WorkOrderTest extends TestCase
         $installation = Installation::create(['service_type' => 'solar', 'status' => 'scheduled', 'site_address_line_1' => 'Calle Sol 1']);
         $this->actingAs($commercial)->post(route('work-orders.store'), ['installation_id' => $installation->id, 'assigned_user_id' => $technician->id, 'title' => 'Install inverter'])->assertRedirect();
         $order = WorkOrder::firstOrFail();
-        $this->assertSame('WO-2026-00001', $order->number);
+        // PostgreSQL sequences are not rolled back between transactional tests.
+        $this->assertMatchesRegularExpression('/^WO-'.now()->format('Y').'-[0-9]{5,}$/', $order->number);
         $this->assertGreaterThanOrEqual(5, $order->checklistItems()->count());
 
         $this->actingAs($other)->post(route('work-orders.timer.start', $order))->assertForbidden();

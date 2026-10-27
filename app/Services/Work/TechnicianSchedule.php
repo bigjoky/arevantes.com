@@ -8,7 +8,7 @@ use App\Models\HrLeaveRequest;
 use App\Models\User;
 use App\Models\WorkOrder;
 use App\Support\TechnicianSkills;
-use Illuminate\Support\Carbon;
+use App\Support\Time\BusinessTime;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
 
@@ -40,8 +40,8 @@ class TechnicianSchedule
             throw ValidationException::withMessages(['scheduled_start' => __('The assignment must include both a start and an end.')]);
         }
 
-        $start = Carbon::parse($start);
-        $end = Carbon::parse($end);
+        $start = BusinessTime::parse($start, 'scheduled_start');
+        $end = BusinessTime::parse($end, 'scheduled_end');
         if ($end->lessThanOrEqualTo($start)) {
             throw ValidationException::withMessages(['scheduled_end' => __('The scheduled end must be after the scheduled start.')]);
         }
@@ -63,9 +63,10 @@ class TechnicianSchedule
             ->when($exceptOrderId, fn ($query) => $query->where('id', '!=', $exceptOrderId))
             ->whereNotNull('scheduled_start')
             ->whereNotNull('scheduled_end')
-            ->where('scheduled_start', '<', $end)
-            ->where('scheduled_end', '>', $start)
-            ->first(['id', 'number', 'scheduled_start', 'scheduled_end']);
+            ->whereInstant('scheduled_start', '<', $end)
+            ->whereInstant('scheduled_end', '>', $start)
+            ->get(['id', 'number', 'scheduled_start', 'scheduled_end'])
+            ->first(fn ($order) => $order->scheduled_start && $order->scheduled_end && $order->scheduled_start->lt($end) && $order->scheduled_end->gt($start));
 
         if ($conflict) {
             throw ValidationException::withMessages([

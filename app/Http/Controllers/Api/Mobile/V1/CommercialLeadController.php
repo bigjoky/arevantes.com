@@ -18,7 +18,7 @@ use App\Support\BusinessLineCatalog;
 use App\Support\Crm\CommercialRoutePayload;
 use App\Support\Crm\OpportunityCatalog;
 use App\Support\PhoneNormalizer;
-use Carbon\CarbonImmutable;
+use App\Support\Time\BusinessTime;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
@@ -211,7 +211,7 @@ class CommercialLeadController extends Controller
 
         if ($existingVisit) {
             $data['visited_at'] = $existingVisit->visited_at;
-            $data['next_action_at'] = CarbonImmutable::parse($data['next_action_at'])->timezone(config('app.timezone'));
+            $data['next_action_at'] = BusinessTime::parse($data['next_action_at'], 'next_action_at');
         }
 
         $visit = DB::transaction(function () use ($request, $data, $customerResolver, $salesCycle, $responseSla, $existingVisit): CommercialVisit {

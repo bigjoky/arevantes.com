@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\MorphOne;
 
 class SalesDocument extends Model
 {
-    protected $hidden = ['issuer_snapshot', 'archived_pdf_path', 'archived_pdf_hash'];
+    protected $hidden = ['creation_key', 'creation_fingerprint', 'issuer_snapshot', 'archived_pdf_path', 'archived_pdf_hash'];
 
     public function issuerIdentity(): array
     {

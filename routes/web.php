@@ -76,6 +76,7 @@ use App\Http\Controllers\PortfolioProjectAdminController;
 use App\Http\Controllers\PortfolioProjectImageController;
 use App\Http\Controllers\ProjectAreaController;
 use App\Http\Controllers\ProjectDossierController;
+use App\Http\Controllers\PublicPageController;
 use App\Http\Controllers\PublicProjectController;
 use App\Http\Controllers\PublicServiceController;
 use App\Http\Controllers\PurchaseApprovalRuleController;
@@ -129,6 +130,16 @@ Route::patch('locale', [LocaleController::class, 'update'])->name('locale.update
 Route::get('proyectos', [PublicProjectController::class, 'index'])->name('projects.index');
 Route::get('proyectos/{project}', [PublicProjectController::class, 'show'])->name('projects.show');
 Route::get('proyectos/imagenes/{portfolioProjectImage}', PortfolioProjectImageController::class)->name('project-images.show');
+// Public corporate pages; keep authenticated workspace routes unchanged.
+foreach (['servicios', 'empresa', 'proceso', 'contacto'] as $section) {
+    Route::get($section, PublicPageController::class)
+        ->defaults('section', $section)->name('public.'.$section);
+}
+Route::get('servicios/redes', PublicPageController::class)
+    ->defaults('section', 'redes')->name('public.redes');
+Route::redirect('servicios/energias-renovables', '/servicios/energia', 301);
+Route::redirect('servicios/instalaciones-electricas', '/servicios/electricidad', 301);
+Route::redirect('servicios/seguridad-y-control', '/servicios/seguridad', 301);
 Route::get('servicios/{service}', PublicServiceController::class)
     ->whereIn('service', ['energia', 'electricidad', 'seguridad'])
     ->name('services.show');
@@ -644,6 +655,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('sales/{salesDocument}', [SalesDocumentController::class, 'show'])->middleware('can:manage-installations')->name('sales-documents.show');
     Route::delete('sales/{salesDocument}', [SalesDocumentController::class, 'destroy'])->middleware('can:manage-installations')->name('sales-documents.destroy');
     Route::get('sales/{salesDocument}/pdf', [SalesDocumentController::class, 'pdf'])->middleware('can:manage-installations')->name('sales-documents.pdf');
+    Route::get('sales/{salesDocument}/informative-pdf', [SalesDocumentController::class, 'informativePdf'])->middleware(['can:manage-installations', 'can:manage-admin'])->name('sales-documents.informative-pdf');
     Route::post('sales/{salesDocument}/send', [DocumentDeliveryController::class, 'sendSalesDocument'])->middleware('can:manage-installations')->name('sales-documents.send');
     Route::put('sales/{salesDocument}/milestone', [SalesDocumentController::class, 'updateMilestone'])->middleware('can:manage-installations')->name('sales-documents.milestone');
     Route::post('sales/{salesDocument}/issue', [SalesDocumentController::class, 'issue'])->middleware('can:issue-invoices')->name('sales-documents.issue');

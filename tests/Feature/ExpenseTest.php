@@ -10,12 +10,11 @@ use App\Models\ExpenseCategory;
 use App\Models\LedgerAccount;
 use App\Models\PermissionProfile;
 use App\Models\Person;
-use App\Models\PurchaseDocument;
-use App\Models\Supplier;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Tests\Support\EconomicFixture;
 use Tests\TestCase;
 
 class ExpenseTest extends TestCase
@@ -67,8 +66,8 @@ class ExpenseTest extends TestCase
             'role' => 'commercial',
             'permission_profile_id' => PermissionProfile::where('slug', 'finance')->firstOrFail()->id,
         ]);
-        $supplier = Supplier::create(['legal_name' => 'Supplier SL', 'country' => 'ES', 'payment_terms_days' => 30]);
-        $invoice = PurchaseDocument::create(['type' => 'supplier_invoice', 'supplier_id' => $supplier->id, 'created_by' => $user->id, 'number' => 'FR-2026-00001', 'supplier_number' => 'FS-99', 'status' => 'registered', 'issue_date' => '2026-07-13', 'subtotal' => 100, 'tax_amount' => 21, 'amount' => 121]);
+        $supplier = EconomicFixture::supplier(['legal_name' => 'Supplier SL', 'country' => 'ES', 'payment_terms_days' => 30]);
+        $invoice = EconomicFixture::purchase(['type' => 'supplier_invoice', 'supplier_id' => $supplier->id, 'created_by' => $user->id, 'number' => 'FR-2026-00001', 'supplier_number' => 'FS-99', 'status' => 'registered', 'issue_date' => '2026-07-13', 'subtotal' => 100, 'tax_amount' => 21, 'amount' => 121]);
         $bank = $this->bankAccount();
 
         $this->actingAs($user)->get(route('purchases.show', $invoice))->assertOk();
@@ -83,7 +82,7 @@ class ExpenseTest extends TestCase
     {
         $user = User::factory()->create(['role' => 'admin']);
         $category = ExpenseCategory::firstOrFail();
-        $supplier = Supplier::create([
+        $supplier = EconomicFixture::supplier([
             'legal_name' => 'Asesoria Fiscal SL',
             'tax_id' => 'B12345678',
             'country' => 'ES',
@@ -154,7 +153,7 @@ class ExpenseTest extends TestCase
         $this->assertStringEndsWith('678', $secondEmployee->refresh()->employee_payable_account_code);
         $this->assertNotSame($employee->employee_payable_account_code, $secondEmployee->employee_payable_account_code);
 
-        $expense = Expense::create(['expense_category_id' => ExpenseCategory::firstOrFail()->id, 'created_by' => $finance->id, 'number' => 'EXP-2026-00999', 'type' => 'receipt', 'merchant_name' => 'Shared purchase', 'expense_date' => '2026-08-29', 'subtotal' => 100, 'tax_amount' => 0, 'amount' => 100, 'paid_amount' => 0, 'status' => 'pending']);
+        $expense = EconomicFixture::expense(['expense_category_id' => ExpenseCategory::firstOrFail()->id, 'created_by' => $finance->id, 'number' => 'EXP-2026-00999', 'type' => 'receipt', 'merchant_name' => 'Shared purchase', 'expense_date' => '2026-08-29', 'subtotal' => 100, 'tax_amount' => 0, 'amount' => 100, 'paid_amount' => 0, 'status' => 'pending']);
         $this->actingAs($finance)->post(route('expenses.payments.store', $expense), ['paid_at' => '2026-08-29', 'amount' => 100, 'method' => 'employee_funds', 'funding_source_type' => 'employee', 'funding_source_id' => $employee->id])->assertRedirect();
 
         $payment = $expense->payments()->firstOrFail();

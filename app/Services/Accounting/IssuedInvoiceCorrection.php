@@ -34,7 +34,7 @@ class IssuedInvoiceCorrection
 
     public static function snapshot(SalesDocument $document): array
     {
-        return [...$document->attributesToArray(), 'lines' => $document->lines()->get()->toArray(), 'payments' => $document->payments()->get()->toArray()];
+        return [...$document->attributesToArray(), 'archived_pdf_path' => $document->archived_pdf_path, 'archived_pdf_hash' => $document->archived_pdf_hash, 'lines' => $document->lines()->get()->toArray(), 'payments' => $document->payments()->get()->toArray()];
     }
 
     public static function revision(SalesDocument $document): string
@@ -50,6 +50,7 @@ class IssuedInvoiceCorrection
         try {
             DB::transaction(function () use ($invoice, $data, $request, $disk, &$createdArchive) {
                 $quote = $invoice->quote_id ? Quote::lockForUpdate()->findOrFail($invoice->quote_id) : null;
+                app(SalesDocumentConversion::class)->lockCapacityRoot($invoice);
                 $invoice = SalesDocument::lockForUpdate()->findOrFail($invoice->id);
                 abort_unless(self::eligible($invoice), 422);
                 if (! hash_equals(self::revision($invoice), $request->string('revision')->toString())) {
@@ -58,6 +59,8 @@ class IssuedInvoiceCorrection
                 if ($invoice->childDocuments()->where('type', 'credit_note')->exists()) {
                     $this->fail('This invoice already has a credit note. Review the correction before editing.');
                 }
+                // A correction must retain a verified original, never manufacture the missing historical original.
+                app(DocumentPdf::class)->render($invoice, 'invoice');
                 $before = self::snapshot($invoice);
                 $oldDate = $invoice->issue_date->toDateString();
                 $newDate = Carbon::parse($data['issue_date'])->toDateString();
@@ -147,7 +150,7 @@ class IssuedInvoiceCorrection
                 }
                 $currentPdf = $invoice->fresh(['lines']);
                 $currentPdf->forceFill(['archived_pdf_path' => null, 'archived_pdf_hash' => null]);
-                $bytes = app(DocumentPdf::class)->render($currentPdf, 'invoice', final: true);
+                $bytes = app(DocumentPdf::class)->renderForArchiving($currentPdf);
                 $hash = hash('sha256', $bytes);
                 $path = 'issued-invoices/'.$invoice->id.'/'.$hash.'.pdf';
                 if (! $disk->exists($path)) {

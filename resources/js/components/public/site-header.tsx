@@ -1,117 +1,102 @@
 import { Link } from '@inertiajs/react';
-import { ArrowRight, ChevronRight, Menu, X } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { Menu, X } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 import { useCompanyBrand } from '@/components/brand-logo';
-import { LanguageSelector } from '@/components/language-selector';
+import { areas } from './site-content';
 
-export function PublicSiteHeader({ active }: { active?: 'projects' }) {
+export function PublicSiteHeader({ active }: { active?: string }) {
     const brand = useCompanyBrand();
     const [open, setOpen] = useState(false);
-
+    const button = useRef<HTMLButtonElement>(null);
+    const header = useRef<HTMLElement>(null);
     useEffect(() => {
-        if (!open) {
-            return;
-        }
-
         const close = (event: KeyboardEvent) => {
             if (event.key === 'Escape') {
                 setOpen(false);
+                header.current
+                    ?.querySelectorAll('details')
+                    .forEach((item) => item.removeAttribute('open'));
+                button.current?.focus();
             }
         };
-
         document.addEventListener('keydown', close);
 
         return () => document.removeEventListener('keydown', close);
-    }, [open]);
-
-    const links = [
-        ['Inicio', '/'],
-        ['Servicios', '/#servicios'],
-        ['Proyectos', '/proyectos'],
-        ['Cómo trabajamos', '/#metodo'],
-        ['Contacto', '/#contacto'],
-    ] as const;
+    }, []);
 
     return (
-        <header className="sticky top-0 z-50 border-b border-zinc-200/70 bg-[#f7f8f4]/90 backdrop-blur-2xl">
-            <div className="mx-auto flex h-20 max-w-7xl items-center justify-between gap-6 px-5 sm:px-8 lg:px-10">
-                <Link href="/" aria-label="Arevantes, inicio">
-                    <img
-                        src={brand.logoUrl}
-                        alt="Arevantes"
-                        className="h-7 w-auto sm:h-8"
-                    />
-                </Link>
-                <nav
-                    aria-label="Navegación principal"
-                    className="hidden items-center gap-7 text-sm font-medium text-zinc-600 lg:flex"
-                >
-                    {links.map(([label, href]) => (
-                        <Link
-                            key={href}
-                            href={href}
-                            aria-current={
-                                active === 'projects' && href === '/proyectos'
-                                    ? 'page'
-                                    : undefined
-                            }
-                            className={
-                                active === 'projects' && href === '/proyectos'
-                                    ? 'text-[#217a3b]'
-                                    : 'transition hover:text-[#217a3b]'
-                            }
-                        >
-                            {label}
+        <header className="av-header" ref={header}>
+            <Link href="/" aria-label="Arevantes, inicio">
+                <img
+                    className="av-logo"
+                    src={brand.canonicalLogoUrl}
+                    alt="Arevantes"
+                    width="182"
+                    height="42"
+                />
+            </Link>
+            <button
+                ref={button}
+                className="av-menu"
+                aria-label={open ? 'Cerrar menú' : 'Abrir menú'}
+                aria-expanded={open}
+                aria-controls="av-navigation"
+                onClick={() => setOpen(!open)}
+            >
+                {open ? <X /> : <Menu />}
+            </button>
+            <nav
+                id="av-navigation"
+                className={open ? 'av-nav is-open' : 'av-nav'}
+                aria-label="Navegación principal"
+            >
+                <details>
+                    <summary>Servicios</summary>
+                    <div className="av-dropdown">
+                        <Link href="/servicios" onClick={() => setOpen(false)}>
+                            Todos los servicios
                         </Link>
-                    ))}
-                </nav>
-                <div className="flex items-center gap-2">
-                    <LanguageSelector />
-                    <Link
-                        href="/#contacto"
-                        className="hidden items-center gap-2 rounded-full bg-zinc-950 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#217a3b] sm:inline-flex"
-                    >
-                        Cuéntanos tu proyecto
-                        <ArrowRight className="size-4" />
-                    </Link>
-                    <button
-                        type="button"
-                        className="grid size-11 place-items-center rounded-full border border-zinc-300 bg-white text-zinc-900 shadow-sm lg:hidden"
-                        aria-label={
-                            open ? 'Cerrar navegación' : 'Abrir navegación'
-                        }
-                        aria-expanded={open}
-                        aria-controls="project-site-navigation"
-                        onClick={() => setOpen((value) => !value)}
-                    >
-                        {open ? (
-                            <X className="size-5" />
-                        ) : (
-                            <Menu className="size-5" />
-                        )}
-                    </button>
-                </div>
-            </div>
-            {open && (
-                <div
-                    id="project-site-navigation"
-                    className="website-menu-enter border-t border-zinc-200/80 bg-[#f7f8f4] px-5 py-5 lg:hidden"
-                >
-                    <nav className="mx-auto grid max-w-7xl gap-1 text-lg font-semibold">
-                        {links.map(([label, href]) => (
+                        {areas.map((area) => (
                             <Link
-                                key={href}
-                                href={href}
+                                key={area.slug}
+                                href={`/servicios/${area.slug}`}
                                 onClick={() => setOpen(false)}
-                                className="flex items-center justify-between rounded-2xl px-4 py-3 transition hover:bg-white hover:text-[#217a3b]"
                             >
-                                {label}
-                                <ChevronRight className="size-4" />
+                                {area.name}
                             </Link>
                         ))}
-                    </nav>
-                </div>
-            )}
+                    </div>
+                </details>
+                {(
+                    [
+                        ['Proyectos', '/proyectos'],
+                        ['Empresa', '/empresa'],
+                        ['Nuestro proceso', '/proceso'],
+                        ['Contacto', '/contacto'],
+                    ] as const
+                ).map(([label, href]) => (
+                    <Link
+                        key={href}
+                        href={href}
+                        aria-current={
+                            active === href ||
+                            (active === 'projects' && href === '/proyectos')
+                                ? 'page'
+                                : undefined
+                        }
+                        onClick={() => setOpen(false)}
+                    >
+                        {label}
+                    </Link>
+                ))}
+                <Link
+                    className="av-button"
+                    href="/contacto"
+                    onClick={() => setOpen(false)}
+                >
+                    Cuéntanos tu proyecto <span aria-hidden="true">→</span>
+                </Link>
+            </nav>
         </header>
     );
 }

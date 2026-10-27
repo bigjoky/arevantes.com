@@ -10,6 +10,7 @@ use App\Models\SalesDocument;
 use App\Services\Accounting\IssuedInvoiceCorrection;
 use App\Services\Accounting\SupplierPaymentSourceResolver;
 use App\Services\Billing\BillingWorkspace;
+use App\Services\Documents\DocumentPdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -207,7 +208,7 @@ class BillingWorkspaceController extends Controller
         $salesDocument->setAttribute('can_correct_issued', $canCorrect);
         $salesDocument->setAttribute('can_prepare_credit_note', Gate::allows('prepare-credit-notes') && (! $isRecurring || Gate::allows('manage-treasury')));
 
-        return Inertia::render('billing/invoice', ['invoice' => $invoice, 'document' => $salesDocument, 'corrections' => $request->user()->hasRole('admin') && Gate::allows('manage-admin') ? AuditLog::where('auditable_type', $salesDocument->getMorphClass())->where('auditable_id', $salesDocument->id)->where('event', 'issued_invoice_corrected')->with('user:id,name')->latest()->get() : [], 'detail' => $salesDocument, 'identity' => $salesDocument->customer_snapshot, 'issuer' => $salesDocument->issuerIdentity(), 'capabilities' => [...$this->capabilities(), 'correct' => $canCorrect, 'issue' => Gate::allows('issue-invoices') && (! $isRecurring || Gate::allows('manage-treasury')), 'credit' => Gate::allows('prepare-credit-notes') && (! $isRecurring || Gate::allows('manage-treasury')), 'edit' => $salesDocument->status === 'draft' && ! $salesDocument->locked_at && ! $salesDocument->quote_id && ! $salesDocument->source_document_id && ! $isRecurring], 'operationKey' => (string) Str::uuid(), 'paymentSources' => [], 'managementHref' => '/sales/'.$salesDocument->id.'?view=manage']);
+        return Inertia::render('billing/invoice', ['reconstructionHref' => $request->user()->hasRole('admin') && $request->user()->can('manage-admin') && app(DocumentPdf::class)->custody($salesDocument) === 'historical_original_missing' ? '/sales/'.$salesDocument->id.'/informative-pdf' : null, 'custodyStatus' => app(DocumentPdf::class)->custody($salesDocument), 'invoice' => $invoice, 'document' => $salesDocument, 'corrections' => $request->user()->hasRole('admin') && Gate::allows('manage-admin') ? AuditLog::where('auditable_type', $salesDocument->getMorphClass())->where('auditable_id', $salesDocument->id)->where('event', 'issued_invoice_corrected')->with('user:id,name')->latest()->get() : [], 'detail' => $salesDocument, 'identity' => $salesDocument->customer_snapshot, 'issuer' => $salesDocument->issuerIdentity(), 'capabilities' => [...$this->capabilities(), 'correct' => $canCorrect, 'issue' => Gate::allows('issue-invoices') && (! $isRecurring || Gate::allows('manage-treasury')), 'credit' => Gate::allows('prepare-credit-notes') && (! $isRecurring || Gate::allows('manage-treasury')), 'edit' => $salesDocument->status === 'draft' && ! $salesDocument->locked_at && ! $salesDocument->quote_id && ! $salesDocument->source_document_id && ! $isRecurring], 'operationKey' => (string) Str::uuid(), 'paymentSources' => [], 'managementHref' => '/sales/'.$salesDocument->id.'?view=manage']);
     }
 
     public function supplierShow(Request $request, string $kind, int $id, BillingWorkspace $workspace): Response

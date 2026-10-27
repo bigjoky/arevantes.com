@@ -1,0 +1,436 @@
+{
+  "date": "2026-10-25",
+  "scope": "local only; combined pending source; no production actions",
+  "branch": "fix/work-order-layout",
+  "head": "e4484989e160c548eac0ae50120d08a8ef640962",
+  "working_tree_dirty": true,
+  "checks": [
+    {
+      "name": "combined isolated full suite",
+      "tool": "phpunit",
+      "result": "passed",
+      "tests": 978,
+      "passed": 963,
+      "assertions": 14554,
+      "duration_ms": 68107,
+      "skipped": 15
+    },
+    {
+      "name": "PostgreSQL related modules",
+      "tool": "phpunit",
+      "result": "passed",
+      "tests": 47,
+      "passed": 47,
+      "assertions": 874,
+      "duration_ms": 26373
+    },
+    {
+      "name": "PostgreSQL related modules",
+      "tool": "phpunit",
+      "result": "passed",
+      "tests": 9,
+      "passed": 9,
+      "assertions": 76,
+      "duration_ms": 7127
+    },
+    {
+      "name": "PostgreSQL related modules",
+      "tool": "phpunit",
+      "result": "passed",
+      "tests": 95,
+      "passed": 95,
+      "assertions": 1473,
+      "duration_ms": 20839
+    },
+    {
+      "name": "PostgreSQL concurrency, independent processes",
+      "tool": "phpunit",
+      "result": "passed",
+      "tests": 4,
+      "passed": 4,
+      "assertions": 20,
+      "duration_ms": 17324
+    },
+    {
+      "name": "PostgreSQL final migration verification",
+      "tool": "phpunit",
+      "result": "passed",
+      "tests": 20,
+      "passed": 20,
+      "assertions": 200,
+      "duration_ms": 5395
+    },
+    {
+      "name": "isolated final focused verification",
+      "tool": "phpunit",
+      "result": "passed",
+      "tests": 20,
+      "passed": 17,
+      "assertions": 81,
+      "duration_ms": 3244,
+      "skipped": 3
+    }
+  ],
+  "sha256": {
+    "app/Casts/PreciseInstant.php": "5c11e3cbf98ef81e90e0f7f381f25addb0b0257a0efffb9c1833379a67b70926",
+    "app/Console/Commands/AuditTemporalInstants.php": "9a235a6f4c764b6245d3d74c635a7040af3088fc46028d1e871d643a596947eb",
+    "app/Database/InstantBuilder.php": "326341cace008f7862f489957dd10daf5d995f34f8b2ee5c4350ddb6179c66e8",
+    "app/Http/Controllers/Api/Mobile/V1/ActivityController.php": "811d1f4cf40835254c002f5b6b56c78a7dbca3a209b88b86928d199522afdb68",
+    "app/Http/Controllers/Api/Mobile/V1/CommercialLeadController.php": "f02836bd6996e50bcd4239d052c4bdd94a3fabdea83c3320081a23bfd7be57ae",
+    "app/Http/Controllers/Api/Mobile/V1/WorkOrderController.php": "b377bb6cbd21b9019a03b9da68cef6143ab48f730b74750ac319495177e106da",
+    "app/Http/Controllers/CustomerPortalController.php": "493920ab40e5c36521ccbfa612309647d2e1ce1af66b22f146298214a7d03672",
+    "app/Http/Controllers/DashboardController.php": "067d930247b813bcd4851093a42b7ed0c379f90d57387df9b6c609233e13ad68",
+    "app/Http/Controllers/DocumentDeliveryController.php": "7412db939b168debc8d237da9fbf6d4bbd92e0c21917ce9dfa1850bad96aa433",
+    "app/Http/Controllers/OperationsController.php": "e84e164f5fe17e90534ccee21bf4fc96cc847a9a700da761314a57b16620f991",
+    "app/Http/Controllers/OpportunityController.php": "ba840341e9546cc289360aedc42e1eb29fd78870de5b51b060f4ee51a2ab72c7",
+    "app/Http/Controllers/PlanningScenarioController.php": "bac129d959e363428fb42a3889835ad8f091766924a9f45edc799989b85f2fee",
+    "app/Http/Controllers/PortfolioProjectAdminController.php": "40a8d6aa950f4ecfb3199c56ddebbc390a9d249508774f35f506e2c84dfd2227",
+    "app/Http/Controllers/PortfolioProjectImageController.php": "309cb39cb2f07821b59f029727aa00c7c14906e81a4b3f2539e045ebffad6673",
+    "app/Http/Controllers/QuoteController.php": "71ed629abcfa5508e5ccd99abfa106a60d9867280a7c173973f4fecc4ea3ac95",
+    "app/Http/Controllers/WorkOrderController.php": "6db49c249fb2ff70adacf99a13ec83f4cf451515e35f31f508295be5d884d980",
+    "app/Models/Concerns/HasPreciseInstants.php": "2bfe24251ae3e18bd8c37d117cdf723ad0f7f894002ded7444295c050526782e",
+    "app/Models/CrmActivity.php": "4c25cd8a5a461d5b8aa9a96cc8d9b38e3c416d600f7e3fa16fe21df9448b6fd6",
+    "app/Models/CustomerPortalAccess.php": "5f9775637194b16af4a0443df084676ed116a1142df8fdddd708900e241a0f72",
+    "app/Models/DocumentDelivery.php": "7c2930bd7d68a8f1bfca14c6f4951084b9dc9e9d28f261012ef6040de89dc3a2",
+    "app/Models/Opportunity.php": "9e8bf9bc36bc979bd2f43d966a838d47efef9d28dcb3b3852d8b85ed388da86d",
+    "app/Models/PlanningScenario.php": "76555de1e5052951233f5db34c9784760d64c45903c040ee71651c806e94884c",
+    "app/Models/PortfolioProject.php": "8435806f77c38e94be4cb70b6bdae106671ef6086d9bd408ef0523a5b67f30fc",
+    "app/Models/TimeEntry.php": "037c8a2e727daf070489b849ea0f032d79c82872f3f5352dc02a60fd2974b526",
+    "app/Models/WorkOrder.php": "8d53609bffd15f5dac6f4b5413ade73bb8f2d909ba4f134a190170f132b415bf",
+    "app/Models/WorkOrderAttachment.php": "dba641f1ef05fd116fc84b4e168d612a8abb3d78676cc3d5ecf17cb9a2838814",
+    "app/Models/WorkOrderReschedule.php": "03c69ac3500d628ae83fe6ad828c1a7c287741ec8bd073a04844b92773f31c0d",
+    "app/Observers/WorkOrderObserver.php": "0f998744a3ed2f8a37844486a4586bed4992945d3479e87f07c63a4edac27dd6",
+    "app/Services/AfterSales/ServiceCycleWorkWorkflow.php": "ce53c78571cab1ad722826a1a726b1137c05b01cb2649ca509f6d866fd0c6188",
+    "app/Services/Analytics/AnalyticsService.php": "dcedcd6f25d15c3800bd6bd98b668b7b24a4ddaf7ed5059c580a14cee78dc76d",
+    "app/Services/Analytics/RecurringServiceHealth.php": "70b45faa7bd67089d3fdd375c0f64b2c2064b4fce3ec126d65471ae34c4c2c81",
+    "app/Services/Crm/LeadResponseSla.php": "bdcb4f39b0d5fd226ce34e7c40bd0d56b795ea8327bc9fd52d2a5f89f6703ad8",
+    "app/Services/Crm/LeadResponseSlaNotifier.php": "5b8e539690a1ba183ebf3335c0cfff3543d4f9a63f34a6372bcf97ef667814d2",
+    "app/Services/Customers/CustomerWorkspace.php": "b38a55f8b78914c08b34daf76846494cbf836e56c31d30667e39216935c06fa8",
+    "app/Services/Documents/AcceptanceInvoiceNotifier.php": "a7d11d2fb65612b4d67e49fda5d29b3abd7a3f4066a8ea11a54a94ba39bb2309",
+    "app/Services/Engineering/TechnicalScheduleAvailability.php": "8c81df376f506db12cc7f2e5e7d6e4d59e040d7413881444efd352a9b8190112",
+    "app/Services/Planning/PlanningCalibrationEvaluationService.php": "0d06332194048a8cc78fd916ae8b341e65204eed9274e5c152bc91f462136331",
+    "app/Services/Planning/PlanningCalibrationGovernanceService.php": "362174122daac8c23bb011d1d3f82522dca8f3c36041e1a0b862adc152288b65",
+    "app/Services/Planning/PlanningCalibrationProposalService.php": "574ba32a0507a84ceb672234c518797bdcf1048da9864110b33446d4e57c234f",
+    "app/Services/Planning/PlanningScenarioApproval.php": "b736ac7dd7f692329e9a87b3a8b129e848558f1455c1191e57de1d1531b718f9",
+    "app/Services/Planning/PlanningScenarioLifecycle.php": "bb88aa88aa3ec78034d9fc8217432aeb04c8639fd9bceeeb52794bb5836d96df",
+    "app/Services/Planning/PlanningScenarioRequestWorkflow.php": "7ab066619ee80cb7c354cfbc7299a38736e8ebf5920b1feec8d24fc4d97fac56",
+    "app/Services/Quotes/QuoteOperationalPlanner.php": "f7fabb2e5af9af447ada213e683cfb86e04970e32a26618d7311c476f51984cb",
+    "app/Services/Quotes/QuoteWorkspace.php": "fa1cc95b169142444c614356fc2a5b1f1573542e6bc9d20c684e2375ee49324b",
+    "app/Services/Work/TechnicianSchedule.php": "b0fe0e2a557b8549e94a782e3bbebfde26d60982b5fe87621fd3d1e505943dc3",
+    "app/Services/Work/WorkOrderRescheduler.php": "e42c0865a4f561c5913c587715ff90783103b7bdc859203a7ca41abb6ced5952",
+    "app/Services/Work/WorkOrderStateManager.php": "cbe16e15198ac23c74d36b79b80854461aad61ce655ff876d02e138b2f756396",
+    "app/Support/Time/BusinessTime.php": "c783e0506bac45e566fae8f650e2464cd85f6f1ee5597a278a32287245eba22c",
+    "app/Support/Time/InstantSql.php": "31b06ec1ff5a14e70420ec9b0372239f8ae1cc1fa698ed54c691f2c62ffb882f",
+    "database/migrations/2026_10_25_030000_preserve_critical_instants_with_utc_companions.php": "c710c03cde45db3b98f302e04b0d90990b95711d027e97c67f9f5e592c22e710",
+    "database/migrations/2026_10_25_031000_preserve_reschedule_instants.php": "50c2dd3764f7f2c9d7b288f12e34b195fbb1fa1f929bafc6bbc05f2630ebad70",
+    "database/migrations/2026_10_25_040000_guard_precise_instant_writes.php": "ff7aaf4c1a45ab887a9405d01ab4dad1023f59c8e345b60d01599e0f96904355",
+    "database/migrations/2026_10_25_041000_index_precise_instant_queries.php": "514c81f5fdbb3d5f86fce74e8d735af23a6d171d7d2cb3487c60db7703ecc26d",
+    "tests/Feature/TemporalConcurrencyTest.php": "784c8ecef7ad9ba56427ff1107dcb11d190e8c2b35db5086348e1f43f2d8ebd8",
+    "tests/Feature/TemporalInstantsTest.php": "036bb7b0bbb2dd7638b1465385da36ee4a1c0b1a9ac21da0881558ed6a9e0c1c",
+    "tests/Feature/TemporalIntegrityTest.php": "a2fac0f0b2c699b1a88b9faf14b89c4057c04dc0ccbd81ccaad050174186b28a",
+    "tests/Support/temporal-concurrency-worker.php": "da9670dab2de7ad19122481ef9837f798b4a7469ff5060d0d2d0e78051e28d24",
+    "resources/js/lib/business-time.ts": "3ccf43b9e41214c9116942d36e9ab784a6369f81b12f760b2c6222020d06fed1",
+    "resources/js/components/operations/workspace.tsx": "22db77c3e562e601736f4f342a6223c0d19cb9c7c85c14f66913c72c2a67e6ee",
+    "resources/js/pages/work-orders/index.tsx": "b25b7d4455bd57d5c2162407d3e120d9b8426d8b7a6444a83e733dc554371b09",
+    "resources/js/pages/operations/index.tsx": "d356e1dfa855ff86598f26177ba45152fa505f1aa7deb2c617014fc87f4619b6",
+    "tests/business-time.test.mjs": "74668b587c544ead634045dd4aeef2e36cf939338b5c6d67baa942633cf7396d"
+  },
+  "frontend": {
+    "passed": 50,
+    "failed": 0
+  },
+  "typescript": "passed",
+  "eslint_global": "passed",
+  "production_build": "passed; chunk size warning",
+  "diff_check": "passed",
+  "i18n": {
+    "status": "failed, pre-existing/concurrent",
+    "missing_visible_strings": 79
+  },
+  "local_audit": {
+    "timezone": "Europe/Madrid",
+    "read_only": true,
+    "fields": {
+      "document_deliveries.expires_at": {
+        "precise": 0,
+        "legacy_unambiguous": 0,
+        "ambiguous": 0,
+        "invalid_or_nonexistent": 0,
+        "divergent": 0,
+        "empty": 0
+      },
+      "document_deliveries.sent_at": {
+        "precise": 0,
+        "legacy_unambiguous": 0,
+        "ambiguous": 0,
+        "invalid_or_nonexistent": 0,
+        "divergent": 0,
+        "empty": 0
+      },
+      "document_deliveries.first_viewed_at": {
+        "precise": 0,
+        "legacy_unambiguous": 0,
+        "ambiguous": 0,
+        "invalid_or_nonexistent": 0,
+        "divergent": 0,
+        "empty": 0
+      },
+      "document_deliveries.last_downloaded_at": {
+        "precise": 0,
+        "legacy_unambiguous": 0,
+        "ambiguous": 0,
+        "invalid_or_nonexistent": 0,
+        "divergent": 0,
+        "empty": 0
+      },
+      "document_deliveries.responded_at": {
+        "precise": 0,
+        "legacy_unambiguous": 0,
+        "ambiguous": 0,
+        "invalid_or_nonexistent": 0,
+        "divergent": 0,
+        "empty": 0
+      },
+      "document_deliveries.revoked_at": {
+        "precise": 0,
+        "legacy_unambiguous": 0,
+        "ambiguous": 0,
+        "invalid_or_nonexistent": 0,
+        "divergent": 0,
+        "empty": 0
+      },
+      "customer_portal_accesses.expires_at": {
+        "precise": 0,
+        "legacy_unambiguous": 0,
+        "ambiguous": 0,
+        "invalid_or_nonexistent": 0,
+        "divergent": 0,
+        "empty": 0
+      },
+      "customer_portal_accesses.sent_at": {
+        "precise": 0,
+        "legacy_unambiguous": 0,
+        "ambiguous": 0,
+        "invalid_or_nonexistent": 0,
+        "divergent": 0,
+        "empty": 0
+      },
+      "customer_portal_accesses.first_accessed_at": {
+        "precise": 0,
+        "legacy_unambiguous": 0,
+        "ambiguous": 0,
+        "invalid_or_nonexistent": 0,
+        "divergent": 0,
+        "empty": 0
+      },
+      "customer_portal_accesses.last_accessed_at": {
+        "precise": 0,
+        "legacy_unambiguous": 0,
+        "ambiguous": 0,
+        "invalid_or_nonexistent": 0,
+        "divergent": 0,
+        "empty": 0
+      },
+      "customer_portal_accesses.revoked_at": {
+        "precise": 0,
+        "legacy_unambiguous": 0,
+        "ambiguous": 0,
+        "invalid_or_nonexistent": 0,
+        "divergent": 0,
+        "empty": 0
+      },
+      "work_order_attachments.published_at": {
+        "precise": 0,
+        "legacy_unambiguous": 0,
+        "ambiguous": 0,
+        "invalid_or_nonexistent": 0,
+        "divergent": 0,
+        "empty": 0
+      },
+      "work_order_attachments.reviewed_at": {
+        "precise": 0,
+        "legacy_unambiguous": 0,
+        "ambiguous": 0,
+        "invalid_or_nonexistent": 0,
+        "divergent": 0,
+        "empty": 0
+      },
+      "portfolio_projects.published_at": {
+        "precise": 0,
+        "legacy_unambiguous": 3,
+        "ambiguous": 0,
+        "invalid_or_nonexistent": 0,
+        "divergent": 0,
+        "empty": 0
+      },
+      "planning_scenarios.reference_valid_until": {
+        "precise": 0,
+        "legacy_unambiguous": 0,
+        "ambiguous": 0,
+        "invalid_or_nonexistent": 0,
+        "divergent": 0,
+        "empty": 0
+      },
+      "planning_scenarios.approved_at": {
+        "precise": 0,
+        "legacy_unambiguous": 0,
+        "ambiguous": 0,
+        "invalid_or_nonexistent": 0,
+        "divergent": 0,
+        "empty": 0
+      },
+      "planning_scenarios.closed_at": {
+        "precise": 0,
+        "legacy_unambiguous": 0,
+        "ambiguous": 0,
+        "invalid_or_nonexistent": 0,
+        "divergent": 0,
+        "empty": 0
+      },
+      "opportunities.created_at": {
+        "precise": 0,
+        "legacy_unambiguous": 4,
+        "ambiguous": 0,
+        "invalid_or_nonexistent": 0,
+        "divergent": 0,
+        "empty": 0
+      },
+      "opportunities.first_response_due_at": {
+        "precise": 0,
+        "legacy_unambiguous": 0,
+        "ambiguous": 0,
+        "invalid_or_nonexistent": 0,
+        "divergent": 0,
+        "empty": 4
+      },
+      "opportunities.first_responded_at": {
+        "precise": 0,
+        "legacy_unambiguous": 0,
+        "ambiguous": 0,
+        "invalid_or_nonexistent": 0,
+        "divergent": 0,
+        "empty": 4
+      },
+      "opportunities.first_response_sla_alerted_at": {
+        "precise": 0,
+        "legacy_unambiguous": 0,
+        "ambiguous": 0,
+        "invalid_or_nonexistent": 0,
+        "divergent": 0,
+        "empty": 4
+      },
+      "opportunities.first_response_sla_escalated_at": {
+        "precise": 0,
+        "legacy_unambiguous": 0,
+        "ambiguous": 0,
+        "invalid_or_nonexistent": 0,
+        "divergent": 0,
+        "empty": 4
+      },
+      "work_orders.scheduled_start": {
+        "precise": 0,
+        "legacy_unambiguous": 3,
+        "ambiguous": 0,
+        "invalid_or_nonexistent": 0,
+        "divergent": 0,
+        "empty": 2
+      },
+      "work_orders.scheduled_end": {
+        "precise": 0,
+        "legacy_unambiguous": 3,
+        "ambiguous": 0,
+        "invalid_or_nonexistent": 0,
+        "divergent": 0,
+        "empty": 2
+      },
+      "work_orders.signed_at": {
+        "precise": 0,
+        "legacy_unambiguous": 0,
+        "ambiguous": 0,
+        "invalid_or_nonexistent": 0,
+        "divergent": 0,
+        "empty": 5
+      },
+      "work_orders.completed_at": {
+        "precise": 0,
+        "legacy_unambiguous": 2,
+        "ambiguous": 0,
+        "invalid_or_nonexistent": 0,
+        "divergent": 0,
+        "empty": 3
+      },
+      "time_entries.started_at": {
+        "precise": 0,
+        "legacy_unambiguous": 0,
+        "ambiguous": 0,
+        "invalid_or_nonexistent": 0,
+        "divergent": 0,
+        "empty": 0
+      },
+      "time_entries.ended_at": {
+        "precise": 0,
+        "legacy_unambiguous": 0,
+        "ambiguous": 0,
+        "invalid_or_nonexistent": 0,
+        "divergent": 0,
+        "empty": 0
+      },
+      "crm_activities.starts_at": {
+        "precise": 0,
+        "legacy_unambiguous": 3,
+        "ambiguous": 0,
+        "invalid_or_nonexistent": 0,
+        "divergent": 0,
+        "empty": 3
+      },
+      "crm_activities.due_at": {
+        "precise": 0,
+        "legacy_unambiguous": 3,
+        "ambiguous": 0,
+        "invalid_or_nonexistent": 0,
+        "divergent": 0,
+        "empty": 3
+      },
+      "crm_activities.completed_at": {
+        "precise": 0,
+        "legacy_unambiguous": 0,
+        "ambiguous": 0,
+        "invalid_or_nonexistent": 0,
+        "divergent": 0,
+        "empty": 6
+      },
+      "work_order_reschedules.old_scheduled_start": {
+        "precise": 0,
+        "legacy_unambiguous": 0,
+        "ambiguous": 0,
+        "invalid_or_nonexistent": 0,
+        "divergent": 0,
+        "empty": 0
+      },
+      "work_order_reschedules.old_scheduled_end": {
+        "precise": 0,
+        "legacy_unambiguous": 0,
+        "ambiguous": 0,
+        "invalid_or_nonexistent": 0,
+        "divergent": 0,
+        "empty": 0
+      },
+      "work_order_reschedules.new_scheduled_start": {
+        "precise": 0,
+        "legacy_unambiguous": 0,
+        "ambiguous": 0,
+        "invalid_or_nonexistent": 0,
+        "divergent": 0,
+        "empty": 0
+      },
+      "work_order_reschedules.new_scheduled_end": {
+        "precise": 0,
+        "legacy_unambiguous": 0,
+        "ambiguous": 0,
+        "invalid_or_nonexistent": 0,
+        "divergent": 0,
+        "empty": 0
+      }
+    }
+  }
+}

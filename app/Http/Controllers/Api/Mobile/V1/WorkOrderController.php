@@ -14,6 +14,7 @@ use App\Services\Work\WorkOrderEvidenceRequirements;
 use App\Services\Work\WorkOrderPlanningReadiness;
 use App\Services\Work\WorkOrderStateManager;
 use App\Services\Work\WorkOrderWorkflow;
+use App\Support\Time\BusinessTime;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -46,7 +47,7 @@ class WorkOrderController extends Controller
         if ($validated['sync'] ?? false) {
             $snapshotAt = isset($validated['snapshot_at'])
                 ? CarbonImmutable::parse($validated['snapshot_at'])->setTimezone(config('app.timezone'))
-                : now();
+                : BusinessTime::now();
             $orders = $query
                 ->where('updated_at', '<=', $snapshotAt)
                 ->orderBy('updated_at')
@@ -118,10 +119,10 @@ class WorkOrderController extends Controller
         $this->ensureAccess($request, $workOrder);
         $data = $request->validate([
             'client_uuid' => ['nullable', 'uuid', Rule::unique('time_entries', 'client_uuid')],
-            'started_at' => ['nullable', 'date', 'before_or_equal:now', 'after_or_equal:'.now()->subDays(7)->toISOString()],
+            'started_at' => ['nullable', 'date', 'before_or_equal:now', 'after_or_equal:'.BusinessTime::now()->subDays(7)->toISOString()],
             'expected_updated_at' => ['nullable', 'date'],
         ]);
-        $startedAt = isset($data['started_at']) ? CarbonImmutable::parse($data['started_at'])->setTimezone(config('app.timezone')) : now();
+        $startedAt = isset($data['started_at']) ? BusinessTime::parse($data['started_at'], 'started_at') : BusinessTime::now();
         [$entry, $updatedAt] = DB::transaction(function () use ($request, $workOrder, $states, $data, $startedAt): array {
             User::query()->whereKey($request->user()->id)->lockForUpdate()->firstOrFail();
             $locked = WorkOrder::query()->lockForUpdate()->findOrFail($workOrder->id);
@@ -208,7 +209,8 @@ class WorkOrderController extends Controller
             'travel_km' => ['nullable', 'numeric', 'min:0'],
             'notes' => ['nullable', 'string'],
         ]);
-        $endedAt = isset($data['ended_at']) ? CarbonImmutable::parse($data['ended_at'])->setTimezone(config('app.timezone')) : now();
+        $endedAt = isset($data['ended_at']) ? BusinessTime::parse($data['ended_at'], 'ended_at') : BusinessTime::now();
+        $timeEntry->assertUnambiguousStart();
         $timeEntry->update([...$data, 'ended_at' => $endedAt, 'duration_minutes' => max(1, (int) round($timeEntry->started_at->diffInMinutes($endedAt)))]);
 
         return response()->json(['data' => ['id' => $timeEntry->id, 'client_uuid' => $timeEntry->client_uuid, 'ended_at' => $endedAt->toISOString(), 'duration_minutes' => $timeEntry->duration_minutes]]);
@@ -219,7 +221,7 @@ class WorkOrderController extends Controller
         $this->ensureAccess($request, $workOrder);
         abort_unless($item->work_order_id === $workOrder->id, 404);
         $data = $request->validate(['completed' => ['required', 'boolean'], 'notes' => ['nullable', 'string']]);
-        $item->update(['completed_at' => $data['completed'] ? now() : null, 'completed_by' => $data['completed'] ? $request->user()->id : null, 'notes' => $data['notes'] ?? $item->notes]);
+        $item->update(['completed_at' => $data['completed'] ? BusinessTime::now() : null, 'completed_by' => $data['completed'] ? $request->user()->id : null, 'notes' => $data['notes'] ?? $item->notes]);
 
         return response()->json(['data' => ['id' => $item->id, 'completed_at' => $item->completed_at?->toISOString(), 'notes' => $item->notes]]);
     }
@@ -274,7 +276,7 @@ class WorkOrderController extends Controller
         $workOrder->update([
             'signed_by_name' => $data['signed_by_name'],
             'signature_path' => $path,
-            'signed_at' => now(),
+            'signed_at' => BusinessTime::now(),
         ]);
 
         return response()->json(['data' => [

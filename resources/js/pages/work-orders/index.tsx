@@ -33,6 +33,13 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import {
+    addCalendarDays,
+    addScheduleMinutes,
+    businessDateTimeInput,
+    BUSINESS_TIME_ZONE,
+    scheduleInput,
+} from '@/lib/business-time';
 type Installation = {
     id: number;
     project_reference: string | null;
@@ -643,13 +650,11 @@ function WorkOrderDetail({
     );
 }
 function WeeklyPlanning({ orders }: { orders: Order[] }) {
-    const days = Array.from({ length: 7 }, (_, offset) => {
-        const value = new Date();
-        value.setHours(0, 0, 0, 0);
-        value.setDate(value.getDate() + offset);
-
-        return value;
-    });
+    const today = businessDateTimeInput(new Date()).slice(0, 10);
+    const days = Array.from(
+        { length: 7 },
+        (_, offset) => new Date(`${addCalendarDays(today, offset)}T12:00:00Z`),
+    );
 
     return (
         <section className="overflow-x-auto border-y py-4">
@@ -658,14 +663,17 @@ function WeeklyPlanning({ orders }: { orders: Order[] }) {
                     const scheduled = orders.filter(
                         (order) =>
                             order.scheduled_start &&
-                            new Date(order.scheduled_start).toDateString() ===
-                                day.toDateString(),
+                            businessDateTimeInput(order.scheduled_start).slice(
+                                0,
+                                10,
+                            ) === day.toISOString().slice(0, 10),
                     );
 
                     return (
                         <div key={day.toISOString()} className="min-h-32 px-2">
                             <div className="mb-2 text-xs font-medium text-muted-foreground">
                                 {new Intl.DateTimeFormat(undefined, {
+                                    timeZone: 'UTC',
                                     weekday: 'short',
                                     day: 'numeric',
                                     month: 'short',
@@ -682,6 +690,7 @@ function WeeklyPlanning({ orders }: { orders: Order[] }) {
                                             {new Date(
                                                 order.scheduled_start!,
                                             ).toLocaleTimeString([], {
+                                                timeZone: 'Europe/Madrid',
                                                 hour: '2-digit',
                                                 minute: '2-digit',
                                             })}{' '}
@@ -1626,6 +1635,17 @@ function ScheduleDialog({ order, users }: { order: Selected; users: User[] }) {
                 </DialogHeader>
                 <Form
                     action={`/work-orders/${order.id}/schedule`}
+                    transform={(data) => ({
+                        ...data,
+                        scheduled_start: scheduleInput(
+                            String(data.scheduled_start ?? ''),
+                            order.scheduled_start,
+                        ),
+                        scheduled_end: scheduleInput(
+                            String(data.scheduled_end ?? ''),
+                            order.scheduled_end,
+                        ),
+                    })}
                     method="patch"
                     onSuccess={() => setOpen(false)}
                     className="grid gap-4"
@@ -1898,13 +1918,17 @@ function BulkRescheduleDialog({
             {
                 reason,
                 items: orders.map((order, index) => {
-                    const fallbackStart = new Date(`${date}T08:00:00`);
-                    fallbackStart.setMinutes(
-                        fallbackStart.getMinutes() + index * 60,
+                    const fallbackStart = addScheduleMinutes(
+                        `${date}T08:00`,
+                        index * 60,
                     );
-                    const start = order.scheduled_start
+                    const wallStart = order.scheduled_start
                         ? `${date}T${localDateTime(order.scheduled_start).slice(11)}:00`
-                        : localIso(fallbackStart);
+                        : fallbackStart;
+                    const start = scheduleInput(
+                        wallStart.slice(0, 16),
+                        order.scheduled_start,
+                    );
                     const duration =
                         order.scheduled_start && order.scheduled_end
                             ? new Date(order.scheduled_end).getTime() -
@@ -1915,8 +1939,9 @@ function BulkRescheduleDialog({
                         work_order_id: order.id,
                         assigned_user_id: order.assigned_user?.id || null,
                         scheduled_start: start,
-                        scheduled_end: localIso(
-                            new Date(new Date(start).getTime() + duration),
+                        scheduled_end: addScheduleMinutes(
+                            start,
+                            duration / 60000,
                         ),
                     };
                 }),
@@ -2317,21 +2342,14 @@ const dateTime = (v: string) =>
     new Intl.DateTimeFormat(undefined, {
         dateStyle: 'short',
         timeStyle: 'short',
+        timeZone: BUSINESS_TIME_ZONE,
     }).format(new Date(v));
 const localDateTime = (value: string | null) => {
     if (!value) {
         return '';
     }
 
-    const date = new Date(value);
-    const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
-
-    return local.toISOString().slice(0, 16);
-};
-const localIso = (date: Date) => {
-    const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
-
-    return local.toISOString().slice(0, 19);
+    return businessDateTimeInput(value);
 };
 const minutes = (v: number) => `${Math.floor(v / 60)}h ${v % 60}m`;
 const money = (v: number | null | undefined) =>

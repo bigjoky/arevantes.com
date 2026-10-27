@@ -22,10 +22,10 @@ use App\Services\Work\WorkOrderFactory;
 use App\Services\Work\WorkOrderPlanningReadiness;
 use App\Services\Work\WorkOrderRescheduler;
 use App\Services\Work\WorkOrderStateManager;
+use App\Support\Time\BusinessTime;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
@@ -220,7 +220,7 @@ class WorkOrderController extends Controller
             $locked = WorkOrder::query()->lockForUpdate()->findOrFail($workOrder->id);
             $this->ensureAccess($request, $locked);
             abort_if(TimeEntry::where('user_id', $request->user()->id)->whereNull('ended_at')->exists(), 422, __('You already have a running timer.'));
-            TimeEntry::create(['work_order_id' => $locked->id, 'user_id' => $request->user()->id, 'created_by' => $request->user()->id, 'started_at' => now(), 'hourly_cost' => config('work.default_hourly_cost'), 'mileage_rate' => config('work.mileage_rate')]);
+            TimeEntry::create(['work_order_id' => $locked->id, 'user_id' => $request->user()->id, 'created_by' => $request->user()->id, 'started_at' => BusinessTime::now(), 'hourly_cost' => config('work.default_hourly_cost'), 'mileage_rate' => config('work.mileage_rate')]);
             $states->transition($locked, 'in_progress');
         });
 
@@ -231,7 +231,8 @@ class WorkOrderController extends Controller
     {
         abort_unless($timeEntry->user_id === $request->user()->id && ! $timeEntry->ended_at, 403);
         $data = $request->validate(['travel_km' => ['nullable', 'numeric', 'min:0'], 'notes' => ['nullable', 'string']]);
-        $ended = now();
+        $ended = BusinessTime::now();
+        $timeEntry->assertUnambiguousStart();
         $minutes = max(1, (int) round($timeEntry->started_at->diffInMinutes($ended)));
         $timeEntry->update([...$data, 'ended_at' => $ended, 'duration_minutes' => $minutes]);
 
@@ -244,8 +245,8 @@ class WorkOrderController extends Controller
             $request->merge(['hourly_cost' => config('work.default_hourly_cost'), 'mileage_rate' => config('work.mileage_rate')]);
         }
         $data = $request->validate(['user_id' => ['required', 'exists:users,id'], 'started_at' => ['required', 'date'], 'ended_at' => ['required', 'date', 'after:started_at'], 'hourly_cost' => ['required', 'numeric', 'min:0'], 'travel_km' => ['nullable', 'numeric', 'min:0'], 'mileage_rate' => ['required', 'numeric', 'min:0'], 'notes' => ['nullable', 'string']]);
-        $start = Carbon::parse($data['started_at']);
-        $end = Carbon::parse($data['ended_at']);
+        $start = BusinessTime::parse($data['started_at'], 'started_at');
+        $end = BusinessTime::parse($data['ended_at'], 'ended_at');
         $workOrder->timeEntries()->create([...$data, 'created_by' => $request->user()->id, 'duration_minutes' => max(1, (int) round($start->diffInMinutes($end)))]);
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Time entry added.')]);
@@ -264,7 +265,7 @@ class WorkOrderController extends Controller
         $this->ensureAccess($request, $workOrder);
         abort_unless($item->work_order_id === $workOrder->id, 404);
         $data = $request->validate(['completed' => ['required', 'boolean'], 'notes' => ['nullable', 'string']]);
-        $item->update(['completed_at' => $data['completed'] ? now() : null, 'completed_by' => $data['completed'] ? $request->user()->id : null, 'notes' => $data['notes'] ?? $item->notes]);
+        $item->update(['completed_at' => $data['completed'] ? BusinessTime::now() : null, 'completed_by' => $data['completed'] ? $request->user()->id : null, 'notes' => $data['notes'] ?? $item->notes]);
 
         return back();
     }
@@ -277,9 +278,11 @@ class WorkOrderController extends Controller
             $path = $file->store("work-orders/{$workOrder->id}", config('filesystems.private'));
             $kind = str_starts_with($file->getMimeType() ?: '', 'image/') ? 'photo' : 'document';
             DB::transaction(function () use ($workOrder, $request, $data, $file, $path, $kind): void {
+                // Serialize the document series even when it has no attachments yet.
+                Installation::query()->whereKey($workOrder->installation_id)->lockForUpdate()->firstOrFail();
                 $key = $data['evidence_key'] ?? null;
                 $version = $kind === 'document' && $key
-                    ? ((int) WorkOrderAttachment::query()->where('kind', 'document')->where('evidence_key', $key)->whereHas('workOrder', fn ($query) => $query->where('installation_id', $workOrder->installation_id))->lockForUpdate()->max('document_version')) + 1
+                    ? ((int) WorkOrderAttachment::query()->where('kind', 'document')->where('evidence_key', $key)->whereHas('workOrder', fn ($query) => $query->where('installation_id', $workOrder->installation_id))->max('document_version')) + 1
                     : 1;
                 $workOrder->attachments()->create([
                     'uploaded_by' => $request->user()->id,
@@ -308,6 +311,7 @@ class WorkOrderController extends Controller
         $action = $request->validate(['action' => ['required', Rule::in(['publish', 'retract'])]])['action'];
 
         DB::transaction(function () use ($attachment, $request, $action): void {
+            Installation::query()->whereKey($attachment->workOrder->installation_id)->lockForUpdate()->firstOrFail();
             $attachment = WorkOrderAttachment::query()->lockForUpdate()->findOrFail($attachment->id);
             if ($action === 'publish') {
                 abort_unless(in_array($attachment->publication_status, ['internal', 'pending_review'], true), 422, __('This document cannot be published from its current status.'));
@@ -328,9 +332,9 @@ class WorkOrderController extends Controller
                     'publication_status' => 'published',
                     'customer_visible' => true,
                     'reviewed_by' => $request->user()->id,
-                    'reviewed_at' => now(),
+                    'reviewed_at' => BusinessTime::now(),
                     'published_by' => $request->user()->id,
-                    'published_at' => now(),
+                    'published_at' => BusinessTime::now(),
                     'supersedes_attachment_id' => $published->sortByDesc('document_version')->first()?->id,
                 ]);
 
@@ -380,7 +384,7 @@ class WorkOrderController extends Controller
         }
         $path = "work-orders/{$workOrder->id}/signature.png";
         Storage::disk(config('filesystems.private'))->put($path, $binary);
-        $workOrder->update(['signed_by_name' => $data['signed_by_name'], 'signature_path' => $path, 'signed_at' => now()]);
+        $workOrder->update(['signed_by_name' => $data['signed_by_name'], 'signature_path' => $path, 'signed_at' => BusinessTime::now()]);
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Customer signature captured.')]);
     }
@@ -423,7 +427,7 @@ class WorkOrderController extends Controller
         ]);
         foreach (['scheduled_start', 'scheduled_end'] as $field) {
             if (! empty($data[$field])) {
-                $data[$field] = Carbon::parse($data[$field])->setTimezone(config('app.timezone'));
+                $data[$field] = BusinessTime::parse($data[$field], $field);
             }
         }
 

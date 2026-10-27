@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\PortfolioProjectImage;
+use App\Support\Time\BusinessTime;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
@@ -13,7 +14,7 @@ class PortfolioProjectImageController extends Controller
     public function __invoke(Request $request, PortfolioProjectImage $portfolioProjectImage): BinaryFileResponse|StreamedResponse
     {
         $portfolioProjectImage->loadMissing('project');
-        $isPublished = $portfolioProjectImage->project->published_at?->isPast() ?? false;
+        $isPublished = $portfolioProjectImage->project->published_at?->lessThanOrEqualTo(BusinessTime::now()) ?? false;
         $canPreview = $request->user()?->can('manage-admin') ?? false;
         abort_unless($isPublished || $canPreview, 404);
 

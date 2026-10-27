@@ -8,6 +8,7 @@ use App\Models\MaintenancePlan;
 use App\Models\Quote;
 use App\Models\User;
 use App\Services\AfterSales\MaintenancePlanLifecycle;
+use App\Support\Time\BusinessTime;
 
 class QuoteOperationalPlanner
 {
@@ -36,7 +37,7 @@ class QuoteOperationalPlanner
                         'required_for_closure' => $component->fulfillment_kind === 'legalization',
                         'priority' => 'normal',
                         'status' => 'pending',
-                        'due_at' => now()->addDays(14),
+                        'due_at' => BusinessTime::now()->addDays(14),
                     ],
                 );
             }

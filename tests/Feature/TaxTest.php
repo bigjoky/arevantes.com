@@ -5,13 +5,10 @@ namespace Tests\Feature;
 use App\Http\Controllers\TaxController;
 use App\Models\BankAccount;
 use App\Models\BankReconciliation;
-use App\Models\Expense;
 use App\Models\ExpenseCategory;
 use App\Models\JournalEntry;
 use App\Models\Product;
-use App\Models\PurchaseDocument;
 use App\Models\SalesDocument;
-use App\Models\Supplier;
 use App\Models\TaxRate;
 use App\Models\TaxReturn;
 use App\Models\Unit;
@@ -26,6 +23,7 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Inertia\Testing\AssertableInertia as Assert;
+use Tests\Support\EconomicFixture;
 use Tests\TestCase;
 
 class TaxTest extends TestCase
@@ -80,12 +78,12 @@ class TaxTest extends TestCase
 
     public function test_purchase_vat_rows_preserve_supplier_identity_including_shipping_and_unallocated_amounts(): void
     {
-        $supplier = Supplier::create(['legal_name' => 'Original supplier', 'tax_id' => 'B12345678', 'country' => 'ES']);
-        $document = PurchaseDocument::create([
+        $supplier = EconomicFixture::supplier(['legal_name' => 'Original supplier', 'tax_id' => 'B12345678', 'country' => 'ES']);
+        $document = EconomicFixture::legacy(fn () => EconomicFixture::purchase([
             'type' => 'supplier_invoice', 'supplier_id' => $supplier->id,
             'number' => 'HISTORICAL-TAX', 'status' => 'registered', 'issue_date' => '2026-07-13',
             'subtotal' => 130, 'shipping_cost' => 20, 'tax_amount' => 17.30, 'amount' => 147.30,
-        ]);
+        ]));
         $product = Product::create(['type' => 'product', 'sku' => 'HISTORICAL-TAX', 'name' => 'Equipment', 'unit_id' => Unit::firstOrFail()->id, 'tax_rate_id' => TaxRate::firstOrFail()->id, 'sale_price' => 150, 'cost_price' => 100, 'is_active' => true]);
         $document->lines()->create([
             'product_id' => $product->id, 'position' => 1, 'description' => 'Equipment', 'quantity' => 1, 'unit_price' => 100,
@@ -143,9 +141,9 @@ class TaxTest extends TestCase
     public function test_supplier_transport_is_reported_as_a_separate_21_percent_vat_base(): void
     {
         $user = User::factory()->create(['role' => 'commercial']);
-        $supplier = Supplier::create(['legal_name' => 'VAT Transport SL', 'country' => 'ES']);
+        $supplier = EconomicFixture::supplier(['legal_name' => 'VAT Transport SL', 'country' => 'ES']);
         $product = Product::create(['type' => 'product', 'sku' => 'VAT-TRANSPORT', 'name' => 'Equipment', 'unit_id' => Unit::firstOrFail()->id, 'tax_rate_id' => TaxRate::firstOrFail()->id, 'sale_price' => 150, 'cost_price' => 100, 'is_active' => true]);
-        $invoice = PurchaseDocument::create(['type' => 'supplier_invoice', 'supplier_id' => $supplier->id, 'created_by' => $user->id, 'number' => 'FR-VAT-TRANSPORT', 'status' => 'registered', 'issue_date' => '2026-07-13', 'subtotal' => 120, 'shipping_cost' => 20, 'tax_amount' => 14.20, 'amount' => 134.20]);
+        $invoice = EconomicFixture::purchase(['type' => 'supplier_invoice', 'supplier_id' => $supplier->id, 'created_by' => $user->id, 'number' => 'FR-VAT-TRANSPORT', 'status' => 'registered', 'issue_date' => '2026-07-13', 'subtotal' => 120, 'shipping_cost' => 20, 'tax_amount' => 14.20, 'amount' => 134.20]);
         $invoice->lines()->create(['product_id' => $product->id, 'position' => 1, 'description' => 'Equipment', 'quantity' => 1, 'unit_price' => 100, 'discount_percent' => 0, 'tax_percent' => 10, 'subtotal' => 100, 'tax_amount' => 10, 'total' => 110]);
         app(AccountingSynchronizer::class)->syncPurchaseDocument($invoice, $user->id);
 
@@ -163,7 +161,7 @@ class TaxTest extends TestCase
         $invoice = SalesDocument::create(['type' => 'invoice', 'number' => 'FAC-TAX-1', 'status' => 'issued', 'issue_date' => '2026-07-10', 'issued_at' => now(), 'locked_at' => now(), 'subtotal' => 100, 'discount_amount' => 0, 'tax_amount' => 21, 'amount' => 121, 'paid_amount' => 0, 'customer_snapshot' => ['company_name' => 'Solar Client SL', 'tax_id' => 'B12345678']]);
         $invoice->lines()->create(['position' => 1, 'description' => 'Installation', 'quantity' => 1, 'unit_price' => 100, 'discount_percent' => 0, 'tax_percent' => 21, 'subtotal' => 100, 'discount_amount' => 0, 'tax_amount' => 21, 'total' => 121]);
         $category = ExpenseCategory::create(['code' => 'SERV', 'name' => 'Services', 'is_active' => true]);
-        Expense::create(['expense_category_id' => $category->id, 'created_by' => $user->id, 'number' => 'EXP-TAX-1', 'type' => 'invoice', 'document_number' => 'EXT-55', 'merchant_name' => 'Gestoria', 'expense_date' => '2026-08-01', 'subtotal' => 50, 'tax_amount' => 10.5, 'amount' => 60.5, 'paid_amount' => 0, 'status' => 'pending']);
+        EconomicFixture::expense(['expense_category_id' => $category->id, 'created_by' => $user->id, 'number' => 'EXP-TAX-1', 'type' => 'invoice', 'document_number' => 'EXT-55', 'merchant_name' => 'Gestoria', 'expense_date' => '2026-08-01', 'subtotal' => 50, 'tax_amount' => 10.5, 'amount' => 60.5, 'paid_amount' => 0, 'status' => 'pending']);
         app(AccountingSynchronizer::class)->sync($user->id);
 
         $this->actingAs($user)->get(route('tax.index', ['year' => 2026, 'quarter' => 3]))->assertOk()->assertInertia(fn (Assert $page) => $page
@@ -206,7 +204,7 @@ class TaxTest extends TestCase
         Storage::fake('local');
         $admin = User::factory()->create(['role' => 'admin']);
         $category = ExpenseCategory::create(['code' => 'VAT-IN', 'name' => 'Input VAT', 'is_active' => true]);
-        Expense::create([
+        EconomicFixture::expense([
             'expense_category_id' => $category->id,
             'created_by' => $admin->id,
             'number' => 'EXP-VAT-NEG-1',

@@ -5,7 +5,10 @@ namespace App\Observers;
 use App\Models\AuditLog;
 use App\Models\CommercialFieldSession;
 use App\Models\CommercialVisit;
+use App\Models\Expense;
+use App\Models\PurchaseDocument;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
 
 class AuditableObserver
 {
@@ -48,6 +51,11 @@ class AuditableObserver
         $sanitize = fn (?array $values) => $values === null ? null : collect($values)->mapWithKeys(
             fn ($value, $key) => [$key => in_array($key, $sensitive, true) ? '[REDACTED]' : $value]
         )->all();
+
+        if ($new !== null && ($model instanceof Expense || $model instanceof PurchaseDocument)) {
+            $owner = $model instanceof Expense ? 'expense_id' : 'purchase_document_id';
+            $new['received_identity_ids'] = DB::table('received_invoice_identities')->where($owner, $model->getKey())->orderBy('id')->pluck('id')->all();
+        }
 
         AuditLog::create([
             'user_id' => auth()->id(),

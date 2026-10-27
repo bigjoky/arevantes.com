@@ -9,7 +9,6 @@ use App\Models\BankReconciliation;
 use App\Models\BankStatementImport;
 use App\Models\CollectionAction;
 use App\Models\CompanyProfile;
-use App\Models\Expense;
 use App\Models\ExpenseCategory;
 use App\Models\FinancialAlertAction;
 use App\Models\FinancialBudget;
@@ -21,7 +20,6 @@ use App\Models\Installation;
 use App\Models\LedgerAccount;
 use App\Models\PaymentBatch;
 use App\Models\Person;
-use App\Models\PurchaseDocument;
 use App\Models\SalesDocument;
 use App\Models\Supplier;
 use App\Models\SupplierPayment;
@@ -33,6 +31,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Assert;
+use Tests\Support\EconomicFixture;
 use Tests\TestCase;
 
 class FinanceTest extends TestCase
@@ -43,7 +42,7 @@ class FinanceTest extends TestCase
     {
         $this->travelTo('2026-08-15');
         $user = User::factory()->create(['role' => 'commercial']);
-        $supplier = Supplier::create([
+        $supplier = EconomicFixture::supplier([
             'legal_name' => 'Committed Supply SL',
             'country' => 'ES',
             'payment_terms_days' => 10,
@@ -70,7 +69,7 @@ class FinanceTest extends TestCase
             'paid_amount' => 0,
             'customer_snapshot' => [],
         ]);
-        $order = PurchaseDocument::create([
+        $order = EconomicFixture::purchase([
             'type' => 'purchase_order',
             'installation_id' => $installation->id,
             'supplier_id' => $supplier->id,
@@ -83,7 +82,7 @@ class FinanceTest extends TestCase
             'tax_amount' => 210,
             'amount' => 1210,
         ]);
-        $acceptedInvoice = PurchaseDocument::create([
+        $acceptedInvoice = EconomicFixture::purchase([
             'type' => 'supplier_invoice',
             'source_document_id' => $order->id,
             'installation_id' => $installation->id,
@@ -100,7 +99,7 @@ class FinanceTest extends TestCase
             'amount' => 484,
             'paid_amount' => 0,
         ]);
-        PurchaseDocument::create([
+        EconomicFixture::purchase([
             'type' => 'supplier_credit_note',
             'source_document_id' => $acceptedInvoice->id,
             'installation_id' => $installation->id,
@@ -116,7 +115,7 @@ class FinanceTest extends TestCase
             'amount' => -121,
             'paid_amount' => 0,
         ]);
-        PurchaseDocument::create([
+        EconomicFixture::purchase([
             'type' => 'supplier_invoice',
             'source_document_id' => $order->id,
             'installation_id' => $installation->id,
@@ -190,13 +189,13 @@ class FinanceTest extends TestCase
     {
         $this->travelTo('2026-07-26');
         $user = User::factory()->create(['role' => 'commercial']);
-        $supplier = Supplier::create(['legal_name' => 'Supplier SL', 'country' => 'ES', 'payment_terms_days' => 30]);
+        $supplier = EconomicFixture::supplier(['legal_name' => 'Supplier SL', 'country' => 'ES', 'payment_terms_days' => 30]);
         $sale = SalesDocument::create(['type' => 'invoice', 'number' => 'FAC-2026-00001', 'status' => 'partial', 'issue_date' => '2026-07-01', 'due_date' => '2026-07-31', 'issued_at' => now(), 'locked_at' => now(), 'subtotal' => 100, 'discount_amount' => 0, 'tax_amount' => 21, 'amount' => 121, 'paid_amount' => 60, 'customer_snapshot' => ['first_name' => 'Ana']]);
         $sale->payments()->create(['created_by' => $user->id, 'paid_at' => '2026-07-10', 'amount' => 60, 'method' => 'bank_transfer']);
         CollectionAction::create(['sales_document_id' => $sale->id, 'status' => 'promised', 'promised_on' => today()->subDay(), 'promised_amount' => 61, 'next_action_on' => today()]);
-        $purchase = PurchaseDocument::create(['type' => 'supplier_invoice', 'supplier_id' => $supplier->id, 'number' => 'FR-2026-00001', 'status' => 'partial', 'issue_date' => '2026-07-02', 'due_date' => '2026-08-01', 'subtotal' => 50, 'tax_amount' => 10, 'amount' => 60, 'paid_amount' => 20]);
+        $purchase = EconomicFixture::purchase(['type' => 'supplier_invoice', 'supplier_id' => $supplier->id, 'number' => 'FR-2026-00001', 'status' => 'partial', 'issue_date' => '2026-07-02', 'due_date' => '2026-08-01', 'subtotal' => 50, 'tax_amount' => 10, 'amount' => 60, 'paid_amount' => 20]);
         SupplierPayment::create(['purchase_document_id' => $purchase->id, 'created_by' => $user->id, 'paid_at' => '2026-07-11', 'amount' => 20, 'method' => 'card']);
-        Expense::create(['expense_category_id' => ExpenseCategory::firstOrFail()->id, 'created_by' => $user->id, 'number' => 'EXP-2026-00001', 'type' => 'receipt', 'expense_date' => '2026-07-03', 'subtotal' => 25, 'tax_amount' => 5, 'amount' => 30, 'status' => 'pending']);
+        EconomicFixture::expense(['expense_category_id' => ExpenseCategory::firstOrFail()->id, 'created_by' => $user->id, 'number' => 'EXP-2026-00001', 'type' => 'receipt', 'expense_date' => '2026-07-03', 'subtotal' => 25, 'tax_amount' => 5, 'amount' => 30, 'status' => 'pending']);
         FinancialBudget::create(['year' => 2026, 'month' => 7, 'category' => 'revenue', 'amount' => 120, 'created_by' => $user->id]);
         FinancialBudget::create(['year' => 2026, 'month' => 7, 'category' => 'costs', 'amount' => 80, 'created_by' => $user->id]);
         FinancialBudget::create(['year' => 2026, 'month' => 7, 'category' => 'cash_in', 'amount' => 90, 'created_by' => $user->id]);
@@ -897,11 +896,11 @@ class FinanceTest extends TestCase
         Storage::fake('local');
         $commercial = User::factory()->create(['role' => 'commercial']);
         $admin = User::factory()->create(['role' => 'admin']);
-        $supplier = Supplier::create(['legal_name' => 'SEPA Supplier SL', 'country' => 'ES', 'iban' => 'ES9121000418450200051332', 'bic' => 'CAIXESBBXXX', 'payment_terms_days' => 30]);
+        $supplier = EconomicFixture::supplier(['legal_name' => 'SEPA Supplier SL', 'country' => 'ES', 'iban' => 'ES9121000418450200051332', 'bic' => 'CAIXESBBXXX', 'payment_terms_days' => 30]);
         $account = BankAccount::create(['name' => 'Main payments', 'iban' => 'ES7921000813610123456789', 'currency' => 'EUR', 'opening_balance' => 5000, 'is_active' => true]);
         CompanyProfile::firstOrFail()->update(['iban' => $account->iban]);
         $sale = SalesDocument::create(['type' => 'invoice', 'number' => 'FAC-PLAN-1', 'status' => 'issued', 'issue_date' => now(), 'due_date' => now()->addDays(10), 'issued_at' => now(), 'locked_at' => now(), 'subtotal' => 100, 'discount_amount' => 0, 'tax_amount' => 21, 'amount' => 121, 'paid_amount' => 0, 'customer_snapshot' => []]);
-        $purchase = PurchaseDocument::create(['type' => 'supplier_invoice', 'supplier_id' => $supplier->id, 'number' => 'FR-PLAN-1', 'supplier_number' => 'SUP-100', 'status' => 'registered', 'issue_date' => now(), 'due_date' => now()->addDays(12), 'subtotal' => 100, 'tax_amount' => 21, 'amount' => 121, 'paid_amount' => 0]);
+        $purchase = EconomicFixture::purchase(['type' => 'supplier_invoice', 'supplier_id' => $supplier->id, 'number' => 'FR-PLAN-1', 'supplier_number' => 'SUP-100', 'status' => 'registered', 'issue_date' => now(), 'due_date' => now()->addDays(12), 'subtotal' => 100, 'tax_amount' => 21, 'amount' => 121, 'paid_amount' => 0]);
 
         $this->actingAs($commercial)
             ->post(route('finance.forecast-items.store'), ['direction' => 'out', 'category' => 'payroll', 'description' => 'Monthly payroll', 'amount' => 2500, 'due_on' => now()->addWeek()->toDateString(), 'probability' => 100])
@@ -979,9 +978,9 @@ class FinanceTest extends TestCase
     public function test_payment_batch_creator_cannot_approve_their_own_batch(): void
     {
         $admin = User::factory()->create(['role' => 'admin']);
-        $supplier = Supplier::create(['legal_name' => 'Independent approval SL', 'country' => 'ES', 'iban' => 'ES9121000418450200051332']);
+        $supplier = EconomicFixture::supplier(['legal_name' => 'Independent approval SL', 'country' => 'ES', 'iban' => 'ES9121000418450200051332']);
         $account = BankAccount::create(['name' => 'Payments', 'iban' => 'ES7921000813610123456789', 'currency' => 'EUR', 'opening_balance' => 5000, 'is_active' => true]);
-        $purchase = PurchaseDocument::create(['type' => 'supplier_invoice', 'supplier_id' => $supplier->id, 'number' => 'FR-SOD-1', 'status' => 'registered', 'issue_date' => now(), 'due_date' => now(), 'subtotal' => 100, 'tax_amount' => 21, 'amount' => 121, 'paid_amount' => 0]);
+        $purchase = EconomicFixture::purchase(['type' => 'supplier_invoice', 'supplier_id' => $supplier->id, 'number' => 'FR-SOD-1', 'status' => 'registered', 'issue_date' => now(), 'due_date' => now(), 'subtotal' => 100, 'tax_amount' => 21, 'amount' => 121, 'paid_amount' => 0]);
 
         $this->actingAs($admin)->post(route('finance.payment-batches.store'), [
             'bank_account_id' => $account->id,
@@ -999,8 +998,8 @@ class FinanceTest extends TestCase
     public function test_cancelling_a_payment_batch_releases_its_documents(): void
     {
         $commercial = User::factory()->create(['role' => 'commercial']);
-        $supplier = Supplier::create(['legal_name' => 'Supplier SL', 'country' => 'ES', 'payment_terms_days' => 30]);
-        $purchase = PurchaseDocument::create(['type' => 'supplier_invoice', 'supplier_id' => $supplier->id, 'number' => 'FR-CANCEL-1', 'status' => 'registered', 'issue_date' => now(), 'due_date' => now()->addWeek(), 'subtotal' => 100, 'tax_amount' => 21, 'amount' => 121, 'paid_amount' => 0]);
+        $supplier = EconomicFixture::supplier(['legal_name' => 'Supplier SL', 'country' => 'ES', 'payment_terms_days' => 30]);
+        $purchase = EconomicFixture::purchase(['type' => 'supplier_invoice', 'supplier_id' => $supplier->id, 'number' => 'FR-CANCEL-1', 'status' => 'registered', 'issue_date' => now(), 'due_date' => now()->addWeek(), 'subtotal' => 100, 'tax_amount' => 21, 'amount' => 121, 'paid_amount' => 0]);
 
         $this->actingAs($commercial)->post(route('finance.payment-batches.store'), [
             'planned_on' => now()->addWeek()->toDateString(),
@@ -1020,8 +1019,8 @@ class FinanceTest extends TestCase
     public function test_executing_a_batch_stops_if_a_balance_changed_after_export(): void
     {
         $admin = User::factory()->create(['role' => 'admin']);
-        $supplier = Supplier::create(['legal_name' => 'Supplier SL', 'country' => 'ES', 'payment_terms_days' => 30]);
-        $purchase = PurchaseDocument::create(['type' => 'supplier_invoice', 'supplier_id' => $supplier->id, 'number' => 'FR-CHANGED-1', 'status' => 'partial', 'issue_date' => now(), 'due_date' => now(), 'subtotal' => 100, 'tax_amount' => 21, 'amount' => 121, 'paid_amount' => 21]);
+        $supplier = EconomicFixture::supplier(['legal_name' => 'Supplier SL', 'country' => 'ES', 'payment_terms_days' => 30]);
+        $purchase = EconomicFixture::purchase(['type' => 'supplier_invoice', 'supplier_id' => $supplier->id, 'number' => 'FR-CHANGED-1', 'status' => 'partial', 'issue_date' => now(), 'due_date' => now(), 'subtotal' => 100, 'tax_amount' => 21, 'amount' => 121, 'paid_amount' => 21]);
         $batch = PaymentBatch::create(['number' => 'PAY-CHANGED-1', 'planned_on' => today(), 'status' => 'exported', 'created_by' => $admin->id, 'exported_at' => now()]);
         $batch->items()->create(['payable_type' => 'invoice', 'payable_id' => $purchase->id, 'amount' => 121]);
 

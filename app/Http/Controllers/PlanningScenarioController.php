@@ -16,6 +16,7 @@ use App\Services\Planning\PlanningScenarioLearning;
 use App\Services\Planning\PlanningScenarioLifecycle;
 use App\Services\Planning\SharedPortfolioScenario;
 use App\Services\Security\SecurityEventRecorder;
+use App\Support\Time\BusinessTime;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -33,7 +34,7 @@ class PlanningScenarioController extends Controller
         ])->latest()->get();
         $scenarios->each(function (PlanningScenario $scenario) use ($integrity, $learning): void {
             $integrityValid = $integrity->matches($scenario);
-            $referenceFresh = $scenario->reference_valid_until?->isFuture() ?? false;
+            $referenceFresh = $scenario->reference_valid_until?->gt(BusinessTime::now()) ?? false;
             $scenario->setAttribute('approval_eligibility', [
                 'can_approve' => $scenario->status === 'frozen' && $integrityValid && $referenceFresh,
                 'integrity_valid' => $integrityValid,

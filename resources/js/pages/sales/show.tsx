@@ -10,11 +10,17 @@ import {
     Send,
     Trash2,
 } from 'lucide-react';
+import { useState } from 'react';
+import DocumentCustody, {
+    originalDownloadAllowed,
+} from '@/components/document-custody';
+import type { CustodyStatus } from '@/components/document-custody';
 import { FormErrorSummary } from '@/components/forms/form-layout';
 import HistoricalDocumentDate from '@/components/historical-document-date';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { useDocumentCreation } from '@/hooks/use-document-creation';
 import { useLocale } from '@/hooks/use-locale';
 import { translate } from '@/i18n';
 
@@ -48,6 +54,8 @@ type Document = {
     tax_amount: string;
     amount: string;
     paid_amount: string;
+    outstanding_balance?: string;
+    can_record_payment?: boolean;
     notes: string | null;
     customer_snapshot: Record<string, string | null>;
     quote: { id: number; number: string } | null;
@@ -131,13 +139,20 @@ export default function SalesShow({
     warehouses,
     conversion,
     corrections = [],
+    operationKey,
+    custodyStatus,
+    reconstructionHref,
 }: {
+    reconstructionHref?: string | null;
+    custodyStatus?: CustodyStatus;
     document: Document;
     warehouses: Warehouse[];
     conversion: Conversion | null;
     corrections?: Correction[];
+    operationKey: string;
 }) {
     const { locale } = useLocale();
+    const [paymentKey, setPaymentKey] = useState(operationKey);
     const customer =
         document.customer_snapshot.company_name ||
         `${document.customer_snapshot.first_name || ''} ${document.customer_snapshot.last_name || ''}`.trim();
@@ -154,12 +169,19 @@ export default function SalesShow({
     );
     const outstanding = Math.max(
         0,
-        Number(document.amount) - Number(document.paid_amount),
+        Number(
+            document.outstanding_balance ??
+                Number(document.amount) - Number(document.paid_amount),
+        ),
     );
 
     return (
         <>
             <Head title={document.number} />
+            <DocumentCustody
+                status={custodyStatus}
+                reconstructionHref={reconstructionHref}
+            />
             <div className="flex flex-1 flex-col gap-6 p-4 md:p-6">
                 <header className="flex flex-wrap items-start justify-between gap-3">
                     <div>
@@ -215,15 +237,17 @@ export default function SalesShow({
                                 <ArrowLeft /> Sales
                             </Link>
                         </Button>
-                        <Button asChild>
-                            <a
-                                href={`/sales/${document.id}/pdf`}
-                                target="_blank"
-                                rel="noreferrer"
-                            >
-                                <FileDown /> PDF
-                            </a>
-                        </Button>
+                        {originalDownloadAllowed(custodyStatus) && (
+                            <Button asChild>
+                                <a
+                                    href={`/sales/${document.id}/pdf`}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                >
+                                    <FileDown /> PDF
+                                </a>
+                            </Button>
+                        )}
                         {document.can_correct_issued && (
                             <Button variant="outline" asChild>
                                 <Link
@@ -643,10 +667,18 @@ export default function SalesShow({
                                         action={`/sales/${document.id}/payments`}
                                         method="post"
                                         resetOnSuccess
+                                        onSuccess={() =>
+                                            setPaymentKey(crypto.randomUUID())
+                                        }
                                         className="grid gap-4"
                                     >
                                         {({ errors }) => (
                                             <>
+                                                <input
+                                                    type="hidden"
+                                                    name="idempotency_key"
+                                                    value={paymentKey}
+                                                />
                                                 <FormErrorSummary
                                                     errors={errors}
                                                 />
@@ -697,7 +729,11 @@ export default function SalesShow({
                                                         name="reference"
                                                     />
                                                 </div>
-                                                <Button>
+                                                <Button
+                                                    disabled={
+                                                        !document.can_record_payment
+                                                    }
+                                                >
                                                     <CreditCard /> Register
                                                     payment
                                                 </Button>
@@ -745,25 +781,26 @@ export default function SalesShow({
                                                     </div>
                                                 )}
                                             </div>
-                                            {!payment.accounting_entry && (
-                                                <Form
-                                                    action={`/sales/${document.id}/payments/${payment.id}`}
-                                                    method="delete"
-                                                    onBefore={() =>
-                                                        confirm(
-                                                            'Remove this payment?',
-                                                        )
-                                                    }
-                                                >
-                                                    <Button
-                                                        size="icon"
-                                                        variant="ghost"
-                                                        title="Remove payment"
+                                            {!payment.accounting_entry &&
+                                                document.can_record_payment && (
+                                                    <Form
+                                                        action={`/sales/${document.id}/payments/${payment.id}`}
+                                                        method="delete"
+                                                        onBefore={() =>
+                                                            confirm(
+                                                                'Remove this payment?',
+                                                            )
+                                                        }
                                                     >
-                                                        <Trash2 />
-                                                    </Button>
-                                                </Form>
-                                            )}
+                                                        <Button
+                                                            size="icon"
+                                                            variant="ghost"
+                                                            title="Remove payment"
+                                                        >
+                                                            <Trash2 />
+                                                        </Button>
+                                                    </Form>
+                                                )}
                                         </div>
                                     ))}
                                     {document.payments.length === 0 && (
@@ -816,6 +853,9 @@ function ConversionProgress({
     document: Document;
     conversion: Conversion;
 }) {
+    const deliveryCreation = useDocumentCreation();
+    const invoiceCreation = useDocumentCreation();
+
     return (
         <section className="border-t pt-5">
             <div className="mb-4">
@@ -892,6 +932,16 @@ function ConversionProgress({
                         <Form
                             key={target}
                             action={`/sales/${document.id}/convert`}
+                            transform={
+                                isDelivery
+                                    ? deliveryCreation.transform
+                                    : invoiceCreation.transform
+                            }
+                            onSuccess={
+                                isDelivery
+                                    ? deliveryCreation.complete
+                                    : invoiceCreation.complete
+                            }
                             method="post"
                             className="grid content-start gap-3 border-t pt-4"
                         >

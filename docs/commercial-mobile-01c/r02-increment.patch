@@ -1,0 +1,673 @@
+--- a/resources/js/layouts/app/app-sidebar-layout.tsx
++++ b/resources/js/layouts/app/app-sidebar-layout.tsx
+@@ -35,19 +35,23 @@
+                     variant="sidebar"
+                     className="min-w-0 overflow-x-clip"
+                 >
+-                    {isMobile ? (
+-                        <MobileExperience>{children}</MobileExperience>
+-                    ) : (
+-                        <>
+-                            <AppSidebarHeader />
+-                            {breadcrumbs.length > 0 && (
+-                                <div className="shell-legacy-breadcrumbs">
+-                                    <Breadcrumbs breadcrumbs={breadcrumbs} />
+-                                </div>
+-                            )}
+-                            {children}{' '}
+-                        </>
+-                    )}
++                    <MobileExperience
++                        active={isMobile}
++                        desktopChrome={
++                            <>
++                                <AppSidebarHeader />
++                                {breadcrumbs.length > 0 && (
++                                    <div className="shell-legacy-breadcrumbs">
++                                        <Breadcrumbs
++                                            breadcrumbs={breadcrumbs}
++                                        />
++                                    </div>
++                                )}
++                            </>
++                        }
++                    >
++                        {children}
++                    </MobileExperience>
+                 </AppContent>
+             </AppShell>
+         </ShellContext.Provider>
+--- a/resources/js/components/mobile/mobile-experience.tsx
++++ b/resources/js/components/mobile/mobile-experience.tsx
+@@ -108,20 +108,38 @@
+     create: 'Crear',
+ };
+ 
+-export function MobileExperience({ children }: { children: ReactNode }) {
++function focusShellOpener(opener: HTMLElement | null) {
++    if (opener?.isConnected) {
++        opener.focus();
++
++        return;
++    }
++
++    document.querySelector<HTMLElement>('.mobile-tabbar button, [data-slot="sidebar-trigger"]')?.focus();
++}
++
++export function MobileExperience({
++    children,
++    active = true,
++    desktopChrome,
++}: {
++    children: ReactNode;
++    active?: boolean;
++    desktopChrome?: ReactNode;
++}) {
+     const initials = useInitials();
+     const viewport = useMobileViewport();
+     const page = usePage();
+     const { auth } = page.props;
+     useEffect(() => {
+-        if (!page.encryptHistory) {
++        if (active && !page.encryptHistory) {
+             router.replace({
+                 encryptHistory: true,
+                 preserveState: true,
+                 preserveScroll: true,
+             });
+         }
+-    }, [page.encryptHistory]);
++    }, [active, page.encryptHistory]);
+     const view = mobileView(page.url);
+     // Keep the sheet mounted while a history traversal is being confirmed.
+     const [createOpen, setCreateOpen] = useState(view === 'create');
+@@ -162,6 +180,10 @@
+     const [platform, connection] = environment.split(':');
+     const offline = connection === 'offline';
+     useEffect(() => {
++        if (!active) {
++            return;
++        }
++
+         if (view && view !== 'create') {
+             heading.current?.focus();
+         } else if (
+@@ -170,11 +192,11 @@
+             previousView.current !== 'create'
+         ) {
+             // Also runs after native back, which does not call close().
+-            opener.current?.focus();
++            focusShellOpener(opener.current);
+         }
+ 
+         previousView.current = view;
+-    }, [view]);
++    }, [active, view]);
+     const open = (next: MobileView, target?: HTMLButtonElement) => {
+         if (next === 'create') {
+             createActive.current = true;
+@@ -217,7 +239,7 @@
+             });
+         }
+ 
+-        opener.current?.focus();
++        focusShellOpener(opener.current);
+     }, [page.url]);
+     const finishTaskClose = useCallback(() => {
+         createActive.current = false;
+@@ -230,7 +252,7 @@
+         ) {
+             close();
+         } else {
+-            requestAnimationFrame(() => opener.current?.focus());
++            requestAnimationFrame(() => focusShellOpener(opener.current));
+         }
+     }, [close]);
+     const requestTaskClose = useCallback(() => {
+@@ -243,6 +265,7 @@
+         }
+     }, [taskGuard, finishTaskClose]);
+     useEffect(() => {
++
+         const pop = () => {
+             traversing.current = true;
+         };
+@@ -327,7 +350,7 @@
+         };
+     }, [taskGuard, finishTaskClose, requestTaskClose]);
+     useEffect(() => {
+-        if (!view || view === 'create') {
++        if (!active || !view || view === 'create') {
+             return;
+         }
+ 
+@@ -340,7 +363,7 @@
+         window.addEventListener('keydown', escape);
+ 
+         return () => window.removeEventListener('keydown', escape);
+-    }, [view, close]);
++    }, [active, view, close]);
+ 
+     const destinations = mobileDestinations(auth.navigation);
+     const allowedActions = quickCreateActions.filter((action) =>
+@@ -353,86 +376,94 @@
+ 
+     return (
+         <div
+-            className="mobile-app"
++            className={active ? 'mobile-app' : 'contents'}
++            data-responsive-shell={active ? 'mobile' : 'desktop'}
+             data-platform={platform}
+             data-display={environment.split(':')[2]}
+             data-keyboard={viewport.keyboard || undefined}
+         >
+-            <PwaUpdate />
+-            <header className="mobile-topbar">
+-                {isDetail && !view ? (
+-                    <Button
+-                        variant="ghost"
+-                        size="icon"
+-                        aria-label="Volver"
+-                        onClick={() => window.history.back()}
+-                    >
+-                        <ArrowLeft />
+-                    </Button>
+-                ) : null}
+-                <Link
+-                    href="/dashboard"
+-                    className="mobile-wordmark"
+-                    aria-label="AREVANTES · Inicio"
+-                >
+-                    <BrandLogo className="h-6 max-w-32" />
+-                </Link>
+-                <div className="mobile-header-actions">
+-                    {(auth.abilities.manageCustomers ||
+-                        auth.abilities.viewInstallations ||
+-                        auth.abilities.manageInstallations ||
+-                        auth.abilities.manageCatalog ||
+-                        auth.abilities.viewPurchases ||
+-                        auth.abilities.manageOperations) && (
++            {active && <PwaUpdate />}
++            {!active && desktopChrome}
++            {active && (
++                <header className="mobile-topbar">
++                    {isDetail && !view ? (
+                         <Button
+                             variant="ghost"
+                             size="icon"
+-                            aria-label="Búsqueda global"
+-                            onClick={(e) => open('search', e.currentTarget)}
++                            aria-label="Volver"
++                            onClick={() => window.history.back()}
+                         >
+-                            <Search />
++                            <ArrowLeft />
+                         </Button>
+-                    )}
+-                    <Button
+-                        variant="ghost"
+-                        size="icon"
+-                        className="relative"
+-                        aria-label="Notificaciones"
+-                        onClick={(e) => open('notifications', e.currentTarget)}
++                    ) : null}
++                    <Link
++                        href="/dashboard"
++                        className="mobile-wordmark"
++                        aria-label="AREVANTES · Inicio"
+                     >
+-                        <Bell />
+-                        {notifications.length > 0 && (
+-                            <span
+-                                className="mobile-count"
+-                                aria-label="Hay avisos no leídos"
++                        <BrandLogo className="h-6 max-w-32" />
++                    </Link>
++                    <div className="mobile-header-actions">
++                        {(auth.abilities.manageCustomers ||
++                            auth.abilities.viewInstallations ||
++                            auth.abilities.manageInstallations ||
++                            auth.abilities.manageCatalog ||
++                            auth.abilities.viewPurchases ||
++                            auth.abilities.manageOperations) && (
++                            <Button
++                                variant="ghost"
++                                size="icon"
++                                aria-label="Búsqueda global"
++                                onClick={(e) => open('search', e.currentTarget)}
+                             >
+-                                •
+-                            </span>
++                                <Search />
++                            </Button>
+                         )}
+-                    </Button>
+-                    <Button
+-                        variant="ghost"
+-                        className="mobile-avatar"
+-                        aria-label={`Cuenta de ${auth.user.name}`}
+-                        onClick={(e) => open('profile', e.currentTarget)}
+-                    >
+-                        {initials(auth.user.name)}
+-                    </Button>
+-                </div>
+-            </header>
+-            {offline && (
++                        <Button
++                            variant="ghost"
++                            size="icon"
++                            className="relative"
++                            aria-label="Notificaciones"
++                            onClick={(e) =>
++                                open('notifications', e.currentTarget)
++                            }
++                        >
++                            <Bell />
++                            {notifications.length > 0 && (
++                                <span
++                                    className="mobile-count"
++                                    aria-label="Hay avisos no leídos"
++                                >
++                                    •
++                                </span>
++                            )}
++                        </Button>
++                        <Button
++                            variant="ghost"
++                            className="mobile-avatar"
++                            aria-label={`Cuenta de ${auth.user.name}`}
++                            onClick={(e) => open('profile', e.currentTarget)}
++                        >
++                            {initials(auth.user.name)}
++                        </Button>
++                    </div>
++                </header>
++            )}
++            {active && offline && (
+                 <p role="status" className="mobile-offline">
+                     Sin conexión. No podrás guardar hasta recuperar internet.
+                 </p>
+             )}
+             <div
+-                hidden={Boolean(view && view !== 'create')}
+-                inert={Boolean(view && view !== 'create')}
+-                className="mobile-page-content"
++                key="inertia-page-content"
++                hidden={Boolean(active && view && view !== 'create')}
++                inert={Boolean(active && view && view !== 'create')}
++                className={active ? 'mobile-page-content' : 'contents'}
++                data-inertia-page-container
+             >
+                 {children}
+             </div>
+-            {view && view !== 'create' && (
++            {active && view && view !== 'create' && (
+                 <section
+                     className="mobile-screen"
+                     aria-labelledby="mobile-screen-title"
+@@ -484,7 +515,7 @@
+                     }}
+                     onCloseAutoFocus={(event) => {
+                         event.preventDefault();
+-                        opener.current?.focus();
++                        focusShellOpener(opener.current);
+                     }}
+                 >
+                     <div className="mobile-sheet-handle" aria-hidden="true" />
+@@ -593,7 +624,8 @@
+                     </DialogFooter>
+                 </DialogContent>
+             </Dialog>
+-            {!isDetail &&
++            {active &&
++                !isDetail &&
+                 !/[?&](create|edit)=/.test(page.url) &&
+                 canCreate &&
+                 !/\/(create|edit)(?:\?|$)/.test(page.url) && (
+@@ -607,36 +639,39 @@
+                         <Plus />
+                     </button>
+                 )}
+-            <nav className="mobile-tabbar" aria-label="Navegación móvil">
+-                {destinations.map((item) => {
+-                    const Icon = tabIcons[item.key as keyof typeof tabIcons];
+-                    const active =
+-                        !view && mobileTabActive(page.url, item.href);
+-
+-                    return (
+-                        <Link
+-                            key={item.key}
+-                            href={item.href}
+-                            aria-current={active ? 'page' : undefined}
+-                        >
+-                            <span>
+-                                <Icon />
+-                            </span>
+-                            {item.title}
+-                        </Link>
+-                    );
+-                })}
+-                <button
+-                    type="button"
+-                    aria-current={view === 'menu' ? 'page' : undefined}
+-                    onClick={(e) => open('menu', e.currentTarget)}
+-                >
+-                    <span>
+-                        <Menu />
+-                    </span>
+-                    Menú
+-                </button>
+-            </nav>
++            {active && (
++                <nav className="mobile-tabbar" aria-label="Navegación móvil">
++                    {destinations.map((item) => {
++                        const Icon =
++                            tabIcons[item.key as keyof typeof tabIcons];
++                        const active =
++                            !view && mobileTabActive(page.url, item.href);
++
++                        return (
++                            <Link
++                                key={item.key}
++                                href={item.href}
++                                aria-current={active ? 'page' : undefined}
++                            >
++                                <span>
++                                    <Icon />
++                                </span>
++                                {item.title}
++                            </Link>
++                        );
++                    })}
++                    <button
++                        type="button"
++                        aria-current={view === 'menu' ? 'page' : undefined}
++                        onClick={(e) => open('menu', e.currentTarget)}
++                    >
++                        <span>
++                            <Menu />
++                        </span>
++                        Menú
++                    </button>
++                </nav>
++            )}
+         </div>
+     );
+ }
+--- a/resources/css/mobile-app.css
++++ b/resources/css/mobile-app.css
+@@ -946,3 +946,47 @@
+         color: #536878;
+     }
+ }
++
++/* R-02: an already-open task sheet keeps its form when the shell becomes desktop. */
++@media (min-width: 1024px) {
++    .mobile-action-sheet {
++        width: min(640px, calc(100% - 32px));
++        margin-inline: auto;
++        padding: 24px;
++        overflow-y: auto;
++        background: #fff;
++        color: #092035;
++        color-scheme: light;
++        border-radius: 16px 16px 0 0;
++    }
++    .mobile-task-form {
++        display: grid;
++        gap: 12px;
++    }
++    .mobile-task-form :is(input, select) {
++        min-height: 40px;
++        background: #fff;
++        color: #092035;
++    }
++}
++
++@media (min-width: 1024px) {
++    .mobile-action-sheet [data-slot='sheet-title'],
++    .mobile-discard-dialog [data-slot='dialog-title'] {
++        color: #092035;
++    }
++    .mobile-action-sheet [data-slot='sheet-description'],
++    .mobile-discard-dialog [data-slot='dialog-description'] {
++        color: #536878;
++    }
++    .mobile-discard-dialog {
++        background: #fff;
++        color: #092035;
++        color-scheme: light;
++    }
++    .mobile-task-form button[type='submit'] {
++        min-height: 40px;
++        background: #00845d;
++        color: #fff;
++    }
++}
+--- /dev/null
++++ b/tests/responsive-shell-continuity.test.mjs
+@@ -0,0 +1,224 @@
++import assert from 'node:assert/strict';
++import { readFileSync } from 'node:fs';
++import test from 'node:test';
++import vm from 'node:vm';
++import ts from 'typescript';
++
++const parse = (path) =>
++    ts.createSourceFile(
++        path,
++        readFileSync(new URL(`../${path}`, import.meta.url), 'utf8'),
++        ts.ScriptTarget.Latest,
++        true,
++        ts.ScriptKind.TSX,
++    );
++const layout = parse('resources/js/layouts/app/app-sidebar-layout.tsx');
++const mobile = parse('resources/js/components/mobile/mobile-experience.tsx');
++const collect = (root, predicate) => {
++    const found = [];
++    const visit = (node) => {
++        if (predicate(node)) {
++            found.push(node);
++        }
++
++        ts.forEachChild(node, visit);
++    };
++    visit(root);
++
++    return found;
++};
++const content = (root) =>
++    collect(
++        root,
++        (node) =>
++            ts.isJsxExpression(node) &&
++            node.expression?.getText() === 'children',
++    );
++const assertStablePath = (node, until) => {
++    for (
++        let parent = node.parent;
++        parent && parent !== until;
++        parent = parent.parent
++    ) {
++        assert.equal(
++            ts.isConditionalExpression(parent),
++            false,
++            'page identity must not depend on a responsive branch',
++        );
++        assert.equal(
++            ts.isBinaryExpression(parent),
++            false,
++            'page must not be conditionally duplicated or removed',
++        );
++    }
++};
++
++test('Inertia page has one unconditional MobileExperience parent at every breakpoint', () => {
++    const children = content(layout);
++    assert.equal(
++        children.length,
++        1,
++        'exactly one page mount, never two hidden copies',
++    );
++    assertStablePath(children[0], layout);
++    assert.equal(
++        children[0].parent.openingElement.tagName.getText(layout),
++        'MobileExperience',
++    );
++    const opening = children[0].parent.openingElement.getText(layout);
++    assert.match(opening, /active=\{isMobile\}/);
++    assert.doesNotMatch(
++        opening,
++        /key=/,
++        'responsive keys would destroy page state',
++    );
++});
++
++test('page host identity is stable while shell presentation changes', () => {
++    const fn = mobile.statements.find(
++        (node) =>
++            ts.isFunctionDeclaration(node) &&
++            node.name?.text === 'MobileExperience',
++    );
++    const children = content(fn);
++    assert.equal(children.length, 1);
++    assertStablePath(children[0], fn);
++    const host = children[0].parent.openingElement.getText(mobile);
++    assert.match(host, /key="inertia-page-content"/);
++    assert.match(host, /data-inertia-page-container/);
++    assert.match(host, /active \?/);
++    assert.match(host, /hidden=\{Boolean\(active/);
++    assert.match(host, /inert=\{Boolean\(active/);
++});
++
++test('task sheet retains its component lifetime when desktop chrome replaces mobile chrome', () => {
++    const fn = mobile.statements.find(
++        (node) =>
++            ts.isFunctionDeclaration(node) &&
++            node.name?.text === 'MobileExperience',
++    );
++    const sheets = collect(
++        fn,
++        (node) =>
++            ts.isJsxElement(node) &&
++            node.openingElement.tagName.getText(mobile) === 'Sheet',
++    );
++    assert.equal(sheets.length, 1);
++    assertStablePath(sheets[0], fn);
++    assert.match(
++        sheets[0].openingElement.getText(mobile),
++        /open=\{createOpen \|\| view === 'create'\}/,
++    );
++    assert.doesNotMatch(
++        sheets[0].openingElement.getText(mobile),
++        /active|key=/,
++    );
++});
++
++test('focus returns to a surviving opener or the replacement shell control', () => {
++    const fn = mobile.statements.find(
++        (node) =>
++            ts.isFunctionDeclaration(node) &&
++            node.name?.text === 'focusShellOpener',
++    );
++    assert.ok(fn);
++    const js = ts.transpileModule(
++        fn.getText(mobile) + '\nglobalThis.restore = focusShellOpener;',
++        { compilerOptions: { target: ts.ScriptTarget.ES2022 } },
++    ).outputText;
++    let originalFocus = 0;
++    let replacementFocus = 0;
++    const sandbox = {
++        document: {
++            querySelector(selector) {
++                assert.match(selector, /mobile-tabbar/);
++                assert.match(selector, /sidebar-trigger/);
++
++                return {
++                    focus() {
++                        replacementFocus++;
++                    },
++                };
++            },
++        },
++    };
++    vm.runInNewContext(js, sandbox);
++    sandbox.restore({
++        isConnected: true,
++        focus() {
++            originalFocus++;
++        },
++    });
++    assert.equal(originalFocus, 1);
++    assert.equal(replacementFocus, 0);
++    sandbox.restore({
++        isConnected: false,
++        focus() {
++            assert.fail('detached opener must not receive focus');
++        },
++    });
++    assert.equal(replacementFocus, 1);
++    sandbox.restore(null);
++    assert.equal(replacementFocus, 2);
++});
++
++test('desktop history Forward can reactivate the existing task guard and cleanup its listeners', () => {
++    const effects = collect(
++        mobile,
++        (node) =>
++            ts.isCallExpression(node) &&
++            node.expression.getText(mobile) === 'useEffect',
++    );
++    const effect = effects.find((node) =>
++        node.arguments[0]?.getText(mobile).includes('const stopNavigate'),
++    );
++    assert.ok(effect);
++    const source = `globalThis.install = ${effect.arguments[0].getText(mobile)};`;
++    const js = ts.transpileModule(source, {
++        compilerOptions: { target: ts.ScriptTarget.ES2022 },
++    }).outputText;
++    const listeners = new Map();
++    const browserListeners = new Set();
++    let open = false;
++    const sandbox = {
++        active: false,
++        createActive: { current: false },
++        traversing: { current: false },
++        taskForm: { current: null },
++        taskGuard: { busy: () => false },
++        finishTaskClose: () => {},
++        requestTaskClose: () => {},
++        setCreateOpen: (value) => {
++            open = value;
++        },
++        setCloseNotice: () => {},
++        mobileView: (url) =>
++            new URL(url, 'https://local.invalid').searchParams.get('mobile'),
++        router: {
++            on(name, callback) {
++                listeners.set(name, callback);
++
++                return () => listeners.delete(name);
++            },
++        },
++        window: {
++            addEventListener(name) {
++                browserListeners.add(name);
++            },
++            removeEventListener(name) {
++                browserListeners.delete(name);
++            },
++        },
++    };
++    vm.runInNewContext(js, sandbox);
++    const cleanup = sandbox.install();
++    assert.equal(typeof listeners.get('navigate'), 'function');
++    listeners.get('navigate')({
++        detail: { page: { url: '/opportunities?mobile=create' } },
++    });
++    assert.equal(sandbox.createActive.current, true);
++    assert.equal(open, true);
++    cleanup();
++    assert.equal(listeners.size, 0);
++    assert.equal(browserListeners.size, 0);
++});

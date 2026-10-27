@@ -1,0 +1,450 @@
+[
+  {
+    "path": "/opportunities",
+    "cards": 4,
+    "dialogs": 0,
+    "heading": "CRM",
+    "scroll": 320,
+    "width": 320
+  },
+  {
+    "path": "/people",
+    "cards": 5,
+    "dialogs": 0,
+    "heading": "Clientes",
+    "scroll": 320,
+    "width": 320
+  },
+  {
+    "path": "/quotes",
+    "cards": 5,
+    "dialogs": 0,
+    "heading": "Presupuestos",
+    "scroll": 320,
+    "width": 320
+  },
+  {
+    "path": "/people/create",
+    "cards": 0,
+    "dialogs": 0,
+    "heading": "Add customer",
+    "scroll": 320,
+    "width": 320
+  },
+  {
+    "path": "/quotes/create",
+    "cards": 0,
+    "dialogs": 0,
+    "heading": "Nuevo presupuesto",
+    "scroll": 320,
+    "width": 320
+  },
+  {
+    "path": "/opportunities/1",
+    "cards": 0,
+    "dialogs": 0,
+    "heading": "DEMO · Contacto sin email · propuesta pendiente",
+    "scroll": 320,
+    "width": 320
+  },
+  {
+    "path": "/people/2",
+    "cards": 0,
+    "dialogs": 0,
+    "heading": "DEMO 1 Cliente ficticio sin email",
+    "scroll": 320,
+    "width": 320
+  },
+  {
+    "path": "/quotes/2",
+    "cards": 0,
+    "dialogs": 0,
+    "heading": "DEMO-PRE-01 Borrador",
+    "scroll": 320,
+    "width": 320
+  },
+  {
+    "path": "/opportunities",
+    "cards": 4,
+    "dialogs": 0,
+    "heading": "CRM",
+    "scroll": 390,
+    "width": 390
+  },
+  {
+    "path": "/people",
+    "cards": 5,
+    "dialogs": 0,
+    "heading": "Clientes",
+    "scroll": 390,
+    "width": 390
+  },
+  {
+    "path": "/quotes",
+    "cards": 5,
+    "dialogs": 0,
+    "heading": "Presupuestos",
+    "scroll": 390,
+    "width": 390
+  },
+  {
+    "path": "/people/create",
+    "cards": 0,
+    "dialogs": 0,
+    "heading": "Add customer",
+    "scroll": 390,
+    "width": 390
+  },
+  {
+    "path": "/quotes/create",
+    "cards": 0,
+    "dialogs": 0,
+    "heading": "Nuevo presupuesto",
+    "scroll": 390,
+    "width": 390
+  },
+  {
+    "path": "/opportunities/1",
+    "cards": 0,
+    "dialogs": 0,
+    "heading": "DEMO · Contacto sin email · propuesta pendiente",
+    "scroll": 390,
+    "width": 390
+  },
+  {
+    "path": "/people/2",
+    "cards": 0,
+    "dialogs": 0,
+    "heading": "DEMO 1 Cliente ficticio sin email",
+    "scroll": 390,
+    "width": 390
+  },
+  {
+    "path": "/quotes/2",
+    "cards": 0,
+    "dialogs": 0,
+    "heading": "DEMO-PRE-01 Borrador",
+    "scroll": 390,
+    "width": 390
+  },
+  {
+    "path": "/opportunities",
+    "cards": 4,
+    "dialogs": 0,
+    "heading": "CRM",
+    "scroll": 412,
+    "width": 412
+  },
+  {
+    "path": "/people",
+    "cards": 5,
+    "dialogs": 0,
+    "heading": "Clientes",
+    "scroll": 412,
+    "width": 412
+  },
+  {
+    "path": "/quotes",
+    "cards": 5,
+    "dialogs": 0,
+    "heading": "Presupuestos",
+    "scroll": 412,
+    "width": 412
+  },
+  {
+    "path": "/people/create",
+    "cards": 0,
+    "dialogs": 0,
+    "heading": "Add customer",
+    "scroll": 412,
+    "width": 412
+  },
+  {
+    "path": "/quotes/create",
+    "cards": 0,
+    "dialogs": 0,
+    "heading": "Nuevo presupuesto",
+    "scroll": 412,
+    "width": 412
+  },
+  {
+    "path": "/opportunities/1",
+    "cards": 0,
+    "dialogs": 0,
+    "heading": "DEMO · Contacto sin email · propuesta pendiente",
+    "scroll": 412,
+    "width": 412
+  },
+  {
+    "path": "/people/2",
+    "cards": 0,
+    "dialogs": 0,
+    "heading": "DEMO 1 Cliente ficticio sin email",
+    "scroll": 412,
+    "width": 412
+  },
+  {
+    "path": "/quotes/2",
+    "cards": 0,
+    "dialogs": 0,
+    "heading": "DEMO-PRE-01 Borrador",
+    "scroll": 412,
+    "width": 412
+  },
+  {
+    "path": "/opportunities",
+    "cards": 4,
+    "dialogs": 0,
+    "heading": "CRM",
+    "scroll": 768,
+    "width": 768
+  },
+  {
+    "path": "/people",
+    "cards": 5,
+    "dialogs": 0,
+    "heading": "Clientes",
+    "scroll": 768,
+    "width": 768
+  },
+  {
+    "path": "/quotes",
+    "cards": 5,
+    "dialogs": 0,
+    "heading": "Presupuestos",
+    "scroll": 768,
+    "width": 768
+  },
+  {
+    "path": "/people/create",
+    "cards": 0,
+    "dialogs": 0,
+    "heading": "Add customer",
+    "scroll": 768,
+    "width": 768
+  },
+  {
+    "path": "/quotes/create",
+    "cards": 0,
+    "dialogs": 0,
+    "heading": "Nuevo presupuesto",
+    "scroll": 768,
+    "width": 768
+  },
+  {
+    "path": "/opportunities/1",
+    "cards": 0,
+    "dialogs": 0,
+    "heading": "DEMO · Contacto sin email · propuesta pendiente",
+    "scroll": 768,
+    "width": 768
+  },
+  {
+    "path": "/people/2",
+    "cards": 0,
+    "dialogs": 0,
+    "heading": "DEMO 1 Cliente ficticio sin email",
+    "scroll": 768,
+    "width": 768
+  },
+  {
+    "path": "/quotes/2",
+    "cards": 0,
+    "dialogs": 0,
+    "heading": "DEMO-PRE-01 Borrador",
+    "scroll": 768,
+    "width": 768
+  },
+  {
+    "path": "/opportunities",
+    "cards": 4,
+    "dialogs": 0,
+    "heading": "CRM",
+    "scroll": 1023,
+    "width": 1023
+  },
+  {
+    "path": "/people",
+    "cards": 5,
+    "dialogs": 0,
+    "heading": "Clientes",
+    "scroll": 1023,
+    "width": 1023
+  },
+  {
+    "path": "/quotes",
+    "cards": 5,
+    "dialogs": 0,
+    "heading": "Presupuestos",
+    "scroll": 1023,
+    "width": 1023
+  },
+  {
+    "path": "/people/create",
+    "cards": 0,
+    "dialogs": 0,
+    "heading": "Add customer",
+    "scroll": 1023,
+    "width": 1023
+  },
+  {
+    "path": "/quotes/create",
+    "cards": 0,
+    "dialogs": 0,
+    "heading": "Nuevo presupuesto",
+    "scroll": 1023,
+    "width": 1023
+  },
+  {
+    "path": "/opportunities/1",
+    "cards": 0,
+    "dialogs": 0,
+    "heading": "DEMO · Contacto sin email · propuesta pendiente",
+    "scroll": 1023,
+    "width": 1023
+  },
+  {
+    "path": "/people/2",
+    "cards": 0,
+    "dialogs": 0,
+    "heading": "DEMO 1 Cliente ficticio sin email",
+    "scroll": 1023,
+    "width": 1023
+  },
+  {
+    "path": "/quotes/2",
+    "cards": 0,
+    "dialogs": 0,
+    "heading": "DEMO-PRE-01 Borrador",
+    "scroll": 1023,
+    "width": 1023
+  },
+  {
+    "path": "/opportunities",
+    "cards": 0,
+    "dialogs": 0,
+    "heading": "CRM",
+    "scroll": 1024,
+    "width": 1024
+  },
+  {
+    "path": "/people",
+    "cards": 5,
+    "dialogs": 0,
+    "heading": "Clientes",
+    "scroll": 1024,
+    "width": 1024
+  },
+  {
+    "path": "/quotes",
+    "cards": 5,
+    "dialogs": 0,
+    "heading": "Presupuestos",
+    "scroll": 1024,
+    "width": 1024
+  },
+  {
+    "path": "/people/create",
+    "cards": 0,
+    "dialogs": 0,
+    "heading": "Add customer",
+    "scroll": 1024,
+    "width": 1024
+  },
+  {
+    "path": "/quotes/create",
+    "cards": 0,
+    "dialogs": 0,
+    "heading": "Nuevo presupuesto",
+    "scroll": 1024,
+    "width": 1024
+  },
+  {
+    "path": "/opportunities/1",
+    "cards": 0,
+    "dialogs": 0,
+    "heading": "DEMO · Contacto sin email · propuesta pendiente",
+    "scroll": 1024,
+    "width": 1024
+  },
+  {
+    "path": "/people/2",
+    "cards": 0,
+    "dialogs": 0,
+    "heading": "DEMO 1 Cliente ficticio sin email",
+    "scroll": 1024,
+    "width": 1024
+  },
+  {
+    "path": "/quotes/2",
+    "cards": 0,
+    "dialogs": 0,
+    "heading": "DEMO-PRE-01 Borrador",
+    "scroll": 1024,
+    "width": 1024
+  },
+  {
+    "path": "/opportunities",
+    "cards": 0,
+    "dialogs": 0,
+    "heading": "CRM",
+    "scroll": 1440,
+    "width": 1440
+  },
+  {
+    "path": "/people",
+    "cards": 5,
+    "dialogs": 0,
+    "heading": "Clientes",
+    "scroll": 1440,
+    "width": 1440
+  },
+  {
+    "path": "/quotes",
+    "cards": 5,
+    "dialogs": 0,
+    "heading": "Presupuestos",
+    "scroll": 1440,
+    "width": 1440
+  },
+  {
+    "path": "/people/create",
+    "cards": 0,
+    "dialogs": 0,
+    "heading": "Add customer",
+    "scroll": 1440,
+    "width": 1440
+  },
+  {
+    "path": "/quotes/create",
+    "cards": 0,
+    "dialogs": 0,
+    "heading": "Nuevo presupuesto",
+    "scroll": 1440,
+    "width": 1440
+  },
+  {
+    "path": "/opportunities/1",
+    "cards": 0,
+    "dialogs": 0,
+    "heading": "DEMO · Contacto sin email · propuesta pendiente",
+    "scroll": 1440,
+    "width": 1440
+  },
+  {
+    "path": "/people/2",
+    "cards": 0,
+    "dialogs": 0,
+    "heading": "DEMO 1 Cliente ficticio sin email",
+    "scroll": 1440,
+    "width": 1440
+  },
+  {
+    "path": "/quotes/2",
+    "cards": 0,
+    "dialogs": 0,
+    "heading": "DEMO-PRE-01 Borrador",
+    "scroll": 1440,
+    "width": 1440
+  }
+]

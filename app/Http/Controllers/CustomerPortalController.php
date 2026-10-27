@@ -25,6 +25,7 @@ use App\Services\AfterSales\SlaManager;
 use App\Services\Documents\DocumentFingerprint;
 use App\Services\Documents\DocumentPdf;
 use App\Services\Quotes\QuoteStatusWorkflow;
+use App\Support\Time\BusinessTime;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -43,19 +44,19 @@ class CustomerPortalController extends Controller
         abort_unless($person->category === 'customer', 422);
         $data = $request->validate(['recipient_email' => ['required', 'email', 'max:255'], 'expires_days' => ['nullable', 'integer', 'min:1', 'max:365']]);
         $token = Str::random(64);
-        $expires = now()->addDays($data['expires_days'] ?? 90);
+        $expires = BusinessTime::now()->addDays($data['expires_days'] ?? 90);
         $access = CustomerPortalAccess::create(['person_id' => $person->id, 'created_by' => $request->user()->id, 'recipient_email' => $data['recipient_email'], 'token_hash' => hash('sha256', $token), 'expires_at' => $expires]);
         $name = $person->company_name ?: trim($person->first_name.' '.$person->last_name);
         try {
             Mail::to($access->recipient_email)->send(new CustomerPortalMail($name, route('customer-portal.show', $token), $expires->format('d/m/Y')));
             DB::transaction(function () use ($person, $access, $request, $expires): void {
-                $person->portalAccesses()->whereKeyNot($access->id)->whereNull('revoked_at')->update(['revoked_at' => now()]);
-                $access->update(['sent_at' => now()]);
+                $person->portalAccesses()->whereKeyNot($access->id)->whereNull('revoked_at')->update(['revoked_at' => BusinessTime::now()]);
+                $access->update(['sent_at' => BusinessTime::now()]);
                 CustomerPortalEvent::record($person, 'portal_invited', $access, $request, null, ['recipient_email' => $access->recipient_email, 'expires_at' => $expires->toIso8601String()]);
             });
         } catch (\Throwable $exception) {
             report($exception);
-            $access->update(['revoked_at' => now()]);
+            $access->update(['revoked_at' => BusinessTime::now()]);
 
             return back()->withErrors(['recipient_email' => __('The portal invitation could not be sent.')]);
         }
@@ -66,7 +67,7 @@ class CustomerPortalController extends Controller
     public function revoke(Request $request, Person $person, CustomerPortalAccess $access): RedirectResponse
     {
         abort_unless($access->person_id === $person->id, 404);
-        $access->update(['revoked_at' => now()]);
+        $access->update(['revoked_at' => BusinessTime::now()]);
         CustomerPortalEvent::record($person, 'portal_access_revoked', $access, $request, null, ['recipient_email' => $access->recipient_email]);
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Portal access revoked.')]);
@@ -161,7 +162,7 @@ class CustomerPortalController extends Controller
                         'assets_serviced' => $snapshot['assets']['serviced'] ?? 0,
                     ];
                 }),
-            'certificates' => WorkOrderAttachment::query()->where('kind', 'document')->where('publication_status', 'published')->where('customer_visible', true)->whereNotNull('published_at')->where('published_at', '<=', now())->whereHas('workOrder.installation', fn ($query) => $query->where('person_id', $customer->id))->with(['workOrder:id,installation_id,number,handover_documents', 'workOrder.installation:id,service_type,status,project_reference,site_name,completed_date'])->latest('published_at')->get()->map(function ($item) {
+            'certificates' => WorkOrderAttachment::query()->where('kind', 'document')->where('publication_status', 'published')->where('customer_visible', true)->whereNotNull('published_at')->whereInstant('published_at', '<=', BusinessTime::now())->whereHas('workOrder.installation', fn ($query) => $query->where('person_id', $customer->id))->with(['workOrder:id,installation_id,number,handover_documents', 'workOrder.installation:id,service_type,status,project_reference,site_name,completed_date'])->latest('published_at')->get()->map(function ($item) {
                 $definition = collect($item->workOrder->handover_documents ?? [])->firstWhere('key', $item->evidence_key);
 
                 return [
@@ -237,7 +238,7 @@ class CustomerPortalController extends Controller
             ], [
                 'customer_portal_access_id' => $access->id,
                 'document_hash' => $fingerprint['hash'],
-                'accepted_at' => now(),
+                'accepted_at' => BusinessTime::now(),
                 'ip_address' => $request->ip(),
                 'user_agent' => Str::limit((string) $request->userAgent(), 1000, ''),
             ]);
@@ -277,7 +278,7 @@ class CustomerPortalController extends Controller
             abort_if($data['context'] === 'sale' && CustomerSatisfactionSurvey::where('person_id', $access->person_id)->where('context', 'sale')->exists(), 422, __('This survey has already been completed.'));
         }
         $survey = DB::transaction(function () use ($data, $access, $ticket): CustomerSatisfactionSurvey {
-            $survey = CustomerSatisfactionSurvey::create([...$data, 'person_id' => $access->person_id, 'customer_portal_access_id' => $access->id, 'submitted_at' => now()]);
+            $survey = CustomerSatisfactionSurvey::create([...$data, 'person_id' => $access->person_id, 'customer_portal_access_id' => $access->id, 'submitted_at' => BusinessTime::now()]);
             $ticket?->update(['satisfaction_rating' => $survey->score]);
 
             return $survey;
@@ -290,7 +291,7 @@ class CustomerPortalController extends Controller
     public function certificate(Request $request, string $token, WorkOrderAttachment $attachment): StreamedResponse
     {
         $access = $this->access($token);
-        abort_unless($attachment->kind === 'document' && $attachment->publication_status === 'published' && $attachment->customer_visible && $attachment->published_at && now()->gte($attachment->published_at) && $attachment->workOrder()->whereHas('installation', fn ($query) => $query->where('person_id', $access->person_id))->exists(), 404);
+        abort_unless($attachment->kind === 'document' && $attachment->publication_status === 'published' && $attachment->customer_visible && $attachment->published_at && BusinessTime::now()->gte($attachment->published_at) && $attachment->workOrder()->whereHas('installation', fn ($query) => $query->where('person_id', $access->person_id))->exists(), 404);
         abort_unless(Storage::disk(config('filesystems.private'))->exists($attachment->path), 404);
         CustomerPortalEvent::record($access->customer, 'certificate_downloaded', $access, $request, $attachment, ['name' => $attachment->original_name]);
 
@@ -300,8 +301,8 @@ class CustomerPortalController extends Controller
     private function access(string $token): CustomerPortalAccess
     {
         $access = CustomerPortalAccess::with('customer')->where('token_hash', hash('sha256', $token))->firstOrFail();
-        abort_if($access->revoked_at || $access->expires_at->isPast(), 410, __('This portal link has expired.'));
-        $access->update(['first_accessed_at' => $access->first_accessed_at ?: now(), 'last_accessed_at' => now()]);
+        abort_if($access->revoked_at || ! $access->expires_at || $access->expires_at->lessThanOrEqualTo(BusinessTime::now()), 410, __('This portal link has expired.'));
+        $access->update(['first_accessed_at' => $access->first_accessed_at ?: BusinessTime::now(), 'last_accessed_at' => BusinessTime::now()]);
 
         return $access;
     }

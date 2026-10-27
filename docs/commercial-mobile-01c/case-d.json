@@ -1,0 +1,38 @@
+[
+  {
+    "width": 1023,
+    "ax": "Browser tab: 3, Title: \"CRM - Arevantes\", URL: \"http://localhost:8000/opportunities?mobile=create\".\n1 AXWebArea CRM - Arevantes, URL: localhost:8000/opportunities?mobile=create\n\t2 container\n\t\t3 container Notifications alt+T\n\t\t4 container Crear tarea, ID: radix-_r_c_\n\t\t\t5 heading Crear tarea, Value: 2, ID: radix-_r_d_\n\t\t\t\t6 text Crear tarea\n\t\t\t7 text Acciones disponibles para tu perfil.\n\t\t\t8 container\n\t\t\t\t9 text T\u00edtulo\n\t\t\t\t10 text field (settable) T\u00edtulo, Value: <redacted>\n\t\t\t\t11 text Fecha y hora\n\t\t\t\t12 date field Fecha y hora\n\t\t\t\t\t13 container\n\t\t\t\t\t\t14 stepper\n\t\t\t\t\t\t15 stepper\n\t\t\t\t\t\t16 stepper\n\t\t\t\t\t\t17 stepper\n\t\t\t\t\t\t18 stepper\n\t\t\t\t\t19 pop up button\n\t\t\t\t20 text Prioridad\n\t\t\t\t21 pop up button (collapsed, settable) Prioridad, Value: Media, ID: mobile-task-priority, Secondary Actions: Expand\n\t\t\t\t\t22 menu\n\t\t\t\t\t\t23 Baja\n\t\t\t\t\t\t24 (selected) Media\n\t\t\t\t\t\t25 Alta\n\t\t\t\t26 text Asignada a ti. Puedes vincular instalaciones y clientes desde Operaciones.\n\t\t\t\t27 button Crear tarea\n\t\t\t\t28 link Description: Abrir Operaciones, Value: localhost:8000/operations/activities\n\t\t\t29 button (collapsed) Otras acciones, Secondary Actions: Expand\n\t\t\t\t30 text Otras acciones\n\t\t\t31 button Cerrar\n\t\t\t\t32 image\n\t\t\t\t33 text Cerrar\n\nThe focused UI element is 10 text field (settable) T\u00edtulo, Value: <redacted>",
+    "dom": {
+      "dialogs": 1,
+      "hosts": 1,
+      "navs": 1,
+      "taskForms": 1
+    },
+    "axValueRedacted": true,
+    "retainedByScreenshotReview": true
+  },
+  {
+    "width": 1024,
+    "ax": "Browser tab: 3, Title: \"CRM - Arevantes\", URL: \"http://localhost:8000/opportunities?mobile=create\".\n1 AXWebArea CRM - Arevantes, URL: localhost:8000/opportunities?mobile=create\n\t2 container\n\t\t3 container Notifications alt+T\n\t\t4 container Crear tarea, ID: radix-_r_c_\n\t\t\t5 heading Crear tarea, Value: 2, ID: radix-_r_d_\n\t\t\t\t6 text Crear tarea\n\t\t\t7 text Acciones disponibles para tu perfil.\n\t\t\t8 container\n\t\t\t\t9 text T\u00edtulo\n\t\t\t\t10 text field (settable) T\u00edtulo, Value: <redacted>\n\t\t\t\t11 text Fecha y hora\n\t\t\t\t12 date field Fecha y hora\n\t\t\t\t\t13 container\n\t\t\t\t\t\t14 stepper\n\t\t\t\t\t\t15 stepper\n\t\t\t\t\t\t16 stepper\n\t\t\t\t\t\t17 stepper\n\t\t\t\t\t\t18 stepper\n\t\t\t\t\t19 pop up button\n\t\t\t\t20 text Prioridad\n\t\t\t\t21 pop up button (collapsed, settable) Prioridad, Value: Media, ID: mobile-task-priority, Secondary Actions: Expand\n\t\t\t\t\t22 menu\n\t\t\t\t\t\t23 Baja\n\t\t\t\t\t\t24 (selected) Media\n\t\t\t\t\t\t25 Alta\n\t\t\t\t26 text Asignada a ti. Puedes vincular instalaciones y clientes desde Operaciones.\n\t\t\t\t27 button Crear tarea\n\t\t\t\t28 link Description: Abrir Operaciones, Value: localhost:8000/operations/activities\n\t\t\t29 button (collapsed) Otras acciones, Secondary Actions: Expand\n\t\t\t\t30 text Otras acciones\n\t\t\t31 button Cerrar\n\t\t\t\t32 image\n\t\t\t\t33 text Cerrar\n\nThe focused UI element is 10 text field (settable) T\u00edtulo, Value: <redacted>",
+    "dom": {
+      "dialogs": 1,
+      "hosts": 1,
+      "navs": 0,
+      "taskForms": 1
+    },
+    "axValueRedacted": true,
+    "retainedByScreenshotReview": true
+  },
+  {
+    "width": 1023,
+    "ax": "Browser tab: 3, Title: \"CRM - Arevantes\", URL: \"http://localhost:8000/opportunities?mobile=create\".\n1 AXWebArea CRM - Arevantes, URL: localhost:8000/opportunities?mobile=create\n\t2 container\n\t\t3 container Notifications alt+T\n\t\t4 container Crear tarea, ID: radix-_r_c_\n\t\t\t5 heading Crear tarea, Value: 2, ID: radix-_r_d_\n\t\t\t\t6 text Crear tarea\n\t\t\t7 text Acciones disponibles para tu perfil.\n\t\t\t8 container\n\t\t\t\t9 text T\u00edtulo\n\t\t\t\t10 text field (settable) T\u00edtulo, Value: <redacted>\n\t\t\t\t11 text Fecha y hora\n\t\t\t\t12 date field Fecha y hora\n\t\t\t\t\t13 container\n\t\t\t\t\t\t14 stepper\n\t\t\t\t\t\t15 stepper\n\t\t\t\t\t\t16 stepper\n\t\t\t\t\t\t17 stepper\n\t\t\t\t\t\t18 stepper\n\t\t\t\t\t19 pop up button\n\t\t\t\t20 text Prioridad\n\t\t\t\t21 pop up button (collapsed, settable) Prioridad, Value: Media, ID: mobile-task-priority, Secondary Actions: Expand\n\t\t\t\t\t22 menu\n\t\t\t\t\t\t23 Baja\n\t\t\t\t\t\t24 (selected) Media\n\t\t\t\t\t\t25 Alta\n\t\t\t\t26 text Asignada a ti. Puedes vincular instalaciones y clientes desde Operaciones.\n\t\t\t\t27 button Crear tarea\n\t\t\t\t28 link Description: Abrir Operaciones, Value: localhost:8000/operations/activities\n\t\t\t29 button (collapsed) Otras acciones, Secondary Actions: Expand\n\t\t\t\t30 text Otras acciones\n\t\t\t31 button Cerrar\n\t\t\t\t32 image\n\t\t\t\t33 text Cerrar\n\nThe focused UI element is 10 text field (settable) T\u00edtulo, Value: <redacted>",
+    "dom": {
+      "dialogs": 1,
+      "hosts": 1,
+      "navs": 1,
+      "taskForms": 1
+    },
+    "axValueRedacted": true,
+    "retainedByScreenshotReview": true
+  }
+]

@@ -139,9 +139,15 @@ class FiscalSettingsController extends Controller
     {
         abort_unless($series->fiscalYear?->status === 'open', 422, __('The fiscal year is closed.'));
         $data = $request->validate(['name' => ['required', 'string', 'max:255'], 'prefix' => ['required', 'string', 'max:20'], 'next_number' => ['required', 'integer', 'min:1'], 'is_active' => ['required', 'boolean']]);
-        abort_if($series->next_number > 1 && $data['prefix'] !== $series->prefix, 422, __('The prefix of a used series cannot be changed.'));
-        abort_if($data['next_number'] < $series->next_number, 422, __('The next number cannot be decreased.'));
-        $series->update($data);
+        DB::transaction(function () use ($series, $data): void {
+            // Match numbering's lock order, then recheck the current values, not the stale form model.
+            $year = FiscalYear::whereKey($series->fiscal_year_id)->lockForUpdate()->firstOrFail();
+            $series = DocumentSeries::whereKey($series->id)->lockForUpdate()->firstOrFail();
+            abort_unless($year->status === 'open', 422, __('The fiscal year is closed.'));
+            abort_if($series->next_number > 1 && $data['prefix'] !== $series->prefix, 422, __('The prefix of a used series cannot be changed.'));
+            abort_if($data['next_number'] < $series->next_number, 422, __('The next number cannot be decreased.'));
+            $series->update($data);
+        });
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Document series updated.')]);
     }

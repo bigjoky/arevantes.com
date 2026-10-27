@@ -4,6 +4,7 @@ namespace App\Services\Planning;
 
 use App\Models\PlanningScenario;
 use App\Models\User;
+use App\Support\Time\BusinessTime;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -28,14 +29,14 @@ class PlanningScenarioApproval
                 throw ValidationException::withMessages(['approval' => __('The scenario fingerprint no longer matches its frozen contents.')]);
             }
 
-            if (! $locked->reference_valid_until?->isFuture()) {
+            if (! ($locked->reference_valid_until && $locked->reference_valid_until->gt(BusinessTime::now()))) {
                 throw ValidationException::withMessages(['approval' => __('The capacity and stock references have expired. Freeze a new scenario before approval.')]);
             }
 
             $locked->update([
                 'status' => 'approved',
                 'approved_by' => $actor->id,
-                'approved_at' => now(),
+                'approved_at' => BusinessTime::now(),
                 'approved_fingerprint' => $locked->fingerprint,
                 'approval_note' => $note,
             ]);

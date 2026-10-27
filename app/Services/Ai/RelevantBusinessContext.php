@@ -166,7 +166,7 @@ class RelevantBusinessContext
         $builder->where(function ($query) use ($tokens, $columns) {
             foreach ($tokens as $token) {
                 foreach ($columns as $column) {
-                    $query->orWhere($column, 'like', '%'.$token.'%');
+                    $query->orWhereLike($column, '%'.$token.'%');
                 }
             }
         });

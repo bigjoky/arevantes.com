@@ -37,6 +37,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { useDocumentCreation } from '@/hooks/use-document-creation';
 import { useLocale } from '@/hooks/use-locale';
 import { translate } from '@/i18n';
 import type { ServiceType } from '@/lib/business-lines';
@@ -279,6 +280,9 @@ export default function QuoteShow({
         billing: boolean;
     };
 }) {
+    const orderCreation = useDocumentCreation();
+    const deliveryCreation = useDocumentCreation();
+    const milestoneCreation = useDocumentCreation();
     const { locale } = useLocale();
     const todayKey = new Intl.DateTimeFormat('en-CA').format(new Date());
     const eventKinds = { status: 'status', version: 'version' };
@@ -1428,6 +1432,16 @@ export default function QuoteShow({
                                     <Form
                                         key={type}
                                         action={`/quotes/${quote.id}/convert`}
+                                        transform={
+                                            type === 'order'
+                                                ? orderCreation.transform
+                                                : deliveryCreation.transform
+                                        }
+                                        onSuccess={
+                                            type === 'order'
+                                                ? orderCreation.complete
+                                                : deliveryCreation.complete
+                                        }
                                         method="post"
                                         className="grid gap-3"
                                     >
@@ -1730,7 +1744,11 @@ export default function QuoteShow({
                     <Form
                         action={`/quotes/${quote.id}/convert`}
                         method="post"
-                        onSuccess={() => setBillingOpen(false)}
+                        transform={milestoneCreation.transform}
+                        onSuccess={() => {
+                            milestoneCreation.complete();
+                            setBillingOpen(false);
+                        }}
                     >
                         {({ errors, processing }) => (
                             <div className="grid gap-5">

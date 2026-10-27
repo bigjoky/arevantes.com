@@ -3,10 +3,10 @@
 return [
     'energia' => [
         'slug' => 'energia',
-        'name' => 'Energía y movilidad',
+        'name' => 'Energías renovables',
         'short_name' => 'Energía',
-        'eyebrow' => 'Energía y movilidad',
-        'title' => 'Energía que trabaja a favor de tu consumo',
+        'eyebrow' => 'Energías renovables',
+        'title' => 'Autoconsumo que genera valor.',
         'description' => 'Diseñamos soluciones de autoconsumo, almacenamiento y recarga coordinadas con el uso real de cada vivienda o negocio.',
         'seo_title' => 'Energía solar, baterías y recarga · Arevantes',
         'seo_description' => 'Diseño, instalación y mantenimiento de autoconsumo fotovoltaico, baterías y puntos de recarga en Córdoba y Andalucía.',
@@ -57,7 +57,7 @@ return [
     ],
     'seguridad' => [
         'slug' => 'seguridad',
-        'name' => 'Alarmas y seguridad',
+        'name' => 'Seguridad y control',
         'short_name' => 'Seguridad',
         'eyebrow' => 'Alarmas y sistemas de seguridad',
         'title' => 'Protección diseñada alrededor de cada espacio',

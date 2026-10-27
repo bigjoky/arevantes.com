@@ -4,7 +4,6 @@ namespace Tests\Feature;
 
 use App\Models\Product;
 use App\Models\PurchaseDocument;
-use App\Models\Supplier;
 use App\Models\SupplierProduct;
 use App\Models\SupplierProductPrice;
 use App\Models\TaxRate;
@@ -12,6 +11,7 @@ use App\Models\Unit;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Inertia\Testing\AssertableInertia as Assert;
+use Tests\Support\EconomicFixture;
 use Tests\TestCase;
 
 class SupplyAnalyticsTest extends TestCase
@@ -21,7 +21,7 @@ class SupplyAnalyticsTest extends TestCase
     public function test_analytics_combines_net_spend_uninvoiced_commitments_and_price_changes(): void
     {
         $user = User::factory()->create(['role' => 'commercial']);
-        $supplier = Supplier::create(['legal_name' => 'Analytics Supply SL', 'country' => 'ES', 'is_active' => true]);
+        $supplier = EconomicFixture::supplier(['legal_name' => 'Analytics Supply SL', 'country' => 'ES', 'is_active' => true]);
         $product = Product::create([
             'type' => 'product',
             'sku' => 'ANALYTICS-PANEL',
@@ -51,7 +51,7 @@ class SupplyAnalyticsTest extends TestCase
         $order = PurchaseDocument::where('type', 'purchase_order')->firstOrFail();
         $orderLine = $order->lines()->firstOrFail();
 
-        $invoice = PurchaseDocument::create([
+        $invoice = EconomicFixture::purchase([
             'type' => 'supplier_invoice',
             'source_document_id' => $order->id,
             'supplier_id' => $supplier->id,
@@ -81,7 +81,7 @@ class SupplyAnalyticsTest extends TestCase
             'tax_amount' => 75.60,
             'total' => 435.60,
         ]);
-        PurchaseDocument::create([
+        EconomicFixture::purchase([
             'type' => 'supplier_credit_note',
             'source_document_id' => $invoice->id,
             'supplier_id' => $supplier->id,

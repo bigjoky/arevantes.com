@@ -1,0 +1,58 @@
+{
+  "base_commit": "e426a7abdc223f1310ede034e13ac2c1d2bf5cfe",
+  "prior_commercial_patch_sha256": "d6df8b48e0fa489c10f095d3ef16aca498dd0b6ea0be3b5400d0b621bf94eefc",
+  "increment_sha256": "a6b49a4401da52931ede9b40d4455c7ed6353c274b35d522b0aa7713f5adceba",
+  "files": [
+    {
+      "path": "resources/js/layouts/app/app-sidebar-layout.tsx",
+      "target_sha256": "f13a9f1b606d61d893fb339318c3f6897ffa62394161703d1c62c91f314761d3",
+      "working_sha256": "f13a9f1b606d61d893fb339318c3f6897ffa62394161703d1c62c91f314761d3",
+      "base_sha256": "b50dd449dbf249280f809115d0292323841f4f118c7939fb9100090bfc6833c9"
+    },
+    {
+      "path": "resources/js/components/mobile/mobile-experience.tsx",
+      "target_sha256": "1dd05adc245150d63ea8358ffe62dcc084180de113ac3bc50bd7248e90531bbe",
+      "working_sha256": "1dd05adc245150d63ea8358ffe62dcc084180de113ac3bc50bd7248e90531bbe",
+      "base_sha256": "e7fbf1ff0848ff48a8ddf01cb884dff1bdea0cbccc2efe2fd0db2a3f009f3a04"
+    },
+    {
+      "path": "resources/css/mobile-app.css",
+      "target_sha256": "fb1bee06832beabc62f8e9a3eec37ac481175b0797c4ff607f85650a0f358f50",
+      "working_sha256": "4efc6b8a1f0b0e8017d86818017eb9200623b88c6d95e0c37a421d4a3d521516",
+      "base_sha256": "94111ef962c304b329586729e860aef60f932a98b65dfbb4f50f05eeb5a3372d"
+    },
+    {
+      "path": "tests/responsive-shell-continuity.test.mjs",
+      "target_sha256": "8c685f72b32e9bc7d8e3df5f43778c8c3a03462fedd6ebfe51fc06174a4327f7",
+      "working_sha256": "8c685f72b32e9bc7d8e3df5f43778c8c3a03462fedd6ebfe51fc06174a4327f7",
+      "base_sha256": null
+    }
+  ],
+  "application": "base + immutable 01B patch + R02 increment, checked only in temporary directory",
+  "isolated_directory": "/var/folders/y_/w7xhnmfd4y964vz8m224528c0000gn/T/arevantes-commercial-01c-isolated-kujfaag6",
+  "css_note": "Base formatting retained; only appended desktop task continuity rules are included.",
+  "verification": {
+    "frontend_isolated": {
+      "passed": 50,
+      "failed": 0
+    },
+    "backend_isolated": {
+      "passed": 90,
+      "failed": 0,
+      "assertions": 1633
+    },
+    "frontend_shared_last": {
+      "passed": 56,
+      "failed": 0
+    },
+    "build": "passed",
+    "types": "passed",
+    "lint": "passed",
+    "diff_check": "passed",
+    "viewport_checks": 70,
+    "viewport_violations": 0,
+    "browser_cases": "A-F completed; F is invalid-save response, no packet counter available",
+    "physical_devices": "not tested",
+    "dictamen": "apto para preparar integraci\u00f3n; no publicaci\u00f3n autorizada"
+  }
+}

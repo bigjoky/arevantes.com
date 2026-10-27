@@ -6,6 +6,7 @@ use App\Models\PlanningScenario;
 use App\Models\PlanningScenarioRequest;
 use App\Models\PlanningScenarioReview;
 use App\Models\User;
+use App\Support\Time\BusinessTime;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
@@ -43,7 +44,7 @@ class PlanningScenarioLifecycle
                 'fingerprint' => $fingerprint,
                 'explanation' => $explanation,
                 'created_by' => $actor->id,
-                'reviewed_at' => now(),
+                'reviewed_at' => BusinessTime::now(),
             ]);
         });
     }
@@ -83,7 +84,7 @@ class PlanningScenarioLifecycle
                 'closure_fingerprint' => $fingerprint,
                 'closure_note' => $note,
                 'closed_by' => $actor->id,
-                'closed_at' => now(),
+                'closed_at' => BusinessTime::now(),
             ]);
 
             return $locked->refresh();
@@ -131,7 +132,7 @@ class PlanningScenarioLifecycle
         })->values();
 
         return [
-            'captured_at' => now()->toIso8601String(),
+            'captured_at' => BusinessTime::now()->toIso8601String(),
             'summary' => [
                 'requests' => $requests->count(),
                 'executed' => $requests->where('execution_status', 'executed')->count(),

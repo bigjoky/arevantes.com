@@ -19,6 +19,8 @@ use App\Services\Documents\OpportunityNumber;
 use App\Services\Projects\ProjectJourney;
 use App\Support\Crm\OpportunityCatalog;
 use App\Support\PhoneNormalizer;
+use App\Support\Time\BusinessTime;
+use App\Support\Time\InstantSql;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
@@ -60,7 +62,8 @@ class OpportunityController extends Controller
         } elseif ($section === 'pipeline') {
             $stagePage = max(1, min(10000, $request->integer('stage_page', 1)));
             $pageStage = $request->input('page_stage');
-            $ranked = (clone $query)->withoutEagerLoads()->reorder()->selectRaw('id, stage, ROW_NUMBER() OVER (PARTITION BY stage ORDER BY created_at DESC, id DESC) as stage_row');
+            $createdEpoch = InstantSql::forModel(Opportunity::class, 'created_at');
+            $ranked = (clone $query)->withoutEagerLoads()->reorder()->selectRaw("id, stage, ROW_NUMBER() OVER (PARTITION BY stage ORDER BY $createdEpoch DESC, id DESC) as stage_row");
             $ids = DB::query()->fromSub($ranked->toBase(), 'ranked')->where(fn ($rows) => $rows
                 ->where('stage_row', '<=', 8)
                 ->when(array_key_exists((string) $pageStage, OpportunityCatalog::STAGES), fn ($rows) => $rows->orWhere(fn ($stageRows) => $stageRows->where('stage', $pageStage)->whereBetween('stage_row', [($stagePage - 1) * 8 + 1, $stagePage * 8]))))
@@ -718,14 +721,14 @@ class OpportunityController extends Controller
             ->when($request->input('attention') === 'stale', fn ($query) => $query
                 ->whereNotIn('stage', ['won', 'lost'])
                 ->whereRaw(
-                    'coalesce((select max(changed_at) from opportunity_stage_histories where opportunity_id = opportunities.id), opportunities.created_at) < ?',
-                    [now()->subDays($staleAfterDays)],
+                    'coalesce((select max('.InstantSql::legacyEpoch('changed_at').') from opportunity_stage_histories where opportunity_id = opportunities.id), '.InstantSql::forModel(Opportunity::class, 'opportunities.created_at').') < ?',
+                    [BusinessTime::now()->subDays($staleAfterDays)->timestamp],
                 ))
             ->when($request->input('attention') === 'response_sla', fn ($query) => $query
                 ->whereNotIn('stage', ['won', 'lost'])
                 ->whereNull('first_responded_at')
                 ->whereNotNull('first_response_due_at')
-                ->where('first_response_due_at', '<', now()))
+                ->whereInstant('first_response_due_at', '<', BusinessTime::now()))
             ->when($request->input('attention') === 'renewal_due', fn ($query) => $query
                 ->whereNotIn('stage', ['won', 'lost'])
                 ->whereIn('commercial_kind', ['renewal', 'recurring'])

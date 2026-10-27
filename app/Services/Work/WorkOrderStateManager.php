@@ -5,6 +5,7 @@ namespace App\Services\Work;
 use App\Models\Installation;
 use App\Models\WorkOrder;
 use App\Services\AfterSales\ServiceCycleCompletionWorkflow;
+use App\Support\Time\BusinessTime;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -62,7 +63,7 @@ class WorkOrderStateManager
                 if (! $locked->assigned_user_id) {
                     throw ValidationException::withMessages(['status' => 'Asigna un técnico cualificado antes de iniciar o completar la instalación.']);
                 }
-                $start = $locked->scheduled_start ?: now();
+                $start = $locked->scheduled_start ?: BusinessTime::now();
                 $end = $locked->scheduled_end ?: $start->copy()->addMinutes($locked->estimated_duration_minutes ?: 120);
                 app(TechnicianSchedule::class)->assertAvailable($locked->assigned_user_id, $start, $end, $locked->id, $locked->required_skills ?? [], $locked->service_zone);
             }
@@ -78,7 +79,7 @@ class WorkOrderStateManager
 
             $updates = [
                 'status' => $status,
-                'completed_at' => $status === 'completed' ? ($locked->completed_at ?: now()) : null,
+                'completed_at' => $status === 'completed' ? ($locked->completed_at ?: BusinessTime::now()) : null,
             ];
             if ($completionNotes !== null || $status === 'completed') {
                 $updates['completion_notes'] = $completionNotes;

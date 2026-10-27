@@ -64,6 +64,11 @@ class IssuedInvoiceCorrectionTest extends TestCase
         $this->assertNotSame($oldBytes, $newBytes);
         $this->assertSame(hash('sha256', $newBytes), $invoice->archived_pdf_hash);
         $this->assertSame($oldBytes, Storage::disk(config('filesystems.private'))->get($oldPath));
+        $audit = AuditLog::where('event', 'issued_invoice_corrected')->latest('id')->firstOrFail();
+        $this->assertSame($oldPath, $audit->old_values['archived_pdf_path']);
+        $this->assertSame(hash('sha256', $oldBytes), $audit->old_values['archived_pdf_hash']);
+        $this->assertSame($invoice->archived_pdf_path, $audit->new_values['archived_pdf_path']);
+        $this->assertSame($invoice->archived_pdf_hash, $audit->new_values['archived_pdf_hash']);
         CompanyProfile::firstOrFail()->update(['legal_name' => 'Changed after correction']);
         $this->assertSame($newBytes, $this->get(route('sales-documents.pdf', $invoice))->assertOk()->getContent());
     }

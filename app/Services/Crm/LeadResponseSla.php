@@ -5,6 +5,7 @@ namespace App\Services\Crm;
 use App\Models\CrmActivity;
 use App\Models\CrmSetting;
 use App\Models\Opportunity;
+use App\Support\Time\BusinessTime;
 
 final class LeadResponseSla
 {
@@ -18,7 +19,7 @@ final class LeadResponseSla
             return;
         }
 
-        $startedAt = $opportunity->created_at ?? now();
+        $startedAt = $opportunity->created_at ?? BusinessTime::now();
         $opportunity->updateQuietly([
             'first_response_due_at' => $startedAt->copy()->addMinutes(CrmSetting::current()->lead_response_sla_minutes),
         ]);
@@ -35,7 +36,7 @@ final class LeadResponseSla
         return Opportunity::query()
             ->whereKey($activity->opportunity_id)
             ->whereNull('first_responded_at')
-            ->update(['first_responded_at' => $activity->completed_at ?? now()]) === 1;
+            ->update(BusinessTime::storage('first_responded_at', $activity->completed_at ?? BusinessTime::now())) === 1;
     }
 
     public function status(Opportunity $opportunity): string
@@ -54,7 +55,7 @@ final class LeadResponseSla
             return 'not_applicable';
         }
 
-        return $opportunity->first_response_due_at->isPast() ? 'breached' : 'pending';
+        return $opportunity->first_response_due_at->lt(BusinessTime::now()) ? 'breached' : 'pending';
     }
 
     public function responseMinutes(Opportunity $opportunity): ?int

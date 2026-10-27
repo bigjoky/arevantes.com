@@ -8,6 +8,8 @@ use App\Models\Opportunity;
 use App\Models\ServiceCycleCommitment;
 use App\Models\ServiceCycleDeviation;
 use App\Models\ServiceTicket;
+use App\Models\TimeEntry;
+use App\Support\Time\InstantSql;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -116,7 +118,7 @@ class RecurringServiceHealth
         if ($workOrderIds->isEmpty()) {
             return 0.0;
         }
-        $labour = DB::table('time_entries')->whereIn('work_order_id', $workOrderIds)->whereBetween('started_at', [$filter->from, $filter->to])
+        $labour = DB::table('time_entries')->whereIn('work_order_id', $workOrderIds)->whereBetween(DB::raw(InstantSql::forModel(TimeEntry::class, 'started_at')), [$filter->from->timestamp, $filter->to->timestamp])
             ->selectRaw('COALESCE(SUM((COALESCE(duration_minutes, 0) / 60.0) * hourly_cost + travel_km * mileage_rate), 0) total')->value('total');
         $materials = DB::table('stock_movement_lines')->join('stock_movements', 'stock_movements.id', '=', 'stock_movement_lines.stock_movement_id')
             ->whereIn('stock_movements.work_order_id', $workOrderIds)->where('stock_movements.type', 'issue')->whereBetween('stock_movements.posted_at', [$filter->from, $filter->to])

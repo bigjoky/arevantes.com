@@ -43,6 +43,7 @@ class HandleInertiaRequests extends Middleware
         $user = $request->user();
         $sharesWorkspace = $user !== null && ! $request->routeIs(
             'home',
+            'public.*',
             'projects.*',
             'project-images.show',
             'services.show',

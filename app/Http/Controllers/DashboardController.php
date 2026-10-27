@@ -9,6 +9,7 @@ use App\Models\Person;
 use App\Models\SalesDocument;
 use App\Models\WorkOrder;
 use App\Services\Accounting\FinancialDashboardSummary;
+use App\Support\Time\InstantSql;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -62,7 +63,7 @@ class DashboardController extends Controller
                 ->whereIn('status', ['pending', 'in_progress'])
                 ->where(fn ($query) => $query->whereNull('assigned_user_id')->orWhere('assigned_user_id', request()->user()->id))
                 ->where(fn ($query) => $query->whereBetween('starts_at', [now()->startOfDay(), now()->addDays(7)->endOfDay()])->orWhereBetween('due_at', [now()->startOfDay(), now()->addDays(7)->endOfDay()]))
-                ->orderByRaw('coalesce(starts_at, due_at)')
+                ->orderByRaw('coalesce('.InstantSql::forModel(CrmActivity::class, 'starts_at').', '.InstantSql::forModel(CrmActivity::class, 'due_at').')')
                 ->limit(8)
                 ->get()
                 ->map(fn (CrmActivity $activity) => [

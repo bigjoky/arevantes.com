@@ -1,0 +1,52 @@
+[
+  {
+    "file": "resources/js/components/project-journey.tsx",
+    "value": "set_required_tasks",
+    "reason": "Technical route, action, field or service identifier; must not be localized."
+  },
+  {
+    "file": "resources/js/components/project-journey.tsx",
+    "value": "close",
+    "reason": "Technical route, action, field or service identifier; must not be localized."
+  },
+  {
+    "file": "resources/js/components/public/site-header.tsx",
+    "value": "/empresa",
+    "reason": "Technical route, action, field or service identifier; must not be localized."
+  },
+  {
+    "file": "resources/js/components/public/site-header.tsx",
+    "value": "/proceso",
+    "reason": "Technical route, action, field or service identifier; must not be localized."
+  },
+  {
+    "file": "resources/js/components/public/site-header.tsx",
+    "value": "/contacto",
+    "reason": "Technical route, action, field or service identifier; must not be localized."
+  },
+  {
+    "file": "resources/js/pages/public/contact.tsx",
+    "value": "name",
+    "reason": "Technical route, action, field or service identifier; must not be localized."
+  },
+  {
+    "file": "resources/js/pages/public/page.tsx",
+    "value": "servicios",
+    "reason": "Technical route, action, field or service identifier; must not be localized."
+  },
+  {
+    "file": "resources/js/pages/public/page.tsx",
+    "value": "empresa",
+    "reason": "Technical route, action, field or service identifier; must not be localized."
+  },
+  {
+    "file": "resources/js/pages/public/page.tsx",
+    "value": "proceso",
+    "reason": "Technical route, action, field or service identifier; must not be localized."
+  },
+  {
+    "file": "resources/js/pages/public/page.tsx",
+    "value": "redes",
+    "reason": "Technical route, action, field or service identifier; must not be localized."
+  }
+]

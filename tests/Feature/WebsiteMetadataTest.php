@@ -16,7 +16,7 @@ class WebsiteMetadataTest extends TestCase
         $this->get(route('home'))
             ->assertOk()
             ->assertSee('<html lang="es"', false)
-            ->assertSee('<title data-inertia="title">Arevantes · Energía, electricidad y seguridad</title>', false)
+            ->assertSee('<title data-inertia="title">Arevantes · Energía, electricidad, seguridad y redes</title>', false)
             ->assertSee('data-inertia="description"', false)
             ->assertSee('data-inertia="og-image"', false)
             ->assertSee('content="https://arevantes.com/og-multirramo-v2.png"', false)

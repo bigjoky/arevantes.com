@@ -31,9 +31,9 @@ use App\Services\Work\TechnicianSchedule;
 use App\Services\Work\WorkOrderFactory;
 use App\Services\Work\WorkOrderTemplateResolver;
 use App\Support\BusinessLineCatalog;
+use App\Support\Time\BusinessTime;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
@@ -313,7 +313,7 @@ class QuoteController extends Controller
             abort_unless(Gate::allows('manage-admin'), 403, 'Solo administración puede dispensar la validación técnica con motivo.');
         }
         abort_if($quote->service_type && $quote->service_type !== $data['service_type'], 422, __('The project business line must match the accepted quote.'));
-        $scheduledAt = filled($data['scheduled_at'] ?? null) ? Carbon::parse($data['scheduled_at']) : null;
+        $scheduledAt = filled($data['scheduled_at'] ?? null) ? BusinessTime::parse($data['scheduled_at'], 'scheduled_at') : null;
         $surveyTemplate = $templates->resolveForServiceType($data['service_type'], 'survey');
         $duration = $surveyTemplate?->estimated_duration_minutes ?? 120;
         $scheduledEnd = $scheduledAt?->copy()->addMinutes($duration);

@@ -5,6 +5,7 @@ namespace App\Services\Documents;
 use App\Mail\DocumentSharedMail;
 use App\Models\DocumentDelivery;
 use App\Models\SalesDocument;
+use App\Support\Time\BusinessTime;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 
@@ -25,7 +26,7 @@ class AcceptanceInvoiceNotifier
         }
 
         $token = Str::random(64);
-        $expires = now()->addDays(90);
+        $expires = BusinessTime::now()->addDays(90);
         $fingerprint = $this->fingerprints->for($invoice->loadMissing('lines'));
         $delivery = DocumentDelivery::create([
             'sales_document_id' => $invoice->id,
@@ -47,7 +48,7 @@ class AcceptanceInvoiceNotifier
                 $expires->format('d/m/Y'),
                 $pdfData,
             ));
-            $delivery->update(['status' => 'sent', 'sent_at' => now()]);
+            $delivery->update(['status' => 'sent', 'sent_at' => BusinessTime::now()]);
         } catch (\Throwable $exception) {
             if (app()->runningUnitTests()) {
                 throw $exception;
