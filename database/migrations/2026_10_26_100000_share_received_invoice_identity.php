@@ -27,6 +27,8 @@ return new class extends Migration
         });
         if (DB::getDriverName() === 'pgsql') {
             DB::statement('ALTER TABLE received_invoice_identities ADD CONSTRAINT received_invoice_one_owner CHECK ((purchase_document_id IS NULL) <> (expense_id IS NULL))');
+            // Backend-owned registry: deny Data API roles, including inherited Supabase grants.
+            DB::statement('ALTER TABLE received_invoice_identities ENABLE ROW LEVEL SECURITY');
         }
     }
 

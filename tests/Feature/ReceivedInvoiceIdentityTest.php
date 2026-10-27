@@ -31,6 +31,15 @@ class ReceivedInvoiceIdentityTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_shared_registry_is_protected_from_public_data_api_roles(): void
+    {
+        if (DB::getDriverName() !== 'pgsql') {
+            $this->markTestSkipped('PostgreSQL row security requires PostgreSQL.');
+        }
+        $this->assertTrue(DB::selectOne("SELECT relrowsecurity FROM pg_class WHERE oid='public.received_invoice_identities'::regclass")->relrowsecurity);
+        $this->assertSame(0, DB::table('pg_policies')->where('schemaname', 'public')->where('tablename', 'received_invoice_identities')->count());
+    }
+
     private function purchase(string $number = 'EXT-ONE', ?Supplier $supplier = null, ?int $receiver = null): PurchaseDocument
     {
         $supplier ??= Supplier::create(['legal_name' => 'Synthetic issuer', 'country' => 'ES', 'tax_id' => 'B12345678']);

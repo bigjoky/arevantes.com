@@ -3888,7 +3888,7 @@
     },
     {
       "path": "database/migrations/2026_10_26_100000_share_received_invoice_identity.php",
-      "sha256": "b26049da8a4172c71d0093be41ee2020541753e75fc6065ef7b84ed85167836c"
+      "sha256": "f0f69791f4576103300d017dbdf3841c47a5179abad1737b69fd0237f9971c49"
     },
     {
       "path": "database/migrations/2026_10_26_101000_guard_received_invoice_identity.php",
@@ -5988,7 +5988,7 @@
     },
     {
       "path": "tests/Feature/ReceivedInvoiceIdentityTest.php",
-      "sha256": "f889213feb3f5e1853e551b4caafceb6e1055c6a389bb3f3ab0a6893e332f4e0"
+      "sha256": "ac28752e0e1d979473f540db9f9e0f4485a9daec5cfff4c510762dac7d83c67d"
     },
     {
       "path": "tests/Feature/RecurringServiceBillingTest.php",

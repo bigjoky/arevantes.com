@@ -148,5 +148,85 @@
       "skipped": 42
     }
   },
-  "merge_resolution": "Preserved later production opportunity numbering, mobile navigation, maskable PWA, PDF pagination; integrated certified public-site component set, precise temporal casts and archived-original custody. No root working-copy changes."
+  "merge_resolution": "Preserved later production opportunity numbering, mobile navigation, maskable PWA, PDF pagination; integrated certified public-site component set, precise temporal casts and archived-original custody. No root working-copy changes.",
+  "final_cut": {
+    "capture-receipt-redacted.json": {
+      "data_reader": "supabase_read_only_user",
+      "read_only": true,
+      "atomic_data_snapshot_single_select": true,
+      "tables": 214,
+      "total_rows": 96407,
+      "data_bytes": 16397746,
+      "data_sha256": "6a8f56f944931004006c6af50ecad86be3f16ccdcf3fa604a3d55e05808186ef",
+      "schema_dump_sha256": "348de3a57b47f431714b4ceb3ba3b06599d34ae938b25fbe1281b03a83de8117",
+      "capture_seconds": 5.62,
+      "snapshot_utc": "2026-10-27T22:20:03.176481+00:00",
+      "credentials_exported_as_config": false,
+      "production_writes": false,
+      "format": "native pg_dump public schema plus atomic typed JSON row snapshot; native strings preserve numeric precision"
+    },
+    "baseline-restore-receipt-redacted.json": {
+      "baseline_database": "arevantes_prod02_final_restore_verify_test",
+      "marker_verified": true,
+      "native_schema_restored": true,
+      "all_rows_and_types_restored": true,
+      "tables_verified": 214,
+      "rows_verified": 96407,
+      "restore_sql_seconds": 37.237,
+      "source_written": false,
+      "passwords_or_users_enabled_on_target": false,
+      "constraints_and_indexes_restored": true,
+      "new_TIME_ECO_triggers_not_expected_in_old_baseline": true
+    },
+    "document-restore-redacted.json": {
+      "authenticated_packages": true,
+      "manifest_signed": true,
+      "restored_files_verified": 13,
+      "known_historical_invoice_without_archive": [
+        11
+      ],
+      "altered_document_rejected": true,
+      "missing_document_detected": true,
+      "document_restore_seconds": 0.008,
+      "all_files_inside_encrypted_perimeter": true,
+      "no_original_file_deleted_or_overwritten": true
+    },
+    "encryption-proof-redacted.json": {
+      "packages": [
+        {
+          "file": "public-schema.dump",
+          "sha256": "348de3a57b47f431714b4ceb3ba3b06599d34ae938b25fbe1281b03a83de8117",
+          "encrypted_sha256": "e00353ff76857dbc3da3d5a04842ea3975cd9f06e83a076d7d13399d68833ec0",
+          "authenticated_roundtrip": true
+        },
+        {
+          "file": "public-data-snapshot.json",
+          "sha256": "6a8f56f944931004006c6af50ecad86be3f16ccdcf3fa604a3d55e05808186ef",
+          "encrypted_sha256": "4e5b7a288b416a7332c32681036c1433496cc23c1724adc3db9216fc370717fb",
+          "authenticated_roundtrip": true
+        }
+      ],
+      "manifest_signed": true
+    },
+    "final-migration-rehearsal-redacted.json": {
+      "migrations_applied": 10,
+      "legacy_tables_preserved": 214,
+      "all_original_column_values_unchanged": true,
+      "enabled_TIME_ECO_triggers": 16,
+      "invalid_indexes": 0,
+      "baseline_preserved_unmodified": true,
+      "clone_marker_verified": true,
+      "postgres_version": "17.6",
+      "icu_collation": "en-US /153.121",
+      "seconds": 9.535,
+      "production_migrations": false
+    }
+  },
+  "source_default_acl_gate": {
+    "finding": "Supabase postgres default table grants include anon and authenticated",
+    "correction": "Enable RLS atomically when creating the backend-owned fiscal identity registry; no public policies",
+    "verified_on_postgres17": true,
+    "all_old_values_preserved": true,
+    "anonymous_write_with_inherited_grants_rejected": true
+  }
 }
