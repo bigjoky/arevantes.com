@@ -117,11 +117,17 @@ class PlanningCalibrationProposalService
             return null;
         }
 
-        return DB::transaction(function () use ($actor, $consistency, $consistentEvidence, $direction, $evidence, $first, $metricKey, $sourceFingerprint): PlanningCalibrationProposal {
+        return DB::transaction(function () use ($actor, $consistency, $consistentEvidence, $direction, $evidence, $first, $metricKey, $sourceFingerprint): ?PlanningCalibrationProposal {
+            // Transaction advisory lock covers an empty series too; unique indexes remain the final guard.
+            if (DB::getDriverName() === 'pgsql') {
+                DB::select('SELECT pg_advisory_xact_lock(hashtextextended(?, 0))', ['calibration:'.$first['business_line'].':'.$metricKey]);
+            }
+            if (PlanningCalibrationProposal::where('source_fingerprint', $sourceFingerprint)->exists()) {
+                return null;
+            }
             $version = ((int) PlanningCalibrationProposal::query()
                 ->where('business_line', $first['business_line'])
                 ->where('metric_key', $metricKey)
-                ->lockForUpdate()
                 ->max('version')) + 1;
 
             return PlanningCalibrationProposal::create([

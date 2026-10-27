@@ -1,3 +1,4 @@
+import '../../../css/commercial-mobile.css';
 import { Head, Link, router } from '@inertiajs/react';
 import {
     CalendarDays,
@@ -219,6 +220,7 @@ export default function QuotesIndex(props: Props) {
             <span className={`quote-status quote-status-${q.effective_status}`}>
                 {statusLabels[q.effective_status]}
             </span>
+            <time dateTime={q.issue_date}>{quoteDate(q.issue_date)}</time>
             <strong>{quoteMoney(q.amount)}</strong>
             <small>
                 {q.creator?.name ?? '—'} · {quoteDate(q.valid_until)}

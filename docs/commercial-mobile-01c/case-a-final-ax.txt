@@ -1,0 +1,130 @@
+Browser tab: 3, Title: "Add customer - Arevantes", URL: "http://localhost:8000/people/create".
+1 AXWebArea Add customer - Arevantes, URL: localhost:8000/people/create
+	2 container app
+		3 container
+			128 link Description: AREVANTES · Inicio, Value: localhost:8000/dashboard
+			129 button Búsqueda global
+				130 image
+			131 button Notificaciones
+				132 image
+			133 button Cuenta de Prueba de plantillas
+			10 container Ruta de navegación
+				11 content list
+					12 link Description: Comercial, Value: localhost:8000/commercial
+					13 link (disabled) Clientes
+						14 text Clientes
+			15 heading Add customer, Value: 1
+				16 text Add customer
+			17 text Create a customer profile for solar, EV charging, clima, or electrical work.
+			18 link Description: Cancelar, Value: localhost:8000/people
+			19 container
+				20 heading Clasificación del perfil, Value: 2
+					21 text Clasificación del perfil
+				22 text Elige la naturaleza del perfil para que el formulario solicite únicamente la información de identidad y facturación pertinente. Tipo de cliente
+				23 combo box (collapsed) Tipo de cliente, Value: Residencial, ID: customer_type, Secondary Actions: Expand
+					24 text Residencial
+				25 text Estado del cliente
+				26 combo box (collapsed) Estado del cliente, Value: Activas, ID: lifecycle_status, Secondary Actions: Expand
+					27 text Activas
+			28 container
+				29 heading Identidad y datos fiscales, Value: 2
+					30 text Identidad y datos fiscales
+				31 text Registra a la persona exactamente como aparece en su identificación. Nombre
+				32 text field (settable) Nombre, Value: 01C Cliente sin guardar, ID: first_name
+				33 text Apellidos
+				34 text field (settable) Apellidos, Value: Conservación de estado, ID: last_name
+				35 text CIF / NIF fiscal
+				36 text field (settable) CIF / NIF fiscal, ID: tax_id
+				37 text Tipo de documento
+				38 combo box (collapsed) Tipo de documento, Value: Elegir tipo de documento, ID: document_type, Secondary Actions: Expand
+					39 text Elegir tipo de documento
+				40 text Número de documento
+				41 text field (settable) Número de documento, ID: document_number
+				42 text Origen del lead
+				43 text field (settable) Origen del lead, ID: lead_source
+				44 text Origen del dato
+				45 text field (settable) Origen del dato, ID: data_source
+			46 container
+				47 heading Preferencias de contacto, Value: 2
+					48 text Preferencias de contacto
+				49 text Mantén juntas las opciones de contacto operativo, de facturación y comercial. Teléfono
+				50 text field (settable) Teléfono
+				51 text Correo
+				52 text field (settable) Correo
+				53 text Canal de contacto preferido
+				54 combo box (collapsed) Canal de contacto preferido, Value: Sin preferencia, ID: preferred_contact_channel, Secondary Actions: Expand
+					55 text Sin preferencia
+				56 checkbox (settable, integer) Description: No contactar comercialmente, Value: 0
+			57 container
+				58 heading Dirección postal, Value: 2
+					59 text Dirección postal
+				60 text Selecciona por orden el país, la provincia, el municipio y la localidad. Dirección
+				61 text field (settable) Dirección, ID: address_line_1
+				62 text Dirección 2
+				63 text field (settable) Dirección 2, ID: address_line_2
+				64 text País
+				65 combo box (collapsed) País, ID: country, Secondary Actions: Expand
+				66 text Provincia
+				67 combo box (collapsed) Provincia, Value: Seleccionar provincia, ID: province_state, Secondary Actions: Expand
+					68 text Seleccionar provincia
+				69 text Municipio
+				70 combo box (collapsed) Municipio, Value: Seleccionar municipio, ID: city, Secondary Actions: Expand
+					71 text Seleccionar municipio
+				72 text Localidad
+				73 combo box (collapsed) Localidad, Value: Seleccionar localidad, ID: locality, Secondary Actions: Expand
+					74 text Seleccionar localidad
+				75 text Código postal
+				76 text field (settable) Código postal, ID: postal_code
+			77 container
+				78 heading Billing details, Value: 2
+					79 text Billing details
+				80 text Only complete values that differ from the legal identity or postal address. Empty fields inherit the customer details. Billing name
+				81 text field (settable) Billing name, ID: billing_name
+				82 text Billing tax ID
+				83 text field (settable) Billing tax ID, ID: billing_tax_id
+				84 text Email de facturación
+				85 text field (settable) Email de facturación
+				86 text Términos de pago (días)
+				87 stepper (settable) Términos de pago (días), ID: payment_terms_days
+				88 text Dirección fiscal
+				89 text field (settable) Dirección fiscal, ID: billing_address_line_1
+				90 text Dirección 2
+				91 text field (settable) Dirección 2, ID: billing_address_line_2
+				92 text País
+				93 combo box (collapsed) País, ID: billing_country, Secondary Actions: Expand
+				94 text Provincia
+				95 combo box (collapsed) Provincia, Value: Seleccionar provincia, ID: billing_province_state, Secondary Actions: Expand
+					96 text Seleccionar provincia
+				97 text Municipio
+				98 combo box (collapsed) Municipio, Value: Seleccionar municipio, ID: billing_city, Secondary Actions: Expand
+					99 text Seleccionar municipio
+				100 text Localidad
+				101 combo box (collapsed) Localidad, Value: Seleccionar localidad, ID: billing_locality, Secondary Actions: Expand
+					102 text Seleccionar localidad
+				103 text Código postal
+				104 text field (settable) Código postal, ID: billing_postal_code
+			105 container
+				106 heading Información adicional, Value: 2
+					107 text Información adicional
+				108 text Añade el contexto del servicio, notas internas y un contacto de emergencia cuando corresponda. Servicios de interés
+				109 text entry area (settable) Servicios de interés, ID: service_interests
+				110 text Notas
+				111 text entry area (settable) Notas, Value: Borrador efímero R-02, ID: notes
+				112 text Contacto de emergencia
+				113 text field (settable) Contacto de emergencia, ID: emergency_contact_name
+				114 text Teléfono de emergencia
+				115 text field (settable) Teléfono de emergencia
+			116 button Add customer
+				117 image
+				118 text Add customer
+			134 container Navegación móvil
+				135 link Description: Inicio, Value: localhost:8000/dashboard
+				136 link Description: Agenda, Value: localhost:8000/operations/agenda
+				137 link Description: Comercial, Value: localhost:8000/commercial
+				138 link Description: Operaciones, Value: localhost:8000/operations
+				139 button Menú
+					140 image
+					141 text Menú
+		127 container Notifications alt+T
+
+The focused UI element is 111 text entry area (settable) Notas, Value: Borrador efímero R-02, ID: notes

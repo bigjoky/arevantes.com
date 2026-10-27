@@ -992,7 +992,8 @@ class OpportunityTest extends TestCase
         ]);
         Queue::assertPushed(GeocodeInstallation::class, fn (GeocodeInstallation $job) => $job->installationId === $installation->id);
 
-        $this->post(route('quotes.project.store', $quote), [])->assertStatus(422);
+        $this->post(route('quotes.project.store', $quote), [])->assertRedirect(route('installations.show', $installation));
+        $this->assertSame(1, WorkOrder::where('installation_id', $installation->id)->count());
         $this->assertSame(1, Installation::where('person_id', $customer->id)->count());
     }
 

@@ -10,6 +10,7 @@ use App\Models\SalesDocument;
 use App\Models\SalesDocumentPayment;
 use App\Models\SupplierPayment;
 use App\Models\TaxRate;
+use App\Services\Finance\ReceivedInvoiceIdentity;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -55,6 +56,8 @@ class AccountingSynchronizer
         if ($document->status === 'review_required' || $document->matching_status === 'review_required') {
             return 0;
         }
+
+        app(ReceivedInvoiceIdentity::class)->assertUsable($document);
 
         return $this->purchaseDocument($document, $userId);
     }
@@ -117,6 +120,7 @@ class AccountingSynchronizer
 
     private function purchaseDocument(PurchaseDocument $document, ?int $userId): int
     {
+        app(ReceivedInvoiceIdentity::class)->assertUsable($document);
         $creditNote = $document->type === 'supplier_credit_note';
         $document->loadMissing(['lines.product', 'supplier']);
         $supplierAccount = $document->supplier?->payable_account_code ?: '400';
@@ -149,6 +153,8 @@ class AccountingSynchronizer
 
     private function expense(Expense $expense, ?int $userId): int
     {
+        app(ReceivedInvoiceIdentity::class)->assertUsable($expense);
+
         return $this->post($expense, 'document', $expense->expense_date->toDateString(), $expense->number, $userId, $this->expenseLines($expense));
     }
 
@@ -180,23 +186,37 @@ class AccountingSynchronizer
 
     private function customerPayment(SalesDocumentPayment $payment, ?int $userId): int
     {
-        $payment->loadMissing('document.customer');
-        $customerAccount = $payment->document?->collect_before_invoice && ! $payment->document->locked_at ? '438' : ($payment->document?->customer?->receivable_account_code ?: '430');
+        return DB::transaction(function () use ($payment, $userId): int {
+            // Same order as receipt creation/deletion: document, receipt, fiscal year.
+            $document = SalesDocument::lockForUpdate()->findOrFail($payment->sales_document_id);
+            $payment = SalesDocumentPayment::lockForUpdate()->findOrFail($payment->id);
+            $payment->setRelation('document', $document->loadMissing('customer'));
+            $customerAccount = $document->collect_before_invoice && ! $document->locked_at ? '438' : ($document->customer?->receivable_account_code ?: '430');
 
-        return $this->post($payment, 'payment', $payment->paid_at->toDateString(), __('Customer receipt :reference', ['reference' => $payment->reference ?: $payment->id]), $userId, [
-            [$payment->method === 'cash' ? '570' : '572', $payment->amount, 0], [$customerAccount, 0, $payment->amount],
-        ]);
+            return $this->post($payment, 'payment', $payment->paid_at->toDateString(), __('Customer receipt :reference', ['reference' => $payment->reference ?: $payment->id]), $userId, [
+                [$payment->method === 'cash' ? '570' : '572', $payment->amount, 0], [$customerAccount, 0, $payment->amount],
+            ]);
+        });
     }
 
     private function supplierPayment(SupplierPayment $payment, ?int $userId): int
     {
-        $payment->loadMissing(['expense.supplier', 'purchaseDocument.supplier', 'ledgerAccount']);
-        $supplierAccount = $payment->expense?->creditor_account_code ?: ($payment->expense?->supplier?->payable_account_code ?? $payment->purchaseDocument?->supplier?->payable_account_code ?? ($payment->expense_id ? '410' : '400'));
-        $fundingAccount = $payment->ledgerAccount?->code ?: ($payment->method === 'cash' ? '570' : '572');
+        return DB::transaction(function () use ($payment, $userId): int {
+            if ($payment->expense_id) {
+                Expense::whereKey($payment->expense_id)->lockForUpdate()->firstOrFail();
+            } elseif ($payment->purchase_document_id) {
+                PurchaseDocument::whereKey($payment->purchase_document_id)->lockForUpdate()->firstOrFail();
+            }
+            $payment = SupplierPayment::lockForUpdate()->findOrFail($payment->id);
+            app(ReceivedInvoiceIdentity::class)->assertUsable($payment->expense_id ? Expense::findOrFail($payment->expense_id) : PurchaseDocument::findOrFail($payment->purchase_document_id));
+            $payment->loadMissing(['expense.supplier', 'purchaseDocument.supplier', 'ledgerAccount']);
+            $supplierAccount = $payment->expense?->creditor_account_code ?: ($payment->expense?->supplier?->payable_account_code ?? $payment->purchaseDocument?->supplier?->payable_account_code ?? ($payment->expense_id ? '410' : '400'));
+            $fundingAccount = $payment->ledgerAccount?->code ?: ($payment->method === 'cash' ? '570' : '572');
 
-        return $this->post($payment, 'payment', $payment->paid_at->toDateString(), __('Supplier payment :reference', ['reference' => $payment->reference ?: $payment->id]), $userId, [
-            [$supplierAccount, $payment->amount, 0], [$fundingAccount, 0, $payment->amount],
-        ]);
+            return $this->post($payment, 'payment', $payment->paid_at->toDateString(), __('Supplier payment :reference', ['reference' => $payment->reference ?: $payment->id]), $userId, [
+                [$supplierAccount, $payment->amount, 0], [$fundingAccount, 0, $payment->amount],
+            ]);
+        });
     }
 
     private function post(Model $source, string $event, string $date, string $description, ?int $userId, array $lines): int

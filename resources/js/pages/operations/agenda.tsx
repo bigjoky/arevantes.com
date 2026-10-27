@@ -1,4 +1,5 @@
 import { Link } from '@inertiajs/react';
+import { MobileAgenda } from '@/components/mobile/mobile-agenda';
 import {
     Frame,
     Range,
@@ -7,6 +8,7 @@ import {
     date,
 } from '@/components/operations/workspace';
 import type { Workspace } from '@/components/operations/workspace';
+import { useIsMobile } from '@/hooks/use-mobile';
 type Activity = {
     id: number;
     title: string;
@@ -23,6 +25,12 @@ const agendaViews = [
     ['list', 'Lista'],
 ];
 export default function Agenda(data: Workspace & { activities: Activity[] }) {
+    const isMobile = useIsMobile(1024);
+
+    if (isMobile) {
+return <MobileAgenda data={data} activities={data.activities} />;
+}
+
     return (
         <Frame
             title="Agenda"

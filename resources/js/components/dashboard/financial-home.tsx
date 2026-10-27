@@ -31,12 +31,15 @@ import {
     YAxis,
 } from 'recharts';
 import { HomeHeading } from '@/components/dashboard/home-heading';
+import { MobileFinancialHome } from '@/components/mobile/mobile-financial-home';
 import { PageShell } from '@/components/page-shell';
 import { useLocale } from '@/hooks/use-locale';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { translate } from '@/i18n';
 import type { FinancialOverview } from '@/types/financial-dashboard';
 
 export function FinancialHome({ overview }: { overview: FinancialOverview }) {
+    const isMobile = useIsMobile(1024);
     const { locale } = useLocale();
     const { auth } = usePage().props;
     const t = (key: string) => translate(key, locale);
@@ -168,6 +171,10 @@ export function FinancialHome({ overview }: { overview: FinancialOverview }) {
             )[value] ?? value,
         );
     const percentage = overview.fiscal_progress;
+
+    if (isMobile) {
+return <MobileFinancialHome overview={overview} />;
+}
 
     return (
         <>

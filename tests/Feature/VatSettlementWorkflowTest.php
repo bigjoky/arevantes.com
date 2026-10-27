@@ -15,6 +15,7 @@ use App\Services\Tax\VatReport;
 use App\Services\Tax\VatSettlement;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Inertia\Testing\AssertableInertia as Assert;
+use Tests\Support\EconomicFixture;
 use Tests\TestCase;
 
 class VatSettlementWorkflowTest extends TestCase
@@ -23,7 +24,7 @@ class VatSettlementWorkflowTest extends TestCase
 
     private function draft(User $user): TaxReturn
     {
-        $expense = Expense::create(['expense_category_id' => ExpenseCategory::firstOrFail()->id,
+        $expense = EconomicFixture::expense(['expense_category_id' => ExpenseCategory::firstOrFail()->id,
             'created_by' => $user->id, 'number' => 'EXP-WORKFLOW', 'type' => 'invoice',
             'expense_date' => '2026-09-15', 'subtotal' => 100, 'tax_amount' => 21,
             'amount' => 121, 'status' => 'pending']);

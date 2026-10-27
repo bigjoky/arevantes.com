@@ -9,18 +9,18 @@ use App\Models\HrLeaveRequest;
 use App\Models\User;
 use App\Models\WorkOrder;
 use App\Services\Work\TechnicianSchedule;
-use Illuminate\Support\Carbon;
+use App\Support\Time\BusinessTime;
 use Illuminate\Validation\ValidationException;
 
 class TechnicalScheduleAvailability
 {
     public function check(EngineeringScheduleProposal $proposal, string $startTime): array
     {
-        $start = Carbon::parse($proposal->proposed_on->toDateString().' '.$startTime, config('app.timezone'));
+        $start = BusinessTime::parse($proposal->proposed_on->toDateString().' '.$startTime, 'start_time');
         $end = $start->copy()->addMinutes((int) round((float) $proposal->estimated_hours * 60));
         $issues = [];
         $warnings = [];
-        if ($start->isPast()) {
+        if ($start->lt(BusinessTime::now())) {
             $issues[] = __('The proposed time has already passed.');
         }
         if ($end->gt($start->copy()->startOfDay()->addDay())) {
@@ -34,8 +34,8 @@ class TechnicalScheduleAvailability
         $dayStart = $start->copy()->startOfDay();
         $dayEnd = $dayStart->copy()->addDay();
         $orders = WorkOrder::where('assigned_user_id', $user->id)->whereNotIn('status', ['completed', 'cancelled'])
-            ->where('scheduled_start', '<', $dayEnd)
-            ->where(fn ($query) => $query->where('scheduled_end', '>', $dayStart)->orWhereNull('scheduled_end'))
+            ->whereInstant('scheduled_start', '<', $dayEnd)
+            ->where(fn ($query) => $query->whereInstant('scheduled_end', '>', $dayStart)->orWhereNull('scheduled_end'))
             ->get(['scheduled_start', 'scheduled_end']);
         if ($orders->contains(fn ($order) => $order->scheduled_end === null)) {
             $issues[] = __('An existing assignment has no end time. Complete its schedule first.');
@@ -64,14 +64,14 @@ class TechnicalScheduleAvailability
             }
         }
         try {
-            app(TechnicianSchedule::class)->assertAvailable($user->id, $start, $end);
+            app(TechnicianSchedule::class)->assertAvailable($user->id, $start, $end, allowPendingAbsenceWarning: true);
         } catch (ValidationException $exception) {
             $issues = [...$issues, ...array_merge(...array_values($exception->errors()))];
         }
 
         return [
             'status' => $issues === [] ? ($warnings === [] ? 'clear' : 'warning') : 'blocked',
-            'checked_at' => now()->toIso8601String(), 'timezone' => config('app.timezone'),
+            'checked_at' => BusinessTime::now()->toIso8601String(), 'timezone' => config('app.timezone'),
             'start' => $start->toIso8601String(), 'end' => $end->toIso8601String(),
             'issues' => array_values(array_unique($issues)), 'warnings' => $warnings,
         ];

@@ -12,6 +12,7 @@ import type { ReactNode } from 'react';
 import { useCustomerNavigation } from '@/components/customers/use-customer-navigation';
 import { PageShell, PageHeader } from '@/components/page-shell';
 import { Button } from '@/components/ui/button';
+import { businessDateTimeInput, scheduleInput } from '@/lib/business-time';
 
 export type Order = {
     id: number;
@@ -85,6 +86,7 @@ export const kinds: Record<string, string> = {
 export function date(value: string | null) {
     return value
         ? new Date(value).toLocaleString('es-ES', {
+              timeZone: 'Europe/Madrid',
               day: '2-digit',
               month: '2-digit',
               hour: '2-digit',
@@ -239,15 +241,7 @@ export function ScheduleForm({
     users: Workspace['users'];
     onClose: () => void;
 }) {
-    const local = (v: string | null) =>
-        v
-            ? new Date(
-                  new Date(v).getTime() -
-                      new Date(v).getTimezoneOffset() * 60000,
-              )
-                  .toISOString()
-                  .slice(0, 16)
-            : '';
+    const local = businessDateTimeInput;
     const form = useForm({
         assigned_user_id: String(order.assigned_user_id ?? ''),
         scheduled_start: local(order.scheduled_start),
@@ -263,8 +257,14 @@ export function ScheduleForm({
                 e.preventDefault();
                 form.transform((d) => ({
                     ...d,
-                    scheduled_start: new Date(d.scheduled_start).toISOString(),
-                    scheduled_end: new Date(d.scheduled_end).toISOString(),
+                    scheduled_start: scheduleInput(
+                        d.scheduled_start,
+                        order.scheduled_start,
+                    ),
+                    scheduled_end: scheduleInput(
+                        d.scheduled_end,
+                        order.scheduled_end,
+                    ),
                 }));
                 form.patch(`/work-orders/${order.id}/schedule`, {
                     preserveScroll: true,

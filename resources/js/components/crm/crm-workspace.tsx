@@ -1,6 +1,7 @@
 import { Form, Link, router, usePage } from '@inertiajs/react';
 import { Plus } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { MobileOpportunities } from '@/components/commercial/mobile-opportunities';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -10,6 +11,8 @@ import {
     SheetTitle,
     SheetTrigger,
 } from '@/components/ui/sheet';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { commercialDetailUrl } from '@/lib/mobile/commercial-navigation';
 import type { Opportunity } from '@/pages/opportunities/index';
 
 type Filters = Record<string, string | undefined>;
@@ -89,6 +92,7 @@ export function CrmWorkspace({
     onMove: (item: Opportunity, stage: string) => void;
 }) {
     const page = usePage();
+    const isMobile = useIsMobile(1024);
     const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
     useEffect(
         () => () => {
@@ -146,7 +150,13 @@ export function CrmWorkspace({
                     {items.map((item) => (
                         <tr key={item.id}>
                             <td>
-                                <Link href={`/opportunities/${item.id}`}>
+                                <Link
+                                    href={commercialDetailUrl(
+                                        '/opportunities',
+                                        item.id,
+                                        filters,
+                                    )}
+                                >
                                     {item.title}
                                 </Link>
                             </td>
@@ -167,7 +177,13 @@ export function CrmWorkspace({
                             <td>{date(item.created_at)}</td>
                             <td>
                                 {item.next_activity ? (
-                                    <Link href={`/opportunities/${item.id}`}>
+                                    <Link
+                                        href={commercialDetailUrl(
+                                            '/opportunities',
+                                            item.id,
+                                            filters,
+                                        )}
+                                    >
                                         {item.next_activity.title}
                                         <time>
                                             {date(item.next_activity.due_at)}
@@ -194,7 +210,13 @@ export function CrmWorkspace({
             action="/opportunities"
             method="get"
             className="crm-filters"
-            onStart={() => setLoading(true)}
+            onStart={() => {
+                if (debounce.current) {
+                    clearTimeout(debounce.current);
+                }
+
+                setLoading(true);
+            }}
             onFinish={() => setLoading(false)}
         >
             <input type="hidden" name="view" value={filters.view || 'kanban'} />
@@ -357,10 +379,47 @@ export function CrmWorkspace({
 
     return (
         <>
-            <div className="hidden sm:block">{filterForm}</div>
+            {!isMobile && <div>{filterForm}</div>}
+            {isMobile && (
+                <label className="commercial-visible-search">
+                    <span>Buscar oportunidades</span>
+                    <Input
+                        key={filters.search ?? ''}
+                        type="search"
+                        defaultValue={filters.search}
+                        placeholder="Buscar oportunidades…"
+                        onChange={(event) => {
+                            if (debounce.current) {
+                                clearTimeout(debounce.current);
+                            }
+
+                            const search = event.currentTarget.value;
+                            debounce.current = setTimeout(
+                                () =>
+                                    router.get(
+                                        url({
+                                            ...filters,
+                                            search,
+                                            page: undefined,
+                                        }),
+                                        {},
+                                        {
+                                            preserveState: true,
+                                            preserveScroll: true,
+                                        },
+                                    ),
+                                350,
+                            );
+                        }}
+                    />
+                </label>
+            )}
             <Sheet>
                 <SheetTrigger asChild>
-                    <Button className="sm:hidden" variant="outline">
+                    <Button
+                        className="commercial-mobile-filter-trigger"
+                        variant="outline"
+                    >
                         Filtros CRM
                     </Button>
                 </SheetTrigger>
@@ -443,6 +502,42 @@ export function CrmWorkspace({
                             </p>
                         )}
                     </div>
+                ) : isMobile ? (
+                    <section className="crm-panel commercial-crm-mobile">
+                        <h2>Oportunidades</h2>
+                        <MobileOpportunities
+                            items={opportunities}
+                            stages={stages}
+                            filters={filters}
+                            busy={loading}
+                            onMove={move}
+                        />
+                        {pagination && (
+                            <nav
+                                className="crm-pagination"
+                                aria-label="Paginación de oportunidades"
+                            >
+                                {pagination.prev && (
+                                    <Link href={pagination.prev}>Anterior</Link>
+                                )}
+                                <span>
+                                    {pagination.current_page} /{' '}
+                                    {pagination.last_page}
+                                </span>
+                                {pagination.next && (
+                                    <Link href={pagination.next}>
+                                        Siguiente
+                                    </Link>
+                                )}
+                            </nav>
+                        )}
+                        {!pagination && (
+                            <p className="crm-caption">
+                                Vista de los registros del pipeline cargado. Usa
+                                Tabla para recorrer resultados paginados.
+                            </p>
+                        )}
+                    </section>
                 ) : filters.view === 'table' ? (
                     <section className="crm-panel">
                         <h2>
@@ -535,7 +630,11 @@ export function CrmWorkspace({
                                                         className="crm-card"
                                                     >
                                                         <Link
-                                                            href={`/opportunities/${item.id}`}
+                                                            href={commercialDetailUrl(
+                                                                '/opportunities',
+                                                                item.id,
+                                                                filters,
+                                                            )}
                                                         >
                                                             <strong>
                                                                 {item.customer
@@ -754,7 +853,7 @@ export function CrmWorkspace({
             </section>
             {filters.view !== 'table' && filters.view !== 'calendar' && (
                 <div className="crm-bottom">
-                    <section className="crm-panel">
+                    <section className="crm-panel commercial-crm-desktop-summary">
                         <header>
                             <h2>Oportunidades</h2>
                             <Link href={url({ ...filters, view: 'table' })}>

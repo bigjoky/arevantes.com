@@ -2,7 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Models\Expense;
 use App\Models\ExpenseCategory;
 use App\Models\JournalEntry;
 use App\Models\LedgerAccount;
@@ -16,6 +15,7 @@ use App\Services\Tax\VatSettlement;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Validation\ValidationException;
+use Tests\Support\EconomicFixture;
 use Tests\TestCase;
 
 class VatLedgerTest extends TestCase
@@ -88,7 +88,7 @@ class VatLedgerTest extends TestCase
         $account = $this->account('47200021');
         TaxRate::where('kind', 'vat')->where('rate', 21)->update(['input_account_code' => $account->code]);
         $user = User::factory()->create(['role' => 'admin']);
-        $expense = Expense::create(['expense_category_id' => ExpenseCategory::firstOrFail()->id, 'created_by' => $user->id,
+        $expense = EconomicFixture::expense(['expense_category_id' => ExpenseCategory::firstOrFail()->id, 'created_by' => $user->id,
             'number' => 'EXP-VAT-SUB', 'type' => 'invoice', 'expense_date' => '2026-09-15', 'subtotal' => 100, 'tax_amount' => 21, 'amount' => 121, 'status' => 'pending']);
         app(AccountingSynchronizer::class)->syncExpense($expense, $user->id);
         $this->assertTrue(app(VatReport::class)->make(2026, 3)['accountingCheck']['matches']);
@@ -137,7 +137,7 @@ class VatLedgerTest extends TestCase
     public function test_preview_and_rejected_preparation_do_not_synchronize_unposted_documents(): void
     {
         $user = User::factory()->create(['role' => 'admin']);
-        Expense::create(['expense_category_id' => ExpenseCategory::firstOrFail()->id, 'created_by' => $user->id,
+        EconomicFixture::expense(['expense_category_id' => ExpenseCategory::firstOrFail()->id, 'created_by' => $user->id,
             'number' => 'EXP-UNPOSTED', 'type' => 'invoice', 'expense_date' => '2026-09-15',
             'subtotal' => 100, 'tax_amount' => 21, 'amount' => 121, 'status' => 'pending']);
         $before = JournalEntry::count();

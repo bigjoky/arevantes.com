@@ -1,0 +1,10 @@
+{
+  "before": {
+    "summary": "lRevisa las notas para el cliente y los totales calculados antes de guardar el borrador.Notas comercialesSubtotal€100.00Descuento-€0.00Impuesto€21.00Total€121.00La propuesta seguirá siendo privada y editable hasta que la envíes definitivamente desde su ficha.Guardar como borrador",
+    "width": 1023
+  },
+  "after": {
+    "summary": "ercialRevisa las notas para el cliente y los totales calculados antes de guardar el borrador.Notas comercialesSubtotal€0.00Descuento-€0.00Impuesto€0.00Total€0.00La propuesta seguirá siendo privada y editable hasta que la envíes definitivamente desde su ficha.Guardar como borrador",
+    "width": 1024
+  }
+}

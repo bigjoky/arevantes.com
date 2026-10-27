@@ -5,9 +5,9 @@ namespace Tests\Feature;
 use App\Models\DocumentSeries;
 use App\Models\FiscalYear;
 use App\Models\PurchaseDocument;
-use App\Models\Supplier;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\Support\EconomicFixture;
 use Tests\TestCase;
 
 class PurchaseOrderDateCorrectionTest extends TestCase
@@ -16,9 +16,9 @@ class PurchaseOrderDateCorrectionTest extends TestCase
 
     private function order(): PurchaseDocument
     {
-        $supplier = Supplier::create(['legal_name' => 'Historical supplier', 'country' => 'ES']);
+        $supplier = EconomicFixture::supplier(['legal_name' => 'Historical supplier', 'country' => 'ES']);
 
-        return PurchaseDocument::create(['type' => 'purchase_order', 'supplier_id' => $supplier->id, 'number' => 'PO-2026-HISTORY', 'status' => 'ordered', 'issue_date' => '2026-09-20', 'expected_delivery_date' => '2026-09-30', 'locked_at' => now(), 'subtotal' => 100, 'tax_amount' => 21, 'amount' => 121]);
+        return EconomicFixture::purchase(['type' => 'purchase_order', 'supplier_id' => $supplier->id, 'number' => 'PO-2026-HISTORY', 'status' => 'ordered', 'issue_date' => '2026-09-20', 'expected_delivery_date' => '2026-09-30', 'locked_at' => now(), 'subtotal' => 100, 'tax_amount' => 21, 'amount' => 121]);
     }
 
     private function payload(array $overrides = []): array
@@ -42,13 +42,14 @@ class PurchaseOrderDateCorrectionTest extends TestCase
     {
         $user = User::factory()->create(['role' => 'admin']);
         $order = $this->order();
-        $before = $order->getAttributes();
+        $before = $order->attributesToArray();
+        $this->assertSame('121.00', $before['amount']);
         $this->actingAs($user)->patch(route('purchases.dates.update', $order), $this->payload())->assertSessionHasNoErrors()->assertRedirect();
         $order->refresh();
         $this->assertSame('2026-05-10', $order->issue_date->toDateString());
         $this->assertSame('2026-05-15', $order->expected_delivery_date->toDateString());
         foreach (['number', 'amount', 'status', 'locked_at', 'created_at'] as $field) {
-            $this->assertSame($before[$field], $order->getAttributes()[$field]);
+            $this->assertSame($before[$field], $order->attributesToArray()[$field]);
         }
         $event = $order->events()->where('event', 'dates_corrected')->sole();
         $this->assertSame($user->id, $event->user_id);
@@ -108,7 +109,7 @@ class PurchaseOrderDateCorrectionTest extends TestCase
         $order->update(['status' => 'closed']);
         $this->patch(route('purchases.dates.update', $order), $this->payload())->assertSessionHasErrors('issue_date');
         $order->update(['status' => 'ordered']);
-        $invoice = PurchaseDocument::create(['type' => 'supplier_invoice', 'supplier_id' => $order->supplier_id, 'source_document_id' => $order->id, 'number' => 'INV-HISTORY', 'status' => 'registered', 'issue_date' => '2026-09-20', 'subtotal' => 100, 'tax_amount' => 21, 'amount' => 121]);
+        $invoice = EconomicFixture::purchase(['type' => 'supplier_invoice', 'supplier_id' => $order->supplier_id, 'source_document_id' => $order->id, 'number' => 'INV-HISTORY', 'status' => 'registered', 'issue_date' => '2026-09-20', 'subtotal' => 100, 'tax_amount' => 21, 'amount' => 121]);
         $this->patch(route('purchases.dates.update', $order), $this->payload())->assertSessionHasErrors('issue_date');
         $this->patch(route('purchases.dates.update', $invoice), $this->payload())->assertUnprocessable();
         $this->assertSame('2026-09-20', $order->fresh()->issue_date->toDateString());

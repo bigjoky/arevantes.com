@@ -24,7 +24,7 @@ class WorkOrderObserver
 
             return;
         }
-        if ($workOrder->wasChanged(['status', 'scheduled_start', 'scheduled_end', 'title', 'instructions'])) {
+        if ($workOrder->wasChanged(['status', 'scheduled_start', 'scheduled_end', 'scheduled_start_utc', 'scheduled_end_utc', 'title', 'instructions'])) {
             $this->dispatch($workOrder, 'Orden actualizada', "{$workOrder->number} · {$workOrder->title}");
         }
     }

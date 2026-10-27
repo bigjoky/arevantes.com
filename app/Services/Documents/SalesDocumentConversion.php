@@ -49,11 +49,32 @@ class SalesDocumentConversion
         ];
     }
 
+    /** Serialize capacity shared by direct invoices and invoices reached through delivery notes. */
+    public function lockCapacityRoot(SalesDocument $document): void
+    {
+        $root = null;
+        $seen = [];
+        while ($document) {
+            if (isset($seen[$document->id])) {
+                throw new \LogicException('Cyclic sales document origin.');
+            }
+            $seen[$document->id] = true;
+            if (in_array($document->type, ['order', 'delivery_note'], true)) {
+                $root = $document;
+            }
+            $document = $document->source_document_id ? SalesDocument::findOrFail($document->source_document_id) : null;
+        }
+        if ($root) {
+            SalesDocument::whereKey($root->id)->lockForUpdate()->firstOrFail();
+        }
+    }
+
     public function convert(SalesDocument $source, string $targetType, array $quantities, int $userId, ?string $issueDate = null): SalesDocument
     {
         $issueDate ??= now()->toDateString();
 
         return DB::transaction(function () use ($source, $targetType, $quantities, $userId, $issueDate): SalesDocument {
+            $this->lockCapacityRoot($source);
             $source = SalesDocument::lockForUpdate()->with('lines')->findOrFail($source->id);
             $allowed = match ($source->type) {
                 'order' => ['delivery_note', 'invoice'],

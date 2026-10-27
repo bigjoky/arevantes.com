@@ -13,6 +13,7 @@ use App\Models\Person;
 use App\Models\User;
 use App\Models\WorkOrder;
 use App\Services\Work\InstallationWorkOrderSynchronizer;
+use App\Services\Work\TechnicalExecutionGuard;
 use App\Services\Work\TechnicianSchedule;
 use App\Services\Work\WorkOrderFactory;
 use Illuminate\Support\Facades\DB;
@@ -236,6 +237,7 @@ class EngineeringDossierWorkflow
 
                 return WorkOrder::findOrFail($proposal->work_order_id);
             }
+            $installation = Installation::whereKey($locked->installation_id)->lockForUpdate()->firstOrFail();
             $assignee = User::findOrFail($proposal->assignee_id);
             if ($assignee->person_id) {
                 Person::whereKey($assignee->person_id)->lockForUpdate()->firstOrFail();
@@ -248,10 +250,7 @@ class EngineeringDossierWorkflow
                 throw ValidationException::withMessages(['execution' => __('Refresh the approved scheduling proposal before checking availability.')]);
             }
             FieldServiceProfile::where('user_id', $proposal->assignee_id)->lockForUpdate()->get(['id']);
-            $installation = Installation::whereKey($locked->installation_id)->lockForUpdate()->firstOrFail();
-            if (in_array($installation->status, ['cancelled', 'completed'], true)) {
-                throw ValidationException::withMessages(['execution' => __('Reopen the project before creating a new execution order.')]);
-            }
+            app(TechnicalExecutionGuard::class)->assertCanPrepare($installation);
             $availability = $this->availability($locked, $data, $actor);
             if ($availability['status'] !== 'clear') {
                 throw ValidationException::withMessages(['execution' => [...$availability['issues'], ...$availability['warnings']]]);

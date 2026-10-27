@@ -7,6 +7,7 @@ use App\Models\Expense;
 use App\Models\FiscalYear;
 use App\Models\JournalEntry;
 use App\Models\TaxReturn;
+use App\Services\Finance\ReceivedInvoiceIdentity;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -39,6 +40,7 @@ class ExpenseCorrection
             if (! hash_equals(self::revision($expense), $request->string('revision')->toString())) {
                 $this->fail('The expense has changed. Reload it before editing.');
             }
+            app(ReceivedInvoiceIdentity::class)->lockCorrectionKeys($expense, $data);
             $before = self::snapshot($expense);
             $oldDate = $expense->expense_date->toDateString();
             $newDate = CarbonImmutable::parse($data['expense_date'])->toDateString();
@@ -86,8 +88,9 @@ class ExpenseCorrection
                     $this->fail('The expense accounting differs from its document. Review it before editing.');
                 }
             }
-            $expense->update([...$data, 'amount' => $amount, 'paid_amount' => $paid,
-                'status' => $paid > 0 ? ($paid >= $amount ? 'paid' : 'partial') : (filled($data['due_date'] ?? null) && CarbonImmutable::parse($data['due_date'])->isPast() ? 'overdue' : 'pending')]);
+            ReceivedInvoiceIdentity::correctingExpense($expense->id, fn () => $expense->update([...$data, 'amount' => $amount, 'paid_amount' => $paid,
+                'status' => $paid > 0 ? ($paid >= $amount ? 'paid' : 'partial') : (filled($data['due_date'] ?? null) && CarbonImmutable::parse($data['due_date'])->isPast() ? 'overdue' : 'pending')])
+            );
             $expense->taxLines()->delete();
             $expense->taxLines()->createMany($taxLines);
             $expense->refresh();

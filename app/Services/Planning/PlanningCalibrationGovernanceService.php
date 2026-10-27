@@ -96,10 +96,13 @@ class PlanningCalibrationGovernanceService
             default => 'insufficient',
         };
 
-        return DB::transaction(function () use ($actor, $consistency, $counts, $evaluations, $fingerprint, $proposal, $recommendation): PlanningCalibrationGovernanceReview {
+        return DB::transaction(function () use ($actor, $consistency, $counts, $evaluations, $fingerprint, $proposal, $recommendation): ?PlanningCalibrationGovernanceReview {
+            PlanningCalibrationProposal::query()->whereKey($proposal->id)->lockForUpdate()->firstOrFail();
+            if (PlanningCalibrationGovernanceReview::where('fingerprint', $fingerprint)->exists()) {
+                return null;
+            }
             $version = ((int) PlanningCalibrationGovernanceReview::query()
                 ->where('planning_calibration_proposal_id', $proposal->id)
-                ->lockForUpdate()
                 ->max('version')) + 1;
 
             return PlanningCalibrationGovernanceReview::create([

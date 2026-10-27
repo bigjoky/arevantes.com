@@ -7,6 +7,7 @@ const source = readFileSync(new URL('../public/commercial-field-sw.js', import.m
 const origin = 'https://arevantes.com';
 function worker({ offline = false } = {}) {
     const handlers = {};
+    let skips = 0;
     const writes = [];
     const deleted = [];
     const cache = {
@@ -16,29 +17,31 @@ function worker({ offline = false } = {}) {
     vm.runInNewContext(source, {
         URL, Response,
         self: { location: { origin }, addEventListener: (name, handler) => {
- handlers[name] = handler; 
-}, skipWaiting() {}, clients: { claim: async () => {} } },
+ handlers[name] = handler;
+}, skipWaiting() {
+ skips += 1;
+}, clients: { claim: async () => {} } },
         caches: { open: async () => cache, keys: async () => ['arevantes-field-public-v0', 'other-app'], delete: async (key) => deleted.push(key) },
         fetch: async () => {
  if (offline) {
 throw new Error('offline');
 }
 
- return new Response('private response'); 
+ return new Response('private response');
 },
     });
     const dispatch = async (name, request) => {
         let result;
-        handlers[name]({ request, waitUntil: (promise) => {
- result = promise; 
+        handlers[name]({ request, data: request, waitUntil: (promise) => {
+ result = promise;
 }, respondWith: (promise) => {
- result = promise; 
+ result = promise;
 } });
 
         return result;
     };
 
-    return { dispatch, writes, deleted };
+    return { dispatch, writes, deleted, skipCount: () => skips };
 }
 
 test('install caches only public notice and canonical icons; activation preserves unrelated caches', async () => {
@@ -71,9 +74,9 @@ assert.equal(await w.dispatch('fetch', request), undefined);
     assert.deepEqual(w.writes, []);
 });
 
-test('manifest launches the protected field page with standalone identity and valid raster icons', () => {
+test('manifest launches the protected ERP home with standalone identity and valid raster icons', () => {
     const manifest = JSON.parse(readFileSync(new URL('../public/commercial-field.webmanifest', import.meta.url), 'utf8'));
-    assert.equal(manifest.start_url, '/commercial-field?source=pwa');
+    assert.equal(manifest.start_url, '/dashboard?source=pwa');
     assert.equal(manifest.display, 'standalone');
     assert.equal(manifest.scope, '/');
 
@@ -82,4 +85,15 @@ test('manifest launches the protected field page with standalone identity and va
         assert.equal(data.subarray(1, 4).toString(), 'PNG');
         assert.equal(`${data.readUInt32BE(16)}x${data.readUInt32BE(20)}`, icon.sizes);
     }
+});
+
+
+test('an installed update waits for explicit activation instead of interrupting forms', async () => {
+    const w = worker();
+    await w.dispatch('install');
+    assert.equal(w.skipCount(), 0);
+    await w.dispatch('message', { type: 'UNRELATED' });
+    assert.equal(w.skipCount(), 0);
+    await w.dispatch('message', { type: 'ACTIVATE_UPDATE' });
+    assert.equal(w.skipCount(), 1);
 });

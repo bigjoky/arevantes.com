@@ -8,6 +8,7 @@ import { initializeTheme } from '@/hooks/use-appearance';
 import AppLayout from '@/layouts/app-layout';
 import AuthLayout from '@/layouts/auth-layout';
 import SettingsLayout from '@/layouts/settings/layout';
+import { installCommercialHistoryProtection } from '@/lib/mobile/commercial-history';
 
 if (import.meta.env.VITE_REVERB_APP_KEY) {
     configureEcho({
@@ -20,11 +21,14 @@ const appName = (import.meta.env.VITE_APP_NAME || 'Arevantes').replace(
     '',
 );
 
+installCommercialHistoryProtection();
+
 createInertiaApp({
     title: (title) => (title ? `${title} - ${appName}` : appName),
     layout: (name) => {
         switch (true) {
             case name === 'welcome':
+            case name.startsWith('public/'):
             case name.startsWith('legal/'):
             case name.startsWith('projects/'):
             case name.startsWith('services/'):

@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Services\Accounting\ExpenseCorrection;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Inertia\Testing\AssertableInertia as Assert;
+use Tests\Support\EconomicFixture;
 use Tests\TestCase;
 
 class ExpenseDocumentaryReviewTest extends TestCase
@@ -19,10 +20,10 @@ class ExpenseDocumentaryReviewTest extends TestCase
 
     private function expense(string $number): Expense
     {
-        $expense = Expense::create(['expense_category_id' => ExpenseCategory::firstOrFail()->id, 'created_by' => null,
+        $expense = EconomicFixture::legacy(fn () => Expense::create(['expense_category_id' => ExpenseCategory::firstOrFail()->id, 'created_by' => null,
             'number' => $number, 'type' => 'invoice', 'document_number' => $number, 'issuer_legal_name' => 'Supplier',
             'expense_date' => '2026-09-15', 'currency_code' => 'EUR', 'tax_regime' => 'standard', 'subtotal' => 100,
-            'tax_amount' => 21, 'withholding_rate' => 0, 'withholding_amount' => 0, 'amount' => 121, 'paid_amount' => 0, 'status' => 'pending']);
+            'tax_amount' => 21, 'withholding_rate' => 0, 'withholding_amount' => 0, 'amount' => 121, 'paid_amount' => 0, 'status' => 'pending']));
         $expense->taxLines()->create(['kind' => 'vat', 'taxable_base' => 100, 'tax_rate' => 21,
             'tax_amount' => 21, 'deductible_percent' => 100, 'deductible_amount' => 21, 'position' => 1]);
 
@@ -35,7 +36,7 @@ class ExpenseDocumentaryReviewTest extends TestCase
         $admin = User::factory()->create(['role' => 'admin']);
         $eligible = $this->expense('EXP-REVIEW-1');
         $paid = $this->expense('EXP-REVIEW-2');
-        SupplierPayment::create(['expense_id' => $paid->id, 'created_by' => $admin->id, 'amount' => 10, 'method' => 'cash', 'paid_at' => '2026-09-15']);
+        EconomicFixture::legacy(fn () => SupplierPayment::create(['expense_id' => $paid->id, 'created_by' => $admin->id, 'amount' => 10, 'method' => 'cash', 'paid_at' => '2026-09-15']));
 
         $this->actingAs($admin)->get(route('expenses.documentary-review'))->assertOk()
             ->assertInertia(fn (Assert $page) => $page->component('expenses/documentary-review')
@@ -75,8 +76,8 @@ class ExpenseDocumentaryReviewTest extends TestCase
         config(['fiscal.grouped_expense_calculation' => true]);
         $admin = User::factory()->create(['role' => 'admin']);
         $expense = $this->expense('EXP-PAID-EVIDENCE');
-        SupplierPayment::create(['expense_id' => $expense->id, 'created_by' => $admin->id, 'amount' => 121,
-            'method' => 'cash', 'paid_at' => '2026-09-15']);
+        EconomicFixture::legacy(fn () => SupplierPayment::create(['expense_id' => $expense->id, 'created_by' => $admin->id, 'amount' => 121,
+            'method' => 'cash', 'paid_at' => '2026-09-15']));
         $expense->update(['status' => 'paid', 'paid_amount' => 121]);
         $before = $expense->only(['subtotal', 'tax_amount', 'amount', 'paid_amount', 'status']);
         $entries = JournalEntry::count();

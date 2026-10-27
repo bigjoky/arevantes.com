@@ -2,11 +2,17 @@
 
 namespace App\Models;
 
+use App\Casts\PreciseInstant;
+use App\Models\Concerns\HasPreciseInstants;
+use App\Support\Time\BusinessTime;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Validation\ValidationException;
 
 class TimeEntry extends Model
 {
+    use HasPreciseInstants;
+
     protected $touches = ['workOrder'];
 
     protected $appends = ['cost'];
@@ -15,7 +21,14 @@ class TimeEntry extends Model
 
     protected function casts(): array
     {
-        return ['started_at' => 'datetime', 'ended_at' => 'datetime', 'hourly_cost' => 'decimal:2', 'travel_km' => 'decimal:2', 'mileage_rate' => 'decimal:3'];
+        return ['started_at' => PreciseInstant::class, 'ended_at' => PreciseInstant::class, 'hourly_cost' => 'decimal:2', 'travel_km' => 'decimal:2', 'mileage_rate' => 'decimal:3'];
+    }
+
+    public function assertUnambiguousStart(): void
+    {
+        if (! $this->getRawOriginal('started_at_utc') && count(BusinessTime::candidates((string) $this->getRawOriginal('started_at'))) !== 1) {
+            throw ValidationException::withMessages(['started_at' => 'El inicio histórico no identifica un instante único. Revisa la hora con su desplazamiento antes de calcular la duración.']);
+        }
     }
 
     public function workOrder(): BelongsTo

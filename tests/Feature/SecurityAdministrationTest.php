@@ -3,13 +3,12 @@
 namespace Tests\Feature;
 
 use App\Models\AuditLog;
+use App\Models\BackupRestoration;
 use App\Models\DatabaseBackup;
 use App\Models\Permission;
 use App\Models\PermissionProfile;
 use App\Models\Person;
-use App\Models\PurchaseDocument;
 use App\Models\SecurityEvent;
-use App\Models\Supplier;
 use App\Models\SystemHealthCheck;
 use App\Models\User;
 use App\Rules\SafeUpload;
@@ -20,11 +19,13 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use PDO;
+use Tests\Support\EconomicFixture;
 use Tests\TestCase;
 
 class SecurityAdministrationTest extends TestCase
@@ -48,8 +49,8 @@ class SecurityAdministrationTest extends TestCase
     {
         $finance = PermissionProfile::where('slug', 'finance')->firstOrFail();
         $user = User::factory()->create(['permission_profile_id' => $finance->id]);
-        $supplier = Supplier::create(['legal_name' => 'Private Supplier SL', 'country' => 'ES']);
-        $document = PurchaseDocument::create([
+        $supplier = EconomicFixture::supplier(['legal_name' => 'Private Supplier SL', 'country' => 'ES']);
+        $document = EconomicFixture::purchase([
             'type' => 'supplier_invoice', 'supplier_id' => $supplier->id, 'created_by' => $user->id,
             'number' => 'FR-PRIVATE', 'status' => 'registered', 'issue_date' => today(),
             'subtotal' => 1, 'tax_amount' => 0, 'amount' => 1,
@@ -261,6 +262,13 @@ class SecurityAdministrationTest extends TestCase
         ]);
         Cache::put('system.scheduler.heartbeat', now());
 
+        // This case checks Deye configuration, while overall PG health also requires
+        // fresh backup/restore evidence. Supply that independent synthetic fixture.
+        if (DB::getDriverName() === 'pgsql') {
+            config(['backup.postgres.enabled' => true, 'backup.postgres.restore_enabled' => true]);
+            $backup = DatabaseBackup::create(['engine' => 'pgsql', 'status' => 'success', 'disk' => 'local', 'path' => 'synthetic-health-only', 'started_at' => now(), 'completed_at' => now()]);
+            BackupRestoration::create(['database_backup_id' => $backup->id, 'backup_name' => 'synthetic-health-only', 'engine' => 'pgsql', 'status' => 'healthy', 'verified_at' => now(), 'rpo_seconds' => 0, 'rto_seconds' => 0]);
+        }
         $this->artisan('system:health-check')->assertSuccessful();
 
         $this->assertDatabaseHas('system_health_checks', [

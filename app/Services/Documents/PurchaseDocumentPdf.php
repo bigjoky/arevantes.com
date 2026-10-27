@@ -4,9 +4,9 @@ namespace App\Services\Documents;
 
 use App\Models\CompanyProfile;
 use App\Models\PurchaseDocument;
+use App\Support\CompanyBrand;
 use Dompdf\Dompdf;
 use Dompdf\Options;
-use Illuminate\Support\Facades\Storage;
 
 class PurchaseDocumentPdf
 {
@@ -16,12 +16,8 @@ class PurchaseDocumentPdf
         $supplierIdentity = $document->supplierIdentity();
         $profile = CompanyProfile::first();
         $company = $profile?->toArray() ?? config('company');
-        $company['logo_data'] = null;
-        if ($profile?->logo_path && Storage::disk(config('filesystems.private'))->exists($profile->logo_path)) {
-            $mime = Storage::disk(config('filesystems.private'))->mimeType($profile->logo_path) ?: 'image/png';
-            $company['logo_data'] = 'data:'.$mime.';base64,'.base64_encode(Storage::disk(config('filesystems.private'))->get($profile->logo_path));
-        }
-
+        $company['logo_data'] = app(CompanyBrand::class)->dataUri($profile);
+        $company['logo_is_fallback'] = false;
         $options = new Options;
         $options->set('defaultFont', 'DejaVu Sans');
         $options->set('isRemoteEnabled', false);

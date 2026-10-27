@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Casts\PreciseInstant;
+use App\Models\Concerns\HasPreciseInstants;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -10,6 +12,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Opportunity extends Model
 {
+    use HasPreciseInstants;
     use SoftDeletes;
 
     protected $fillable = [
@@ -118,12 +121,13 @@ class Opportunity extends Model
     protected function casts(): array
     {
         return [
+            'created_at' => PreciseInstant::class,
             'probability' => 'integer',
             'commercial_score' => 'integer',
-            'first_response_due_at' => 'datetime',
-            'first_responded_at' => 'datetime',
-            'first_response_sla_alerted_at' => 'datetime',
-            'first_response_sla_escalated_at' => 'datetime',
+            'first_response_due_at' => PreciseInstant::class.':latest',
+            'first_responded_at' => PreciseInstant::class,
+            'first_response_sla_alerted_at' => PreciseInstant::class,
+            'first_response_sla_escalated_at' => PreciseInstant::class,
             'estimated_value' => 'decimal:2',
             'expected_close_on' => 'date',
             'renewal_due_on' => 'date',

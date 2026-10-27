@@ -1,0 +1,114 @@
+{
+  "date": "2026-10-26",
+  "scope": "local only; no commit/push/merge or production action",
+  "branch": "fix/work-order-layout",
+  "head": "e4484989e160c548eac0ae50120d08a8ef640962",
+  "working_tree_dirty": true,
+  "checks": [
+    {
+      "name": "full suite",
+      "tool": "phpunit",
+      "result": "passed",
+      "tests": 1008,
+      "passed": 982,
+      "assertions": 14745,
+      "duration_ms": 62649,
+      "skipped": 26
+    },
+    {
+      "name": "PostgreSQL core",
+      "tool": "phpunit",
+      "result": "failed",
+      "tests": 87,
+      "passed": 86,
+      "assertions": 1136,
+      "duration_ms": 44370,
+      "failed": 1,
+      "failures": [
+        {
+          "test": "Tests\\Feature\\AccountingTest::test_arevia_finds_specific_crm_records_and_hides_finance_from_technicians",
+          "line": 54,
+          "message": "Failed asserting that 'No specific CRM records matched this request.' [ASCII](length: 45) contains \"FAC-AREVIA-77\" [ASCII](length: 13)."
+        }
+      ]
+    },
+    {
+      "name": "PostgreSQL core",
+      "tool": "phpunit",
+      "result": "passed",
+      "tests": 3,
+      "passed": 3,
+      "assertions": 7,
+      "duration_ms": 197
+    },
+    {
+      "name": "PostgreSQL related",
+      "tool": "phpunit",
+      "result": "passed",
+      "tests": 66,
+      "passed": 66,
+      "assertions": 1209,
+      "duration_ms": 22872
+    },
+    {
+      "name": "PostgreSQL concurrency",
+      "tool": "phpunit",
+      "result": "passed",
+      "tests": 11,
+      "passed": 11,
+      "assertions": 69,
+      "duration_ms": 89518
+    }
+  ],
+  "frontend": {
+    "passed": 56,
+    "failed": 0,
+    "skipped": 0
+  },
+  "typescript": "passed after generating frontend routes",
+  "eslint_global": "passed after generating frontend routes",
+  "php_format": "passed; 20 owned PHP files",
+  "build": "passed; chunk-size warning",
+  "i18n": {
+    "result": "failed",
+    "missing_strings": 211
+  },
+  "temporal_integrity": {
+    "files": 62,
+    "mismatches": []
+  },
+  "snapshot_vs_current_owned_file_mismatches": [],
+  "sha256": {
+    "app/Http/Controllers/BankingController.php": "32c3c01000041a3b0b287cd6ec4817da7a3e654c842f9bb0eb4e8bc87cf17fc6",
+    "app/Http/Controllers/ExpenseController.php": "81bdf2925770e93772acbf2fae5b96d26c17e14b11da8e6d3988d9782105599b",
+    "app/Http/Controllers/FiscalSettingsController.php": "82cdfc0dd7feb89716eba04bc650a45b86ec4938cb711e4a0bae512b591e7a34",
+    "app/Http/Controllers/SalesDocumentController.php": "21ef667a9b60371884beb24165c5ae2835595d460f1346bec096efc8430fc96f",
+    "app/Models/SalesDocument.php": "6a63cbc5b1fa12255f1c533b07e0a1072c951d2bb4f20042c8354e851350a0b9",
+    "app/Services/Accounting/AccountingSynchronizer.php": "d43a1e78bbe4c6eb477dbc82cc21142028f0753ca755f0b9feda3b98558b4132",
+    "app/Services/Accounting/IssuedInvoiceCorrection.php": "948a0c75d09466a1174af3555c695c558f655752f7d71b3c7d2a0a7c90dcc1d7",
+    "app/Services/Documents/SalesDocumentConversion.php": "b577b08fa69847bf130d9af07c094c7662bfa9aaf406b93f7e271c036b5d1c45",
+    "app/Services/Documents/SalesDocumentCreation.php": "4fcd06b4dc7a799b388433a5cf1cbfa725ac44ca48bdaa15b1a7b548eb6c3447",
+    "app/Services/Finance/OutstandingBalanceCalculator.php": "5b55ddc8b56a11c5ef855aab5f62800706a6495daa612848a815028ab0a7af6a",
+    "app/Services/Quotes/QuoteCalculator.php": "b855c32d8945b6ff51b33429755319db20de9d6d913784fb4404bf746318fd87",
+    "bootstrap/app.php": "f47b37e1ff27541c16b0aec74f1ba66ea7cbf1efaf441eb7dc5b323822afddb1",
+    "database/migrations/2026_10_26_090000_preserve_sales_creation_idempotency.php": "c70d4d5c439ac204baf84586bd59d69027df3403f2a2733d582e54af51e2116a",
+    "database/migrations/2026_10_26_091000_enforce_existing_supplier_invoice_identity.php": "d6dc4752abf7f6ebb6dd146c4c3036d643fc201e817f9df89f3df50d497e59c5",
+    "tests/Feature/EconomicConcurrencyTest.php": "9c12ce42814c03fe190ab82d369f2d2e6267c18e04e9985c714e19a792d20b0c",
+    "tests/Feature/EconomicIdentityTest.php": "39b63bd28cbc9dd4fe6c21a2600eac7e277eaa566352bbbada58beb6f7746dc8",
+    "tests/Feature/EconomicIntegrityTest.php": "b0ca82654906688bcc2a264e6ccba5871898560fd298445c0ee7e05f50b527b7",
+    "tests/Feature/SalesDocumentTest.php": "24f57b26be2ffcd2679e74bde94e818446fefd27f7afd5486fa01ff8f4e2f072",
+    "tests/Support/economic-concurrency-worker.php": "1b02d4ebcc74824ad2cbc9771fe7a6ff2b117fa24a1a263345790eb4d6fe4608",
+    "tests/Unit/EconomicCalculationTest.php": "0b38c56e1daa9e20504a1620fdb4e49d425ff15c20105fe6ea35ddde111a0f8d",
+    "resources/js/lib/document-operation.ts": "f920cb5a3dc8a502cfca9c68fc5d0fc218cf07c279f9ea9324469c95ae6560be",
+    "resources/js/hooks/use-document-creation.ts": "0a3eb27d2fb0385e9931ce88ccb40bd0b773ddab2d9782535a6438e55069c43d",
+    "resources/js/pages/sales/form.tsx": "65fe8daddbc8ba2af8f1a29bf7b8ca5e1d576923d36ba908f2236efe7f8afd7f",
+    "resources/js/pages/sales/show.tsx": "cfd5f1879e6fca7993b35536cd649051cdc3ba78b4ffaf811ce7393bafa5a571",
+    "resources/js/pages/quotes/show.tsx": "0243ae87d2fc9fc3987fb8bffe2f29303250ad8f92e3d282333483bec972259e",
+    "resources/js/pages/billing/invoice.tsx": "057ab7a39380d320f92a143435d9213d67d7e621e5239fdcc32d1472a18dc8bd",
+    "tests/document-operation.test.mjs": "e684879fe96ecc95eca1819b00b7074ee9bfb1c073db5244b0bed9d38c1f9608"
+  },
+  "assessment": {
+    "temporal": "APTO PARA PREPARAR DESPLIEGUE; production gates pending",
+    "economic": "NO APTO PARA DESPLIEGUE; see audit report"
+  }
+}

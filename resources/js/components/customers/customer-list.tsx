@@ -1,3 +1,4 @@
+import '../../../css/commercial-mobile.css';
 import { Form, Link, router } from '@inertiajs/react';
 import {
     ArrowDownUp,
@@ -364,7 +365,7 @@ export function CustomerList({
                                 </Link>
                             )}
                             <span>
-                                {[person.tax_id, person.location]
+                                {[customerTypes[person.customer_type ?? ''], person.location]
                                     .filter(Boolean)
                                     .join(' · ') || 'Sin ubicación'}
                             </span>
@@ -381,6 +382,10 @@ export function CustomerList({
                             {customerPermissions.invoices && (
                                 <b>{money(person.volume ?? 0)}</b>
                             )}
+                            {!filters.archived && (person.phone || person.email) && <nav className="commercial-contact-actions" aria-label={`Contacto de ${person.name}`}>
+                                {person.phone && <a href={`tel:${person.phone}`} aria-label={`Llamar a ${person.name}`}>Llamar</a>}
+                                {person.email && <a href={`mailto:${person.email}`} aria-label={`Enviar email a ${person.name}`}>Email</a>}
+                            </nav>}
                             {filters.archived && (
                                 <Form
                                     action={`/people/${person.id}/restore`}

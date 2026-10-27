@@ -9,13 +9,16 @@ use App\Notifications\WebsiteLeadNotification;
 use App\Services\Crm\LeadAssignment;
 use App\Services\Crm\LeadResponseSla;
 use App\Services\Crm\OpportunitySalesCycle;
+use App\Services\Customers\OpportunityCustomerResolver;
 use App\Support\BusinessLineCatalog;
+use App\Support\PhoneNormalizer;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Throwable;
 
 class WebsiteContactController extends Controller
@@ -24,8 +27,8 @@ class WebsiteContactController extends Controller
     {
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'email:rfc', 'max:255'],
-            'phone' => ['nullable', 'string', 'max:40'],
+            'email' => ['nullable', 'required_without:phone', 'email:rfc', 'max:255'],
+            'phone' => ['nullable', 'required_without:email', 'string', 'max:40'],
             'postal_code' => ['nullable', 'string', 'max:12'],
             'service' => ['required', Rule::in(array_keys(BusinessLineCatalog::WEBSITE_SERVICES))],
             'message' => ['required', 'string', 'min:20', 'max:2000'],
@@ -33,13 +36,23 @@ class WebsiteContactController extends Controller
             'company_url' => ['nullable', 'string', 'max:0'],
         ]);
 
+        $data += ['email' => null, 'phone' => null, 'postal_code' => null];
+        if (filled($data['phone']) && ! PhoneNormalizer::normalize($data['phone'])) {
+            throw ValidationException::withMessages(['phone' => 'Introduce un teléfono válido para poder contactar contigo.']);
+        }
+
         [$opportunity, $created] = DB::transaction(function () use ($data, $assignment, $salesCycle, $responseSla): array {
-            $email = Str::lower($data['email']);
+            $email = filled($data['email'] ?? null) ? Str::lower($data['email']) : null;
             $service = BusinessLineCatalog::WEBSITE_SERVICES[$data['service']];
-            $customer = Person::query()
-                ->where('category', 'customer')
-                ->whereRaw('lower(email) = ?', [$email])
-                ->first();
+            if (DB::getDriverName() === 'pgsql') {
+                $identity = PhoneNormalizer::normalize($data['phone'] ?? '') ?: $email;
+                DB::select('SELECT pg_advisory_xact_lock(hashtextextended(?, 0))', ['website-lead:'.$identity]);
+            }
+            $customer = $email ? Person::query()->where('category', 'customer')->whereRaw('lower(email) = ?', [$email])->first() : app(OpportunityCustomerResolver::class)->findByPhone($data['phone']);
+
+            if (! $customer && filled($data['phone'])) {
+                $customer = app(OpportunityCustomerResolver::class)->findByPhone($data['phone']);
+            }
 
             if ($customer) {
                 $customer->update([
@@ -70,6 +83,7 @@ class WebsiteContactController extends Controller
 
             $notes = collect([
                 $data['message'],
+                $email && $customer->email !== $email ? 'Email facilitado para revisión: '.$email : null,
                 filled($data['phone']) ? 'Teléfono: '.$data['phone'] : null,
                 filled($data['postal_code']) ? 'Código postal: '.$data['postal_code'] : null,
             ])->filter()->implode("\n\n");

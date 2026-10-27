@@ -25,7 +25,7 @@ import {
 } from '@/components/ui/tooltip';
 import type { AuthAbilities } from '@/types';
 
-const actions = [
+export const quickCreateActions = [
     {
         label: 'Customer',
         href: '/people/create',
@@ -85,7 +85,7 @@ const actions = [
 
 export function QuickCreate() {
     const { abilities } = usePage().props.auth;
-    const allowedActions = actions.filter((action) =>
+    const allowedActions = quickCreateActions.filter((action) =>
         action.abilities.every((ability) => abilities[ability]),
     );
 

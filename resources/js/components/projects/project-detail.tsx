@@ -8,6 +8,8 @@ import {
 } from 'lucide-react';
 import { useCustomerNavigation } from '@/components/customers/use-customer-navigation';
 import { PageHeader, PageShell, PaginationBar } from '@/components/page-shell';
+import ProjectJourney from '@/components/project-journey';
+import type { Journey } from '@/components/project-journey';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useLocale } from '@/hooks/use-locale';
@@ -43,6 +45,7 @@ type RecordRow = {
     serial_number?: string;
 };
 export type DetailProps = {
+    journey?: Journey;
     installation: InstallationRow;
     quote: {
         id: number;
@@ -116,6 +119,7 @@ export default function ProjectDetail({
     permissions,
     costs,
     milestones,
+    journey,
 }: DetailProps) {
     const page = usePage();
     const filters = Object.fromEntries(
@@ -236,6 +240,12 @@ export default function ProjectDetail({
                         </Link>
                     ))}
                 </nav>
+                {tab === tabKeys.summary && (
+                    <ProjectJourney
+                        key={journey?.closure?.revision}
+                        journey={journey}
+                    />
+                )}
                 {loading && <Skeleton className="h-32 w-full" />}
                 {tab === tabKeys.summary && (
                     <div className="projects-summary-grid">

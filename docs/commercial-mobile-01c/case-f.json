@@ -1,0 +1,8 @@
+{
+  "pendingObserved": true,
+  "desktopDescriptionRetained": true,
+  "mobileDescriptionRetained": true,
+  "desktopValidationRetained": true,
+  "mobileValidationRetained": true,
+  "action": "one explicit invalid save, no customer selected; no valid business record submitted"
+}

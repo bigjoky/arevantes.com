@@ -2,11 +2,13 @@
 
 namespace App\Services\Quotes;
 
+use App\Models\DocumentDelivery;
 use App\Models\Person;
 use App\Models\Quote;
 use App\Models\QuoteStatusHistory;
 use App\Models\User;
 use App\Support\BusinessLineCatalog;
+use App\Support\Time\InstantSql;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -74,12 +76,16 @@ class QuoteWorkspace
 
     public function activity(Quote $quote): array
     {
+        $deliveryAt = InstantSql::iso(DocumentDelivery::class, 'd.sent_at');
+        $deliveryCreated = InstantSql::legacyIso('d.created_at');
+        $stateAt = InstantSql::legacyIso('h.changed_at');
+        $versionAt = InstantSql::legacyIso('v.created_at');
         $state = DB::table('quote_status_histories as h')->leftJoin('users as u', 'u.id', '=', 'h.changed_by')->where('h.quote_id', $quote->id)
-            ->selectRaw("'status-' || h.id as id, 'status' as type, h.to_status as title, h.reason as detail, u.name as actor, h.changed_at as occurred_at");
+            ->selectRaw("'status-' || h.id as id, 'status' as type, h.to_status as title, h.reason as detail, u.name as actor, $stateAt as occurred_at");
         $versions = DB::table('quote_versions as v')->leftJoin('users as u', 'u.id', '=', 'v.created_by')->where('v.quote_id', $quote->id)
-            ->selectRaw("'version-' || v.id as id, 'version' as type, CAST(v.version AS TEXT) as title, v.change_note as detail, u.name as actor, v.created_at as occurred_at");
+            ->selectRaw("'version-' || v.id as id, 'version' as type, CAST(v.version AS TEXT) as title, v.change_note as detail, u.name as actor, $versionAt as occurred_at");
         $deliveries = DB::table('document_deliveries as d')->leftJoin('users as u', 'u.id', '=', 'd.sent_by')->where('d.quote_id', $quote->id)
-            ->selectRaw("'delivery-' || d.id as id, 'delivery' as type, d.status as title, d.recipient_email as detail, u.name as actor, COALESCE(d.sent_at, d.created_at) as occurred_at");
+            ->selectRaw("'delivery-' || d.id as id, 'delivery' as type, d.status as title, d.recipient_email as detail, u.name as actor, COALESCE($deliveryAt, $deliveryCreated) as occurred_at");
 
         $events = DB::query()->fromSub($state->unionAll($versions)->unionAll($deliveries), 'events')->orderByDesc('occurred_at')->orderByDesc('id')->paginate(15, ['*'], 'activity_page')->withQueryString();
         $events->getCollection()->each(function ($event): void {

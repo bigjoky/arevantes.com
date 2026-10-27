@@ -16,6 +16,7 @@ use App\Services\Planning\WorkforceCapacityForecast;
 use App\Services\Supply\CriticalMaterialRisk;
 use App\Services\Work\TechnicianSchedule;
 use App\Services\Work\WorkOrderFactory;
+use App\Support\Time\BusinessTime;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -61,8 +62,8 @@ class OperationsController extends Controller
                 $filters['focus'] ?? null,
                 fn (Builder $query, int $focus) => $query->whereKey($focus),
                 fn (Builder $query) => $query->where(fn (Builder $query) => $query
-                    ->where('starts_at', '<=', now()->endOfDay())
-                    ->orWhere('due_at', '<=', now()->endOfDay())
+                    ->where('starts_at', '<=', BusinessTime::now()->endOfDay())
+                    ->orWhere('due_at', '<=', BusinessTime::now()->endOfDay())
                     ->orWhere(fn (Builder $query) => $query->whereNull('starts_at')->whereNull('due_at')))
             );
         }
@@ -85,7 +86,7 @@ class OperationsController extends Controller
 
         $selectedDate = isset($filters['week'])
             ? Carbon::createFromFormat('Y-m-d', $filters['week'])
-            : now();
+            : BusinessTime::now();
         $anchor = $filters['view'] === 'month'
             ? $selectedDate->copy()->startOfMonth()
             : $selectedDate->copy()->startOfWeek();
@@ -194,7 +195,7 @@ class OperationsController extends Controller
                 'installation_id' => $data['installation_id'] ?? $opportunity?->installation_id,
                 'status' => $status,
                 'blocked_reason' => $status === 'blocked' ? ($data['blocked_reason'] ?? null) : null,
-                'completed_at' => $status === 'completed' ? now() : null,
+                'completed_at' => $status === 'completed' ? BusinessTime::now() : null,
                 'created_by' => $request->user()->id,
             ]);
             $responseSla->record($activity);
@@ -222,7 +223,7 @@ class OperationsController extends Controller
             : $this->validateActivity($request, true);
 
         if (array_key_exists('status', $data)) {
-            $data['completed_at'] = $data['status'] === 'completed' ? now() : null;
+            $data['completed_at'] = $data['status'] === 'completed' ? BusinessTime::now() : null;
             $data['blocked_reason'] = $data['status'] === 'blocked' ? ($data['blocked_reason'] ?? $activity->blocked_reason) : null;
         }
         $previousOpportunity = $activity->opportunity;
@@ -271,17 +272,18 @@ class OperationsController extends Controller
             'kind' => ['required', Rule::in(['survey', 'installation', 'commissioning', 'maintenance', 'repair'])],
             'scheduled_end' => ['nullable', 'date'],
         ]);
+        $technicalAssignee = $activity->assignedUser?->hasRole('technician', 'admin') ? $activity->assigned_user_id : null;
         $start = $activity->starts_at;
         $end = $data['scheduled_end'] ?? $activity->due_at;
         abort_if($start && $end && Carbon::parse($end)->lessThanOrEqualTo($start), 422, __('The scheduled end must be after the start.'));
         if ($start && $end) {
-            $schedule->assertAvailable($activity->assigned_user_id, $start, $end);
+            $schedule->assertAvailable($technicalAssignee, $start, $end);
         }
 
         $order = $factory->create([
             'installation_id' => $activity->installation_id,
             'activity_id' => $activity->id,
-            'assigned_user_id' => $activity->assigned_user_id,
+            'assigned_user_id' => $technicalAssignee,
             'title' => $activity->title,
             'kind' => $data['kind'],
             'scheduled_start' => $start,
@@ -360,7 +362,7 @@ class OperationsController extends Controller
         $orders = clone $workOrdersQuery;
 
         return [
-            'overdue' => (clone $activities)->whereNotNull('due_at')->where('due_at', '<', now())->count(),
+            'overdue' => (clone $activities)->whereNotNull('due_at')->where('due_at', '<', BusinessTime::now())->count(),
             'today' => (clone $activities)->where(fn (Builder $query) => $query->whereDate('starts_at', today())->orWhereDate('due_at', today()))->count(),
             'blocked' => (clone $activities)->where('status', 'blocked')->count(),
             'unassigned' => $request->user()->hasRole('technician') ? 0 : (clone $activities)->whereNull('assigned_user_id')->count() + (clone $orders)->whereNull('assigned_user_id')->count(),

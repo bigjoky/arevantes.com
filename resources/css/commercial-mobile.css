@@ -1,0 +1,507 @@
+/* Commercial phase only: the global mobile shell and desktop stay unchanged. */
+.commercial-mobile-filter-trigger {
+    display: none;
+}
+@media (max-width: 1023px) {
+    .commercial-visible-search {
+        display: grid;
+        gap: 8px;
+        font-size: 13px;
+    }
+    .commercial-mobile-filter-trigger {
+        display: inline-flex;
+        min-height: 44px;
+    }
+    .commercial-opportunity-list {
+        display: grid;
+        gap: 12px;
+    }
+    .commercial-card {
+        min-width: 0;
+        padding: 16px;
+        border: 1px solid #e1e8e5;
+        border-radius: 12px;
+        background: #fff;
+        color: #092b27;
+        overflow-wrap: anywhere;
+    }
+    .commercial-card-heading,
+    .commercial-card-facts {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+    }
+    .commercial-stage {
+        background: #e8f5ee;
+        color: #006e4e;
+        border-radius: 6px;
+        padding: 4px 8px;
+        font-size: 12px;
+    }
+    .commercial-card-title {
+        display: flex;
+        align-items: start;
+        justify-content: space-between;
+        gap: 8px;
+        margin: 12px 0 6px;
+        font-size: 17px;
+        font-weight: 650;
+        min-height: 44px;
+    }
+    .commercial-card p,
+    .commercial-card small {
+        color: #536878;
+        font-size: 13px;
+    }
+    .commercial-card-facts {
+        margin: 12px 0;
+        flex-wrap: wrap;
+    }
+    .commercial-card-facts span {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12px;
+    }
+    .commercial-next-action {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        min-height: 48px;
+        padding: 10px;
+        background: #f4f8f6;
+        border-radius: 8px;
+        font-size: 13px;
+    }
+    .commercial-next-action time {
+        display: block;
+        color: #536878;
+        font-size: 12px;
+    }
+    .commercial-stage-control {
+        display: grid;
+        gap: 6px;
+        margin-top: 12px;
+        font-size: 12px;
+    }
+    .commercial-stage-control select {
+        border: 1px solid #ccdcd4;
+        border-radius: 8px;
+        padding: 10px;
+        background: white;
+        color: #092b27;
+    }
+    .commercial-empty {
+        padding: 20px 12px;
+        color: #536878;
+    }
+    .crm-workspace .crm-view-switch,
+    .quotes-workspace .quotes-view-switch {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+    .crm-workspace .crm-primary,
+    .crm-workspace .crm-secondary,
+    .quotes-list-layout,
+    .customers-summary-top,
+    .customers-summary-grid {
+        grid-template-columns: minmax(0, 1fr);
+        min-width: 0;
+    }
+    .crm-workspace .crm-pagination,
+    .customers-pagination {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+    .customers-filter-bar {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    }
+    .customers-filter-bar .customers-search {
+        grid-column: 1 / -1;
+        min-width: 0;
+    }
+    .customers-mobile-row {
+        padding: 16px;
+        border-radius: 12px;
+        background: white;
+        overflow-wrap: anywhere;
+    }
+    .customers-mobile-row .customers-name {
+        display: flex;
+        align-items: center;
+        min-height: 44px;
+        font-size: 17px;
+    }
+    .commercial-contact-actions {
+        display: flex;
+        gap: 8px;
+        margin-top: 8px;
+    }
+    .commercial-contact-actions a {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 44px;
+        padding: 8px 16px;
+        border: 1px solid #d8e7de;
+        border-radius: 8px;
+        color: #006e4e;
+        background: #f3faf6;
+    }
+    .customers-detail-title,
+    .customers-detail-actions,
+    .customers-general-layout {
+        min-width: 0;
+        overflow-wrap: anywhere;
+    }
+    .customers-detail-actions,
+    .quotes-detail-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+    .customers-detail-tabs,
+    .quotes-detail-tabs {
+        display: flex;
+        overflow-x: auto;
+        white-space: nowrap;
+        max-width: 100%;
+        padding-bottom: 8px;
+    }
+    .customers-detail-tabs a,
+    .quotes-detail-tabs a {
+        min-height: 44px;
+        display: inline-flex;
+        align-items: center;
+    }
+    .quotes-list-main,
+    .quotes-list-heading,
+    .quotes-filters,
+    .quotes-extra-filters {
+        min-width: 0;
+    }
+    .quotes-list-heading,
+    .quotes-filters {
+        flex-wrap: wrap;
+    }
+    .quotes-kanban {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        overflow: visible;
+    }
+    .quotes-kanban > section {
+        min-width: 0;
+        width: auto;
+    }
+    .quotes-mobile-card {
+        min-width: 0;
+        padding: 16px;
+        border-radius: 12px;
+        overflow-wrap: anywhere;
+    }
+    .quotes-mobile-card > a {
+        display: flex;
+        min-height: 44px;
+        align-items: center;
+        font-size: 17px;
+    }
+    .quotes-mobile-card time {
+        display: block;
+        font-size: 12px;
+        color: #536878;
+    }
+    .quotes-lines-mobile {
+        display: grid;
+        gap: 10px;
+    }
+    .quotes-lines-table {
+        display: none;
+    }
+    .quotes-lines-mobile article {
+        padding: 16px;
+        border: 1px solid #dfe7e2;
+        border-radius: 10px;
+        display: grid;
+        gap: 8px;
+    }
+    .quotes-lines-mobile article strong {
+        overflow-wrap: anywhere;
+    }
+    .commercial-person-form,
+    .commercial-quote-form,
+    .commercial-opportunity-detail {
+        min-width: 0;
+        overflow-wrap: anywhere;
+    }
+    .commercial-person-form .grid,
+    .commercial-quote-form .grid,
+    .commercial-opportunity-detail > .grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+    .commercial-person-form input,
+    .commercial-person-form select,
+    .commercial-quote-form input,
+    .commercial-quote-form select,
+    .commercial-opportunity-dialog input,
+    .commercial-opportunity-dialog select {
+        min-height: 44px;
+        font-size: 16px;
+        max-width: 100%;
+    }
+    .commercial-person-form [role='combobox'],
+    .commercial-quote-form [role='combobox'] {
+        min-height: 44px;
+    }
+    .commercial-person-form .sticky,
+    .commercial-quote-form .sticky {
+        bottom: calc(76px + env(safe-area-inset-bottom));
+    }
+    .commercial-person-form textarea,
+    .commercial-quote-form textarea {
+        font-size: 16px;
+        min-height: 100px;
+    }
+    .commercial-person-form [class*='col-span'],
+    .commercial-quote-form [class*='col-span'] {
+        grid-column: auto;
+    }
+    .commercial-opportunity-detail header button,
+    .commercial-opportunity-detail header a {
+        min-height: 44px;
+    }
+    .commercial-opportunity-dialog,
+    .commercial-draft-dialog {
+        background: #fff;
+        color: #092b27;
+        color-scheme: light;
+    }
+    .commercial-opportunity-dialog [data-slot='dialog-title'],
+    .commercial-draft-dialog [data-slot='dialog-title'] {
+        color: #092b27;
+    }
+    .commercial-opportunity-dialog [data-slot='dialog-description'],
+    .commercial-draft-dialog [data-slot='dialog-description'] {
+        color: #536878;
+    }
+    .commercial-opportunity-dialog .grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+    .commercial-opportunity-dialog [class*='col-span'] {
+        grid-column: auto;
+    }
+    .commercial-opportunity-dialog {
+        max-height: calc(
+            100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) -
+                24px
+        );
+        padding-bottom: max(20px, env(safe-area-inset-bottom));
+    }
+    .commercial-form-notice {
+        padding: 12px;
+        border: 1px solid #bfd8cb;
+        background: #f1faf5;
+        color: #145839;
+        border-radius: 8px;
+    }
+    .commercial-opportunity-list a:focus-visible,
+    .commercial-contact-actions a:focus-visible {
+        outline: 2px solid #00885e;
+        outline-offset: 3px;
+    }
+}
+@media (max-width: 1023px) and (prefers-reduced-motion: reduce) {
+    .commercial-draft-dialog,
+    .commercial-opportunity-dialog {
+        animation: none !important;
+        transition: none !important;
+    }
+}
+@media (max-width: 1023px) {
+    .customers-master .customers-table-scroll,
+    .quotes-table-card .quotes-table-scroll {
+        display: none;
+    }
+    .customers-master .customers-mobile-list,
+    .quotes-table-card .quotes-mobile-list {
+        display: grid;
+        gap: 12px;
+    }
+    .crm-filters {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        width: 100%;
+        min-width: 0;
+    }
+    .crm-filters label,
+    .crm-filters .crm-search {
+        min-width: 0;
+    }
+    .crm-filters input,
+    .crm-filters select {
+        min-height: 44px;
+        font-size: 16px;
+    }
+}
+
+@media (max-width: 1023px) {
+    .quotes-workspace .quotes-filters :is(input, select),
+    .customers-filter-bar :is(input, select) {
+        min-height: 44px;
+        font-size: 16px;
+    }
+    .quotes-filters .quotes-search {
+        flex-basis: 100%;
+        min-width: 0;
+    }
+}
+
+@media (max-width: 1023px) {
+    :is(
+        .crm-workspace,
+        .commercial-customer-editor,
+        .customers-workspace,
+        .quotes-workspace,
+        .commercial-person-form,
+        .commercial-quote-form,
+        .commercial-opportunity-dialog,
+        .commercial-draft-dialog,
+        .commercial-opportunity-detail
+    ) {
+        --background: #ffffff;
+        --foreground: #092b27;
+        --card: #ffffff;
+        --card-foreground: #092b27;
+        --muted: #f3f7f5;
+        --muted-foreground: #536878;
+        --border: #e1e8e5;
+        --input: #ccdcd4;
+        --primary: #007c56;
+        --primary-foreground: #ffffff;
+        --accent: #e8f5ee;
+        --accent-foreground: #006e4e;
+        color: #092b27;
+        color-scheme: light;
+    }
+    .commercial-crm-desktop-summary {
+        display: none;
+    }
+    .crm-bottom {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+@media (max-width: 1023px) {
+    :is(
+            .crm-workspace,
+            .customers-workspace,
+            .quotes-workspace,
+            .commercial-person-form,
+            .commercial-quote-form,
+            .commercial-opportunity-dialog,
+            .commercial-draft-dialog
+        )
+        [data-slot='button'] {
+        min-height: 44px;
+        background: #ffffff;
+        color: #092b27;
+        border: 1px solid #ccdcd4;
+    }
+    :is(
+            .crm-workspace,
+            .customers-workspace,
+            .quotes-workspace,
+            .commercial-person-form,
+            .commercial-quote-form,
+            .commercial-opportunity-dialog,
+            .commercial-draft-dialog
+        )
+        [data-slot='button'][class*='bg-primary'] {
+        background: #007c56;
+        color: white;
+        border-color: #007c56;
+    }
+    .commercial-draft-dialog [data-slot='button'][class*='bg-destructive'] {
+        background: #982c2c;
+        color: white;
+    }
+    .commercial-opportunity-dialog [role='combobox'] {
+        min-height: 44px;
+        background: white;
+        color: #092b27;
+        border-color: #ccdcd4;
+    }
+    .crm-workspace .crm-panel {
+        background: white;
+        color: #092b27;
+    }
+}
+
+@media (max-width: 1023px) {
+    .commercial-customer-editor [data-slot='card'],
+    .commercial-person-form section,
+    .commercial-quote-form section {
+        background: white;
+        color: #092b27;
+    }
+    :is(.commercial-person-form, .commercial-quote-form)
+        :is(input, textarea, [role='combobox']) {
+        background: white;
+        color: #092b27;
+        border-color: #ccdcd4;
+    }
+    .commercial-customer-editor > header a,
+    .crm-workspace .commercial-mobile-filter-trigger {
+        background: white;
+        color: #092b27;
+        border: 1px solid #ccdcd4;
+    }
+}
+
+@media (max-width: 1023px) {
+    .commercial-quote-lines-table,
+    .commercial-quote-lines-table tbody,
+    .commercial-quote-lines-table tr,
+    .commercial-quote-lines-table td {
+        display: block;
+        min-width: 0;
+        width: 100%;
+    }
+    .commercial-quote-lines-table thead {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+    }
+    .commercial-quote-lines-table tr.align-top {
+        margin-top: 16px;
+        border: 1px solid #e1e8e5;
+        border-radius: 10px;
+        padding: 8px;
+    }
+    .commercial-quote-lines-table td[data-label]::before {
+        content: attr(data-label);
+        display: block;
+        color: #536878;
+        font-size: 13px;
+        margin-bottom: 6px;
+    }
+    .commercial-quote-lines-table td.sticky {
+        position: static;
+    }
+    .commercial-quote-form [class*='min-w-'] {
+        min-width: 0;
+        max-width: 100%;
+    }
+    .commercial-person-form .sticky {
+        background: white;
+        border-color: #e1e8e5;
+    }
+}
+@media (max-width: 1023px) {
+    :is(.crm-workspace, .customers-workspace, .quotes-workspace, .commercial-customer-editor, .commercial-quote-form, .commercial-opportunity-detail, .commercial-opportunity-dialog) .text-muted-foreground {
+        color: #536878;
+    }
+}

@@ -8,6 +8,7 @@ use App\Models\PortfolioProjectImage;
 use App\Rules\SafeUpload;
 use App\Services\Website\PortfolioImageProcessor;
 use App\Support\PublicProjectPresenter;
+use App\Support\Time\BusinessTime;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -175,7 +176,7 @@ class PortfolioProjectAdminController extends Controller
             'completed_on' => $data['completed_on'] ?? null,
             'is_featured' => $data['is_featured'],
             'sort_order' => $data['sort_order'],
-            'published_at' => $data['published'] ? ($project?->published_at ?? now()) : null,
+            'published_at' => $data['published'] ? ($project?->published_at ?? BusinessTime::now()) : null,
         ];
     }
 

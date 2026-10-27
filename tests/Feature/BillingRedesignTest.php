@@ -6,9 +6,7 @@ use App\Models\CompanyProfile;
 use App\Models\Expense;
 use App\Models\ExpenseCategory;
 use App\Models\LedgerAccount;
-use App\Models\PurchaseDocument;
 use App\Models\SalesDocument;
-use App\Models\Supplier;
 use App\Models\SupplierPayment;
 use App\Models\User;
 use App\Support\WorkspaceNavigation;
@@ -17,6 +15,7 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Inertia\Testing\AssertableInertia as Assert;
+use Tests\Support\EconomicFixture;
 use Tests\TestCase;
 
 class BillingRedesignTest extends TestCase
@@ -35,10 +34,10 @@ class BillingRedesignTest extends TestCase
         $invoice->payments()->create(['paid_at' => today()->toDateString(), 'amount' => '20.00', 'method' => 'bank_transfer']);
         $this->invoice(['type' => 'credit_note', 'source_document_id' => $invoice->id, 'amount' => '-11.00', 'subtotal' => '-10.00', 'tax_amount' => '-1.00']);
         $this->invoice(['status' => 'draft', 'amount' => '9999.00', 'locked_at' => null]);
-        $supplier = Supplier::create(['legal_name' => 'Proveedor real', 'country' => 'ES']);
-        $bill = PurchaseDocument::create(['type' => 'supplier_invoice', 'number' => 'SUP-1', 'supplier_id' => $supplier->id, 'status' => 'pending', 'issue_date' => today()->toDateString(), 'due_date' => today()->toDateString(), 'subtotal' => '50.00', 'tax_amount' => '10.50', 'amount' => '60.50', 'paid_amount' => '10.00']);
+        $supplier = EconomicFixture::supplier(['legal_name' => 'Proveedor real', 'country' => 'ES']);
+        $bill = EconomicFixture::purchase(['type' => 'supplier_invoice', 'number' => 'SUP-1', 'supplier_id' => $supplier->id, 'status' => 'pending', 'issue_date' => today()->toDateString(), 'due_date' => today()->toDateString(), 'subtotal' => '50.00', 'tax_amount' => '10.50', 'amount' => '60.50', 'paid_amount' => '10.00']);
         SupplierPayment::create(['purchase_document_id' => $bill->id, 'paid_at' => today()->toDateString(), 'amount' => '10.00', 'method' => 'bank_transfer']);
-        PurchaseDocument::create(['type' => 'purchase_order', 'number' => 'PO-1', 'supplier_id' => $supplier->id, 'status' => 'draft', 'issue_date' => today()->toDateString(), 'subtotal' => '10000', 'tax_amount' => '2100', 'amount' => '12100', 'paid_amount' => '0']);
+        EconomicFixture::purchase(['type' => 'purchase_order', 'number' => 'PO-1', 'supplier_id' => $supplier->id, 'status' => 'draft', 'issue_date' => today()->toDateString(), 'subtotal' => '10000', 'tax_amount' => '2100', 'amount' => '12100', 'paid_amount' => '0']);
         $this->actingAs($user)->get('/billing')->assertOk()->assertInertia(fn (Assert $page) => $page->component('billing/dashboard')->where('metrics.invoiced', '110.00')->where('metrics.receivable', '90.00')->where('metrics.payable', '50.50')->where('metrics.overdue', '90.00')->where('metrics.received', '20.00')->where('metrics.paid', '10.00')->where('needs', null));
     }
 
@@ -59,7 +58,7 @@ class BillingRedesignTest extends TestCase
     {
         $user = User::factory()->create(['role' => 'admin']);
         foreach (['invoice', 'receipt'] as $type) {
-            Expense::create(['expense_category_id' => ExpenseCategory::firstOrFail()->id, 'type' => $type, 'number' => 'EXP-'.$type, 'document_number' => 'Original-'.$type, 'issuer_legal_name' => 'Proveedor independiente', 'expense_date' => today()->toDateString(), 'currency_code' => 'EUR', 'subtotal' => '50', 'tax_amount' => '10.50', 'amount' => '60.50', 'paid_amount' => '0', 'status' => 'pending']);
+            EconomicFixture::expense(['expense_category_id' => ExpenseCategory::firstOrFail()->id, 'type' => $type, 'number' => 'EXP-'.$type, 'document_number' => 'Original-'.$type, 'issuer_legal_name' => 'Proveedor independiente', 'expense_date' => today()->toDateString(), 'currency_code' => 'EUR', 'subtotal' => '50', 'tax_amount' => '10.50', 'amount' => '60.50', 'paid_amount' => '0', 'status' => 'pending']);
         }
         $this->actingAs($user)->get('/billing/suppliers')->assertInertia(fn (Assert $page) => $page->component('billing/invoices')->where('invoices.total', 1)->where('invoices.data.0.kind', 'expense'));
         $expense = Expense::where('type', 'invoice')->firstOrFail();
@@ -157,8 +156,8 @@ class BillingRedesignTest extends TestCase
     public function test_supplier_payment_retries_do_not_duplicate_and_reject_changed_payloads(): void
     {
         $user = User::factory()->create(['role' => 'admin']);
-        $supplier = Supplier::create(['legal_name' => 'Proveedor de prueba', 'country' => 'ES']);
-        $invoice = PurchaseDocument::create(['type' => 'supplier_invoice', 'number' => 'SUP-PAY', 'supplier_id' => $supplier->id, 'status' => 'pending', 'matching_status' => 'matched', 'issue_date' => today()->toDateString(), 'subtotal' => '100', 'tax_amount' => '21', 'amount' => '121', 'paid_amount' => '0']);
+        $supplier = EconomicFixture::supplier(['legal_name' => 'Proveedor de prueba', 'country' => 'ES']);
+        $invoice = EconomicFixture::purchase(['type' => 'supplier_invoice', 'number' => 'SUP-PAY', 'supplier_id' => $supplier->id, 'status' => 'pending', 'matching_status' => 'matched', 'issue_date' => today()->toDateString(), 'subtotal' => '100', 'tax_amount' => '21', 'amount' => '121', 'paid_amount' => '0']);
         $data = ['idempotency_key' => (string) Str::uuid(), 'paid_at' => today()->toDateString(), 'amount' => '21.00', 'method' => 'cash', 'funding_source_type' => 'ledger_account', 'funding_source_id' => LedgerAccount::where('code', '570')->firstOrFail()->id];
         $this->actingAs($user)->post('/supplier-invoices/'.$invoice->id.'/payments', $data)->assertRedirect()->assertSessionHasNoErrors();
         $this->post('/supplier-invoices/'.$invoice->id.'/payments', $data)->assertRedirect()->assertSessionHasNoErrors();

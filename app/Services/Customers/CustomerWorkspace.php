@@ -13,6 +13,7 @@ use App\Models\SalesDocument;
 use App\Models\User;
 use App\Models\WorkOrder;
 use App\Models\WorkOrderAttachment;
+use App\Support\Time\InstantSql;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -157,24 +158,31 @@ class CustomerWorkspace
 
     private function activities(Person $person): \Illuminate\Database\Query\Builder
     {
-        $activities = CrmActivity::query()->selectRaw("id, title, status, notes AS note, COALESCE(completed_at, created_at) AS happened_at, opportunity_id, 'activity' AS source")
+        $activityAt = InstantSql::iso(CrmActivity::class, 'completed_at');
+        $activityCreated = InstantSql::legacyIso('created_at');
+        $workCompleted = InstantSql::iso(WorkOrder::class, 'completed_at');
+        $workStart = InstantSql::iso(WorkOrder::class, 'scheduled_start');
+        $eventAt = InstantSql::legacyIso('occurred_at');
+        $quoteSent = InstantSql::legacyIso('sent_at');
+        $issued = InstantSql::legacyIso('issued_at');
+        $activities = CrmActivity::query()->selectRaw("id, title, status, notes AS note, COALESCE($activityAt, $activityCreated) AS happened_at, opportunity_id, 'activity' AS source")
             ->where(fn ($q) => $q->where('person_id', $person->id)->orWhereHas('opportunity', fn ($o) => $o->where('person_id', $person->id))->orWhereHas('installation', fn ($i) => $i->whereIn('installations.id', $this->installations($person)->select('installations.id'))))
             ->when(auth()->user()?->cannot('manage-operations'), fn ($q) => $q->whereNull('installation_id')->whereNull('work_order_id'))
             ->when(auth()->user()?->hasRole('technician'), fn ($q) => $q->where(fn ($a) => $a->whereNull('installation_id')->orWhere('assigned_user_id', auth()->id())));
-        $events = OpportunityEvent::query()->selectRaw("id, summary AS title, event_type AS status, note, occurred_at AS happened_at, opportunity_id, 'event' AS source")
+        $events = OpportunityEvent::query()->selectRaw("id, summary AS title, event_type AS status, note, $eventAt AS happened_at, opportunity_id, 'event' AS source")
             ->whereHas('opportunity', fn ($o) => $o->where('person_id', $person->id));
 
         $activities->unionAll($events);
         if (auth()->user()?->can('manage-quotes')) {
-            $activities->unionAll(Quote::query()->where('person_id', $person->id)->selectRaw("id, 'Presupuesto ' || number AS title, status, NULL AS note, COALESCE(sent_at, created_at) AS happened_at, NULL AS opportunity_id, 'quote' AS source"));
+            $activities->unionAll(Quote::query()->where('person_id', $person->id)->selectRaw("id, 'Presupuesto ' || number AS title, status, NULL AS note, COALESCE($quoteSent, $activityCreated) AS happened_at, NULL AS opportunity_id, 'quote' AS source"));
         }
         if (auth()->user()?->can('manage-installations')) {
-            $activities->unionAll(SalesDocument::query()->where('person_id', $person->id)->where('type', 'invoice')->selectRaw("id, 'Factura ' || number AS title, status, NULL AS note, COALESCE(issued_at, created_at) AS happened_at, NULL AS opportunity_id, 'invoice' AS source"));
+            $activities->unionAll(SalesDocument::query()->where('person_id', $person->id)->where('type', 'invoice')->selectRaw("id, 'Factura ' || number AS title, status, NULL AS note, COALESCE($issued, $activityCreated) AS happened_at, NULL AS opportunity_id, 'invoice' AS source"));
         }
         if (auth()->user()?->can('manage-operations')) {
             $activities->unionAll(WorkOrder::query()->whereHas('installation', fn ($i) => $i->whereIn('installations.id', $this->installations($person)->select('installations.id')))
                 ->when(auth()->user()?->hasRole('technician'), fn ($q) => $q->where('assigned_user_id', auth()->id()))
-                ->selectRaw("id, number || ' · ' || title AS title, status, NULL AS note, COALESCE(completed_at, scheduled_start, created_at) AS happened_at, NULL AS opportunity_id, 'work_order' AS source"));
+                ->selectRaw("id, number || ' · ' || title AS title, status, NULL AS note, COALESCE($workCompleted, $workStart, $activityCreated) AS happened_at, NULL AS opportunity_id, 'work_order' AS source"));
         }
 
         return DB::query()->fromSub($activities->toBase(), 'customer_activity')->orderByDesc('happened_at')->orderByDesc('id');

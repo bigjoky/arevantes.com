@@ -6,7 +6,6 @@ use App\Models\BankAccount;
 use App\Models\BankReconciliation;
 use App\Models\BankTransaction;
 use App\Models\BankTransfer;
-use App\Models\Expense;
 use App\Models\ExpenseCategory;
 use App\Models\FinancialForecastItem;
 use App\Models\SalesDocument;
@@ -17,6 +16,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 use Inertia\Testing\AssertableInertia as Assert;
+use Tests\Support\EconomicFixture;
 use Tests\TestCase;
 
 class FinanceRedesignTest extends TestCase
@@ -88,7 +88,7 @@ class FinanceRedesignTest extends TestCase
         $invoice = $this->invoice();
         $this->invoice(['type' => 'credit_note', 'source_document_id' => $invoice->id, 'amount' => '-21.00']);
         FinancialForecastItem::create(['direction' => 'out', 'category' => 'other', 'description' => 'Previsión manual real', 'amount' => '0.10', 'due_on' => today()->addDays(7), 'probability' => 100, 'status' => 'planned']);
-        Expense::create(['expense_category_id' => ExpenseCategory::firstOrFail()->id, 'type' => 'invoice', 'number' => 'FX-1', 'amount' => '999', 'subtotal' => '999', 'tax_amount' => '0', 'paid_amount' => '0', 'currency_code' => 'USD', 'status' => 'pending', 'expense_date' => today(), 'due_date' => today()->addDay()]);
+        EconomicFixture::expense(['expense_category_id' => ExpenseCategory::firstOrFail()->id, 'type' => 'invoice', 'number' => 'FX-1', 'amount' => '999', 'subtotal' => '999', 'tax_amount' => '0', 'paid_amount' => '0', 'currency_code' => 'USD', 'status' => 'pending', 'expense_date' => today(), 'due_date' => today()->addDay()]);
         $result = app(TreasuryForecast::class)->build(today()->year, 'optimistic', exact: true);
         $this->assertSame('1099.90', $result['days']->get(7)['closing']);
         $this->actingAs(User::factory()->create(['role' => 'admin']));

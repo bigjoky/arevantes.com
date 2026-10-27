@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Models\CompanyProfile;
+use App\Support\CompanyBrand;
 use App\Support\WorkspaceNavigation;
 use App\Support\WorkspaceShortcuts;
 use Illuminate\Http\Request;
@@ -42,6 +43,7 @@ class HandleInertiaRequests extends Middleware
         $user = $request->user();
         $sharesWorkspace = $user !== null && ! $request->routeIs(
             'home',
+            'public.*',
             'projects.*',
             'project-images.show',
             'services.show',
@@ -51,6 +53,7 @@ class HandleInertiaRequests extends Middleware
         return [
             ...parent::share($request),
             'name' => config('app.name'),
+            'branding' => fn () => app(CompanyBrand::class)->for($user ? CompanyProfile::first() : null),
             'localization' => [
                 'current' => app()->getLocale(),
                 'supported' => collect(config('localization.supported', []))->map(

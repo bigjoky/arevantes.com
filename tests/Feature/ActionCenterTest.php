@@ -6,7 +6,6 @@ use App\Models\BankAccount;
 use App\Models\BankTransaction;
 use App\Models\CollectionAction;
 use App\Models\CrmActivity;
-use App\Models\Expense;
 use App\Models\ExpenseCategory;
 use App\Models\FinancialBudget;
 use App\Models\Installation;
@@ -15,6 +14,7 @@ use App\Models\Person;
 use App\Models\SalesDocument;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\Support\EconomicFixture;
 use Tests\TestCase;
 
 class ActionCenterTest extends TestCase
@@ -38,7 +38,7 @@ class ActionCenterTest extends TestCase
         $sale = SalesDocument::create(['type' => 'invoice', 'person_id' => $customer->id, 'number' => 'FAC-24', 'status' => 'issued', 'issue_date' => now(), 'due_date' => now()->subDay(), 'subtotal' => 100, 'discount_amount' => 0, 'tax_amount' => 21, 'amount' => 121, 'paid_amount' => 0, 'customer_snapshot' => []]);
         CollectionAction::create(['sales_document_id' => $sale->id, 'assigned_to' => $user->id, 'status' => 'promised', 'next_action_on' => today()]);
         $category = ExpenseCategory::create(['code' => 'test', 'name' => 'Test']);
-        $expense = Expense::create(['expense_category_id' => $category->id, 'number' => 'EXP-24', 'type' => 'invoice', 'merchant_name' => 'Utility', 'expense_date' => now(), 'due_date' => now()->subDay(), 'subtotal' => 100, 'tax_amount' => 21, 'amount' => 121, 'paid_amount' => 0, 'status' => 'pending']);
+        $expense = EconomicFixture::expense(['expense_category_id' => $category->id, 'number' => 'EXP-24', 'type' => 'invoice', 'merchant_name' => 'Utility', 'expense_date' => now(), 'due_date' => now()->subDay(), 'subtotal' => 100, 'tax_amount' => 21, 'amount' => 121, 'paid_amount' => 0, 'status' => 'pending']);
         $account = BankAccount::create(['name' => 'Main account', 'iban' => 'ES9121000418450200051332', 'currency' => 'EUR']);
         BankTransaction::create(['bank_account_id' => $account->id, 'booked_on' => now(), 'amount' => 50, 'currency' => 'EUR', 'description' => 'Pending transfer', 'import_hash' => hash('sha256', 'pending-action'), 'status' => 'pending']);
         $batch = PaymentBatch::create(['number' => 'PAY-ACTION-1', 'planned_on' => today(), 'status' => 'draft', 'created_by' => $user->id]);

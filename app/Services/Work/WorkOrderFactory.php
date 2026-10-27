@@ -31,12 +31,20 @@ class WorkOrderFactory
     {
         return DB::transaction(function () use ($data, $createdBy): WorkOrder {
             $data = ($data['frozen_technical_contract'] ?? false) ? $data : $this->prepare($data);
-            $installation = Installation::findOrFail($data['installation_id']);
+            $installation = Installation::lockForUpdate()->findOrFail($data['installation_id']);
             $template = filled($data['work_order_template_id'] ?? null)
                 ? WorkOrderTemplate::where('is_active', true)->findOrFail($data['work_order_template_id'])
                 : null;
             $kind = $data['kind'] ?? $template?->kind ?? 'installation';
-            $this->financialClearance->assertAllows($installation, $kind);
+            if (in_array($kind, ['survey', 'installation', 'commissioning'], true)) {
+                $schedule = app(TechnicianSchedule::class);
+                $owner = isset($data['assigned_user_id']) ? (int) $data['assigned_user_id'] : null;
+                $schedule->lockTechnicians([$owner]);
+                $schedule->assertAvailable($owner, $data['scheduled_start'] ?? null, $data['scheduled_end'] ?? null, null, $data['required_skills'] ?? $template?->required_skills ?? [], $data['service_zone'] ?? $installation->site_postal_code);
+            }
+            if (in_array($kind, ['installation', 'commissioning'], true)) {
+                app(TechnicalExecutionGuard::class)->assertCanPrepare($installation);
+            }
             $order = WorkOrder::create([
                 ...$data,
                 'created_by' => $createdBy,
@@ -75,7 +83,9 @@ class WorkOrderFactory
                 'starts_at' => $order->scheduled_start,
                 'due_at' => $order->scheduled_end,
             ])->save();
-            $this->kits->reserveAvailable($order->loadMissing('installation'));
+            if (! in_array($installation->financial_status, ['pending', 'partial'], true)) {
+                $this->kits->reserveAvailable($order->loadMissing('installation'));
+            }
 
             return $order->load('installation');
         });

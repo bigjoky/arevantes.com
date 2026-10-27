@@ -17,6 +17,10 @@ import {
     labels,
 } from '@/components/billing/workspace';
 import type { Capabilities, Invoice } from '@/components/billing/workspace';
+import DocumentCustody, {
+    originalDownloadAllowed,
+} from '@/components/document-custody';
+import type { CustodyStatus } from '@/components/document-custody';
 import { PageHeader, PageShell } from '@/components/page-shell';
 import { Button } from '@/components/ui/button';
 import {
@@ -27,6 +31,7 @@ import {
     DialogTrigger,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { useDocumentCreation } from '@/hooks/use-document-creation';
 type Detail = {
     collect_before_invoice?: boolean;
     supplier_number?: string;
@@ -89,6 +94,7 @@ function ActionDialog({
     onSuccess?: () => void;
 }) {
     const [open, setOpen] = useState(false);
+    const creation = useDocumentCreation();
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
@@ -101,8 +107,14 @@ function ActionDialog({
                 </DialogHeader>
                 <Form
                     action={action}
+                    transform={(data) =>
+                        action.endsWith('/duplicate')
+                            ? creation.transform(data)
+                            : data
+                    }
                     method="post"
                     onSuccess={() => {
+                        creation.complete();
                         setOpen(false);
                         onSuccess?.();
                     }}
@@ -277,7 +289,11 @@ export default function InvoiceDetail({
     operationKey,
     auditEvents = [],
     voidedPayments = [],
+    custodyStatus,
+    reconstructionHref,
 }: {
+    reconstructionHref?: string | null;
+    custodyStatus?: CustodyStatus;
     invoice: Invoice;
     detail: Detail;
     identity: Record<string, string | null>;
@@ -314,7 +330,9 @@ export default function InvoiceDetail({
             : capabilities.recordPayment &&
               invoice.status !== 'review_required');
     const pdf = customer
-        ? `/sales/${invoice.id}/pdf`
+        ? originalDownloadAllowed(custodyStatus)
+            ? `/sales/${invoice.id}/pdf`
+            : null
         : invoice.kind === 'purchase' && originalAvailable
           ? `/supplier-invoices/${invoice.id}/document`
           : null;
@@ -330,6 +348,10 @@ export default function InvoiceDetail({
     return (
         <PageShell className="billing-workspace">
             <Head title={invoice.number} />
+            <DocumentCustody
+                status={custodyStatus}
+                reconstructionHref={reconstructionHref}
+            />
             <PageHeader
                 title={
                     <>
@@ -493,7 +515,10 @@ export default function InvoiceDetail({
                                     ['Proyecto', invoice.project || '—'],
                                     [
                                         'Fecha de emisión',
-                                        date(invoice.issue_date),
+                                        invoice.kind === 'customer' &&
+                                        invoice.status === 'draft'
+                                            ? 'Sin emitir · borrador'
+                                            : date(invoice.issue_date),
                                     ],
                                     [
                                         'Fecha de vencimiento',

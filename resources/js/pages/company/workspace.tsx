@@ -9,7 +9,7 @@ import {
 import { useState } from 'react';
 import { Empty, Panel, Pagination, date } from '@/components/billing/workspace';
 import type { Page } from '@/components/billing/workspace';
-import BrandLogo from '@/components/brand-logo';
+import BrandLogo, { useCompanyBrand } from '@/components/brand-logo';
 import { PageHeader, PageShell, PageTabs } from '@/components/page-shell';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -663,6 +663,7 @@ function CompanyData({
     company: Company | null;
     canEdit: boolean;
 }) {
+    const brand = useCompanyBrand();
     const [editing, setEditing] = useState(false);
     const fields: Record<string, string> = {
         legal_name: 'Razón social',
@@ -744,17 +745,51 @@ function CompanyData({
             <div className="company-stack">
                 <Panel title="Logo y marca">
                     <div className="company-logo">
-                        <BrandLogo />
+                        <BrandLogo surface="light" />
                     </div>
                     <p className="company-note">
-                        Identidad canónica AREVANTES.
+                        {brand.custom
+                            ? 'Recurso corporativo personalizado. El SVG oficial de AREVANTES se conserva como respaldo.'
+                            : 'Recurso canónico oficial: arevantes-logo.svg.'}
                     </p>
+                    <p>{brand.name}</p>
                     {canEdit && (
-                        <Button variant="outline" asChild>
-                            <Link href="/company-fiscal">
-                                Gestionar recursos corporativos
-                            </Link>
-                        </Button>
+                        <Form
+                            action="/company-fiscal/branding"
+                            method="post"
+                            resetOnSuccess
+                        >
+                            {({ errors, processing }) => (
+                                <div className="grid gap-3">
+                                    <label htmlFor="company-brand-logo">
+                                        Sustituir logo (SVG, PNG, JPEG o WebP;
+                                        máximo 2 MB)
+                                    </label>
+                                    <Input
+                                        id="company-brand-logo"
+                                        name="logo"
+                                        type="file"
+                                        accept="image/svg+xml,image/png,image/jpeg,image/webp"
+                                    />
+                                    {errors.logo && (
+                                        <small role="alert">
+                                            {errors.logo}
+                                        </small>
+                                    )}
+                                    <label>
+                                        <input
+                                            type="checkbox"
+                                            name="remove_logo"
+                                            value="1"
+                                        />{' '}
+                                        Restaurar SVG oficial de AREVANTES
+                                    </label>
+                                    <Button disabled={processing}>
+                                        Guardar logo
+                                    </Button>
+                                </div>
+                            )}
+                        </Form>
                     )}
                 </Panel>
                 <Panel title="Datos de contacto">

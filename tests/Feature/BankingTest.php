@@ -12,21 +12,19 @@ use App\Models\BankStatementImport;
 use App\Models\BankTransaction;
 use App\Models\BankTransactionPosting;
 use App\Models\BankTransfer;
-use App\Models\Expense;
 use App\Models\ExpenseCategory;
 use App\Models\JournalEntry;
 use App\Models\JournalLine;
 use App\Models\LedgerAccount;
-use App\Models\PurchaseDocument;
 use App\Models\SalesDocument;
 use App\Models\SalesDocumentPayment;
-use App\Models\Supplier;
 use App\Models\SupplierPayment;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Inertia\Testing\AssertableInertia as Assert;
+use Tests\Support\EconomicFixture;
 use Tests\TestCase;
 
 class BankingTest extends TestCase
@@ -246,8 +244,8 @@ class BankingTest extends TestCase
         $account = BankAccount::create(['name' => 'Main account', 'currency' => 'EUR', 'opening_balance' => 1000, 'is_active' => true]);
         $sale = SalesDocument::create(['type' => 'invoice', 'number' => 'FAC-2026-00001', 'status' => 'paid', 'issue_date' => '2026-07-01', 'subtotal' => 100, 'discount_amount' => 0, 'tax_amount' => 21, 'amount' => 121, 'paid_amount' => 121, 'customer_snapshot' => ['first_name' => 'Ana']]);
         $sale->payments()->create(['created_by' => $user->id, 'paid_at' => '2026-07-13', 'amount' => 121, 'method' => 'bank_transfer', 'reference' => 'BANK-123']);
-        $supplier = Supplier::create(['legal_name' => 'Supplier SL', 'country' => 'ES', 'payment_terms_days' => 30]);
-        $invoice = PurchaseDocument::create(['type' => 'supplier_invoice', 'supplier_id' => $supplier->id, 'number' => 'FR-2026-00001', 'status' => 'paid', 'issue_date' => '2026-07-01', 'subtotal' => 50, 'tax_amount' => 10, 'amount' => 60, 'paid_amount' => 60]);
+        $supplier = EconomicFixture::supplier(['legal_name' => 'Supplier SL', 'country' => 'ES', 'payment_terms_days' => 30]);
+        $invoice = EconomicFixture::purchase(['type' => 'supplier_invoice', 'supplier_id' => $supplier->id, 'number' => 'FR-2026-00001', 'status' => 'paid', 'issue_date' => '2026-07-01', 'subtotal' => 50, 'tax_amount' => 10, 'amount' => 60, 'paid_amount' => 60]);
         SupplierPayment::create(['purchase_document_id' => $invoice->id, 'created_by' => $user->id, 'paid_at' => '2026-07-14', 'amount' => 60, 'method' => 'bank_transfer', 'reference' => 'PAY-1']);
         $csv = "Fecha;Importe;Concepto;Referencia\n13/07/2026;121,00;Ingreso factura;BANK-123\n14/07/2026;-60,00;Pago proveedor;PAY-1\n";
         $this->actingAs($user);
@@ -727,17 +725,17 @@ class BankingTest extends TestCase
     public function test_auto_reconciliation_creates_supplier_invoice_and_expense_payments_from_exact_references(): void
     {
         $user = User::factory()->create(['role' => 'commercial']);
-        $supplier = Supplier::create(['legal_name' => 'Solar Supply SL', 'country' => 'ES', 'payment_terms_days' => 30]);
+        $supplier = EconomicFixture::supplier(['legal_name' => 'Solar Supply SL', 'country' => 'ES', 'payment_terms_days' => 30]);
         $this->actingAs($user)->post(route('banking.accounts.store'), ['name' => 'Payments', 'currency' => 'EUR', 'opening_balance' => 0, 'is_active' => true])->assertRedirect();
         $account = BankAccount::where('name', 'Payments')->with('ledgerAccount')->firstOrFail();
-        $invoice = PurchaseDocument::create([
+        $invoice = EconomicFixture::purchase([
             'type' => 'supplier_invoice', 'supplier_id' => $supplier->id,
             'number' => 'FR-2026-0008', 'supplier_number' => 'SS-8841',
             'status' => 'registered', 'issue_date' => now()->subDays(5),
             'due_date' => now()->addDays(25), 'subtotal' => 50, 'tax_amount' => 10.5,
             'amount' => 60.5, 'paid_amount' => 0,
         ]);
-        $expense = Expense::create([
+        $expense = EconomicFixture::expense([
             'expense_category_id' => ExpenseCategory::firstOrFail()->id,
             'supplier_id' => $supplier->id, 'created_by' => $user->id,
             'number' => 'EXP-2026-0009', 'document_number' => 'TICKET-778',
@@ -774,7 +772,7 @@ class BankingTest extends TestCase
         $user = User::factory()->create(['role' => 'admin']);
         $this->actingAs($user)->post(route('banking.accounts.store'), ['name' => 'Expense bank', 'currency' => 'EUR', 'opening_balance' => 0, 'is_active' => true])->assertRedirect();
         $account = BankAccount::where('name', 'Expense bank')->with('ledgerAccount')->firstOrFail();
-        $expense = Expense::create([
+        $expense = EconomicFixture::expense([
             'expense_category_id' => ExpenseCategory::firstOrFail()->id, 'created_by' => $user->id,
             'number' => 'EXP-RECONCILE', 'type' => 'receipt', 'merchant_name' => 'Test expense',
             'expense_date' => now(), 'subtotal' => 3.46, 'tax_amount' => 0.34,

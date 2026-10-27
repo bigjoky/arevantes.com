@@ -43,6 +43,7 @@ use App\Http\Controllers\FiscalSettingsController;
 use App\Http\Controllers\FiscalWorkspaceController;
 use App\Http\Controllers\GeocodingController;
 use App\Http\Controllers\GlobalSearchController;
+use App\Http\Controllers\GoodsReceiptCorrectionController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\HrDepartmentController;
 use App\Http\Controllers\HrEmployeeDossierController;
@@ -74,6 +75,8 @@ use App\Http\Controllers\PlanningScenarioRequestController;
 use App\Http\Controllers\PortfolioProjectAdminController;
 use App\Http\Controllers\PortfolioProjectImageController;
 use App\Http\Controllers\ProjectAreaController;
+use App\Http\Controllers\ProjectDossierController;
+use App\Http\Controllers\PublicPageController;
 use App\Http\Controllers\PublicProjectController;
 use App\Http\Controllers\PublicServiceController;
 use App\Http\Controllers\PurchaseApprovalRuleController;
@@ -86,6 +89,7 @@ use App\Http\Controllers\PurchaseMailboxController;
 use App\Http\Controllers\PurchaseSettingsController;
 use App\Http\Controllers\PurchaseWorkflowController;
 use App\Http\Controllers\QuoteController;
+use App\Http\Controllers\QuotePaperAcceptanceController;
 use App\Http\Controllers\RecurringServiceCorrectivePlanController;
 use App\Http\Controllers\RecurringServiceImprovementController;
 use App\Http\Controllers\RecurringServiceQualityController;
@@ -126,6 +130,16 @@ Route::patch('locale', [LocaleController::class, 'update'])->name('locale.update
 Route::get('proyectos', [PublicProjectController::class, 'index'])->name('projects.index');
 Route::get('proyectos/{project}', [PublicProjectController::class, 'show'])->name('projects.show');
 Route::get('proyectos/imagenes/{portfolioProjectImage}', PortfolioProjectImageController::class)->name('project-images.show');
+// Public corporate pages; keep authenticated workspace routes unchanged.
+foreach (['servicios', 'empresa', 'proceso', 'contacto'] as $section) {
+    Route::get($section, PublicPageController::class)
+        ->defaults('section', $section)->name('public.'.$section);
+}
+Route::get('servicios/redes', PublicPageController::class)
+    ->defaults('section', 'redes')->name('public.redes');
+Route::redirect('servicios/energias-renovables', '/servicios/energia', 301);
+Route::redirect('servicios/instalaciones-electricas', '/servicios/electricidad', 301);
+Route::redirect('servicios/seguridad-y-control', '/servicios/seguridad', 301);
 Route::get('servicios/{service}', PublicServiceController::class)
     ->whereIn('service', ['energia', 'electricidad', 'seguridad'])
     ->name('services.show');
@@ -491,7 +505,8 @@ Route::middleware(['auth'])->group(function () {
     Route::get('company-fiscal/census', [CompanyCensusController::class, 'index'])->middleware('can:manage-tax')->name('company-census.index');
     Route::post('company-fiscal/census', [CompanyCensusController::class, 'store'])->middleware('can:manage-tax')->name('company-census.store');
     Route::post('company-fiscal/company', [FiscalSettingsController::class, 'updateCompany'])->middleware('can:manage-tax')->name('fiscal-settings.company.update');
-    Route::get('company-fiscal/logo', [FiscalSettingsController::class, 'logo'])->middleware('can:manage-tax')->name('fiscal-settings.logo');
+    Route::post('company-fiscal/branding', [FiscalSettingsController::class, 'updateLogo'])->middleware('can:manage-tax')->name('fiscal-settings.branding.update');
+    Route::get('company-fiscal/logo', [FiscalSettingsController::class, 'logo'])->name('fiscal-settings.logo');
     Route::post('company-fiscal/years', [FiscalSettingsController::class, 'storeYear'])->middleware('can:manage-tax')->name('fiscal-settings.years.store');
     Route::post('company-fiscal/years/{fiscalYear}/close', [FiscalSettingsController::class, 'closeYear'])->middleware('can:manage-tax')->name('fiscal-settings.years.close');
     Route::post('company-fiscal/years/{fiscalYear}/reopen', [FiscalSettingsController::class, 'reopenYear'])->middleware('can:manage-tax')->name('fiscal-settings.years.reopen');
@@ -520,6 +535,7 @@ Route::middleware(['auth'])->group(function () {
     Route::put('purchases/{purchaseDocument}', [PurchaseController::class, 'update'])->middleware('can:manage-purchases')->name('purchases.update');
     Route::get('purchases/{purchaseDocument}', [SupplyWorkspaceController::class, 'purchaseShow'])->middleware('can:view-purchases')->name('purchases.show');
     Route::patch('purchases/{purchaseDocument}/dates', [PurchaseController::class, 'correctDates'])->middleware('can:manage-purchases')->name('purchases.dates.update');
+    Route::post('purchases/{purchaseDocument}/receipts/{receipt}/warehouse', [GoodsReceiptCorrectionController::class, 'update'])->middleware(['can:manage-purchases', 'can:manage-catalog'])->name('purchase-receipts.warehouse');
     Route::post('purchases/{purchaseDocument}/convert', [PurchaseController::class, 'convert'])->middleware('can:manage-purchases')->name('purchases.convert');
     Route::post('purchases/{purchaseDocument}/receive', [PurchaseController::class, 'receive'])->middleware('can:receive-purchases')->name('purchases.receive');
     Route::post('purchases/{purchaseDocument}/approve', [PurchaseController::class, 'approveOrder'])->middleware('can:approve-purchase-orders')->name('purchases.approve');
@@ -623,6 +639,8 @@ Route::middleware(['auth'])->group(function () {
     Route::post('quotes/{quote}/send', [DocumentDeliveryController::class, 'sendQuote'])->middleware('can:manage-quotes')->name('quotes.send');
     Route::get('quotes/{quote}/pdf', [SalesDocumentController::class, 'quotePdf'])->middleware('can:manage-quotes')->name('quotes.pdf');
     Route::get('quotes/{quote}/pdf/without-watermark', [SalesDocumentController::class, 'quotePdfWithoutWatermark'])->middleware('can:manage-admin')->name('quotes.pdf.without-watermark');
+    Route::post('quotes/{quote}/paper-acceptance', [QuotePaperAcceptanceController::class, 'store'])->middleware('can:manage-quotes')->name('quotes.paper-acceptance');
+    Route::get('quotes/{quote}/paper-acceptance/{history}', [QuotePaperAcceptanceController::class, 'download'])->middleware('can:manage-quotes')->name('quotes.paper-acceptance.download');
     Route::post('quotes/{quote}/convert', [SalesDocumentController::class, 'convert'])->middleware('can:manage-installations')->name('quotes.convert');
     Route::get('sales', [SalesDocumentController::class, 'index'])->middleware('can:manage-installations')->name('sales.index');
     Route::get('sales-workflow', [SalesOperationsController::class, 'index'])->middleware('can:manage-installations')->name('sales-workflow.index');
@@ -637,6 +655,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('sales/{salesDocument}', [SalesDocumentController::class, 'show'])->middleware('can:manage-installations')->name('sales-documents.show');
     Route::delete('sales/{salesDocument}', [SalesDocumentController::class, 'destroy'])->middleware('can:manage-installations')->name('sales-documents.destroy');
     Route::get('sales/{salesDocument}/pdf', [SalesDocumentController::class, 'pdf'])->middleware('can:manage-installations')->name('sales-documents.pdf');
+    Route::get('sales/{salesDocument}/informative-pdf', [SalesDocumentController::class, 'informativePdf'])->middleware(['can:manage-installations', 'can:manage-admin'])->name('sales-documents.informative-pdf');
     Route::post('sales/{salesDocument}/send', [DocumentDeliveryController::class, 'sendSalesDocument'])->middleware('can:manage-installations')->name('sales-documents.send');
     Route::put('sales/{salesDocument}/milestone', [SalesDocumentController::class, 'updateMilestone'])->middleware('can:manage-installations')->name('sales-documents.milestone');
     Route::post('sales/{salesDocument}/issue', [SalesDocumentController::class, 'issue'])->middleware('can:issue-invoices')->name('sales-documents.issue');
@@ -661,6 +680,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('execution', [ProjectAreaController::class, 'dashboard'])->middleware('can:view-installations')->name('execution.dashboard');
     Route::get('execution/projects', [ProjectAreaController::class, 'index'])->middleware('can:view-installations')->name('execution.projects.index');
     Route::get('execution/projects/create', [ProjectAreaController::class, 'create'])->middleware(['can:view-installations', 'can:manage-installations', 'can:manage-quotes'])->name('execution.projects.create');
+    Route::post('installations/{installation}/dossier', [ProjectDossierController::class, 'update'])->middleware('can:manage-admin')->name('installations.dossier.update');
     Route::get('execution/projects/{installation}', [ProjectAreaController::class, 'show'])->middleware('can:view-installations')->name('execution.projects.show');
 
     Route::post('installations/{installation}/ai/briefing', [InstallationAiController::class, 'briefing'])

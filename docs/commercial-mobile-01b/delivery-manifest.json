@@ -1,0 +1,165 @@
+{
+  "base_commit": "e426a7abdc223f1310ede034e13ac2c1d2bf5cfe",
+  "worktree_head": "e4484989e160c548eac0ae50120d08a8ef640962",
+  "patch_sha256": "d6df8b48e0fa489c10f095d3ef16aca498dd0b6ea0be3b5400d0b621bf94eefc",
+  "apply_check": "passed in isolated temporary directory; exact SHA256 of all delivered files verified",
+  "scratch": "/var/folders/y_/w7xhnmfd4y964vz8m224528c0000gn/T/arevantes-commercial-cut-bumpn2z3",
+  "files": [
+    {
+      "path": "resources/js/app.tsx",
+      "sha256": "f7f6361aeed7bf22046eabf6cc09564fa6a6c09eeaad0b10fc58cfd6ae050231",
+      "base_sha256": "7c013645412a191405c7cf61ecef038c49360102cdfc45db41792459982901de",
+      "classification": "commercial_01_exclusive",
+      "changed_in_01b": false
+    },
+    {
+      "path": "resources/js/components/crm/crm-workspace.tsx",
+      "sha256": "dd7f2f4ba67dc47b09073c7a9cda5b4a10e32a4eac2585f5d2be7473e9f20dad",
+      "base_sha256": "39a06cf488bd622a71d6367eec1fdc6b3dbdd01402810e085e77b9c7fe02ad8d",
+      "classification": "commercial_01_exclusive",
+      "changed_in_01b": false
+    },
+    {
+      "path": "resources/js/components/customers/customer-detail.tsx",
+      "sha256": "103d486e8461b323757c6a2f93ff51d53c1554c8d7a2bd54de7ed0a340c0d2c4",
+      "base_sha256": "7500008a0e492cf5617fb8af7de884b0904550ebb26a57b7bb7aca0702e39a3e",
+      "classification": "commercial_01_exclusive",
+      "changed_in_01b": false
+    },
+    {
+      "path": "resources/js/components/customers/customer-list.tsx",
+      "sha256": "ca0d74ab74bce91f5a5b8167c52c8979a874b6caef01da6924a3b6bb301eac8c",
+      "base_sha256": "09ef7eaac2be7861904a018be953da0290c7d771f35e36bd69635de4bbf15a85",
+      "classification": "commercial_01_exclusive",
+      "changed_in_01b": false
+    },
+    {
+      "path": "resources/js/components/people/person-form.tsx",
+      "sha256": "e171a1963b3eff25eedcb07fcb9130499e6f241e9a8780072e3d15cab96a0ed6",
+      "base_sha256": "35d022bb880b0339f44f1b78724daadb52871e504adc1c630f5cde8abef7bb67",
+      "classification": "commercial_01_exclusive",
+      "changed_in_01b": false
+    },
+    {
+      "path": "resources/js/pages/people/create.tsx",
+      "sha256": "22ecbd108f4b86fa4a2ae6efbc3dba0c4038c26bf9c97dffd07a21dbb2648e16",
+      "base_sha256": "79acda7f3cbbfc64bb8be3aefcb70b6b9525cb8b0d40a6acf6080020bf13dd5b",
+      "classification": "commercial_01_exclusive",
+      "changed_in_01b": false
+    },
+    {
+      "path": "resources/js/pages/people/edit.tsx",
+      "sha256": "db24506728d530e5d27a1376a5233ec8efa4ca3df3518cadf8178abc3a16f83a",
+      "base_sha256": "7148c3eab1ed61841aa3f04446cbd354722461a623f307a634cd28d834c10c4c",
+      "classification": "commercial_01_exclusive",
+      "changed_in_01b": false
+    },
+    {
+      "path": "resources/js/pages/opportunities/index.tsx",
+      "sha256": "a829c70aac8807952781353e6922ba31a9828ba651215edec9612dbadd1d4dd1",
+      "base_sha256": "821d3c4055bcc68f489b4b8e82f4cab249d8f1b9e184cb227edba9330b054aa2",
+      "classification": "commercial_01_exclusive",
+      "changed_in_01b": false
+    },
+    {
+      "path": "resources/js/pages/opportunities/show.tsx",
+      "sha256": "a4d08e20c8c1353b3ceba0923234735c0becbbeaa386ec465d53644296bd4125",
+      "base_sha256": "d5e9dcb11a060002951e062dc62374aa4846f115f5a983f9ece3e716843aebf4",
+      "classification": "shared_preexisting_01",
+      "changed_in_01b": false
+    },
+    {
+      "path": "resources/js/pages/quotes/form.tsx",
+      "sha256": "5360963e9f13caecb864713cb6a37fe4d404ff3c8299deaf1edb68a7598dc60f",
+      "base_sha256": "79979a34b072fe55a6a8b250452a9c9f3a48c944de4edd22030dbe29542647b5",
+      "classification": "shared_preexisting_01",
+      "changed_in_01b": false
+    },
+    {
+      "path": "resources/js/pages/quotes/index.tsx",
+      "sha256": "068b100f6b163f08063e499786426ab37e83d1836e6d6ad1cd2ec30f239b421b",
+      "base_sha256": "46563d4f26647b46093ffebc31ee1eb007ad9a65037871c32c2285ab227338ce",
+      "classification": "commercial_01_exclusive",
+      "changed_in_01b": false
+    },
+    {
+      "path": "resources/js/pages/quotes/show.tsx",
+      "sha256": "007dbee63aebd47f86831e2349c4379c28a24ab9ddc1b8bc74e339811de96267",
+      "base_sha256": "0cb32ef6cf80de4c2b8ae48ff8e678a0e118448c5aaaaac6ca1d53577d9b0e7e",
+      "classification": "shared_preexisting_01",
+      "changed_in_01b": false
+    },
+    {
+      "path": "resources/js/i18n/catalog.json",
+      "sha256": "5dae9e9f77df9e70192024795fdb14cc243823ade3cfa9ca871cc2293149fe6c",
+      "base_sha256": "1cca2cc8f8e60aefbf8652ec2e0cbd2071fe5dad8a9ba4e8bbba0f18c410941a",
+      "classification": "shared_preexisting_01",
+      "changed_in_01b": false
+    },
+    {
+      "path": "resources/css/commercial-mobile.css",
+      "sha256": "a1eccd3284a1685b193a91de5083b6e63853dd4ae4d9b8fc568b7762655f1fd9",
+      "base_sha256": null,
+      "classification": "commercial_01_exclusive",
+      "changed_in_01b": false
+    },
+    {
+      "path": "resources/js/components/commercial/mobile-opportunities.tsx",
+      "sha256": "77aa55a359ccb24bc1e27117f822431168c0cd7b89146626e7cc625083b8e3fb",
+      "base_sha256": null,
+      "classification": "commercial_01_exclusive",
+      "changed_in_01b": false
+    },
+    {
+      "path": "resources/js/hooks/use-commercial-form-protection.tsx",
+      "sha256": "ba29a3355171f652411e19e8c3f0e47649089e5c7ddecd1141128030a30c7bd4",
+      "base_sha256": null,
+      "classification": "commercial_01_exclusive",
+      "changed_in_01b": true
+    },
+    {
+      "path": "resources/js/lib/mobile/commercial-navigation.ts",
+      "sha256": "5471c7d146ab34c1e033c1a5fdfe3c95e39f4f810756c2cb8ec774de81248e2b",
+      "base_sha256": null,
+      "classification": "commercial_01_exclusive",
+      "changed_in_01b": false
+    },
+    {
+      "path": "resources/js/lib/mobile/commercial-history.ts",
+      "sha256": "b203d47e184bad7486b861401e162c5648deffac7a468ffb9eb4e9f8c3aa3649",
+      "base_sha256": null,
+      "classification": "commercial_01_exclusive",
+      "changed_in_01b": true
+    },
+    {
+      "path": "tests/commercial-mobile.test.mjs",
+      "sha256": "03a9a045b43d462817e20f0a98a5af51632452ae421906f5e82978e900503e95",
+      "base_sha256": null,
+      "classification": "commercial_01_exclusive",
+      "changed_in_01b": true
+    }
+  ],
+  "excluded": [
+    "all backend/schema/infra/PDF/brand/worker/manifest changes",
+    "other global mobile changes",
+    "shared roadmap must receive only the commercial sections manually"
+  ],
+  "isolated_verification": {
+    "base_commit": "e426a7abdc223f1310ede034e13ac2c1d2bf5cfe",
+    "env_file_copied": false,
+    "build": "passed",
+    "types": "passed",
+    "lint": "passed",
+    "frontend": {
+      "passed": 45,
+      "failed": 0
+    },
+    "backend": {
+      "passed": 90,
+      "failed": 0,
+      "assertions": 1633
+    },
+    "i18n": "79 preexisting; exact pending set equals base without patch",
+    "publication_readiness": "blocked by R-02: global layout remount across 1023/1024"
+  }
+}

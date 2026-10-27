@@ -28,7 +28,13 @@ export default function PeopleEdit({
         <>
             <Head title={editTitle} />
 
-            <PageShell>
+            <PageShell
+                className={
+                    category === 'customer'
+                        ? 'commercial-customer-editor'
+                        : undefined
+                }
+            >
                 <PageHeader
                     title={editTitle}
                     description={editDescription}

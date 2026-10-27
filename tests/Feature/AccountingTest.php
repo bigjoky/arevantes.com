@@ -7,7 +7,6 @@ use App\Models\AccountingRecurringRun;
 use App\Models\AccountingTemplate;
 use App\Models\AuditLog;
 use App\Models\CorporateTaxReturn;
-use App\Models\Expense;
 use App\Models\ExpenseCategory;
 use App\Models\FiscalYear;
 use App\Models\Installation;
@@ -15,9 +14,7 @@ use App\Models\JournalEntry;
 use App\Models\LedgerAccount;
 use App\Models\Permission;
 use App\Models\Person;
-use App\Models\PurchaseDocument;
 use App\Models\SalesDocument;
-use App\Models\Supplier;
 use App\Models\SupplierPayment;
 use App\Models\User;
 use App\Services\Accounting\AccountingSynchronizer;
@@ -31,6 +28,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Assert;
+use Tests\Support\EconomicFixture;
 use Tests\TestCase;
 
 class AccountingTest extends TestCase
@@ -278,13 +276,13 @@ class AccountingTest extends TestCase
     {
         $user = User::factory()->create(['role' => 'commercial']);
         $customer = Person::create(['category' => 'customer', 'first_name' => 'Ana', 'last_name' => 'Solar']);
-        $supplier = Supplier::create(['legal_name' => 'Panels SL', 'country' => 'ES', 'payment_terms_days' => 30]);
+        $supplier = EconomicFixture::supplier(['legal_name' => 'Panels SL', 'country' => 'ES', 'payment_terms_days' => 30]);
         $this->assertStringStartsWith('430', $customer->fresh()->receivable_account_code);
         $this->assertStringStartsWith('400', $supplier->fresh()->payable_account_code);
 
         $sale = SalesDocument::create(['type' => 'invoice', 'person_id' => $customer->id, 'number' => 'FAC-PARTY-1', 'status' => 'paid', 'issue_date' => now(), 'subtotal' => 100, 'discount_amount' => 0, 'tax_amount' => 0, 'amount' => 100, 'paid_amount' => 100, 'customer_snapshot' => []]);
         $sale->payments()->create(['created_by' => $user->id, 'paid_at' => now(), 'amount' => 100, 'method' => 'bank_transfer']);
-        $purchase = PurchaseDocument::create(['type' => 'supplier_invoice', 'supplier_id' => $supplier->id, 'number' => 'FR-PARTY-1', 'status' => 'paid', 'issue_date' => now(), 'subtotal' => 50, 'tax_amount' => 0, 'amount' => 50, 'paid_amount' => 50]);
+        $purchase = EconomicFixture::purchase(['type' => 'supplier_invoice', 'supplier_id' => $supplier->id, 'number' => 'FR-PARTY-1', 'status' => 'paid', 'issue_date' => now(), 'subtotal' => 50, 'tax_amount' => 0, 'amount' => 50, 'paid_amount' => 50]);
         SupplierPayment::create(['purchase_document_id' => $purchase->id, 'created_by' => $user->id, 'paid_at' => now(), 'amount' => 50, 'method' => 'bank_transfer']);
         app(AccountingSynchronizer::class)->sync($user->id);
 
@@ -300,7 +298,7 @@ class AccountingTest extends TestCase
         $category = ExpenseCategory::create(['code' => 'ADVISORY', 'name' => 'Advisory', 'expense_account_code' => '629', 'is_active' => true]);
         $this->actingAs($user)->patch(route('accounting.mappings.expense-categories.update', $category), ['expense_account_code' => '60'])->assertSessionHasErrors('expense_account_code');
         $this->patch(route('accounting.mappings.expense-categories.update', $category), ['expense_account_code' => '623'])->assertRedirect()->assertSessionHasNoErrors();
-        $expense = Expense::create(['expense_category_id' => $category->id, 'created_by' => $user->id, 'number' => 'EXP-MAP-1', 'type' => 'invoice', 'expense_date' => now(), 'subtotal' => 100, 'tax_amount' => 21, 'amount' => 121, 'paid_amount' => 0, 'status' => 'pending']);
+        $expense = EconomicFixture::expense(['expense_category_id' => $category->id, 'created_by' => $user->id, 'number' => 'EXP-MAP-1', 'type' => 'invoice', 'expense_date' => now(), 'subtotal' => 100, 'tax_amount' => 21, 'amount' => 121, 'paid_amount' => 0, 'status' => 'pending']);
         app(AccountingSynchronizer::class)->sync($user->id);
         $entry = JournalEntry::whereMorphedTo('source', $expense)->with('lines.account')->firstOrFail();
         $this->assertSame('100.00', $entry->lines->firstWhere('account.code', '623')->debit);
@@ -329,7 +327,7 @@ class AccountingTest extends TestCase
         $invoice = SalesDocument::create(['type' => 'invoice', 'number' => 'FAC-2026-00001', 'status' => 'issued', 'issue_date' => '2026-07-01', 'subtotal' => 100, 'discount_amount' => 0, 'tax_amount' => 21, 'amount' => 121, 'paid_amount' => 121, 'customer_snapshot' => ['first_name' => 'Ana']]);
         $invoice->payments()->create(['created_by' => $user->id, 'paid_at' => '2026-07-02', 'amount' => 121, 'method' => 'bank_transfer']);
         $category = ExpenseCategory::create(['code' => 'SERV', 'name' => 'Services', 'is_active' => true]);
-        Expense::create(['expense_category_id' => $category->id, 'created_by' => $user->id, 'number' => 'EXP-2026-00001', 'type' => 'invoice', 'expense_date' => '2026-07-03', 'subtotal' => 50, 'tax_amount' => 10.5, 'amount' => 60.5, 'paid_amount' => 0, 'status' => 'pending']);
+        EconomicFixture::expense(['expense_category_id' => $category->id, 'created_by' => $user->id, 'number' => 'EXP-2026-00001', 'type' => 'invoice', 'expense_date' => '2026-07-03', 'subtotal' => 50, 'tax_amount' => 10.5, 'amount' => 60.5, 'paid_amount' => 0, 'status' => 'pending']);
 
         $this->actingAs($user)->post(route('accounting.sync'))->assertRedirect()->assertSessionHasNoErrors();
         $this->assertSame(3, JournalEntry::count());

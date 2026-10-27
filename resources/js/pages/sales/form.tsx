@@ -11,6 +11,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { useDocumentCreation } from '@/hooks/use-document-creation';
 import { useLocale } from '@/hooks/use-locale';
 import { translate } from '@/i18n';
 
@@ -95,6 +96,7 @@ export default function SalesForm({
     revision?: string;
 }) {
     const { locale } = useLocale();
+    const creation = useDocumentCreation();
     const initialCustomerId = document?.person_id ?? defaultCustomerId ?? null;
     const initialIssueDate = document
         ? localDate(document.issue_date)
@@ -200,7 +202,10 @@ export default function SalesForm({
                                     : `/sales/${document.id}`,
                             );
                         } else {
-                            form.post('/sales');
+                            form.transform(creation.transform);
+                            form.post('/sales', {
+                                onSuccess: creation.complete,
+                            });
                         }
                     }}
                     className="grid gap-8"

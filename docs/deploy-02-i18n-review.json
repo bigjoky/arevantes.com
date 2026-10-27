@@ -1,0 +1,1886 @@
+{
+  "scope": "all 211 original candidates; no test strings in this source-only inventory",
+  "items": [
+    {
+      "file": "resources/js/components/billing/workspace.tsx",
+      "candidate_string": "Sin emitir · borrador",
+      "module": "Facturación",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Not issued · draft",
+      "es": "Sin emitir · borrador"
+    },
+    {
+      "file": "resources/js/components/project-journey.tsx",
+      "candidate_string": "Recorrido del expediente",
+      "module": "Expedientes",
+      "origin": "untracked_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Dossier workflow",
+      "es": "Recorrido del expediente"
+    },
+    {
+      "file": "resources/js/components/project-journey.tsx",
+      "candidate_string": "Aceptación, cobro, preparación, ejecución y cierre son hechos distintos.",
+      "module": "Expedientes",
+      "origin": "untracked_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Acceptance, payment, preparation, execution and closure are separate events.",
+      "es": "Aceptación, cobro, preparación, ejecución y cierre son hechos distintos."
+    },
+    {
+      "file": "resources/js/components/project-journey.tsx",
+      "candidate_string": "Siguiente paso:",
+      "module": "Expedientes",
+      "origin": "untracked_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Next step:",
+      "es": "Siguiente paso:"
+    },
+    {
+      "file": "resources/js/components/project-journey.tsx",
+      "candidate_string": "Resolver pendiente",
+      "module": "Expedientes",
+      "origin": "untracked_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Resolve outstanding item",
+      "es": "Resolver pendiente"
+    },
+    {
+      "file": "resources/js/components/project-journey.tsx",
+      "candidate_string": "Responsable:",
+      "module": "Expedientes",
+      "origin": "untracked_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Responsible:",
+      "es": "Responsable:"
+    },
+    {
+      "file": "resources/js/components/project-journey.tsx",
+      "candidate_string": "Ver material necesario, pedido, recibido y consumido",
+      "module": "Expedientes",
+      "origin": "untracked_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "View materials required, ordered, received and consumed",
+      "es": "Ver material necesario, pedido, recibido y consumido"
+    },
+    {
+      "file": "resources/js/components/project-journey.tsx",
+      "candidate_string": "Necesario",
+      "module": "Expedientes",
+      "origin": "untracked_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Required",
+      "es": "Necesario"
+    },
+    {
+      "file": "resources/js/components/project-journey.tsx",
+      "candidate_string": "Pedido",
+      "module": "Expedientes",
+      "origin": "untracked_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Ordered material",
+      "es": "Material pedido",
+      "reason": "Disambiguate material ordering from the existing Sales order terminology; no change to domain identifiers."
+    },
+    {
+      "file": "resources/js/components/project-journey.tsx",
+      "candidate_string": "Recibido neto",
+      "module": "Expedientes",
+      "origin": "untracked_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Net received",
+      "es": "Recibido neto"
+    },
+    {
+      "file": "resources/js/components/project-journey.tsx",
+      "candidate_string": "Disponible libre",
+      "module": "Expedientes",
+      "origin": "untracked_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Unreserved stock",
+      "es": "Disponible libre"
+    },
+    {
+      "file": "resources/js/components/project-journey.tsx",
+      "candidate_string": "Pedido no equivale a recibido. La reserva no equivale a consumo. Disponible libre es existencia física sin reservar.",
+      "module": "Expedientes",
+      "origin": "untracked_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Ordered does not mean received. A reservation is not consumption. Unreserved stock is physical stock that has not been reserved.",
+      "es": "Pedido no equivale a recibido. La reserva no equivale a consumo. Disponible libre es existencia física sin reservar."
+    },
+    {
+      "file": "resources/js/components/project-journey.tsx",
+      "candidate_string": "Gestionar cierre y requisitos del expediente",
+      "module": "Expedientes",
+      "origin": "untracked_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Manage dossier closure and requirements",
+      "es": "Gestionar cierre y requisitos del expediente"
+    },
+    {
+      "file": "resources/js/components/project-journey.tsx",
+      "candidate_string": "Cerrar expediente",
+      "module": "Expedientes",
+      "origin": "untracked_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Close dossier",
+      "es": "Cerrar expediente"
+    },
+    {
+      "file": "resources/js/components/project-journey.tsx",
+      "candidate_string": "Reabrir expediente",
+      "module": "Expedientes",
+      "origin": "untracked_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Reopen dossier",
+      "es": "Reabrir expediente"
+    },
+    {
+      "file": "resources/js/components/project-journey.tsx",
+      "candidate_string": "Confirmar entrega documental revisada",
+      "module": "Expedientes",
+      "origin": "untracked_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Confirm reviewed document handover",
+      "es": "Confirmar entrega documental revisada"
+    },
+    {
+      "file": "resources/js/components/project-journey.tsx",
+      "candidate_string": "Actualizar tareas obligatorias para el cierre",
+      "module": "Expedientes",
+      "origin": "untracked_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Update mandatory closure tasks",
+      "es": "Actualizar tareas obligatorias para el cierre"
+    },
+    {
+      "file": "resources/js/components/project-journey.tsx",
+      "candidate_string": "Requerir visita o ingeniería antes de ejecutar",
+      "module": "Expedientes",
+      "origin": "untracked_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Require a visit or engineering approval before execution",
+      "es": "Requerir visita o ingeniería antes de ejecutar"
+    },
+    {
+      "file": "resources/js/components/project-journey.tsx",
+      "candidate_string": "Marcar validación técnica como no necesaria",
+      "module": "Expedientes",
+      "origin": "untracked_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Mark technical validation as unnecessary",
+      "es": "Marcar validación técnica como no necesaria"
+    },
+    {
+      "file": "resources/js/components/project-journey.tsx",
+      "candidate_string": "Selecciona únicamente las tareas que condicionan la entrega",
+      "module": "Expedientes",
+      "origin": "untracked_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Select only the tasks required for handover",
+      "es": "Selecciona únicamente las tareas que condicionan la entrega"
+    },
+    {
+      "file": "resources/js/components/project-journey.tsx",
+      "candidate_string": "No hay tareas independientes registradas.",
+      "module": "Expedientes",
+      "origin": "untracked_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "No independent tasks have been recorded.",
+      "es": "No hay tareas independientes registradas."
+    },
+    {
+      "file": "resources/js/components/project-journey.tsx",
+      "candidate_string": "Autorizar excepción económica como administrador: cerrar con cobros o facturas pendientes. El motivo quedará registrado; los pendientes se conservarán.",
+      "module": "Expedientes",
+      "origin": "untracked_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Authorize a financial exception as an administrator: close with outstanding payments or invoices. The reason will be recorded and outstanding items will remain.",
+      "es": "Autorizar excepción económica como administrador: cerrar con cobros o facturas pendientes. El motivo quedará registrado; los pendientes se conservarán."
+    },
+    {
+      "file": "resources/js/components/project-journey.tsx",
+      "candidate_string": "El cierre requiere ejecución terminada, entrega confirmada y tareas obligatorias resueltas. Los pendientes económicos requieren una excepción expresa de administrador con motivo. Las tareas informativas no bloquean.",
+      "module": "Expedientes",
+      "origin": "untracked_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Closure requires completed execution, confirmed handover and resolved mandatory tasks. Financial items require an explicit administrator exception with a reason. Informational tasks do not block closure.",
+      "es": "El cierre requiere ejecución terminada, entrega confirmada y tareas obligatorias resueltas. Los pendientes económicos requieren una excepción expresa de administrador con motivo. Las tareas informativas no bloquean."
+    },
+    {
+      "file": "resources/js/components/project-journey.tsx",
+      "candidate_string": "Motivo obligatorio",
+      "module": "Expedientes",
+      "origin": "untracked_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Reason required",
+      "es": "Motivo obligatorio"
+    },
+    {
+      "file": "resources/js/components/project-journey.tsx",
+      "candidate_string": "Registrar decisión",
+      "module": "Expedientes",
+      "origin": "untracked_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Record decision",
+      "es": "Registrar decisión"
+    },
+    {
+      "file": "resources/js/components/public/project-card.tsx",
+      "candidate_string": "Fotografía no disponible",
+      "module": "Componentes compartidos",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Photograph unavailable",
+      "es": "Fotografía no disponible"
+    },
+    {
+      "file": "resources/js/components/public/site-footer.tsx",
+      "candidate_string": "Navegación de pie de página",
+      "module": "Componentes compartidos",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Footer navigation",
+      "es": "Navegación de pie de página"
+    },
+    {
+      "file": "resources/js/components/public/site-footer.tsx",
+      "candidate_string": "Proceso",
+      "module": "Componentes compartidos",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Process",
+      "es": "Proceso"
+    },
+    {
+      "file": "resources/js/components/public/site-footer.tsx",
+      "candidate_string": "Información legal",
+      "module": "Componentes compartidos",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Legal information",
+      "es": "Información legal"
+    },
+    {
+      "file": "resources/js/components/public/site-header.tsx",
+      "candidate_string": "Todos los servicios",
+      "module": "Componentes compartidos",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "All services",
+      "es": "Todos los servicios"
+    },
+    {
+      "file": "resources/js/components/public/site-header.tsx",
+      "candidate_string": "Nuestro proceso",
+      "module": "Componentes compartidos",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Our process",
+      "es": "Nuestro proceso"
+    },
+    {
+      "file": "resources/js/components/public/site-layout.tsx",
+      "candidate_string": "¿Hablamos de tu proyecto?",
+      "module": "Componentes compartidos",
+      "origin": "untracked_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Shall we discuss your project?",
+      "es": "¿Hablamos de tu proyecto?"
+    },
+    {
+      "file": "resources/js/components/public/site-layout.tsx",
+      "candidate_string": "Estudiaremos tu caso y te propondremos la solución más adecuada.",
+      "module": "Componentes compartidos",
+      "origin": "untracked_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "We will review your case and propose the most suitable solution.",
+      "es": "Estudiaremos tu caso y te propondremos la solución más adecuada."
+    },
+    {
+      "file": "resources/js/components/public/site-layout.tsx",
+      "candidate_string": "LAN / WLAN",
+      "module": "Componentes compartidos",
+      "origin": "untracked_before_STAB03",
+      "classification": "false_positive_invariant_brand_or_contact",
+      "en": "LAN / WLAN",
+      "es": "LAN / WLAN"
+    },
+    {
+      "file": "resources/js/components/public/site-layout.tsx",
+      "candidate_string": "Infraestructura conectada",
+      "module": "Componentes compartidos",
+      "origin": "untracked_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Connected infrastructure",
+      "es": "Infraestructura conectada"
+    },
+    {
+      "file": "resources/js/components/public/site-layout.tsx",
+      "candidate_string": "Saber más",
+      "module": "Componentes compartidos",
+      "origin": "untracked_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Learn more",
+      "es": "Saber más"
+    },
+    {
+      "file": "resources/js/components/public/site-layout.tsx",
+      "candidate_string": "Proyectos destacados",
+      "module": "Componentes compartidos",
+      "origin": "untracked_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Featured projects",
+      "es": "Proyectos destacados"
+    },
+    {
+      "file": "resources/js/components/public/site-layout.tsx",
+      "candidate_string": "No hay proyectos publicados en esta sección por el momento.",
+      "module": "Componentes compartidos",
+      "origin": "untracked_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "There are currently no published projects in this section.",
+      "es": "No hay proyectos publicados en esta sección por el momento."
+    },
+    {
+      "file": "resources/js/components/public/site-layout.tsx",
+      "candidate_string": "Consultar una instalación similar",
+      "module": "Componentes compartidos",
+      "origin": "untracked_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Ask about a similar installation",
+      "es": "Consultar una instalación similar"
+    },
+    {
+      "file": "resources/js/components/quote-paper-acceptance.tsx",
+      "candidate_string": "Aceptación firmada en papel",
+      "module": "Componentes compartidos",
+      "origin": "untracked_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Acceptance signed on paper",
+      "es": "Aceptación firmada en papel"
+    },
+    {
+      "file": "resources/js/components/quote-paper-acceptance.tsx",
+      "candidate_string": "Firmante:",
+      "module": "Componentes compartidos",
+      "origin": "untracked_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Signatory:",
+      "es": "Firmante:"
+    },
+    {
+      "file": "resources/js/components/quote-paper-acceptance.tsx",
+      "candidate_string": "· Fecha:",
+      "module": "Componentes compartidos",
+      "origin": "untracked_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "· Date:",
+      "es": "· Fecha:"
+    },
+    {
+      "file": "resources/js/components/quote-paper-acceptance.tsx",
+      "candidate_string": "· Registrada por:",
+      "module": "Componentes compartidos",
+      "origin": "untracked_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "· Recorded by:",
+      "es": "· Registrada por:"
+    },
+    {
+      "file": "resources/js/components/quote-paper-acceptance.tsx",
+      "candidate_string": "Sin registrar",
+      "module": "Componentes compartidos",
+      "origin": "untracked_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Not recorded",
+      "es": "Sin registrar"
+    },
+    {
+      "file": "resources/js/components/quote-paper-acceptance.tsx",
+      "candidate_string": "Descargar justificante firmado",
+      "module": "Componentes compartidos",
+      "origin": "untracked_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Download signed evidence",
+      "es": "Descargar justificante firmado"
+    },
+    {
+      "file": "resources/js/components/quote-paper-acceptance.tsx",
+      "candidate_string": "Registrar aceptación firmada en papel · cliente sin email",
+      "module": "Componentes compartidos",
+      "origin": "untracked_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Record acceptance signed on paper · customer without email",
+      "es": "Registrar aceptación firmada en papel · cliente sin email"
+    },
+    {
+      "file": "resources/js/components/quote-paper-acceptance.tsx",
+      "candidate_string": "Registra la firma sin enviar correo. La aceptación no crea una visita ni emite una factura.",
+      "module": "Componentes compartidos",
+      "origin": "untracked_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Record the signature without sending email. Acceptance does not create a visit or issue an invoice.",
+      "es": "Registra la firma sin enviar correo. La aceptación no crea una visita ni emite una factura."
+    },
+    {
+      "file": "resources/js/components/quote-paper-acceptance.tsx",
+      "candidate_string": "Fecha de firma",
+      "module": "Componentes compartidos",
+      "origin": "untracked_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Signature date",
+      "es": "Fecha de firma"
+    },
+    {
+      "file": "resources/js/components/quote-paper-acceptance.tsx",
+      "candidate_string": "Nombre de la persona firmante",
+      "module": "Componentes compartidos",
+      "origin": "untracked_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Signatory's name",
+      "es": "Nombre de la persona firmante"
+    },
+    {
+      "file": "resources/js/components/quote-paper-acceptance.tsx",
+      "candidate_string": "Justificante firmado (PDF, JPG o PNG; máximo 10 MB)",
+      "module": "Componentes compartidos",
+      "origin": "untracked_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Signed evidence (PDF, JPG or PNG; maximum 10 MB)",
+      "es": "Justificante firmado (PDF, JPG o PNG; máximo 10 MB)"
+    },
+    {
+      "file": "resources/js/components/quote-paper-acceptance.tsx",
+      "candidate_string": "Registrar aceptación en papel",
+      "module": "Componentes compartidos",
+      "origin": "untracked_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Record paper acceptance",
+      "es": "Registrar aceptación en papel"
+    },
+    {
+      "file": "resources/js/components/receipt-warehouse-correction.tsx",
+      "candidate_string": "Almacén registrado:",
+      "module": "Componentes compartidos",
+      "origin": "untracked_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Recorded warehouse:",
+      "es": "Almacén registrado:"
+    },
+    {
+      "file": "resources/js/components/receipt-warehouse-correction.tsx",
+      "candidate_string": "Corregir almacén de recepción",
+      "module": "Componentes compartidos",
+      "origin": "untracked_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Correct receiving warehouse",
+      "es": "Corregir almacén de recepción"
+    },
+    {
+      "file": "resources/js/components/receipt-warehouse-correction.tsx",
+      "candidate_string": "Se registra un traslado compensatorio. No altera las cantidades recibidas. Material consumido, trasladado o reservado requiere revisión previa.",
+      "module": "Componentes compartidos",
+      "origin": "untracked_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "A compensating transfer is recorded. Received quantities are unchanged. Consumed, transferred or reserved materials require prior review.",
+      "es": "Se registra un traslado compensatorio. No altera las cantidades recibidas. Material consumido, trasladado o reservado requiere revisión previa."
+    },
+    {
+      "file": "resources/js/components/receipt-warehouse-correction.tsx",
+      "candidate_string": "Almacén correcto",
+      "module": "Componentes compartidos",
+      "origin": "untracked_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Correct warehouse",
+      "es": "Almacén correcto"
+    },
+    {
+      "file": "resources/js/components/receipt-warehouse-correction.tsx",
+      "candidate_string": "Registrar corrección",
+      "module": "Componentes compartidos",
+      "origin": "untracked_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Record correction",
+      "es": "Registrar corrección"
+    },
+    {
+      "file": "resources/js/pages/company/workspace.tsx",
+      "candidate_string": "Recurso corporativo personalizado. El SVG oficial de AREVANTES se conserva como respaldo.",
+      "module": "Configuración de empresa",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Custom corporate asset. The official AREVANTES SVG is retained as a fallback.",
+      "es": "Recurso corporativo personalizado. El SVG oficial de AREVANTES se conserva como respaldo."
+    },
+    {
+      "file": "resources/js/pages/company/workspace.tsx",
+      "candidate_string": "Recurso canónico oficial: arevantes-logo.svg.",
+      "module": "Configuración de empresa",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Official canonical asset: arevantes-logo.svg.",
+      "es": "Recurso canónico oficial: arevantes-logo.svg."
+    },
+    {
+      "file": "resources/js/pages/company/workspace.tsx",
+      "candidate_string": "Sustituir logo (SVG, PNG, JPEG o WebP; máximo 2 MB)",
+      "module": "Configuración de empresa",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Replace logo (SVG, PNG, JPEG or WebP; maximum 2 MB)",
+      "es": "Sustituir logo (SVG, PNG, JPEG o WebP; máximo 2 MB)"
+    },
+    {
+      "file": "resources/js/pages/company/workspace.tsx",
+      "candidate_string": "Restaurar SVG oficial de AREVANTES",
+      "module": "Configuración de empresa",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Restore the official AREVANTES SVG",
+      "es": "Restaurar SVG oficial de AREVANTES"
+    },
+    {
+      "file": "resources/js/pages/company/workspace.tsx",
+      "candidate_string": "Guardar logo",
+      "module": "Configuración de empresa",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Save logo",
+      "es": "Guardar logo"
+    },
+    {
+      "file": "resources/js/pages/operations/field-service.tsx",
+      "candidate_string": "Plantillas técnicas de órdenes de trabajo",
+      "module": "Operaciones",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Technical work order templates",
+      "es": "Plantillas técnicas de órdenes de trabajo"
+    },
+    {
+      "file": "resources/js/pages/operations/field-service.tsx",
+      "candidate_string": "Habilidades del técnico",
+      "module": "Operaciones",
+      "origin": "present_in_HEAD",
+      "classification": "legacy_visible_translated",
+      "en": "Technician skills",
+      "es": "Habilidades del técnico"
+    },
+    {
+      "file": "resources/js/pages/operations/field-service.tsx",
+      "candidate_string": "Nueva plantilla técnica: habilidades, tareas y evidencias",
+      "module": "Operaciones",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "New technical template: skills, tasks and evidence",
+      "es": "Nueva plantilla técnica: habilidades, tareas y evidencias"
+    },
+    {
+      "file": "resources/js/pages/operations/field-service.tsx",
+      "candidate_string": "Habilidades necesarias",
+      "module": "Operaciones",
+      "origin": "present_in_HEAD",
+      "classification": "legacy_visible_translated",
+      "en": "Required skills",
+      "es": "Habilidades necesarias"
+    },
+    {
+      "file": "resources/js/pages/operations/field-service.tsx",
+      "candidate_string": "Marca las habilidades que correspondan. No necesitas escribir códigos.",
+      "module": "Operaciones",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Select the relevant skills. You do not need to enter codes.",
+      "es": "Marca las habilidades que correspondan. No necesitas escribir códigos."
+    },
+    {
+      "file": "resources/js/pages/projects/index.tsx",
+      "candidate_string": "Una selección de instalaciones publicadas de AREVANTES. Consulta el alcance y las características de cada proyecto.",
+      "module": "Expedientes",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "A selection of published AREVANTES installations. View each project's scope and characteristics.",
+      "es": "Una selección de instalaciones publicadas de AREVANTES. Consulta el alcance y las características de cada proyecto."
+    },
+    {
+      "file": "resources/js/pages/projects/index.tsx",
+      "candidate_string": "Instalaciones reales,",
+      "module": "Expedientes",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Real installations,",
+      "es": "Instalaciones reales,"
+    },
+    {
+      "file": "resources/js/pages/projects/index.tsx",
+      "candidate_string": "resultados medibles.",
+      "module": "Expedientes",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "measurable results.",
+      "es": "resultados medibles."
+    },
+    {
+      "file": "resources/js/pages/projects/index.tsx",
+      "candidate_string": "Cada espacio plantea condiciones distintas. Descubre cómo se ha resuelto cada instalación.",
+      "module": "Expedientes",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Every space presents different conditions. Discover how each installation was delivered.",
+      "es": "Cada espacio plantea condiciones distintas. Descubre cómo se ha resuelto cada instalación."
+    },
+    {
+      "file": "resources/js/pages/projects/index.tsx",
+      "candidate_string": "Filtrar proyectos por servicio",
+      "module": "Expedientes",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Filter projects by service",
+      "es": "Filtrar proyectos por servicio"
+    },
+    {
+      "file": "resources/js/pages/projects/index.tsx",
+      "candidate_string": "Sin proyectos publicados.",
+      "module": "Expedientes",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "No published projects.",
+      "es": "Sin proyectos publicados."
+    },
+    {
+      "file": "resources/js/pages/projects/index.tsx",
+      "candidate_string": "Todavía no hay casos publicados para esta selección. Puedes consultarnos sobre una instalación similar.",
+      "module": "Expedientes",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "There are no published case studies for this selection yet. You can ask us about a similar installation.",
+      "es": "Todavía no hay casos publicados para esta selección. Puedes consultarnos sobre una instalación similar."
+    },
+    {
+      "file": "resources/js/pages/projects/show.tsx",
+      "candidate_string": "El proyecto.",
+      "module": "Expedientes",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "The project.",
+      "es": "El proyecto."
+    },
+    {
+      "file": "resources/js/pages/projects/show.tsx",
+      "candidate_string": "Fotografías del proyecto",
+      "module": "Expedientes",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Project photographs",
+      "es": "Fotografías del proyecto"
+    },
+    {
+      "file": "resources/js/pages/projects/show.tsx",
+      "candidate_string": "Otros proyectos realizados.",
+      "module": "Expedientes",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Other completed projects.",
+      "es": "Otros proyectos realizados."
+    },
+    {
+      "file": "resources/js/pages/public/contact.tsx",
+      "candidate_string": "Empezamos por escucharte",
+      "module": "Web pública",
+      "origin": "untracked_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "We start by listening",
+      "es": "Empezamos por escucharte"
+    },
+    {
+      "file": "resources/js/pages/public/contact.tsx",
+      "candidate_string": "Cuéntanos qué necesitas.",
+      "module": "Web pública",
+      "origin": "untracked_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Tell us what you need.",
+      "es": "Cuéntanos qué necesitas."
+    },
+    {
+      "file": "resources/js/pages/public/contact.tsx",
+      "candidate_string": "Indica dónde se encuentra el inmueble y qué te gustaría resolver. Déjanos un correo electrónico o un teléfono para poder responderte.",
+      "module": "Web pública",
+      "origin": "untracked_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Tell us where the property is and what you would like to resolve. Leave an email address or phone number so we can reply.",
+      "es": "Indica dónde se encuentra el inmueble y qué te gustaría resolver. Déjanos un correo electrónico o un teléfono para poder responderte."
+    },
+    {
+      "file": "resources/js/pages/public/contact.tsx",
+      "candidate_string": "contact@arevantes.com ↗",
+      "module": "Web pública",
+      "origin": "untracked_before_STAB03",
+      "classification": "false_positive_invariant_brand_or_contact",
+      "en": "contact@arevantes.com ↗",
+      "es": "contact@arevantes.com ↗"
+    },
+    {
+      "file": "resources/js/pages/public/contact.tsx",
+      "candidate_string": "Para redes y sistemas, escríbenos directamente por correo. El formulario recoge las categorías actualmente disponibles.",
+      "module": "Web pública",
+      "origin": "untracked_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "For networks and systems, email us directly. The form covers the categories currently available.",
+      "es": "Para redes y sistemas, escríbenos directamente por correo. El formulario recoge las categorías actualmente disponibles."
+    },
+    {
+      "file": "resources/js/pages/public/contact.tsx",
+      "candidate_string": "Solicitud recibida.",
+      "module": "Web pública",
+      "origin": "untracked_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Request received.",
+      "es": "Solicitud recibida."
+    },
+    {
+      "file": "resources/js/pages/public/contact.tsx",
+      "candidate_string": "Gracias por contarnos tu proyecto. Nuestro equipo revisará tu consulta y se pondrá en contacto contigo.",
+      "module": "Web pública",
+      "origin": "untracked_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Thank you for telling us about your project. Our team will review your enquiry and contact you.",
+      "es": "Gracias por contarnos tu proyecto. Nuestro equipo revisará tu consulta y se pondrá en contacto contigo."
+    },
+    {
+      "file": "resources/js/pages/public/contact.tsx",
+      "candidate_string": "Nombre y apellidos",
+      "module": "Web pública",
+      "origin": "untracked_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Full name",
+      "es": "Nombre y apellidos"
+    },
+    {
+      "file": "resources/js/pages/public/contact.tsx",
+      "candidate_string": "Tu proyecto",
+      "module": "Web pública",
+      "origin": "untracked_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Your project",
+      "es": "Tu proyecto"
+    },
+    {
+      "file": "resources/js/pages/public/contact.tsx",
+      "candidate_string": "Entre 20 y 2.000 caracteres. No incluyas información sensible.",
+      "module": "Web pública",
+      "origin": "untracked_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Between 20 and 2,000 characters. Do not include sensitive information.",
+      "es": "Entre 20 y 2.000 caracteres. No incluyas información sensible."
+    },
+    {
+      "file": "resources/js/pages/public/contact.tsx",
+      "candidate_string": "Dejar vacío",
+      "module": "Web pública",
+      "origin": "untracked_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Leave empty",
+      "es": "Dejar vacío"
+    },
+    {
+      "file": "resources/js/pages/public/contact.tsx",
+      "candidate_string": "He leído la",
+      "module": "Web pública",
+      "origin": "untracked_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "I have read the",
+      "es": "He leído la"
+    },
+    {
+      "file": "resources/js/pages/public/contact.tsx",
+      "candidate_string": "y acepto el tratamiento de mis datos para atender esta consulta.",
+      "module": "Web pública",
+      "origin": "untracked_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "and consent to my data being processed to handle this enquiry.",
+      "es": "y acepto el tratamiento de mis datos para atender esta consulta."
+    },
+    {
+      "file": "resources/js/pages/public/contact.tsx",
+      "candidate_string": "Los datos se utilizarán para gestionar tu solicitud. Consulta el responsable, tus derechos y el resto de información en la política de privacidad.",
+      "module": "Web pública",
+      "origin": "untracked_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Your data will be used to handle your request. See the privacy policy for the data controller, your rights and further information.",
+      "es": "Los datos se utilizarán para gestionar tu solicitud. Consulta el responsable, tus derechos y el resto de información en la política de privacidad."
+    },
+    {
+      "file": "resources/js/pages/public/contact.tsx",
+      "candidate_string": "Enviar consulta",
+      "module": "Web pública",
+      "origin": "untracked_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Send enquiry",
+      "es": "Enviar consulta"
+    },
+    {
+      "file": "resources/js/pages/public/page.tsx",
+      "candidate_string": "Arevantes · Instalaciones y tecnología",
+      "module": "Web pública",
+      "origin": "untracked_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Arevantes · Installations and technology",
+      "es": "Arevantes · Instalaciones y tecnología"
+    },
+    {
+      "file": "resources/js/pages/public/page.tsx",
+      "candidate_string": "Quiénes somos",
+      "module": "Web pública",
+      "origin": "untracked_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "About us",
+      "es": "Quiénes somos"
+    },
+    {
+      "file": "resources/js/pages/public/page.tsx",
+      "candidate_string": "Un interlocutor.",
+      "module": "Web pública",
+      "origin": "untracked_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "One point of contact.",
+      "es": "Un interlocutor."
+    },
+    {
+      "file": "resources/js/pages/public/page.tsx",
+      "candidate_string": "Una visión de conjunto.",
+      "module": "Web pública",
+      "origin": "untracked_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "An overall perspective.",
+      "es": "Una visión de conjunto."
+    },
+    {
+      "file": "resources/js/pages/public/page.tsx",
+      "candidate_string": "AREVANTES trabaja en soluciones de energía, electricidad, seguridad y comunicaciones. Nuestro punto de partida es entender cómo utilizas tu espacio y qué necesitas que resuelva la instalación.",
+      "module": "Web pública",
+      "origin": "untracked_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "AREVANTES works on energy, electrical, security and communications solutions. We start by understanding how you use your space and what you need the installation to do.",
+      "es": "AREVANTES trabaja en soluciones de energía, electricidad, seguridad y comunicaciones. Nuestro punto de partida es entender cómo utilizas tu espacio y qué necesitas que resuelva la instalación."
+    },
+    {
+      "file": "resources/js/pages/public/page.tsx",
+      "candidate_string": "Desde Baena, Córdoba, atendemos proyectos en Andalucía con una forma de trabajar cercana: alcance claro, coordinación técnica y atención durante la puesta en servicio.",
+      "module": "Web pública",
+      "origin": "untracked_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Based in Baena, Córdoba, we serve projects across Andalusia with clear scope, technical coordination and support during commissioning.",
+      "es": "Desde Baena, Córdoba, atendemos proyectos en Andalucía con una forma de trabajar cercana: alcance claro, coordinación técnica y atención durante la puesta en servicio."
+    },
+    {
+      "file": "resources/js/pages/public/page.tsx",
+      "candidate_string": "Nuestra manera de trabajar",
+      "module": "Web pública",
+      "origin": "untracked_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "How we work",
+      "es": "Nuestra manera de trabajar"
+    },
+    {
+      "file": "resources/js/pages/public/page.tsx",
+      "candidate_string": "Lo que cuidamos",
+      "module": "Web pública",
+      "origin": "untracked_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "What we care about",
+      "es": "Lo que cuidamos"
+    },
+    {
+      "file": "resources/js/pages/public/page.tsx",
+      "candidate_string": "Criterio técnico",
+      "module": "Web pública",
+      "origin": "untracked_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Technical judgement",
+      "es": "Criterio técnico"
+    },
+    {
+      "file": "resources/js/pages/public/page.tsx",
+      "candidate_string": "Cada propuesta parte de las condiciones reales y de la compatibilidad de las soluciones.",
+      "module": "Web pública",
+      "origin": "untracked_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Every proposal considers actual conditions and solution compatibility.",
+      "es": "Cada propuesta parte de las condiciones reales y de la compatibilidad de las soluciones."
+    },
+    {
+      "file": "resources/js/pages/public/page.tsx",
+      "candidate_string": "Comunicación clara",
+      "module": "Web pública",
+      "origin": "untracked_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Clear communication",
+      "es": "Comunicación clara"
+    },
+    {
+      "file": "resources/js/pages/public/page.tsx",
+      "candidate_string": "Explicamos qué incluye la intervención y resolvemos las dudas antes de empezar.",
+      "module": "Web pública",
+      "origin": "untracked_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "We explain what the work includes and answer questions before starting.",
+      "es": "Explicamos qué incluye la intervención y resolvemos las dudas antes de empezar."
+    },
+    {
+      "file": "resources/js/pages/public/page.tsx",
+      "candidate_string": "Calidad de ejecución",
+      "module": "Web pública",
+      "origin": "untracked_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Quality workmanship",
+      "es": "Calidad de ejecución"
+    },
+    {
+      "file": "resources/js/pages/public/page.tsx",
+      "candidate_string": "Cuidamos la instalación, las comprobaciones y la documentación correspondiente al trabajo contratado.",
+      "module": "Web pública",
+      "origin": "untracked_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "We take care of installation, checks and the documentation required for the contracted work.",
+      "es": "Cuidamos la instalación, las comprobaciones y la documentación correspondiente al trabajo contratado."
+    },
+    {
+      "file": "resources/js/pages/public/page.tsx",
+      "candidate_string": "Decisiones claras",
+      "module": "Web pública",
+      "origin": "untracked_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Clear decisions",
+      "es": "Decisiones claras"
+    },
+    {
+      "file": "resources/js/pages/public/page.tsx",
+      "candidate_string": "en cada fase.",
+      "module": "Web pública",
+      "origin": "untracked_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "at every stage.",
+      "es": "en cada fase."
+    },
+    {
+      "file": "resources/js/pages/public/page.tsx",
+      "candidate_string": "Para empezar, cuéntanos el tipo de inmueble, su ubicación y qué necesitas resolver. En proyectos de autoconsumo, el perfil de consumo y la información de la cubierta ayudan a preparar el estudio.",
+      "module": "Web pública",
+      "origin": "untracked_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Start by telling us the property type, location and what you need to resolve. For self-consumption projects, consumption patterns and roof information help prepare the study.",
+      "es": "Para empezar, cuéntanos el tipo de inmueble, su ubicación y qué necesitas resolver. En proyectos de autoconsumo, el perfil de consumo y la información de la cubierta ayudan a preparar el estudio."
+    },
+    {
+      "file": "resources/js/pages/public/page.tsx",
+      "candidate_string": "La propuesta concreta el alcance, los plazos y la documentación aplicable. Las ampliaciones o cambios se revisan antes de ejecutarlos. Al finalizar, comprobamos el funcionamiento y explicamos el uso de los equipos.",
+      "module": "Web pública",
+      "origin": "untracked_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "The proposal specifies the scope, schedule and applicable documentation. Extensions or changes are reviewed before execution. On completion, we check operation and explain how to use the equipment.",
+      "es": "La propuesta concreta el alcance, los plazos y la documentación aplicable. Las ampliaciones o cambios se revisan antes de ejecutarlos. Al finalizar, comprobamos el funcionamiento y explicamos el uso de los equipos."
+    },
+    {
+      "file": "resources/js/pages/public/page.tsx",
+      "candidate_string": "Preparar mi consulta",
+      "module": "Web pública",
+      "origin": "untracked_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Prepare my enquiry",
+      "es": "Preparar mi consulta"
+    },
+    {
+      "file": "resources/js/pages/public/page.tsx",
+      "candidate_string": "La base de una",
+      "module": "Web pública",
+      "origin": "untracked_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "The foundation of a",
+      "es": "La base de una"
+    },
+    {
+      "file": "resources/js/pages/public/page.tsx",
+      "candidate_string": "buena conexión.",
+      "module": "Web pública",
+      "origin": "untracked_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "good connection.",
+      "es": "buena conexión."
+    },
+    {
+      "file": "resources/js/pages/public/page.tsx",
+      "candidate_string": "El cableado estructurado, los puntos de red y la cobertura inalámbrica deben responder al uso del edificio. Estudiamos la distribución, el número de dispositivos y las necesidades de conectividad antes de plantear una solución.",
+      "module": "Web pública",
+      "origin": "untracked_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Structured cabling, network outlets and wireless coverage must suit the building's use. We study the layout, device count and connectivity needs before proposing a solution.",
+      "es": "El cableado estructurado, los puntos de red y la cobertura inalámbrica deben responder al uso del edificio. Estudiamos la distribución, el número de dispositivos y las necesidades de conectividad antes de plantear una solución."
+    },
+    {
+      "file": "resources/js/pages/public/page.tsx",
+      "candidate_string": "La organización del cableado y la identificación de los puntos facilitan el mantenimiento y las futuras ampliaciones.",
+      "module": "Web pública",
+      "origin": "untracked_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Organized cabling and identified outlets make maintenance and future expansion easier.",
+      "es": "La organización del cableado y la identificación de los puntos facilitan el mantenimiento y las futuras ampliaciones."
+    },
+    {
+      "file": "resources/js/pages/public/page.tsx",
+      "candidate_string": "Consultar por correo",
+      "module": "Web pública",
+      "origin": "untracked_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Enquire by email",
+      "es": "Consultar por correo"
+    },
+    {
+      "file": "resources/js/pages/public/page.tsx",
+      "candidate_string": "Cableado estructurado",
+      "module": "Web pública",
+      "origin": "untracked_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Structured cabling",
+      "es": "Cableado estructurado"
+    },
+    {
+      "file": "resources/js/pages/public/page.tsx",
+      "candidate_string": "Planificación de tomas, recorridos y organización del armario de comunicaciones.",
+      "module": "Web pública",
+      "origin": "untracked_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Planning outlets, cable routes and communications cabinet layout.",
+      "es": "Planificación de tomas, recorridos y organización del armario de comunicaciones."
+    },
+    {
+      "file": "resources/js/pages/public/page.tsx",
+      "candidate_string": "Redes y conectividad",
+      "module": "Web pública",
+      "origin": "untracked_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Networks and connectivity",
+      "es": "Redes y conectividad"
+    },
+    {
+      "file": "resources/js/pages/public/page.tsx",
+      "candidate_string": "Distribución de conexiones y cobertura Wi-Fi adaptada al espacio y a los dispositivos.",
+      "module": "Web pública",
+      "origin": "untracked_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Connection distribution and Wi-Fi coverage suited to the space and devices.",
+      "es": "Distribución de conexiones y cobertura Wi-Fi adaptada al espacio y a los dispositivos."
+    },
+    {
+      "file": "resources/js/pages/public/page.tsx",
+      "candidate_string": "Configuración y comprobación",
+      "module": "Web pública",
+      "origin": "untracked_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Configuration and checks",
+      "es": "Configuración y comprobación"
+    },
+    {
+      "file": "resources/js/pages/public/page.tsx",
+      "candidate_string": "Revisión del funcionamiento y documentación de la solución acordada.",
+      "module": "Web pública",
+      "origin": "untracked_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Checking operation and documenting the agreed solution.",
+      "es": "Revisión del funcionamiento y documentación de la solución acordada."
+    },
+    {
+      "file": "resources/js/pages/quotes/form.tsx",
+      "candidate_string": "Instalaciones predefinidas · plantillas comerciales",
+      "module": "Presupuestos",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Predefined installations · commercial templates",
+      "es": "Instalaciones predefinidas · plantillas comerciales"
+    },
+    {
+      "file": "resources/js/pages/quotes/form.tsx",
+      "candidate_string": "Añade una instalación completa y ajusta después sus líneas, cantidades y precios para este cliente.",
+      "module": "Presupuestos",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Add a complete installation, then adjust its lines, quantities and prices for this customer.",
+      "es": "Añade una instalación completa y ajusta después sus líneas, cantidades y precios para este cliente."
+    },
+    {
+      "file": "resources/js/pages/quotes/form.tsx",
+      "candidate_string": "Plantilla de instalación",
+      "module": "Presupuestos",
+      "origin": "present_in_HEAD",
+      "classification": "legacy_visible_translated",
+      "en": "Installation template",
+      "es": "Plantilla de instalación"
+    },
+    {
+      "file": "resources/js/pages/quotes/form.tsx",
+      "candidate_string": "Selecciona una instalación",
+      "module": "Presupuestos",
+      "origin": "present_in_HEAD",
+      "classification": "legacy_visible_translated",
+      "en": "Select an installation",
+      "es": "Selecciona una instalación"
+    },
+    {
+      "file": "resources/js/pages/quotes/form.tsx",
+      "candidate_string": "líneas",
+      "module": "Presupuestos",
+      "origin": "present_in_HEAD",
+      "classification": "legacy_visible_translated",
+      "en": "lines",
+      "es": "líneas"
+    },
+    {
+      "file": "resources/js/pages/quotes/form.tsx",
+      "candidate_string": "Añadir líneas al presupuesto",
+      "module": "Presupuestos",
+      "origin": "present_in_HEAD",
+      "classification": "legacy_visible_translated",
+      "en": "Add lines to the proposal",
+      "es": "Añadir líneas al presupuesto"
+    },
+    {
+      "file": "resources/js/pages/quotes/form.tsx",
+      "candidate_string": "Ver contenido ·",
+      "module": "Presupuestos",
+      "origin": "present_in_HEAD",
+      "classification": "legacy_visible_translated",
+      "en": "View contents ·",
+      "es": "Ver contenido ·"
+    },
+    {
+      "file": "resources/js/pages/quotes/form.tsx",
+      "candidate_string": "/ ud.",
+      "module": "Presupuestos",
+      "origin": "present_in_HEAD",
+      "classification": "legacy_visible_translated",
+      "en": "/ unit",
+      "es": "/ ud."
+    },
+    {
+      "file": "resources/js/pages/quotes/form.tsx",
+      "candidate_string": "Se conservan precios, IVA, descuentos, opciones y componentes. Las líneas actuales del presupuesto se mantienen.",
+      "module": "Presupuestos",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Prices, VAT, discounts, options and components are retained. Existing proposal lines remain.",
+      "es": "Se conservan precios, IVA, descuentos, opciones y componentes. Las líneas actuales del presupuesto se mantienen."
+    },
+    {
+      "file": "resources/js/pages/quotes/form.tsx",
+      "candidate_string": "Crea las líneas de tu instalación habitual y guárdalas aquí como primera plantilla.",
+      "module": "Presupuestos",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Create your usual installation lines and save them here as your first template.",
+      "es": "Crea las líneas de tu instalación habitual y guárdalas aquí como primera plantilla."
+    },
+    {
+      "file": "resources/js/pages/quotes/form.tsx",
+      "candidate_string": "Crear o actualizar plantilla comercial con las líneas actuales",
+      "module": "Presupuestos",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Create or update a commercial template using the current lines",
+      "es": "Crear o actualizar plantilla comercial con las líneas actuales"
+    },
+    {
+      "file": "resources/js/pages/quotes/form.tsx",
+      "candidate_string": "Nombre de la instalación",
+      "module": "Presupuestos",
+      "origin": "present_in_HEAD",
+      "classification": "legacy_visible_translated",
+      "en": "Installation name",
+      "es": "Nombre de la instalación"
+    },
+    {
+      "file": "resources/js/pages/quotes/form.tsx",
+      "candidate_string": "Ej.: Solar 6 kW con batería",
+      "module": "Presupuestos",
+      "origin": "present_in_HEAD",
+      "classification": "legacy_visible_translated",
+      "en": "E.g. 6 kW solar with battery",
+      "es": "Ej.: Solar 6 kW con batería"
+    },
+    {
+      "file": "resources/js/pages/quotes/form.tsx",
+      "candidate_string": "Guardar como nueva plantilla",
+      "module": "Presupuestos",
+      "origin": "present_in_HEAD",
+      "classification": "legacy_visible_translated",
+      "en": "Save as a new template",
+      "es": "Guardar como nueva plantilla"
+    },
+    {
+      "file": "resources/js/pages/quotes/form.tsx",
+      "candidate_string": "Actualizar plantilla seleccionada",
+      "module": "Presupuestos",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Update selected template",
+      "es": "Actualizar plantilla seleccionada"
+    },
+    {
+      "file": "resources/js/pages/quotes/form.tsx",
+      "candidate_string": "Eliminar plantilla",
+      "module": "Presupuestos",
+      "origin": "present_in_HEAD",
+      "classification": "legacy_visible_translated",
+      "en": "Delete template",
+      "es": "Eliminar plantilla"
+    },
+    {
+      "file": "resources/js/pages/quotes/form.tsx",
+      "candidate_string": "Se guardan las líneas y sus componentes. Los datos del cliente y del proyecto quedan fuera de la plantilla. Guardar la plantilla no crea una propuesta.",
+      "module": "Presupuestos",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Lines and their components are saved. Customer and project details are excluded. Saving a template does not create a proposal.",
+      "es": "Se guardan las líneas y sus componentes. Los datos del cliente y del proyecto quedan fuera de la plantilla. Guardar la plantilla no crea una propuesta."
+    },
+    {
+      "file": "resources/js/pages/quotes/show.tsx",
+      "candidate_string": "Revisa la clasificación de materiales antes de aceptar",
+      "module": "Presupuestos",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Review material classification before accepting",
+      "es": "Revisa la clasificación de materiales antes de aceptar"
+    },
+    {
+      "file": "resources/js/pages/quotes/show.tsx",
+      "candidate_string": "Estos conceptos no generan por sí solos necesidades de almacén. Si son material, vincula un producto con control de inventario; si son servicios, define sus componentes operativos.",
+      "module": "Presupuestos",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "These items do not generate warehouse requirements on their own. For materials, link an inventory-controlled product; for services, define their operational components.",
+      "es": "Estos conceptos no generan por sí solos necesidades de almacén. Si son material, vincula un producto con control de inventario; si son servicios, define sus componentes operativos."
+    },
+    {
+      "file": "resources/js/pages/quotes/show.tsx",
+      "candidate_string": "Crea el proyecto sin fecha ni técnico. Solo se crea una visita si introduces una fecha; una visita existente no se duplica.",
+      "module": "Presupuestos",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Create the project without a date or technician. A visit is created only if you enter a date; an existing visit is not duplicated.",
+      "es": "Crea el proyecto sin fecha ni técnico. Solo se crea una visita si introduces una fecha; una visita existente no se duplica."
+    },
+    {
+      "file": "resources/js/pages/quotes/show.tsx",
+      "candidate_string": "Fecha de visita técnica (opcional)",
+      "module": "Presupuestos",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Technical visit date (optional)",
+      "es": "Fecha de visita técnica (opcional)"
+    },
+    {
+      "file": "resources/js/pages/quotes/show.tsx",
+      "candidate_string": "Requiere visita o ingeniería validada antes de ejecutar la instalación",
+      "module": "Presupuestos",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Requires a validated visit or engineering approval before installation",
+      "es": "Requiere visita o ingeniería validada antes de ejecutar la instalación"
+    },
+    {
+      "file": "resources/js/pages/quotes/show.tsx",
+      "candidate_string": "Motivo de dispensa técnica (solo administración)",
+      "module": "Presupuestos",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Reason for technical waiver (administrators only)",
+      "es": "Motivo de dispensa técnica (solo administración)"
+    },
+    {
+      "file": "resources/js/pages/services/show.tsx",
+      "candidate_string": "Energías renovables",
+      "module": "Servicios y posventa",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Renewable energy",
+      "es": "Energías renovables"
+    },
+    {
+      "file": "resources/js/pages/services/show.tsx",
+      "candidate_string": "Solicitar asesoramiento",
+      "module": "Servicios y posventa",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Request advice",
+      "es": "Solicitar asesoramiento"
+    },
+    {
+      "file": "resources/js/pages/services/show.tsx",
+      "candidate_string": "Imagen ilustrativa del servicio",
+      "module": "Servicios y posventa",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Illustrative service image",
+      "es": "Imagen ilustrativa del servicio"
+    },
+    {
+      "file": "resources/js/pages/services/show.tsx",
+      "candidate_string": "Ahorro en la factura",
+      "module": "Servicios y posventa",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Lower electricity bills",
+      "es": "Ahorro en la factura"
+    },
+    {
+      "file": "resources/js/pages/services/show.tsx",
+      "candidate_string": "Aprovecha la energía que produces.",
+      "module": "Servicios y posventa",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Make use of the energy you generate.",
+      "es": "Aprovecha la energía que produces."
+    },
+    {
+      "file": "resources/js/pages/services/show.tsx",
+      "candidate_string": "Mayor independencia",
+      "module": "Servicios y posventa",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Greater independence",
+      "es": "Mayor independencia"
+    },
+    {
+      "file": "resources/js/pages/services/show.tsx",
+      "candidate_string": "Reduce tu dependencia de la red.",
+      "module": "Servicios y posventa",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Reduce your reliance on the grid.",
+      "es": "Reduce tu dependencia de la red."
+    },
+    {
+      "file": "resources/js/pages/services/show.tsx",
+      "candidate_string": "Soluciones fiables",
+      "module": "Servicios y posventa",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Reliable solutions",
+      "es": "Soluciones fiables"
+    },
+    {
+      "file": "resources/js/pages/services/show.tsx",
+      "candidate_string": "Equipos adecuados a tu instalación.",
+      "module": "Servicios y posventa",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Equipment suited to your installation.",
+      "es": "Equipos adecuados a tu instalación."
+    },
+    {
+      "file": "resources/js/pages/services/show.tsx",
+      "candidate_string": "Consumo sostenible",
+      "module": "Servicios y posventa",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Sustainable consumption",
+      "es": "Consumo sostenible"
+    },
+    {
+      "file": "resources/js/pages/services/show.tsx",
+      "candidate_string": "Una energía más limpia.",
+      "module": "Servicios y posventa",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Cleaner energy.",
+      "es": "Una energía más limpia."
+    },
+    {
+      "file": "resources/js/pages/services/show.tsx",
+      "candidate_string": "Soluciones",
+      "module": "Servicios y posventa",
+      "origin": "present_in_HEAD",
+      "classification": "legacy_visible_translated",
+      "en": "Solutions",
+      "es": "Soluciones"
+    },
+    {
+      "file": "resources/js/pages/services/show.tsx",
+      "candidate_string": "Instalaciones a medida",
+      "module": "Servicios y posventa",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Tailored installations",
+      "es": "Instalaciones a medida"
+    },
+    {
+      "file": "resources/js/pages/services/show.tsx",
+      "candidate_string": "La monitorización permite conocer la producción y el consumo. Estudiamos su integración, las baterías y la recarga según la compatibilidad de los equipos y tus necesidades.",
+      "module": "Servicios y posventa",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Monitoring provides insight into generation and consumption. We assess its integration, batteries and charging based on equipment compatibility and your needs.",
+      "es": "La monitorización permite conocer la producción y el consumo. Estudiamos su integración, las baterías y la recarga según la compatibilidad de los equipos y tus necesidades."
+    },
+    {
+      "file": "resources/js/pages/services/show.tsx",
+      "candidate_string": "Marcas habituales de trabajo",
+      "module": "Servicios y posventa",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Brands we commonly work with",
+      "es": "Marcas habituales de trabajo"
+    },
+    {
+      "file": "resources/js/pages/services/show.tsx",
+      "candidate_string": "LONGi",
+      "module": "Servicios y posventa",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "false_positive_invariant_brand_or_contact",
+      "en": "LONGi",
+      "es": "LONGi"
+    },
+    {
+      "file": "resources/js/pages/services/show.tsx",
+      "candidate_string": "HUAWEI",
+      "module": "Servicios y posventa",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "false_positive_invariant_brand_or_contact",
+      "en": "HUAWEI",
+      "es": "HUAWEI"
+    },
+    {
+      "file": "resources/js/pages/services/show.tsx",
+      "candidate_string": "Deye",
+      "module": "Servicios y posventa",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "false_positive_invariant_brand_or_contact",
+      "en": "Deye",
+      "es": "Deye"
+    },
+    {
+      "file": "resources/js/pages/services/show.tsx",
+      "candidate_string": "FelicityESS",
+      "module": "Servicios y posventa",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "false_positive_invariant_brand_or_contact",
+      "en": "FelicityESS",
+      "es": "FelicityESS"
+    },
+    {
+      "file": "resources/js/pages/services/show.tsx",
+      "candidate_string": "La elección depende del estudio técnico. Esta mención no implica vinculación ni acreditación oficial.",
+      "module": "Servicios y posventa",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "The choice depends on the technical study. This mention does not imply affiliation or official accreditation.",
+      "es": "La elección depende del estudio técnico. Esta mención no implica vinculación ni acreditación oficial."
+    },
+    {
+      "file": "resources/js/pages/services/show.tsx",
+      "candidate_string": "Para cada espacio",
+      "module": "Servicios y posventa",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "For every space",
+      "es": "Para cada espacio"
+    },
+    {
+      "file": "resources/js/pages/services/show.tsx",
+      "candidate_string": "Tipos de instalaciones",
+      "module": "Servicios y posventa",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Installation types",
+      "es": "Tipos de instalaciones"
+    },
+    {
+      "file": "resources/js/pages/services/show.tsx",
+      "candidate_string": "Soluciones para cada necesidad.",
+      "module": "Servicios y posventa",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Solutions for every need.",
+      "es": "Soluciones para cada necesidad."
+    },
+    {
+      "file": "resources/js/pages/services/show.tsx",
+      "candidate_string": "Viviendas unifamiliares",
+      "module": "Servicios y posventa",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Single-family homes",
+      "es": "Viviendas unifamiliares"
+    },
+    {
+      "file": "resources/js/pages/services/show.tsx",
+      "candidate_string": "Autoconsumo adaptado al perfil de consumo de tu hogar y al espacio de cubierta disponible.",
+      "module": "Servicios y posventa",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Self-consumption suited to your household's consumption pattern and available roof space.",
+      "es": "Autoconsumo adaptado al perfil de consumo de tu hogar y al espacio de cubierta disponible."
+    },
+    {
+      "file": "resources/js/pages/services/show.tsx",
+      "candidate_string": "Empresas e industria",
+      "module": "Servicios y posventa",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Businesses and industry",
+      "es": "Empresas e industria"
+    },
+    {
+      "file": "resources/js/pages/services/show.tsx",
+      "candidate_string": "Instalaciones dimensionadas según la actividad, los horarios y la demanda energética.",
+      "module": "Servicios y posventa",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Installations sized for your activity, operating hours and energy demand.",
+      "es": "Instalaciones dimensionadas según la actividad, los horarios y la demanda energética."
+    },
+    {
+      "file": "resources/js/pages/services/show.tsx",
+      "candidate_string": "Baterías de almacenamiento",
+      "module": "Servicios y posventa",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Storage batteries",
+      "es": "Baterías de almacenamiento"
+    },
+    {
+      "file": "resources/js/pages/services/show.tsx",
+      "candidate_string": "Aprovecha los excedentes cuando los necesitas, según la capacidad y compatibilidad del sistema.",
+      "module": "Servicios y posventa",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Use surplus energy when you need it, subject to system capacity and compatibility.",
+      "es": "Aprovecha los excedentes cuando los necesitas, según la capacidad y compatibilidad del sistema."
+    },
+    {
+      "file": "resources/js/pages/services/show.tsx",
+      "candidate_string": "Cargadores para vehículo eléctrico",
+      "module": "Servicios y posventa",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Electric vehicle chargers",
+      "es": "Cargadores para vehículo eléctrico"
+    },
+    {
+      "file": "resources/js/pages/services/show.tsx",
+      "candidate_string": "Recarga coordinada con la potencia disponible y la producción fotovoltaica.",
+      "module": "Servicios y posventa",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Charging coordinated with available power and solar generation.",
+      "es": "Recarga coordinada con la potencia disponible y la producción fotovoltaica."
+    },
+    {
+      "file": "resources/js/pages/services/show.tsx",
+      "candidate_string": "Consultar solución",
+      "module": "Servicios y posventa",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Enquire about a solution",
+      "es": "Consultar solución"
+    },
+    {
+      "file": "resources/js/pages/services/show.tsx",
+      "candidate_string": "Del estudio a la puesta en servicio.",
+      "module": "Servicios y posventa",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "From study to commissioning.",
+      "es": "Del estudio a la puesta en servicio."
+    },
+    {
+      "file": "resources/js/pages/services/show.tsx",
+      "candidate_string": "Proyectos relacionados.",
+      "module": "Servicios y posventa",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Related projects.",
+      "es": "Proyectos relacionados."
+    },
+    {
+      "file": "resources/js/pages/services/show.tsx",
+      "candidate_string": "Resolvemos tus dudas",
+      "module": "Servicios y posventa",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "We answer your questions",
+      "es": "Resolvemos tus dudas"
+    },
+    {
+      "file": "resources/js/pages/services/show.tsx",
+      "candidate_string": "Antes de empezar.",
+      "module": "Servicios y posventa",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Before starting.",
+      "es": "Antes de empezar."
+    },
+    {
+      "file": "resources/js/pages/welcome.tsx",
+      "candidate_string": "Soluciones técnicas para un futuro más eficiente",
+      "module": "Web pública",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Technical solutions for a more efficient future",
+      "es": "Soluciones técnicas para un futuro más eficiente"
+    },
+    {
+      "file": "resources/js/pages/welcome.tsx",
+      "candidate_string": "Electricidad, energías renovables, seguridad y redes para viviendas y empresas. Diseño, instalación y acompañamiento técnico.",
+      "module": "Web pública",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Electrical, renewable energy, security and network solutions for homes and businesses. Design, installation and technical support.",
+      "es": "Electricidad, energías renovables, seguridad y redes para viviendas y empresas. Diseño, instalación y acompañamiento técnico."
+    },
+    {
+      "file": "resources/js/pages/welcome.tsx",
+      "candidate_string": "Instalación fotovoltaica sobre la cubierta de una vivienda. Imagen ilustrativa.",
+      "module": "Web pública",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Solar installation on a home's roof. Illustrative image.",
+      "es": "Instalación fotovoltaica sobre la cubierta de una vivienda. Imagen ilustrativa."
+    },
+    {
+      "file": "resources/js/pages/welcome.tsx",
+      "candidate_string": "Instalaciones · Energía · Tecnología",
+      "module": "Web pública",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Installations · Energy · Technology",
+      "es": "Instalaciones · Energía · Tecnología"
+    },
+    {
+      "file": "resources/js/pages/welcome.tsx",
+      "candidate_string": "Soluciones técnicas",
+      "module": "Web pública",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Technical solutions",
+      "es": "Soluciones técnicas"
+    },
+    {
+      "file": "resources/js/pages/welcome.tsx",
+      "candidate_string": "para un futuro",
+      "module": "Web pública",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "for a more",
+      "es": "para un futuro"
+    },
+    {
+      "file": "resources/js/pages/welcome.tsx",
+      "candidate_string": "más eficiente.",
+      "module": "Web pública",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "efficient future.",
+      "es": "más eficiente."
+    },
+    {
+      "file": "resources/js/pages/welcome.tsx",
+      "candidate_string": "Diseñamos y ejecutamos proyectos de electricidad, energías renovables, seguridad y redes para viviendas y empresas.",
+      "module": "Web pública",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "We design and deliver electrical, renewable energy, security and network projects for homes and businesses.",
+      "es": "Diseñamos y ejecutamos proyectos de electricidad, energías renovables, seguridad y redes para viviendas y empresas."
+    },
+    {
+      "file": "resources/js/pages/welcome.tsx",
+      "candidate_string": "Conocer servicios",
+      "module": "Web pública",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Explore services",
+      "es": "Conocer servicios"
+    },
+    {
+      "file": "resources/js/pages/welcome.tsx",
+      "candidate_string": "Imagen ilustrativa de autoconsumo",
+      "module": "Web pública",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Illustrative self-consumption image",
+      "es": "Imagen ilustrativa de autoconsumo"
+    },
+    {
+      "file": "resources/js/pages/welcome.tsx",
+      "candidate_string": "Cuatro áreas de servicio,",
+      "module": "Web pública",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Four service areas,",
+      "es": "Cuatro áreas de servicio,"
+    },
+    {
+      "file": "resources/js/pages/welcome.tsx",
+      "candidate_string": "una visión común.",
+      "module": "Web pública",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "one shared vision.",
+      "es": "una visión común."
+    },
+    {
+      "file": "resources/js/pages/welcome.tsx",
+      "candidate_string": "Soluciones técnicas integradas, adaptadas a cada proyecto y con un enfoque en la eficiencia, la seguridad y la tecnología.",
+      "module": "Web pública",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Integrated technical solutions tailored to each project, focused on efficiency, safety and technology.",
+      "es": "Soluciones técnicas integradas, adaptadas a cada proyecto y con un enfoque en la eficiencia, la seguridad y la tecnología."
+    },
+    {
+      "file": "resources/js/pages/welcome.tsx",
+      "candidate_string": "Ver todos los servicios",
+      "module": "Web pública",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "View all services",
+      "es": "Ver todos los servicios"
+    },
+    {
+      "file": "resources/js/pages/welcome.tsx",
+      "candidate_string": "Una manera de trabajar",
+      "module": "Web pública",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "A way of working",
+      "es": "Una manera de trabajar"
+    },
+    {
+      "file": "resources/js/pages/welcome.tsx",
+      "candidate_string": "Del análisis al resultado.",
+      "module": "Web pública",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "From analysis to results.",
+      "es": "Del análisis al resultado."
+    },
+    {
+      "file": "resources/js/pages/welcome.tsx",
+      "candidate_string": "Conoce nuestro proceso",
+      "module": "Web pública",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Discover our process",
+      "es": "Conoce nuestro proceso"
+    },
+    {
+      "file": "resources/js/pages/welcome.tsx",
+      "candidate_string": "La técnica, al servicio",
+      "module": "Web pública",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Technology in service",
+      "es": "La técnica, al servicio"
+    },
+    {
+      "file": "resources/js/pages/welcome.tsx",
+      "candidate_string": "de las personas.",
+      "module": "Web pública",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "of people.",
+      "es": "de las personas."
+    },
+    {
+      "file": "resources/js/pages/welcome.tsx",
+      "candidate_string": "Detrás de cada instalación hay una necesidad concreta. La escuchamos, estudiamos las alternativas y cuidamos la ejecución para que tengas una solución que entiendas y puedas utilizar con confianza.",
+      "module": "Web pública",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Behind every installation is a specific need. We listen, study the options and take care of execution to provide a solution you understand and can use with confidence.",
+      "es": "Detrás de cada instalación hay una necesidad concreta. La escuchamos, estudiamos las alternativas y cuidamos la ejecución para que tengas una solución que entiendas y puedas utilizar con confianza."
+    },
+    {
+      "file": "resources/js/pages/welcome.tsx",
+      "candidate_string": "Conoce la empresa",
+      "module": "Web pública",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "new_visible_translated",
+      "en": "Meet the company",
+      "es": "Conoce la empresa"
+    },
+    {
+      "file": "resources/js/components/project-journey.tsx",
+      "candidate_string": "set_required_tasks",
+      "module": "Expedientes",
+      "origin": "untracked_before_STAB03",
+      "classification": "technical_identifier_unchanged"
+    },
+    {
+      "file": "resources/js/components/project-journey.tsx",
+      "candidate_string": "close",
+      "module": "Expedientes",
+      "origin": "untracked_before_STAB03",
+      "classification": "technical_identifier_unchanged"
+    },
+    {
+      "file": "resources/js/components/public/site-header.tsx",
+      "candidate_string": "/empresa",
+      "module": "Componentes compartidos",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "technical_identifier_unchanged"
+    },
+    {
+      "file": "resources/js/components/public/site-header.tsx",
+      "candidate_string": "/proceso",
+      "module": "Componentes compartidos",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "technical_identifier_unchanged"
+    },
+    {
+      "file": "resources/js/components/public/site-header.tsx",
+      "candidate_string": "/contacto",
+      "module": "Componentes compartidos",
+      "origin": "not_literal_in_HEAD_pending_before_STAB03",
+      "classification": "technical_identifier_unchanged"
+    },
+    {
+      "file": "resources/js/pages/public/contact.tsx",
+      "candidate_string": "name",
+      "module": "Web pública",
+      "origin": "untracked_before_STAB03",
+      "classification": "technical_identifier_unchanged"
+    },
+    {
+      "file": "resources/js/pages/public/page.tsx",
+      "candidate_string": "servicios",
+      "module": "Web pública",
+      "origin": "untracked_before_STAB03",
+      "classification": "technical_identifier_unchanged"
+    },
+    {
+      "file": "resources/js/pages/public/page.tsx",
+      "candidate_string": "empresa",
+      "module": "Web pública",
+      "origin": "untracked_before_STAB03",
+      "classification": "technical_identifier_unchanged"
+    },
+    {
+      "file": "resources/js/pages/public/page.tsx",
+      "candidate_string": "proceso",
+      "module": "Web pública",
+      "origin": "untracked_before_STAB03",
+      "classification": "technical_identifier_unchanged"
+    },
+    {
+      "file": "resources/js/pages/public/page.tsx",
+      "candidate_string": "redes",
+      "module": "Web pública",
+      "origin": "untracked_before_STAB03",
+      "classification": "technical_identifier_unchanged"
+    }
+  ],
+  "classification_caveat": "All 211 candidates predate DEPLOY02. New versus legacy refers to literal presence in the original HEAD, not authorship or introduction in this increment. No test strings occur in this source-only inventory."
+}

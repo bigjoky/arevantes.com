@@ -5,6 +5,7 @@ namespace App\Services\Planning;
 use App\Models\PlanningScenario;
 use App\Models\PlanningScenarioRequest;
 use App\Models\User;
+use App\Support\Time\BusinessTime;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
@@ -36,7 +37,7 @@ class PlanningScenarioRequestWorkflow
             if (! hash_equals($locked->fingerprint, $locked->approved_fingerprint) || ! $this->integrity->matches($locked)) {
                 throw ValidationException::withMessages(['requests' => __('The approved scenario failed its integrity check.')]);
             }
-            if (! $locked->reference_valid_until?->isFuture()) {
+            if (! ($locked->reference_valid_until && $locked->reference_valid_until->gt(BusinessTime::now()))) {
                 throw ValidationException::withMessages(['requests' => __('The approved scenario references have expired. Freeze and approve a new scenario.')]);
             }
             if ($locked->actionRequests()->exists()) {

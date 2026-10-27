@@ -106,10 +106,10 @@ class OperationsRedesignTest extends TestCase
     {
         $user = User::factory()->create(['role' => 'admin']);
         $this->actingAs($user);
-        $first = $this->order(['kind' => 'installation', 'signed_at' => now()]);
+        $first = $this->order(['kind' => 'installation', 'signed_at' => now(), 'assigned_user_id' => $user->id]);
         $second = $this->order(['installation_id' => $first->installation_id, 'kind' => 'commissioning', 'status' => 'in_progress']);
         $first->attachments()->create(['kind' => 'photo', 'original_name' => 'completion.jpg', 'path' => 'test.jpg', 'mime_type' => 'image/jpeg', 'size' => 1]);
-        $this->patch('/work-orders/'.$first->id, ['status' => 'completed', 'completion_notes' => 'Trabajo verificado'])->assertRedirect();
+        $this->patch('/work-orders/'.$first->id, ['status' => 'completed', 'completion_notes' => 'Trabajo verificado'])->assertRedirect()->assertSessionHasNoErrors();
         $this->assertNotNull($first->refresh()->completed_at);
         $this->assertSame('in_progress', $first->installation->refresh()->status);
         $this->assertSame('in_progress', $second->refresh()->status);

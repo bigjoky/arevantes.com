@@ -20,10 +20,12 @@ use App\Services\Accounting\SupplierPaymentSourceResolver;
 use App\Services\Billing\BillingWorkspace;
 use App\Services\Documents\DocumentNumber;
 use App\Services\Finance\OutstandingBalanceCalculator;
+use App\Services\Finance\ReceivedInvoiceIdentity;
 use App\Services\Tax\ExpenseDocumentaryCalculation;
 use App\Services\Tax\ExpenseDocumentaryReview;
 use App\Services\Tax\SupplierInvoiceCalculator;
 use Brick\Math\BigDecimal;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -295,6 +297,9 @@ class ExpenseController extends Controller
             }
 
             $expense = DB::transaction(function () use ($request, $data, $taxLines, $storedFiles, $accounting, $numbers) {
+                if (in_array($data['type'], ['invoice', 'simplified_invoice'], true)) {
+                    app(ReceivedInvoiceIdentity::class)->lockInput($data['issuer_country'] ?? 'ES', $data['issuer_tax_id'] ?? null, 'invoice', $data['document_number'] ?? '');
+                }
                 $data = app(ExpenseCreditorRegistry::class)->newInvoice($data);
                 $number = $numbers->next('expense', $data['expense_date'])['number'];
                 $amount = $data['tax_calculation_snapshot']['result']['totals']['total'] ?? round((float) $data['subtotal'] + (float) $data['tax_amount'] - (float) $data['withholding_amount'], 2);
@@ -318,12 +323,18 @@ class ExpenseController extends Controller
 
     public function destroy(Expense $expense): RedirectResponse
     {
-        abort_if($expense->payments()->withoutGlobalScope('active_supplier_payment')->exists(), 422, __('Expenses with payments cannot be deleted.'));
-        abort_if($expense->accountingEntry()->exists(), 422, __('Posted expenses cannot be deleted. Reverse the accounting entry first.'));
-        foreach ($expense->attachments as $attachment) {
-            Storage::disk(config('filesystems.private'))->delete($attachment->path);
-        }
-        $expense->delete();
+        $paths = DB::transaction(function () use ($expense) {
+            $expense = Expense::lockForUpdate()->findOrFail($expense->id);
+            abort_if($expense->payments()->withoutGlobalScope('active_supplier_payment')->exists(), 422, __('Expenses with payments cannot be deleted.'));
+            abort_if($expense->accountingEntry()->exists(), 422, __('Posted expenses cannot be deleted. Reverse the accounting entry first.'));
+            abort_if(DB::table('received_invoice_identities')->where('expense_id', $expense->id)->exists(), 422, 'Esta factura tiene identidad fiscal conservada. Requiere revisión autorizada; no se eliminará su evidencia.');
+            $paths = $expense->attachments()->pluck('path')->all();
+            $expense->delete();
+
+            return $paths;
+        });
+        // Never remove evidence before the database has accepted the deletion.
+        Storage::disk(config('filesystems.private'))->delete($paths);
 
         return to_route('expenses.index')->with('toast', ['type' => 'success', 'message' => __('Expense deleted.')]);
     }
@@ -401,14 +412,19 @@ class ExpenseController extends Controller
 
     public function destroyPayment(SupplierPayment $payment): RedirectResponse
     {
-        if ($payment->accountingEntry()->exists()) {
-            throw ValidationException::withMessages(['payment' => __('Posted payments cannot be deleted. Reverse the accounting entry first.')]);
-        }
-        $expense = $payment->expense;
-        abort_if($expense, 422, __('Use the administrative payment cancellation action.'));
-        $invoice = $payment->purchaseDocument;
-        $payment->delete();
-        $this->refreshStatus($expense, $invoice);
+        abort_unless(auth()->user()?->can('manage-purchase-payments'), 403);
+        abort_if($payment->expense_id, 422, __('Use the administrative payment cancellation action.'));
+        DB::transaction(function () use ($payment): void {
+            $invoice = $payment->purchase_document_id ? PurchaseDocument::lockForUpdate()->findOrFail($payment->purchase_document_id) : null;
+            $payment = SupplierPayment::lockForUpdate()->findOrFail($payment->id);
+            if ($payment->accountingEntry()->exists() || $payment->reconciliation()->exists()) {
+                throw ValidationException::withMessages(['payment' => __('Posted payments cannot be deleted. Reverse the accounting entry first.')]);
+            }
+            $payment->delete();
+            if ($invoice) {
+                $this->refreshStatus(null, $invoice);
+            }
+        });
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Payment removed.')]);
     }
@@ -426,37 +442,45 @@ class ExpenseController extends Controller
             'notes' => ['nullable', 'string'],
         ]);
         $data = [...$data, ...app(SupplierPaymentSourceResolver::class)->resolve($data['method'], $data['funding_source_type'], (int) $data['funding_source_id'])];
-        DB::transaction(function () use ($request, $expense, $invoice, $accounting, $data) {
-            $lockedExpense = $expense ? Expense::lockForUpdate()->findOrFail($expense->id) : null;
-            $lockedInvoice = $invoice ? PurchaseDocument::lockForUpdate()->findOrFail($invoice->id) : null;
+        try {
+            DB::transaction(function () use ($request, $expense, $invoice, $accounting, $data) {
+                $lockedExpense = $expense ? Expense::lockForUpdate()->findOrFail($expense->id) : null;
+                $lockedInvoice = $invoice ? PurchaseDocument::lockForUpdate()->findOrFail($invoice->id) : null;
 
-            $existing = ! empty($data['idempotency_key']) ? SupplierPayment::withoutGlobalScopes()->where('idempotency_key', $data['idempotency_key'])->first() : null;
-            if ($existing) {
-                $same = ! $existing->voided_at && $existing->expense_id === $lockedExpense?->id && $existing->purchase_document_id === $lockedInvoice?->id
-                    && $existing->paid_at->toDateString() === $data['paid_at'] && $existing->amount === BillingWorkspace::decimal($data['amount'])
-                    && $existing->method === $data['method'] && $existing->funding_source_type === $data['funding_source_type'] && $existing->funding_source_id === $data['funding_source_id']
-                    && ($existing->reference ?? '') === ($data['reference'] ?? '') && ($existing->notes ?? '') === ($data['notes'] ?? '');
-                if (! $same) {
-                    throw ValidationException::withMessages(['amount' => __('This operation key has already been used for a different payment.')]);
+                $existing = ! empty($data['idempotency_key']) ? SupplierPayment::withoutGlobalScopes()->where('idempotency_key', $data['idempotency_key'])->first() : null;
+                if ($existing) {
+                    $same = ! $existing->voided_at && $existing->expense_id === $lockedExpense?->id && $existing->purchase_document_id === $lockedInvoice?->id
+                        && $existing->paid_at->toDateString() === $data['paid_at'] && $existing->amount === BillingWorkspace::decimal($data['amount'])
+                        && $existing->method === $data['method'] && $existing->funding_source_type === $data['funding_source_type'] && $existing->funding_source_id === $data['funding_source_id']
+                        && ($existing->reference ?? '') === ($data['reference'] ?? '') && ($existing->notes ?? '') === ($data['notes'] ?? '');
+                    if (! $same) {
+                        throw ValidationException::withMessages(['amount' => __('This operation key has already been used for a different payment.')]);
+                    }
+
+                    return;
+                }
+                abort_if($lockedInvoice?->matching_status === 'review_required', 422, __('Approve invoice variances before registering a payment.'));
+
+                $payable = $lockedInvoice ?? $lockedExpense;
+                app(ReceivedInvoiceIdentity::class)->assertUsable($payable);
+                $credits = $lockedInvoice ? (string) $lockedInvoice->creditNotes()->sum('amount') : '0';
+                $outstanding = BigDecimal::of($payable->amount)->minus($payable->paid_amount)->minus(BigDecimal::of($credits)->abs());
+                if (! $outstanding->isPositive() || $outstanding->isLessThan($data['amount'])) {
+                    throw ValidationException::withMessages([
+                        'amount' => __('The payment exceeds the outstanding document balance.'),
+                    ]);
                 }
 
-                return;
+                $payment = SupplierPayment::create([...$data, 'expense_id' => $lockedExpense?->id, 'purchase_document_id' => $lockedInvoice?->id, 'created_by' => $request->user()->id]);
+                $accounting->syncSupplierPayment($payment, $request->user()->id);
+                $this->refreshStatus($lockedExpense, $lockedInvoice);
+            });
+        } catch (UniqueConstraintViolationException $exception) {
+            if (! empty($data['idempotency_key']) && SupplierPayment::withoutGlobalScopes()->where('idempotency_key', $data['idempotency_key'])->exists()) {
+                throw ValidationException::withMessages(['amount' => __('This operation key has already been used for a different payment.')]);
             }
-            abort_if($lockedInvoice?->matching_status === 'review_required', 422, __('Approve invoice variances before registering a payment.'));
-
-            $payable = $lockedInvoice ?? $lockedExpense;
-            $credits = $lockedInvoice ? (string) $lockedInvoice->creditNotes()->sum('amount') : '0';
-            $outstanding = BigDecimal::of($payable->amount)->minus($payable->paid_amount)->minus(BigDecimal::of($credits)->abs());
-            if (! $outstanding->isPositive() || $outstanding->isLessThan($data['amount'])) {
-                throw ValidationException::withMessages([
-                    'amount' => __('The payment exceeds the outstanding document balance.'),
-                ]);
-            }
-
-            $payment = SupplierPayment::create([...$data, 'expense_id' => $lockedExpense?->id, 'purchase_document_id' => $lockedInvoice?->id, 'created_by' => $request->user()->id]);
-            $accounting->syncSupplierPayment($payment, $request->user()->id);
-            $this->refreshStatus($lockedExpense, $lockedInvoice);
-        });
+            throw $exception;
+        }
     }
 
     private function refreshStatus(?Expense $expense, ?PurchaseDocument $invoice): void

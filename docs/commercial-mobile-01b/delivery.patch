@@ -1,0 +1,3254 @@
+--- a/resources/js/app.tsx
++++ b/resources/js/app.tsx
+@@ -8,6 +8,7 @@
+ import AppLayout from '@/layouts/app-layout';
+ import AuthLayout from '@/layouts/auth-layout';
+ import SettingsLayout from '@/layouts/settings/layout';
++import { installCommercialHistoryProtection } from '@/lib/mobile/commercial-history';
+ 
+ if (import.meta.env.VITE_REVERB_APP_KEY) {
+     configureEcho({
+@@ -19,6 +20,8 @@
+     /\s+CRM$/i,
+     '',
+ );
++
++installCommercialHistoryProtection();
+ 
+ createInertiaApp({
+     title: (title) => (title ? `${title} - ${appName}` : appName),
+--- a/resources/js/components/crm/crm-workspace.tsx
++++ b/resources/js/components/crm/crm-workspace.tsx
+@@ -1,6 +1,7 @@
+ import { Form, Link, router, usePage } from '@inertiajs/react';
+ import { Plus } from 'lucide-react';
+ import { useEffect, useRef, useState } from 'react';
++import { MobileOpportunities } from '@/components/commercial/mobile-opportunities';
+ import { Button } from '@/components/ui/button';
+ import { Input } from '@/components/ui/input';
+ import {
+@@ -10,6 +11,8 @@
+     SheetTitle,
+     SheetTrigger,
+ } from '@/components/ui/sheet';
++import { useIsMobile } from '@/hooks/use-mobile';
++import { commercialDetailUrl } from '@/lib/mobile/commercial-navigation';
+ import type { Opportunity } from '@/pages/opportunities/index';
+ 
+ type Filters = Record<string, string | undefined>;
+@@ -89,6 +92,7 @@
+     onMove: (item: Opportunity, stage: string) => void;
+ }) {
+     const page = usePage();
++    const isMobile = useIsMobile(1024);
+     const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+     useEffect(
+         () => () => {
+@@ -146,7 +150,13 @@
+                     {items.map((item) => (
+                         <tr key={item.id}>
+                             <td>
+-                                <Link href={`/opportunities/${item.id}`}>
++                                <Link
++                                    href={commercialDetailUrl(
++                                        '/opportunities',
++                                        item.id,
++                                        filters,
++                                    )}
++                                >
+                                     {item.title}
+                                 </Link>
+                             </td>
+@@ -167,7 +177,13 @@
+                             <td>{date(item.created_at)}</td>
+                             <td>
+                                 {item.next_activity ? (
+-                                    <Link href={`/opportunities/${item.id}`}>
++                                    <Link
++                                        href={commercialDetailUrl(
++                                            '/opportunities',
++                                            item.id,
++                                            filters,
++                                        )}
++                                    >
+                                         {item.next_activity.title}
+                                         <time>
+                                             {date(item.next_activity.due_at)}
+@@ -194,7 +210,13 @@
+             action="/opportunities"
+             method="get"
+             className="crm-filters"
+-            onStart={() => setLoading(true)}
++            onStart={() => {
++                if (debounce.current) {
++                    clearTimeout(debounce.current);
++                }
++
++                setLoading(true);
++            }}
+             onFinish={() => setLoading(false)}
+         >
+             <input type="hidden" name="view" value={filters.view || 'kanban'} />
+@@ -357,10 +379,47 @@
+ 
+     return (
+         <>
+-            <div className="hidden sm:block">{filterForm}</div>
++            {!isMobile && <div>{filterForm}</div>}
++            {isMobile && (
++                <label className="commercial-visible-search">
++                    <span>Buscar oportunidades</span>
++                    <Input
++                        key={filters.search ?? ''}
++                        type="search"
++                        defaultValue={filters.search}
++                        placeholder="Buscar oportunidades…"
++                        onChange={(event) => {
++                            if (debounce.current) {
++                                clearTimeout(debounce.current);
++                            }
++
++                            const search = event.currentTarget.value;
++                            debounce.current = setTimeout(
++                                () =>
++                                    router.get(
++                                        url({
++                                            ...filters,
++                                            search,
++                                            page: undefined,
++                                        }),
++                                        {},
++                                        {
++                                            preserveState: true,
++                                            preserveScroll: true,
++                                        },
++                                    ),
++                                350,
++                            );
++                        }}
++                    />
++                </label>
++            )}
+             <Sheet>
+                 <SheetTrigger asChild>
+-                    <Button className="sm:hidden" variant="outline">
++                    <Button
++                        className="commercial-mobile-filter-trigger"
++                        variant="outline"
++                    >
+                         Filtros CRM
+                     </Button>
+                 </SheetTrigger>
+@@ -443,6 +502,42 @@
+                             </p>
+                         )}
+                     </div>
++                ) : isMobile ? (
++                    <section className="crm-panel commercial-crm-mobile">
++                        <h2>Oportunidades</h2>
++                        <MobileOpportunities
++                            items={opportunities}
++                            stages={stages}
++                            filters={filters}
++                            busy={loading}
++                            onMove={move}
++                        />
++                        {pagination && (
++                            <nav
++                                className="crm-pagination"
++                                aria-label="Paginación de oportunidades"
++                            >
++                                {pagination.prev && (
++                                    <Link href={pagination.prev}>Anterior</Link>
++                                )}
++                                <span>
++                                    {pagination.current_page} /{' '}
++                                    {pagination.last_page}
++                                </span>
++                                {pagination.next && (
++                                    <Link href={pagination.next}>
++                                        Siguiente
++                                    </Link>
++                                )}
++                            </nav>
++                        )}
++                        {!pagination && (
++                            <p className="crm-caption">
++                                Vista de los registros del pipeline cargado. Usa
++                                Tabla para recorrer resultados paginados.
++                            </p>
++                        )}
++                    </section>
+                 ) : filters.view === 'table' ? (
+                     <section className="crm-panel">
+                         <h2>
+@@ -535,7 +630,11 @@
+                                                         className="crm-card"
+                                                     >
+                                                         <Link
+-                                                            href={`/opportunities/${item.id}`}
++                                                            href={commercialDetailUrl(
++                                                                '/opportunities',
++                                                                item.id,
++                                                                filters,
++                                                            )}
+                                                         >
+                                                             <strong>
+                                                                 {item.customer
+@@ -754,7 +853,7 @@
+             </section>
+             {filters.view !== 'table' && filters.view !== 'calendar' && (
+                 <div className="crm-bottom">
+-                    <section className="crm-panel">
++                    <section className="crm-panel commercial-crm-desktop-summary">
+                         <header>
+                             <h2>Oportunidades</h2>
+                             <Link href={url({ ...filters, view: 'table' })}>
+--- a/resources/js/components/customers/customer-detail.tsx
++++ b/resources/js/components/customers/customer-detail.tsx
+@@ -1,3 +1,4 @@
++import '../../../css/commercial-mobile.css';
+ import { Form, Link } from '@inertiajs/react';
+ import {
+     ArrowLeft,
+--- a/resources/js/components/customers/customer-list.tsx
++++ b/resources/js/components/customers/customer-list.tsx
+@@ -1,3 +1,4 @@
++import '../../../css/commercial-mobile.css';
+ import { Form, Link, router } from '@inertiajs/react';
+ import {
+     ArrowDownUp,
+@@ -364,7 +365,7 @@
+                                 </Link>
+                             )}
+                             <span>
+-                                {[person.tax_id, person.location]
++                                {[customerTypes[person.customer_type ?? ''], person.location]
+                                     .filter(Boolean)
+                                     .join(' · ') || 'Sin ubicación'}
+                             </span>
+@@ -381,6 +382,10 @@
+                             {customerPermissions.invoices && (
+                                 <b>{money(person.volume ?? 0)}</b>
+                             )}
++                            {!filters.archived && (person.phone || person.email) && <nav className="commercial-contact-actions" aria-label={`Contacto de ${person.name}`}>
++                                {person.phone && <a href={`tel:${person.phone}`} aria-label={`Llamar a ${person.name}`}>Llamar</a>}
++                                {person.email && <a href={`mailto:${person.email}`} aria-label={`Enviar email a ${person.name}`}>Email</a>}
++                            </nav>}
+                             {filters.archived && (
+                                 <Form
+                                     action={`/people/${person.id}/restore`}
+--- a/resources/js/components/people/person-form.tsx
++++ b/resources/js/components/people/person-form.tsx
+@@ -1,6 +1,7 @@
++import type { FormComponentRef } from '@inertiajs/core';
+ import { Form } from '@inertiajs/react';
+ import { UserPlus } from 'lucide-react';
+-import { useState } from 'react';
++import { useRef, useState } from 'react';
+ import {
+     FormActions,
+     FormErrorSummary,
+@@ -17,6 +18,7 @@
+     SelectTrigger,
+     SelectValue,
+ } from '@/components/ui/select';
++import { useCommercialFormProtection } from '@/hooks/use-commercial-form-protection';
+ import { useLocale } from '@/hooks/use-locale';
+ import { translate } from '@/i18n';
+ 
+@@ -88,6 +90,11 @@
+     const category = forcedCategory ?? person?.category ?? 'customer';
+     const isCustomer = category === 'customer';
+     const isStaff = category === 'staff';
++    const draftForm = useRef<FormComponentRef | null>(null);
++    const protection = useCommercialFormProtection(
++        () => draftForm.current,
++        isCustomer,
++    );
+     const [customerType, setCustomerType] = useState(
+         person?.customer_type ?? 'residential',
+     );
+@@ -100,615 +107,683 @@
+               : submitLabel;
+ 
+     return (
+-        <Form
+-            action={action}
+-            method={method}
+-            options={{ preserveScroll: true }}
+-            resetOnSuccess={method === 'post'}
+-            className="space-y-6"
+-        >
+-            {({ processing, errors }) => (
+-                <>
+-                    {forcedCategory && (
+-                        <input
+-                            type="hidden"
+-                            name="category"
+-                            value={forcedCategory}
+-                        />
+-                    )}
+-
+-                    <FormErrorSummary errors={errors} />
+-
+-                    <FormSection
+-                        title={translate('Profile classification', locale)}
+-                        description={translate(
+-                            'Choose the profile nature so the form only requests relevant identity and billing information.',
+-                            locale,
++        <>
++            {protection.confirmation}
++            <Form
++                ref={draftForm}
++                onBefore={protection.beginSubmit}
++                onFinish={protection.finishSubmit}
++                onSuccess={() => {
++                    if (isCustomer) {
++                        protection.saved();
++                    }
++                }}
++                disableWhileProcessing={isCustomer && protection.mobile}
++                action={action}
++                method={method}
++                options={{ preserveScroll: true }}
++                resetOnSuccess={method === 'post'}
++                className={
++                    isCustomer
++                        ? 'commercial-person-form space-y-6'
++                        : 'space-y-6'
++                }
++            >
++                {({ processing, errors }) => (
++                    <>
++                        {forcedCategory && (
++                            <input
++                                type="hidden"
++                                name="category"
++                                value={forcedCategory}
++                            />
+                         )}
+-                    >
+-                        <div className="grid gap-4 md:grid-cols-3">
+-                            {!forcedCategory && (
++
++                        <FormErrorSummary errors={errors} />
++
++                        <FormSection
++                            title={translate('Profile classification', locale)}
++                            description={translate(
++                                'Choose the profile nature so the form only requests relevant identity and billing information.',
++                                locale,
++                            )}
++                        >
++                            <div className="grid gap-4 md:grid-cols-3">
++                                {!forcedCategory && (
++                                    <div className={fieldClassName}>
++                                        <Label htmlFor="category">
++                                            {t.personType}
++                                        </Label>
++                                        <Select
++                                            name="category"
++                                            defaultValue={
++                                                person?.category ?? 'customer'
++                                            }
++                                        >
++                                            <SelectTrigger
++                                                id="category"
++                                                className="w-full"
++                                            >
++                                                <SelectValue
++                                                    placeholder={t.personType}
++                                                />
++                                            </SelectTrigger>
++                                            <SelectContent>
++                                                <SelectItem value="customer">
++                                                    {t.customer}
++                                                </SelectItem>
++                                                <SelectItem value="staff">
++                                                    {t.staff}
++                                                </SelectItem>
++                                            </SelectContent>
++                                        </Select>
++                                        <InputError message={errors.category} />
++                                    </div>
++                                )}
++
++                                {isCustomer && (
++                                    <div className={fieldClassName}>
++                                        <Label htmlFor="customer_type">
++                                            {t.customerType}
++                                        </Label>
++                                        <Select
++                                            name="customer_type"
++                                            value={customerType}
++                                            onValueChange={setCustomerType}
++                                        >
++                                            <SelectTrigger
++                                                id="customer_type"
++                                                className="w-full"
++                                            >
++                                                <SelectValue
++                                                    placeholder={
++                                                        t.selectCustomerType
++                                                    }
++                                                />
++                                            </SelectTrigger>
++                                            <SelectContent>
++                                                <SelectItem value="residential">
++                                                    {t.residential}
++                                                </SelectItem>
++                                                <SelectItem value="business">
++                                                    {t.business}
++                                                </SelectItem>
++                                                <SelectItem value="community">
++                                                    {t.community}
++                                                </SelectItem>
++                                                <SelectItem value="public_sector">
++                                                    {t.publicSector}
++                                                </SelectItem>
++                                            </SelectContent>
++                                        </Select>
++                                        <InputError
++                                            message={errors.customer_type}
++                                        />
++                                    </div>
++                                )}
++
++                                {isCustomer && (
++                                    <div className={fieldClassName}>
++                                        <Label htmlFor="lifecycle_status">
++                                            {translate(
++                                                'Customer status',
++                                                locale,
++                                            )}
++                                        </Label>
++                                        <Select
++                                            name="lifecycle_status"
++                                            defaultValue={
++                                                person?.lifecycle_status ??
++                                                'active'
++                                            }
++                                        >
++                                            <SelectTrigger
++                                                id="lifecycle_status"
++                                                className="w-full"
++                                            >
++                                                <SelectValue />
++                                            </SelectTrigger>
++                                            <SelectContent>
++                                                <SelectItem value="lead">
++                                                    {t.lead}
++                                                </SelectItem>
++                                                <SelectItem value="active">
++                                                    {translate(
++                                                        'Active',
++                                                        locale,
++                                                    )}
++                                                </SelectItem>
++                                                <SelectItem value="inactive">
++                                                    {translate(
++                                                        'Inactive',
++                                                        locale,
++                                                    )}
++                                                </SelectItem>
++                                                <SelectItem value="former">
++                                                    {translate(
++                                                        'Former customer',
++                                                        locale,
++                                                    )}
++                                                </SelectItem>
++                                            </SelectContent>
++                                        </Select>
++                                        <InputError
++                                            message={errors.lifecycle_status}
++                                        />
++                                    </div>
++                                )}
++
++                                {isStaff && (
++                                    <div className={fieldClassName}>
++                                        <Label htmlFor="staff_role">
++                                            {t.staffRole}
++                                        </Label>
++                                        <select
++                                            id="staff_role"
++                                            name="staff_role"
++                                            defaultValue={
++                                                person?.staff_role ?? ''
++                                            }
++                                            className="h-10 rounded-md border border-input bg-background px-3 text-sm"
++                                        >
++                                            <option value="">
++                                                {translate(
++                                                    'Unassigned',
++                                                    locale,
++                                                )}
++                                            </option>
++                                            {person?.staff_role &&
++                                                !staffRoles.includes(
++                                                    person.staff_role,
++                                                ) && (
++                                                    <option
++                                                        value={
++                                                            person.staff_role
++                                                        }
++                                                    >
++                                                        {person.staff_role}
++                                                    </option>
++                                                )}
++                                            {staffRoles.map((role) => (
++                                                <option key={role} value={role}>
++                                                    {translate(role, locale)}
++                                                </option>
++                                            ))}
++                                        </select>
++                                        <InputError
++                                            message={errors.staff_role}
++                                        />
++                                    </div>
++                                )}
++                            </div>
++                        </FormSection>
++
++                        <FormSection
++                            title={translate(
++                                'Identity and tax details',
++                                locale,
++                            )}
++                            description={
++                                isCustomer && !isResidential
++                                    ? translate(
++                                          'Record the legal entity and its primary contact person.',
++                                          locale,
++                                      )
++                                    : translate(
++                                          'Record the person exactly as shown on their identification.',
++                                          locale,
++                                      )
++                            }
++                        >
++                            <div className="grid gap-4 md:grid-cols-2">
++                                <Field
++                                    id="first_name"
++                                    label={
++                                        isCustomer && !isResidential
++                                            ? translate(
++                                                  'Primary contact first name',
++                                                  locale,
++                                              )
++                                            : t.firstName
++                                    }
++                                    placeholder={t.firstName}
++                                    defaultValue={person?.first_name}
++                                    error={errors.first_name}
++                                    required
++                                />
++                                <Field
++                                    id="last_name"
++                                    label={
++                                        isCustomer && !isResidential
++                                            ? translate(
++                                                  'Primary contact last name',
++                                                  locale,
++                                              )
++                                            : t.lastName
++                                    }
++                                    placeholder={t.lastName}
++                                    defaultValue={person?.last_name}
++                                    error={errors.last_name}
++                                />
++                                {(!isCustomer || !isResidential) && (
++                                    <Field
++                                        id="company_name"
++                                        label={translate(
++                                            customerType === 'community'
++                                                ? 'Community name'
++                                                : customerType ===
++                                                    'public_sector'
++                                                  ? 'Public body name'
++                                                  : 'Legal name',
++                                            locale,
++                                        )}
++                                        placeholder={translate(
++                                            'Registered legal name',
++                                            locale,
++                                        )}
++                                        defaultValue={person?.company_name}
++                                        error={errors.company_name}
++                                        required={isCustomer && !isResidential}
++                                    />
++                                )}
++                                <Field
++                                    id="tax_id"
++                                    label={t.taxId}
++                                    placeholder={translate(
++                                        'CIF, VAT or tax reference',
++                                        locale,
++                                    )}
++                                    defaultValue={person?.tax_id}
++                                    error={errors.tax_id}
++                                    required={isCustomer && !isResidential}
++                                />
++                            </div>
++
++                            <div className="grid gap-4 md:grid-cols-3">
+                                 <div className={fieldClassName}>
+-                                    <Label htmlFor="category">
+-                                        {t.personType}
++                                    <Label htmlFor="document_type">
++                                        {t.idType}
+                                     </Label>
+                                     <Select
+-                                        name="category"
++                                        name="document_type"
+                                         defaultValue={
+-                                            person?.category ?? 'customer'
++                                            person?.document_type ?? ''
+                                         }
+                                     >
+                                         <SelectTrigger
+-                                            id="category"
++                                            id="document_type"
+                                             className="w-full"
+                                         >
+                                             <SelectValue
+-                                                placeholder={t.personType}
++                                                placeholder={t.chooseIdType}
+                                             />
+                                         </SelectTrigger>
+                                         <SelectContent>
+-                                            <SelectItem value="customer">
+-                                                {t.customer}
++                                            <SelectItem value="passport">
++                                                {translate('Passport', locale)}
+                                             </SelectItem>
+-                                            <SelectItem value="staff">
+-                                                {t.staff}
++                                            <SelectItem value="nif">
++                                                NIF
+                                             </SelectItem>
+-                                        </SelectContent>
+-                                    </Select>
+-                                    <InputError message={errors.category} />
+-                                </div>
+-                            )}
+-
+-                            {isCustomer && (
+-                                <div className={fieldClassName}>
+-                                    <Label htmlFor="customer_type">
+-                                        {t.customerType}
+-                                    </Label>
+-                                    <Select
+-                                        name="customer_type"
+-                                        value={customerType}
+-                                        onValueChange={setCustomerType}
+-                                    >
+-                                        <SelectTrigger
+-                                            id="customer_type"
+-                                            className="w-full"
+-                                        >
+-                                            <SelectValue
+-                                                placeholder={
+-                                                    t.selectCustomerType
+-                                                }
+-                                            />
+-                                        </SelectTrigger>
+-                                        <SelectContent>
+-                                            <SelectItem value="residential">
+-                                                {t.residential}
++                                            <SelectItem value="nie">
++                                                NIE
+                                             </SelectItem>
+-                                            <SelectItem value="business">
+-                                                {t.business}
+-                                            </SelectItem>
+-                                            <SelectItem value="community">
+-                                                {t.community}
+-                                            </SelectItem>
+-                                            <SelectItem value="public_sector">
+-                                                {t.publicSector}
++                                            <SelectItem value="other">
++                                                {translate('Other', locale)}
+                                             </SelectItem>
+                                         </SelectContent>
+                                     </Select>
+                                     <InputError
+-                                        message={errors.customer_type}
++                                        message={errors.document_type}
+                                     />
+                                 </div>
+-                            )}
+-
+-                            {isCustomer && (
+-                                <div className={fieldClassName}>
+-                                    <Label htmlFor="lifecycle_status">
+-                                        {translate('Customer status', locale)}
+-                                    </Label>
+-                                    <Select
+-                                        name="lifecycle_status"
+-                                        defaultValue={
+-                                            person?.lifecycle_status ?? 'active'
+-                                        }
+-                                    >
+-                                        <SelectTrigger
+-                                            id="lifecycle_status"
+-                                            className="w-full"
+-                                        >
+-                                            <SelectValue />
+-                                        </SelectTrigger>
+-                                        <SelectContent>
+-                                            <SelectItem value="lead">
+-                                                {t.lead}
+-                                            </SelectItem>
+-                                            <SelectItem value="active">
+-                                                {translate('Active', locale)}
+-                                            </SelectItem>
+-                                            <SelectItem value="inactive">
+-                                                {translate('Inactive', locale)}
+-                                            </SelectItem>
+-                                            <SelectItem value="former">
+-                                                {translate(
+-                                                    'Former customer',
+-                                                    locale,
+-                                                )}
+-                                            </SelectItem>
+-                                        </SelectContent>
+-                                    </Select>
+-                                    <InputError
+-                                        message={errors.lifecycle_status}
+-                                    />
+-                                </div>
+-                            )}
+-
+-                            {isStaff && (
+-                                <div className={fieldClassName}>
+-                                    <Label htmlFor="staff_role">
+-                                        {t.staffRole}
+-                                    </Label>
+-                                    <select
+-                                        id="staff_role"
+-                                        name="staff_role"
+-                                        defaultValue={person?.staff_role ?? ''}
+-                                        className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+-                                    >
+-                                        <option value="">
+-                                            {translate('Unassigned', locale)}
+-                                        </option>
+-                                        {person?.staff_role &&
+-                                            !staffRoles.includes(
+-                                                person.staff_role,
+-                                            ) && (
+-                                                <option
+-                                                    value={person.staff_role}
+-                                                >
+-                                                    {person.staff_role}
+-                                                </option>
+-                                            )}
+-                                        {staffRoles.map((role) => (
+-                                            <option key={role} value={role}>
+-                                                {translate(role, locale)}
+-                                            </option>
+-                                        ))}
+-                                    </select>
+-                                    <InputError message={errors.staff_role} />
+-                                </div>
+-                            )}
+-                        </div>
+-                    </FormSection>
+-
+-                    <FormSection
+-                        title={translate('Identity and tax details', locale)}
+-                        description={
+-                            isCustomer && !isResidential
+-                                ? translate(
+-                                      'Record the legal entity and its primary contact person.',
+-                                      locale,
+-                                  )
+-                                : translate(
+-                                      'Record the person exactly as shown on their identification.',
+-                                      locale,
+-                                  )
+-                        }
+-                    >
+-                        <div className="grid gap-4 md:grid-cols-2">
+-                            <Field
+-                                id="first_name"
+-                                label={
+-                                    isCustomer && !isResidential
+-                                        ? translate(
+-                                              'Primary contact first name',
+-                                              locale,
+-                                          )
+-                                        : t.firstName
+-                                }
+-                                placeholder={t.firstName}
+-                                defaultValue={person?.first_name}
+-                                error={errors.first_name}
+-                                required
+-                            />
+-                            <Field
+-                                id="last_name"
+-                                label={
+-                                    isCustomer && !isResidential
+-                                        ? translate(
+-                                              'Primary contact last name',
+-                                              locale,
+-                                          )
+-                                        : t.lastName
+-                                }
+-                                placeholder={t.lastName}
+-                                defaultValue={person?.last_name}
+-                                error={errors.last_name}
+-                            />
+-                            {(!isCustomer || !isResidential) && (
+-                                <Field
+-                                    id="company_name"
+-                                    label={translate(
+-                                        customerType === 'community'
+-                                            ? 'Community name'
+-                                            : customerType === 'public_sector'
+-                                              ? 'Public body name'
+-                                              : 'Legal name',
++                                <Field
++                                    id="document_number"
++                                    label={t.idNumber}
++                                    placeholder={translate(
++                                        'Passport, NIF or NIE',
+                                         locale,
+                                     )}
+-                                    placeholder={translate(
+-                                        'Registered legal name',
+-                                        locale,
+-                                    )}
+-                                    defaultValue={person?.company_name}
+-                                    error={errors.company_name}
+-                                    required={isCustomer && !isResidential}
+-                                />
+-                            )}
+-                            <Field
+-                                id="tax_id"
+-                                label={t.taxId}
+-                                placeholder={translate(
+-                                    'CIF, VAT or tax reference',
+-                                    locale,
++                                    defaultValue={person?.document_number}
++                                    error={errors.document_number}
++                                />
++                                {isCustomer && (
++                                    <Field
++                                        id="lead_source"
++                                        label={t.leadSource}
++                                        placeholder={translate(
++                                            'Referral, website or Google',
++                                            locale,
++                                        )}
++                                        defaultValue={person?.lead_source}
++                                        error={errors.lead_source}
++                                    />
+                                 )}
+-                                defaultValue={person?.tax_id}
+-                                error={errors.tax_id}
+-                                required={isCustomer && !isResidential}
+-                            />
+-                        </div>
+-
+-                        <div className="grid gap-4 md:grid-cols-3">
+-                            <div className={fieldClassName}>
+-                                <Label htmlFor="document_type">
+-                                    {t.idType}
+-                                </Label>
+-                                <Select
+-                                    name="document_type"
+-                                    defaultValue={person?.document_type ?? ''}
+-                                >
+-                                    <SelectTrigger
+-                                        id="document_type"
+-                                        className="w-full"
+-                                    >
+-                                        <SelectValue
+-                                            placeholder={t.chooseIdType}
+-                                        />
+-                                    </SelectTrigger>
+-                                    <SelectContent>
+-                                        <SelectItem value="passport">
+-                                            {translate('Passport', locale)}
+-                                        </SelectItem>
+-                                        <SelectItem value="nif">NIF</SelectItem>
+-                                        <SelectItem value="nie">NIE</SelectItem>
+-                                        <SelectItem value="other">
+-                                            {translate('Other', locale)}
+-                                        </SelectItem>
+-                                    </SelectContent>
+-                                </Select>
+-                                <InputError message={errors.document_type} />
++                                {isCustomer && (
++                                    <Field
++                                        id="data_source"
++                                        label={translate('Data source', locale)}
++                                        placeholder={translate(
++                                            'Web form, event or import',
++                                            locale,
++                                        )}
++                                        defaultValue={person?.data_source}
++                                        error={errors.data_source}
++                                    />
++                                )}
+                             </div>
+-                            <Field
+-                                id="document_number"
+-                                label={t.idNumber}
+-                                placeholder={translate(
+-                                    'Passport, NIF or NIE',
+-                                    locale,
+-                                )}
+-                                defaultValue={person?.document_number}
+-                                error={errors.document_number}
+-                            />
+-                            {isCustomer && (
+-                                <Field
+-                                    id="lead_source"
+-                                    label={t.leadSource}
+-                                    placeholder={translate(
+-                                        'Referral, website or Google',
+-                                        locale,
+-                                    )}
+-                                    defaultValue={person?.lead_source}
+-                                    error={errors.lead_source}
+-                                />
+-                            )}
+-                            {isCustomer && (
+-                                <Field
+-                                    id="data_source"
+-                                    label={translate('Data source', locale)}
+-                                    placeholder={translate(
+-                                        'Web form, event or import',
+-                                        locale,
+-                                    )}
+-                                    defaultValue={person?.data_source}
+-                                    error={errors.data_source}
+-                                />
+-                            )}
+-                        </div>
+-                    </FormSection>
+-
+-                    <FormSection
+-                        title={translate('Contact preferences', locale)}
+-                        description={translate(
+-                            'Keep operational, billing and commercial contact choices together.',
+-                            locale,
+-                        )}
+-                    >
+-                        <div className="grid gap-4 md:grid-cols-3">
+-                            <Field
+-                                id="phone"
+-                                label={t.phone}
+-                                type="tel"
+-                                placeholder="+34 600 000 000"
+-                                defaultValue={person?.phone}
+-                                error={errors.phone}
+-                            />
+-                            <Field
+-                                id="email"
+-                                label={t.email}
+-                                type="email"
+-                                placeholder="name@example.com"
+-                                defaultValue={person?.email}
+-                                error={errors.email}
+-                            />
+-                        </div>
+-
+-                        {isCustomer && (
+-                            <div className="grid gap-4 rounded-md border p-4 md:grid-cols-[1fr_auto]">
+-                                <div className={fieldClassName}>
+-                                    <Label htmlFor="preferred_contact_channel">
+-                                        {translate(
+-                                            'Preferred contact channel',
+-                                            locale,
+-                                        )}
+-                                    </Label>
+-                                    <Select
+-                                        name="preferred_contact_channel"
+-                                        defaultValue={
+-                                            person?.preferred_contact_channel ??
+-                                            ''
+-                                        }
+-                                    >
+-                                        <SelectTrigger
+-                                            id="preferred_contact_channel"
+-                                            className="w-full"
+-                                        >
+-                                            <SelectValue
+-                                                placeholder={translate(
+-                                                    'No preference',
+-                                                    locale,
+-                                                )}
+-                                            />
+-                                        </SelectTrigger>
+-                                        <SelectContent>
+-                                            <SelectItem value="email">
+-                                                Email
+-                                            </SelectItem>
+-                                            <SelectItem value="phone">
+-                                                {t.phone}
+-                                            </SelectItem>
+-                                            <SelectItem value="whatsapp">
+-                                                WhatsApp
+-                                            </SelectItem>
+-                                            <SelectItem value="sms">
+-                                                SMS
+-                                            </SelectItem>
+-                                        </SelectContent>
+-                                    </Select>
+-                                    <InputError
+-                                        message={
+-                                            errors.preferred_contact_channel
+-                                        }
+-                                    />
+-                                </div>
+-                                <label className="flex items-center gap-3 self-end rounded-md border px-4 py-2 text-sm">
+-                                    <input
+-                                        type="checkbox"
+-                                        name="do_not_contact"
+-                                        value="1"
+-                                        defaultChecked={
+-                                            person?.do_not_contact ?? false
+-                                        }
+-                                    />
+-                                    {translate(
+-                                        'Do not contact commercially',
+-                                        locale,
+-                                    )}
+-                                </label>
+-                            </div>
+-                        )}
+-                    </FormSection>
+-
+-                    <FormSection
+-                        title={translate('Postal address', locale)}
+-                        description={translate(
+-                            'Select country, province, municipality and locality in order.',
+-                            locale,
+-                        )}
+-                    >
+-                        <div className="grid gap-4 md:grid-cols-2">
+-                            <Field
+-                                id="address_line_1"
+-                                label={t.address}
+-                                placeholder={translate(
+-                                    'Street and number',
+-                                    locale,
+-                                )}
+-                                defaultValue={person?.address_line_1}
+-                                error={errors.address_line_1}
+-                            />
+-                            <Field
+-                                id="address_line_2"
+-                                label={t.address2}
+-                                placeholder={translate(
+-                                    'Apartment or floor',
+-                                    locale,
+-                                )}
+-                                defaultValue={person?.address_line_2}
+-                                error={errors.address_line_2}
+-                            />
+-                        </div>
+-
+-                        <LocationFields
+-                            errors={errors}
+-                            defaults={{
+-                                country: person?.country,
+-                                province: person?.province_state,
+-                                municipality: person?.city,
+-                                locality: person?.locality,
+-                                postalCode: person?.postal_code,
+-                            }}
+-                        />
+-                    </FormSection>
+-
+-                    {isCustomer && (
++                        </FormSection>
++
+                         <FormSection
+-                            title={translate('Billing details', locale)}
++                            title={translate('Contact preferences', locale)}
+                             description={translate(
+-                                'Only complete values that differ from the legal identity or postal address. Empty fields inherit the customer details.',
++                                'Keep operational, billing and commercial contact choices together.',
+                                 locale,
+                             )}
+                         >
+-                            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+-                                <Field
+-                                    id="billing_name"
+-                                    label={translate('Billing name', locale)}
+-                                    placeholder={
+-                                        person?.company_name ||
+-                                        translate(
+-                                            'Legal or personal name',
+-                                            locale,
+-                                        )
+-                                    }
+-                                    defaultValue={person?.billing_name}
+-                                    error={errors.billing_name}
+-                                />
+-                                <Field
+-                                    id="billing_tax_id"
+-                                    label={translate('Billing tax ID', locale)}
+-                                    placeholder={person?.tax_id || 'NIF / CIF'}
+-                                    defaultValue={person?.billing_tax_id}
+-                                    error={errors.billing_tax_id}
+-                                />
+-                                <Field
+-                                    id="billing_email"
+-                                    label={t.billingEmail}
++                            <div className="grid gap-4 md:grid-cols-3">
++                                <Field
++                                    id="phone"
++                                    label={t.phone}
++                                    type="tel"
++                                    placeholder="+34 600 000 000"
++                                    defaultValue={person?.phone}
++                                    error={errors.phone}
++                                />
++                                <Field
++                                    id="email"
++                                    label={t.email}
+                                     type="email"
+-                                    placeholder="billing@example.com"
+-                                    defaultValue={person?.billing_email}
+-                                    error={errors.billing_email}
+-                                />
+-                                <Field
+-                                    id="payment_terms_days"
+-                                    label={translate(
+-                                        'Payment terms (days)',
+-                                        locale,
+-                                    )}
+-                                    type="number"
+-                                    placeholder="30"
+-                                    defaultValue={
+-                                        person?.payment_terms_days == null
+-                                            ? undefined
+-                                            : String(person.payment_terms_days)
+-                                    }
+-                                    error={errors.payment_terms_days}
++                                    placeholder="name@example.com"
++                                    defaultValue={person?.email}
++                                    error={errors.email}
+                                 />
+                             </div>
++
++                            {isCustomer && (
++                                <div className="grid gap-4 rounded-md border p-4 md:grid-cols-[1fr_auto]">
++                                    <div className={fieldClassName}>
++                                        <Label htmlFor="preferred_contact_channel">
++                                            {translate(
++                                                'Preferred contact channel',
++                                                locale,
++                                            )}
++                                        </Label>
++                                        <Select
++                                            name="preferred_contact_channel"
++                                            defaultValue={
++                                                person?.preferred_contact_channel ??
++                                                ''
++                                            }
++                                        >
++                                            <SelectTrigger
++                                                id="preferred_contact_channel"
++                                                className="w-full"
++                                            >
++                                                <SelectValue
++                                                    placeholder={translate(
++                                                        'No preference',
++                                                        locale,
++                                                    )}
++                                                />
++                                            </SelectTrigger>
++                                            <SelectContent>
++                                                <SelectItem value="email">
++                                                    Email
++                                                </SelectItem>
++                                                <SelectItem value="phone">
++                                                    {t.phone}
++                                                </SelectItem>
++                                                <SelectItem value="whatsapp">
++                                                    WhatsApp
++                                                </SelectItem>
++                                                <SelectItem value="sms">
++                                                    SMS
++                                                </SelectItem>
++                                            </SelectContent>
++                                        </Select>
++                                        <InputError
++                                            message={
++                                                errors.preferred_contact_channel
++                                            }
++                                        />
++                                    </div>
++                                    <label className="flex items-center gap-3 self-end rounded-md border px-4 py-2 text-sm">
++                                        <input
++                                            type="checkbox"
++                                            name="do_not_contact"
++                                            value="1"
++                                            defaultChecked={
++                                                person?.do_not_contact ?? false
++                                            }
++                                        />
++                                        {translate(
++                                            'Do not contact commercially',
++                                            locale,
++                                        )}
++                                    </label>
++                                </div>
++                            )}
++                        </FormSection>
++
++                        <FormSection
++                            title={translate('Postal address', locale)}
++                            description={translate(
++                                'Select country, province, municipality and locality in order.',
++                                locale,
++                            )}
++                        >
+                             <div className="grid gap-4 md:grid-cols-2">
+                                 <Field
+-                                    id="billing_address_line_1"
+-                                    label={translate('Billing address', locale)}
++                                    id="address_line_1"
++                                    label={t.address}
+                                     placeholder={translate(
+                                         'Street and number',
+                                         locale,
+                                     )}
+-                                    defaultValue={
+-                                        person?.billing_address_line_1
+-                                    }
+-                                    error={errors.billing_address_line_1}
+-                                />
+-                                <Field
+-                                    id="billing_address_line_2"
++                                    defaultValue={person?.address_line_1}
++                                    error={errors.address_line_1}
++                                />
++                                <Field
++                                    id="address_line_2"
+                                     label={t.address2}
+                                     placeholder={translate(
+                                         'Apartment or floor',
+                                         locale,
+                                     )}
+-                                    defaultValue={
+-                                        person?.billing_address_line_2
+-                                    }
+-                                    error={errors.billing_address_line_2}
++                                    defaultValue={person?.address_line_2}
++                                    error={errors.address_line_2}
+                                 />
+                             </div>
++
+                             <LocationFields
+-                                prefix="billing_"
+                                 errors={errors}
+                                 defaults={{
+-                                    country: person?.billing_country,
+-                                    province: person?.billing_province_state,
+-                                    municipality: person?.billing_city,
+-                                    locality: person?.billing_locality,
+-                                    postalCode: person?.billing_postal_code,
++                                    country: person?.country,
++                                    province: person?.province_state,
++                                    municipality: person?.city,
++                                    locality: person?.locality,
++                                    postalCode: person?.postal_code,
+                                 }}
+                             />
+                         </FormSection>
+-                    )}
+-
+-                    <FormSection
+-                        title={translate('Additional information', locale)}
+-                        description={translate(
+-                            'Add service context, internal notes and an emergency contact when applicable.',
+-                            locale,
++
++                        {isCustomer && (
++                            <FormSection
++                                title={translate('Billing details', locale)}
++                                description={translate(
++                                    'Only complete values that differ from the legal identity or postal address. Empty fields inherit the customer details.',
++                                    locale,
++                                )}
++                            >
++                                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
++                                    <Field
++                                        id="billing_name"
++                                        label={translate(
++                                            'Billing name',
++                                            locale,
++                                        )}
++                                        placeholder={
++                                            person?.company_name ||
++                                            translate(
++                                                'Legal or personal name',
++                                                locale,
++                                            )
++                                        }
++                                        defaultValue={person?.billing_name}
++                                        error={errors.billing_name}
++                                    />
++                                    <Field
++                                        id="billing_tax_id"
++                                        label={translate(
++                                            'Billing tax ID',
++                                            locale,
++                                        )}
++                                        placeholder={
++                                            person?.tax_id || 'NIF / CIF'
++                                        }
++                                        defaultValue={person?.billing_tax_id}
++                                        error={errors.billing_tax_id}
++                                    />
++                                    <Field
++                                        id="billing_email"
++                                        label={t.billingEmail}
++                                        type="email"
++                                        placeholder="billing@example.com"
++                                        defaultValue={person?.billing_email}
++                                        error={errors.billing_email}
++                                    />
++                                    <Field
++                                        id="payment_terms_days"
++                                        label={translate(
++                                            'Payment terms (days)',
++                                            locale,
++                                        )}
++                                        type="number"
++                                        placeholder="30"
++                                        defaultValue={
++                                            person?.payment_terms_days == null
++                                                ? undefined
++                                                : String(
++                                                      person.payment_terms_days,
++                                                  )
++                                        }
++                                        error={errors.payment_terms_days}
++                                    />
++                                </div>
++                                <div className="grid gap-4 md:grid-cols-2">
++                                    <Field
++                                        id="billing_address_line_1"
++                                        label={translate(
++                                            'Billing address',
++                                            locale,
++                                        )}
++                                        placeholder={translate(
++                                            'Street and number',
++                                            locale,
++                                        )}
++                                        defaultValue={
++                                            person?.billing_address_line_1
++                                        }
++                                        error={errors.billing_address_line_1}
++                                    />
++                                    <Field
++                                        id="billing_address_line_2"
++                                        label={t.address2}
++                                        placeholder={translate(
++                                            'Apartment or floor',
++                                            locale,
++                                        )}
++                                        defaultValue={
++                                            person?.billing_address_line_2
++                                        }
++                                        error={errors.billing_address_line_2}
++                                    />
++                                </div>
++                                <LocationFields
++                                    prefix="billing_"
++                                    errors={errors}
++                                    defaults={{
++                                        country: person?.billing_country,
++                                        province:
++                                            person?.billing_province_state,
++                                        municipality: person?.billing_city,
++                                        locality: person?.billing_locality,
++                                        postalCode: person?.billing_postal_code,
++                                    }}
++                                />
++                            </FormSection>
+                         )}
+-                    >
+-                        <div className="grid gap-4 md:grid-cols-2">
+-                            {isCustomer && (
++
++                        <FormSection
++                            title={translate('Additional information', locale)}
++                            description={translate(
++                                'Add service context, internal notes and an emergency contact when applicable.',
++                                locale,
++                            )}
++                        >
++                            <div className="grid gap-4 md:grid-cols-2">
++                                {isCustomer && (
++                                    <TextareaField
++                                        id="service_interests"
++                                        label={t.serviceInterests}
++                                        placeholder={translate(
++                                            'Solar panels\nElectrical installation\nAlarm and security system',
++                                            locale,
++                                        )}
++                                        defaultValue={person?.service_interests?.join(
++                                            '\n',
++                                        )}
++                                        error={errors.service_interests}
++                                    />
++                                )}
+                                 <TextareaField
+-                                    id="service_interests"
+-                                    label={t.serviceInterests}
++                                    id="notes"
++                                    label={t.notes}
+                                     placeholder={translate(
+-                                        'Solar panels\nElectrical installation\nAlarm and security system',
++                                        'Preferences, access needs or invoice notes',
+                                         locale,
+                                     )}
+-                                    defaultValue={person?.service_interests?.join(
+-                                        '\n',
++                                    defaultValue={person?.notes}
++                                    error={errors.notes}
++                                />
++                            </div>
++
++                            <div className="grid gap-4 md:grid-cols-2">
++                                <Field
++                                    id="emergency_contact_name"
++                                    label={t.emergencyContact}
++                                    placeholder={translate(
++                                        'Contact name',
++                                        locale,
+                                     )}
+-                                    error={errors.service_interests}
+-                                />
+-                            )}
+-                            <TextareaField
+-                                id="notes"
+-                                label={t.notes}
+-                                placeholder={translate(
+-                                    'Preferences, access needs or invoice notes',
+-                                    locale,
+-                                )}
+-                                defaultValue={person?.notes}
+-                                error={errors.notes}
+-                            />
+-                        </div>
+-
+-                        <div className="grid gap-4 md:grid-cols-2">
+-                            <Field
+-                                id="emergency_contact_name"
+-                                label={t.emergencyContact}
+-                                placeholder={translate('Contact name', locale)}
+-                                defaultValue={person?.emergency_contact_name}
+-                                error={errors.emergency_contact_name}
+-                            />
+-                            <Field
+-                                id="emergency_contact_phone"
+-                                label={t.emergencyPhone}
+-                                type="tel"
+-                                placeholder="+34 600 000 000"
+-                                defaultValue={person?.emergency_contact_phone}
+-                                error={errors.emergency_contact_phone}
+-                            />
+-                        </div>
+-                    </FormSection>
+-
+-                    <FormActions
+-                        processing={processing}
+-                        submitLabel={finalSubmitLabel}
+-                        icon={<UserPlus />}
+-                    />
+-                </>
+-            )}
+-        </Form>
++                                    defaultValue={
++                                        person?.emergency_contact_name
++                                    }
++                                    error={errors.emergency_contact_name}
++                                />
++                                <Field
++                                    id="emergency_contact_phone"
++                                    label={t.emergencyPhone}
++                                    type="tel"
++                                    placeholder="+34 600 000 000"
++                                    defaultValue={
++                                        person?.emergency_contact_phone
++                                    }
++                                    error={errors.emergency_contact_phone}
++                                />
++                            </div>
++                        </FormSection>
++
++                        <FormActions
++                            processing={processing}
++                            submitLabel={finalSubmitLabel}
++                            icon={<UserPlus />}
++                        />
++                    </>
++                )}
++            </Form>
++        </>
+     );
+ }
+ 
+--- a/resources/js/pages/people/create.tsx
++++ b/resources/js/pages/people/create.tsx
+@@ -23,7 +23,14 @@
+         <>
+             <Head title={createTitle} />
+ 
+-            <PageShell mode="focused">
++            <PageShell
++                mode="focused"
++                className={
++                    category === 'customer'
++                        ? 'commercial-customer-editor'
++                        : undefined
++                }
++            >
+                 <PageHeader
+                     title={createTitle}
+                     description={createDescription}
+--- a/resources/js/pages/people/edit.tsx
++++ b/resources/js/pages/people/edit.tsx
+@@ -28,7 +28,13 @@
+         <>
+             <Head title={editTitle} />
+ 
+-            <PageShell>
++            <PageShell
++                className={
++                    category === 'customer'
++                        ? 'commercial-customer-editor'
++                        : undefined
++                }
++            >
+                 <PageHeader
+                     title={editTitle}
+                     description={editDescription}
+--- a/resources/js/pages/opportunities/index.tsx
++++ b/resources/js/pages/opportunities/index.tsx
+@@ -42,6 +42,7 @@
+     SelectValue,
+ } from '@/components/ui/select';
+ import { Textarea } from '@/components/ui/textarea';
++import { useCommercialFormProtection } from '@/hooks/use-commercial-form-protection';
+ import {
+     interestLabel,
+     interestOptions,
+@@ -357,6 +358,7 @@
+         'idle' | 'checking' | 'found' | 'new' | 'invalid'
+     >('idle');
+     const form = useForm<FormData>(emptyForm);
++    const protection = useCommercialFormProtection(() => form, open);
+     const availableInstallations = useMemo(
+         () =>
+             installations.filter(
+@@ -477,7 +479,7 @@
+         setMatchedCustomer(customer || null);
+         setCustomerLookup(customer ? 'found' : 'idle');
+         form.clearErrors();
+-        form.setData({
++        const editorData = {
+             ...emptyForm,
+             person_id: customer ? String(customer.id) : '',
+             customer_phone: customer?.phone || '',
+@@ -486,7 +488,13 @@
+             customer_consent_channel:
+                 customer?.preferred_contact_channel || 'phone',
+             next_action_due_at: nextBusinessAction(),
+-        });
++        };
++        form.setData(editorData);
++
++        if (protection.mobile) {
++            form.setDefaults(editorData);
++        }
++
+         setOpen(true);
+     }
+ 
+@@ -495,7 +503,7 @@
+         setMatchedCustomer(null);
+         setCustomerLookup('idle');
+         form.clearErrors();
+-        form.setData({
++        const editorData = {
+             person_id: String(item.person_id),
+             customer_phone: '',
+             customer_first_name: '',
+@@ -531,7 +539,13 @@
+             next_action_title: 'Contactar y cualificar al cliente',
+             next_action_priority: 'normal',
+             next_action_due_at: nextBusinessAction(),
+-        });
++        };
++        form.setData(editorData);
++
++        if (protection.mobile) {
++            form.setDefaults(editorData);
++        }
++
+         setOpen(true);
+     }
+ 
+@@ -539,7 +553,9 @@
+         event.preventDefault();
+         const options = {
+             preserveScroll: true,
+-            onSuccess: () => setOpen(false),
++            onBefore: protection.beginSubmit,
++            onFinish: protection.finishSubmit,
++            onSuccess: () => protection.saved(() => setOpen(false)),
+         };
+ 
+         if (editing) {
+@@ -865,8 +881,27 @@
+                 )}
+             </PageShell>
+ 
+-            <Dialog open={open} onOpenChange={setOpen}>
+-                <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
++            <Dialog
++                open={open}
++                onOpenChange={(value) => {
++                    if (value) {
++                        setOpen(true);
++                    } else if (!protection.confirmationOpen) {
++                        protection.requestClose(() => setOpen(false));
++                    }
++                }}
++            >
++                <DialogContent
++                    className="commercial-opportunity-dialog max-h-[90vh] overflow-y-auto sm:max-w-2xl"
++                    onInteractOutside={(event) => {
++                        event.preventDefault();
++
++                        if (!protection.confirmationOpen) {
++                            protection.requestClose(() => setOpen(false));
++                        }
++                    }}
++                >
++                    {protection.confirmation}
+                     <form onSubmit={submit} className="grid gap-5">
+                         <DialogHeader>
+                             <DialogTitle>
+@@ -1676,7 +1711,11 @@
+                                 <Button
+                                     type="button"
+                                     variant="outline"
+-                                    onClick={() => setOpen(false)}
++                                    onClick={() =>
++                                        protection.requestClose(() =>
++                                            setOpen(false),
++                                        )
++                                    }
+                                 >
+                                     Cancel
+                                 </Button>
+--- a/resources/js/pages/opportunities/show.tsx
++++ b/resources/js/pages/opportunities/show.tsx
+@@ -1,3 +1,4 @@
++import '../../../css/commercial-mobile.css';
+ import { Form, Head, Link, usePage } from '@inertiajs/react';
+ import {
+     ArrowLeft,
+@@ -40,6 +41,7 @@
+ import { useLocale } from '@/hooks/use-locale';
+ import { translate } from '@/i18n';
+ import { appendOutcome, followUpDateTime } from '@/lib/commercial-follow-up';
++import { commercialListUrl } from '@/lib/mobile/commercial-navigation';
+ import { interestLabel } from '@/lib/opportunity-interest';
+ 
+ type User = { id: number; name: string };
+@@ -164,12 +166,14 @@
+           `${opportunity.customer.first_name} ${opportunity.customer.last_name || ''}`.trim()
+         : 'Sin cliente';
+ 
+-    const journey = usePage<{ journey?: Journey }>().props.journey;
++    const currentPage = usePage<{ journey?: Journey }>();
++    const journey = currentPage.props.journey;
++    const usePageUrl = currentPage.url;
+ 
+     return (
+         <>
+             <Head title={`${opportunity.code} · ${opportunity.title}`} />
+-            <div className="space-y-6 p-4 md:p-6">
++            <div className="commercial-opportunity-detail space-y-6 p-4 md:p-6">
+                 <header className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                     <div className="space-y-3">
+                         <Button
+@@ -178,7 +182,7 @@
+                             size="sm"
+                             className="-ml-3"
+                         >
+-                            <Link href="/opportunities">
++                            <Link href={commercialListUrl(usePageUrl,'/opportunities')}>
+                                 <ArrowLeft /> Oportunidades
+                             </Link>
+                         </Button>
+--- a/resources/js/pages/quotes/form.tsx
++++ b/resources/js/pages/quotes/form.tsx
+@@ -26,6 +26,7 @@
+     SelectValue,
+ } from '@/components/ui/select';
+ import { Textarea } from '@/components/ui/textarea';
++import { useCommercialFormProtection } from '@/hooks/use-commercial-form-protection';
+ import { useLocale } from '@/hooks/use-locale';
+ import { translate } from '@/i18n';
+ import { serviceLabels } from '@/lib/business-lines';
+@@ -239,6 +240,11 @@
+         service_type: form.data.service_type,
+         lines: form.data.lines,
+     });
++    const protection = useCommercialFormProtection(() => ({
++        isDirty: form.isDirty,
++        processing: form.processing || templateForm.processing,
++        resetAndClearErrors: () => form.resetAndClearErrors(),
++    }));
+     const selectedTemplate = installationTemplates.find(
+         (template) => String(template.id) === selectedTemplateId,
+     );
+@@ -507,13 +513,25 @@
+             ),
+         });
+     };
+-    const submit = () =>
+-        quote ? form.put(`/quotes/${quote.id}`) : form.post('/quotes');
++    const submit = () => {
++        const options = {
++            onBefore: protection.beginSubmit,
++            onFinish: protection.finishSubmit,
++            onSuccess: () => protection.saved(),
++        };
++
++        if (quote) {
++            form.put(`/quotes/${quote.id}`, options);
++        } else {
++            form.post('/quotes', options);
++        }
++    };
+ 
+     return (
+         <>
+             <Head title={pageTitle} />
+-            <div className="flex min-w-0 flex-1 flex-col gap-6 overflow-x-clip p-4 md:p-6">
++            {protection.confirmation}
++            <div className="commercial-quote-form flex min-w-0 flex-1 flex-col gap-6 overflow-x-clip p-4 md:p-6">
+                 <header className="flex flex-wrap items-center justify-between gap-3">
+                     <div>
+                         <h1 className="text-xl font-semibold">{pageTitle}</h1>
+@@ -926,7 +944,7 @@
+                             </Button>
+                         </div>
+                         <div className="w-full min-w-0 [scrollbar-gutter:stable] overflow-x-auto overscroll-x-contain border-y">
+-                            <table className="w-full min-w-[58rem] text-sm">
++                            <table className="commercial-quote-lines-table w-full min-w-[58rem] text-sm">
+                                 <thead>
+                                     <tr className="border-b text-left text-muted-foreground">
+                                         <th className="py-2">
+@@ -957,7 +975,13 @@
+                                     {form.data.lines.map((line, index) => (
+                                         <Fragment key={line.client_key}>
+                                             <tr className="align-top">
+-                                                <td className="py-2 pr-2">
++                                                <td
++                                                    className="py-2 pr-2"
++                                                    data-label={translate(
++                                                        'Catalog item',
++                                                        locale,
++                                                    )}
++                                                >
+                                                     <Select
+                                                         value={
+                                                             line.product_id
+@@ -975,7 +999,9 @@
+                                                             )
+                                                         }
+                                                     >
+-                                                        <SelectTrigger>
++                                                        <SelectTrigger
++                                                            aria-label={`${translate('Catalog item', locale)} ${index + 1}`}
++                                                        >
+                                                             <SelectValue
+                                                                 placeholder={translate(
+                                                                     'Custom line',
+@@ -1003,8 +1029,15 @@
+                                                         </SelectContent>
+                                                     </Select>
+                                                 </td>
+-                                                <td className="p-2">
++                                                <td
++                                                    className="p-2"
++                                                    data-label={translate(
++                                                        'Description',
++                                                        locale,
++                                                    )}
++                                                >
+                                                     <Input
++                                                        aria-label={`${translate('Description', locale)} ${index + 1}`}
+                                                         value={line.description}
+                                                         onChange={(event) =>
+                                                             updateLine(index, {
+@@ -1015,8 +1048,15 @@
+                                                         }
+                                                     />
+                                                 </td>
+-                                                <td className="p-2">
++                                                <td
++                                                    className="p-2"
++                                                    data-label={translate(
++                                                        'Qty.',
++                                                        locale,
++                                                    )}
++                                                >
+                                                     <Input
++                                                        aria-label={`${translate('Qty.', locale)} ${index + 1}`}
+                                                         type="number"
+                                                         min="0.001"
+                                                         step="0.001"
+@@ -1030,8 +1070,15 @@
+                                                         }
+                                                     />
+                                                 </td>
+-                                                <td className="p-2">
++                                                <td
++                                                    className="p-2"
++                                                    data-label={translate(
++                                                        'Price',
++                                                        locale,
++                                                    )}
++                                                >
+                                                     <Input
++                                                        aria-label={`${translate('Price', locale)} ${index + 1}`}
+                                                         type="number"
+                                                         min="0"
+                                                         step="0.001"
+@@ -1045,8 +1092,15 @@
+                                                         }
+                                                     />
+                                                 </td>
+-                                                <td className="p-2">
++                                                <td
++                                                    className="p-2"
++                                                    data-label={translate(
++                                                        'Disc. %',
++                                                        locale,
++                                                    )}
++                                                >
+                                                     <Input
++                                                        aria-label={`${translate('Disc. %', locale)} ${index + 1}`}
+                                                         type="number"
+                                                         min="0"
+                                                         max="100"
+@@ -1063,8 +1117,15 @@
+                                                         }
+                                                     />
+                                                 </td>
+-                                                <td className="p-2">
++                                                <td
++                                                    className="p-2"
++                                                    data-label={translate(
++                                                        'Tax %',
++                                                        locale,
++                                                    )}
++                                                >
+                                                     <Input
++                                                        aria-label={`${translate('Tax %', locale)} ${index + 1}`}
+                                                         type="number"
+                                                         min="0"
+                                                         max="100"
+@@ -1079,7 +1140,13 @@
+                                                         }
+                                                     />
+                                                 </td>
+-                                                <td className="p-2 text-right font-medium">
++                                                <td
++                                                    className="p-2 text-right font-medium"
++                                                    data-label={translate(
++                                                        'Total',
++                                                        locale,
++                                                    )}
++                                                >
+                                                     <div className="grid gap-1">
+                                                         <span>
+                                                             {money(
+@@ -1095,6 +1162,7 @@
+                                                                 : 'Total de línea con IVA'}
+                                                         </Label>
+                                                         <Input
++                                                            aria-label={`${translate('Total', locale)} ${index + 1}`}
+                                                             id={`gross-${line.client_key}`}
+                                                             type="number"
+                                                             min="0"
+@@ -1139,7 +1207,13 @@
+                                                         </span>
+                                                     </div>
+                                                 </td>
+-                                                <td className="sticky right-0 z-10 bg-background p-2">
++                                                <td
++                                                    className="sticky right-0 z-10 bg-background p-2"
++                                                    data-label={translate(
++                                                        'Actions',
++                                                        locale,
++                                                    )}
++                                                >
+                                                     <div className="flex items-center gap-1">
+                                                         <Button
+                                                             type="button"
+--- a/resources/js/pages/quotes/index.tsx
++++ b/resources/js/pages/quotes/index.tsx
+@@ -1,3 +1,4 @@
++import '../../../css/commercial-mobile.css';
+ import { Head, Link, router } from '@inertiajs/react';
+ import {
+     CalendarDays,
+@@ -219,6 +220,7 @@
+             <span className={`quote-status quote-status-${q.effective_status}`}>
+                 {statusLabels[q.effective_status]}
+             </span>
++            <time dateTime={q.issue_date}>{quoteDate(q.issue_date)}</time>
+             <strong>{quoteMoney(q.amount)}</strong>
+             <small>
+                 {q.creator?.name ?? '—'} · {quoteDate(q.valid_until)}
+--- a/resources/js/pages/quotes/show.tsx
++++ b/resources/js/pages/quotes/show.tsx
+@@ -1,3 +1,4 @@
++import '../../../css/commercial-mobile.css';
+ import { Form, Head, Link, useForm, usePage } from '@inertiajs/react';
+ import {
+     ArrowLeft,
+@@ -1126,6 +1127,7 @@
+                                     )}
+                                     % · {money(line.total)}
+                                 </span>
++                                <span>Descuento: {Number(line.discount_percent)}%</span>
+                                 <small>
+                                     {line.selection_mode === 'included' ||
+                                     line.is_selected
+--- a/resources/js/i18n/catalog.json
++++ b/resources/js/i18n/catalog.json
+@@ -23890,5 +23890,45 @@
+     "Descartar cambios": {
+         "es": "Descartar cambios",
+         "en": "Discard changes"
++    },
++    "Oportunidades en tarjetas": {
++        "es": "Oportunidades en tarjetas",
++        "en": "Opportunity cards"
++    },
++    "Etapa de": {
++        "es": "Etapa de",
++        "en": "Stage for"
++    },
++    "Vista de los registros del pipeline cargado. Usa Tabla para recorrer resultados paginados.": {
++        "es": "Vista de los registros del pipeline cargado. Usa Tabla para recorrer resultados paginados.",
++        "en": "Showing loaded pipeline records. Use Table to browse paginated results."
++    },
++    "Llamar": {
++        "es": "Llamar",
++        "en": "Call"
++    },
++    "Hay cambios sin guardar. Puedes continuar editando o descartarlos antes de salir.": {
++        "es": "Hay cambios sin guardar. Puedes continuar editando o descartarlos antes de salir.",
++        "en": "There are unsaved changes. Keep editing or discard them before leaving."
++    },
++    "Espera a que termine el envío antes de salir.": {
++        "es": "Espera a que termine el envío antes de salir.",
++        "en": "Wait for the request to finish before leaving."
++    },
++    "Descuento:": {
++        "es": "Descuento:",
++        "en": "Discount:"
++    },
++    "Contacto de": {
++        "es": "Contacto de",
++        "en": "Contact for"
++    },
++    "Llamar a": {
++        "es": "Llamar a",
++        "en": "Call to"
++    },
++    "Enviar email a": {
++        "es": "Enviar email a",
++        "en": "Send email to"
+     }
+ }
+--- /dev/null
++++ b/resources/css/commercial-mobile.css
+@@ -0,0 +1,507 @@
++/* Commercial phase only: the global mobile shell and desktop stay unchanged. */
++.commercial-mobile-filter-trigger {
++    display: none;
++}
++@media (max-width: 1023px) {
++    .commercial-visible-search {
++        display: grid;
++        gap: 8px;
++        font-size: 13px;
++    }
++    .commercial-mobile-filter-trigger {
++        display: inline-flex;
++        min-height: 44px;
++    }
++    .commercial-opportunity-list {
++        display: grid;
++        gap: 12px;
++    }
++    .commercial-card {
++        min-width: 0;
++        padding: 16px;
++        border: 1px solid #e1e8e5;
++        border-radius: 12px;
++        background: #fff;
++        color: #092b27;
++        overflow-wrap: anywhere;
++    }
++    .commercial-card-heading,
++    .commercial-card-facts {
++        display: flex;
++        align-items: center;
++        justify-content: space-between;
++        gap: 10px;
++    }
++    .commercial-stage {
++        background: #e8f5ee;
++        color: #006e4e;
++        border-radius: 6px;
++        padding: 4px 8px;
++        font-size: 12px;
++    }
++    .commercial-card-title {
++        display: flex;
++        align-items: start;
++        justify-content: space-between;
++        gap: 8px;
++        margin: 12px 0 6px;
++        font-size: 17px;
++        font-weight: 650;
++        min-height: 44px;
++    }
++    .commercial-card p,
++    .commercial-card small {
++        color: #536878;
++        font-size: 13px;
++    }
++    .commercial-card-facts {
++        margin: 12px 0;
++        flex-wrap: wrap;
++    }
++    .commercial-card-facts span {
++        display: inline-flex;
++        align-items: center;
++        gap: 6px;
++        font-size: 12px;
++    }
++    .commercial-next-action {
++        display: flex;
++        gap: 10px;
++        align-items: center;
++        min-height: 48px;
++        padding: 10px;
++        background: #f4f8f6;
++        border-radius: 8px;
++        font-size: 13px;
++    }
++    .commercial-next-action time {
++        display: block;
++        color: #536878;
++        font-size: 12px;
++    }
++    .commercial-stage-control {
++        display: grid;
++        gap: 6px;
++        margin-top: 12px;
++        font-size: 12px;
++    }
++    .commercial-stage-control select {
++        border: 1px solid #ccdcd4;
++        border-radius: 8px;
++        padding: 10px;
++        background: white;
++        color: #092b27;
++    }
++    .commercial-empty {
++        padding: 20px 12px;
++        color: #536878;
++    }
++    .crm-workspace .crm-view-switch,
++    .quotes-workspace .quotes-view-switch {
++        display: flex;
++        flex-wrap: wrap;
++        gap: 6px;
++    }
++    .crm-workspace .crm-primary,
++    .crm-workspace .crm-secondary,
++    .quotes-list-layout,
++    .customers-summary-top,
++    .customers-summary-grid {
++        grid-template-columns: minmax(0, 1fr);
++        min-width: 0;
++    }
++    .crm-workspace .crm-pagination,
++    .customers-pagination {
++        flex-wrap: wrap;
++        gap: 8px;
++    }
++    .customers-filter-bar {
++        display: grid;
++        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
++    }
++    .customers-filter-bar .customers-search {
++        grid-column: 1 / -1;
++        min-width: 0;
++    }
++    .customers-mobile-row {
++        padding: 16px;
++        border-radius: 12px;
++        background: white;
++        overflow-wrap: anywhere;
++    }
++    .customers-mobile-row .customers-name {
++        display: flex;
++        align-items: center;
++        min-height: 44px;
++        font-size: 17px;
++    }
++    .commercial-contact-actions {
++        display: flex;
++        gap: 8px;
++        margin-top: 8px;
++    }
++    .commercial-contact-actions a {
++        display: inline-flex;
++        align-items: center;
++        justify-content: center;
++        min-height: 44px;
++        padding: 8px 16px;
++        border: 1px solid #d8e7de;
++        border-radius: 8px;
++        color: #006e4e;
++        background: #f3faf6;
++    }
++    .customers-detail-title,
++    .customers-detail-actions,
++    .customers-general-layout {
++        min-width: 0;
++        overflow-wrap: anywhere;
++    }
++    .customers-detail-actions,
++    .quotes-detail-actions {
++        display: flex;
++        flex-wrap: wrap;
++        gap: 8px;
++    }
++    .customers-detail-tabs,
++    .quotes-detail-tabs {
++        display: flex;
++        overflow-x: auto;
++        white-space: nowrap;
++        max-width: 100%;
++        padding-bottom: 8px;
++    }
++    .customers-detail-tabs a,
++    .quotes-detail-tabs a {
++        min-height: 44px;
++        display: inline-flex;
++        align-items: center;
++    }
++    .quotes-list-main,
++    .quotes-list-heading,
++    .quotes-filters,
++    .quotes-extra-filters {
++        min-width: 0;
++    }
++    .quotes-list-heading,
++    .quotes-filters {
++        flex-wrap: wrap;
++    }
++    .quotes-kanban {
++        display: grid;
++        grid-template-columns: minmax(0, 1fr);
++        overflow: visible;
++    }
++    .quotes-kanban > section {
++        min-width: 0;
++        width: auto;
++    }
++    .quotes-mobile-card {
++        min-width: 0;
++        padding: 16px;
++        border-radius: 12px;
++        overflow-wrap: anywhere;
++    }
++    .quotes-mobile-card > a {
++        display: flex;
++        min-height: 44px;
++        align-items: center;
++        font-size: 17px;
++    }
++    .quotes-mobile-card time {
++        display: block;
++        font-size: 12px;
++        color: #536878;
++    }
++    .quotes-lines-mobile {
++        display: grid;
++        gap: 10px;
++    }
++    .quotes-lines-table {
++        display: none;
++    }
++    .quotes-lines-mobile article {
++        padding: 16px;
++        border: 1px solid #dfe7e2;
++        border-radius: 10px;
++        display: grid;
++        gap: 8px;
++    }
++    .quotes-lines-mobile article strong {
++        overflow-wrap: anywhere;
++    }
++    .commercial-person-form,
++    .commercial-quote-form,
++    .commercial-opportunity-detail {
++        min-width: 0;
++        overflow-wrap: anywhere;
++    }
++    .commercial-person-form .grid,
++    .commercial-quote-form .grid,
++    .commercial-opportunity-detail > .grid {
++        grid-template-columns: minmax(0, 1fr);
++    }
++    .commercial-person-form input,
++    .commercial-person-form select,
++    .commercial-quote-form input,
++    .commercial-quote-form select,
++    .commercial-opportunity-dialog input,
++    .commercial-opportunity-dialog select {
++        min-height: 44px;
++        font-size: 16px;
++        max-width: 100%;
++    }
++    .commercial-person-form [role='combobox'],
++    .commercial-quote-form [role='combobox'] {
++        min-height: 44px;
++    }
++    .commercial-person-form .sticky,
++    .commercial-quote-form .sticky {
++        bottom: calc(76px + env(safe-area-inset-bottom));
++    }
++    .commercial-person-form textarea,
++    .commercial-quote-form textarea {
++        font-size: 16px;
++        min-height: 100px;
++    }
++    .commercial-person-form [class*='col-span'],
++    .commercial-quote-form [class*='col-span'] {
++        grid-column: auto;
++    }
++    .commercial-opportunity-detail header button,
++    .commercial-opportunity-detail header a {
++        min-height: 44px;
++    }
++    .commercial-opportunity-dialog,
++    .commercial-draft-dialog {
++        background: #fff;
++        color: #092b27;
++        color-scheme: light;
++    }
++    .commercial-opportunity-dialog [data-slot='dialog-title'],
++    .commercial-draft-dialog [data-slot='dialog-title'] {
++        color: #092b27;
++    }
++    .commercial-opportunity-dialog [data-slot='dialog-description'],
++    .commercial-draft-dialog [data-slot='dialog-description'] {
++        color: #536878;
++    }
++    .commercial-opportunity-dialog .grid {
++        grid-template-columns: minmax(0, 1fr);
++    }
++    .commercial-opportunity-dialog [class*='col-span'] {
++        grid-column: auto;
++    }
++    .commercial-opportunity-dialog {
++        max-height: calc(
++            100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) -
++                24px
++        );
++        padding-bottom: max(20px, env(safe-area-inset-bottom));
++    }
++    .commercial-form-notice {
++        padding: 12px;
++        border: 1px solid #bfd8cb;
++        background: #f1faf5;
++        color: #145839;
++        border-radius: 8px;
++    }
++    .commercial-opportunity-list a:focus-visible,
++    .commercial-contact-actions a:focus-visible {
++        outline: 2px solid #00885e;
++        outline-offset: 3px;
++    }
++}
++@media (max-width: 1023px) and (prefers-reduced-motion: reduce) {
++    .commercial-draft-dialog,
++    .commercial-opportunity-dialog {
++        animation: none !important;
++        transition: none !important;
++    }
++}
++@media (max-width: 1023px) {
++    .customers-master .customers-table-scroll,
++    .quotes-table-card .quotes-table-scroll {
++        display: none;
++    }
++    .customers-master .customers-mobile-list,
++    .quotes-table-card .quotes-mobile-list {
++        display: grid;
++        gap: 12px;
++    }
++    .crm-filters {
++        display: grid;
++        grid-template-columns: minmax(0, 1fr);
++        width: 100%;
++        min-width: 0;
++    }
++    .crm-filters label,
++    .crm-filters .crm-search {
++        min-width: 0;
++    }
++    .crm-filters input,
++    .crm-filters select {
++        min-height: 44px;
++        font-size: 16px;
++    }
++}
++
++@media (max-width: 1023px) {
++    .quotes-workspace .quotes-filters :is(input, select),
++    .customers-filter-bar :is(input, select) {
++        min-height: 44px;
++        font-size: 16px;
++    }
++    .quotes-filters .quotes-search {
++        flex-basis: 100%;
++        min-width: 0;
++    }
++}
++
++@media (max-width: 1023px) {
++    :is(
++        .crm-workspace,
++        .commercial-customer-editor,
++        .customers-workspace,
++        .quotes-workspace,
++        .commercial-person-form,
++        .commercial-quote-form,
++        .commercial-opportunity-dialog,
++        .commercial-draft-dialog,
++        .commercial-opportunity-detail
++    ) {
++        --background: #ffffff;
++        --foreground: #092b27;
++        --card: #ffffff;
++        --card-foreground: #092b27;
++        --muted: #f3f7f5;
++        --muted-foreground: #536878;
++        --border: #e1e8e5;
++        --input: #ccdcd4;
++        --primary: #007c56;
++        --primary-foreground: #ffffff;
++        --accent: #e8f5ee;
++        --accent-foreground: #006e4e;
++        color: #092b27;
++        color-scheme: light;
++    }
++    .commercial-crm-desktop-summary {
++        display: none;
++    }
++    .crm-bottom {
++        grid-template-columns: minmax(0, 1fr);
++    }
++}
++@media (max-width: 1023px) {
++    :is(
++            .crm-workspace,
++            .customers-workspace,
++            .quotes-workspace,
++            .commercial-person-form,
++            .commercial-quote-form,
++            .commercial-opportunity-dialog,
++            .commercial-draft-dialog
++        )
++        [data-slot='button'] {
++        min-height: 44px;
++        background: #ffffff;
++        color: #092b27;
++        border: 1px solid #ccdcd4;
++    }
++    :is(
++            .crm-workspace,
++            .customers-workspace,
++            .quotes-workspace,
++            .commercial-person-form,
++            .commercial-quote-form,
++            .commercial-opportunity-dialog,
++            .commercial-draft-dialog
++        )
++        [data-slot='button'][class*='bg-primary'] {
++        background: #007c56;
++        color: white;
++        border-color: #007c56;
++    }
++    .commercial-draft-dialog [data-slot='button'][class*='bg-destructive'] {
++        background: #982c2c;
++        color: white;
++    }
++    .commercial-opportunity-dialog [role='combobox'] {
++        min-height: 44px;
++        background: white;
++        color: #092b27;
++        border-color: #ccdcd4;
++    }
++    .crm-workspace .crm-panel {
++        background: white;
++        color: #092b27;
++    }
++}
++
++@media (max-width: 1023px) {
++    .commercial-customer-editor [data-slot='card'],
++    .commercial-person-form section,
++    .commercial-quote-form section {
++        background: white;
++        color: #092b27;
++    }
++    :is(.commercial-person-form, .commercial-quote-form)
++        :is(input, textarea, [role='combobox']) {
++        background: white;
++        color: #092b27;
++        border-color: #ccdcd4;
++    }
++    .commercial-customer-editor > header a,
++    .crm-workspace .commercial-mobile-filter-trigger {
++        background: white;
++        color: #092b27;
++        border: 1px solid #ccdcd4;
++    }
++}
++
++@media (max-width: 1023px) {
++    .commercial-quote-lines-table,
++    .commercial-quote-lines-table tbody,
++    .commercial-quote-lines-table tr,
++    .commercial-quote-lines-table td {
++        display: block;
++        min-width: 0;
++        width: 100%;
++    }
++    .commercial-quote-lines-table thead {
++        position: absolute;
++        width: 1px;
++        height: 1px;
++        overflow: hidden;
++        clip-path: inset(50%);
++    }
++    .commercial-quote-lines-table tr.align-top {
++        margin-top: 16px;
++        border: 1px solid #e1e8e5;
++        border-radius: 10px;
++        padding: 8px;
++    }
++    .commercial-quote-lines-table td[data-label]::before {
++        content: attr(data-label);
++        display: block;
++        color: #536878;
++        font-size: 13px;
++        margin-bottom: 6px;
++    }
++    .commercial-quote-lines-table td.sticky {
++        position: static;
++    }
++    .commercial-quote-form [class*='min-w-'] {
++        min-width: 0;
++        max-width: 100%;
++    }
++    .commercial-person-form .sticky {
++        background: white;
++        border-color: #e1e8e5;
++    }
++}
++@media (max-width: 1023px) {
++    :is(.crm-workspace, .customers-workspace, .quotes-workspace, .commercial-customer-editor, .commercial-quote-form, .commercial-opportunity-detail, .commercial-opportunity-dialog) .text-muted-foreground {
++        color: #536878;
++    }
++}
+--- /dev/null
++++ b/resources/js/components/commercial/mobile-opportunities.tsx
+@@ -0,0 +1,126 @@
++import { Link } from '@inertiajs/react';
++import { ArrowUpRight, CalendarClock, UserRound } from 'lucide-react';
++import { commercialDetailUrl } from '@/lib/mobile/commercial-navigation';
++import type { Opportunity } from '@/pages/opportunities/index';
++import '../../../css/commercial-mobile.css';
++
++export function MobileOpportunities({
++    items,
++    stages,
++    filters,
++    busy,
++    onMove,
++}: {
++    items: Opportunity[];
++    stages: Record<string, string>;
++    filters: Record<string, string | undefined>;
++    busy: boolean;
++    onMove: (item: Opportunity, stage: string) => void;
++}) {
++    return (
++        <div
++            className="commercial-opportunity-list"
++            aria-label="Oportunidades en tarjetas"
++            aria-busy={busy}
++        >
++            {items.map((item) => (
++                <article className="commercial-card" key={item.id}>
++                    <div className="commercial-card-heading">
++                        <span className="commercial-stage">
++                            {stages[item.stage] ?? item.stage_label}
++                        </span>
++                        <small>{item.code}</small>
++                    </div>
++                    <Link
++                        className="commercial-card-title"
++                        href={commercialDetailUrl(
++                            '/opportunities',
++                            item.id,
++                            filters,
++                        )}
++                    >
++                        {item.title}
++                        <ArrowUpRight aria-hidden="true" size={18} />
++                    </Link>
++                    {item.customer && (
++                        <p>
++                            <Link href={`/people/${item.customer.id}`}>
++                                {item.customer.company_name ||
++                                    [
++                                        item.customer.first_name,
++                                        item.customer.last_name,
++                                    ]
++                                        .filter(Boolean)
++                                        .join(' ')}
++                            </Link>
++                        </p>
++                    )}
++                    <div className="commercial-card-facts">
++                        <strong>
++                            {new Intl.NumberFormat('es-ES', {
++                                style: 'currency',
++                                currency: 'EUR',
++                            }).format(Number(item.estimated_value))}
++                        </strong>
++                        <span>
++                            <UserRound aria-hidden="true" size={14} />
++                            {item.owner?.name ?? 'Sin asignar'}
++                        </span>
++                    </div>
++                    {item.next_activity && (
++                        <Link
++                            className="commercial-next-action"
++                            href={commercialDetailUrl(
++                                '/opportunities',
++                                item.id,
++                                filters,
++                            )}
++                        >
++                            <CalendarClock size={16} aria-hidden="true" />
++                            <span>
++                                {item.next_activity.title}
++                                {item.next_activity.due_at && (
++                                    <time dateTime={item.next_activity.due_at}>
++                                        {new Date(
++                                            item.next_activity.due_at,
++                                        ).toLocaleDateString('es-ES')}
++                                    </time>
++                                )}
++                            </span>
++                        </Link>
++                    )}
++                    {!item.deleted_at && item.available_stages.length > 0 && (
++                        <label className="commercial-stage-control">
++                            Etapa de {item.code}
++                            <select
++                                value={item.stage}
++                                disabled={busy}
++                                onChange={(event) =>
++                                    onMove(item, event.target.value)
++                                }
++                            >
++                                {[
++                                    ...new Set([
++                                        item.stage,
++                                        ...item.available_stages,
++                                    ]),
++                                ]
++                                    .filter((key) => stages[key])
++                                    .map((key) => (
++                                        <option value={key} key={key}>
++                                            {stages[key]}
++                                        </option>
++                                    ))}
++                            </select>
++                        </label>
++                    )}
++                </article>
++            ))}
++            {!items.length && (
++                <p className="commercial-empty" role="status">
++                    No hay oportunidades con estos filtros.
++                </p>
++            )}
++        </div>
++    );
++}
+--- /dev/null
++++ b/resources/js/hooks/use-commercial-form-protection.tsx
+@@ -0,0 +1,272 @@
++import { router, usePage } from '@inertiajs/react';
++import { useCallback, useEffect, useRef, useState } from 'react';
++import { Button } from '@/components/ui/button';
++import {
++    Dialog,
++    DialogContent,
++    DialogDescription,
++    DialogFooter,
++    DialogHeader,
++    DialogTitle,
++} from '@/components/ui/dialog';
++import { useIsMobile } from '@/hooks/use-mobile';
++import {
++    registerCommercialHistoryGuard,
++    sameCommercialHistoryEntry,
++} from '@/lib/mobile/commercial-history';
++import { mobileView } from '@/lib/mobile/navigation';
++import { TaskDraftGuard } from '@/lib/mobile/task-draft-guard';
++import '../../css/commercial-mobile.css';
++
++type Draft = {
++    isDirty: boolean;
++    processing: boolean;
++    resetAndClearErrors: () => void;
++};
++
++/** Scoped to an existing commercial form; values stay in that form's memory. */
++export function useCommercialFormProtection(
++    read: () => Draft | null,
++    enabled = true,
++) {
++    const isMobile = useIsMobile(1024);
++    const page = usePage();
++    const reader = useRef(read);
++    const currentUrl = useRef(page.url);
++    const entryState = useRef<unknown>(null);
++    const underlyingEntry = useRef<{ url: string; state: unknown } | null>(
++        null,
++    );
++    const allowNextBack = useRef(false);
++    const allowNextVisit = useRef(false);
++    const confirmationOpener = useRef<HTMLElement | null>(null);
++    const continueButton = useRef<HTMLButtonElement | null>(null);
++    const [open, setOpen] = useState(false);
++    const [notice, setNotice] = useState('');
++    const [guard] = useState(() => new TaskDraftGuard());
++    useEffect(() => {
++        reader.current = read;
++        currentUrl.current = page.url;
++        entryState.current = window.history.state;
++
++        if (!mobileView(page.url)) {
++            underlyingEntry.current = {
++                url: page.url,
++                state: window.history.state,
++            };
++        }
++    });
++    useEffect(() => {
++        guard.connect(
++            () => ({
++                dirty: reader.current()?.isDirty ?? false,
++                processing: reader.current()?.processing ?? false,
++            }),
++            (value) => {
++                if (value) {
++                    confirmationOpener.current =
++                        document.activeElement as HTMLElement;
++                }
++
++                setOpen(value);
++            },
++            () => reader.current()?.resetAndClearErrors(),
++        );
++    }, [guard]);
++    const requestClose = useCallback(
++        (close: () => void) => {
++            if (!isMobile || !enabled) {
++                close();
++
++                return;
++            }
++
++            if (guard.requestClose(close) === 'busy') {
++                setNotice('Espera a que termine el envío antes de salir.');
++            }
++        },
++        [guard, isMobile, enabled],
++    );
++    useEffect(() => {
++        if (!isMobile || !enabled) {
++            guard.keepEditing();
++
++            return;
++        }
++
++        const before = router.on('before', (event) => {
++            if (allowNextVisit.current) {
++                allowNextVisit.current = false;
++
++                return;
++            }
++
++            if (mobileView(currentUrl.current) === 'create') {
++                return;
++            }
++
++            if (
++                event.detail.visit.method !== 'get' ||
++                (!reader.current()?.isDirty && !guard.busy())
++            ) {
++                return;
++            }
++
++            event.preventDefault();
++            const visit = event.detail.visit;
++            requestClose(() => {
++                allowNextVisit.current = true;
++                router.visit(visit.url, visit);
++            });
++        });
++        // Restore the existing encrypted entry without router.push: a router
++        // visit would remount uncontrolled Form fields and lose their draft.
++        // No form values are added to history or persistent storage.
++        const pop = (event: PopStateEvent) => {
++            if (allowNextBack.current) {
++                allowNextBack.current = false;
++
++                return;
++            }
++
++            if (!reader.current()?.isDirty && !guard.busy()) {
++                return;
++            }
++
++            const overlay = mobileView(currentUrl.current);
++            const underlying = underlyingEntry.current;
++
++            if (
++                overlay &&
++                overlay !== 'create' &&
++                underlying &&
++                sameCommercialHistoryEntry(underlying.state, event.state)
++            ) {
++                // Closing a PWA screen is not leaving the commercial form.
++                // Inertia's default pop restores with preserveState:false;
++                // replace the target entry instead to retain uncontrolled fields.
++                event.stopImmediatePropagation();
++                router.replace({
++                    url: underlying.url,
++                    preserveState: true,
++                    preserveScroll: true,
++                });
++
++                return;
++            }
++
++            // The global task sheet owns its close/discard confirmation.
++            if (overlay === 'create') {
++                return;
++            }
++
++            event.stopImmediatePropagation();
++            window.history.pushState(
++                entryState.current,
++                '',
++                currentUrl.current,
++            );
++            requestClose(() => {
++                allowNextBack.current = true;
++                window.history.back();
++            });
++        };
++        const unload = (event: BeforeUnloadEvent) => {
++            if (reader.current()?.isDirty || guard.busy()) {
++                event.preventDefault();
++                event.returnValue = '';
++            }
++        };
++        const stopHistoryGuard = registerCommercialHistoryGuard(pop);
++        window.addEventListener('beforeunload', unload);
++
++        return () => {
++            before();
++            stopHistoryGuard();
++            window.removeEventListener('beforeunload', unload);
++        };
++    }, [guard, isMobile, enabled, requestClose]);
++    const beginSubmit = () => !enabled || !isMobile || guard.beginSubmit();
++    const finishSubmit = () => guard.finishSubmit();
++    const saved = (callback: () => void = () => {}) => {
++        if (!isMobile || !enabled) {
++            callback();
++
++            return;
++        }
++
++        guard.saved(callback);
++    };
++    const confirmation = (
++        <>
++            {notice && (
++                <p role="status" className="commercial-form-notice">
++                    {notice}
++                </p>
++            )}
++            <Dialog
++                open={open}
++                onOpenChange={(value) => {
++                    if (!value) {
++                        guard.keepEditing();
++                    }
++                }}
++            >
++                <DialogContent
++                    className="commercial-draft-dialog"
++                    onOpenAutoFocus={(event) => {
++                        event.preventDefault();
++                        requestAnimationFrame(() =>
++                            continueButton.current?.focus(),
++                        );
++                    }}
++                    onPointerDownOutside={(event) => event.preventDefault()}
++                    onEscapeKeyDown={(event) => {
++                        event.preventDefault();
++                        guard.keepEditing();
++                    }}
++                    onCloseAutoFocus={(event) => {
++                        event.preventDefault();
++
++                        if (confirmationOpener.current?.isConnected) {
++                            confirmationOpener.current.focus();
++                        }
++                    }}
++                >
++                    <DialogHeader>
++                        <DialogTitle>¿Descartar los cambios?</DialogTitle>
++                        <DialogDescription>
++                            Hay cambios sin guardar. Puedes continuar editando o
++                            descartarlos antes de salir.
++                        </DialogDescription>
++                    </DialogHeader>
++                    <DialogFooter>
++                        <Button
++                            ref={continueButton}
++                            variant="outline"
++                            onClick={() => guard.keepEditing()}
++                        >
++                            Seguir editando
++                        </Button>
++                        <Button
++                            variant="destructive"
++                            onClick={() => guard.discard()}
++                        >
++                            Descartar cambios
++                        </Button>
++                    </DialogFooter>
++                </DialogContent>
++            </Dialog>
++        </>
++    );
++
++    return {
++        requestClose,
++        beginSubmit,
++        finishSubmit,
++        saved,
++        confirmation,
++        confirmationOpen: open,
++        mobile: isMobile,
++    };
++}
+--- /dev/null
++++ b/resources/js/lib/mobile/commercial-navigation.ts
+@@ -0,0 +1,31 @@
++export type CommercialBase = '/opportunities' | '/people' | '/quotes';
++
++/** Preserve list context only; editor/tab commands are not list filters. */
++export function commercialListUrl(current: string, base: CommercialBase) {
++    const params = new URL(current, 'https://local.invalid').searchParams;
++
++    for (const key of ['mobile', 'tab', 'create', 'opportunity']) {
++        params.delete(key);
++    }
++
++    return base + (params.size ? `?${params}` : '');
++}
++
++export function commercialDetailUrl(
++    base: CommercialBase,
++    id: number,
++    filters: Record<string, string | undefined>,
++) {
++    const list = commercialListUrl(
++        base +
++            '?' +
++            new URLSearchParams(
++                Object.entries(filters).filter(
++                    (entry): entry is [string, string] => Boolean(entry[1]),
++                ),
++            ),
++        base,
++    );
++
++    return list.replace(base, `${base}/${id}`);
++}
+--- /dev/null
++++ b/resources/js/lib/mobile/commercial-history.ts
+@@ -0,0 +1,69 @@
++/** Register before Inertia initializes: window popstate listeners run in
++ * registration order even when the later listener requests capture. */
++const guards = new Set<(event: PopStateEvent) => void>();
++let installed = false;
++
++export function installCommercialHistoryProtection() {
++    if (installed || typeof window === 'undefined') {
++        return;
++    }
++
++    installed = true;
++    window.addEventListener('popstate', (event) => {
++        for (const guard of guards) {
++            guard(event);
++
++            if (event.cancelBubble) {
++                break;
++            }
++        }
++    });
++}
++
++export function registerCommercialHistoryGuard(
++    guard: (event: PopStateEvent) => void,
++) {
++    guards.add(guard);
++
++    return () => {
++        guards.delete(guard);
++    };
++}
++
++/** Compare the existing Inertia page payload without decrypting it or adding
++ * draft fields to history. Structured cloning changes object identity. */
++export function sameCommercialHistoryEntry(
++    left: unknown,
++    right: unknown,
++): boolean {
++    const page = (value: unknown): unknown =>
++        value && typeof value === 'object' && 'page' in value
++            ? value.page
++            : undefined;
++    const a = page(left);
++    const b = page(right);
++
++    if (a === undefined || b === undefined) {
++        return false;
++    }
++
++    if (a instanceof ArrayBuffer && b instanceof ArrayBuffer) {
++        const first = new Uint8Array(a);
++        const second = new Uint8Array(b);
++
++        return (
++            first.length === second.length &&
++            first.every((byte, index) => byte === second[index])
++        );
++    }
++
++    if (a instanceof ArrayBuffer || b instanceof ArrayBuffer) {
++        return false;
++    }
++
++    try {
++        return JSON.stringify(a) === JSON.stringify(b);
++    } catch {
++        return false;
++    }
++}
+--- /dev/null
++++ b/tests/commercial-mobile.test.mjs
+@@ -0,0 +1,244 @@
++import assert from 'node:assert/strict';
++import { readFileSync } from 'node:fs';
++import test from 'node:test';
++import vm from 'node:vm';
++import ts from 'typescript';
++import {
++    sameCommercialHistoryEntry,
++} from '../resources/js/lib/mobile/commercial-history.ts';
++import {
++    commercialDetailUrl,
++    commercialListUrl,
++} from '../resources/js/lib/mobile/commercial-navigation.ts';
++
++for (const base of ['/opportunities', '/people', '/quotes']) {
++    test(`${base}: list context survives detail and contextual return`, () => {
++        const filters = {
++            search: 'Solar & familia',
++            page: '3',
++            owner: '8',
++            customer: '21',
++            view: 'table',
++            mobile: 'menu',
++            tab: 'history',
++        };
++        const detail = commercialDetailUrl(base, 42, filters);
++        const params = new URL(detail, 'https://local.invalid').searchParams;
++        assert.equal(params.get('search'), filters.search);
++        assert.equal(params.get('page'), '3');
++        assert.equal(params.get('customer'), '21');
++        assert.equal(params.has('mobile'), false);
++        assert.equal(params.has('tab'), false);
++        assert.equal(
++            commercialListUrl(detail, base),
++            detail.replace(`${base}/42`, base),
++        );
++    });
++}
++
++test('return does not reopen editor commands or route to external destinations', () => {
++    assert.equal(
++        commercialListUrl(
++            'https://outside.invalid/quotes/4?create=1&opportunity=9&search=solar',
++            '/quotes',
++        ),
++        '/quotes?search=solar',
++    );
++});
++
++// Exercise the actual unchanged editor calculation functions, without importing
++// React, rebuilding its engine or invoking any document/PDF endpoint.
++const source = ts.createSourceFile(
++    'quote-form.tsx',
++    readFileSync(
++        new URL('../resources/js/pages/quotes/form.tsx', import.meta.url),
++        'utf8',
++    ),
++    ts.ScriptTarget.Latest,
++    true,
++    ts.ScriptKind.TSX,
++);
++const names = ['roundMoney', 'lineAmounts', 'calculate'];
++const functions = source.statements
++    .filter(
++        (node) =>
++            ts.isFunctionDeclaration(node) && names.includes(node.name?.text),
++    )
++    .map((node) => node.getText(source));
++assert.equal(functions.length, names.length);
++const js = ts.transpileModule(
++    functions.join('\n') + '\nglobalThis.quoteCalculation = calculate;',
++    {
++        compilerOptions: {
++            target: ts.ScriptTarget.ES2022,
++            module: ts.ModuleKind.None,
++        },
++    },
++).outputText;
++const sandbox = {};
++vm.runInNewContext(js, sandbox);
++const calculate = (lines) =>
++    JSON.parse(JSON.stringify(sandbox.quoteCalculation(lines)));
++const line = (changes = {}) => ({
++    quantity: '2',
++    unit_price: '100',
++    discount_percent: '10',
++    tax_percent: '21',
++    total_with_tax: '',
++    is_selected: true,
++    ...changes,
++});
++
++test('quote calculation preserves quantity, discount and VAT', () => {
++    assert.deepEqual(calculate([line()]), {
++        subtotal: 200,
++        discount: 20,
++        tax: 37.8,
++        total: 217.8,
++    });
++});
++test('unselected options do not enter commercial totals', () => {
++    assert.deepEqual(
++        calculate([line(), line({ is_selected: false, unit_price: '900' })]),
++        calculate([line()]),
++    );
++});
++test('inclusive total retains existing rounding and discount reconstruction', () => {
++    assert.deepEqual(calculate([line({ total_with_tax: '121' })]), {
++        subtotal: 111.11,
++        discount: 11.11,
++        tax: 21,
++        total: 121,
++    });
++});
++test('fully discounted and zero VAT lines preserve existing behavior', () => {
++    assert.deepEqual(
++        calculate([
++            line({ discount_percent: '100' }),
++            line({
++                quantity: '1',
++                unit_price: '20',
++                discount_percent: '0',
++                tax_percent: '0',
++            }),
++        ]),
++        { subtotal: 220, discount: 200, tax: 0, total: 20 },
++    );
++});
++test('empty quote has zero totals without changing document numbering or state', () => {
++    assert.deepEqual(calculate([]), {
++        subtotal: 0,
++        discount: 0,
++        tax: 0,
++        total: 0,
++    });
++});
++
++test('commercial history guard runs before router, delegates when inactive and unregisters', async () => {
++    const listeners = [];
++    const originalWindow = globalThis.window;
++    globalThis.window = {
++        addEventListener: (_name, listener) => listeners.push(listener),
++    };
++
++    try {
++        const {
++            installCommercialHistoryProtection,
++            registerCommercialHistoryGuard,
++        } = await import('../resources/js/lib/mobile/commercial-history.ts');
++        installCommercialHistoryProtection();
++        installCommercialHistoryProtection();
++        assert.equal(listeners.length, 1);
++        let routerVisits = 0;
++        listeners.push(() => routerVisits++);
++        const dispatch = () => {
++            const event = {
++                cancelBubble: false,
++                stopImmediatePropagation() {
++                    this.cancelBubble = true;
++                },
++            };
++
++            for (const listener of listeners) {
++                listener(event);
++
++                if (event.cancelBubble) {
++                    break;
++                }
++            }
++        };
++        dispatch();
++        assert.equal(routerVisits, 1);
++        const stop = registerCommercialHistoryGuard((event) =>
++            event.stopImmediatePropagation(),
++        );
++        dispatch();
++        assert.equal(routerVisits, 1);
++        stop();
++        stop();
++
++        for (let index = 0; index < 20; index++) {
++            const obsolete = registerCommercialHistoryGuard(() => assert.fail('obsolete form guard retained'));
++            obsolete();
++            obsolete();
++        }
++
++        dispatch();
++        assert.equal(routerVisits, 2);
++    } finally {
++        if (originalWindow === undefined) {
++            delete globalThis.window;
++        } else {
++            globalThis.window = originalWindow;
++        }
++    }
++});
++
++// Different history entries must never be mistaken for a screen layered over
++// this form: doing so would silently skip the discard decision.
++test('encrypted cloned entry matches only the same history payload', () => {
++    const entry = { page: new Uint8Array([3, 12, 84, 6]).buffer };
++    assert.equal(
++        sameCommercialHistoryEntry(entry, structuredClone(entry)),
++        true,
++    );
++    assert.equal(
++        sameCommercialHistoryEntry(entry, {
++            page: new Uint8Array([3, 12, 84, 7]).buffer,
++        }),
++        false,
++    );
++    assert.equal(
++        sameCommercialHistoryEntry(entry, {
++            page: new Uint8Array([3, 12]).buffer,
++        }),
++        false,
++    );
++    assert.equal(sameCommercialHistoryEntry(entry, { page: {} }), false);
++});
++test('plain entries preserve context and missing entries do not qualify as overlay return', () => {
++    const entry = {
++        page: {
++            url: '/people/create?search=solar&page=3',
++            component: 'people/create',
++        },
++    };
++    assert.equal(
++        sameCommercialHistoryEntry(entry, structuredClone(entry)),
++        true,
++    );
++    assert.equal(
++        sameCommercialHistoryEntry(entry, {
++            page: { url: '/quotes', component: 'quotes/index' },
++        }),
++        false,
++    );
++    assert.equal(sameCommercialHistoryEntry(null, null), false);
++    assert.equal(sameCommercialHistoryEntry({}, {}), false);
++});
++
++test('unexpected cyclic history state falls back to the discard guard safely', () => {
++    const cyclic = {};
++    cyclic.self = cyclic;
++    assert.equal(sameCommercialHistoryEntry({page:cyclic}, {page:cyclic}), false);
++});

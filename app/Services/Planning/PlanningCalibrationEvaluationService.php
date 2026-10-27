@@ -82,12 +82,12 @@ class PlanningCalibrationEvaluationService
         ], JSON_THROW_ON_ERROR));
 
         return DB::transaction(function () use ($actor, $fingerprint, $improvement, $observed, $observedDelta, $originDelta, $planned, $proposal, $recommendation, $reference, $scenario): PlanningCalibrationEvaluation {
+            PlanningCalibrationProposal::query()->whereKey($proposal->id)->lockForUpdate()->firstOrFail();
             if (PlanningCalibrationEvaluation::where('fingerprint', $fingerprint)->exists()) {
                 return PlanningCalibrationEvaluation::where('fingerprint', $fingerprint)->firstOrFail();
             }
             $version = ((int) PlanningCalibrationEvaluation::query()
                 ->where('planning_calibration_proposal_id', $proposal->id)
-                ->lockForUpdate()
                 ->max('version')) + 1;
 
             return PlanningCalibrationEvaluation::create([

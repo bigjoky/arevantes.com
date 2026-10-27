@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\CompanyProfile;
 use App\Models\GoodsReceipt;
 use App\Models\GoodsReturn;
 use App\Models\Product;
@@ -20,6 +21,7 @@ use App\Services\Documents\PurchaseOrderConversion;
 use App\Services\Documents\PurchaseOrderEditor;
 use App\Services\Documents\PurchaseWorkflow;
 use App\Services\Documents\SupplierInvoiceExtraction;
+use App\Services\Finance\ReceivedInvoiceIdentity;
 use App\Services\Inventory\ProjectMaterialAllocator;
 use App\Services\Inventory\StockLedger;
 use App\Services\Inventory\SupplyOperationFingerprint;
@@ -103,7 +105,7 @@ class PurchaseController extends Controller
             'creditableShipping' => $purchaseDocument->type === 'supplier_invoice' ? $matcher->creditableShipping($purchaseDocument) : 0,
             'creditedAmount' => $purchaseDocument->type === 'supplier_invoice' ? abs((float) $purchaseDocument->creditNotes()->sum('amount')) : 0,
             'extractionComparison' => in_array($purchaseDocument->type, ['supplier_invoice', 'supplier_credit_note'], true) ? app(SupplierInvoiceExtraction::class)->comparison($purchaseDocument) : [],
-            'warehouses' => Warehouse::where('is_active', true)->orderByDesc('is_default')->orderBy('name')->get(['id', 'code', 'name']),
+            'warehouses' => Warehouse::where('is_active', true)->orderByDesc('is_default')->orderBy('name')->get(['id', 'code', 'name', 'is_usable']),
             'paymentSources' => $paymentSources->options(),
         ]);
     }
@@ -301,7 +303,10 @@ class PurchaseController extends Controller
         ]);
         $invoice = DB::transaction(function () use ($request, $purchaseDocument, $data, $accounting, $matcher) {
             $purchaseDocument = PurchaseDocument::lockForUpdate()->findOrFail($purchaseDocument->id);
+            abort_if($purchaseDocument->receiver_company_id !== null && (int) $purchaseDocument->receiver_company_id !== (int) CompanyProfile::min('id'), 422, 'La compra pertenece a otra empresa receptora.');
             $match = $matcher->match($purchaseDocument, $data['lines'] ?? [], isset($data['shipping_cost']) ? (float) $data['shipping_cost'] : null);
+            $issuer = $purchaseDocument->supplierIdentity();
+            app(ReceivedInvoiceIdentity::class)->lockInput($issuer['country'] ?? 'ES', $issuer['tax_id'] ?? null, 'invoice', $data['supplier_number'], $purchaseDocument->receiver_company_id);
             $issued = app(DocumentNumber::class)->next('supplier_invoice', $data['issue_date']);
             $reviewRequired = $match['matching_status'] === 'review_required';
             $invoice = PurchaseDocument::create(['type' => 'supplier_invoice', 'source_document_id' => $purchaseDocument->id, 'installation_id' => $purchaseDocument->installation_id, 'work_order_id' => $purchaseDocument->work_order_id, 'sales_document_id' => $purchaseDocument->sales_document_id, 'supplier_id' => $purchaseDocument->supplier_id, 'document_series_id' => $issued['series']->id, 'created_by' => $request->user()->id, 'number' => $issued['number'], 'supplier_number' => $data['supplier_number'], 'status' => $reviewRequired ? 'review_required' : 'registered', 'matching_status' => $match['matching_status'], 'match_variance_amount' => $match['variance_amount'], 'issue_date' => $data['issue_date'], 'due_date' => $data['due_date'] ?? null, ...$match['totals'], 'notes' => $purchaseDocument->notes, 'locked_at' => now()]);
@@ -365,6 +370,8 @@ class PurchaseController extends Controller
             $tax -= $shippingTax;
             $amount -= $shippingCost + $shippingTax;
 
+            $issuer = $purchaseDocument->supplierIdentity();
+            app(ReceivedInvoiceIdentity::class)->lockInput($issuer['country'] ?? 'ES', $issuer['tax_id'] ?? null, 'credit_note', $data['supplier_number'], $purchaseDocument->receiver_company_id);
             $issued = app(DocumentNumber::class)->next('supplier_credit_note', $data['issue_date']);
             $credit = PurchaseDocument::create([
                 'type' => 'supplier_credit_note', 'source_document_id' => $invoice->id, 'installation_id' => $invoice->installation_id, 'work_order_id' => $invoice->work_order_id,

@@ -1,0 +1,2023 @@
+{
+  "initial_pending_files": 241,
+  "head": "e4484989e160c548eac0ae50120d08a8ef640962",
+  "note": "Point-in-time inventory; excludes itself. Concurrent changes outside R02 are preserved.",
+  "files": [
+    {
+      "path": "app/Casts/PreciseInstant.php",
+      "sha256": "5c11e3cbf98ef81e90e0f7f381f25addb0b0257a0efffb9c1833379a67b70926",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "app/Console/Commands/AuditTemporalInstants.php",
+      "sha256": "9a235a6f4c764b6245d3d74c635a7040af3088fc46028d1e871d643a596947eb",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "app/Database/InstantBuilder.php",
+      "sha256": "326341cace008f7862f489957dd10daf5d995f34f8b2ee5c4350ddb6179c66e8",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "app/Http/Controllers/GoodsReceiptCorrectionController.php",
+      "sha256": "5e218149ac0ae5dcd6f894e4574be29f411ec633a2100f987bf7b36aea4e686e",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "app/Http/Controllers/ProjectDossierController.php",
+      "sha256": "be3bf344014195fcd6419606c30e4771742d118989256b848d024444096dfaac",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "app/Http/Controllers/QuotePaperAcceptanceController.php",
+      "sha256": "7243a872c2296db330dc098ecf67cc21b3fa3f2f25a5dc1ec509146f34a18eb3",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "app/Models/Concerns/HasPreciseInstants.php",
+      "sha256": "2bfe24251ae3e18bd8c37d117cdf723ad0f7f894002ded7444295c050526782e",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "app/Rules/SafeCompanyLogo.php",
+      "sha256": "b8018875118085824b0ee4411e958f81b1e8f98dc550ea2c75afe29f222a4a79",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "app/Services/Documents/SalesDocumentCreation.php",
+      "sha256": "4fcd06b4dc7a799b388433a5cf1cbfa725ac44ca48bdaa15b1a7b548eb6c3447",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": false,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "app/Services/Projects/ProjectDossierClosure.php",
+      "sha256": "4f58f1beaf2d17ee451ca849022e79c7e7b6780ba27e1a373d0287c8603eddf0",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "app/Services/Projects/ProjectJourney.php",
+      "sha256": "e669e0a31dd8f556249f32a38b47aec7b4b08ae4ed7a9da84dfba6125cd5bda4",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "app/Services/Work/TechnicalExecutionGuard.php",
+      "sha256": "9a4f0ec65618e2257e23fdba62cd93294bf162ba03d77d2ee9e938c8216f0097",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "app/Support/CompanyBrand.php",
+      "sha256": "910df47fa85325324aff5f1704c3224a69bf6b4604c4a0950b0b8a48950be4bb",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "app/Support/Time/BusinessTime.php",
+      "sha256": "c783e0506bac45e566fae8f650e2464cd85f6f1ee5597a278a32287245eba22c",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "app/Support/Time/InstantSql.php",
+      "sha256": "31b06ec1ff5a14e70420ec9b0372239f8ae1cc1fa698ed54c691f2c62ffb882f",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "database/migrations/2026_10_24_090528_add_journey_evidence_and_closure_fields.php",
+      "sha256": "2095c08a721642211b9e1fff58bdf61f047dc3255ac94d4b256e355a7caae043",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "database/migrations/2026_10_24_091829_add_delivery_requirements_to_project_journey.php",
+      "sha256": "272595de70126ae0440c85edb0c910eb9e1410b1bb7c0ea467483d9551e886aa",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "database/migrations/2026_10_24_092106_add_dossier_revision_to_installations.php",
+      "sha256": "41dcf05f63b5f5e8e62b40971dec6e0e0ee6a19ea32fdeb7900a4d47342ca970",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "database/migrations/2026_10_25_030000_preserve_critical_instants_with_utc_companions.php",
+      "sha256": "c710c03cde45db3b98f302e04b0d90990b95711d027e97c67f9f5e592c22e710",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "database/migrations/2026_10_25_031000_preserve_reschedule_instants.php",
+      "sha256": "50c2dd3764f7f2c9d7b288f12e34b195fbb1fa1f929bafc6bbc05f2630ebad70",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "database/migrations/2026_10_25_040000_guard_precise_instant_writes.php",
+      "sha256": "ff7aaf4c1a45ab887a9405d01ab4dad1023f59c8e345b60d01599e0f96904355",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "database/migrations/2026_10_25_041000_index_precise_instant_queries.php",
+      "sha256": "514c81f5fdbb3d5f86fce74e8d735af23a6d171d7d2cb3487c60db7703ecc26d",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "database/migrations/2026_10_26_090000_preserve_sales_creation_idempotency.php",
+      "sha256": "c70d4d5c439ac204baf84586bd59d69027df3403f2a2733d582e54af51e2116a",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": false,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "database/seeders/ProjectJourneyDemoSeeder.php",
+      "sha256": "0e7a93c73bb2b654c99ddd68585b77923d9c08ecc52669fef1b1324ca6bc6c86",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "docs/commercial-mobile-01-review.md",
+      "sha256": "73bb8d1fcd227683c76e6aba616ef0e75128e8c0a3822b7a02e36cad9f8fff2a",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "docs/commercial-mobile-01/android-back-keeps-form.png",
+      "sha256": "23c41dfb55d23182754ff8e301161aa718d6959911f19df8bb3835f5da3ab97f",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "docs/commercial-mobile-01/android-crm.png",
+      "sha256": "1b85ddd3f78250e0210da25fb1fc84a826c2da689639dddc8e93f696af795f5e",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "docs/commercial-mobile-01/android-customers.png",
+      "sha256": "d2224fb2323bd07a94135b0ea2ff8fa03eb9feb488420e07b6cf0976aae6c5f7",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "docs/commercial-mobile-01/android-quotes.png",
+      "sha256": "47a868a9dd45000a49ee290e910dc4f890a4776a43cf97dc1e0f85c040329b56",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "docs/commercial-mobile-01/desktop-crm.png",
+      "sha256": "f6a3a6e64759d8db5d93f41057a0140f35ac23d966d608bd28807df6a6373f4a",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "docs/commercial-mobile-01/desktop-quotes.png",
+      "sha256": "792f2665df7299e2c355037982c431a18d5f3aaae143f0c8dbd0da112293fc93",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "docs/commercial-mobile-01/iphone-crm.png",
+      "sha256": "00e8da2049d1194a8bc6264975b12ca5919e40849dc81d5da4bb523e4d41a3b7",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "docs/commercial-mobile-01/iphone-customer-detail.png",
+      "sha256": "9bb6d82e474ff5e3a2bdb3ba9c9eb3a3950f23a589d58a14c6d64d84c85f1dd7",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "docs/commercial-mobile-01/iphone-customers.png",
+      "sha256": "a495bee75a314a4c97c98c978562c485509f6419fea9f4f07f8c3d7b9abc4adf",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "docs/commercial-mobile-01/iphone-draft.png",
+      "sha256": "5ac08e15f19abc1d3c74f7976b70bbd18c0cec344a3bb11b45de9dbdc00d52da",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "docs/commercial-mobile-01/iphone-quote-detail.png",
+      "sha256": "988eebf351126c4b2782a9cbb3fc7f2c77a779b1f36f074f23c705663f42de22",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "docs/commercial-mobile-01/iphone-quote-lines.png",
+      "sha256": "cf232b8acc8139e91595cfece9c52406b7137fa2d206147fb7faecfbf8e6c711",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "docs/commercial-mobile-01/iphone-quotes.png",
+      "sha256": "af3e16e29fde1fc3f0a230b9e1984f5ef2d4ac46d42276a1d22fcfd6df0c645f",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "docs/commercial-mobile-01b-review.md",
+      "sha256": "2c61f899a86d2a730f5acf288c9198be8782b62f8659654fda5b5108e1cf7348",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "docs/commercial-mobile-01b/breakpoint-1023-before.png",
+      "sha256": "38be635c1f6ee7d27ea236547b0f193cbf329a3b6b709c748e25dca7c1cb9ec7",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "docs/commercial-mobile-01b/breakpoint-1024-after.png",
+      "sha256": "e50117c3c7955d163f4fdf02d6401d6adbe176665713163fd810ff115c26aec4",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "docs/commercial-mobile-01b/breakpoint-observation.json",
+      "sha256": "ef51a38119442bf4b85f20e765389ea0be241c0c687f442556b6ddaffaddcd15",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "docs/commercial-mobile-01b/delivery-manifest.json",
+      "sha256": "628c1dc8e70512284ab6cd3be099c9b06114cc3c30f53c53bd6bf04aeb2a2755",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "docs/commercial-mobile-01b/delivery.patch",
+      "sha256": "d6df8b48e0fa489c10f095d3ef16aca498dd0b6ea0be3b5400d0b621bf94eefc",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "docs/commercial-mobile-01b/global-task-own-confirmation.png",
+      "sha256": "522be2d65d65bbd4574b5ed3785a916b73f6e1fd7382f8e93d88f48801409243",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "docs/commercial-mobile-01b/menu-return-keeps-draft.png",
+      "sha256": "275f088463ca2ea35150d98dd15f14cad3427c88f11936596cfb51a5431e0c78",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "docs/commercial-mobile-01b/source-inventory.json",
+      "sha256": "923444aed9700f83d94bb98427a7f9a23d9776d6f5f161fadd3c586189e9736a",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "docs/commercial-mobile-01b/two-lines-after-menu.png",
+      "sha256": "4f41e91aed2647c9e31b6c5de908324834fe32cdf98a698faee92fc969ac5b22",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "docs/commercial-mobile-01b/viewport-1023.png",
+      "sha256": "757e8acb6f5089bbe43cfc775d8b0af3d2f89af0180be5a579b502c8b9a85a93",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "docs/commercial-mobile-01b/viewport-1024.png",
+      "sha256": "8c7b085a54ee203b5dd82b40d3daa21e852357f72c803e4dd8a308dcd266ed70",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "docs/commercial-mobile-01b/viewport-1440.png",
+      "sha256": "6f2e58a29b952476aa35433f7ac44091f8b0ae7591f05a05f5d189e96ee04c31",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "docs/commercial-mobile-01b/viewport-320.png",
+      "sha256": "642dfcbd637aa2ccc44357c5242affa812e5d773dc44ad72f7c3ab339512cc4e",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "docs/commercial-mobile-01b/viewport-390.png",
+      "sha256": "7dac89acb598c858798bfcdd6bb815c719833a782d470b32a3bd2664591ba652",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "docs/commercial-mobile-01b/viewport-412.png",
+      "sha256": "7295b0c14525a3935ec42145f4ea62d310970c9dd39951b7e1d0ee09bb87535a",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "docs/commercial-mobile-01b/viewport-768.png",
+      "sha256": "a5724cced81e90d913395d57f35291a135a6b81c2fc88ab32df57323e15c4cd9",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "docs/commercial-mobile-01b/viewport-matrix.json",
+      "sha256": "7c279081650c9673527c0dc3df250cca07755b3aadcf0d435ce625c4458f0aac",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "docs/commercial-mobile-01c-review.md",
+      "sha256": "58bda5dfb62517c028677d436b582195f83844be835fd99c057f25cfa8c125f5",
+      "classification": "r02_evidence",
+      "present_before_01c": false,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "docs/commercial-mobile-01c/case-a-final-ax.txt",
+      "sha256": "6fe66eabb4482407d473782fff811d700f142dd2388067cd3011146906bc107f",
+      "classification": "r02_evidence",
+      "present_before_01c": false,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "docs/commercial-mobile-01c/case-a.json",
+      "sha256": "069eb975129a03b9781356d5cb19647ceadf27fb2b658b182b3c5bfec1bcfccc",
+      "classification": "r02_evidence",
+      "present_before_01c": false,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "docs/commercial-mobile-01c/case-b.json",
+      "sha256": "63dd16f05ed95e436a2227d0596a322c8d7df9eda45140248119e7482f025e82",
+      "classification": "r02_evidence",
+      "present_before_01c": false,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "docs/commercial-mobile-01c/case-c.json",
+      "sha256": "47c26c854425c8d8145fecfdaf00df26bc61bbcaaaf053486b8348638d0eb453",
+      "classification": "r02_evidence",
+      "present_before_01c": false,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "docs/commercial-mobile-01c/case-d.json",
+      "sha256": "f2b259d8b30ad9e6e87c68f1b8afee63f6160c92ebe3cf78c0c3deac5efe00db",
+      "classification": "r02_evidence",
+      "present_before_01c": false,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "docs/commercial-mobile-01c/case-e.json",
+      "sha256": "cc4b5d033184d8b0ea8f5afd52156512701f24ddf7bb4820857e40eb36077f63",
+      "classification": "r02_evidence",
+      "present_before_01c": false,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "docs/commercial-mobile-01c/case-f-1024-ax.txt",
+      "sha256": "c0d0e5636b2a8a68f1a8bb116c3f2f285470d6f394ca0eee270e5d97b599c4db",
+      "classification": "r02_evidence",
+      "present_before_01c": false,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "docs/commercial-mobile-01c/case-f.json",
+      "sha256": "0e25f875076fc053eeb7002c2e32e2db16c82bceef14ac19cf41088d3e54f595",
+      "classification": "r02_evidence",
+      "present_before_01c": false,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "docs/commercial-mobile-01c/customer-1023.png",
+      "sha256": "753ca235f018554beaaefddbd54273f77c4073ad7ef4418dc43136cd4bceaf26",
+      "classification": "r02_evidence",
+      "present_before_01c": false,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "docs/commercial-mobile-01c/customer-1024.png",
+      "sha256": "d49874586c81a0220871254ed9706fa5cde3987323200803924d3e04ad2cf990",
+      "classification": "r02_evidence",
+      "present_before_01c": false,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "docs/commercial-mobile-01c/increment-manifest.json",
+      "sha256": "7a42c5a5a4e31c7bea76b2e851269f97d3d9de5bdc5e307ccf6acee83917ef47",
+      "classification": "r02_evidence",
+      "present_before_01c": false,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "docs/commercial-mobile-01c/quote-1023.png",
+      "sha256": "1345ea0fef71736024a6aedfb1da418da3719a16247c8727641f901880aff4b0",
+      "classification": "r02_evidence",
+      "present_before_01c": false,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "docs/commercial-mobile-01c/quote-1024.png",
+      "sha256": "ca2b5bbec138fa01e98cbafa6dd20658b7ca21faf7959e4e727671f8d8ec12e8",
+      "classification": "r02_evidence",
+      "present_before_01c": false,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "docs/commercial-mobile-01c/r02-increment.patch",
+      "sha256": "a6b49a4401da52931ede9b40d4455c7ed6353c274b35d522b0aa7713f5adceba",
+      "classification": "r02_evidence",
+      "present_before_01c": false,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "docs/commercial-mobile-01c/task-1023.png",
+      "sha256": "7a5148e5f334cf80d64e2e80d22feb565a20efaae704d66603ea09e00d65b17e",
+      "classification": "r02_evidence",
+      "present_before_01c": false,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "docs/commercial-mobile-01c/task-1024.png",
+      "sha256": "227ae5fa2d54aaf483bca253e480d191c472af396f104ffaa8730d04b7b9f983",
+      "classification": "r02_evidence",
+      "present_before_01c": false,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "docs/commercial-mobile-01c/task-forward-desktop.json",
+      "sha256": "fe27f6734fb2701164837a6865611ce7bd791d23fc51230f49a036d8c45e9955",
+      "classification": "r02_evidence",
+      "present_before_01c": false,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "docs/commercial-mobile-01c/validation-response-desktop.png",
+      "sha256": "4013ab4b7135fac15f9061bcca3620e298e46e01d17ea117ee7e0aa32858c93b",
+      "classification": "r02_evidence",
+      "present_before_01c": false,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "docs/commercial-mobile-01c/viewport-1023.png",
+      "sha256": "c859cf354654fa788d5a1c390dd8d764e3c6390645506196f96d2a55c42fd688",
+      "classification": "r02_evidence",
+      "present_before_01c": false,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "docs/commercial-mobile-01c/viewport-1024.png",
+      "sha256": "904241731c092b3c8e0a7088d758dca128d384019778c1a4556008ecdc128802",
+      "classification": "r02_evidence",
+      "present_before_01c": false,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "docs/commercial-mobile-01c/viewport-1440.png",
+      "sha256": "62430be37027c22774f2fb360255d4956283f867ea3d5397e9bd9da5da574279",
+      "classification": "r02_evidence",
+      "present_before_01c": false,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "docs/commercial-mobile-01c/viewport-320.png",
+      "sha256": "ef610ae704adc2edbd258a9fdaf81c8fb0344db428c87de1b9df8a62561f21f3",
+      "classification": "r02_evidence",
+      "present_before_01c": false,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "docs/commercial-mobile-01c/viewport-390.png",
+      "sha256": "05138d88f5f908d713ba5f77590179d838f9ab03eea133b043478522b84f166b",
+      "classification": "r02_evidence",
+      "present_before_01c": false,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "docs/commercial-mobile-01c/viewport-412.png",
+      "sha256": "a2a8bdc9768bf04e6113805250e9f380263dbf4c38e5c651e31a85d7fa9a931b",
+      "classification": "r02_evidence",
+      "present_before_01c": false,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "docs/commercial-mobile-01c/viewport-768.png",
+      "sha256": "7de16a4af15c8cccda4ca3cb917476c2970b91de28e5d4f0db9742c334892769",
+      "classification": "r02_evidence",
+      "present_before_01c": false,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "docs/commercial-mobile-01c/viewport-matrix.json",
+      "sha256": "c91c04c7b615b904c7b2a4906073e95a288b30d5e77237d6f8116e29c14b421a",
+      "classification": "r02_evidence",
+      "present_before_01c": false,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "docs/company-branding.md",
+      "sha256": "28abcb5b8760103fcfc65f491318023b0c1e1752597e4377a1bbb25fa76ee10d",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "docs/customer-installation-journey-review.md",
+      "sha256": "94858839cfdeede89a7e82abed4f3db5adea5e3d456205d835744982a819c8d9",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "docs/mobile-navigation-review.md",
+      "sha256": "b91212fc6723123c3b9f76682081593b9a4f86aa1018d750831384e7c0ca64fe",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "docs/pwa-e01-confirmation.png",
+      "sha256": "d9826d20182f3b2c9eaf58deda63ec6d44e95845dfb5cb5f8a24c8907dd624df",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "docs/pwa-e01-correction-and-staging-proposal.md",
+      "sha256": "0d05b05eeda794c544f9fc471c2e9ee0e09af55d573eac120d7e662345671257",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "docs/pwa-native-review.md",
+      "sha256": "3c22e12fd7f1b85fd8c80ed524105b665ec4836bfe92088a9a198d99375c6fd8",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "docs/pwa-private-staging-execution-plan.md",
+      "sha256": "494cd1285496d7f3d9a3a40bfc07dd24b30dcfb36ae7a95446beb403d16b1d8f",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "docs/pwa-qa-source-inventory.json",
+      "sha256": "ddd8689bd1dd94c57f413e7db06cf7c24f9112025d41e75891a2fd3d501c5ed7",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "docs/pwa-stabilization-desktop.png",
+      "sha256": "1aac94ac7c287328f729e1024e1e67534cb2fe91a5c147fc6b736bc048371075",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "docs/pwa-stabilization-mobile.png",
+      "sha256": "1d742bc73518792280667233622603348e3501b858753e6c08f0d184e50db0b7",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "docs/pwa-stabilization-real-device-testing.md",
+      "sha256": "0cc8451832eff5c75844e7a9afa060e694cac1458580ead79d06abc96452b166",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "docs/time-stabilization-02-verification.json",
+      "sha256": "2fd9b52573452480b07baa6ba06ee5659a9500d4126163546d736e042980f10a",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "docs/time-stabilization-2026-10-25.md",
+      "sha256": "28481895f9ca1ba05d922fa3ecbe0518157a6570f434b41d3c8b6509f6465101",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "docs/time-stabilization-second-increment.md",
+      "sha256": "4ce1fad60556f81cd4ac3bced980d9c3ab05c5b98088d3fc9481e808ed96a784",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "patches.lock.json",
+      "sha256": "8764c0517d7bac5f66b35ff31e43ff1b50447250a03612fb12f0ecef4f2e54c1",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "patches/README.md",
+      "sha256": "9c9e83a6aced98bb47b41bc272c54fe413a75142393a045073e4cb0904d977e9",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "patches/php-svg-lib-display-p3.patch",
+      "sha256": "815d7c4c1f83b8291bb105e7b85f1b3a5567582f915c8365b082d41c6d8d9539",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "public/brand/arevantes-logo-dark.svg",
+      "sha256": "269be205829ef12a4a39ab21e78543d3463664ea1a5eef4ba17d5195512526f9",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "resources/css/commercial-mobile.css",
+      "sha256": "a1eccd3284a1685b193a91de5083b6e63853dd4ae4d9b8fc568b7762655f1fd9",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "resources/css/mobile-app.css",
+      "sha256": "4efc6b8a1f0b0e8017d86818017eb9200623b88c6d95e0c37a421d4a3d521516",
+      "classification": "r02_code",
+      "present_before_01c": true,
+      "changed_since_01c_start": true
+    },
+    {
+      "path": "resources/js/components/commercial/mobile-opportunities.tsx",
+      "sha256": "77aa55a359ccb24bc1e27117f822431168c0cd7b89146626e7cc625083b8e3fb",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "resources/js/components/mobile/mobile-agenda.tsx",
+      "sha256": "d804c6dc8b3e1dc0a7c0ea4959a588cf6ec7f75f582c80bb5c8fd2eeafa26517",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "resources/js/components/mobile/mobile-experience.tsx",
+      "sha256": "1dd05adc245150d63ea8358ffe62dcc084180de113ac3bc50bd7248e90531bbe",
+      "classification": "r02_code",
+      "present_before_01c": true,
+      "changed_since_01c_start": true
+    },
+    {
+      "path": "resources/js/components/mobile/mobile-financial-home.tsx",
+      "sha256": "d02e57bb9e297eea3acaa63d3584531d23c4f88658e5e937eafd45dea4699f15",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "resources/js/components/mobile/mobile-task-form.tsx",
+      "sha256": "ba174ec4f1e450e8c9f03f01e20a11288d07a12970818d22f75876aa5f8a3ccf",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "resources/js/components/mobile/pwa-update.tsx",
+      "sha256": "0ab7fb8bb998cb61a26933fe4c83f54dcca3c723a766e3631e6586f74076dbc8",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "resources/js/components/project-journey.tsx",
+      "sha256": "0262f7279ae5561fe0fabc7bb85e584a385a7a2f9d74f9c5b4ffd070606e3e9a",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "resources/js/components/quote-paper-acceptance.tsx",
+      "sha256": "d9eb22683737a3396954d43e9d1e0d771a60274b37e7056786bca8ad63fb0c4e",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "resources/js/components/receipt-warehouse-correction.tsx",
+      "sha256": "fd1935f460a78223b7452c0e7018299b10da8f46f2c629424e4b9a0e921461e9",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "resources/js/hooks/use-commercial-form-protection.tsx",
+      "sha256": "ba29a3355171f652411e19e8c3f0e47649089e5c7ddecd1141128030a30c7bd4",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "resources/js/hooks/use-document-creation.ts",
+      "sha256": "0a3eb27d2fb0385e9931ce88ccb40bd0b773ddab2d9782535a6438e55069c43d",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": false,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "resources/js/hooks/use-mobile-viewport.ts",
+      "sha256": "abbd734c870c7c940fe154941839b8615704e4d24044cedfa204f28a8071d754",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "resources/js/lib/business-time.ts",
+      "sha256": "3ccf43b9e41214c9116942d36e9ab784a6369f81b12f760b2c6222020d06fed1",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "resources/js/lib/company-brand.ts",
+      "sha256": "334e56a0121b7724b1a2c8a55dd1511355005e9d5a8238d09d9e1def3c9aedbb",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "resources/js/lib/document-operation.ts",
+      "sha256": "f920cb5a3dc8a502cfca9c68fc5d0fc218cf07c279f9ea9324469c95ae6560be",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": false,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "resources/js/lib/mobile/commercial-history.ts",
+      "sha256": "b203d47e184bad7486b861401e162c5648deffac7a468ffb9eb4e9f8c3aa3649",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "resources/js/lib/mobile/commercial-navigation.ts",
+      "sha256": "5471c7d146ab34c1e033c1a5fdfe3c95e39f4f810756c2cb8ec774de81248e2b",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "resources/js/lib/mobile/navigation.ts",
+      "sha256": "ff13c7188ad83a1720596ecc3e3c6098c06b224d28d6233513b8fd1077fe2174",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "resources/js/lib/mobile/task-draft-guard.ts",
+      "sha256": "3a2db2a7294a1c7e9a671b4802e3faedd246512785ef62e610755abc112a2020",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "resources/js/types/mobile.ts",
+      "sha256": "90531d68b06a464a03df859f385fd17f534d461293de72edf913688a54485fac",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "tests/Feature/CompanyBrandPdfTest.php",
+      "sha256": "67412d0243f24d5d21c6bf880566d34f429a7a0d9db10a8efc3de61df13c8eca",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "tests/Feature/EconomicConcurrencyTest.php",
+      "sha256": "17a412b3870a2236e35a21f7435a66b05dcd866975a0e3940e891e59e1deb0c3",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": false,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "tests/Feature/EconomicIntegrityTest.php",
+      "sha256": "853a8a4154d9b6352e9bd231e9c17b1cd8f5ba6355d453cc69a14478a8d7348e",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": false,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "tests/Feature/GoodsReceiptWarehouseCorrectionTest.php",
+      "sha256": "30f75c2c9f4780ff70d5c948b9a0451ff8e8d5242b363a82e2a6f11ca6653995",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "tests/Feature/MobileTaskSubmissionTest.php",
+      "sha256": "4bd69d41fe35c74b88522fa84c8e929efe49f2b0db92b4fe681365cf25481618",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "tests/Feature/ProjectDossierClosureTest.php",
+      "sha256": "b7eecdd1e6de84ac634a2d67e29e2ddf806c2bc039929e1a2a8821d26d522a3a",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "tests/Feature/ProjectJourneyConcurrencyTest.php",
+      "sha256": "f65cb9790e3b87c343474902f47be41c111e32347d74e2b734eea62225b30649",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "tests/Feature/ProjectJourneyWorkflowTest.php",
+      "sha256": "40d4447a4b9dd3b9818be6a8eba3d9af44f465a54281d90bc8f8ba1745355c0e",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "tests/Feature/TemporalConcurrencyTest.php",
+      "sha256": "784c8ecef7ad9ba56427ff1107dcb11d190e8c2b35db5086348e1f43f2d8ebd8",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "tests/Feature/TemporalInstantsTest.php",
+      "sha256": "036bb7b0bbb2dd7638b1465385da36ee4a1c0b1a9ac21da0881558ed6a9e0c1c",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "tests/Feature/TemporalIntegrityTest.php",
+      "sha256": "a2fac0f0b2c699b1a88b9faf14b89c4057c04dc0ccbd81ccaad050174186b28a",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "tests/Feature/WorkOrderEvidenceRequirementsTest.php",
+      "sha256": "eafb570eb4327040d7130d97ad18a8fccc587c4b80d24cf4cd7cf9cd4c4f1b41",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "tests/Support/economic-concurrency-worker.php",
+      "sha256": "1b02d4ebcc74824ad2cbc9771fe7a6ff2b117fa24a1a263345790eb4d6fe4608",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": false,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "tests/Support/journey-concurrency-worker.php",
+      "sha256": "7a64b0480ff15bd3e5b5a5563648cb623f432f3d2999e9a1f34a536c2458b467",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "tests/Support/temporal-concurrency-worker.php",
+      "sha256": "da9670dab2de7ad19122481ef9837f798b4a7469ff5060d0d2d0e78051e28d24",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "tests/Unit/SvgDisplayP3Test.php",
+      "sha256": "57436ab3fb564862ba83e9dd63548fa36a7b0394d1e9d203b8478c7a74ef1189",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "tests/business-time.test.mjs",
+      "sha256": "74668b587c544ead634045dd4aeef2e36cf939338b5c6d67baa942633cf7396d",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "tests/commercial-mobile.test.mjs",
+      "sha256": "03a9a045b43d462817e20f0a98a5af51632452ae421906f5e82978e900503e95",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "tests/company-brand.test.mjs",
+      "sha256": "25bf6255ed4fc57195fc48867c0a689e3b75ad95a68397b83aeedbbb270e616d",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "tests/document-operation.test.mjs",
+      "sha256": "e684879fe96ecc95eca1819b00b7074ee9bfb1c073db5244b0bed9d38c1f9608",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": false,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "tests/mobile-navigation.test.mjs",
+      "sha256": "112121aa0c29da01eda40c0c7adce4ca37bb37847da9312cca2c31641eb4e266",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "tests/pwa-navigation.test.mjs",
+      "sha256": "b9a324b4694aa82a5c97ec1da39b1934bee26f1527d15efd5a6cd3e87295f07c",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "tests/responsive-shell-continuity.test.mjs",
+      "sha256": "8c685f72b32e9bc7d8e3df5f43778c8c3a03462fedd6ebfe51fc06174a4327f7",
+      "classification": "r02_code",
+      "present_before_01c": false,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "tests/task-draft-guard.test.mjs",
+      "sha256": "c06588ff1e68361f3a2ce1f2bb0b52f3857f44c1f9b72c8880ad332c76af9889",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "app/Http/Controllers/Api/Mobile/V1/ActivityController.php",
+      "sha256": "811d1f4cf40835254c002f5b6b56c78a7dbca3a209b88b86928d199522afdb68",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "app/Http/Controllers/Api/Mobile/V1/CommercialLeadController.php",
+      "sha256": "f02836bd6996e50bcd4239d052c4bdd94a3fabdea83c3320081a23bfd7be57ae",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "app/Http/Controllers/Api/Mobile/V1/WorkOrderController.php",
+      "sha256": "b377bb6cbd21b9019a03b9da68cef6143ab48f730b74750ac319495177e106da",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "app/Http/Controllers/BankingController.php",
+      "sha256": "32c3c01000041a3b0b287cd6ec4817da7a3e654c842f9bb0eb4e8bc87cf17fc6",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": false,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "app/Http/Controllers/CustomerPortalController.php",
+      "sha256": "493920ab40e5c36521ccbfa612309647d2e1ce1af66b22f146298214a7d03672",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "app/Http/Controllers/DashboardController.php",
+      "sha256": "067d930247b813bcd4851093a42b7ed0c379f90d57387df9b6c609233e13ad68",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "app/Http/Controllers/DocumentDeliveryController.php",
+      "sha256": "7412db939b168debc8d237da9fbf6d4bbd92e0c21917ce9dfa1850bad96aa433",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "app/Http/Controllers/ExpenseController.php",
+      "sha256": "81bdf2925770e93772acbf2fae5b96d26c17e14b11da8e6d3988d9782105599b",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": false,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "app/Http/Controllers/FiscalSettingsController.php",
+      "sha256": "76932a82ae7e125600b25f0de63cfc2095ae8ee4c055ed444d170aa9f3bfa827",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "app/Http/Controllers/OperationsController.php",
+      "sha256": "e84e164f5fe17e90534ccee21bf4fc96cc847a9a700da761314a57b16620f991",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "app/Http/Controllers/OperationsWorkspaceController.php",
+      "sha256": "eb8541d254f029e7ca32a4ce59c1efd1cfb775724c01fb153600395e64df26ca",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "app/Http/Controllers/OpportunityController.php",
+      "sha256": "ba840341e9546cc289360aedc42e1eb29fd78870de5b51b060f4ee51a2ab72c7",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "app/Http/Controllers/PlanningScenarioController.php",
+      "sha256": "bac129d959e363428fb42a3889835ad8f091766924a9f45edc799989b85f2fee",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "app/Http/Controllers/PortfolioProjectAdminController.php",
+      "sha256": "40a8d6aa950f4ecfb3199c56ddebbc390a9d249508774f35f506e2c84dfd2227",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "app/Http/Controllers/PortfolioProjectImageController.php",
+      "sha256": "309cb39cb2f07821b59f029727aa00c7c14906e81a4b3f2539e045ebffad6673",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "app/Http/Controllers/PurchaseController.php",
+      "sha256": "ac64171aa41d960646ef2316880420fa278f0e071d1235b73ffa8e1b5557b9e1",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "app/Http/Controllers/QuoteController.php",
+      "sha256": "71ed629abcfa5508e5ccd99abfa106a60d9867280a7c173973f4fecc4ea3ac95",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "app/Http/Controllers/SalesDocumentController.php",
+      "sha256": "f9994d962102687f04d537c3a7a0e12a485b504e679085e0ee19d4d61d374677",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": false,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "app/Http/Controllers/SupplyWorkspaceController.php",
+      "sha256": "6fb873a8cffb5bbfa6bf769c753c94b8187fa2c587b98f92aeb4527667ff94f5",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "app/Http/Controllers/WebsiteContactController.php",
+      "sha256": "cbede812bd1c1dc91733ec0f191574e5e86ee99ed9bdc21c0ca316e9f8a1b14a",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "app/Http/Controllers/WorkOrderController.php",
+      "sha256": "6db49c249fb2ff70adacf99a13ec83f4cf451515e35f31f508295be5d884d980",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "app/Http/Middleware/HandleInertiaRequests.php",
+      "sha256": "042b896f8642c08ef772cdabff1d58d1c018c417154a53bbc224d0d55e9cacb7",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "app/Models/CrmActivity.php",
+      "sha256": "4c25cd8a5a461d5b8aa9a96cc8d9b38e3c416d600f7e3fa16fe21df9448b6fd6",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "app/Models/CustomerPortalAccess.php",
+      "sha256": "5f9775637194b16af4a0443df084676ed116a1142df8fdddd708900e241a0f72",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "app/Models/DocumentDelivery.php",
+      "sha256": "7c2930bd7d68a8f1bfca14c6f4951084b9dc9e9d28f261012ef6040de89dc3a2",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "app/Models/Installation.php",
+      "sha256": "f35836d5e8a64f512813b9adc74c23bbbf582fdcf152f9ed577cb1ee26fb8312",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "app/Models/Opportunity.php",
+      "sha256": "9e8bf9bc36bc979bd2f43d966a838d47efef9d28dcb3b3852d8b85ed388da86d",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "app/Models/PlanningScenario.php",
+      "sha256": "76555de1e5052951233f5db34c9784760d64c45903c040ee71651c806e94884c",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "app/Models/PortfolioProject.php",
+      "sha256": "8435806f77c38e94be4cb70b6bdae106671ef6086d9bd408ef0523a5b67f30fc",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "app/Models/QuoteStatusHistory.php",
+      "sha256": "edf6cfe166fcdb5e93f8311585419bf253fe85708ffb244efe916d44b8ea456e",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "app/Models/SalesDocument.php",
+      "sha256": "6a63cbc5b1fa12255f1c533b07e0a1072c951d2bb4f20042c8354e851350a0b9",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": false,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "app/Models/TimeEntry.php",
+      "sha256": "037c8a2e727daf070489b849ea0f032d79c82872f3f5352dc02a60fd2974b526",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "app/Models/WorkOrder.php",
+      "sha256": "8d53609bffd15f5dac6f4b5413ade73bb8f2d909ba4f134a190170f132b415bf",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "app/Models/WorkOrderAttachment.php",
+      "sha256": "dba641f1ef05fd116fc84b4e168d612a8abb3d78676cc3d5ecf17cb9a2838814",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "app/Models/WorkOrderReschedule.php",
+      "sha256": "03c69ac3500d628ae83fe6ad828c1a7c287741ec8bd073a04844b92773f31c0d",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "app/Observers/WorkOrderObserver.php",
+      "sha256": "0f998744a3ed2f8a37844486a4586bed4992945d3479e87f07c63a4edac27dd6",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "app/Services/Accounting/AccountingSynchronizer.php",
+      "sha256": "d43a1e78bbe4c6eb477dbc82cc21142028f0753ca755f0b9feda3b98558b4132",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": false,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "app/Services/Accounting/IssuedInvoiceCorrection.php",
+      "sha256": "948a0c75d09466a1174af3555c695c558f655752f7d71b3c7d2a0a7c90dcc1d7",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": false,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "app/Services/AfterSales/ServiceCycleWorkWorkflow.php",
+      "sha256": "ce53c78571cab1ad722826a1a726b1137c05b01cb2649ca509f6d866fd0c6188",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "app/Services/Analytics/AnalyticsService.php",
+      "sha256": "dcedcd6f25d15c3800bd6bd98b668b7b24a4ddaf7ed5059c580a14cee78dc76d",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "app/Services/Analytics/RecurringServiceHealth.php",
+      "sha256": "70b45faa7bd67089d3fdd375c0f64b2c2064b4fce3ec126d65471ae34c4c2c81",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "app/Services/Crm/LeadResponseSla.php",
+      "sha256": "bdcb4f39b0d5fd226ce34e7c40bd0d56b795ea8327bc9fd52d2a5f89f6703ad8",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "app/Services/Crm/LeadResponseSlaNotifier.php",
+      "sha256": "5b8e539690a1ba183ebf3335c0cfff3543d4f9a63f34a6372bcf97ef667814d2",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "app/Services/Customers/CustomerWorkspace.php",
+      "sha256": "b38a55f8b78914c08b34daf76846494cbf836e56c31d30667e39216935c06fa8",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "app/Services/Documents/AcceptanceInvoiceNotifier.php",
+      "sha256": "a7d11d2fb65612b4d67e49fda5d29b3abd7a3f4066a8ea11a54a94ba39bb2309",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "app/Services/Documents/DocumentPdf.php",
+      "sha256": "cd1db8d10aac9693db8e368d7d6e0d1dbd0cc559c1f1e1e4dc17c80cafc90a62",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "app/Services/Documents/PurchaseDocumentPdf.php",
+      "sha256": "d297befdce51c6f5f5b39a6446854035b429f0bc8a50dcb1ad0d9c8ffdb435fe",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "app/Services/Documents/SalesDocumentConversion.php",
+      "sha256": "b577b08fa69847bf130d9af07c094c7662bfa9aaf406b93f7e271c036b5d1c45",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": false,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "app/Services/Engineering/EngineeringDossierWorkflow.php",
+      "sha256": "8d389c15d9a506d8293e67f456fa0b612c38289727330a4450d2917cc6bd61b2",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "app/Services/Engineering/TechnicalScheduleAvailability.php",
+      "sha256": "8c81df376f506db12cc7f2e5e7d6e4d59e040d7413881444efd352a9b8190112",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "app/Services/Finance/OutstandingBalanceCalculator.php",
+      "sha256": "5b55ddc8b56a11c5ef855aab5f62800706a6495daa612848a815028ab0a7af6a",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": false,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "app/Services/Inventory/ProjectProcurement.php",
+      "sha256": "0a473a45e82496cbcb36474f815873a08eb2a25f70fe2601fa4d599ed0cb4b5d",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "app/Services/Planning/PlanningCalibrationEvaluationService.php",
+      "sha256": "0d06332194048a8cc78fd916ae8b341e65204eed9274e5c152bc91f462136331",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "app/Services/Planning/PlanningCalibrationGovernanceService.php",
+      "sha256": "362174122daac8c23bb011d1d3f82522dca8f3c36041e1a0b862adc152288b65",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "app/Services/Planning/PlanningCalibrationProposalService.php",
+      "sha256": "574ba32a0507a84ceb672234c518797bdcf1048da9864110b33446d4e57c234f",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "app/Services/Planning/PlanningScenarioApproval.php",
+      "sha256": "b736ac7dd7f692329e9a87b3a8b129e848558f1455c1191e57de1d1531b718f9",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "app/Services/Planning/PlanningScenarioLifecycle.php",
+      "sha256": "bb88aa88aa3ec78034d9fc8217432aeb04c8639fd9bceeeb52794bb5836d96df",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "app/Services/Planning/PlanningScenarioRequestWorkflow.php",
+      "sha256": "7ab066619ee80cb7c354cfbc7299a38736e8ebf5920b1feec8d24fc4d97fac56",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "app/Services/Projects/ProjectWorkspace.php",
+      "sha256": "c6f250e9153d54d852a1793bc5ed141d4e7823a0b1523bb1f88603d587dfefe0",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "app/Services/Quotes/QuoteMaterialReadiness.php",
+      "sha256": "5190b8413220b6dac1ceb31cb02a4a76e5611d662a1002a988b099cacd99fd3c",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "app/Services/Quotes/QuoteOperationalPlanner.php",
+      "sha256": "f7fabb2e5af9af447ada213e683cfb86e04970e32a26618d7311c476f51984cb",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "app/Services/Quotes/QuoteStatusWorkflow.php",
+      "sha256": "32e5d21b8a778b329f52323a5992f68f0774a554547c6a01feb3079a682f82e4",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "app/Services/Quotes/QuoteWorkspace.php",
+      "sha256": "fa1cc95b169142444c614356fc2a5b1f1573542e6bc9d20c684e2375ee49324b",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "app/Services/Work/InstallationWorkOrderSynchronizer.php",
+      "sha256": "5e322689ce3abd698ddb74c18767ef9a58417d824a183fe04bfb073db93fbb0c",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "app/Services/Work/TechnicianSchedule.php",
+      "sha256": "b0fe0e2a557b8549e94a782e3bbebfde26d60982b5fe87621fd3d1e505943dc3",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "app/Services/Work/WorkOrderEvidenceRequirements.php",
+      "sha256": "69d1d5492a899f40b6d7fd6040606c48d60525d476255b719642f4360d95b5ff",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "app/Services/Work/WorkOrderFactory.php",
+      "sha256": "ae58a7e6b1f3d8a252fb348796b716e450da517668d966b9eb0eee7beca3a1b4",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "app/Services/Work/WorkOrderRescheduler.php",
+      "sha256": "e42c0865a4f561c5913c587715ff90783103b7bdc859203a7ca41abb6ced5952",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "app/Services/Work/WorkOrderStateManager.php",
+      "sha256": "cbe16e15198ac23c74d36b79b80854461aad61ce655ff876d02e138b2f756396",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "app/Services/Work/WorkOrderWorkflow.php",
+      "sha256": "0acf3e5e975d437f99b6d5054a53b83360a87a67f285f8dd02b7ab990db88082",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "composer.json",
+      "sha256": "72bf8a2b322d286a646033a5c2cb8b0e8a11b7fd2b899d5303536046aaf754f8",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "composer.lock",
+      "sha256": "62b5109b815735bab12250dfbd7d65a5eae2f075c54821a67a549aecfb0a4a8e",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "docs/roadmap.md",
+      "sha256": "103e76bee282b796acd2166471837cad327b20b12ca09739f064684452fc9cd8",
+      "classification": "shared_roadmap",
+      "present_before_01c": true,
+      "changed_since_01c_start": true
+    },
+    {
+      "path": "public/brand/arevantes-logo-light.svg",
+      "sha256": null,
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": false,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "public/brand/arevantes-logo.svg",
+      "sha256": "a8874c40789e6cc39489e0c0598784151c15cb8fd9cb9fad29407984d483907e",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "public/commercial-field-sw.js",
+      "sha256": "9fcbd5a27ec9624ffd163cd02bc9600158bf54c1df1ab3e591f81962bc05b05b",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "public/commercial-field.webmanifest",
+      "sha256": "e7917d6dded4d0d198411169a0156a89aacd4e2080f725cfb1ba34c79be519fd",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "public/pwa/offline.html",
+      "sha256": "cce660edeea471cf8ffeadeec16bab544033d21097c47a295ab94569a2346080",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "resources/css/app.css",
+      "sha256": "d91eab6f746664079fdaf023a9c4a09caba0aa8326de8ac17a9c2c13f6e44a27",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "resources/js/app.tsx",
+      "sha256": "f7f6361aeed7bf22046eabf6cc09564fa6a6c09eeaad0b10fc58cfd6ae050231",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "resources/js/components/app-logo-icon.tsx",
+      "sha256": "a712bd3c41c54ce7e1edbd2fbb39ec81672e9081d15e73275741335622859d3b",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "resources/js/components/app-logo.tsx",
+      "sha256": "19b0f37c483a5cb1b1350ce684720ebb78127cffbf67f0d2c7ef747001a97481",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "resources/js/components/app-sidebar-header.tsx",
+      "sha256": "152f34f0a97fdcc334431c5f5c59fdea5d13848c187a3cbfb04d072b4f302250",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "resources/js/components/app-sidebar.tsx",
+      "sha256": "7a2aacb3505a18af20068f3d91f48fc53cda2dc21c89710c6d8a4875a3664daf",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "resources/js/components/billing/workspace.tsx",
+      "sha256": "aba0a45f71842baf42f714bd4ce4212ea33df9b45432a96f104c689bb6a01007",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "resources/js/components/brand-logo.tsx",
+      "sha256": "ae2fe2e86ceb866894064953bd7e79ddd79a7cde8d38eab1f50b87f019c6138c",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "resources/js/components/commercial-field-pwa.tsx",
+      "sha256": "8961f381497745317f84677a96884ad90cedab0ad0b18c5ceff46284eba8c31c",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "resources/js/components/crm/crm-workspace.tsx",
+      "sha256": "dd7f2f4ba67dc47b09073c7a9cda5b4a10e32a4eac2585f5d2be7473e9f20dad",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "resources/js/components/customers/customer-detail.tsx",
+      "sha256": "103d486e8461b323757c6a2f93ff51d53c1554c8d7a2bd54de7ed0a340c0d2c4",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "resources/js/components/customers/customer-list.tsx",
+      "sha256": "ca0d74ab74bce91f5a5b8167c52c8979a874b6caef01da6924a3b6bb301eac8c",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "resources/js/components/dashboard/financial-home.tsx",
+      "sha256": "e375ea8d237dad96884ad8a25abdda7c8dc897c49e5c16cc4ab19f6fa59d6aba",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "resources/js/components/global-search.tsx",
+      "sha256": "fb651d0b20986b149cf360848357cc226361b5a3ab0e802f0987512f46011dc5",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "resources/js/components/nav-main.tsx",
+      "sha256": "d4e8fd2fbafbbd82f73507e35d9e0648a7c7ef4bc7db5e58ad09cf7e3e9d06b8",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "resources/js/components/operations/workspace.tsx",
+      "sha256": "22db77c3e562e601736f4f342a6223c0d19cb9c7c85c14f66913c72c2a67e6ee",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "resources/js/components/people/person-form.tsx",
+      "sha256": "e171a1963b3eff25eedcb07fcb9130499e6f241e9a8780072e3d15cab96a0ed6",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "resources/js/components/projects/project-detail.tsx",
+      "sha256": "e670e10f382c38fe2722c2884ba62aac672ebab5a94d4b86e5b2e65c747c6b18",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "resources/js/components/public/site-footer.tsx",
+      "sha256": "be382aa4d969a1ea665d4abd916430cb20741e13b7d7a52ad3a515411235adf1",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "resources/js/components/public/site-header.tsx",
+      "sha256": "43a05307a4cbd90289c6057041c41315805d497fdbba596e72ef8845b0decec0",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "resources/js/components/quick-create.tsx",
+      "sha256": "6568277eadcb33cd1dda6897c2d999d1f92f09f74ace2c49a5af8ff7b0515ae0",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "resources/js/components/ui/sidebar.tsx",
+      "sha256": "896c39eceb00df53679cb81e69fc14cc8cc5ae4bd1af022c64c2a18195438143",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "resources/js/i18n/catalog.json",
+      "sha256": "5dae9e9f77df9e70192024795fdb14cc243823ade3cfa9ca871cc2293149fe6c",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "resources/js/layouts/app/app-sidebar-layout.tsx",
+      "sha256": "f13a9f1b606d61d893fb339318c3f6897ffa62394161703d1c62c91f314761d3",
+      "classification": "r02_code",
+      "present_before_01c": true,
+      "changed_since_01c_start": true
+    },
+    {
+      "path": "resources/js/layouts/auth/auth-split-layout.tsx",
+      "sha256": "4a277fdf606e5fe18df62c1e9f5cc1529c049069886b94d4cc5cb65d560dd832",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "resources/js/pages/billing/invoice.tsx",
+      "sha256": "057ab7a39380d320f92a143435d9213d67d7e621e5239fdcc32d1472a18dc8bd",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": true
+    },
+    {
+      "path": "resources/js/pages/company/workspace.tsx",
+      "sha256": "e7d2a4c3a81ac4804820da701a51dea30b5341ce1523a7e5e6ecdc8b4224d09f",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "resources/js/pages/fiscal-settings/index.tsx",
+      "sha256": "068a7bd25392754356ee764fdf4b7bb0a9286690756d32ae8cb38204cd9f6a58",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "resources/js/pages/legal/show.tsx",
+      "sha256": "d4a8e67ee87676be99f43962107fcf305344fabbe82446a130ae454a8ae88dec",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "resources/js/pages/operations/agenda.tsx",
+      "sha256": "ff9722b42e3e165f0da99bd12d7e2c57a2e0f09161da2c0cf05ba14ebf9c7bab",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "resources/js/pages/operations/field-service.tsx",
+      "sha256": "3c8e6a31de795a923e484398dd2ddd73e7b450242851102766082e90a6cc6ac3",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "resources/js/pages/operations/index.tsx",
+      "sha256": "d356e1dfa855ff86598f26177ba45152fa505f1aa7deb2c617014fc87f4619b6",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "resources/js/pages/opportunities/index.tsx",
+      "sha256": "a829c70aac8807952781353e6922ba31a9828ba651215edec9612dbadd1d4dd1",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "resources/js/pages/opportunities/show.tsx",
+      "sha256": "a4d08e20c8c1353b3ceba0923234735c0becbbeaa386ec465d53644296bd4125",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "resources/js/pages/people/create.tsx",
+      "sha256": "22ecbd108f4b86fa4a2ae6efbc3dba0c4038c26bf9c97dffd07a21dbb2648e16",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "resources/js/pages/people/edit.tsx",
+      "sha256": "db24506728d530e5d27a1376a5233ec8efa4ca3df3518cadf8178abc3a16f83a",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "resources/js/pages/purchases/show.tsx",
+      "sha256": "b4f52a1bf6673ee712d3d27bb01ae7d3bd38c81b4078a0866236744fba79ee21",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "resources/js/pages/quotes/form.tsx",
+      "sha256": "5360963e9f13caecb864713cb6a37fe4d404ff3c8299deaf1edb68a7598dc60f",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "resources/js/pages/quotes/index.tsx",
+      "sha256": "068b100f6b163f08063e499786426ab37e83d1836e6d6ad1cd2ec30f239b421b",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "resources/js/pages/quotes/show.tsx",
+      "sha256": "c29483a802ef4e5e318e9eaae46cecc773d8fcbafc2c8d29de2904b44103541c",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": true
+    },
+    {
+      "path": "resources/js/pages/sales/form.tsx",
+      "sha256": "65fe8daddbc8ba2af8f1a29bf7b8ca5e1d576923d36ba908f2236efe7f8afd7f",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": false,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "resources/js/pages/sales/show.tsx",
+      "sha256": "cfd5f1879e6fca7993b35536cd649051cdc3ba78b4ffaf811ce7393bafa5a571",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": true
+    },
+    {
+      "path": "resources/js/pages/services/show.tsx",
+      "sha256": "0eff7a1f21e360eff17f48a9f28fa63362fe443fd51403d69dc5d7b58753040e",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "resources/js/pages/supply/order.tsx",
+      "sha256": "795e9d721afc247683389da33b630d7579106ffa47c40f25b91c7805bc2084b2",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "resources/js/pages/welcome.tsx",
+      "sha256": "89185790a2f16798482f43ee45f764f15eb08d8d54363593bdc3da80b3204892",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "resources/js/pages/work-orders/create.tsx",
+      "sha256": "e647c03aa84f975fc9d87ff873fc4e6c9b3ad4e01a69eb02c56ef2a67c0db1b9",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "resources/js/pages/work-orders/index.tsx",
+      "sha256": "b25b7d4455bd57d5c2162407d3e120d9b8426d8b7a6444a83e733dc554371b09",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "resources/js/types/auth.ts",
+      "sha256": "7a40c533e43a8938623cdddb5c3fba1debcda99915e1c9b12d8b4a33e2f01e95",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "resources/views/app.blade.php",
+      "sha256": "6fc1f2a329edf04ddeb84d143e25f8b1ae7f90dd8d45ac3a7743b7aa5d6c7d85",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "resources/views/pdf/purchase-document.blade.php",
+      "sha256": "fb3cbb1103f890e3393534978c6c65b7b24ba2a8f9552905d691222b45a99fd8",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "resources/views/pdf/quote.blade.php",
+      "sha256": "00bcd0c91dd2a1c7a3085dad48bb8021880750f75319943ab4ddb581f8efafb6",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "resources/views/pdf/sales-document.blade.php",
+      "sha256": "e98e01a7a864820fff9757d8b83021562dd897fab8529242a80e2eb0134d21ed",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "routes/web.php",
+      "sha256": "0243eff1ab2ec25fe4a6a61de4d368c968db7d0835240f87556d3c292a8d2946",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "tests/Feature/AcceptancePaymentWorkflowTest.php",
+      "sha256": "9522bf831a559ddc2b751c2fe043aca0d0ea25dcb855f41cfd72e4b16d74e363",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "tests/Feature/EngineeringDossierTest.php",
+      "sha256": "515800174ae37f44e33e1f91ff8744218c30a34098b940ad17f6d5bf78119259",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "tests/Feature/ExpenseEvidenceAndCompanyLogoTest.php",
+      "sha256": "dfc682303f61ed3ef51440f5cb515bf214312697077be08c995c0b81ac6cc9b8",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "tests/Feature/OperationsAdminTest.php",
+      "sha256": "3537b0023590475a34584b11687edcca8da69b438dfbaef0abcd01f327215f5c",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "tests/Feature/OperationsRedesignTest.php",
+      "sha256": "b19e91e39708b049fe0bb721d23115a997bd3adb4a56b97bef1403e5d8ca2b3e",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "tests/Feature/OpportunityTest.php",
+      "sha256": "4ea4906f40e937ed740bb37d8e2efb2ee21e4b147635517609f8a2b9b665aeb4",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "tests/Feature/QuotePdfTest.php",
+      "sha256": "8e770128bd0dd8a655a1f68c8d06289721a9c7887b3530fb8fb3cb421362bf1f",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "tests/Feature/QuotesRedesignTest.php",
+      "sha256": "735cd5111c27d19b1fa4701a664561d0fe48e490ac313eb24475ec2364aceb68",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "tests/Feature/SalesDocumentTest.php",
+      "sha256": "24f57b26be2ffcd2679e74bde94e818446fefd27f7afd5486fa01ff8f4e2f072",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": false,
+      "changed_since_01c_start": false
+    },
+    {
+      "path": "tests/commercial-field-pwa.test.mjs",
+      "sha256": "1410568c6bbb4c726b8c2441858c7c16983b49e2a03a7ac03f3a8c7722efc8be",
+      "classification": "other_existing_or_concurrent",
+      "present_before_01c": true,
+      "changed_since_01c_start": false
+    }
+  ]
+}

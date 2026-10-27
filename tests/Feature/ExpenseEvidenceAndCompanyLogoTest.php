@@ -7,6 +7,7 @@ use App\Models\Expense;
 use App\Models\ExpenseAttachment;
 use App\Models\ExpenseCategory;
 use App\Models\User;
+use App\Support\CompanyBrand;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -69,7 +70,45 @@ class ExpenseEvidenceAndCompanyLogoTest extends TestCase
         $this->post($url, [...$this->companyData(), 'remove_logo' => 1])->assertSessionHasNoErrors();
         $this->assertNull(CompanyProfile::firstOrFail()->logo_path);
         Storage::disk('local')->assertMissing($new);
-        $this->get('/company-fiscal/logo')->assertNotFound();
+        $this->get('/company-fiscal/logo')->assertOk();
+    }
+
+    public function test_canonical_logo_and_shared_branding_fallback(): void
+    {
+        $profile = CompanyProfile::firstOrFail();
+        $profile->update(['logo_path' => null]);
+        $brand = app(CompanyBrand::class)->for($profile);
+        $this->assertSame('/brand/arevantes-logo.svg', $brand['logoUrl']);
+        $this->actingAs(User::factory()->create(['role' => 'admin']))
+            ->get('/company/settings')->assertInertia(fn ($page) => $page
+            ->where('branding.logoUrl', $brand['logoUrl'])
+            ->where('branding.darkLogoUrl', '/brand/arevantes-logo-dark.svg')
+            ->where('branding.canonicalDarkLogoUrl', '/brand/arevantes-logo-dark.svg')
+            ->where('branding.custom', false));
+        $profile->update(['logo_path' => 'company/missing.svg']);
+        $this->assertSame($brand['logoUrl'], app(CompanyBrand::class)->for($profile)['logoUrl']);
+    }
+
+    public function test_svg_branding_upload_persists_and_respects_permissions(): void
+    {
+        Storage::fake('local');
+        $bytes = file_get_contents(public_path('brand/arevantes-logo.svg'));
+        $this->assertSame('a8874c40789e6cc39489e0c0598784151c15cb8fd9cb9fad29407984d483907e', hash('sha256', $bytes));
+        $this->actingAs(User::factory()->create(['role' => 'technician']))
+            ->post('/company-fiscal/branding', ['logo' => UploadedFile::fake()->createWithContent('logo.svg', $bytes)])->assertForbidden();
+        $this->actingAs(User::factory()->create(['role' => 'admin']))
+            ->post('/company-fiscal/branding', ['logo' => UploadedFile::fake()->createWithContent('logo.svg', $bytes)])->assertSessionHasNoErrors();
+        $profile = CompanyProfile::firstOrFail();
+        $this->assertSame($bytes, Storage::disk('local')->get($profile->logo_path));
+        $this->get('/company/settings')->assertInertia(fn ($page) => $page
+            ->where('branding.logoUrl', '/company-fiscal/logo?v='.rawurlencode($profile->logo_path))
+            ->where('branding.darkLogoUrl', '/company-fiscal/logo?v='.rawurlencode($profile->logo_path))
+            ->where('branding.custom', true));
+        $this->get('/company-fiscal/logo')->assertOk()->assertHeader('X-Content-Type-Options', 'nosniff');
+        foreach (['<script>alert(1)</script>', '<path onload="alert(1)"/>', '<image href="https://evil.test/x"/>', '<path fill="url(https://evil.test/x)"/>', '<foreignObject/>', '<path style="fill:url(https://evil.test/x)"/>', '<?xml-stylesheet href="https://evil.test/x"?>'] as $payload) {
+            $this->post('/company-fiscal/branding', ['logo' => UploadedFile::fake()->createWithContent('unsafe.svg', '<svg xmlns="http://www.w3.org/2000/svg">'.$payload.'</svg>')])->assertSessionHasErrors('logo');
+            $this->assertSame($profile->logo_path, $profile->fresh()->logo_path);
+        }
     }
 
     public function test_invalid_replacement_keeps_existing_logo(): void

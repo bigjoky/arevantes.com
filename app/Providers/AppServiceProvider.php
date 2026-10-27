@@ -89,6 +89,7 @@ use App\Observers\SalesDocumentFinancialObserver;
 use App\Observers\SupplierPriceObserver;
 use App\Observers\WorkOrderObserver;
 use App\Policies\CrmActivityPolicy;
+use App\Services\Finance\ReceivedInvoiceIdentity;
 use App\Services\Mailbox\NativeImapPurchaseMailboxClient;
 use App\Services\Security\PermissionResolver;
 use App\Services\Security\SecurityEventRecorder;
@@ -99,6 +100,7 @@ use Illuminate\Auth\Events\Login;
 use Illuminate\Auth\Events\Logout;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Database\Events\ConnectionEstablished;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
@@ -125,6 +127,27 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        $registerIdentityContext = function ($connection): void {
+            if ($connection->getDriverName() !== 'sqlite') {
+                return;
+            }
+            $register = function (\PDO $pdo): \PDO {
+                $pdo->sqliteCreateFunction('received_identity_correction_allowed', fn ($id) => ReceivedInvoiceIdentity::correctionAllowed((int) $id) ? 1 : 0, 1);
+
+                return $pdo;
+            };
+            $pdo = $connection->getRawPdo();
+            if ($pdo instanceof \Closure) {
+                $connection->setPdo(fn () => $register($pdo()));
+            } elseif ($pdo instanceof \PDO) {
+                $register($pdo);
+            }
+        };
+        Event::listen(ConnectionEstablished::class, fn ($event) => $registerIdentityContext($event->connection));
+        foreach (DB::getConnections() as $connection) {
+            $registerIdentityContext($connection);
+        }
+
         $this->configureDefaults();
         $this->configureAuthorization();
         $this->configureAreviaRateLimits();

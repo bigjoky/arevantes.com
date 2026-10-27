@@ -1,0 +1,218 @@
+Browser tab: 3, Title: "Nuevo presupuesto - Arevantes", URL: "http://localhost:8000/quotes/create".
+1 AXWebArea Nuevo presupuesto - Arevantes, URL: localhost:8000/quotes/create
+	2 container app
+		156 container
+			157 content list
+				158 link Description: AREVANTES · Inicio, Value: localhost:8000/dashboard
+			159 container Navegación principal
+				160 content list
+					161 link Description: Inicio, Value: localhost:8000/dashboard
+					162 container
+						163 link Description: Comercial, Value: localhost:8000/commercial
+						164 button (expanded) Description: Contraer Comercial, Secondary Actions: Collapse
+							165 image
+						166 content list
+							167 link Description: CRM, Value: localhost:8000/opportunities
+							168 link Description: Clientes, Value: localhost:8000/people
+							169 link Description: Presupuestos, Value: localhost:8000/quotes
+					170 container
+						171 link Description: Proyectos, Value: localhost:8000/execution
+						172 button (collapsed) Description: Expandir Proyectos, Secondary Actions: Expand
+							173 image
+					174 container
+						175 link Description: Operaciones, Value: localhost:8000/operations
+						176 button (collapsed) Description: Expandir Operaciones, Secondary Actions: Expand
+							177 image
+					178 container
+						179 link Description: Almacén y compras, Value: localhost:8000/supply
+						180 button (collapsed) Description: Expandir Almacén y compras, Secondary Actions: Expand
+							181 image
+					182 container
+						183 link Description: Facturación, Value: localhost:8000/billing
+						184 button (collapsed) Description: Expandir Facturación, Secondary Actions: Expand
+							185 image
+					186 button (collapsed) Contabilidad, Secondary Actions: Expand
+						187 image
+						188 text Contabilidad
+						189 image
+					190 container
+						191 link Description: Finanzas, Value: localhost:8000/finance
+						192 button (collapsed) Description: Expandir Finanzas, Secondary Actions: Expand
+							193 image
+					194 container
+						195 link Description: Fiscal, Value: localhost:8000/fiscal
+						196 button (collapsed) Description: Expandir Fiscal, Secondary Actions: Expand
+							197 image
+					198 container
+						199 link Description: Empresa, Value: localhost:8000/company
+						200 button (collapsed) Description: Expandir Empresa, Secondary Actions: Expand
+							201 image
+			202 content list
+				203 pop up button (collapsed) Description: Empresa y ejercicios fiscales, ID: radix-_r_1k_, Secondary Actions: Expand
+					204 text AREVANTES, S.L.
+					205 text Ejercicio
+					206 text 2026
+					207 image
+		3 container
+			208 button Mostrar u ocultar la barra lateral
+				209 image
+				210 text Mostrar u ocultar la barra lateral
+			211 container
+				212 image
+				213 combo box (collapsed, settable) Description: Búsqueda global, Secondary Actions: Expand
+				214 text ⌘ K
+			215 pop up button (collapsed) Description: Crear nuevo, ID: radix-_r_1n_, Secondary Actions: Expand
+				216 image
+			217 pop up button (collapsed) Description: Centro de acción, Secondary Actions: Expand
+				218 image
+				219 text 6
+			220 content list
+				221 pop up button (collapsed) Description: Prueba de plantillas, ID: radix-_r_1u_, Secondary Actions: Expand
+					222 text PP
+					223 text Prueba de plantillas
+					224 image
+			225 pop up button (collapsed) Description: Más herramientas, Secondary Actions: Expand
+				226 image
+			227 container Ruta de navegación
+				228 content list
+					229 link Description: Comercial, Value: localhost:8000/commercial
+					230 link (disabled) Presupuestos
+						231 text Presupuestos
+			10 heading Nuevo presupuesto, Value: 1
+				11 text Nuevo presupuesto
+			12 text Prepara la oferta comercial con artículos de catálogo o líneas personalizadas.
+			13 link Description: Volver, Value: localhost:8000/quotes
+			232 container
+				233 text Revisa los campos señalados
+				234 content list
+					235 container
+						236 AXListMarker • 
+						237 text El campo persona id es obligatorio.
+			14 container
+				15 heading Instalaciones predefinidas · plantillas comerciales, Value: 2
+					16 text Instalaciones predefinidas · plantillas comerciales
+				17 text Añade una instalación completa y ajusta después sus líneas, cantidades y precios para este cliente. Plantilla de instalación
+				18 pop up button (collapsed, settable) Plantilla de instalación, Value: Selecciona una instalación, Secondary Actions: Expand
+					19 menu
+						20 (selected) Selecciona una instalación
+						21 Climatización split · ejemplo · 4 líneas
+						22 Punto de recarga 7,4 kW · ejemplo · 4 líneas
+						23 Solar 6 kW · ejemplo · 5 líneas
+						24 Solar 7 kW · variante de prueba · 5 líneas
+				25 button (disabled) Añadir líneas al presupuesto
+				26 button (expanded) Crear o actualizar plantilla comercial con las líneas actuales, Secondary Actions: Collapse
+					27 text Crear o actualizar plantilla comercial con las líneas actuales
+				28 container
+					29 text Nombre de la instalación
+					30 text field (settable) Nombre de la instalación
+				31 button (disabled) Guardar como nueva plantilla
+				32 text Se guardan las líneas y sus componentes. Los datos del cliente y del proyecto quedan fuera de la plantilla. Guardar la plantilla no crea una propuesta.
+			33 container
+				34 heading Contexto de la propuesta, Value: 2
+					35 text Contexto de la propuesta
+				36 text Elige el cliente, la línea de negocio, la instalación y el periodo de validez. Cliente
+				37 combo box (collapsed) Value: Seleccionar cliente, Secondary Actions: Expand
+					38 text Seleccionar cliente
+				39 text Línea de negocio
+				40 combo box (collapsed) Value: Seleccionar línea de negocio, Secondary Actions: Expand
+					41 text Seleccionar línea de negocio
+				42 text Instalación (opcional)
+				43 combo box (collapsed) Value: Seleccionar instalación (opcional), Secondary Actions: Expand
+					44 text Seleccionar instalación (opcional)
+				45 text Fecha de emisión
+				46 date field (settable) 2026-10-26
+					47 container
+						48 stepper
+						49 stepper
+						50 stepper
+					51 pop up button Show date picker
+				52 text Validez hasta
+				53 date field (settable)
+					54 container
+						55 stepper
+						56 stepper
+						57 stepper
+					58 pop up button Show date picker
+			59 container
+				60 heading Aceptación y pago, Value: 2
+					61 text Aceptación y pago
+				62 text Define la factura de anticipo que se generará cuando el cliente acepte la propuesta. Anticipo a la aceptación (%)
+				63 stepper (settable, integer) 30
+				64 text Plazo de pago tras la aceptación (días)
+				65 stepper (settable, integer) 7
+				66 text La aceptación crea un hito de cobro. Registra primero el cobro y emite la factura manualmente después. Usa 0% cuando no se requiera anticipo.
+			67 container
+				68 heading Partidas de la propuesta, Value: 2
+					69 text Partidas de la propuesta
+				70 text Construye el alcance con artículos de catálogo, líneas personalizadas y componentes anidados.
+				71 heading Líneas, Value: 2
+					72 text Líneas
+				73 text Los precios no incluyen impuestos.
+				74 button Añadir apunte
+					75 image
+					76 text Añadir apunte
+				77 table
+					78 row
+						79 cell
+							80 text Artículo de catálogo
+						81 cell
+							82 text Descripción
+						83 cell
+							84 text Cant.
+						85 cell
+							86 text Precio
+						87 cell
+							88 text Dto. %
+						89 cell
+							90 text IVA %
+						91 cell
+							92 text Total
+					93 row
+						94 cell
+							96 combo box (collapsed) Description: Artículo de catálogo 1, Value: Línea personalizada, Secondary Actions: Expand
+								97 text Línea personalizada
+						98 cell
+							100 text field (settable) Description: Descripción 1, Value: 01C validación sin cliente
+						101 cell
+							103 stepper (settable, integer) Description: Cant. 1, Value: 1
+						104 cell
+							106 stepper (settable, integer) Description: Precio 1, Value: 100
+						107 cell
+							109 stepper (settable, integer) Description: Dto. % 1, Value: 0
+						110 cell
+							112 stepper (settable, integer) Description: IVA % 1, Value: 21
+						113 cell
+							115 text €121.00
+							116 text Total de línea con IVA
+							117 stepper (settable) Description: Total 1, ID: gross-new-line-1792969958899-1
+							118 text Base imponible : todos €100.00
+						119 cell
+							121 button (disabled) Quitar partida
+								122 image
+					123 row
+						124 cell
+							125 button 0 componentes · coste €0.00
+								126 image
+								127 text 0
+								128 text componentes · coste
+								129 text €0.00
+							130 combo box (collapsed) Value: Incluida, Secondary Actions: Expand
+								131 text Incluida
+							132 button Añadir componente
+								133 image
+								134 text Añadir componente
+							135 text Sin desglose técnico. La partida seguirá funcionando como una línea tradicional.
+			136 container
+				137 heading Resumen comercial, Value: 2
+					138 text Resumen comercial
+				139 text Revisa las notas para el cliente y los totales calculados antes de guardar el borrador. Notas comerciales
+				140 text entry area (settable) Notas comerciales, ID: notes
+				141 text Subtotal €100.00 Descuento -€0.00 Impuesto €21.00 Total €121.00
+			142 container
+				143 text La propuesta seguirá siendo privada y editable hasta que la envíes definitivamente desde su ficha.
+				144 button Guardar como borrador
+					145 image
+					146 text Guardar como borrador
+		155 container Notifications alt+T
+
+The focused UI element is 1 AXWebArea Nuevo presupuesto - Arevantes, URL: localhost:8000/quotes/create

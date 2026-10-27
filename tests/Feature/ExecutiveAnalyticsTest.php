@@ -9,10 +9,8 @@ use App\Models\FinancialBudget;
 use App\Models\Installation;
 use App\Models\Opportunity;
 use App\Models\OpportunityStageHistory;
-use App\Models\PurchaseDocument;
 use App\Models\Quote;
 use App\Models\SalesDocument;
-use App\Models\Supplier;
 use App\Models\User;
 use App\Models\WorkOrder;
 use App\Notifications\AnalyticsThresholdNotification;
@@ -20,6 +18,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Queue;
 use Inertia\Testing\AssertableInertia as Assert;
+use Tests\Support\EconomicFixture;
 use Tests\TestCase;
 
 class ExecutiveAnalyticsTest extends TestCase
@@ -60,14 +59,14 @@ class ExecutiveAnalyticsTest extends TestCase
             'created_by' => $user->id,
             'paid_at' => today(), 'amount' => 210, 'method' => 'transfer',
         ]);
-        SalesDocument::create([
+        $credit = SalesDocument::create([
             'type' => 'credit_note', 'installation_id' => $project->id, 'created_by' => $user->id,
             'number' => 'CN-AN-1', 'status' => 'issued', 'issue_date' => today(),
             'subtotal' => -100, 'discount_amount' => 0, 'tax_amount' => -21, 'amount' => -121, 'paid_amount' => 0,
             'customer_snapshot' => [],
         ]);
-        $supplier = Supplier::create(['legal_name' => 'Analytics Supply SL', 'country' => 'ES', 'is_active' => true]);
-        PurchaseDocument::create([
+        $supplier = EconomicFixture::supplier(['legal_name' => 'Analytics Supply SL', 'country' => 'ES', 'is_active' => true]);
+        EconomicFixture::purchase([
             'type' => 'supplier_invoice', 'installation_id' => $project->id, 'supplier_id' => $supplier->id, 'created_by' => $user->id,
             'number' => 'PINV-AN-1', 'status' => 'registered', 'issue_date' => today(),
             'subtotal' => 400, 'tax_amount' => 84, 'amount' => 484, 'paid_amount' => 0,
@@ -106,15 +105,14 @@ class ExecutiveAnalyticsTest extends TestCase
             ->assertInertia(fn (Assert $page) => $page
                 ->where('selectedMetric.value', 900)
                 ->has('records', 2)
-                ->where('records.0.url', route('sales-documents.show', 2))
-                ->where('records.1.url', route('sales-documents.show', 1)));
+                ->where('records', fn ($records) => collect($records)->pluck('url')->sort()->values()->all() === collect([route('sales-documents.show', $credit->id), route('sales-documents.show', $invoice->id)])->sort()->values()->all()));
     }
 
     public function test_project_margins_reconcile_every_business_line_and_hide_finance_without_permission(): void
     {
         $admin = User::factory()->create(['role' => 'admin']);
         $technician = User::factory()->create(['role' => 'technician']);
-        $supplier = Supplier::create(['legal_name' => 'Margin Supply SL', 'country' => 'ES', 'is_active' => true]);
+        $supplier = EconomicFixture::supplier(['legal_name' => 'Margin Supply SL', 'country' => 'ES', 'is_active' => true]);
         $project = Installation::create([
             'commercial_user_id' => $admin->id,
             'technician_user_id' => $technician->id,
@@ -136,7 +134,7 @@ class ExecutiveAnalyticsTest extends TestCase
             'amount' => 1210,
             'expected_margin_amount' => 400,
         ]);
-        PurchaseDocument::create([
+        EconomicFixture::purchase([
             'type' => 'purchase_order',
             'installation_id' => $project->id,
             'supplier_id' => $supplier->id,

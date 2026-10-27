@@ -3,7 +3,6 @@
 namespace Tests\Feature;
 
 use App\Models\DocumentSeries;
-use App\Models\Expense;
 use App\Models\ExpenseCategory;
 use App\Models\FiscalYear;
 use App\Models\JournalEntry;
@@ -13,6 +12,7 @@ use App\Services\Accounting\AccountingSynchronizer;
 use App\Services\Tax\VatSettlement;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\Process\Process;
+use Tests\Support\EconomicFixture;
 use Tests\TestCase;
 
 class FiscalConcurrencyTest extends TestCase
@@ -29,7 +29,7 @@ class FiscalConcurrencyTest extends TestCase
     private function fixture(): User
     {
         $user = User::factory()->create(['role' => 'admin']);
-        $expense = Expense::create(['expense_category_id' => ExpenseCategory::firstOrFail()->id,
+        $expense = EconomicFixture::expense(['expense_category_id' => ExpenseCategory::firstOrFail()->id,
             'created_by' => $user->id, 'number' => 'EXP-CONCURRENT', 'type' => 'invoice',
             'expense_date' => '2026-09-15', 'subtotal' => 100, 'tax_amount' => 21,
             'amount' => 121, 'status' => 'pending']);

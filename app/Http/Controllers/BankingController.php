@@ -33,6 +33,7 @@ use App\Services\Banking\CardSettlementSchedule;
 use App\Services\Banking\StatementImporter;
 use App\Services\Finance\FinanceWorkspace;
 use App\Services\Finance\OutstandingBalanceCalculator;
+use App\Services\Finance\ReceivedInvoiceIdentity;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -775,6 +776,13 @@ class BankingController extends Controller
             if (in_array($type, ['customer_invoice', 'supplier_invoice', 'expense'], true)) {
                 [$type, $id] = $this->createPaymentFromTransaction($transaction, $type, (int) $id, $userId, $accounting);
             }
+            if ($type === 'supplier') {
+                $candidate = SupplierPayment::findOrFail($id);
+                $owner = $candidate->expense_id
+                    ? Expense::lockForUpdate()->findOrFail($candidate->expense_id)
+                    : PurchaseDocument::lockForUpdate()->findOrFail($candidate->purchase_document_id);
+                app(ReceivedInvoiceIdentity::class)->assertUsable($owner);
+            }
             $payment = match ($type) {
                 'customer' => SalesDocumentPayment::lockForUpdate()->findOrFail($id),
                 'supplier' => SupplierPayment::lockForUpdate()->findOrFail($id),
@@ -802,10 +810,7 @@ class BankingController extends Controller
             $this->ensureOutstandingAmount($amount, $outstanding);
             $payment = $document->payments()->create(['created_by' => $userId, 'origin_bank_transaction_id' => $transaction->id, 'paid_at' => $transaction->booked_on, 'amount' => $amount, 'method' => 'bank_transfer', 'reference' => $transaction->reference, 'notes' => __('Created from bank reconciliation.')]);
             $accounting->syncCustomerPayment($payment, $userId);
-            $paid = (float) $document->payments()->sum('amount');
-            $status = $paid >= (float) $document->amount ? 'paid' : 'partial';
-            $document->update(['paid_amount' => $paid, 'status' => $document->locked_at ? $status : 'draft']);
-            $document->recurringServiceBilling?->update(['status' => $status]);
+            $this->balances->refreshSalesDocument($document);
 
             return ['customer', $payment->id];
         }

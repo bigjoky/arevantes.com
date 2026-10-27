@@ -38,6 +38,17 @@ class OutstandingBalanceCalculator
         return $this->net($document->amount, $document->paid_amount, (string) BigDecimal::of((string) ($credits ?? 0))->abs());
     }
 
+    /** Caller holds the sales document lock. Refresh derived fields from actual receipts and credits. */
+    public function refreshSalesDocument(SalesDocument $document): void
+    {
+        $paid = BigDecimal::of((string) $document->payments()->sum('amount'))->toScale(2, RoundingMode::HalfUp);
+        $credits = BigDecimal::of((string) $document->childDocuments()->where('type', 'credit_note')->whereNotIn('status', ['draft', 'cancelled'])->sum('amount'));
+        $net = BigDecimal::of($document->amount)->plus($credits);
+        $status = $paid->isGreaterThanOrEqualTo($net) ? 'paid' : ($paid->isPositive() ? 'partial' : ($document->due_date?->lt(today()) ? 'overdue' : 'issued'));
+        $document->update(['paid_amount' => (string) $paid, 'status' => $document->locked_at ? $status : 'draft']);
+        $document->recurringServiceBilling?->update(['status' => $status]);
+    }
+
     public function net(mixed $amount, mixed $paid, mixed $credits = '0'): string
     {
         return (string) BigDecimal::max('0', BigDecimal::of((string) $amount)->minus((string) $paid)->minus((string) $credits))->toScale(2, RoundingMode::HalfUp);

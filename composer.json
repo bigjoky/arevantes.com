@@ -11,6 +11,7 @@
     "require": {
         "php": "^8.4.1",
         "brick/math": "^0.14.8",
+        "cweagans/composer-patches": "^2.0",
         "dompdf/dompdf": "^3.1",
         "inertiajs/inertia-laravel": "^3.0",
         "laravel/ai": "^0.8.0",
@@ -101,6 +102,11 @@
             "installer": {
                 "post-create-project": []
             }
+        },
+        "patches": {
+            "dompdf/php-svg-lib": {
+                "Support static Display P3 SVG colors without rewriting SVG assets": "patches/php-svg-lib-display-p3.patch"
+            }
         }
     },
     "config": {
@@ -109,7 +115,8 @@
         "sort-packages": true,
         "allow-plugins": {
             "pestphp/pest-plugin": true,
-            "php-http/discovery": true
+            "php-http/discovery": true,
+            "cweagans/composer-patches": true
         }
     },
     "minimum-stability": "stable",

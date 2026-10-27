@@ -7,10 +7,10 @@ use App\Models\Country;
 use App\Models\Expense;
 use App\Models\ExpenseCategory;
 use App\Models\FiscalEntity;
-use App\Models\Supplier;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Inertia\Testing\AssertableInertia as Assert;
+use Tests\Support\EconomicFixture;
 use Tests\TestCase;
 
 class FiscalEntityTest extends TestCase
@@ -101,8 +101,8 @@ class FiscalEntityTest extends TestCase
     public function test_directory_edits_do_not_rewrite_supplier_records_or_historical_expenses(): void
     {
         $entity = $this->createEntity();
-        $supplier = Supplier::create(['legal_name' => 'Original supplier name', 'country' => 'ES', 'tax_id' => 'A12345678']);
-        $expense = Expense::create(['expense_category_id' => ExpenseCategory::firstOrFail()->id, 'supplier_id' => $supplier->id,
+        $supplier = EconomicFixture::supplier(['legal_name' => 'Original supplier name', 'country' => 'ES', 'tax_id' => 'A12345678']);
+        $expense = EconomicFixture::expense(['expense_category_id' => ExpenseCategory::firstOrFail()->id, 'supplier_id' => $supplier->id,
             'number' => 'EXP-HISTORY', 'type' => 'invoice', 'issuer_legal_name' => 'Name on historical invoice',
             'issuer_tax_id' => 'A12345678', 'expense_date' => '2026-05-29', 'subtotal' => 100, 'tax_amount' => 21, 'amount' => 121, 'status' => 'paid']);
         $before = $expense->fresh()->getAttributes();

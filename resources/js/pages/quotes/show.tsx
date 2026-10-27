@@ -1,3 +1,4 @@
+import '../../../css/commercial-mobile.css';
 import { Form, Head, Link, useForm, usePage } from '@inertiajs/react';
 import {
     ArrowLeft,
@@ -14,6 +15,7 @@ import { FormErrorSummary } from '@/components/forms/form-layout';
 import HistoricalDocumentDate from '@/components/historical-document-date';
 import InputError from '@/components/input-error';
 import { PageShell, PaginationBar } from '@/components/page-shell';
+import QuotePaperAcceptance from '@/components/quote-paper-acceptance';
 import { quoteUrl, quoteMoney, quoteDate } from '@/components/quotes/types';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -35,6 +37,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { useDocumentCreation } from '@/hooks/use-document-creation';
 import { useLocale } from '@/hooks/use-locale';
 import { translate } from '@/i18n';
 import type { ServiceType } from '@/lib/business-lines';
@@ -208,6 +211,7 @@ type Profitability = {
     has_actuals: boolean;
 };
 type MaterialPreview = {
+    classification_warnings?: string[];
     items: number;
     shortage_items: number;
     shortage_quantity: number;
@@ -276,6 +280,9 @@ export default function QuoteShow({
         billing: boolean;
     };
 }) {
+    const orderCreation = useDocumentCreation();
+    const deliveryCreation = useDocumentCreation();
+    const milestoneCreation = useDocumentCreation();
     const { locale } = useLocale();
     const todayKey = new Intl.DateTimeFormat('en-CA').format(new Date());
     const eventKinds = { status: 'status', version: 'version' };
@@ -322,7 +329,9 @@ export default function QuoteShow({
         service_type:
             quote.service_type || projectDefaults.service_type || 'solar',
         technician_user_id: '',
-        scheduled_at: tomorrowMorning(),
+        scheduled_at: '',
+        technical_validation_required: true,
+        technical_validation_reason: '',
         site_name: projectDefaults.site_name || '',
         site_address_line_1: projectDefaults.site_address_line_1 || '',
         site_street_number: projectDefaults.site_street_number || '',
@@ -607,6 +616,27 @@ export default function QuoteShow({
                         </p>
                     </section>
                 )}
+                {!!materialPreview.classification_warnings?.length && (
+                    <section className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950">
+                        <h2 className="font-semibold">
+                            Revisa la clasificación de materiales antes de
+                            aceptar
+                        </h2>
+                        <p>
+                            Estos conceptos no generan por sí solos necesidades
+                            de almacén. Si son material, vincula un producto con
+                            control de inventario; si son servicios, define sus
+                            componentes operativos.
+                        </p>
+                        <ul className="mt-2 list-inside list-disc">
+                            {materialPreview.classification_warnings.map(
+                                (warning, index) => (
+                                    <li key={index}>{warning}</li>
+                                ),
+                            )}
+                        </ul>
+                    </section>
+                )}
                 {materialPreview.items > 0 && (
                     <section
                         hidden={!['installation'].includes(tab)}
@@ -737,6 +767,16 @@ export default function QuoteShow({
                     <Info label="Issue date" value={date(quote.issue_date)} />
                     <Info label="Valid until" value={date(quote.valid_until)} />
                 </section>
+                <QuotePaperAcceptance
+                    quoteId={quote.id}
+                    canAccept={
+                        ['draft', 'sent'].includes(quote.status) &&
+                        ['approved', 'not_required'].includes(
+                            quote.approval_status,
+                        )
+                    }
+                    history={quote.status_history}
+                />
                 {(quote.status === 'accepted' ||
                     quote.financial_status !== 'not_required') && (
                     <section
@@ -1091,6 +1131,9 @@ export default function QuoteShow({
                                     )}
                                     % · {money(line.total)}
                                 </span>
+                                <span>
+                                    Descuento: {Number(line.discount_percent)}%
+                                </span>
                                 <small>
                                     {line.selection_mode === 'included' ||
                                     line.is_selected
@@ -1391,6 +1434,16 @@ export default function QuoteShow({
                                     <Form
                                         key={type}
                                         action={`/quotes/${quote.id}/convert`}
+                                        transform={
+                                            type === 'order'
+                                                ? orderCreation.transform
+                                                : deliveryCreation.transform
+                                        }
+                                        onSuccess={
+                                            type === 'order'
+                                                ? orderCreation.complete
+                                                : deliveryCreation.complete
+                                        }
                                         method="post"
                                         className="grid gap-3"
                                     >
@@ -1445,8 +1498,9 @@ export default function QuoteShow({
                                 Start installation project
                             </DialogTitle>
                             <DialogDescription>
-                                Create the installation, technical visit and
-                                initial work order from this accepted quote.
+                                Crea el proyecto sin fecha ni técnico. Solo se
+                                crea una visita si introduces una fecha; una
+                                visita existente no se duplica.
                             </DialogDescription>
                         </DialogHeader>
                         <div className="grid gap-4 sm:grid-cols-2">
@@ -1490,7 +1544,7 @@ export default function QuoteShow({
                                 ]}
                             />
                             <ProjectField
-                                label="Technical visit"
+                                label="Fecha de visita técnica (opcional)"
                                 error={projectForm.errors.scheduled_at}
                             >
                                 <Input
@@ -1504,6 +1558,47 @@ export default function QuoteShow({
                                     }
                                 />
                             </ProjectField>
+                            <label className="flex items-center gap-2 text-sm sm:col-span-2">
+                                <input
+                                    type="checkbox"
+                                    checked={
+                                        projectForm.data
+                                            .technical_validation_required
+                                    }
+                                    onChange={(e) =>
+                                        projectForm.setData(
+                                            'technical_validation_required',
+                                            e.target.checked,
+                                        )
+                                    }
+                                />
+                                Requiere visita o ingeniería validada antes de
+                                ejecutar la instalación
+                            </label>
+                            {!projectForm.data
+                                .technical_validation_required && (
+                                <ProjectField
+                                    label="Motivo de dispensa técnica (solo administración)"
+                                    error={
+                                        projectForm.errors
+                                            .technical_validation_reason
+                                    }
+                                >
+                                    <Input
+                                        required
+                                        value={
+                                            projectForm.data
+                                                .technical_validation_reason
+                                        }
+                                        onChange={(e) =>
+                                            projectForm.setData(
+                                                'technical_validation_reason',
+                                                e.target.value,
+                                            )
+                                        }
+                                    />
+                                </ProjectField>
+                            )}
                             <ProjectField
                                 label="Site name"
                                 error={projectForm.errors.site_name}
@@ -1651,7 +1746,11 @@ export default function QuoteShow({
                     <Form
                         action={`/quotes/${quote.id}/convert`}
                         method="post"
-                        onSuccess={() => setBillingOpen(false)}
+                        transform={milestoneCreation.transform}
+                        onSuccess={() => {
+                            milestoneCreation.complete();
+                            setBillingOpen(false);
+                        }}
                     >
                         {({ errors, processing }) => (
                             <div className="grid gap-5">
@@ -1901,15 +2000,6 @@ function ProjectSelect({
             </Select>
         </ProjectField>
     );
-}
-
-function tomorrowMorning() {
-    const date = new Date();
-    date.setDate(date.getDate() + 1);
-    date.setHours(9, 0, 0, 0);
-    const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
-
-    return local.toISOString().slice(0, 16);
 }
 
 function financialStatusLabel(status: Quote['financial_status']) {

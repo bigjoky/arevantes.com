@@ -8,7 +8,7 @@ use App\Models\WorkOrder;
 use App\Services\Inventory\WorkOrderKitAllocator;
 use App\Services\Work\TechnicianSchedule;
 use App\Services\Work\WorkOrderFactory;
-use Illuminate\Support\Carbon;
+use App\Support\Time\BusinessTime;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -38,7 +38,7 @@ class ServiceCycleWorkWorkflow
             $snapshot = $locked->technical_snapshot ?: $this->snapshots->capture($locked->maintenancePlan, $locked->maintenance_plan_version);
             $plan = $snapshot['plan'] ?? [];
             $template = $snapshot['template'] ?? [];
-            $start = Carbon::parse($scheduledStart);
+            $start = BusinessTime::parse($scheduledStart, 'scheduled_start');
             if ($start->toDateString() < $locked->period_starts_on->toDateString() || $start->toDateString() > $locked->period_ends_on->toDateString()) {
                 throw ValidationException::withMessages(['scheduled_start' => __('The visit must fall within the approved service cycle.')]);
             }

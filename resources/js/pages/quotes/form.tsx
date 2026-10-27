@@ -26,6 +26,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { useCommercialFormProtection } from '@/hooks/use-commercial-form-protection';
 import { useLocale } from '@/hooks/use-locale';
 import { translate } from '@/i18n';
 import { serviceLabels } from '@/lib/business-lines';
@@ -239,6 +240,11 @@ export default function QuoteForm({
         service_type: form.data.service_type,
         lines: form.data.lines,
     });
+    const protection = useCommercialFormProtection(() => ({
+        isDirty: form.isDirty,
+        processing: form.processing || templateForm.processing,
+        resetAndClearErrors: () => form.resetAndClearErrors(),
+    }));
     const selectedTemplate = installationTemplates.find(
         (template) => String(template.id) === selectedTemplateId,
     );
@@ -507,13 +513,25 @@ export default function QuoteForm({
             ),
         });
     };
-    const submit = () =>
-        quote ? form.put(`/quotes/${quote.id}`) : form.post('/quotes');
+    const submit = () => {
+        const options = {
+            onBefore: protection.beginSubmit,
+            onFinish: protection.finishSubmit,
+            onSuccess: () => protection.saved(),
+        };
+
+        if (quote) {
+            form.put(`/quotes/${quote.id}`, options);
+        } else {
+            form.post('/quotes', options);
+        }
+    };
 
     return (
         <>
             <Head title={pageTitle} />
-            <div className="flex min-w-0 flex-1 flex-col gap-6 overflow-x-clip p-4 md:p-6">
+            {protection.confirmation}
+            <div className="commercial-quote-form flex min-w-0 flex-1 flex-col gap-6 overflow-x-clip p-4 md:p-6">
                 <header className="flex flex-wrap items-center justify-between gap-3">
                     <div>
                         <h1 className="text-xl font-semibold">{pageTitle}</h1>
@@ -543,7 +561,8 @@ export default function QuoteForm({
                     <section className="grid gap-4 rounded-xl border bg-muted/20 p-5">
                         <div>
                             <h2 className="text-lg font-semibold">
-                                Instalaciones predefinidas
+                                Instalaciones predefinidas · plantillas
+                                comerciales
                             </h2>
                             <p className="text-sm text-muted-foreground">
                                 Añade una instalación completa y ajusta después
@@ -643,9 +662,9 @@ export default function QuoteForm({
                                 guárdalas aquí como primera plantilla.
                             </p>
                         )}
-                        <details className="border-t pt-3">
+                        <details open className="border-t pt-3">
                             <summary className="cursor-pointer text-sm font-medium">
-                                Guardar o actualizar una plantilla con las
+                                Crear o actualizar plantilla comercial con las
                                 líneas actuales
                             </summary>
                             <div className="mt-3 grid gap-3">
@@ -925,7 +944,7 @@ export default function QuoteForm({
                             </Button>
                         </div>
                         <div className="w-full min-w-0 [scrollbar-gutter:stable] overflow-x-auto overscroll-x-contain border-y">
-                            <table className="w-full min-w-[58rem] text-sm">
+                            <table className="commercial-quote-lines-table w-full min-w-[58rem] text-sm">
                                 <thead>
                                     <tr className="border-b text-left text-muted-foreground">
                                         <th className="py-2">
@@ -956,7 +975,13 @@ export default function QuoteForm({
                                     {form.data.lines.map((line, index) => (
                                         <Fragment key={line.client_key}>
                                             <tr className="align-top">
-                                                <td className="py-2 pr-2">
+                                                <td
+                                                    className="py-2 pr-2"
+                                                    data-label={translate(
+                                                        'Catalog item',
+                                                        locale,
+                                                    )}
+                                                >
                                                     <Select
                                                         value={
                                                             line.product_id
@@ -974,7 +999,9 @@ export default function QuoteForm({
                                                             )
                                                         }
                                                     >
-                                                        <SelectTrigger>
+                                                        <SelectTrigger
+                                                            aria-label={`${translate('Catalog item', locale)} ${index + 1}`}
+                                                        >
                                                             <SelectValue
                                                                 placeholder={translate(
                                                                     'Custom line',
@@ -1002,8 +1029,15 @@ export default function QuoteForm({
                                                         </SelectContent>
                                                     </Select>
                                                 </td>
-                                                <td className="p-2">
+                                                <td
+                                                    className="p-2"
+                                                    data-label={translate(
+                                                        'Description',
+                                                        locale,
+                                                    )}
+                                                >
                                                     <Input
+                                                        aria-label={`${translate('Description', locale)} ${index + 1}`}
                                                         value={line.description}
                                                         onChange={(event) =>
                                                             updateLine(index, {
@@ -1014,8 +1048,15 @@ export default function QuoteForm({
                                                         }
                                                     />
                                                 </td>
-                                                <td className="p-2">
+                                                <td
+                                                    className="p-2"
+                                                    data-label={translate(
+                                                        'Qty.',
+                                                        locale,
+                                                    )}
+                                                >
                                                     <Input
+                                                        aria-label={`${translate('Qty.', locale)} ${index + 1}`}
                                                         type="number"
                                                         min="0.001"
                                                         step="0.001"
@@ -1029,8 +1070,15 @@ export default function QuoteForm({
                                                         }
                                                     />
                                                 </td>
-                                                <td className="p-2">
+                                                <td
+                                                    className="p-2"
+                                                    data-label={translate(
+                                                        'Price',
+                                                        locale,
+                                                    )}
+                                                >
                                                     <Input
+                                                        aria-label={`${translate('Price', locale)} ${index + 1}`}
                                                         type="number"
                                                         min="0"
                                                         step="0.001"
@@ -1044,8 +1092,15 @@ export default function QuoteForm({
                                                         }
                                                     />
                                                 </td>
-                                                <td className="p-2">
+                                                <td
+                                                    className="p-2"
+                                                    data-label={translate(
+                                                        'Disc. %',
+                                                        locale,
+                                                    )}
+                                                >
                                                     <Input
+                                                        aria-label={`${translate('Disc. %', locale)} ${index + 1}`}
                                                         type="number"
                                                         min="0"
                                                         max="100"
@@ -1062,8 +1117,15 @@ export default function QuoteForm({
                                                         }
                                                     />
                                                 </td>
-                                                <td className="p-2">
+                                                <td
+                                                    className="p-2"
+                                                    data-label={translate(
+                                                        'Tax %',
+                                                        locale,
+                                                    )}
+                                                >
                                                     <Input
+                                                        aria-label={`${translate('Tax %', locale)} ${index + 1}`}
                                                         type="number"
                                                         min="0"
                                                         max="100"
@@ -1078,7 +1140,13 @@ export default function QuoteForm({
                                                         }
                                                     />
                                                 </td>
-                                                <td className="p-2 text-right font-medium">
+                                                <td
+                                                    className="p-2 text-right font-medium"
+                                                    data-label={translate(
+                                                        'Total',
+                                                        locale,
+                                                    )}
+                                                >
                                                     <div className="grid gap-1">
                                                         <span>
                                                             {money(
@@ -1094,6 +1162,7 @@ export default function QuoteForm({
                                                                 : 'Total de línea con IVA'}
                                                         </Label>
                                                         <Input
+                                                            aria-label={`${translate('Total', locale)} ${index + 1}`}
                                                             id={`gross-${line.client_key}`}
                                                             type="number"
                                                             min="0"
@@ -1138,7 +1207,13 @@ export default function QuoteForm({
                                                         </span>
                                                     </div>
                                                 </td>
-                                                <td className="sticky right-0 z-10 bg-background p-2">
+                                                <td
+                                                    className="sticky right-0 z-10 bg-background p-2"
+                                                    data-label={translate(
+                                                        'Actions',
+                                                        locale,
+                                                    )}
+                                                >
                                                     <div className="flex items-center gap-1">
                                                         <Button
                                                             type="button"

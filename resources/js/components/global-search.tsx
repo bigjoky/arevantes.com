@@ -14,7 +14,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 
 type Result = { group: string; title: string; subtitle: string; href: string };
 
-export function GlobalSearch({ expanded = false }: { expanded?: boolean }) {
+export function GlobalSearch({ expanded = false, embedded = false }: { expanded?: boolean; embedded?: boolean }) {
     const compact = useIsMobile(640);
     const [dialogOpen, setDialogOpen] = useState(false);
     const resultsId = useId();
@@ -23,6 +23,8 @@ export function GlobalSearch({ expanded = false }: { expanded?: boolean }) {
     const [query, setQuery] = useState('');
     const [results, setResults] = useState<Result[]>([]);
     const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(false);
+    const [typeFilter, setTypeFilter] = useState('');
     const [focused, setFocused] = useState(false);
     const [active, setActive] = useState(-1);
 
@@ -36,6 +38,7 @@ export function GlobalSearch({ expanded = false }: { expanded?: boolean }) {
         const controller = new AbortController();
         const timeout = window.setTimeout(async () => {
             setLoading(true);
+            setError(false);
 
             try {
                 const response = await fetch(
@@ -48,6 +51,11 @@ export function GlobalSearch({ expanded = false }: { expanded?: boolean }) {
                         },
                     },
                 );
+
+                if (!response.ok) {
+throw new Error("search-unavailable");
+}
+
                 const data = await response.json();
 
                 if (controller.signal.aborted) {
@@ -64,6 +72,7 @@ export function GlobalSearch({ expanded = false }: { expanded?: boolean }) {
                     )
                 ) {
                     setResults([]);
+                    setError(true);
                 }
             } finally {
                 if (!controller.signal.aborted) {
@@ -117,6 +126,7 @@ export function GlobalSearch({ expanded = false }: { expanded?: boolean }) {
             }, {}),
         [results],
     );
+    const keyboardResults = Object.entries(groups).filter(([group]) => !typeFilter || group === typeFilter).flatMap(([, items]) => items);
     const open = focused && query.trim().length >= 2;
     const navigate = (result: Result) => {
         setFocused(false);
@@ -126,6 +136,8 @@ export function GlobalSearch({ expanded = false }: { expanded?: boolean }) {
     };
     const changeQuery = (value: string) => {
         setQuery(value);
+        setError(false);
+        setTypeFilter('');
         setLoading(value.trim().length >= 2);
         setResults([]);
         setActive(-1);
@@ -139,7 +151,7 @@ export function GlobalSearch({ expanded = false }: { expanded?: boolean }) {
     const onKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
         if (event.key === 'ArrowDown') {
             event.preventDefault();
-            setActive((value) => Math.min(value + 1, results.length - 1));
+            setActive((value) => Math.min(value + 1, keyboardResults.length - 1));
         }
 
         if (event.key === 'ArrowUp') {
@@ -147,9 +159,9 @@ export function GlobalSearch({ expanded = false }: { expanded?: boolean }) {
             setActive((value) => Math.max(value - 1, -1));
         }
 
-        if (event.key === 'Enter' && results.length) {
+        if (event.key === 'Enter' && keyboardResults.length) {
             event.preventDefault();
-            navigate(results[active >= 0 ? active : 0]);
+            navigate(keyboardResults[active >= 0 ? active : 0]);
         }
 
         if (event.key === 'Escape') {
@@ -197,14 +209,16 @@ export function GlobalSearch({ expanded = false }: { expanded?: boolean }) {
                     </kbd>
                 )}
             </div>
+            {embedded && results.length > 0 && <div className="mobile-search-filters" aria-label="Tipos de resultado"><Button variant={typeFilter === '' ? 'default' : 'outline'} size="sm" onClick={() => setTypeFilter('')}>Todos</Button>{Object.keys(groups).map(group => <Button size="sm" key={group} variant={typeFilter === group ? 'default' : 'outline'} onClick={() => setTypeFilter(group)}>{group}</Button>)}</div>}
+            {embedded && !open && <p className="mobile-capability-note">Escribe al menos dos caracteres para buscar en los registros autorizados.</p>}
             {open && (
                 <div
                     id={resultsId}
                     role="listbox"
                     aria-label="Resultados de búsqueda"
-                    className={`${compact ? 'relative mt-3 max-h-[50dvh] w-full' : 'absolute top-[calc(100%+0.5rem)] right-0 max-h-[min(32rem,70vh)] w-[min(34rem,calc(100vw-2rem))]'} z-50 overflow-y-auto rounded-md border bg-popover p-2 text-popover-foreground shadow-sm`}
+                    className={`${compact || embedded ? 'relative mt-3 max-h-[50dvh] w-full' : 'absolute top-[calc(100%+0.5rem)] right-0 max-h-[min(32rem,70vh)] w-[min(34rem,calc(100vw-2rem))]'} z-50 overflow-y-auto rounded-md border bg-popover p-2 text-popover-foreground shadow-sm`}
                 >
-                    {Object.entries(groups).map(([group, items]) => (
+                    {Object.entries(groups).filter(([group]) => !typeFilter || group === typeFilter).map(([group, items]) => (
                         <section key={group}>
                             <h3 className="px-2 py-2 text-xs font-semibold text-muted-foreground">
                                 {group}
@@ -245,7 +259,8 @@ export function GlobalSearch({ expanded = false }: { expanded?: boolean }) {
                             Searching…
                         </p>
                     )}
-                    {!loading && results.length === 0 && (
+                    {!loading && error && <p role="alert" className="p-4 text-sm">No se ha podido consultar la búsqueda. Comprueba tu conexión y vuelve a intentarlo.</p>}
+                    {!loading && !error && results.length === 0 && (
                         <p className="py-6 text-center text-sm text-muted-foreground">
                             No matching records.
                         </p>
@@ -255,7 +270,7 @@ export function GlobalSearch({ expanded = false }: { expanded?: boolean }) {
         </div>
     );
 
-    if (!compact) {
+    if (!compact || embedded) {
         return content;
     }
 

@@ -1,0 +1,157 @@
+{
+  "date": "2026-10-26",
+  "scope": "local synthetic isolated databases; no production, commit, push or merge",
+  "checks": [
+    {
+      "name": "full suite",
+      "tool": "phpunit",
+      "result": "passed",
+      "tests": 1058,
+      "passed": 1020,
+      "assertions": 14902,
+      "duration_ms": 68880,
+      "skipped": 38
+    },
+    {
+      "name": "PostgreSQL related",
+      "tool": "phpunit",
+      "result": "passed",
+      "tests": 296,
+      "passed": 296,
+      "assertions": 3887,
+      "duration_ms": 94281
+    },
+    {
+      "name": "economic concurrency",
+      "tool": "phpunit",
+      "result": "passed",
+      "tests": 11,
+      "passed": 11,
+      "assertions": 69,
+      "duration_ms": 62335
+    },
+    {
+      "name": "ECO02 concurrency",
+      "tool": "phpunit",
+      "result": "passed",
+      "tests": 4,
+      "passed": 4,
+      "assertions": 25,
+      "duration_ms": 18574
+    },
+    {
+      "name": "real recovery",
+      "tool": "phpunit",
+      "result": "passed",
+      "tests": 7,
+      "passed": 7,
+      "assertions": 94,
+      "duration_ms": 46242
+    }
+  ],
+  "frontend": {
+    "passed": 56,
+    "failed": 0
+  },
+  "typescript": "passed",
+  "eslint": "passed",
+  "build": "passed; existing chunk size warning",
+  "php_format": "passed",
+  "python_syntax": "passed",
+  "diff_check": "passed",
+  "source_vs_snapshot_mismatches": [],
+  "temporal_integrity": {
+    "original_files": 62,
+    "changed": []
+  },
+  "eco02_manifest_changes": [
+    "app/Console/Commands/AuditReceivedInvoices.php",
+    "app/Services/Finance/ReceivedInvoiceAudit.php",
+    "tests/Feature/PurchaseOrderDateCorrectionTest.php",
+    "tests/Feature/SecurityAdministrationTest.php"
+  ],
+  "recovery": {
+    "status": "healthy",
+    "metrics": {
+      "tables": 213,
+      "migrations": 248,
+      "constraints": 2279,
+      "indexes": 728,
+      "enabled_triggers": [
+        "expense_received_identity",
+        "journal_received_identity",
+        "precise_instants_guard",
+        "precise_instants_guard",
+        "precise_instants_guard",
+        "precise_instants_guard",
+        "precise_instants_guard",
+        "precise_instants_guard",
+        "precise_instants_guard",
+        "precise_instants_guard",
+        "precise_instants_guard",
+        "precise_instants_guard",
+        "purchase_received_identity",
+        "received_identity_preserve",
+        "reconciliation_received_identity",
+        "supplier_payment_received_identity"
+      ],
+      "validation_scope": "database_schema_inventory; domain and file recovery require the dedicated rehearsal",
+      "schema_fingerprints_verified": {
+        "constraints": "7ef01d2d9b57551556cd84e8b0d0d45911238be033259b3ff5db5a5bc0b563b2",
+        "indexes": "47d7dddfd8be32753a72c079e529130b53002256a32dd6a62860664519e057dd",
+        "triggers": "6077bc3acedef38f265a89d57a3412225b08ea53dc9308d2de7099f20917592b",
+        "columns": "12450e5ca345d4e11dfe7a007744dd3bbd3d175fcbec763e9272b8fbbaea2157"
+      },
+      "foreign_key_probe_rejected": true,
+      "synthetic_domain_tables_verified": 20,
+      "independent_pdf_rehearsal": {
+        "original_bytes_recovered": true,
+        "altered_rejected": true,
+        "missing_detected": true
+      },
+      "manifest_version": 1,
+      "rpo_microseconds": 805231,
+      "rto_microseconds": 1834447,
+      "seconds_policy": "ceiling",
+      "pdf_files_recovered": false
+    },
+    "rpo_seconds": 1,
+    "rto_seconds": 2,
+    "target_wiped": true
+  },
+  "preflight": {
+    "before_ECO02_tested": true,
+    "read_only_tested": true,
+    "strict_command": "review required: synthetic orphan PDF artifacts from transactional tests; not production findings"
+  },
+  "i18n": {
+    "pending": 211,
+    "approved": false,
+    "inventory": "stab-03-i18n-inventory.json"
+  },
+  "sha256": {
+    "app/Console/Commands/AuditReceivedInvoices.php": "75573a614d99b995cf35398eacbac9b7e970fd71cb822070d25562ade7fed2d8",
+    "app/Console/Commands/CheckSystemHealth.php": "0f50d3e59e41f7162c18de530a401c07387750c80f5b9dd42e61047f8162380c",
+    "app/Services/Ai/RelevantBusinessContext.php": "1153c4cd1f5ba0fd3dfee514e3160008541a0253cc2d77e8da2030018b133586",
+    "app/Services/Backup/PostgresConnection.php": "e820948033d52d9c2ed5610b077c23a228f8becb27dcd56586da68912b626aa6",
+    "app/Services/Backup/PostgresRestoreVerifier.php": "dd5117775b02c799e81e9b94243c50eb776607ddeebf8062f3bf33e31765dc55",
+    "app/Services/Backup/RecoveryDuration.php": "58ee3bafbd11e77cd05047e479045a9045ce230ad02f57825e4301c9df21fcc7",
+    "app/Services/Finance/ReceivedInvoiceAudit.php": "9f8cff7e6cdae2e5af1362585d9b0fa672c474d7e60aa5e91ed0a08a961c06e9",
+    "config/backup.php": "87c14ff3182ed3c10d514c55bf88996cf74d7c8d3efd38cafa04078c0b2ca588",
+    "tests/Feature/AccountingTest.php": "aea33132248dfd8df885d757867f368bafc8b95e32c4ddad417674dd13a12a73",
+    "tests/Feature/EconomicDeploymentPreflightTest.php": "4ce4b74303b80e8c4f0cd1d6289094df2d5da190eda55646afcd0ded9fd7311e",
+    "tests/Feature/PostgresRecoveryRehearsalTest.php": "73150ca2b35f516518600939ad07ad156d882398a5f21926c890663f03fba443",
+    "tests/Feature/PostgresRecoverySafetyTest.php": "7a2c6cadb5074acce4776ef79972e2e62174b783ab7610778114e547b0f4cce4",
+    "tests/Feature/PurchaseOrderDateCorrectionTest.php": "4ce6614d979e4e0dcc74a993b198ffc2997d372592fd219b18454790b7010669",
+    "tests/Feature/SecurityAdministrationTest.php": "33a65232bf7fa5bd1cacb0c804cacb8de20863f4b8926218c633fad79610df53",
+    "tests/Feature/StabilizationHealthTest.php": "537ba0f904721fdcbbaba457c505656cb64bafb3f6f831914725194fd655a256",
+    "scripts/testing/stab03-recovery.py": "bcaeb04cf0f5aeb6f2a548e9fcca0d517a12c871aa477ddfa9ce7e9841da53e7",
+    "tests/Support/recovery-pg-client.py": "579ca7bdec2bd3ebfd29399eec5069374efa6d602995da905c6b286a4c5f6ea0"
+  },
+  "assessment": "APTO PARA PREPARAR DESPLIEGUE; production authorization and historical/staging/file recovery gates pending",
+  "notes": [
+    "Repeated test runs not counted as additional unique cases.",
+    "Skipped general-suite concurrency/recovery cases are separately exercised on PostgreSQL.",
+    "No STAB03 migrations or historical rewrites."
+  ]
+}

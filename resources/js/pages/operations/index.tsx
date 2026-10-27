@@ -43,6 +43,12 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { useLocale } from '@/hooks/use-locale';
 import { translate } from '@/i18n';
+import {
+    businessDateTimeInput,
+    addCalendarDays,
+    addScheduleMinutes,
+    scheduleInput,
+} from '@/lib/business-time';
 
 type InstallationOption = {
     id: number;
@@ -1337,7 +1343,12 @@ function rescheduleDefaults(request: RescheduleRequest) {
             ? new Date(order.scheduled_end).getTime() -
               new Date(order.scheduled_start).getTime()
             : 60 * 60 * 1000;
-    const end = localIso(new Date(new Date(start).getTime() + duration));
+    const end = businessDateTimeInput(
+        addScheduleMinutes(
+            scheduleInput(start.slice(0, 16), order.scheduled_start),
+            duration / 60000,
+        ),
+    );
 
     return { start, end };
 }
@@ -1384,6 +1395,17 @@ function RescheduleDialog({
                 <Form
                     action={`/work-orders/${request.order.id}/schedule`}
                     method="patch"
+                    transform={(data) => ({
+                        ...data,
+                        scheduled_start: scheduleInput(
+                            String(data.scheduled_start),
+                            request.order.scheduled_start,
+                        ),
+                        scheduled_end: scheduleInput(
+                            String(data.scheduled_end),
+                            request.order.scheduled_end,
+                        ),
+                    })}
                     onSuccess={() => onOpenChange(false)}
                     className="grid gap-4"
                 >
@@ -2037,6 +2059,7 @@ function formatDate(value: string | null) {
         ? new Intl.DateTimeFormat('en-GB', {
               dateStyle: 'medium',
               timeStyle: 'short',
+              timeZone: 'Europe/Madrid',
           }).format(new Date(value))
         : 'Unscheduled';
 }
@@ -2045,50 +2068,26 @@ function formatTime(value: string | null) {
         ? new Intl.DateTimeFormat('en-GB', {
               hour: '2-digit',
               minute: '2-digit',
+              timeZone: 'Europe/Madrid',
           }).format(new Date(value))
         : '—';
 }
 function dateTimeInput(value?: string | null) {
-    if (!value) {
-        return '';
-    }
-
-    const date = new Date(value);
-    const offset = date.getTimezoneOffset();
-
-    return new Date(date.getTime() - offset * 60_000)
-        .toISOString()
-        .slice(0, 16);
+    return businessDateTimeInput(value ?? null);
 }
 function localIso(date: Date) {
-    const offset = date.getTimezoneOffset();
-
-    return new Date(date.getTime() - offset * 60_000)
-        .toISOString()
-        .slice(0, 19);
+    return businessDateTimeInput(date);
 }
 function dateKey(value: string | null) {
-    if (!value) {
-        return null;
-    }
-
-    const date = new Date(value);
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-
-    return `${year}-${month}-${day}`;
+    return value ? businessDateTimeInput(value).slice(0, 10) : null;
 }
 function addDays(value: string, amount: number) {
-    const date = new Date(`${value}T12:00:00`);
-    date.setDate(date.getDate() + amount);
-
-    return date.toISOString().slice(0, 10);
+    return addCalendarDays(value, amount);
 }
 function addMonths(value: string, amount: number) {
-    const date = new Date(`${value}T12:00:00`);
-    date.setDate(1);
-    date.setMonth(date.getMonth() + amount);
+    const date = new Date(`${value}T12:00:00Z`);
+    date.setUTCDate(1);
+    date.setUTCMonth(date.getUTCMonth() + amount);
 
     return date.toISOString().slice(0, 10);
 }

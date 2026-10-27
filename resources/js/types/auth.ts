@@ -12,6 +12,7 @@ export type User = {
 };
 
 export type Auth = {
+    notifications: Array<{ id: string; message: string; url: string }>;
     user: User;
     abilities: AuthAbilities;
     navigation: WorkspaceNavItem[];

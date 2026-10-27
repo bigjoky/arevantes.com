@@ -1,0 +1,203 @@
+{
+  "date": "2026-10-26",
+  "scope": "local only; no commit/push/merge or production actions",
+  "branch": "fix/work-order-layout",
+  "head": "e4484989e160c548eac0ae50120d08a8ef640962",
+  "working_tree_dirty": true,
+  "checks": [
+    {
+      "name": "full suite",
+      "tool": "phpunit",
+      "result": "passed",
+      "tests": 1032,
+      "passed": 1002,
+      "assertions": 14805,
+      "duration_ms": 73515,
+      "skipped": 30
+    },
+    {
+      "name": "PostgreSQL expanded",
+      "tool": "phpunit",
+      "result": "failed",
+      "tests": 277,
+      "passed": 273,
+      "assertions": 3774,
+      "duration_ms": 68244,
+      "failed": 4,
+      "failures": [
+        {
+          "test": "Tests\\Feature\\AccountingTest::test_arevia_finds_specific_crm_records_and_hides_finance_from_technicians",
+          "line": 52,
+          "message": "Failed asserting that 'No specific CRM records matched this request.' [ASCII](length: 45) contains \"FAC-AREVIA-77\" [ASCII](length: 13)."
+        },
+        {
+          "test": "Tests\\Feature\\PurchaseOrderDateCorrectionTest::test_admin_can_correct_a_saved_locked_order_with_an_audited_reason",
+          "line": 41,
+          "message": "Failed asserting that '121.00' is identical to 121."
+        },
+        {
+          "test": "Tests\\Feature\\SecurityAdministrationTest::test_deye_health_uses_the_credentials_required_by_the_client",
+          "line": 252,
+          "message": "Expected status code 0 but received 1."
+        },
+        {
+          "test": "Tests\\Feature\\SecurityAdministrationTest::test_postgres_restore_refuses_the_production_database_as_target",
+          "line": 348,
+          "message": "Failed asserting that exception message 'SQLSTATE[22P02]: Invalid text representation: 7 ERROR:  invalid input syntax for type bigint: \"0.060307\""
+        }
+      ]
+    },
+    {
+      "name": "PostgreSQL identity final repeat",
+      "tool": "phpunit",
+      "result": "passed",
+      "tests": 20,
+      "passed": 20,
+      "assertions": 62,
+      "duration_ms": 6559
+    },
+    {
+      "name": "PostgreSQL new concurrency",
+      "tool": "phpunit",
+      "result": "passed",
+      "tests": 4,
+      "passed": 4,
+      "assertions": 25,
+      "duration_ms": 21114
+    },
+    {
+      "name": "PostgreSQL prior concurrency",
+      "tool": "phpunit",
+      "result": "passed",
+      "tests": 11,
+      "passed": 11,
+      "assertions": 69,
+      "duration_ms": 64835
+    },
+    {
+      "name": "pre-ECO02 source controls",
+      "tool": "phpunit",
+      "result": "failed",
+      "tests": 4,
+      "passed": 1,
+      "assertions": 57,
+      "duration_ms": 4699,
+      "failed": 3,
+      "failures": [
+        {
+          "test": "Tests\\Feature\\PurchaseOrderDateCorrectionTest::test_admin_can_correct_a_saved_locked_order_with_an_audited_reason",
+          "line": 41,
+          "message": "Failed asserting that '121.00' is identical to 121."
+        },
+        {
+          "test": "Tests\\Feature\\SecurityAdministrationTest::test_deye_health_uses_the_credentials_required_by_the_client",
+          "line": 252,
+          "message": "Expected status code 0 but received 1."
+        },
+        {
+          "test": "Tests\\Feature\\SecurityAdministrationTest::test_postgres_restore_refuses_the_production_database_as_target",
+          "line": 348,
+          "message": "Failed asserting that exception message 'SQLSTATE[22P02]: Invalid text representation: 7 ERROR:  invalid input syntax for type bigint: \"0.519923\""
+        }
+      ]
+    }
+  ],
+  "frontend": {
+    "passed": 56,
+    "failed": 0,
+    "skipped": 0
+  },
+  "typescript": "passed",
+  "eslint_global": "passed",
+  "php_format": "passed",
+  "build": "passed; chunk-size warning",
+  "i18n": {
+    "result": "failed",
+    "missing_strings": 211,
+    "new_custody_missing_strings": 0
+  },
+  "local_schema_preservation": {
+    "environment": "local",
+    "engine": "sqlite",
+    "existing_tables_checked": 13,
+    "changed_existing_data_tables": [],
+    "claims_after_schema_install": 0
+  },
+  "read_only_pg_command": {
+    "executed": true,
+    "read_only": true,
+    "history_modified": false,
+    "database": "isolated synthetic test database"
+  },
+  "registry_created_at_postgres_type": "timestamp with time zone",
+  "temporal_integrity": {
+    "checked": 62,
+    "mismatches": []
+  },
+  "source_vs_snapshot_mismatches": [],
+  "sha256": {
+    "app/Console/Commands/AuditReceivedInvoices.php": "967333e560a05f6d05b0f56e8e29a7d21e0e7008a7460d0237494df9515df7f5",
+    "app/Exceptions/IssuedDocumentUnavailable.php": "67aab2023714e9a1abd5b3def3e99e6e58189fb3e9c88e569a5699b4671878e4",
+    "app/Http/Controllers/BankingController.php": "921c47e7ec6b42f9835d4a458feff5bd5c3d7ba571c9aeb32edfde9a726fd1af",
+    "app/Http/Controllers/BillingWorkspaceController.php": "107d0e3f614ab972dd9004888a7248c1e7911c4a70d5139d2c68d9e8be8ebdf0",
+    "app/Http/Controllers/ExpenseController.php": "87ca768535a934945046c8a830a1b3effc89f2da84c99b69bebffc890e6d3c55",
+    "app/Http/Controllers/PurchaseController.php": "5b7903ffa54da0fd3ad221efbc56f4278cdfd7728a32fd62bcf6947c3892b607",
+    "app/Http/Controllers/SalesDocumentController.php": "bd9e7a5e94734dffb76f6eff2c869d915a49eb5100237b6a587caa706a0de87a",
+    "app/Observers/AuditableObserver.php": "e64ae35e3ef0d3ea7659ee82443ec337658bb798a551528533a786f4f0ffff4a",
+    "app/Providers/AppServiceProvider.php": "5c12f2fb9b7fbe15b3a3d547cac06885d2f52b9040081234566684c920e65c88",
+    "app/Services/Accounting/AccountingSynchronizer.php": "ae081e43027464f16d8a538e1d2a30828af81105291d7485094cf179e3c3f010",
+    "app/Services/Accounting/ExpenseCorrection.php": "c5fa29e51bf6eb11da18421a6ae10c6bd3588267d4ab53cf4a11a0423f1f7eed",
+    "app/Services/Accounting/IssuedInvoiceCorrection.php": "d737eee4e7701ddf2108aaa00858b8e0809c22fcf4579b88a9697461f4a8d2f3",
+    "app/Services/Documents/DocumentPdf.php": "a18aa01ca0a42ee3808198f907476a0980480d4c75702541050005931852ec7c",
+    "app/Services/Finance/ReceivedInvoiceAudit.php": "ab234b3bb5e3391629e3170fbac4130edd7420b90d4095f0623c85446aebd9b4",
+    "app/Services/Finance/ReceivedInvoiceIdentity.php": "044d8d00a57abc59af2d14a1110a8098baadebbf442d5f674ce3b812d244a7ed",
+    "bootstrap/app.php": "163dbd69928a606ecbd4cbdc635568fcd2113a301b7478659c213181e287f4bf",
+    "database/migrations/2026_10_26_100000_share_received_invoice_identity.php": "b26049da8a4172c71d0093be41ee2020541753e75fc6065ef7b84ed85167836c",
+    "database/migrations/2026_10_26_101000_guard_received_invoice_identity.php": "1b1612523aaba9f7442833551b832590fe898b9f95569c815eaa0a6df3aa394a",
+    "database/migrations/2026_10_26_102000_scope_existing_invoice_identity_to_receiver.php": "96a8b71db6849ae818c3160b1064d26398597dd6e2a349f62e5235bd41c1dff6",
+    "database/migrations/2026_10_26_103000_guard_received_invoice_economic_effects.php": "ad13e82a04a9be1e34b3fb2786f24610c0353685bd9cfddab16fd62fc6b72b2a",
+    "routes/web.php": "b6e2e6ab64179f904a9083674445741e99df4cf95a7dae04759b043573dc0173",
+    "tests/Feature/AccountingTest.php": "aea33132248dfd8df885d757867f368bafc8b95e32c4ddad417674dd13a12a73",
+    "tests/Feature/ActionCenterTest.php": "9ed9ad0f718befae86fa66299920ad1f566cbfc39b14f5e46e5db106679446a2",
+    "tests/Feature/BankingTest.php": "deb94dc5e1802dc28991c7dac11d0253c2c1ce8350641334acd614e85f5a09c6",
+    "tests/Feature/BillingRedesignTest.php": "450a6230417cd6d394b21420993e277ab544bcfeb9fa6d768e60db9bd969e7be",
+    "tests/Feature/EconomicConcurrencyTest.php": "a8acdef5fd57925cbf797550fc4b9846b07cfd93de5098b9bddf437488fa34ad",
+    "tests/Feature/EconomicIdentityTest.php": "094265454b314b77d840d886181881ce5b56b96e0d3eea7115ab080bcef457d9",
+    "tests/Feature/EconomicIntegrityTest.php": "fd3c6e0f7645d25f5b16038fa72797c1ddcf54409757d5ea3974cc35c90028e9",
+    "tests/Feature/ExecutiveAnalyticsTest.php": "cb22ab606ece4ce77ad37c9401f469ef9d5720136d89a435e3cdbf9c7b02ccb4",
+    "tests/Feature/ExpenseCorrectionTest.php": "cbdfc53a282a4302d6dc90f031e97222d1853cdc4d0bc840f170b10d5155aead",
+    "tests/Feature/ExpenseDocumentaryReviewTest.php": "b6ab7006ffc23c833732a2e790f6164078466a7ecfb3007cfb0a96f939f211f4",
+    "tests/Feature/ExpenseFiscalReviewTest.php": "80a1503e3224a9468c6762091133505b58bee230f96a0f089da10642319c9062",
+    "tests/Feature/ExpenseTest.php": "7d8178438a56cea11f0ee0c525ea838325964b6447fdaf13b4d19269d3a52238",
+    "tests/Feature/FinanceRedesignTest.php": "2836041201c628dda099e724b16e55eab4991097a2f586026139fd47a94a6924",
+    "tests/Feature/FinanceTest.php": "a0da08f3f069d4a069004b1870b4de562b86f60ba5f4297aca7d357cb2f6215b",
+    "tests/Feature/FiscalEntityTest.php": "534ceca1d1d22144b51b1460b19cdfcfb5915ed9e0dd5b7a4f69917859065f61",
+    "tests/Feature/FiscalRedesignTest.php": "96e99beae6e6d15f4a7a656019951aa07f4ad83fc9e56e25c77dc91f8402d989",
+    "tests/Feature/PurchaseOrderDateCorrectionTest.php": "256988f6cb7ef462c8d481a554d85ba7ae0895178f2c8c184a9557584ae77fc3",
+    "tests/Feature/PurchaseTest.php": "7b03ffeb4c9412fd6cc40b1e06fd2f6f4df685be86fbc56752f183a05fad1704",
+    "tests/Feature/ReceivedInvoiceConcurrencyTest.php": "1566131038508838144e5aad8ffc5e458aa0480d360eb9349e587aa24368e622",
+    "tests/Feature/ReceivedInvoiceIdentityTest.php": "f889213feb3f5e1853e551b4caafceb6e1055c6a389bb3f3ab0a6893e332f4e0",
+    "tests/Feature/SecurityAdministrationTest.php": "940793868cd627f6f3dc4882cdc947fe8d57cc0081c2317f9584cc13c5ffd95b",
+    "tests/Feature/SupplyAnalyticsTest.php": "cdfe660fe012d13192291c31381e69c943591ecd119d9f3b23ffbd9cfd9f8efc",
+    "tests/Feature/TaxTest.php": "597f21519876b46da3d7ed677143086acdc68b58aa85e93b3a148f52d5ceb009",
+    "tests/Feature/VatDeductibilityReportTest.php": "d5aa1d1e170a3c3c4d2708aeacffdd95478dc2f50e1150ddd1dc8100c1bc8526",
+    "tests/Feature/VatLedgerTest.php": "3ce9e1572b21ac0811b9dd8ad7c74568000300545583a5a1eca80570aefdcd2d",
+    "tests/Feature/VatSettlementWorkflowTest.php": "0a2c4d1af7691863eba8c4edd6fa38886a63c234425e852be2a1a099122a5f74",
+    "tests/Support/EconomicFixture.php": "8f3987b4d27deb8d0d155dbd075ed1d7bec963e67269c5057fb566be1d00a472",
+    "tests/Support/received-invoice-worker.php": "fdce521b857c28dd79d75a42fa245b785feba91198711926a902cfc94e68d483",
+    "resources/js/components/document-custody.tsx": "cc78348a5ba2b800f193ff51fa01d89d90e04025f217b5d509977f9d81749a26",
+    "resources/js/pages/sales/show.tsx": "10e1e7fbe4d15312efd70aa5728ffe498e3e0ba2bdfee0781612ed49957e3071",
+    "resources/js/pages/billing/invoice.tsx": "697fab10cdb5fd447f3654a9a4656d22d6aec48943c199453970df20449b4780",
+    "resources/views/pdf/sales-document.blade.php": "af64389868c5b9bd96a7d7253195eb324c3ab0b8a706001bc26d5a16bb0d2bda",
+    "resources/js/i18n/catalog.json": "288d0f2ae1a1b66214503b568e4eb9a592819b918e34abb5b6c147cd13d279e9"
+  },
+  "assessment": {
+    "ECO02_local": "implemented and verified within covered flows",
+    "integrated_release": "NO APTO PARA DESPLIEGUE; prior PG failures, historical review and staging gates pending"
+  },
+  "verification_notes": [
+    "The final registry timestamp uses PostgreSQL timestamptz; identity/migration subset repeated successfully and information_schema type checked. SQLite compiles timestamp/timestampTz to the same datetime representation.",
+    "Frontend checks repeated after adding the custody translations. No existing translation entries were changed.",
+    "Prior PG failures remain visible; no production audit or write was performed."
+  ]
+}

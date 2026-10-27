@@ -18,7 +18,9 @@ use App\Services\Documents\DocumentNumber;
 use App\Services\Documents\DocumentPdf;
 use App\Services\Documents\QuoteBillingPlan;
 use App\Services\Documents\SalesDocumentConversion;
+use App\Services\Documents\SalesDocumentCreation;
 use App\Services\Finance\AcceptancePaymentManager;
+use App\Services\Finance\OutstandingBalanceCalculator;
 use App\Services\Inventory\SalesStockAllocator;
 use App\Services\Inventory\StockLedger;
 use App\Services\Operations\FinancialClearanceGuard;
@@ -26,7 +28,7 @@ use App\Services\Quotes\QuoteCalculator;
 use App\Services\Security\SecurityEventRecorder;
 use App\Support\HistoricalDocumentDate;
 use Brick\Math\BigDecimal;
-use Brick\Math\RoundingMode;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -100,9 +102,11 @@ class SalesDocumentController extends Controller
         $salesDocument->setAttribute('can_issue_invoice', $request->user()->can('issue-invoices')
             && (! $isRecurring || $request->user()->can('manage-treasury')));
         $salesDocument->setAttribute('can_correct_issued', $request->user()->hasRole('admin') && $request->user()->can('manage-admin') && IssuedInvoiceCorrection::eligible($salesDocument));
+        $salesDocument->setAttribute('outstanding_balance', app(OutstandingBalanceCalculator::class)->receivableDecimal($salesDocument));
+        $salesDocument->setAttribute('can_record_payment', $request->user()->can('manage-treasury'));
         $salesDocument->setAttribute('can_prepare_credit_note', $request->user()->can('prepare-credit-notes'));
 
-        return Inertia::render('sales/show', ['document' => $salesDocument->load(['customer', 'installation', 'quote:id,number', 'sourceDocument:id,number,type', 'lines.product:id,name,track_stock,track_serials', 'accountingEntry:id,source_type,source_id,number,status', 'payments.accountingEntry:id,source_type,source_id,number,status', 'deliveries:id,sales_document_id,recipient_email,status,sent_at,first_viewed_at,responded_at,revoked_at', 'recurringServiceBilling.serviceCycleCommitment.maintenancePlan:id,name']), 'corrections' => $request->user()->hasRole('admin') && $request->user()->can('manage-admin') ? AuditLog::where('auditable_type', $salesDocument->getMorphClass())->where('auditable_id', $salesDocument->id)->where('event', 'issued_invoice_corrected')->with('user:id,name')->latest()->get() : [], 'conversion' => $conversion->summary($salesDocument), 'warehouses' => Warehouse::where('is_active', true)->orderByDesc('is_default')->orderBy('name')->get(['id', 'code', 'name'])]);
+        return Inertia::render('sales/show', ['reconstructionHref' => $request->user()->hasRole('admin') && $request->user()->can('manage-admin') && app(DocumentPdf::class)->custody($salesDocument) === 'historical_original_missing' ? '/sales/'.$salesDocument->id.'/informative-pdf' : null, 'custodyStatus' => app(DocumentPdf::class)->custody($salesDocument), 'document' => $salesDocument->load(['customer', 'installation', 'quote:id,number', 'sourceDocument:id,number,type', 'lines.product:id,name,track_stock,track_serials', 'accountingEntry:id,source_type,source_id,number,status', 'payments.accountingEntry:id,source_type,source_id,number,status', 'deliveries:id,sales_document_id,recipient_email,status,sent_at,first_viewed_at,responded_at,revoked_at', 'recurringServiceBilling.serviceCycleCommitment.maintenancePlan:id,name']), 'corrections' => $request->user()->hasRole('admin') && $request->user()->can('manage-admin') ? AuditLog::where('auditable_type', $salesDocument->getMorphClass())->where('auditable_id', $salesDocument->id)->where('event', 'issued_invoice_corrected')->with('user:id,name')->latest()->get() : [], 'conversion' => $conversion->summary($salesDocument), 'operationKey' => (string) Str::uuid(), 'warehouses' => Warehouse::where('is_active', true)->orderByDesc('is_default')->orderBy('name')->get(['id', 'code', 'name'])]);
     }
 
     public function edit(SalesDocument $salesDocument): Response
@@ -147,7 +151,7 @@ class SalesDocumentController extends Controller
     public function store(Request $request, QuoteCalculator $calculator): RedirectResponse
     {
         $data = $this->validateDirectDocument($request);
-        $document = DB::transaction(fn () => $this->persistDirectDocument(new SalesDocument, $data, $request, $calculator));
+        $document = app(SalesDocumentCreation::class)->run($request, 'direct', $data, fn () => [$this->persistDirectDocument(new SalesDocument, $data, $request, $calculator), true])[0];
 
         return to_route('sales-documents.show', $document)->with('toast', ['type' => 'success', 'message' => __('Sales document created.')]);
     }
@@ -178,8 +182,9 @@ class SalesDocumentController extends Controller
         ]);
         abort_unless($quote->status === 'accepted', 422, __('Only accepted quotes can be converted.'));
 
-        [$document, $created] = DB::transaction(function () use ($request, $quote, $billing, $data, $issueDate): array {
+        [$document, $created] = app(SalesDocumentCreation::class)->run($request, 'quote:'.$quote->id, [...$data, 'issue_date' => $issueDate], function () use ($request, $quote, $billing, $data, $issueDate): array {
             $quote = Quote::lockForUpdate()->with('lines')->findOrFail($quote->id);
+            abort_unless($quote->status === 'accepted', 422, __('Only accepted quotes can be converted.'));
             if ($data['type'] !== 'invoice') {
                 $existing = SalesDocument::where('quote_id', $quote->id)->where('type', $data['type'])->first();
                 if ($existing) {
@@ -282,53 +287,76 @@ class SalesDocumentController extends Controller
             || $salesDocument->sourceDocument?->recurringServiceBilling()->exists();
         abort_if($isRecurring && ! $request->user()->can('manage-treasury'), 403);
         $data = $request->validate(['issue_date' => ['required', 'date'], 'due_date' => ['nullable', 'date', 'after_or_equal:issue_date']]);
-        DB::transaction(function () use ($request, $salesDocument, $data, $accounting) {
-            if ($salesDocument->quote_id) {
-                Quote::lockForUpdate()->findOrFail($salesDocument->quote_id);
-            }
-            $salesDocument = SalesDocument::query()->lockForUpdate()->findOrFail($salesDocument->id);
-            abort_unless(in_array($salesDocument->type, ['invoice', 'credit_note'], true) && $salesDocument->status === 'draft' && $salesDocument->locked_at === null, 422, __('Only draft invoices can be issued.'));
-            $isRecurring = $salesDocument->recurringServiceBilling()->exists()
-                || $salesDocument->sourceDocument?->recurringServiceBilling()->exists();
-            abort_if($isRecurring && ! $request->user()->can('manage-treasury'), 403);
-            if ($salesDocument->type === 'invoice' && blank($data['due_date'] ?? null)) {
-                $data['due_date'] = Carbon::parse($data['issue_date'])
-                    ->addDays($salesDocument->collect_before_invoice ? 0 : (int) (data_get($salesDocument->customer_snapshot, 'payment_terms_days') ?? 30))
-                    ->toDateString();
-            }
-            if ($salesDocument->type === 'credit_note') {
-                $original = SalesDocument::lockForUpdate()->findOrFail($salesDocument->source_document_id);
-                abort_unless($original->type === 'invoice' && $original->locked_at, 422);
-                $credited = BigDecimal::of((string) $original->childDocuments()->where('type', 'credit_note')->where('status', '<>', 'draft')->sum('amount'))->abs();
-                if ($credited->plus(BigDecimal::of($salesDocument->amount)->abs())->isGreaterThan($original->amount)) {
-                    throw ValidationException::withMessages(['issue_date' => __('Credit notes cannot exceed the original invoice amount.')]);
+        $createdArchive = null;
+        $disk = Storage::disk(config('filesystems.private'));
+        try {
+            DB::transaction(function () use ($request, $salesDocument, $data, $accounting, $disk, &$createdArchive) {
+                if ($salesDocument->quote_id) {
+                    Quote::lockForUpdate()->findOrFail($salesDocument->quote_id);
+                }
+                $salesDocument = SalesDocument::query()->lockForUpdate()->findOrFail($salesDocument->id);
+                abort_unless(in_array($salesDocument->type, ['invoice', 'credit_note'], true) && $salesDocument->status === 'draft' && $salesDocument->locked_at === null, 422, __('Only draft invoices can be issued.'));
+                $isRecurring = $salesDocument->recurringServiceBilling()->exists()
+                    || $salesDocument->sourceDocument?->recurringServiceBilling()->exists();
+                abort_if($isRecurring && ! $request->user()->can('manage-treasury'), 403);
+                if ($salesDocument->type === 'invoice' && blank($data['due_date'] ?? null)) {
+                    $data['due_date'] = Carbon::parse($data['issue_date'])
+                        ->addDays($salesDocument->collect_before_invoice ? 0 : (int) (data_get($salesDocument->customer_snapshot, 'payment_terms_days') ?? 30))
+                        ->toDateString();
+                }
+                if ($salesDocument->type === 'credit_note') {
+                    $original = SalesDocument::lockForUpdate()->findOrFail($salesDocument->source_document_id);
+                    abort_unless($original->type === 'invoice' && $original->locked_at, 422);
+                    $credited = BigDecimal::of((string) $original->childDocuments()->where('type', 'credit_note')->where('status', '<>', 'draft')->sum('amount'))->abs();
+                    if ($credited->plus(BigDecimal::of($salesDocument->amount)->abs())->isGreaterThan($original->amount)) {
+                        throw ValidationException::withMessages(['issue_date' => __('Credit notes cannot exceed the original invoice amount.')]);
+                    }
+                }
+                if ($salesDocument->collect_before_invoice && round((float) $salesDocument->payments()->sum('amount'), 2) < (float) $salesDocument->amount) {
+                    throw ValidationException::withMessages(['issue_date' => __('Collect the full milestone amount before issuing its invoice.')]);
+                }
+                $issued = app(DocumentNumber::class)->next($salesDocument->type, $data['issue_date']);
+                $salesDocument->issuer_snapshot = CompanyProfile::firstOrFail()->documentSnapshot();
+                $salesDocument->update([...$data, 'document_series_id' => $issued['series']->id, 'number' => $issued['number'], 'status' => 'issued', 'issued_at' => now(), 'locked_at' => now()]);
+                $accounting->syncSalesDocument($salesDocument->refresh(), $request->user()->id);
+                $accounting->allocateCollectedPayments($salesDocument, $request->user()->id);
+                if ($salesDocument->collect_before_invoice) {
+                    $this->refreshPaymentStatus($salesDocument);
+                }
+                $bytes = app(DocumentPdf::class)->renderForArchiving($salesDocument->refresh());
+                $hash = hash('sha256', $bytes);
+                $path = 'issued-invoices/'.$salesDocument->id.'/'.$hash.'.pdf';
+                if (! $disk->exists($path)) {
+                    $createdArchive = $path;
+                    if (! $disk->put($path, $bytes)) {
+                        throw new \RuntimeException('The issued invoice PDF could not be archived.');
+                    }
+                }
+                if (! hash_equals($hash, hash('sha256', $disk->get($path)))) {
+                    throw new \RuntimeException('The issued invoice archive failed its integrity check.');
+                }
+                $salesDocument->forceFill(['archived_pdf_path' => $path, 'archived_pdf_hash' => $hash])->save();
+
+                if ($salesDocument->type === 'invoice') {
+                    $salesDocument->recurringServiceBilling?->update(['status' => 'issued', 'issued_by' => $request->user()->id, 'issued_at' => now()]);
+                } elseif ($salesDocument->type === 'credit_note') {
+                    $this->refreshPaymentStatus($original);
+                    $salesDocument->sourceDocument?->recurringServiceBilling?->update(['status' => 'credited']);
+                }
+            });
+
+        } catch (\Throwable $exception) {
+            if ($createdArchive !== null) {
+                try {
+                    if (! SalesDocument::whereKey($salesDocument->id)->where('archived_pdf_path', $createdArchive)->exists()) {
+                        $disk->delete($createdArchive);
+                    }
+                } catch (\Throwable $cleanupFailure) {
+                    report($cleanupFailure); // Preserve evidence when reference status cannot be established.
                 }
             }
-            if ($salesDocument->collect_before_invoice && round((float) $salesDocument->payments()->sum('amount'), 2) < (float) $salesDocument->amount) {
-                throw ValidationException::withMessages(['issue_date' => __('Collect the full milestone amount before issuing its invoice.')]);
-            }
-            $issued = app(DocumentNumber::class)->next($salesDocument->type, $data['issue_date']);
-            $salesDocument->issuer_snapshot = CompanyProfile::firstOrFail()->documentSnapshot();
-            $salesDocument->update([...$data, 'document_series_id' => $issued['series']->id, 'number' => $issued['number'], 'status' => 'issued', 'issued_at' => now(), 'locked_at' => now()]);
-            $accounting->syncSalesDocument($salesDocument->refresh(), $request->user()->id);
-            $accounting->allocateCollectedPayments($salesDocument, $request->user()->id);
-            if ($salesDocument->collect_before_invoice) {
-                $this->refreshPaymentStatus($salesDocument);
-            }
-            $bytes = app(DocumentPdf::class)->render($salesDocument->refresh(), $salesDocument->type, final: true);
-            $hash = hash('sha256', $bytes);
-            $path = 'issued-invoices/'.$salesDocument->id.'/'.$hash.'.pdf';
-            if (! Storage::disk(config('filesystems.private'))->put($path, $bytes)) {
-                throw new \RuntimeException('The issued invoice PDF could not be archived.');
-            }
-            $salesDocument->forceFill(['archived_pdf_path' => $path, 'archived_pdf_hash' => $hash])->save();
-
-            if ($salesDocument->type === 'invoice') {
-                $salesDocument->recurringServiceBilling?->update(['status' => 'issued', 'issued_by' => $request->user()->id, 'issued_at' => now()]);
-            } elseif ($salesDocument->type === 'credit_note') {
-                $salesDocument->sourceDocument?->recurringServiceBilling?->update(['status' => 'credited']);
-            }
-        });
+            throw $exception;
+        }
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Invoice issued and locked.')]);
     }
@@ -337,30 +365,38 @@ class SalesDocumentController extends Controller
     {
         abort_unless($request->user()->can('manage-treasury'), 403);
         $data = $request->validate(['idempotency_key' => ['nullable', 'uuid'], 'paid_at' => ['required', 'date'], 'amount' => ['required', 'numeric', 'decimal:0,2', 'gt:0'], 'method' => ['required', Rule::in(['bank_transfer', 'card', 'cash', 'direct_debit', 'other'])], 'reference' => ['nullable', 'string', 'max:255'], 'notes' => ['nullable', 'string']]);
-        DB::transaction(function () use ($request, $salesDocument, $data, $accounting) {
-            if ($salesDocument->quote_id) {
-                Quote::lockForUpdate()->findOrFail($salesDocument->quote_id);
-            }
-            $document = SalesDocument::lockForUpdate()->findOrFail($salesDocument->id);
-            $existing = ! empty($data['idempotency_key']) ? SalesDocumentPayment::where('idempotency_key', $data['idempotency_key'])->first() : null;
-            if ($existing) {
-                $same = $existing->sales_document_id === $document->id && $existing->paid_at->toDateString() === $data['paid_at'] && $existing->amount === BillingWorkspace::decimal($data['amount']) && $existing->method === $data['method'] && ($existing->reference ?? '') === ($data['reference'] ?? '') && ($existing->notes ?? '') === ($data['notes'] ?? '');
-                if (! $same) {
-                    throw ValidationException::withMessages(['amount' => __('This operation key has already been used for a different payment.')]);
+        try {
+            DB::transaction(function () use ($request, $salesDocument, $data, $accounting) {
+                if ($salesDocument->quote_id) {
+                    Quote::lockForUpdate()->findOrFail($salesDocument->quote_id);
                 }
+                $document = SalesDocument::lockForUpdate()->findOrFail($salesDocument->id);
+                $existing = ! empty($data['idempotency_key']) ? SalesDocumentPayment::where('idempotency_key', $data['idempotency_key'])->first() : null;
+                if ($existing) {
+                    $same = $existing->sales_document_id === $document->id && $existing->paid_at->toDateString() === $data['paid_at'] && $existing->amount === BillingWorkspace::decimal($data['amount']) && $existing->method === $data['method'] && ($existing->reference ?? '') === ($data['reference'] ?? '') && ($existing->notes ?? '') === ($data['notes'] ?? '');
+                    if (! $same) {
+                        throw ValidationException::withMessages(['amount' => __('This operation key has already been used for a different payment.')]);
+                    }
 
-                return;
+                    return;
+                }
+                abort_unless($document->type === 'invoice' && (($document->collect_before_invoice && $document->status === 'draft' && ! $document->locked_at) || ($document->locked_at && in_array($document->status, ['issued', 'partial', 'overdue'], true))), 422, __('Payments can only be registered against issued invoices.'));
+                $credits = $document->childDocuments()->where('type', 'credit_note')->whereNotIn('status', ['draft', 'cancelled'])->sum('amount');
+                $balance = BigDecimal::of($document->amount)->minus((string) $document->payments()->sum('amount'))->plus((string) $credits);
+                if ($balance->isLessThan($data['amount'])) {
+                    throw ValidationException::withMessages(['amount' => __('The payment exceeds the outstanding document balance.')]);
+                }
+                $payment = $document->payments()->create([...$data, 'amount' => BillingWorkspace::decimal($data['amount']), 'created_by' => $request->user()->id]);
+                $accounting->syncCustomerPayment($payment, $request->user()->id);
+                $this->refreshPaymentStatus($document);
+            });
+
+        } catch (UniqueConstraintViolationException $exception) {
+            if (! empty($data['idempotency_key']) && SalesDocumentPayment::where('idempotency_key', $data['idempotency_key'])->exists()) {
+                throw ValidationException::withMessages(['amount' => __('This operation key has already been used for a different payment.')]);
             }
-            abort_unless($document->type === 'invoice' && (($document->collect_before_invoice && $document->status === 'draft' && ! $document->locked_at) || ($document->locked_at && in_array($document->status, ['issued', 'partial', 'overdue'], true))), 422, __('Payments can only be registered against issued invoices.'));
-            $credits = $document->childDocuments()->where('type', 'credit_note')->where('status', '<>', 'draft')->sum('amount');
-            $balance = BigDecimal::of($document->amount)->minus((string) $document->payments()->sum('amount'))->plus((string) $credits);
-            if ($balance->isLessThan($data['amount'])) {
-                throw ValidationException::withMessages(['amount' => __('The payment exceeds the outstanding document balance.')]);
-            }
-            $payment = $document->payments()->create([...$data, 'amount' => BillingWorkspace::decimal($data['amount']), 'created_by' => $request->user()->id]);
-            $accounting->syncCustomerPayment($payment, $request->user()->id);
-            $this->refreshPaymentStatus($document);
-        });
+            throw $exception;
+        }
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Payment registered.')]);
     }
@@ -368,26 +404,32 @@ class SalesDocumentController extends Controller
     public function duplicate(Request $request, SalesDocument $salesDocument): RedirectResponse
     {
         abort_unless($salesDocument->type === 'invoice', 422);
-        $copy = DB::transaction(function () use ($request, $salesDocument) {
+        $copy = app(SalesDocumentCreation::class)->run($request, 'duplicate:'.$salesDocument->id, [], function () use ($request, $salesDocument) {
             $source = SalesDocument::with('lines')->lockForUpdate()->findOrFail($salesDocument->id);
             $copy = SalesDocument::create([...$source->only(['person_id', 'installation_id', 'subtotal', 'discount_amount', 'tax_amount', 'amount', 'customer_snapshot', 'notes']), 'type' => 'invoice', 'status' => 'draft', 'number' => 'DRAFT-INV-'.Str::upper(Str::random(12)), 'created_by' => $request->user()->id, 'issue_date' => today()->toDateString(), 'paid_amount' => '0.00']);
             $copy->lines()->createMany($source->lines->map(fn ($line) => $line->only(['product_id', 'unit_id', 'position', 'description', 'quantity', 'unit_price', 'discount_percent', 'tax_percent', 'subtotal', 'discount_amount', 'tax_amount', 'total']))->all());
 
-            return $copy;
-        });
+            return [$copy, true];
+        })[0];
 
         return to_route('sales-documents.show', $copy);
     }
 
     public function destroyPayment(SalesDocument $salesDocument, SalesDocumentPayment $payment): RedirectResponse
     {
+        abort_unless(auth()->user()?->can('manage-treasury'), 403);
         abort_unless($payment->sales_document_id === $salesDocument->id, 404);
-        if ($payment->accountingEntry()->exists()) {
-            throw ValidationException::withMessages(['payment' => __('Posted payments cannot be deleted. Reverse the accounting entry first.')]);
-        }
         DB::transaction(function () use ($salesDocument, $payment) {
-            $payment->delete();
-            $this->refreshPaymentStatus($salesDocument);
+            if ($salesDocument->quote_id) {
+                Quote::lockForUpdate()->findOrFail($salesDocument->quote_id);
+            }
+            $document = SalesDocument::lockForUpdate()->findOrFail($salesDocument->id);
+            $receipt = $document->payments()->lockForUpdate()->findOrFail($payment->id);
+            if ($receipt->accountingEntry()->exists() || $receipt->reconciliation()->exists()) {
+                throw ValidationException::withMessages(['payment' => __('Posted payments cannot be deleted. Reverse the accounting entry first.')]);
+            }
+            $receipt->delete();
+            $this->refreshPaymentStatus($document);
         });
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Payment removed.')]);
@@ -446,7 +488,7 @@ class SalesDocumentController extends Controller
             'quantities' => ['required', 'array'],
             'quantities.*' => ['nullable', 'numeric', 'min:0'],
         ]);
-        $document = $conversion->convert($salesDocument, $data['type'], $data['quantities'], $request->user()->id, $issueDate);
+        $document = app(SalesDocumentCreation::class)->run($request, 'source:'.$salesDocument->id, [...$data, 'issue_date' => $issueDate], fn () => [$conversion->convert($salesDocument, $data['type'], $data['quantities'], $request->user()->id, $issueDate), true])[0];
 
         return to_route('sales-documents.show', $document)->with('toast', ['type' => 'success', 'message' => __('Derived document created.')]);
     }
@@ -485,6 +527,16 @@ class SalesDocumentController extends Controller
         return response($pdf->render($salesDocument, $salesDocument->type), 200, ['Content-Type' => 'application/pdf', 'Content-Disposition' => 'inline; filename="'.$salesDocument->number.'.pdf"']);
     }
 
+    public function informativePdf(Request $request, SalesDocument $salesDocument, DocumentPdf $pdf): HttpResponse
+    {
+        abort_unless($request->user()->hasRole('admin') && $request->user()->can('manage-admin'), 403);
+        abort_unless($pdf->custody($salesDocument) === 'historical_original_missing', 409);
+        $bytes = $pdf->reconstructInformative($salesDocument);
+        AuditLog::create(['user_id' => $request->user()->id, 'event' => 'informative_invoice_reconstruction', 'auditable_type' => $salesDocument->getMorphClass(), 'auditable_id' => $salesDocument->id, 'new_values' => ['sha256' => hash('sha256', $bytes), 'original_replaced' => false, 'basis' => 'available_snapshots_and_lines'], 'ip_address' => $request->ip()]);
+
+        return response($bytes, 200, ['Content-Type' => 'application/pdf', 'Content-Disposition' => 'attachment; filename="RECONSTRUCCION-'.$salesDocument->number.'.pdf"', 'Cache-Control' => 'private, no-store']);
+    }
+
     public function quotePdf(Quote $quote, DocumentPdf $pdf): HttpResponse
     {
         $quote->load('lines');
@@ -509,12 +561,7 @@ class SalesDocumentController extends Controller
 
     private function refreshPaymentStatus(SalesDocument $document): void
     {
-        $paid = BigDecimal::of((string) $document->payments()->sum('amount'))->toScale(2, RoundingMode::HalfUp);
-        $credits = BigDecimal::of((string) $document->childDocuments()->where('type', 'credit_note')->where('status', '<>', 'draft')->sum('amount'));
-        $net = BigDecimal::of($document->amount)->plus($credits);
-        $status = $paid->isGreaterThanOrEqualTo($net) ? 'paid' : ($paid->isPositive() ? 'partial' : ($document->due_date?->lt(today()) ? 'overdue' : 'issued'));
-        $document->update(['paid_amount' => (string) $paid, 'status' => $document->locked_at ? $status : 'draft']);
-        $document->recurringServiceBilling?->update(['status' => $status]);
+        app(OutstandingBalanceCalculator::class)->refreshSalesDocument($document);
     }
 
     private function formData(): array

@@ -31,9 +31,9 @@ use App\Services\Work\TechnicianSchedule;
 use App\Services\Work\WorkOrderFactory;
 use App\Services\Work\WorkOrderTemplateResolver;
 use App\Support\BusinessLineCatalog;
+use App\Support\Time\BusinessTime;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
@@ -289,12 +289,16 @@ class QuoteController extends Controller
     public function startProject(Request $request, Quote $quote, TechnicianSchedule $schedule, ProjectMaterialPlanner $materials, QuoteOperationalPlanner $operations, WorkOrderFactory $orders, WorkOrderTemplateResolver $templates): RedirectResponse
     {
         abort_unless($quote->status === 'accepted', 422, __('Only accepted quotes can start a project.'));
-        abort_if($quote->installation_id, 422, __('This quote already has an installation.'));
+        if ($quote->installation_id) {
+            return to_route('installations.show', $quote->installation_id);
+        }
 
         $data = $request->validate([
+            'technical_validation_required' => ['sometimes', 'boolean'],
+            'technical_validation_reason' => ['nullable', 'required_if:technical_validation_required,false', 'string', 'min:5', 'max:2000'],
             'service_type' => ['required', Rule::in(BusinessLineCatalog::INSTALLATION_TYPES)],
             'technician_user_id' => ['nullable', Rule::exists('users', 'id')->where(fn ($query) => $query->whereIn('role', ['technician', 'admin']))],
-            'scheduled_at' => ['required', 'date', 'after_or_equal:today'],
+            'scheduled_at' => ['nullable', 'date', 'after_or_equal:today'],
             'site_name' => ['nullable', 'string', 'max:255'],
             'site_address_line_1' => ['required', 'string', 'max:255'],
             'site_street_number' => ['nullable', 'string', 'max:30'],
@@ -305,25 +309,56 @@ class QuoteController extends Controller
             'site_postal_code' => ['nullable', 'string', 'max:20'],
             'site_country' => ['required', 'string', 'max:255'],
         ]);
+        if (array_key_exists('technical_validation_required', $data) && ! $data['technical_validation_required']) {
+            abort_unless(Gate::allows('manage-admin'), 403, 'Solo administración puede dispensar la validación técnica con motivo.');
+        }
         abort_if($quote->service_type && $quote->service_type !== $data['service_type'], 422, __('The project business line must match the accepted quote.'));
-        $scheduledAt = Carbon::parse($data['scheduled_at']);
+        $scheduledAt = filled($data['scheduled_at'] ?? null) ? BusinessTime::parse($data['scheduled_at'], 'scheduled_at') : null;
         $surveyTemplate = $templates->resolveForServiceType($data['service_type'], 'survey');
         $duration = $surveyTemplate?->estimated_duration_minutes ?? 120;
-        $scheduledEnd = $scheduledAt->copy()->addMinutes($duration);
+        $scheduledEnd = $scheduledAt?->copy()->addMinutes($duration);
         $schedule->assertAvailable(isset($data['technician_user_id']) ? (int) $data['technician_user_id'] : null, $scheduledAt, $scheduledEnd, null, $surveyTemplate?->required_skills ?? []);
 
         $installation = DB::transaction(function () use ($request, $quote, $data, $scheduledAt, $scheduledEnd, $materials, $operations, $orders, $surveyTemplate): Installation {
             $lockedQuote = Quote::lockForUpdate()->findOrFail($quote->id);
             abort_unless($lockedQuote->status === 'accepted', 422, __('Only accepted quotes can start a project.'));
-            abort_if($lockedQuote->installation_id, 422, __('This quote already has an installation.'));
-            $opportunity = $lockedQuote->opportunity;
+            if ($lockedQuote->installation_id) {
+                return $lockedQuote->installation;
+            }
+            $opportunity = $lockedQuote->opportunity_id ? Opportunity::lockForUpdate()->findOrFail($lockedQuote->opportunity_id) : null;
+            $existingId = $opportunity?->installation_id;
+            if (! $existingId && $opportunity) {
+                $candidates = Installation::where('person_id', $lockedQuote->person_id)->where('service_type', $data['service_type'])
+                    ->whereHas('workOrders', fn ($orders) => $orders->where('kind', 'survey')->where('status', '!=', 'cancelled')->whereHas('activities', fn ($activities) => $activities->where('opportunity_id', $opportunity->id)))
+                    ->limit(2)->pluck('id');
+                abort_if($candidates->count() > 1, 422, 'Hay visitas vinculadas a varios proyectos. Revisa el emplazamiento antes de crear otro.');
+                $existingId = $candidates->first();
+            }
+            if ($existingId) {
+                $existing = Installation::lockForUpdate()->findOrFail($existingId);
+                abort_if($existing->dossier_closed_at || in_array($existing->status, ['cancelled', 'completed'], true), 422, 'El proyecto existente está finalizado o cancelado. Revisa su reapertura antes de vincular la propuesta.');
+                abort_unless($existing->person_id === $lockedQuote->person_id && $existing->service_type === $data['service_type'], 422, 'El proyecto existente no corresponde al cliente o servicio del presupuesto.');
+                abort_if($existing->quotes()->where('status', 'accepted')->whereKeyNot($lockedQuote->id)->exists(), 422, 'El proyecto ya tiene otro presupuesto aceptado. Revisa la vinculación antes de continuar.');
+                $existing->update(['project_reference' => $existing->project_reference ?: 'PRJ-'.now()->format('Y').'-'.str_pad((string) $existing->id, 5, '0', STR_PAD_LEFT), 'financial_status' => $lockedQuote->financial_status, 'financially_cleared_at' => $lockedQuote->financially_cleared_at]);
+                $opportunity?->update(['installation_id' => $existing->id]);
+                if ($existing->technical_validation_required === null) {
+                    $existing->update(['technical_validation_required' => $data['technical_validation_required'] ?? true]);
+                }
+                $lockedQuote->update(['installation_id' => $existing->id]);
+                SalesDocument::where('quote_id', $lockedQuote->id)->update(['installation_id' => $existing->id]);
+                $materials->syncFromQuote($lockedQuote, $existing);
+                $operations->sync($lockedQuote, $existing, $request->user()->id);
+
+                return $existing;
+            }
 
             $installation = Installation::create([
                 'person_id' => $lockedQuote->person_id,
                 'commercial_user_id' => $opportunity?->owner_user_id,
                 'technician_user_id' => $data['technician_user_id'] ?? null,
                 'service_type' => $data['service_type'],
-                'status' => 'survey_booked',
+                'status' => $scheduledAt ? 'survey_booked' : 'approved',
+                'technical_validation_required' => $data['technical_validation_required'] ?? true,
                 'site_name' => $data['site_name'] ?? null,
                 'site_address_line_1' => $data['site_address_line_1'],
                 'site_street_number' => $data['site_street_number'] ?? null,
@@ -333,25 +368,27 @@ class QuoteController extends Controller
                 'site_province_state' => $data['site_province_state'] ?? null,
                 'site_postal_code' => $data['site_postal_code'] ?? null,
                 'site_country' => $data['site_country'],
-                'survey_date' => $scheduledAt->toDateString(),
+                'survey_date' => $scheduledAt?->toDateString(),
                 'estimated_budget' => $lockedQuote->amount,
                 'financial_status' => $lockedQuote->financial_status,
                 'financially_cleared_at' => $lockedQuote->financially_cleared_at,
-                'site_notes' => __('Created from accepted quote :number.', ['number' => $lockedQuote->number]),
+                'site_notes' => __('Created from accepted quote :number.', ['number' => $lockedQuote->number]).(! ($data['technical_validation_required'] ?? true) ? '\nDispensa técnica: '.$data['technical_validation_reason'] : ''),
             ]);
             $installation->update(['project_reference' => 'PRJ-'.now()->format('Y').'-'.str_pad((string) $installation->id, 5, '0', STR_PAD_LEFT)]);
 
-            $order = $orders->create([
-                'installation_id' => $installation->id,
-                'work_order_template_id' => $surveyTemplate?->id,
-                'assigned_user_id' => $data['technician_user_id'] ?? null,
-                'title' => __('Initial technical survey'),
-                'kind' => 'survey',
-                'scheduled_start' => $scheduledAt,
-                'scheduled_end' => $scheduledEnd,
-                'instructions' => __('Survey generated from accepted quote :number. Validate the site before installation planning.', ['number' => $lockedQuote->number]),
-            ], $request->user()->id);
-            $order->activities()->update(['opportunity_id' => $opportunity?->id, 'priority' => 'high']);
+            if ($scheduledAt) {
+                $order = $orders->create([
+                    'installation_id' => $installation->id,
+                    'work_order_template_id' => $surveyTemplate?->id,
+                    'assigned_user_id' => $data['technician_user_id'] ?? null,
+                    'title' => __('Initial technical survey'),
+                    'kind' => 'survey',
+                    'scheduled_start' => $scheduledAt,
+                    'scheduled_end' => $scheduledEnd,
+                    'instructions' => __('Survey generated from accepted quote :number. Validate the site before installation planning.', ['number' => $lockedQuote->number]),
+                ], $request->user()->id);
+                $order->activities()->update(['opportunity_id' => $opportunity?->id, 'priority' => 'high']);
+            }
 
             $lockedQuote->update(['installation_id' => $installation->id]);
             $opportunity?->update(['installation_id' => $installation->id]);
@@ -363,7 +400,7 @@ class QuoteController extends Controller
         });
         GeocodeInstallation::dispatch($installation->id)->afterCommit();
 
-        return to_route('installations.show', $installation)->with('toast', ['type' => 'success', 'message' => __('Project, survey and work order created.')]);
+        return to_route('installations.show', $installation)->with('toast', ['type' => 'success', 'message' => 'Proyecto disponible. Programa una visita o la instalación cuando corresponda.']);
     }
 
     public function saveTemplate(Request $request, ?QuoteTemplate $quoteTemplate = null): RedirectResponse

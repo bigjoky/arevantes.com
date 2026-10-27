@@ -1,20 +1,21 @@
 @php
     $component = $page['component'] ?? '';
+    $corporateMetadata = str_starts_with($component, 'public/') ? data_get($page, 'props.metadata') : null;
     $isHomepage = $component === 'welcome';
     $isServicePage = $component === 'services/show';
     $isProjectsIndex = $component === 'projects/index';
     $projectMetadata = $component === 'projects/show' ? data_get($page, 'props.project') : null;
     $serviceMetadata = $isServicePage ? data_get($page, 'props.service') : null;
     $legalDocument = $component === 'legal/show' ? data_get($page, 'props.document') : null;
-    $isPublicWebsite = $isHomepage || $isServicePage || $isProjectsIndex || filled($projectMetadata) || filled($legalDocument);
+    $isPublicWebsite = filled($corporateMetadata) || $isHomepage || $isServicePage || $isProjectsIndex || filled($projectMetadata) || filled($legalDocument);
     $locale = app()->getLocale();
     $isSpanish = $locale === 'es';
     $siteUrl = rtrim(config('app.url'), '/');
     $siteTitle = $isSpanish
-        ? 'Arevantes · Energía, electricidad y seguridad'
+        ? 'Arevantes · Energía, electricidad, seguridad y redes'
         : 'Arevantes · Energy, electrical installations and security';
     $siteDescription = $isSpanish
-        ? 'Arevantes diseña, instala y mantiene soluciones de energía, instalaciones eléctricas y sistemas de seguridad en Córdoba y Andalucía.'
+        ? 'Arevantes diseña, instala y mantiene soluciones de energía, instalaciones eléctricas, seguridad y redes en Córdoba y Andalucía.'
         : 'Arevantes designs, installs and maintains energy solutions, electrical installations and security systems in Córdoba and Andalusia.';
     $projectsTitle = $isSpanish ? 'Proyectos realizados · Arevantes' : 'Completed projects · Arevantes';
     $projectsDescription = $isSpanish
@@ -24,6 +25,7 @@
         'Energía y movilidad' => ['Fotovoltaica', 'Almacenamiento', 'Puntos de recarga'],
         'Instalaciones eléctricas' => ['Instalaciones', 'Adecuaciones', 'Certificación'],
         'Alarmas y seguridad' => ['Alarmas', 'Videovigilancia', 'Control de accesos'],
+        'Redes y sistemas' => ['Cableado estructurado', 'Conectividad', 'Redes'],
     ] : [
         'Energy and mobility' => ['Solar energy', 'Energy storage', 'EV charging points'],
         'Electrical installations' => ['Installations', 'Upgrades', 'Certification'],
@@ -53,7 +55,7 @@
         'name' => 'Arevantes',
         'legalName' => config('company.legal_name'),
         'url' => $siteUrl,
-        'logo' => $siteUrl.'/brand/arevantes-logo-light.svg',
+        'logo' => $siteUrl.\App\Support\CompanyBrand::LOGO,
         'email' => config('company.email'),
         'telephone' => config('company.phone'),
         'address' => [
@@ -87,12 +89,22 @@
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+        @if($corporateMetadata)
+            <title data-inertia="title">{{ $corporateMetadata['title'] }} · Arevantes</title>
+            <meta data-inertia="description" name="description" content="{{ $corporateMetadata['description'] }}">
+            <link data-inertia="canonical" rel="canonical" href="{{ $siteUrl.$corporateMetadata['path'] }}">
+            <meta data-inertia="og-title" property="og:title" content="{{ $corporateMetadata['title'] }} · Arevantes">
+            <meta data-inertia="og-description" property="og:description" content="{{ $corporateMetadata['description'] }}">
+            <meta data-inertia="og-url" property="og:url" content="{{ $siteUrl.$corporateMetadata['path'] }}">
+            <meta data-inertia="og-image" property="og:image" content="{{ $siteUrl }}/og-multirramo-v2.png">
+        @endif
         <meta name="csrf-token" content="{{ csrf_token() }}">
-        <meta name="theme-color" content="#18181b">
+        <meta name="theme-color" content="#003c32">
         <link rel="manifest" href="/commercial-field.webmanifest">
         <meta name="apple-mobile-web-app-capable" content="yes">
         <meta name="mobile-web-app-capable" content="yes">
         <meta name="apple-mobile-web-app-title" content="AREVANTES">
+        <meta name="apple-mobile-web-app-status-bar-style" content="default">
 
         {{-- Inline script to detect system dark mode preference and apply it immediately --}}
         <script>

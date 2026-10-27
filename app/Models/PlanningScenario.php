@@ -2,12 +2,16 @@
 
 namespace App\Models;
 
+use App\Casts\PreciseInstant;
+use App\Models\Concerns\HasPreciseInstants;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class PlanningScenario extends Model
 {
+    use HasPreciseInstants;
+
     protected $fillable = [
         'name', 'version', 'status', 'scenario_kind', 'baseline_scenario_id', 'horizon_starts_on', 'horizon_ends_on',
         'assumptions', 'opportunity_snapshot', 'result_snapshot', 'fingerprint',
@@ -55,11 +59,11 @@ class PlanningScenario extends Model
             'opportunity_snapshot' => 'array',
             'result_snapshot' => 'array',
             'reference_snapshot' => 'array',
-            'reference_valid_until' => 'datetime',
+            'reference_valid_until' => PreciseInstant::class.':earliest,offset',
             'comparison_snapshot' => 'array',
-            'approved_at' => 'datetime',
+            'approved_at' => PreciseInstant::class,
             'closure_snapshot' => 'array',
-            'closed_at' => 'datetime',
+            'closed_at' => PreciseInstant::class.':earliest,offset',
         ];
     }
 }

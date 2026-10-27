@@ -2,18 +2,22 @@
 
 namespace App\Models;
 
+use App\Casts\PreciseInstant;
+use App\Models\Concerns\HasPreciseInstants;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class WorkOrderAttachment extends Model
 {
+    use HasPreciseInstants;
+
     protected $touches = ['workOrder'];
 
     protected $fillable = ['uploaded_by', 'kind', 'evidence_key', 'document_version', 'customer_visible', 'publication_status', 'published_at', 'reviewed_by', 'reviewed_at', 'published_by', 'supersedes_attachment_id', 'original_name', 'path', 'mime_type', 'size', 'caption'];
 
     protected function casts(): array
     {
-        return ['customer_visible' => 'boolean', 'published_at' => 'datetime', 'reviewed_at' => 'datetime'];
+        return ['customer_visible' => 'boolean', 'published_at' => PreciseInstant::class.':latest', 'reviewed_at' => PreciseInstant::class];
     }
 
     public function workOrder(): BelongsTo

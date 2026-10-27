@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Casts\PreciseInstant;
+use App\Models\Concerns\HasPreciseInstants;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -9,11 +11,13 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class WorkOrder extends Model
 {
+    use HasPreciseInstants;
+
     protected $fillable = ['installation_id', 'work_order_template_id', 'assigned_user_id', 'created_by', 'number', 'title', 'kind', 'status', 'estimated_duration_minutes', 'required_skills', 'required_evidence', 'handover_documents', 'service_zone', 'allowed_transitions_snapshot', 'scheduled_start', 'scheduled_end', 'instructions', 'completion_notes', 'signed_by_name', 'signature_path', 'signed_at', 'completed_at'];
 
     protected function casts(): array
     {
-        return ['required_skills' => 'array', 'required_evidence' => 'array', 'handover_documents' => 'array', 'allowed_transitions_snapshot' => 'array', 'scheduled_start' => 'datetime', 'scheduled_end' => 'datetime', 'signed_at' => 'datetime', 'completed_at' => 'datetime'];
+        return ['required_skills' => 'array', 'required_evidence' => 'array', 'handover_documents' => 'array', 'allowed_transitions_snapshot' => 'array', 'scheduled_start' => PreciseInstant::class, 'scheduled_end' => PreciseInstant::class.':latest', 'signed_at' => PreciseInstant::class, 'completed_at' => PreciseInstant::class];
     }
 
     public function installation(): BelongsTo
