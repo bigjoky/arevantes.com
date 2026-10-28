@@ -11,6 +11,22 @@ const allowed = new Set([
     'page',
     'view',
     'week',
+    'search',
+    'phase',
+    'service_type',
+    'customer',
+    'technician',
+    'project',
+    'created_from',
+    'created_to',
+    'sort',
+    'direction',
+    'period',
+    'year',
+    'service_state',
+    'installation',
+    'tab',
+    'section_page',
 ]);
 const origins = new Set([
     '/work-orders',
@@ -21,13 +37,23 @@ const origins = new Set([
 
 /** Only same-app, recognized list contexts; never accept an external return URL. */
 export function operationsReturnUrl(value: string | null | undefined): string {
-    if (!value || !value.startsWith('/') || value.startsWith('//')) {
+    if (
+        !value ||
+        !value.startsWith('/') ||
+        value.startsWith('//') ||
+        value.includes('\\')
+    ) {
         return '/work-orders';
     }
 
     const url = new URL(value, 'https://operations.invalid');
 
-    if (!origins.has(url.pathname)) {
+    const projectContext =
+        /^\/(execution\/projects\/\d+|installations\/\d+|after-sales)$/.test(
+            url.pathname,
+        );
+
+    if (!origins.has(url.pathname) && !projectContext) {
         return '/work-orders';
     }
 

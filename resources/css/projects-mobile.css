@@ -1,0 +1,160 @@
+/* Mobile 03, scoped to project/service workspaces. Desktop keeps existing layouts. */
+@media (max-width: 1023px) {
+    .projects-workspace,
+    .projects-workspace *,
+    .project-service-mobile,
+    .project-service-mobile * {
+        min-width: 0;
+    }
+    .projects-workspace {
+        overflow-wrap: anywhere;
+    }
+    .projects-workspace .projects-table-scroll {
+        display: none;
+    }
+    .projects-workspace .projects-mobile-list {
+        display: grid;
+        gap: 12px;
+    }
+    .projects-mobile-card {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 8px;
+        padding: 16px;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+    }
+    .projects-mobile-card p,
+    .projects-mobile-card small {
+        grid-column: 1/-1;
+    }
+    .projects-workspace .projects-dashboard-grid,
+    .projects-workspace .projects-summary-grid,
+    .projects-workspace .projects-after-sales-grid {
+        grid-template-columns: 1fr;
+    }
+    .projects-summary-grid > :last-child {
+        grid-column: auto;
+    }
+    .projects-workspace .projects-kpis {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .projects-workspace .projects-filters {
+        flex-wrap: wrap;
+    }
+    .projects-workspace .projects-filters > .projects-filter {
+        display: none;
+    }
+    .projects-mobile-filters {
+        display: grid;
+        gap: 16px;
+    }
+    .projects-workspace .projects-search {
+        flex: 1 1 100%;
+        width: 100%;
+        min-width: 0;
+    }
+    .projects-workspace .projects-list-toolbar,
+    .projects-workspace .projects-pagination {
+        flex-wrap: wrap;
+        gap: 12px;
+    }
+    .projects-workspace .projects-detail-tabs {
+        display: flex;
+        overflow-x: auto;
+        max-width: 100%;
+        flex-wrap: nowrap;
+    }
+    .projects-detail-tabs > a {
+        white-space: nowrap;
+        flex-shrink: 0;
+    }
+    .projects-workspace .projects-info {
+        grid-template-columns: 1fr;
+    }
+    .projects-workspace .projects-info dd {
+        margin: 0;
+        overflow-wrap: anywhere;
+    }
+    .projects-workspace .projects-event {
+        flex-wrap: wrap;
+        overflow-wrap: anywhere;
+    }
+    .projects-workspace a,
+    .projects-workspace button,
+    .project-service-mobile button,
+    .project-service-mobile a {
+        min-height: 44px;
+    }
+    .projects-workspace input,
+    .projects-workspace select,
+    .projects-workspace textarea,
+    .project-service-mobile input,
+    .project-service-mobile select,
+    .project-service-mobile textarea {
+        font-size: 16px;
+    }
+    .projects-workspace .projects-filter select {
+        min-height: 44px;
+        max-width: 100%;
+    }
+    .project-service-mobile article {
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 14px;
+        overflow-wrap: anywhere;
+    }
+    .project-service-mobile .service-mobile-search {
+        width: 100%;
+        padding: 12px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        font-size: 16px;
+    }
+    .project-service-mobile form {
+        max-width: 100%;
+    }
+    .project-service-mobile details > summary {
+        min-height: 44px;
+        padding-block: 10px;
+        cursor: pointer;
+    }
+}
+@media (min-width: 1024px) {
+    .service-mobile-controls {
+        display: none;
+    }
+    .project-service-mobile details > summary {
+        display: none;
+    }
+}
+
+@media (max-width: 1023px) {
+    .projects-mobile-dialog {
+        max-height: calc(
+            100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) -
+                24px
+        );
+        overflow-y: auto;
+        overscroll-behavior: contain;
+    }
+    .projects-mobile-dialog button {
+        min-height: 44px;
+        min-width: 44px;
+    }
+    .projects-mobile-dialog input,
+    .projects-mobile-dialog textarea,
+    .projects-mobile-dialog select {
+        font-size: 16px;
+    }
+}
+@media (max-width: 1023px) {
+    .projects-workspace.shell-content,
+    .project-service-mobile {
+        padding-bottom: calc(96px + env(safe-area-inset-bottom));
+    }
+    /* Existing shared FormActions is sticky at bottom: .5rem; it would sit under the PWA bar. */
+    .projects-workspace form .sticky {
+        position: static;
+    }
+}

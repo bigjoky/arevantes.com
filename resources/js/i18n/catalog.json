@@ -24894,5 +24894,77 @@
     "Cobro": {
         "es": "Cobro",
         "en": "Receipt"
+    },
+    "Buscar incidencias": {
+        "es": "Buscar incidencias",
+        "en": "Search service tickets"
+    },
+    "Sin ubicación registrada": {
+        "es": "Sin ubicación registrada",
+        "en": "No location recorded"
+    },
+    "Finalización:": {
+        "es": "Finalización:",
+        "en": "Completion:"
+    },
+    "Paneles registrados": {
+        "es": "Paneles registrados",
+        "en": "Recorded panels"
+    },
+    "Inversor registrado": {
+        "es": "Inversor registrado",
+        "en": "Recorded inverter"
+    },
+    "Batería registrada (kWh)": {
+        "es": "Batería registrada (kWh)",
+        "en": "Recorded battery (kWh)"
+    },
+    "Alcance eléctrico": {
+        "es": "Alcance eléctrico",
+        "en": "Electrical scope"
+    },
+    "Tensión (V)": {
+        "es": "Tensión (V)",
+        "en": "Voltage (V)"
+    },
+    "Fases": {
+        "es": "Fases",
+        "en": "Phases"
+    },
+    "Potencia contratada (kW)": {
+        "es": "Potencia contratada (kW)",
+        "en": "Contracted power (kW)"
+    },
+    "Certificado eléctrico requerido": {
+        "es": "Certificado eléctrico requerido",
+        "en": "Electrical certificate required"
+    },
+    "Sistema de seguridad": {
+        "es": "Sistema de seguridad",
+        "en": "Security system"
+    },
+    "Zonas": {
+        "es": "Zonas",
+        "en": "Zones"
+    },
+    "Supervisión": {
+        "es": "Supervisión",
+        "en": "Monitoring"
+    },
+    "Grado": {
+        "es": "Grado",
+        "en": "Grade"
+    },
+    "Potencia del cargador (kW)": {
+        "es": "Potencia del cargador (kW)",
+        "en": "Charger power (kW)"
+    },
+    "Conector": {
+        "es": "Conector",
+        "en": "Connector"
+    },
+    "Sistema de climatización": {
+        "es": "Sistema de climatización",
+        "en": "HVAC system"
     }
 }

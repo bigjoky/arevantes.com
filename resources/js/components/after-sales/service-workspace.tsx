@@ -1,4 +1,5 @@
-import { Form, Head, Link } from '@inertiajs/react';
+import '../../../css/projects-mobile.css';
+import { Head, Link, usePage } from '@inertiajs/react';
 import {
     CalendarClock,
     CircleDollarSign,
@@ -9,12 +10,14 @@ import {
     ShieldCheck,
     Wrench,
 } from 'lucide-react';
-import { Fragment, useMemo, useState } from 'react';
+import { Fragment, useId, useMemo, useState } from 'react';
+import Dialog, {
+    ProjectDialogContent as DialogContent,
+} from '@/components/projects/protected-dialog';
+import Form from '@/components/projects/protected-form';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
-    Dialog,
-    DialogContent,
     DialogHeader,
     DialogTitle,
     DialogTrigger,
@@ -29,7 +32,18 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { useLocale } from '@/hooks/use-locale';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { translate } from '@/i18n';
+import { operationsOrderUrl } from '@/lib/operations/navigation';
+import { projectEntityUrl } from '@/lib/projects/navigation';
+const ticketStates = {
+    open: 'Open',
+    assigned: 'Assigned',
+    in_progress: 'In progress',
+    resolved: 'Resolved',
+    closed: 'Closed',
+};
+
 type Installation = {
     id: number;
     project_reference: string | null;
@@ -345,6 +359,19 @@ export default function ServiceWorkspace({
     canViewFinancials: boolean;
     canManageBilling: boolean;
 }) {
+    const { url: context } = usePage();
+    const mobile = useIsMobile(1024);
+    const [ticketSearch, setTicketSearch] = useState('');
+    const [ticketStatus, setTicketStatus] = useState('');
+    const visibleTickets = mobile
+        ? tickets.filter(
+              (ticket) =>
+                  (!ticketStatus || ticket.status === ticketStatus) &&
+                  `${ticket.number} ${ticket.title} ${ticket.installation.site_name || ''}`
+                      .toLocaleLowerCase()
+                      .includes(ticketSearch.toLocaleLowerCase()),
+          )
+        : tickets;
     const copy = sectionCopy[initialSection];
     const { locale } = useLocale();
     const showsPlans =
@@ -377,7 +404,7 @@ export default function ServiceWorkspace({
     return (
         <>
             <Head title={translate(copy.title, locale)} />
-            <div className="flex min-w-0 flex-1 flex-col gap-6 p-4 md:p-6">
+            <div className="project-service-mobile flex min-w-0 flex-1 flex-col gap-6 p-4 md:p-6">
                 <header className="flex flex-wrap items-center justify-between gap-4 rounded-xl border bg-card p-5 md:p-6">
                     <div>
                         <h1 className="text-xl font-semibold">{copy.title}</h1>
@@ -483,8 +510,44 @@ export default function ServiceWorkspace({
                 ) : null}
                 {initialSection === 'tickets' && (
                     <section className="grid gap-4">
-                        {tickets.map((ticket) => (
-                            <div
+                        <div className="service-mobile-controls grid gap-3">
+                            <label>
+                                Buscar incidencias
+                                <input
+                                    className="service-mobile-search"
+                                    type="search"
+                                    value={ticketSearch}
+                                    onChange={(e) =>
+                                        setTicketSearch(e.target.value)
+                                    }
+                                />
+                            </label>
+                            <label>
+                                Estado
+                                <select
+                                    className="service-mobile-search"
+                                    value={ticketStatus}
+                                    onChange={(e) =>
+                                        setTicketStatus(e.target.value)
+                                    }
+                                >
+                                    <option value="">Todos</option>
+                                    {Object.entries(ticketStates).map(
+                                        ([value, label]) => (
+                                            <option key={value} value={value}>
+                                                {translate(label, locale)}
+                                            </option>
+                                        ),
+                                    )}
+                                </select>
+                            </label>
+                            <p>
+                                {visibleTickets.length} / {tickets.length}
+                            </p>
+                        </div>
+                        {visibleTickets.map((ticket) => (
+                            <article
+                                id={`ticket-${ticket.id}`}
                                 key={ticket.id}
                                 className="grid gap-4 border-t pt-4 lg:grid-cols-[1fr_22rem]"
                             >
@@ -507,7 +570,10 @@ export default function ServiceWorkspace({
                                         )}
                                     </div>
                                     <Link
-                                        href={`/installations/${ticket.installation.id}`}
+                                        href={projectEntityUrl(
+                                            `/installations/${ticket.installation.id}`,
+                                            context,
+                                        )}
                                         className="text-sm text-muted-foreground underline underline-offset-2"
                                     >
                                         {ticket.installation
@@ -539,7 +605,10 @@ export default function ServiceWorkspace({
                                             asChild
                                         >
                                             <Link
-                                                href={`/work-orders?work_order=${ticket.work_order.id}`}
+                                                href={operationsOrderUrl(
+                                                    ticket.work_order.id,
+                                                    context,
+                                                )}
                                             >
                                                 <Wrench />{' '}
                                                 {ticket.work_order.number}
@@ -614,9 +683,9 @@ export default function ServiceWorkspace({
                                         <Button size="sm">Update ticket</Button>
                                     </Form>
                                 </div>
-                            </div>
+                            </article>
                         ))}
-                        {tickets.length === 0 && (
+                        {visibleTickets.length === 0 && (
                             <Empty text="No service tickets." />
                         )}
                     </section>
@@ -2265,15 +2334,17 @@ function SelectField({
     value?: string;
     onValueChange?: (value: string) => void;
 }) {
+    const id = useId();
+
     return (
         <div className="grid gap-2">
-            <Label>{label}</Label>
+            <Label htmlFor={id}>{label}</Label>
             <Select
                 name={name}
                 defaultValue={value || options[0]?.[0]}
                 onValueChange={onValueChange}
             >
-                <SelectTrigger>
+                <SelectTrigger id={id}>
                     <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -2300,10 +2371,20 @@ function Field({
     step?: string;
     value?: string;
 }) {
+    const id = useId();
+
     return (
         <div className="grid gap-2">
-            <Label className="text-xs">{label}</Label>
-            <Input name={name} type={type} step={step} defaultValue={value} />
+            <Label htmlFor={id} className="text-xs">
+                {label}
+            </Label>
+            <Input
+                id={id}
+                name={name}
+                type={type}
+                step={step}
+                defaultValue={value}
+            />
         </div>
     );
 }

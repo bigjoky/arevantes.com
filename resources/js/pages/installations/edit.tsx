@@ -1,3 +1,4 @@
+import '../../../css/projects-mobile.css';
 import { Head, Link } from '@inertiajs/react';
 import InstallationForm from '@/components/installations/installation-form';
 import type {
@@ -25,7 +26,7 @@ export default function InstallationEdit({
         <>
             <Head title="Edit installation" />
 
-            <PageShell>
+            <PageShell className="projects-workspace">
                 <PageHeader
                     title="Edit installation"
                     description="Update project status, site details, and the service-specific technical fields."

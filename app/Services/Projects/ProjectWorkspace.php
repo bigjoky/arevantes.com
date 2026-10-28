@@ -237,7 +237,17 @@ class ProjectWorkspace
         $dossiers = $installation->engineeringDossiers()->latest()->limit(5)->get(['id', 'code', 'title', 'status']);
         $materialRequested = Gate::allows('view-purchases') ? $installation->purchaseDocuments()->where('type', 'purchase_order')->whereNotIn('status', ['draft', 'cancelled'])->min('created_at') : null;
 
-        return ['journey' => app(ProjectJourney::class)->for($request->user(), $installation), 'installation' => $record, 'quote' => Gate::allows('manage-quotes') ? $quote : null, 'opportunity' => $opportunity, 'tab' => $tab, 'mode' => $project ? 'projects' : 'installations',
+        $technicalFields = match ($installation->service_type) {
+            'solar', 'solar_pv' => ['panel_count' => 'Paneles registrados', 'inverter_brand' => 'Inversor registrado', 'battery_capacity_kwh' => 'Batería registrada (kWh)'],
+            'electrical' => ['electrical_scope' => 'Alcance eléctrico', 'electrical_voltage_v' => 'Tensión (V)', 'electrical_phase' => 'Fases', 'contracted_power_kw' => 'Potencia contratada (kW)', 'electrical_certificate_required' => 'Certificado eléctrico requerido'],
+            'security' => ['security_system_type' => 'Sistema de seguridad', 'security_zones' => 'Zonas', 'security_monitoring_mode' => 'Supervisión', 'security_grade' => 'Grado'],
+            'ev_charger' => ['charger_power_kw' => 'Potencia del cargador (kW)', 'charger_connector_type' => 'Conector'],
+            'hvac' => ['hvac_system_type' => 'Sistema de climatización'],
+            default => [],
+        };
+        $technical = collect($technicalFields)->map(fn ($label, $field) => ['label' => $label, 'value' => $installation->$field])->values()->all();
+
+        return ['technical' => $technical, 'journey' => app(ProjectJourney::class)->for($request->user(), $installation), 'installation' => $record, 'quote' => Gate::allows('manage-quotes') ? $quote : null, 'opportunity' => $opportunity, 'tab' => $tab, 'mode' => $project ? 'projects' : 'installations',
             'records' => $records, 'dossiers' => $dossiers, 'permissions' => $this->permissions(),
             'costs' => $tab === 'costs' ? app(ProjectProfitability::class)->for($installation) : null,
             'milestones' => ['created' => $installation->created_at?->toISOString(), 'accepted' => $quote?->accepted_at?->toISOString(), 'materials' => $materialRequested, 'scheduled' => $installation->scheduled_date?->toDateString(), 'completed' => $installation->status === 'completed' ? $installation->completed_date?->toDateString() : null]];

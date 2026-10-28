@@ -6379,3 +6379,18 @@ Implementación y verificación local terminadas; publicación autorizada por el
 - Migración aditiva `2026_10_28_171540_add_cancellation_history_to_sales_document_payments`: cinco columnas anulables, claves foráneas y unicidad de la clave de anulación; no reescribe histórico. Down bloqueado si hay anulaciones.
 - Verificado: regresión económica PostgreSQL17.6 (102 pruebas/1654 aserciones); tres carreras reales en dos procesos (28 aserciones), comprobación final de cobros/traducciones (18 pruebas/99 aserciones), suite general1055 aprobadas/49 omitidas. Tipos, lint de TSX afectados, ES/EN, build y estilo revisados. Pruebas solo con datos sintéticos. La carrera se ejecuta aislada por su preparación destructiva de la base de pruebas marcada.
 - Criterio de cierre: migración única verificada, deployment del commit selectivo, rutas200 y guardas OPS/colas históricas intactas. Workers, scheduler e integraciones no se activan.
+
+## Proyectos e Instalaciones Móvil 03 — 28/10/2026
+
+Estado: implantado en checkout independiente, pendiente de autorización de publicación. Ver [informe](projects-mobile-03.md).
+
+| Capacidad | Estado / dependencia | Criterio de aceptación |
+|---|---|---|
+| Listados y fichas móviles | Implantado: tarjetas hasta 1023 px, filtros existentes y tablas desde 1024 | Sin desbordamientos en siete viewports, contratos y permisos conservados |
+| Técnica por servicio | Implantado: proyección aditiva de campos registrados; ausencias explícitas | Sin estimaciones presentadas como hechos ni datos FV en otros servicios |
+| Navegación proyecto/instalación/orden/Postventa | Implantado: destinos existentes y retorno local saneado | Orden vuelve a pestaña, filtros y página de su origen sin admitir URLs externas |
+| Formularios y diálogos | Implantado: guardas publicadas adaptadas a Inertia Form | Descarte confirmado, valores/errores conservados, una petición por envío |
+| Redes | Pendiente de contrato técnico específico autorizado; tipo/notas existentes conservados | Definir campos, catálogo y permisos antes de añadir controles; no inferirlos de FV |
+| Dispositivos físicos | Pendiente iOS/Android en HTTPS autorizado | Instalación, teclado, safe areas y lectores comprobados en dispositivos reales |
+
+Verificación local: 78 pruebas frontend, 40 backend (764 aserciones), build/tipos/lint/i18n y 91 comprobaciones de viewport satisfactorias. No publicado.

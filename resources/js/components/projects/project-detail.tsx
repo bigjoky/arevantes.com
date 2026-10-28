@@ -15,6 +15,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useLocale } from '@/hooks/use-locale';
 import { translate } from '@/i18n';
 import { serviceLabel } from '@/lib/business-lines';
+import { operationsOrderUrl } from '@/lib/operations/navigation';
+import { projectEntityUrl, projectReturnUrl } from '@/lib/projects/navigation';
 import {
     customerName,
     date,
@@ -44,6 +46,8 @@ type RecordRow = {
     warranty_ends_on?: string;
     serial_number?: string;
 };
+const booleanType = 'boolean';
+const solarTypes = ['solar', 'solar_pv'];
 export type DetailProps = {
     journey?: Journey;
     installation: InstallationRow;
@@ -66,6 +70,7 @@ export type DetailProps = {
               quality?: { score: number; issues: string[] };
           })
         | null;
+    technical?: { label: string; value: string | number | boolean | null }[];
     milestones: Record<string, string | null>;
 };
 const allTabs: [string, string][] = [
@@ -120,6 +125,7 @@ export default function ProjectDetail({
     costs,
     milestones,
     journey,
+    technical = [],
 }: DetailProps) {
     const page = usePage();
     const filters = Object.fromEntries(
@@ -151,7 +157,12 @@ export default function ProjectDetail({
             <PageShell className="projects-workspace projects-detail">
                 <Link
                     className="projects-back"
-                    href={projectUrl(filters, undefined, undefined, mode)}
+                    href={projectReturnUrl(
+                        filters.return_to,
+                        projectReturnUrl(
+                            projectUrl(filters, undefined, undefined, mode),
+                        ),
+                    )}
                 >
                     <ArrowLeft size={15} />
                     {isProject
@@ -262,7 +273,26 @@ export default function ProjectDetail({
                                         locale,
                                     ),
                                 )}
-                                {info('Potencia FV', power(i.system_power_kw))}
+                                {solarTypes.includes(i.service_type) &&
+                                    info(
+                                        'Potencia FV',
+                                        power(i.system_power_kw),
+                                    )}
+                                {technical.map(({ label, value }) => (
+                                    <div key={label}>
+                                        <dt>{translate(label, locale)}</dt>
+                                        <dd>
+                                            {value == null
+                                                ? '—'
+                                                : typeof value === booleanType
+                                                  ? translate(
+                                                        value ? 'Sí' : 'No',
+                                                        locale,
+                                                    )
+                                                  : String(value)}
+                                        </dd>
+                                    </div>
+                                ))}
                                 {info(
                                     'Dirección',
                                     [
@@ -309,11 +339,16 @@ export default function ProjectDetail({
                             <h2>Instalación</h2>
                             <Link
                                 className="projects-event"
-                                href={'/installations/' + i.id}
+                                href={projectEntityUrl(
+                                    '/installations/' + i.id,
+                                    page.url,
+                                )}
                             >
                                 <strong>{i.site_name || reference}</strong>
                                 <span>{stateLabels[i.status] || i.status}</span>
-                                <small>{power(i.system_power_kw)}</small>
+                                {solarTypes.includes(i.service_type) && (
+                                    <small>{power(i.system_power_kw)}</small>
+                                )}
                             </Link>
                             <h2>Hitos registrados</h2>
                             {Object.entries(milestones)
@@ -383,7 +418,10 @@ export default function ProjectDetail({
                         <h2>Instalación física</h2>
                         <Link
                             className="projects-event"
-                            href={'/installations/' + i.id}
+                            href={projectEntityUrl(
+                                '/installations/' + i.id,
+                                page.url,
+                            )}
                         >
                             <strong>{i.site_name || reference}</strong>
                             <span>
@@ -457,10 +495,10 @@ export default function ProjectDetail({
                                     {tab === tabKeys.planning ? (
                                         <>
                                             <Link
-                                                href={
-                                                    '/work-orders?work_order=' +
-                                                    row.id
-                                                }
+                                                href={operationsOrderUrl(
+                                                    row.id,
+                                                    page.url,
+                                                )}
                                             >
                                                 <strong>
                                                     {row.number} · {row.title}

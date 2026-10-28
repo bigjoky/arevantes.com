@@ -1,3 +1,4 @@
+import '../../../css/projects-mobile.css';
 import { quoteDate, quoteMoney } from '@/components/quotes/types';
 export const money = quoteMoney;
 export const date = quoteDate;

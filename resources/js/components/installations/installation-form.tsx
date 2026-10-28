@@ -1,4 +1,3 @@
-import { Form } from '@inertiajs/react';
 import { Check, Loader2, MapPin, PlugZap, RefreshCw } from 'lucide-react';
 import { useState } from 'react';
 import {
@@ -8,6 +7,7 @@ import {
 } from '@/components/forms/form-layout';
 import InputError from '@/components/input-error';
 import LocationFields from '@/components/locations/location-fields';
+import Form from '@/components/projects/protected-form';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -181,6 +181,12 @@ export default function InstallationForm({
 
     return (
         <Form
+            onResetFields={() => {
+                setServiceType(installation?.service_type ?? 'solar');
+                setCustomerId(
+                    installation?.person_id?.toString() ?? 'unassigned',
+                );
+            }}
             action={action}
             method={method}
             options={{ preserveScroll: true }}

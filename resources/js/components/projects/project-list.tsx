@@ -1,4 +1,5 @@
 import { Head, Link, router } from '@inertiajs/react';
+import { usePage } from '@inertiajs/react';
 import { Plus, Search, SlidersHorizontal } from 'lucide-react';
 import { useState } from 'react';
 import { useCustomerNavigation } from '@/components/customers/use-customer-navigation';
@@ -15,6 +16,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useLocale } from '@/hooks/use-locale';
 import { translate } from '@/i18n';
 import { serviceLabel, serviceLabels } from '@/lib/business-lines';
+import { projectEntityUrl } from '@/lib/projects/navigation';
 import {
     customerName,
     date,
@@ -29,6 +31,7 @@ import type {
     Pagination,
     Permissions,
 } from './types';
+const solarTypes = ['solar', 'solar_pv'];
 export type ListProps = {
     items: InstallationRow[];
     pagination: Pagination;
@@ -54,6 +57,7 @@ export default function ProjectList({
     permissions,
     mode,
 }: ListProps) {
+    const { url: context } = usePage();
     const [search, setSearch] = useState(filters.search ?? '');
     const loading = useCustomerNavigation();
     const { locale } = useLocale();
@@ -516,11 +520,14 @@ export default function ProjectList({
                                     <Link
                                         className="projects-mobile-card"
                                         key={row.id}
-                                        href={projectUrl(
-                                            filters,
-                                            row.id,
-                                            undefined,
-                                            mode,
+                                        href={projectEntityUrl(
+                                            projectUrl(
+                                                filters,
+                                                row.id,
+                                                undefined,
+                                                mode,
+                                            ),
+                                            context,
                                         )}
                                     >
                                         <strong>
@@ -546,12 +553,40 @@ export default function ProjectList({
                                                 serviceLabel(row.service_type),
                                                 locale,
                                             )}{' '}
-                                            · {power(row.system_power_kw)}
+                                            {solarTypes.includes(
+                                                row.service_type,
+                                            ) && (
+                                                <>
+                                                    {' '}
+                                                    ·{' '}
+                                                    {power(row.system_power_kw)}
+                                                </>
+                                            )}
                                         </small>
                                         <small>
                                             Inicio programado:{' '}
                                             {date(row.scheduled_date)}
                                         </small>
+                                        <small>
+                                            Responsable:{' '}
+                                            {row.technician_name ||
+                                                'Sin asignar'}
+                                        </small>
+                                        <small>
+                                            {[
+                                                row.site_address_line_1,
+                                                row.site_city,
+                                            ]
+                                                .filter(Boolean)
+                                                .join(', ') ||
+                                                'Sin ubicación registrada'}
+                                        </small>
+                                        {row.completed_date && (
+                                            <small>
+                                                Finalización:{' '}
+                                                {date(row.completed_date)}
+                                            </small>
+                                        )}
                                     </Link>
                                 ))}
                             </div>

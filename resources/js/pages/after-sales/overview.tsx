@@ -1,4 +1,4 @@
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import { Search, SlidersHorizontal } from 'lucide-react';
 import { useState } from 'react';
 import { useCustomerNavigation } from '@/components/customers/use-customer-navigation';
@@ -22,6 +22,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useLocale } from '@/hooks/use-locale';
 import { translate } from '@/i18n';
 import { serviceLabels } from '@/lib/business-lines';
+import { projectEntityUrl } from '@/lib/projects/navigation';
 type Props = {
     items: InstallationRow[];
     pagination: Pagination;
@@ -67,6 +68,7 @@ export default function AfterSalesOverview({
     upcoming,
     tickets,
 }: Props) {
+    const { url: context } = usePage();
     const loading = useCustomerNavigation();
     const [search, setSearch] = useState(filters.search ?? '');
     const { locale } = useLocale();
@@ -315,7 +317,10 @@ export default function AfterSalesOverview({
                                     <tr key={i.id}>
                                         <td>
                                             <Link
-                                                href={'/installations/' + i.id}
+                                                href={projectEntityUrl(
+                                                    '/installations/' + i.id,
+                                                    context,
+                                                )}
                                             >
                                                 {i.project_reference ||
                                                     i.site_name ||
@@ -356,7 +361,10 @@ export default function AfterSalesOverview({
                         {items.map((i) => (
                             <Link
                                 className="projects-mobile-card"
-                                href={'/installations/' + i.id}
+                                href={projectEntityUrl(
+                                    '/installations/' + i.id,
+                                    context,
+                                )}
                                 key={i.id}
                             >
                                 <strong>

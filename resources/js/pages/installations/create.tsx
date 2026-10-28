@@ -1,3 +1,4 @@
+import '../../../css/projects-mobile.css';
 import { Head, Link } from '@inertiajs/react';
 import InstallationForm from '@/components/installations/installation-form';
 import type {
@@ -25,7 +26,7 @@ export default function InstallationCreate({
         <>
             <Head title="Add installation" />
 
-            <PageShell>
+            <PageShell className="projects-workspace">
                 <PageHeader
                     title="Add installation"
                     description="Define the site and technical scope. Assigning a customer is optional."
