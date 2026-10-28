@@ -398,7 +398,9 @@ class QuoteController extends Controller
 
             return $installation;
         });
-        GeocodeInstallation::dispatch($installation->id)->afterCommit();
+        if (config('automation.approved.geocode', false)) {
+            GeocodeInstallation::dispatch($installation->id)->afterCommit();
+        }
 
         return to_route('installations.show', $installation)->with('toast', ['type' => 'success', 'message' => 'Proyecto disponible. Programa una visita o la instalación cuando corresponda.']);
     }

@@ -31,6 +31,10 @@ class WorkOrderObserver
 
     private function dispatch(WorkOrder $workOrder, string $title, string $body): void
     {
+        if (! config('automation.approved.push', false)) {
+            return;
+        }
+
         SendWorkOrderPush::dispatch($workOrder->assigned_user_id, $workOrder->id, $title, $body)->afterCommit();
     }
 }

@@ -25,6 +25,10 @@ class AreviaChatController extends Controller
 
     public function store(Request $request): JsonResponse
     {
+        if (! config('automation.approved.arevia', false)) {
+            return response()->json(['message' => __('Arevia is temporarily unavailable. Contact an administrator.')], 422);
+        }
+
         if (! AreviaChat::isFaked() && ! $this->providerIsConfigured()) {
             return response()->json(['message' => __('The AI provider is not configured.')], 422);
         }

@@ -78,53 +78,59 @@ Artisan::command('performance:web-vitals-report {--days=7} {--minimum=5}', funct
     $this->table(['Route', 'Metric', 'Device', 'Samples', 'p50', 'p75', 'p95', 'Good'], $rows);
 })->purpose('Summarize privacy-safe Core Web Vitals by route and device');
 
-Schedule::command('deye:sync')->everyMinute()->withoutOverlapping();
-Schedule::command('huawei:sync')->everyFiveMinutes()->withoutOverlapping();
-Schedule::command('monitoring:discover deye')->everyFiveMinutes()->withoutOverlapping();
-Schedule::command('monitoring:discover huawei')->cron('2 */6 * * *')->withoutOverlapping();
-Schedule::command('locations:sync-spain')->monthly()->withoutOverlapping();
-Schedule::command('database:backup')->dailyAt('02:30')->when(fn () => DB::getDriverName() === 'sqlite')->withoutOverlapping();
-Schedule::command('database:verify-backup')->weeklyOn(1, '03:30')->when(fn () => DB::getDriverName() === 'sqlite')->withoutOverlapping();
-Schedule::command('database:backup-postgres')
-    ->dailyAt('02:30')
-    ->when(fn () => DB::getDriverName() === 'pgsql' && config('backup.postgres.enabled'))
-    ->onOneServer()
-    ->withoutOverlapping(120);
-Schedule::command('database:verify-postgres-backup')
-    ->weeklyOn(1, '03:30')
-    ->when(fn () => DB::getDriverName() === 'pgsql' && config('backup.postgres.restore_enabled'))
-    ->onOneServer()
-    ->withoutOverlapping(180);
-Schedule::command('system:heartbeat')->everyMinute();
-Schedule::command('system:health-check')->everyFiveMinutes()->withoutOverlapping();
-Schedule::command('data:prune-retention')->weekly()->withoutOverlapping();
-Schedule::command('accounting:sync')->everyFiveMinutes()->withoutOverlapping();
-Schedule::command('accounting:recurring')->everyFiveMinutes()->withoutOverlapping();
-Schedule::command('analytics:dispatch')->everyFiveMinutes()->withoutOverlapping();
-Schedule::command('purchase-inbox:sync')->everyFiveMinutes()->withoutOverlapping();
-Schedule::command('purchase-inbox:extract --limit=3')->everyFiveMinutes()->withoutOverlapping();
-Schedule::command('crm:send-reminders')->dailyAt('07:30')->timezone('Europe/Madrid')->withoutOverlapping();
-Schedule::command('crm:check-response-sla')->everyFiveMinutes()->withoutOverlapping();
-Schedule::command('ai:reindex --stale')->dailyAt('03:15')->withoutOverlapping();
-Schedule::call(fn () => MonitoringReading::where('recorded_at', '<', now()->subYears(2))->delete())
-    ->weekly()
-    ->name('prune-monitoring-readings')
-    ->withoutOverlapping();
-Schedule::call(fn () => WebVitalSample::where('occurred_at', '<', now()->subDays(config('performance.web_vitals_retention_days')))->delete())
-    ->dailyAt('03:40')
-    ->name('prune-web-vital-samples')
-    ->withoutOverlapping();
-Schedule::call(fn () => SalesDocument::where('type', 'invoice')->where('status', 'issued')->whereDate('due_date', '<', today())->update(['status' => 'overdue']))
-    ->dailyAt('00:10')->name('mark-overdue-invoices')->withoutOverlapping();
-Schedule::call(function () {
-    Expense::where('status', 'pending')->whereDate('due_date', '<', today())->update(['status' => 'overdue']);
-    PurchaseDocument::where('type', 'supplier_invoice')->where('status', 'registered')->whereDate('due_date', '<', today())->update(['status' => 'overdue']);
-})
-    ->dailyAt('00:15')->name('mark-overdue-payables')->withoutOverlapping();
-Schedule::call(fn () => app(ServiceWorkGenerator::class)->generateDueMaintenance())
-    ->dailyAt('06:00')->name('create-due-maintenance-tickets')->withoutOverlapping();
-Schedule::call(fn () => app(SlaManager::class)->escalateOverdue())
-    ->everyFifteenMinutes()->name('escalate-overdue-service-tickets')->withoutOverlapping();
+// Full legacy automation requires a separate, explicit review.
+if (config('automation.scheduler_profile') === 'approved_full') {
+    Schedule::command('deye:sync')->everyMinute()->withoutOverlapping();
+    Schedule::command('huawei:sync')->everyFiveMinutes()->withoutOverlapping();
+    Schedule::command('monitoring:discover deye')->everyFiveMinutes()->withoutOverlapping();
+    Schedule::command('monitoring:discover huawei')->cron('2 */6 * * *')->withoutOverlapping();
+    Schedule::command('locations:sync-spain')->monthly()->withoutOverlapping();
+    Schedule::command('database:backup')->dailyAt('02:30')->when(fn () => DB::getDriverName() === 'sqlite')->withoutOverlapping();
+    Schedule::command('database:verify-backup')->weeklyOn(1, '03:30')->when(fn () => DB::getDriverName() === 'sqlite')->withoutOverlapping();
+    Schedule::command('database:backup-postgres')
+        ->dailyAt('02:30')
+        ->when(fn () => DB::getDriverName() === 'pgsql' && config('backup.postgres.enabled'))
+        ->onOneServer()
+        ->withoutOverlapping(120);
+    Schedule::command('database:verify-postgres-backup')
+        ->weeklyOn(1, '03:30')
+        ->when(fn () => DB::getDriverName() === 'pgsql' && config('backup.postgres.restore_enabled'))
+        ->onOneServer()
+        ->withoutOverlapping(180);
+    Schedule::command('system:heartbeat')->everyMinute();
+    Schedule::command('system:health-check')->everyFiveMinutes()->withoutOverlapping();
+    Schedule::command('data:prune-retention')->weekly()->withoutOverlapping();
+    Schedule::command('accounting:sync')->everyFiveMinutes()->withoutOverlapping();
+    Schedule::command('accounting:recurring')->everyFiveMinutes()->withoutOverlapping();
+    Schedule::command('analytics:dispatch')->everyFiveMinutes()->withoutOverlapping();
+    Schedule::command('purchase-inbox:sync')->everyFiveMinutes()->withoutOverlapping();
+    Schedule::command('purchase-inbox:extract --limit=3')->everyFiveMinutes()->withoutOverlapping();
+    Schedule::command('crm:send-reminders')->dailyAt('07:30')->timezone('Europe/Madrid')->withoutOverlapping();
+    Schedule::command('crm:check-response-sla')->everyFiveMinutes()->withoutOverlapping();
+    Schedule::command('ai:reindex --stale')->dailyAt('03:15')->withoutOverlapping();
+    Schedule::call(fn () => MonitoringReading::where('recorded_at', '<', now()->subYears(2))->delete())
+        ->weekly()
+        ->name('prune-monitoring-readings')
+        ->withoutOverlapping();
+    Schedule::call(fn () => WebVitalSample::where('occurred_at', '<', now()->subDays(config('performance.web_vitals_retention_days')))->delete())
+        ->dailyAt('03:40')
+        ->name('prune-web-vital-samples')
+        ->withoutOverlapping();
+    Schedule::call(fn () => SalesDocument::where('type', 'invoice')->where('status', 'issued')->whereDate('due_date', '<', today())->update(['status' => 'overdue']))
+        ->dailyAt('00:10')->name('mark-overdue-invoices')->withoutOverlapping();
+    Schedule::call(function () {
+        Expense::where('status', 'pending')->whereDate('due_date', '<', today())->update(['status' => 'overdue']);
+        PurchaseDocument::where('type', 'supplier_invoice')->where('status', 'registered')->whereDate('due_date', '<', today())->update(['status' => 'overdue']);
+    })
+        ->dailyAt('00:15')->name('mark-overdue-payables')->withoutOverlapping();
+    Schedule::call(fn () => app(ServiceWorkGenerator::class)->generateDueMaintenance())
+        ->dailyAt('06:00')->name('create-due-maintenance-tickets')->withoutOverlapping();
+    Schedule::call(fn () => app(SlaManager::class)->escalateOverdue())
+        ->everyFifteenMinutes()->name('escalate-overdue-service-tickets')->withoutOverlapping();
+
+} elseif (config('automation.scheduler_profile') === 'heartbeat_only') {
+    Schedule::command('system:heartbeat')->everyMinute()->onOneServer()->withoutOverlapping();
+}
 
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());

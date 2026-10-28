@@ -1191,6 +1191,7 @@ class DashboardTest extends TestCase
 
     public function test_arevia_chat_persists_conversation_and_feedback()
     {
+        config(['automation.approved.arevia' => true]);
         $user = User::factory()->create(['role' => 'commercial']);
         $this->actingAs($user);
         AreviaChat::fake(['La visita tecnica es el siguiente paso recomendado.']);

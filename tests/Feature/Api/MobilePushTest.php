@@ -45,6 +45,7 @@ class MobilePushTest extends TestCase
 
     public function test_work_order_assignment_and_relevant_changes_dispatch_push_jobs(): void
     {
+        config(['automation.approved.push' => true]);
         Queue::fake();
         $technician = User::factory()->create(['role' => 'technician']);
         $installation = Installation::create(['service_type' => 'solar', 'status' => 'scheduled', 'site_address_line_1' => 'Calle Sol 1']);

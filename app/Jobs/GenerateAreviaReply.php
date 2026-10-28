@@ -3,8 +3,10 @@
 namespace App\Jobs;
 
 use App\Ai\Agents\AreviaChat;
+use App\Exceptions\AutomationBlocked;
 use App\Models\AiAuditLog;
 use App\Models\AiMessage;
+use App\Models\AuditLog;
 use App\Services\Ai\AreviaCitationValidator;
 use App\Services\Ai\AreviaResponseEvaluator;
 use App\Services\Ai\BusinessContextBuilder;
@@ -12,21 +14,43 @@ use App\Services\Ai\KnowledgeRetriever;
 use App\Services\Ai\KnowledgeSafetyScanner;
 use App\Services\Ai\KnowledgeSourceLoader;
 use App\Services\Ai\RelevantBusinessContext;
+use App\Services\Automation\ControlledJob;
+use App\Services\Automation\JobSnapshot;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Facades\DB;
 use Throwable;
 
 class GenerateAreviaReply implements ShouldQueue
 {
     use Queueable;
 
-    public int $tries = 2;
+    public ?int $queuedAtEpoch = null;
 
-    public int $timeout = 240;
+    public ?string $expectedSnapshot = null;
 
-    public function __construct(public int $messageId) {}
+    public int $tries = 1;
+
+    public int $timeout = 480;
+
+    public bool $failOnTimeout = true;
+
+    public function __construct(public int $messageId)
+    {
+        $this->queuedAtEpoch = now()->getTimestamp();
+        $this->onQueue('ops-arevia');
+        $subject = AiMessage::find($this->messageId);
+        $this->expectedSnapshot = $subject ? JobSnapshot::arevia($subject) : null;
+    }
 
     public function handle(KnowledgeRetriever $retriever, BusinessContextBuilder $businessContext, RelevantBusinessContext $relevantContext, AreviaResponseEvaluator $evaluator, AreviaCitationValidator $citations, KnowledgeSourceLoader $sourceLoader, KnowledgeSafetyScanner $safetyScanner): void
+    {
+        app(ControlledJob::class)->run('arevia', AiMessage::class, $this->messageId, $this->queuedAtEpoch, $this->expectedSnapshot,
+            fn (AiMessage $message) => JobSnapshot::arevia($message),
+            fn () => $this->generate($retriever, $businessContext, $relevantContext, $evaluator, $citations, $sourceLoader, $safetyScanner));
+    }
+
+    private function generate(KnowledgeRetriever $retriever, BusinessContextBuilder $businessContext, RelevantBusinessContext $relevantContext, AreviaResponseEvaluator $evaluator, AreviaCitationValidator $citations, KnowledgeSourceLoader $sourceLoader, KnowledgeSafetyScanner $safetyScanner): void
     {
         $message = AiMessage::with(['conversation.messages', 'conversation.user'])->findOrFail($this->messageId);
         $message->update(['status' => 'processing', 'error' => null]);
@@ -89,7 +113,7 @@ class GenerateAreviaReply implements ShouldQueue
                 'url' => $source['source_url'] ?? route('arevia.sources.show', [$source['document_id'], $source['version']]),
             ])->all();
 
-            $message->update([
+            $completion = [
                 'status' => 'completed',
                 'content' => $text,
                 'sources' => $publicSources,
@@ -99,7 +123,14 @@ class GenerateAreviaReply implements ShouldQueue
                 'cost_micros' => $evaluator->costMicros($usage),
                 'automated_score' => $evaluator->score($text, $sources, $abstained),
                 'duration_ms' => (int) ((hrtime(true) - $started) / 1_000_000),
-            ]);
+            ];
+            DB::transaction(function () use ($message, $completion): void {
+                $current = AiMessage::whereKey($message->id)->lockForUpdate()->firstOrFail();
+                if ($current->status !== 'processing' || JobSnapshot::arevia($current, true) !== $this->expectedSnapshot) {
+                    throw new AutomationBlocked('Conversation or permissions changed during generation.');
+                }
+                $current->update($completion);
+            });
             AiAuditLog::create([
                 'ai_message_id' => $message->id, 'user_id' => $user->id, 'event' => 'response_generated',
                 'context_module' => $module, 'prompt' => $prompt, 'sources' => $sources,
@@ -116,9 +147,9 @@ class GenerateAreviaReply implements ShouldQueue
             ]);
         } catch (Throwable $exception) {
             $willRetry = $this->attempts() < $this->tries;
-            $message->update([
+            AiMessage::whereKey($message->id)->where('status', 'processing')->update([
                 'status' => $willRetry ? 'queued' : 'failed',
-                'error' => $exception->getMessage(),
+                'error' => $exception::class,
                 'duration_ms' => (int) ((hrtime(true) - $started) / 1_000_000),
             ]);
             AiAuditLog::create([
@@ -128,9 +159,21 @@ class GenerateAreviaReply implements ShouldQueue
                 'context_module' => $message->context_module,
                 'prompt' => $message->prompt,
                 'sources' => $message->source_context,
-                'metadata' => ['error' => $exception->getMessage(), 'will_retry' => $willRetry],
+                'metadata' => ['error' => $exception::class, 'will_retry' => $willRetry],
             ]);
             throw $exception;
+        }
+    }
+
+    public function failed(?Throwable $exception): void
+    {
+        if ($this->expectedSnapshot === null) {
+            return;
+        }
+        $key = hash('sha256', 'arevia|'.AiMessage::class.'|'.$this->messageId.'|'.$this->expectedSnapshot);
+        $claimed = AuditLog::where('auditable_type', AiMessage::class)->where('auditable_id', $this->messageId)->where('event', 'automation_effect_claimed')->where('new_values->key', $key)->exists();
+        if ($claimed) {
+            AiMessage::whereKey($this->messageId)->where('status', 'processing')->update(['status' => 'failed', 'error' => 'Interrupted external attempt requires review.']);
         }
     }
 

@@ -15,7 +15,7 @@ class ApnsClient
             return;
         }
         $host = $device->environment === 'production' ? 'https://api.push.apple.com' : 'https://api.sandbox.push.apple.com';
-        $response = Http::withToken($this->jwt())
+        $response = Http::withToken($this->jwt())->connectTimeout(5)->timeout(10)
             ->withHeaders([
                 'apns-topic' => config('services.apns.bundle_id'),
                 'apns-push-type' => 'alert',
@@ -25,10 +25,10 @@ class ApnsClient
         $reason = $response->json('reason');
         if ($response->status() === 410 || in_array($reason, ['BadDeviceToken', 'DeviceTokenNotForTopic', 'Unregistered'], true)) {
             $device->update(['enabled' => false]);
+
+            return;
         }
-        if ($response->status() === 429 || $response->serverError()) {
-            $response->throw();
-        }
+        $response->throw();
     }
 
     private function jwt(): string

@@ -899,6 +899,7 @@ class OpportunityTest extends TestCase
 
     public function test_accepted_quote_can_create_the_installation_survey_and_work_order(): void
     {
+        config(['automation.approved.geocode' => true]);
         Queue::fake();
         $user = User::factory()->create(['role' => 'commercial']);
         $technician = User::factory()->create(['role' => 'technician']);
@@ -1108,6 +1109,7 @@ class OpportunityTest extends TestCase
 
     public function test_project_geocoding_prefers_an_exact_house_number_match(): void
     {
+        config(['automation.approved.geocode' => true]);
         $installation = Installation::create([
             'service_type' => 'solar',
             'status' => 'survey_booked',

@@ -23,6 +23,12 @@ class AreviaKnowledgeGovernanceTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        config(['automation.approved.arevia' => true]);
+    }
+
     public function test_retrieval_only_returns_documents_the_user_can_consult(): void
     {
         $commercial = User::factory()->create(['role' => 'commercial']);

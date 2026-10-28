@@ -1799,5 +1799,6 @@
     "Only direct purchase orders without receipts, invoices or payments can be edited.": "Solo se pueden editar pedidos directos sin recepciones, facturas ni pagos.",
     "The purchase order changed. Reload it before editing.": "El pedido ha cambiado. Vuelve a cargarlo antes de editar.",
     "Cancelled because the purchase order was edited.": "Cancelada porque se ha editado el pedido de compra.",
-    "Purchase order updated.": "Pedido de compra actualizado."
+    "Purchase order updated.": "Pedido de compra actualizado.",
+    "Arevia is temporarily unavailable. Contact an administrator.": "Arevia está temporalmente desactivada. Contacta con administración."
 }
