@@ -8,6 +8,8 @@ import {
     RotateCcw,
 } from 'lucide-react';
 import { useState } from 'react';
+import type { CustomerReceipt } from '@/components/billing/cancel-customer-receipt';
+import { CancelCustomerReceipt } from '@/components/billing/cancel-customer-receipt';
 import {
     Panel,
     Empty,
@@ -57,13 +59,7 @@ type Detail = {
         taxable_base: string;
         tax_amount: string;
     }[];
-    payments: {
-        id: number;
-        paid_at: string;
-        amount: string;
-        method: string;
-        reference: string | null;
-    }[];
+    payments: CustomerReceipt[];
     deliveries?: {
         id: number;
         recipient_email: string;
@@ -289,6 +285,7 @@ export default function InvoiceDetail({
     operationKey,
     auditEvents = [],
     voidedPayments = [],
+    canCancelReceipts = false,
     custodyStatus,
     reconstructionHref,
 }: {
@@ -309,6 +306,7 @@ export default function InvoiceDetail({
         date: string;
         user: string | null;
     }[];
+    canCancelReceipts?: boolean;
     voidedPayments?: {
         id: number;
         paid_at: string;
@@ -316,6 +314,9 @@ export default function InvoiceDetail({
         voided_at: string;
         void_reason: string;
         reversal_entry_id: number | null;
+        voided_by?: { name: string } | null;
+        accounting_entry?: { id: number; number: string } | null;
+        reversal_entry?: { id: number; number: string } | null;
     }[];
 }) {
     const [tab, setTab] = useState('summary');
@@ -696,6 +697,7 @@ export default function InvoiceDetail({
                                         <th>Forma</th>
                                         <th>Referencia</th>
                                         <th className="amount">Importe</th>
+                                        {customer && <th>Cobro</th>}
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -709,6 +711,23 @@ export default function InvoiceDetail({
                                             <td className="amount">
                                                 {money(p.amount)}
                                             </td>
+                                            {customer && (
+                                                <td>
+                                                    <CancelCustomerReceipt
+                                                        receipt={p}
+                                                        invoiceId={invoice.id}
+                                                        invoiceNumber={
+                                                            invoice.number
+                                                        }
+                                                        customer={
+                                                            invoice.party || '—'
+                                                        }
+                                                        allowed={
+                                                            canCancelReceipts
+                                                        }
+                                                    />
+                                                </td>
+                                            )}
                                         </tr>
                                     ))}
                                 </tbody>
@@ -737,7 +756,42 @@ export default function InvoiceDetail({
                                             <td>{date(payment.paid_at)}</td>
                                             <td>{money(payment.amount)}</td>
                                             <td>{date(payment.voided_at)}</td>
-                                            <td>{payment.void_reason}</td>
+                                            <td>
+                                                {payment.void_reason}
+                                                {payment.voided_by && (
+                                                    <p>
+                                                        {payment.voided_by.name}
+                                                    </p>
+                                                )}
+                                                {payment.accounting_entry && (
+                                                    <p>
+                                                        <Link
+                                                            href={`/accounting/entries/${payment.accounting_entry.id}`}
+                                                            className="underline"
+                                                        >
+                                                            {
+                                                                payment
+                                                                    .accounting_entry
+                                                                    .number
+                                                            }
+                                                        </Link>
+                                                    </p>
+                                                )}
+                                                {payment.reversal_entry && (
+                                                    <p>
+                                                        <Link
+                                                            href={`/accounting/entries/${payment.reversal_entry.id}`}
+                                                            className="underline"
+                                                        >
+                                                            {
+                                                                payment
+                                                                    .reversal_entry
+                                                                    .number
+                                                            }
+                                                        </Link>
+                                                    </p>
+                                                )}
+                                            </td>
                                         </tr>
                                     ))}
                                 </tbody>

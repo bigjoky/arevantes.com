@@ -661,6 +661,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('sales/{salesDocument}/issue', [SalesDocumentController::class, 'issue'])->middleware('can:issue-invoices')->name('sales-documents.issue');
     Route::post('sales/{salesDocument}/convert', [SalesDocumentController::class, 'convertDocument'])->middleware('can:manage-installations')->name('sales-documents.convert');
     Route::post('sales/{salesDocument}/payments', [SalesDocumentController::class, 'storePayment'])->middleware('can:manage-installations')->name('sales-documents.payments.store');
+    Route::post('sales/{salesDocument}/payments/{payment}/cancel', [SalesDocumentController::class, 'cancelPayment'])->whereNumber('payment')->middleware(['can:manage-installations', 'can:manage-treasury', 'can:manage-admin'])->name('sales-documents.payments.cancel');
     Route::delete('sales/{salesDocument}/payments/{payment}', [SalesDocumentController::class, 'destroyPayment'])->middleware('can:manage-installations')->name('sales-documents.payments.destroy');
     Route::post('sales/{salesDocument}/duplicate', [SalesDocumentController::class, 'duplicate'])->middleware('can:manage-installations')->name('sales-documents.duplicate');
     Route::post('sales/{salesDocument}/credit-note', [SalesDocumentController::class, 'creditNote'])->middleware('can:prepare-credit-notes')->name('sales-documents.credit-note');

@@ -6367,3 +6367,15 @@ Estado: implementación en checkout independiente desde main `dc7074e`, pendient
 | Verificación física | Pendiente iPhone/Android instalados: teclado, cámara mediante selector de archivos, safe areas y lectores de pantalla | Recorrido con datos sintéticos en HTTPS autorizado; no solicitar ubicación/cámara anticipadamente |
 
 Verificación y límites de esta entrega: [operations-mobile-02.md](operations-mobile-02.md). El backend de partes acepta kilometraje nullable pero la columna existente es no nula: el nuevo formulario normaliza vacío a cero, probado con guardado real en SQLite QA. No se alteró la API ni el esquema; revisar coherencia de esa validación en una corrección de backend independiente si se amplía su uso.
+
+## Anulación trazable de cobros de clientes — 28/10/2026
+
+Implementación y verificación local terminadas; publicación autorizada por el propietario, pendiente de comprobar el deployment efectivo. Integrada en el detalle del cobro de Facturación, accesible desde Tesorería, sin módulo nuevo.
+
+- Administrador con permisos efectivos de administración, gestión de instalaciones y Tesorería; motivo obligatorio, confirmación expresa, revisión y clave idempotente. Conserva cobro original, actor, fecha UTC, motivo y enlaces contables.
+- Reutiliza JournalPoster: contrapartida de las líneas originales en su fecha/periodo abierto; también revierte la imputación 438→430 de anticipos ya facturados. No modifica asientos contabilizados ni genera devoluciones bancarias. Recalcula cobrado, saldo, factura y anticipo mediante servicios existentes.
+- Bloquea cobros conciliados o procedentes del banco, ejercicios/periodos cerrados, declaraciones preparadas/presentadas y asientos previamente revertidos o incoherentes. La corrección bancaria de estos cobros queda fuera de este incremento; no se deshacen conciliaciones automáticamente.
+- Excluye anulaciones de proyecciones activas de Facturación, Tesorería, cierres e indicadores; conserva el acceso histórico desde factura/asientos. Evita borrar el documento padre con historial de cobros anulados y repetir la creación con una clave anulada.
+- Migración aditiva `2026_10_28_171540_add_cancellation_history_to_sales_document_payments`: cinco columnas anulables, claves foráneas y unicidad de la clave de anulación; no reescribe histórico. Down bloqueado si hay anulaciones.
+- Verificado: regresión económica PostgreSQL17.6 (102 pruebas/1654 aserciones); tres carreras reales en dos procesos (28 aserciones), comprobación final de cobros/traducciones (18 pruebas/99 aserciones), suite general1055 aprobadas/49 omitidas. Tipos, lint de TSX afectados, ES/EN, build y estilo revisados. Pruebas solo con datos sintéticos. La carrera se ejecuta aislada por su preparación destructiva de la base de pruebas marcada.
+- Criterio de cierre: migración única verificada, deployment del commit selectivo, rutas200 y guardas OPS/colas históricas intactas. Workers, scheduler e integraciones no se activan.

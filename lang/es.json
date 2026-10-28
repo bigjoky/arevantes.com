@@ -1800,5 +1800,19 @@
     "The purchase order changed. Reload it before editing.": "El pedido ha cambiado. Vuelve a cargarlo antes de editar.",
     "Cancelled because the purchase order was edited.": "Cancelada porque se ha editado el pedido de compra.",
     "Purchase order updated.": "Pedido de compra actualizado.",
-    "Arevia is temporarily unavailable. Contact an administrator.": "Arevia está temporalmente desactivada. Contacta con administración."
+    "Arevia is temporarily unavailable. Contact an administrator.": "Arevia está temporalmente desactivada. Contacta con administración.",
+    "Customer receipt cancelled. No bank refund has been made.": "Cobro anulado. No se ha realizado ninguna devolución bancaria.",
+    "Use the audited cancellation action. Receipts cannot be deleted.": "Utiliza la acción de anulación trazable. Los cobros no se pueden borrar.",
+    "Provide a meaningful cancellation reason and a valid operation key.": "Indica un motivo de anulación significativo y una clave de operación válida.",
+    "This customer receipt has already been cancelled.": "Este cobro ya está anulado.",
+    "The receipt changed. Reload its details before cancelling.": "El cobro ha cambiado. Recarga sus datos antes de anularlo.",
+    "This cancellation key has already been used.": "Esta clave de anulación ya se ha utilizado.",
+    "This receipt is linked to a bank movement. Audited bank correction is required before cancellation; no reconciliation or bank movement will be removed.": "Este cobro está vinculado a un movimiento bancario. Se requiere una corrección bancaria auditada antes de anularlo; no se eliminará la conciliación ni el movimiento bancario.",
+    "Review the cancelled invoice before cancelling its receipts.": "Revisa la factura anulada antes de anular sus cobros.",
+    "The receipt belongs to a closed or unavailable fiscal year.": "El cobro pertenece a un ejercicio cerrado o no disponible.",
+    "A prepared or filed tax return protects this receipt. Review it with your accountant.": "Una declaración tributaria preparada o presentada protege este cobro. Revísalo con tu asesor contable.",
+    "A receipt entry is unposted or already reversed. Accounting review is required.": "Un asiento del cobro no está contabilizado o ya está revertido. Se requiere revisión contable.",
+    "Cancelled receipts are immutable.": "Los cobros anulados son inmutables.",
+    "Receipt and journal amounts differ. Accounting review is required.": "El importe del cobro no coincide con sus asientos. Se requiere revisión contable.",
+    "This operation belongs to a cancelled receipt. Reload before registering a new receipt.": "Esta operación pertenece a un cobro anulado. Recarga antes de registrar un cobro nuevo."
 }

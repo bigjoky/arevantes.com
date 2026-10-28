@@ -12,6 +12,7 @@ use App\Models\SalesDocument;
 use App\Models\SalesDocumentPayment;
 use App\Models\Warehouse;
 use App\Services\Accounting\AccountingSynchronizer;
+use App\Services\Accounting\CustomerPaymentCancellation;
 use App\Services\Accounting\IssuedInvoiceCorrection;
 use App\Services\Billing\BillingWorkspace;
 use App\Services\Documents\DocumentNumber;
@@ -371,8 +372,11 @@ class SalesDocumentController extends Controller
                     Quote::lockForUpdate()->findOrFail($salesDocument->quote_id);
                 }
                 $document = SalesDocument::lockForUpdate()->findOrFail($salesDocument->id);
-                $existing = ! empty($data['idempotency_key']) ? SalesDocumentPayment::where('idempotency_key', $data['idempotency_key'])->first() : null;
+                $existing = ! empty($data['idempotency_key']) ? SalesDocumentPayment::withoutGlobalScope('active_customer_payment')->where('idempotency_key', $data['idempotency_key'])->first() : null;
                 if ($existing) {
+                    if ($existing->voided_at) {
+                        throw ValidationException::withMessages(['amount' => __('This operation belongs to a cancelled receipt. Reload before registering a new receipt.')]);
+                    }
                     $same = $existing->sales_document_id === $document->id && $existing->paid_at->toDateString() === $data['paid_at'] && $existing->amount === BillingWorkspace::decimal($data['amount']) && $existing->method === $data['method'] && ($existing->reference ?? '') === ($data['reference'] ?? '') && ($existing->notes ?? '') === ($data['notes'] ?? '');
                     if (! $same) {
                         throw ValidationException::withMessages(['amount' => __('This operation key has already been used for a different payment.')]);
@@ -392,7 +396,7 @@ class SalesDocumentController extends Controller
             });
 
         } catch (UniqueConstraintViolationException $exception) {
-            if (! empty($data['idempotency_key']) && SalesDocumentPayment::where('idempotency_key', $data['idempotency_key'])->exists()) {
+            if (! empty($data['idempotency_key']) && SalesDocumentPayment::withoutGlobalScope('active_customer_payment')->where('idempotency_key', $data['idempotency_key'])->exists()) {
                 throw ValidationException::withMessages(['amount' => __('This operation key has already been used for a different payment.')]);
             }
             throw $exception;
@@ -415,24 +419,27 @@ class SalesDocumentController extends Controller
         return to_route('sales-documents.show', $copy);
     }
 
+    public function cancelPayment(Request $request, SalesDocument $salesDocument, int $payment, CustomerPaymentCancellation $cancellation): RedirectResponse
+    {
+        $data = $request->validate([
+            'reason' => ['required', 'string', 'min:5', 'max:2000', 'regex:/\\S/u'],
+            'operation_key' => ['required', 'uuid'],
+            'revision' => ['required', 'string', 'size:64'],
+            'confirmed' => ['accepted'],
+        ]);
+        $cancellation->cancel($salesDocument, $payment, $request->user(), trim($data['reason']), $data['operation_key'], $data['revision'], [
+            'ip_address' => $request->ip(), 'user_agent' => $request->userAgent(),
+            'correlation_id' => $request->attributes->get('correlation_id'), 'route' => $request->route()?->getName(), 'method' => $request->method(),
+        ]);
+
+        return back()->with('toast', ['type' => 'success', 'message' => __('Customer receipt cancelled. No bank refund has been made.')]);
+    }
+
     public function destroyPayment(SalesDocument $salesDocument, SalesDocumentPayment $payment): RedirectResponse
     {
         abort_unless(auth()->user()?->can('manage-treasury'), 403);
         abort_unless($payment->sales_document_id === $salesDocument->id, 404);
-        DB::transaction(function () use ($salesDocument, $payment) {
-            if ($salesDocument->quote_id) {
-                Quote::lockForUpdate()->findOrFail($salesDocument->quote_id);
-            }
-            $document = SalesDocument::lockForUpdate()->findOrFail($salesDocument->id);
-            $receipt = $document->payments()->lockForUpdate()->findOrFail($payment->id);
-            if ($receipt->accountingEntry()->exists() || $receipt->reconciliation()->exists()) {
-                throw ValidationException::withMessages(['payment' => __('Posted payments cannot be deleted. Reverse the accounting entry first.')]);
-            }
-            $receipt->delete();
-            $this->refreshPaymentStatus($document);
-        });
-
-        return back()->with('toast', ['type' => 'success', 'message' => __('Payment removed.')]);
+        throw ValidationException::withMessages(['payment' => __('Use the audited cancellation action. Receipts cannot be deleted.')]);
     }
 
     public function creditNote(Request $request, SalesDocument $salesDocument): RedirectResponse
@@ -464,7 +471,7 @@ class SalesDocumentController extends Controller
     {
         $quote = DB::transaction(function () use ($salesDocument, $conversion) {
             $document = SalesDocument::query()->lockForUpdate()->findOrFail($salesDocument->id);
-            abort_unless($document->status === 'draft' && ! $document->locked_at && ! $document->accountingEntry()->exists() && ! $document->payments()->exists() && ! $document->childDocuments()->exists(), 422, __('Only unposted draft documents without derived documents can be deleted.'));
+            abort_unless($document->status === 'draft' && ! $document->locked_at && ! $document->accountingEntry()->exists() && ! $document->payments()->withoutGlobalScope('active_customer_payment')->exists() && ! $document->childDocuments()->exists(), 422, __('Only unposted draft documents without derived documents can be deleted.'));
             $quote = $document->quote;
             $source = $document->sourceDocument;
             $document->delete();

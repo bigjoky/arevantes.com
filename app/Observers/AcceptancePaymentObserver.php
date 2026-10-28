@@ -12,6 +12,13 @@ class AcceptancePaymentObserver
         $this->refresh($payment);
     }
 
+    public function updated(SalesDocumentPayment $payment): void
+    {
+        if ($payment->wasChanged('voided_at')) {
+            $this->refresh($payment);
+        }
+    }
+
     public function deleted(SalesDocumentPayment $payment): void
     {
         $this->refresh($payment);

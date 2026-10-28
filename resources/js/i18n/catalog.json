@@ -24842,5 +24842,57 @@
     "Sin observaciones registradas": {
         "en": "No notes recorded",
         "es": "Sin observaciones registradas"
+    },
+    "Ver cobro": {
+        "es": "Ver cobro",
+        "en": "View receipt"
+    },
+    "Detalle del cobro": {
+        "es": "Detalle del cobro",
+        "en": "Receipt details"
+    },
+    "Referencia del cobro": {
+        "es": "Referencia del cobro",
+        "en": "Receipt reference"
+    },
+    "Fecha original": {
+        "es": "Fecha original",
+        "en": "Original date"
+    },
+    "Medio de cobro": {
+        "es": "Medio de cobro",
+        "en": "Payment method"
+    },
+    "Vinculado al banco": {
+        "es": "Vinculado al banco",
+        "en": "Linked to bank"
+    },
+    "Sin conciliación registrada": {
+        "es": "Sin conciliación registrada",
+        "en": "No reconciliation recorded"
+    },
+    "Este cobro está vinculado al banco. La anulación requiere una corrección bancaria auditada; se conserva la conciliación original.": {
+        "es": "Este cobro está vinculado al banco. La anulación requiere una corrección bancaria auditada; se conserva la conciliación original.",
+        "en": "This receipt is linked to the bank. Cancellation requires an audited bank correction; the original reconciliation is retained."
+    },
+    "Se conservará el cobro original, se revertirán sus asientos en periodos abiertos y se recalculará el saldo. Esta acción no devuelve dinero al cliente ni realiza un pago bancario.": {
+        "es": "Se conservará el cobro original, se revertirán sus asientos en periodos abiertos y se recalculará el saldo. Esta acción no devuelve dinero al cliente ni realiza un pago bancario.",
+        "en": "The original receipt will be retained, its entries reversed in open periods and the balance recalculated. This does not refund the customer or make a bank payment."
+    },
+    "Motivo de anulación": {
+        "es": "Motivo de anulación",
+        "en": "Cancellation reason"
+    },
+    "Confirmo expresamente la anulación de este cobro.": {
+        "es": "Confirmo expresamente la anulación de este cobro.",
+        "en": "I explicitly confirm cancellation of this receipt."
+    },
+    "Anular cobro": {
+        "es": "Anular cobro",
+        "en": "Cancel receipt"
+    },
+    "Cobro": {
+        "es": "Cobro",
+        "en": "Receipt"
     }
 }

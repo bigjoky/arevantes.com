@@ -39,7 +39,7 @@ class FinanceWorkspace
     /** Payments awaiting reconciliation stay visible separately; they do not change recorded bank balances. */
     public function unmatchedPayments(): Builder
     {
-        $customers = DB::table('sales_document_payments as p')->join('sales_documents as d', 'd.id', '=', 'p.sales_document_id')
+        $customers = DB::table('sales_document_payments as p')->whereNull('p.voided_at')->join('sales_documents as d', 'd.id', '=', 'p.sales_document_id')
             ->whereNotExists(fn ($q) => $q->selectRaw('1')->from('bank_reconciliations as r')->whereColumn('r.sales_document_payment_id', 'p.id'))
             ->selectRaw("p.id, 'customer' as source, p.paid_at as date, cast(null as date) as value_on, d.number as description, p.reference, p.amount, 'EUR' as currency, 'Sin cuenta bancaria asignada' as account, cast(null as bigint) as account_id, 'unmatched' as status, 'Cobros de clientes' as category");
         $suppliers = DB::table('supplier_payments as p')->leftJoin('purchase_documents as d', 'd.id', '=', 'p.purchase_document_id')->leftJoin('expenses as e', 'e.id', '=', 'p.expense_id')

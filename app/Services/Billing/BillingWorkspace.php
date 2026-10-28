@@ -50,7 +50,7 @@ class BillingWorkspace
     public function payments(bool $customers = true, bool $suppliers = true): Builder
     {
         $receipts = DB::table('sales_document_payments as m')->join('sales_documents as d', 'd.id', '=', 'm.sales_document_id')->leftJoin('people as p', 'p.id', '=', 'd.person_id')
-            ->where('d.type', 'invoice')->when(! $customers, fn ($q) => $q->whereRaw('1 = 0'))->selectRaw("m.id, 'receipt' as kind, m.paid_at, m.amount, m.method, m.reference, d.number, coalesce(p.company_name, p.first_name, '') as party, d.id as document_id, 'customer' as document_kind");
+            ->whereNull('m.voided_at')->where('d.type', 'invoice')->when(! $customers, fn ($q) => $q->whereRaw('1 = 0'))->selectRaw("m.id, 'receipt' as kind, m.paid_at, m.amount, m.method, m.reference, d.number, coalesce(p.company_name, p.first_name, '') as party, d.id as document_id, 'customer' as document_kind");
         $payments = DB::table('supplier_payments as m')->leftJoin('purchase_documents as d', 'd.id', '=', 'm.purchase_document_id')->leftJoin('expenses as e', 'e.id', '=', 'm.expense_id')->leftJoin('suppliers as p', 'p.id', '=', 'd.supplier_id')->leftJoin('suppliers as ep', 'ep.id', '=', 'e.supplier_id')
             ->whereNull('m.voided_at')->when(! $suppliers, fn ($q) => $q->whereRaw('1 = 0'))->selectRaw("m.id, 'payment' as kind, m.paid_at, m.amount, m.method, m.reference, coalesce(d.number, e.number) as number, coalesce(p.legal_name, e.issuer_legal_name, ep.legal_name, e.merchant_name, '') as party, coalesce(d.id, e.id) as document_id, case when d.id is not null then 'purchase' else 'expense' end as document_kind");
 

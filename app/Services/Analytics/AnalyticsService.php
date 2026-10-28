@@ -262,7 +262,7 @@ class AnalyticsService
 
     private function receivableQuery(AnalyticsFilter $filter, CarbonImmutable $asOf): Builder
     {
-        $payments = DB::table('sales_document_payments')
+        $payments = DB::table('sales_document_payments')->whereNull('voided_at')
             ->selectRaw('sales_document_id, SUM(amount) paid_as_of')
             ->where('paid_at', '<=', $asOf)
             ->groupBy('sales_document_id');
