@@ -20,9 +20,13 @@ use App\Models\SalesDocument;
 use App\Models\SalesDocumentPayment;
 use App\Models\SupplierPayment;
 use App\Models\User;
+use App\Services\Accounting\AccountingSynchronizer;
+use App\Services\Banking\ControlledReconciliation;
+use Brick\Math\BigDecimal;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\Support\EconomicFixture;
 use Tests\TestCase;
@@ -30,6 +34,16 @@ use Tests\TestCase;
 class BankingTest extends TestCase
 {
     use RefreshDatabase;
+
+    private function confirmation(BankTransaction $bank, string $selection): array
+    {
+        return ['payment' => $selection, 'allocated_amount' => (string) BigDecimal::of($bank->amount)->abs()->toScale(2), 'account_id' => $bank->bank_account_id, 'revision' => app(ControlledReconciliation::class)->revision($bank->fresh()), 'operation_key' => (string) Str::uuid(), 'reason' => 'Synthetic reviewed reconciliation', 'confirmed' => 1];
+    }
+
+    private function correction(): array
+    {
+        return ['reason' => 'Synthetic incorrect reconciliation', 'operation_key' => (string) Str::uuid(), 'confirmed' => 1];
+    }
 
     public function test_credit_cards_and_facilities_are_managed_in_the_treasury_position(): void
     {
@@ -240,7 +254,7 @@ class BankingTest extends TestCase
 
     public function test_european_csv_is_deduplicated_and_reconciled_with_recorded_payments(): void
     {
-        $user = User::factory()->create(['role' => 'commercial']);
+        $user = User::factory()->create(['role' => 'admin']);
         $account = BankAccount::create(['name' => 'Main account', 'currency' => 'EUR', 'opening_balance' => 1000, 'is_active' => true]);
         $sale = SalesDocument::create(['type' => 'invoice', 'number' => 'FAC-2026-00001', 'status' => 'paid', 'issue_date' => '2026-07-01', 'subtotal' => 100, 'discount_amount' => 0, 'tax_amount' => 21, 'amount' => 121, 'paid_amount' => 121, 'customer_snapshot' => ['first_name' => 'Ana']]);
         $sale->payments()->create(['created_by' => $user->id, 'paid_at' => '2026-07-13', 'amount' => 121, 'method' => 'bank_transfer', 'reference' => 'BANK-123']);
@@ -257,11 +271,16 @@ class BankingTest extends TestCase
         $this->post(route('banking.import', $account), ['statement' => UploadedFile::fake()->createWithContent('statement.csv', $csv)])->assertRedirect();
         $this->assertSame(2, BankTransaction::count());
 
-        $this->post(route('banking.auto', $account))->assertRedirect();
+        $this->post(route('banking.auto', $account))->assertSessionHasErrors('reconciliation');
+        foreach ($account->transactions()->get() as $bank) {
+            $payment = (float) $bank->amount > 0 ? SalesDocumentPayment::firstOrFail() : SupplierPayment::firstOrFail();
+            $selection = ((float) $bank->amount > 0 ? 'customer:' : 'supplier:').$payment->id;
+            $this->post(route('banking.reconcile', $bank), $this->confirmation($bank, $selection))->assertSessionHasNoErrors();
+        }
         $this->assertSame(2, BankReconciliation::count());
         $this->assertSame(0, BankTransaction::where('status', 'pending')->count());
         $reconciliation = BankReconciliation::firstOrFail();
-        $this->delete(route('banking.reconciliations.undo', $reconciliation))->assertRedirect();
+        $this->delete(route('banking.reconciliations.undo', $reconciliation->id), $this->correction())->assertRedirect();
         $this->assertSame('pending', $reconciliation->transaction->refresh()->status);
     }
 
@@ -638,7 +657,7 @@ class BankingTest extends TestCase
 
     public function test_own_account_transfers_use_distinct_bank_subaccounts_and_can_be_reversed(): void
     {
-        $user = User::factory()->create(['role' => 'commercial']);
+        $user = User::factory()->create(['role' => 'admin']);
         $this->actingAs($user);
         $this->post(route('banking.accounts.store'), ['name' => 'Bank A', 'currency' => 'EUR', 'opening_balance' => 0, 'is_active' => true])->assertRedirect();
         $this->post(route('banking.accounts.store'), ['name' => 'Bank B', 'currency' => 'EUR', 'opening_balance' => 0, 'is_active' => true])->assertRedirect();
@@ -648,7 +667,7 @@ class BankingTest extends TestCase
         $outgoing = $from->transactions()->create(['booked_on' => now(), 'amount' => -500, 'currency' => 'EUR', 'description' => 'Own transfer', 'reference' => 'TR-55', 'import_hash' => hash('sha256', 'transfer-out'), 'status' => 'pending']);
         $incoming = $to->transactions()->create(['booked_on' => now()->addDay(), 'amount' => 500, 'currency' => 'EUR', 'description' => 'Own transfer', 'reference' => 'TR-55', 'import_hash' => hash('sha256', 'transfer-in'), 'status' => 'pending']);
 
-        $this->post(route('banking.auto', $from))->assertRedirect()->assertSessionHasNoErrors();
+        $this->post(route('banking.reconcile', $outgoing), $this->confirmation($outgoing, 'transfer:'.$incoming->id))->assertRedirect()->assertSessionHasNoErrors();
         $transfer = BankTransfer::with('journalEntry.lines.account')->firstOrFail();
         $this->assertSame('reconciled', $outgoing->fresh()->status);
         $this->assertSame('reconciled', $incoming->fresh()->status);
@@ -661,25 +680,26 @@ class BankingTest extends TestCase
 
     public function test_payment_reconciliation_reclassifies_generic_bank_account_to_specific_subaccount(): void
     {
-        $user = User::factory()->create(['role' => 'commercial']);
+        $user = User::factory()->create(['role' => 'admin']);
         $this->actingAs($user);
         $this->post(route('banking.accounts.store'), ['name' => 'Collections bank', 'currency' => 'EUR', 'opening_balance' => 0, 'is_active' => true])->assertRedirect();
         $account = BankAccount::where('name', 'Collections bank')->with('ledgerAccount')->firstOrFail();
         $sale = SalesDocument::create(['type' => 'invoice', 'number' => 'FAC-BANK-1', 'status' => 'paid', 'issue_date' => now(), 'subtotal' => 100, 'discount_amount' => 0, 'tax_amount' => 0, 'amount' => 100, 'paid_amount' => 100, 'customer_snapshot' => []]);
         $payment = $sale->payments()->create(['created_by' => $user->id, 'paid_at' => now(), 'amount' => 100, 'method' => 'bank_transfer', 'reference' => 'COLL-1']);
+        app(AccountingSynchronizer::class)->syncCustomerPayment($payment, $user->id);
         $transaction = $account->transactions()->create(['booked_on' => now(), 'amount' => 100, 'currency' => 'EUR', 'description' => 'Customer receipt', 'reference' => 'COLL-1', 'import_hash' => hash('sha256', 'collections'), 'status' => 'pending']);
 
-        $this->post(route('banking.reconcile', $transaction), ['payment' => 'customer:'.$payment->id])->assertRedirect()->assertSessionHasNoErrors();
+        $this->post(route('banking.reconcile', $transaction), $this->confirmation($transaction, 'customer:'.$payment->id))->assertRedirect()->assertSessionHasNoErrors();
         $reconciliation = BankReconciliation::with('journalEntry.lines.account')->firstOrFail();
         $this->assertSame('100.00', $reconciliation->journalEntry->lines->firstWhere('account.code', $account->ledgerAccount->code)->debit);
         $this->assertSame('100.00', $reconciliation->journalEntry->lines->firstWhere('account.code', '572')->credit);
-        $this->delete(route('banking.reconciliations.undo', $reconciliation))->assertRedirect()->assertSessionHasNoErrors();
+        $this->delete(route('banking.reconciliations.undo', $reconciliation->id), $this->correction())->assertRedirect()->assertSessionHasNoErrors();
         $this->assertSame('pending', $transaction->fresh()->status);
     }
 
-    public function test_incoming_bank_movement_can_create_and_reconcile_customer_receipt(): void
+    public function test_unrecorded_receipt_is_directed_to_the_authorized_receipt_workflow(): void
     {
-        $user = User::factory()->create(['role' => 'commercial']);
+        $user = User::factory()->create(['role' => 'admin']);
         $account = BankAccount::create(['name' => 'Collections', 'currency' => 'EUR', 'opening_balance' => 0, 'is_active' => true]);
         $invoice = SalesDocument::create([
             'type' => 'invoice', 'number' => 'FAC-2026-0042', 'status' => 'issued',
@@ -694,35 +714,15 @@ class BankingTest extends TestCase
             'import_hash' => hash('sha256', 'direct-customer-receipt'), 'status' => 'pending',
         ]);
 
-        $this->actingAs($user)
-            ->get(route('banking.index', ['account' => $account->id]))
-            ->assertOk()
-            ->assertInertia(fn (Assert $page) => $page
-                ->where('transactions.data.0.candidates.0.value', 'customer_invoice:'.$invoice->id)
-                ->where('transactions.data.0.candidates.0.creates_payment', true));
-        $this->post(route('banking.reconcile', $transaction), ['payment' => 'customer_invoice:'.$invoice->id])
-            ->assertRedirect()
-            ->assertSessionHasNoErrors();
-
-        $payment = SalesDocumentPayment::firstOrFail();
-        $this->assertSame('40.00', $payment->amount);
-        $this->assertSame('partial', $invoice->fresh()->status);
-        $this->assertSame('40.00', $invoice->fresh()->paid_amount);
-        $this->assertSame('reconciled', $transaction->fresh()->status);
-        $this->assertDatabaseHas('bank_reconciliations', ['sales_document_payment_id' => $payment->id, 'method' => 'manual']);
-        $this->assertNotNull($payment->accountingEntry);
-
-        $this->delete(route('banking.reconciliations.undo', $payment->reconciliation))
-            ->assertRedirect()
-            ->assertSessionHasNoErrors();
-        $this->assertDatabaseMissing('sales_document_payments', ['id' => $payment->id]);
-        $this->assertSame('issued', $invoice->fresh()->status);
+        $this->actingAs($user)->get(route('banking.index', ['account' => $account->id, 'tab' => 'reconciliation']))->assertOk();
+        $this->post(route('banking.reconcile', $transaction), $this->confirmation($transaction, 'customer_invoice:'.$invoice->id))->assertSessionHasErrors('payment');
+        $this->assertSame(0, SalesDocumentPayment::count());
+        $this->assertSame(0, BankReconciliation::count());
         $this->assertSame('0.00', $invoice->fresh()->paid_amount);
         $this->assertSame('pending', $transaction->fresh()->status);
-        $this->assertDatabaseHas('journal_entries', ['event' => 'reversal', 'reverses_entry_id' => $payment->accountingEntry->id]);
     }
 
-    public function test_auto_reconciliation_creates_supplier_invoice_and_expense_payments_from_exact_references(): void
+    public function test_auto_reconciliation_is_blocked_even_for_exact_document_references(): void
     {
         $user = User::factory()->create(['role' => 'commercial']);
         $supplier = EconomicFixture::supplier(['legal_name' => 'Solar Supply SL', 'country' => 'ES', 'payment_terms_days' => 30]);
@@ -755,16 +755,12 @@ class BankingTest extends TestCase
             'import_hash' => hash('sha256', 'direct-expense-payment'), 'status' => 'pending',
         ]);
 
-        $this->actingAs($user)->post(route('banking.auto', $account))->assertRedirect()->assertSessionHasNoErrors();
-
-        $this->assertSame(2, SupplierPayment::count());
-        $this->assertSame('paid', $invoice->fresh()->status);
-        $this->assertSame('60.50', $invoice->fresh()->paid_amount);
-        $this->assertSame('paid', $expense->fresh()->status);
-        $this->assertSame('24.20', $expense->fresh()->paid_amount);
-        $this->assertSame(2, BankReconciliation::where('method', 'automatic')->count());
-        $this->assertSame(2, BankReconciliation::whereNotNull('journal_entry_id')->count());
-        $this->assertSame(0, BankTransaction::where('status', 'pending')->count());
+        $this->actingAs($user)->post(route('banking.auto', $account))->assertSessionHasErrors('reconciliation');
+        $this->assertSame(0, SupplierPayment::count());
+        $this->assertSame('0.00', $invoice->fresh()->paid_amount);
+        $this->assertSame('0.00', $expense->fresh()->paid_amount);
+        $this->assertSame(0, BankReconciliation::count());
+        $this->assertSame(2, BankTransaction::where('status', 'pending')->count());
     }
 
     public function test_expense_reconciliation_with_a_bank_subaccount_can_be_undone_and_retried(): void
@@ -782,17 +778,19 @@ class BankingTest extends TestCase
             'booked_on' => now(), 'amount' => -3.80, 'currency' => 'EUR',
             'description' => 'Expense payment', 'import_hash' => hash('sha256', 'expense-retry'), 'status' => 'pending',
         ]);
-        $this->post(route('banking.reconcile', $transaction), ['payment' => 'expense:'.$expense->id])->assertRedirect()->assertSessionHasNoErrors();
+        $payment = SupplierPayment::create(['expense_id' => $expense->id, 'created_by' => $user->id, 'paid_at' => now(), 'amount' => 3.80, 'method' => 'bank_transfer', 'ledger_account_id' => LedgerAccount::where('code', '572')->value('id')]);
+        app(AccountingSynchronizer::class)->syncSupplierPayment($payment, $user->id);
+        $expense->update(['paid_amount' => 3.80, 'status' => 'paid']);
+        $this->post(route('banking.reconcile', $transaction), $this->confirmation($transaction, 'supplier:'.$payment->id))->assertSessionHasNoErrors();
         $reconciliation = BankReconciliation::with('journalEntry.lines.account')->firstOrFail();
         $this->assertSame('3.80', $reconciliation->journalEntry->lines->firstWhere('account.code', $account->ledgerAccount->code)->credit);
-        $this->assertSame('paid', $expense->fresh()->status);
-        $this->delete(route('banking.reconciliations.undo', $reconciliation))->assertRedirect()->assertSessionHasNoErrors();
+        $this->delete(route('banking.reconciliations.undo', $reconciliation->id), $this->correction())->assertSessionHasNoErrors();
         $this->assertSame('pending', $transaction->fresh()->status);
-        $this->assertSame('0.00', $expense->fresh()->paid_amount);
-        $this->assertDatabaseCount('supplier_payments', 0);
-        $this->post(route('banking.reconcile', $transaction), ['payment' => 'expense:'.$expense->id])->assertRedirect()->assertSessionHasNoErrors();
-        $this->assertSame('paid', $expense->fresh()->status);
+        $this->assertSame('3.80', $expense->fresh()->paid_amount);
         $this->assertDatabaseCount('supplier_payments', 1);
+        $this->post(route('banking.reconcile', $transaction), $this->confirmation($transaction, 'supplier:'.$payment->id))->assertSessionHasNoErrors();
+        $this->assertDatabaseCount('supplier_payments', 1);
+        $this->assertSame(2, BankReconciliation::withoutGlobalScope('active_bank_reconciliation')->count());
     }
 
     public function test_auto_reconciliation_does_not_create_payment_from_amount_alone(): void
@@ -812,7 +810,7 @@ class BankingTest extends TestCase
             'import_hash' => hash('sha256', 'ambiguous-amount-only'), 'status' => 'pending',
         ]);
 
-        $this->actingAs($user)->post(route('banking.auto', $account))->assertRedirect()->assertSessionHasNoErrors();
+        $this->actingAs($user)->post(route('banking.auto', $account))->assertRedirect()->assertSessionHasErrors('reconciliation');
 
         $this->assertSame('pending', $transaction->fresh()->status);
         $this->assertSame(0, SalesDocumentPayment::count());
@@ -891,7 +889,7 @@ class BankingTest extends TestCase
         $this->assertLessThan(20, $candidateQueries->count(), 'Candidate lookup queries must remain constant per page, not grow per transaction.');
     }
 
-    public function test_bulk_reconciliation_respects_the_selected_confidence_threshold(): void
+    public function test_confidence_threshold_cannot_enable_automatic_matching(): void
     {
         $user = User::factory()->create(['role' => 'commercial']);
         $account = BankAccount::create(['name' => 'Strict reconciliation', 'currency' => 'EUR', 'opening_balance' => 0, 'is_active' => true]);
@@ -899,16 +897,11 @@ class BankingTest extends TestCase
         $sale->payments()->create(['created_by' => $user->id, 'paid_at' => now(), 'amount' => 100, 'method' => 'bank_transfer', 'reference' => 'STRICT-REF']);
         $transaction = $account->transactions()->create(['booked_on' => now(), 'amount' => 100, 'currency' => 'EUR', 'description' => 'Customer transfer', 'reference' => 'STRICT-REF', 'import_hash' => hash('sha256', 'strict-threshold'), 'status' => 'pending']);
 
-        $this->actingAs($user)->post(route('banking.auto', $account), ['minimum_confidence' => 99])
-            ->assertRedirect()
-            ->assertSessionHasNoErrors();
+        foreach ([99, 98] as $threshold) {
+            $this->actingAs($user)->post(route('banking.auto', $account), ['minimum_confidence' => $threshold])->assertSessionHasErrors('reconciliation');
+        }
         $this->assertSame('pending', $transaction->fresh()->status);
-
-        $this->post(route('banking.auto', $account), ['minimum_confidence' => 98])
-            ->assertRedirect()
-            ->assertSessionHasNoErrors();
-        $this->assertSame('reconciled', $transaction->fresh()->status);
-        $this->assertDatabaseHas('bank_reconciliations', ['bank_transaction_id' => $transaction->id, 'method' => 'automatic']);
+        $this->assertSame(0, BankReconciliation::count());
     }
 
     public function test_reusable_rules_preview_and_apply_safe_accounting_with_audited_trace(): void

@@ -15,12 +15,14 @@ use App\Models\Unit;
 use App\Models\User;
 use App\Services\Accounting\AccountingSynchronizer;
 use App\Services\Accounting\JournalPoster;
+use App\Services\Banking\ControlledReconciliation;
 use App\Services\Tax\VatReport;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\Support\EconomicFixture;
@@ -195,7 +197,10 @@ class TaxTest extends TestCase
         $account = BankAccount::create(['name' => 'Taxes bank', 'currency' => 'EUR', 'opening_balance' => 0, 'is_active' => true]);
         $csv = "Fecha;Importe;Concepto;Referencia\n16/10/2026;-10,50;AEAT MODELO 303;NRC-IVA-Q3\n";
         $this->post(route('banking.import', $account), ['statement' => UploadedFile::fake()->createWithContent('tax.csv', $csv)])->assertRedirect();
-        $this->post(route('banking.auto', $account))->assertRedirect();
+        $this->post(route('banking.auto', $account))->assertSessionHasErrors('reconciliation');
+        $bank = $account->transactions()->firstOrFail();
+        $payment = $return->payments()->firstOrFail();
+        $this->post(route('banking.reconcile', $bank), ['payment' => 'tax:'.$payment->id, 'allocated_amount' => '10.50', 'account_id' => $account->id, 'revision' => app(ControlledReconciliation::class)->revision($bank->fresh()), 'operation_key' => (string) Str::uuid(), 'reason' => 'Synthetic reviewed tax payment', 'confirmed' => 1])->assertSessionHasNoErrors();
         $this->assertSame(1, BankReconciliation::whereNotNull('tax_return_payment_id')->count());
     }
 

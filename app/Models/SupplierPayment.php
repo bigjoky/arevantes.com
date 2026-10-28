@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
 
@@ -64,6 +65,11 @@ class SupplierPayment extends Model
             'employee' => $this->fundingEmployee?->company_name ?: trim(($this->fundingEmployee?->first_name ?? '').' '.($this->fundingEmployee?->last_name ?? '')),
             default => $this->ledgerAccount?->name ?: __('Legacy treasury account'),
         };
+    }
+
+    public function reconciliations(): HasMany
+    {
+        return $this->hasMany(BankReconciliation::class);
     }
 
     public function reconciliation(): HasOne

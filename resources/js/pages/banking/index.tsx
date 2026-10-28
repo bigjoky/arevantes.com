@@ -5,7 +5,7 @@ export default function BankingIndex(
     props: ComponentProps<typeof LegacyBanking> &
         ComponentProps<typeof BanksWorkspace>,
 ) {
-    return props.financeAccounts ? (
+    return props.financeAccounts || props.bankTab === 'reconciliation' ? (
         <BanksWorkspace {...props} />
     ) : (
         <LegacyBanking {...props} />

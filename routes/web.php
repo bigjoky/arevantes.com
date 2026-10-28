@@ -495,8 +495,10 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('banking/rules/{rule}', [BankingController::class, 'destroyRule'])->middleware('can:manage-treasury')->name('banking.rules.destroy');
     Route::post('banking/accounts/{account}/apply-rules', [BankingController::class, 'applyRules'])->middleware(['can:manage-treasury', 'can:manage-accounting'])->name('banking.rules.apply');
     Route::post('banking/rule-runs/{run}/reverse', [BankingController::class, 'reverseRuleRun'])->middleware(['can:manage-treasury', 'can:manage-accounting'])->name('banking.rule-runs.reverse');
+    Route::get('banking/transactions/{transaction}/candidates', [BankingController::class, 'reconciliationCandidates'])->middleware('can:manage-treasury')->name('banking.reconciliation.candidates');
+    Route::post('banking/transactions/{transaction}/review', [BankingController::class, 'reviewDiscrepancy'])->middleware('can:manage-treasury')->name('banking.discrepancies.review');
     Route::post('banking/transactions/{transaction}/reconcile', [BankingController::class, 'reconcile'])->middleware('can:manage-treasury')->name('banking.reconcile');
-    Route::delete('banking/reconciliations/{reconciliation}', [BankingController::class, 'undo'])->middleware('can:manage-treasury')->name('banking.reconciliations.undo');
+    Route::delete('banking/reconciliations/{reconciliation}', [BankingController::class, 'undo'])->middleware('can:manage-treasury')->whereNumber('reconciliation')->middleware('can:correct-bank-reconciliations')->name('banking.reconciliations.undo');
     Route::post('banking/transactions/{transaction}/post', [BankingController::class, 'postTransaction'])->middleware('can:manage-accounting')->name('banking.transactions.post');
     Route::post('banking/accounts/{account}/transactions/bulk-post', [BankingController::class, 'bulkPostTransactions'])->middleware('can:manage-accounting')->name('banking.transactions.bulk-post');
     Route::post('banking/postings/{posting}/reverse', [BankingController::class, 'reversePosting'])->middleware('can:manage-accounting')->name('banking.postings.reverse');

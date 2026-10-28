@@ -6394,3 +6394,17 @@ Estado: implantado en checkout independiente, pendiente de autorización de publ
 | Dispositivos físicos | Pendiente iOS/Android en HTTPS autorizado | Instalación, teclado, safe areas y lectores comprobados en dispositivos reales |
 
 Verificación local: 78 pruebas frontend, 40 backend (764 aserciones), build/tipos/lint/i18n y 91 comprobaciones de viewport satisfactorias. No publicado.
+
+
+## Conciliación bancaria y resolución de discrepancias — 29/10/2026
+
+Implementado y verificado localmente; publicación autorizada pendiente de comprobar el deployment efectivo. Amplía Bancos y conciliación, sin crear módulos paralelos.
+
+- Filtros, pendientes bancarios y ERP paginados, sugerencias explicables y búsqueda manual. Las sugerencias no ejecutan conciliaciones ni generan cobros, pagos o ajustes.
+- Asignaciones parciales N:M con importes pendientes, validación de cuenta, divisa, estado y periodos; transacciones, locks, revisión e idempotencia. Confirmación y motivo obligatorios.
+- Desconciliación con permiso administrativo específico, motivo, confirmación e historial conservado; revierte únicamente la reclasificación contable asociada. Conserva el cobro/pago original. Su anulación sigue siendo una acción separada.
+- Discrepancias clasificadas y documentadas sin inventar movimientos para cuadrar diferencias. Operaciones originadas desde el propio banco permanecen protegidas frente a la desconciliación hasta disponer de una corrección contable específica.
+- Migración propia aditiva en columnas, sin reescritura histórica; sustituye unicidad 1:1 por pares activos únicos para admitir parciales e historial. Requiere mantenimiento coordinado y ejecución explícita de ese único archivo. Rollback automático bloqueado; recuperación mediante corrección hacia delante revisada.
+- Fechas nuevas de confirmación/corrección en UTC con presentación Europe/Madrid; las fechas históricas ambiguas no se convierten en instantes supuestos.
+- Verificación: suite general 1.071 aprobadas/50 omitidas; PostgreSQL17.6 económico 103 pruebas/1.462 aserciones; cuatro carreras reales en dos procesos (42 aserciones). Tipos, lint afectado, traducciones, compilación y Pint aprobados. Datos sintéticos; sin pruebas económicas en producción.
+- Criterio de cierre: commit selectivo, migración única sin cambios en columnas históricas, SHA efectivo y rutas privadas verificadas. Colas históricas, workers, scheduler e integraciones permanecen intactos/desactivados.

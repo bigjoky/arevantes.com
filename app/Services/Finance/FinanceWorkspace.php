@@ -39,13 +39,13 @@ class FinanceWorkspace
     /** Payments awaiting reconciliation stay visible separately; they do not change recorded bank balances. */
     public function unmatchedPayments(): Builder
     {
-        $customers = DB::table('sales_document_payments as p')->whereNull('p.voided_at')->join('sales_documents as d', 'd.id', '=', 'p.sales_document_id')
-            ->whereNotExists(fn ($q) => $q->selectRaw('1')->from('bank_reconciliations as r')->whereColumn('r.sales_document_payment_id', 'p.id'))
-            ->selectRaw("p.id, 'customer' as source, p.paid_at as date, cast(null as date) as value_on, d.number as description, p.reference, p.amount, 'EUR' as currency, 'Sin cuenta bancaria asignada' as account, cast(null as bigint) as account_id, 'unmatched' as status, 'Cobros de clientes' as category");
-        $suppliers = DB::table('supplier_payments as p')->leftJoin('purchase_documents as d', 'd.id', '=', 'p.purchase_document_id')->leftJoin('expenses as e', 'e.id', '=', 'p.expense_id')
-            ->whereNull('p.voided_at')->where(fn ($q) => $q->whereNull('e.id')->orWhere('e.currency_code', 'EUR'))
-            ->whereNotExists(fn ($q) => $q->selectRaw('1')->from('bank_reconciliations as r')->whereColumn('r.supplier_payment_id', 'p.id'))
-            ->selectRaw("p.id, 'supplier' as source, p.paid_at as date, cast(null as date) as value_on, coalesce(d.number,e.number) as description, p.reference, -p.amount as amount, 'EUR' as currency, 'Fuente registrada en Facturación' as account, cast(null as bigint) as account_id, 'unmatched' as status, 'Pagos a proveedores' as category");
+        $allocation = fn (string $field) => DB::table('bank_reconciliations as r')->join('bank_transactions as t', 't.id', '=', 'r.bank_transaction_id')->whereNull('r.reversed_at')->whereNotNull('r.'.$field)->selectRaw('r.'.$field.' as payment_id, sum(coalesce(r.allocated_amount,abs(t.amount))) as allocated')->groupBy('r.'.$field);
+        $customers = DB::table('sales_document_payments as p')->whereNull('p.voided_at')->join('sales_documents as d', 'd.id', '=', 'p.sales_document_id')->leftJoinSub($allocation('sales_document_payment_id'), 'matched', 'matched.payment_id', '=', 'p.id')
+            ->whereRaw('p.amount > coalesce(matched.allocated,0)')
+            ->selectRaw("p.id, 'customer' as source, p.paid_at as date, cast(null as date) as value_on, d.number as description, p.reference, (p.amount-coalesce(matched.allocated,0)) as amount, 'EUR' as currency, 'Sin cuenta bancaria asignada' as account, cast(null as bigint) as account_id, 'unmatched' as status, 'Cobros de clientes' as category, cast(null as bigint) as bank_account_id, p.method");
+        $suppliers = DB::table('supplier_payments as p')->leftJoin('purchase_documents as d', 'd.id', '=', 'p.purchase_document_id')->leftJoin('expenses as e', 'e.id', '=', 'p.expense_id')->leftJoinSub($allocation('supplier_payment_id'), 'matched', 'matched.payment_id', '=', 'p.id')->leftJoin('bank_accounts as funding_bank', fn ($join) => $join->on('funding_bank.id', '=', 'p.funding_source_id')->where('p.funding_source_type', 'bank_account'))
+            ->whereNull('p.voided_at')->where(fn ($q) => $q->whereNull('e.id')->orWhere('e.currency_code', 'EUR'))->whereRaw('p.amount > coalesce(matched.allocated,0)')
+            ->selectRaw("p.id, 'supplier' as source, p.paid_at as date, cast(null as date) as value_on, coalesce(d.number,e.number) as description, p.reference, -(p.amount-coalesce(matched.allocated,0)) as amount, 'EUR' as currency, coalesce(funding_bank.name,'Sin cuenta bancaria asignada') as account, cast(null as bigint) as account_id, 'unmatched' as status, 'Pagos a proveedores' as category, case when p.funding_source_type='bank_account' then p.funding_source_id else null end as bank_account_id, p.method");
 
         return DB::query()->fromSub($customers->unionAll($suppliers), 'unmatched_payments')->select('*');
     }

@@ -4,12 +4,20 @@ namespace App\Observers;
 
 use App\Models\BankReconciliation;
 use App\Models\PaymentBatchItem;
+use App\Services\Banking\ControlledReconciliation;
 
 class BankReconciliationFinancialObserver
 {
     public function created(BankReconciliation $reconciliation): void
     {
         $this->synchronizeBatch($reconciliation->supplier_payment_id);
+    }
+
+    public function updated(BankReconciliation $reconciliation): void
+    {
+        if ($reconciliation->wasChanged('reversed_at')) {
+            $this->synchronizeBatch($reconciliation->supplier_payment_id);
+        }
     }
 
     public function deleted(BankReconciliation $reconciliation): void
@@ -32,7 +40,7 @@ class BankReconciliationFinancialObserver
         }
 
         $allReconciled = $batch->items->isNotEmpty()
-            && $batch->items->every(fn (PaymentBatchItem $batchItem) => $batchItem->supplier_payment_id && $batchItem->supplierPayment?->reconciliation);
+            && $batch->items->every(fn (PaymentBatchItem $batchItem) => $batchItem->supplier_payment_id && ($batchItem->supplierPayment && app(ControlledReconciliation::class)->paymentRemaining($batchItem->supplierPayment)->isZero()));
 
         if ($allReconciled && $batch->status !== 'reconciled') {
             $batch->update(['status' => 'reconciled', 'reconciled_at' => now()]);

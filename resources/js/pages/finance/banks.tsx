@@ -1,5 +1,7 @@
 import { Form, Head, Link } from '@inertiajs/react';
 import type { ComponentProps } from 'react';
+import { ReconciliationPanel } from '@/components/banking/reconciliation-workspace';
+import type { ReconciliationExtras } from '@/components/banking/reconciliation-workspace';
 import { Panel, Empty, money, date } from '@/components/billing/workspace';
 import { PageShell, PageHeader } from '@/components/page-shell';
 import { Button } from '@/components/ui/button';
@@ -20,11 +22,17 @@ import {
 import { FinanceAccounts } from './workspace';
 import type { Account } from './workspace';
 import '@/../css/finance.css';
-type Props = ComponentProps<typeof LegacyBanking> & {
-    financeAccounts: Account[] | null;
-    capabilities: { manage: boolean; accounting: boolean };
-    bankTab: string;
-};
+type Props = ComponentProps<typeof LegacyBanking> &
+    ReconciliationExtras & {
+        financeAccounts: Account[] | null;
+        capabilities: {
+            manage: boolean;
+            accounting: boolean;
+            reconcile?: boolean;
+            correctReconciliation?: boolean;
+        };
+        bankTab: string;
+    };
 export default function BanksWorkspace(p: Props) {
     const tab = p.bankTab;
 
@@ -243,7 +251,18 @@ export default function BanksWorkspace(p: Props) {
                         )}
                     </Panel>
                 ))}
-            {(tab === 'accounts' || tab === 'reconciliation') && (
+            {tab === 'reconciliation' && (
+                <ReconciliationPanel
+                    accounts={p.accounts}
+                    accountId={p.selectedAccount?.id || null}
+                    transactions={p.transactions}
+                    extras={p}
+                    filters={p.filters}
+                    canMatch={p.capabilities.reconcile === true}
+                    canCorrect={p.capabilities.correctReconciliation === true}
+                />
+            )}
+            {tab === 'accounts' && (
                 <Panel title="Movimientos bancarios">
                     <Form
                         action="/banking"
@@ -360,108 +379,28 @@ export default function BanksWorkspace(p: Props) {
                                             {p.capabilities.manage &&
                                             t.status === 'pending' &&
                                             t.candidates.length > 0 ? (
-                                                <Form
-                                                    action={`/banking/transactions/${t.id}/reconcile`}
-                                                    method="post"
+                                                <Button
+                                                    variant="outline"
+                                                    asChild
                                                 >
-                                                    {({
-                                                        processing,
-                                                        errors,
-                                                    }) => (
-                                                        <div className="finance-form">
-                                                            <select
-                                                                name="payment"
-                                                                aria-label={`Correspondencia para ${t.description}`}
-                                                                required
-                                                                defaultValue=""
-                                                            >
-                                                                <option
-                                                                    value=""
-                                                                    disabled
-                                                                >
-                                                                    Revisar
-                                                                    correspondencia
-                                                                </option>
-                                                                {t.candidates.map(
-                                                                    (c) => (
-                                                                        <option
-                                                                            key={
-                                                                                c.value
-                                                                            }
-                                                                            value={
-                                                                                c.value
-                                                                            }
-                                                                        >
-                                                                            {
-                                                                                c.label
-                                                                            }
-                                                                            {c.creates_payment
-                                                                                ? ' · registra pago'
-                                                                                : ' · pago existente'}
-                                                                        </option>
-                                                                    ),
-                                                                )}
-                                                            </select>
-                                                            <Button
-                                                                disabled={
-                                                                    processing
-                                                                }
-                                                                size="sm"
-                                                            >
-                                                                Confirmar
-                                                                conciliación
-                                                            </Button>
-                                                            {errors.payment && (
-                                                                <p role="alert">
-                                                                    {
-                                                                        errors.payment
-                                                                    }
-                                                                </p>
-                                                            )}
-                                                        </div>
-                                                    )}
-                                                </Form>
+                                                    <Link
+                                                        href={`/banking?account=${p.selectedAccount?.id || ''}&tab=reconciliation`}
+                                                    >
+                                                        Revisar movimiento
+                                                    </Link>
+                                                </Button>
                                             ) : p.capabilities.manage &&
                                               t.reconciliation ? (
-                                                <Form
-                                                    action={`/banking/reconciliations/${t.reconciliation.id}`}
-                                                    method="delete"
+                                                <Button
+                                                    variant="outline"
+                                                    asChild
                                                 >
-                                                    {({
-                                                        processing,
-                                                        errors,
-                                                    }) => (
-                                                        <div className="finance-form">
-                                                            <Input
-                                                                name="reason"
-                                                                placeholder="Motivo de reversión"
-                                                                aria-label={`Motivo de reversión ${t.id}`}
-                                                                required
-                                                                minLength={10}
-                                                            />
-                                                            <Button
-                                                                disabled={
-                                                                    processing
-                                                                }
-                                                                variant="outline"
-                                                                size="sm"
-                                                            >
-                                                                Revertir
-                                                                conciliación
-                                                            </Button>
-                                                            {Object.entries(
-                                                                errors,
-                                                            ).map(([k, v]) => (
-                                                                <p
-                                                                    role="alert"
-                                                                    key={k}
-                                                                >
-                                                                    {v}
-                                                                </p>
-                                                            ))}
-                                                        </div>
-                                                    )}
-                                                </Form>
+                                                    <Link
+                                                        href={`/banking?account=${p.selectedAccount?.id || ''}&tab=reconciliation`}
+                                                    >
+                                                        Revisar movimiento
+                                                    </Link>
+                                                </Button>
                                             ) : (
                                                 <Button
                                                     asChild

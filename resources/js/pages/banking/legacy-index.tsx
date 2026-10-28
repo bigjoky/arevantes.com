@@ -14,6 +14,7 @@ import {
     WalletCards,
 } from 'lucide-react';
 import { useState } from 'react';
+import type { ReconciliationDetails } from '@/components/banking/reconciliation-workspace';
 import { PaginationBar, TableViewport } from '@/components/page-shell';
 import type { PaginationLink } from '@/components/page-shell';
 import { Badge } from '@/components/ui/badge';
@@ -231,6 +232,7 @@ type BankControl = {
     matchesAccounting: boolean;
 };
 type Transaction = {
+    reconciliation_details?: ReconciliationDetails;
     id: number;
     booked_on: string;
     value_on: string | null;
@@ -499,50 +501,9 @@ export default function BankingIndex({
                         )}
                         <section className="grid gap-6 border-t pt-5 lg:grid-cols-2">
                             <StatementImportPanel account={selectedAccount} />
-                            <Form
-                                action={`/banking/accounts/${selectedAccount.id}/auto-reconcile`}
-                                method="post"
-                                className="grid gap-2 rounded-md border bg-muted/20 p-3 sm:grid-cols-[1fr_12rem_auto] sm:items-end"
-                            >
-                                <div>
-                                    <div className="text-sm font-medium">
-                                        Assisted bulk reconciliation
-                                    </div>
-                                    <div className="text-xs text-muted-foreground">
-                                        Only applies the best candidate when it
-                                        clears the confidence threshold and is
-                                        at least 10 points above the next one.
-                                    </div>
-                                </div>
-                                <div className="grid gap-2">
-                                    <Label>Minimum confidence</Label>
-                                    <Select
-                                        name="minimum_confidence"
-                                        defaultValue="95"
-                                    >
-                                        <SelectTrigger>
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="98">
-                                                98% · Very strict
-                                            </SelectItem>
-                                            <SelectItem value="95">
-                                                95% · Recommended
-                                            </SelectItem>
-                                            <SelectItem value="90">
-                                                90% · Assisted
-                                            </SelectItem>
-                                            <SelectItem value="80">
-                                                80% · Broad review
-                                            </SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                                <Button variant="outline">
-                                    <RefreshCw /> Reconcile confident matches
-                                </Button>
-                            </Form>
+                            <p>
+                                Las sugerencias requieren confirmación manual.
+                            </p>
                         </section>
                         {rulePreview && (
                             <ReconciliationRules
@@ -1098,78 +1059,30 @@ export default function BankingIndex({
                                                         </Button>
                                                     </Form>
                                                 ) : transaction.reconciliation ? (
-                                                    <Form
-                                                        action={`/banking/reconciliations/${transaction.reconciliation.id}`}
-                                                        method="delete"
+                                                    <Button
+                                                        variant="outline"
+                                                        asChild
                                                     >
-                                                        <Button
-                                                            size="sm"
-                                                            variant="outline"
+                                                        <Link
+                                                            href={`/banking?account=${selectedAccount?.id || ''}&tab=reconciliation`}
                                                         >
-                                                            Undo{' '}
-                                                            {
-                                                                transaction
-                                                                    .reconciliation
-                                                                    .method
-                                                            }
-                                                        </Button>
-                                                    </Form>
+                                                            Revisar movimiento
+                                                        </Link>
+                                                    </Button>
                                                 ) : transaction.candidates
                                                       .length ? (
                                                     <div className="flex flex-wrap gap-2">
-                                                        <Form
-                                                            action={`/banking/transactions/${transaction.id}/reconcile`}
-                                                            method="post"
-                                                            className="flex gap-2"
+                                                        <Button
+                                                            variant="outline"
+                                                            asChild
                                                         >
-                                                            <Select
-                                                                name="payment"
-                                                                defaultValue={
-                                                                    transaction
-                                                                        .candidates[0]
-                                                                        .value
-                                                                }
+                                                            <Link
+                                                                href={`/banking?account=${selectedAccount?.id || ''}&tab=reconciliation`}
                                                             >
-                                                                <SelectTrigger className="min-w-72">
-                                                                    <SelectValue />
-                                                                </SelectTrigger>
-                                                                <SelectContent>
-                                                                    {transaction.candidates.map(
-                                                                        (
-                                                                            candidate,
-                                                                        ) => (
-                                                                            <SelectItem
-                                                                                key={
-                                                                                    candidate.value
-                                                                                }
-                                                                                value={
-                                                                                    candidate.value
-                                                                                }
-                                                                            >
-                                                                                {candidate.reference_match
-                                                                                    ? 'Exact ref · '
-                                                                                    : ''}
-                                                                                {candidate.creates_payment
-                                                                                    ? 'New payment · '
-                                                                                    : ''}
-                                                                                {
-                                                                                    candidate.confidence
-                                                                                }
-
-                                                                                %
-                                                                                ·{' '}
-                                                                                {
-                                                                                    candidate.label
-                                                                                }
-                                                                            </SelectItem>
-                                                                        ),
-                                                                    )}
-                                                                </SelectContent>
-                                                            </Select>
-                                                            <Button size="sm">
-                                                                Match
-                                                            </Button>
-                                                        </Form>
+                                                                Revisar
+                                                                movimiento
+                                                            </Link>
+                                                        </Button>
                                                         <PostingDialog
                                                             transaction={
                                                                 transaction

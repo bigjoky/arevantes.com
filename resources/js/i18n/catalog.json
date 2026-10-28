@@ -24966,5 +24966,329 @@
     "Sistema de climatización": {
         "es": "Sistema de climatización",
         "en": "HVAC system"
+    },
+    "Motivo de desconciliación": {
+        "es": "Motivo de desconciliación",
+        "en": "Reason for undoing reconciliation"
+    },
+    "Confirmo la corrección conservando la relación original.": {
+        "es": "Confirmo la corrección conservando la relación original.",
+        "en": "I confirm the correction while retaining the original relationship."
+    },
+    "Desconciliar de forma trazable": {
+        "es": "Desconciliar de forma trazable",
+        "en": "Undo reconciliation with an audit trail"
+    },
+    "Revisar movimiento": {
+        "es": "Revisar movimiento",
+        "en": "Review movement"
+    },
+    "Conciliación y discrepancias": {
+        "es": "Conciliación y discrepancias",
+        "en": "Reconciliation and discrepancies"
+    },
+    "· Pendiente:": {
+        "es": "· Pendiente:",
+        "en": "· Remaining:"
+    },
+    "Control de conciliación no disponible.": {
+        "es": "Control de conciliación no disponible.",
+        "en": "Reconciliation controls unavailable."
+    },
+    "Las sugerencias son informativas. No crean cobros, pagos ni ajustes automáticos.": {
+        "es": "Las sugerencias son informativas. No crean cobros, pagos ni ajustes automáticos.",
+        "en": "Suggestions are informational. They do not create receipts, payments or automatic adjustments."
+    },
+    "Diferencia:": {
+        "es": "Diferencia:",
+        "en": "Difference:"
+    },
+    "Cuenta ERP sin registrar": {
+        "es": "Cuenta ERP sin registrar",
+        "en": "ERP account not recorded"
+    },
+    "Cuenta comprobada": {
+        "es": "Cuenta comprobada",
+        "en": "Account verified"
+    },
+    "Seleccionar sugerencia": {
+        "es": "Seleccionar sugerencia",
+        "en": "Select suggestion"
+    },
+    "Buscar operación ERP": {
+        "es": "Buscar operación ERP",
+        "en": "Search ERP operation"
+    },
+    "Buscar operaciones": {
+        "es": "Buscar operaciones",
+        "en": "Search operations"
+    },
+    "Operación ERP": {
+        "es": "Operación ERP",
+        "en": "ERP operation"
+    },
+    "Selecciona una operación registrada": {
+        "es": "Selecciona una operación registrada",
+        "en": "Select a recorded operation"
+    },
+    "Importe ERP:": {
+        "es": "Importe ERP:",
+        "en": "ERP amount:"
+    },
+    "· Pendiente ERP:": {
+        "es": "· Pendiente ERP:",
+        "en": "· ERP remaining:"
+    },
+    "· Diferencia:": {
+        "es": "· Diferencia:",
+        "en": "· Difference:"
+    },
+    "Abrir operación": {
+        "es": "Abrir operación",
+        "en": "Open operation"
+    },
+    "Importe a conciliar": {
+        "es": "Importe a conciliar",
+        "en": "Amount to reconcile"
+    },
+    "Confirmo cuenta, operación e importe. Las diferencias quedan pendientes.": {
+        "es": "Confirmo cuenta, operación e importe. Las diferencias quedan pendientes.",
+        "en": "I confirm the account, operation and amount. Differences remain outstanding."
+    },
+    "Confirmar conciliación manual": {
+        "es": "Confirmar conciliación manual",
+        "en": "Confirm manual reconciliation"
+    },
+    "Si falta la operación, regístrala mediante el procedimiento autorizado.": {
+        "es": "Si falta la operación, regístrala mediante el procedimiento autorizado.",
+        "en": "If the operation is missing, record it through the authorized workflow."
+    },
+    "Abrir cobros y pagos": {
+        "es": "Abrir cobros y pagos",
+        "en": "Open receipts and payments"
+    },
+    "Conciliación corregida": {
+        "es": "Conciliación corregida",
+        "en": "Corrected reconciliation"
+    },
+    "Conciliación confirmada": {
+        "es": "Conciliación confirmada",
+        "en": "Confirmed reconciliation"
+    },
+    "Motivo histórico sin registrar": {
+        "es": "Motivo histórico sin registrar",
+        "en": "Historical reason not recorded"
+    },
+    "Asiento de conciliación": {
+        "es": "Asiento de conciliación",
+        "en": "Reconciliation journal entry"
+    },
+    "Contrapartida": {
+        "es": "Contrapartida",
+        "en": "Reversal entry"
+    },
+    "La operación generada desde el banco requiere una corrección contable separada; se conserva íntegramente.": {
+        "es": "La operación generada desde el banco requiere una corrección contable separada; se conserva íntegramente.",
+        "en": "The bank-generated operation requires a separate accounting correction; it is retained in full."
+    },
+    "Documentar investigación o resolución": {
+        "es": "Documentar investigación o resolución",
+        "en": "Document investigation or resolution"
+    },
+    "Tipo de discrepancia": {
+        "es": "Tipo de discrepancia",
+        "en": "Discrepancy type"
+    },
+    "Estado de revisión": {
+        "es": "Estado de revisión",
+        "en": "Review status"
+    },
+    "En investigación": {
+        "es": "En investigación",
+        "en": "Under investigation"
+    },
+    "Revisión documentada, sin ajuste financiero": {
+        "es": "Revisión documentada, sin ajuste financiero",
+        "en": "Documented review, without financial adjustment"
+    },
+    "Resuelta con operación registrada": {
+        "es": "Resuelta con operación registrada",
+        "en": "Resolved with a recorded operation"
+    },
+    "Confirmo el registro de revisión.": {
+        "es": "Confirmo el registro de revisión.",
+        "en": "I confirm recording this review."
+    },
+    "Guardar revisión": {
+        "es": "Guardar revisión",
+        "en": "Save review"
+    },
+    "Referencia o concepto": {
+        "es": "Referencia o concepto",
+        "en": "Reference or description"
+    },
+    "Parcialmente conciliado": {
+        "es": "Parcialmente conciliado",
+        "en": "Partially reconciled"
+    },
+    "Una sugerencia no es una conciliación confirmada. Los saldos bancarios proceden de los movimientos registrados.": {
+        "es": "Una sugerencia no es una conciliación confirmada. Los saldos bancarios proceden de los movimientos registrados.",
+        "en": "A suggestion is not a confirmed reconciliation. Bank balances come from recorded movements."
+    },
+    "Concepto y referencia": {
+        "es": "Concepto y referencia",
+        "en": "Description and reference"
+    },
+    "Pendiente de conciliar": {
+        "es": "Pendiente de conciliar",
+        "en": "Remaining to reconcile"
+    },
+    "Estado e incidencias": {
+        "es": "Estado e incidencias",
+        "en": "Status and issues"
+    },
+    "No hay movimientos registrados para estos filtros.": {
+        "es": "No hay movimientos registrados para estos filtros.",
+        "en": "No movements recorded for these filters."
+    },
+    "Operaciones ERP sin conciliar": {
+        "es": "Operaciones ERP sin conciliar",
+        "en": "Unreconciled ERP operations"
+    },
+    "Buscar operación ERP pendiente": {
+        "es": "Buscar operación ERP pendiente",
+        "en": "Search pending ERP operation"
+    },
+    "Sin cuenta ERP registrada no se presupone una cuenta bancaria. Revisa la operación antes de vincularla.": {
+        "es": "Sin cuenta ERP registrada no se presupone una cuenta bancaria. Revisa la operación antes de vincularla.",
+        "en": "Without a recorded ERP account, no bank account is assumed. Review the operation before linking it."
+    },
+    "Operación y referencia": {
+        "es": "Operación y referencia",
+        "en": "Operation and reference"
+    },
+    "Importe sin conciliar": {
+        "es": "Importe sin conciliar",
+        "en": "Unreconciled amount"
+    },
+    "Cuenta ERP": {
+        "es": "Cuenta ERP",
+        "en": "ERP account"
+    },
+    "Operaciones ERP no disponibles.": {
+        "es": "Operaciones ERP no disponibles.",
+        "en": "ERP operations unavailable."
+    },
+    "Las sugerencias requieren confirmación manual.": {
+        "es": "Las sugerencias requieren confirmación manual.",
+        "en": "Suggestions require manual confirmation."
+    },
+    "Importe pendiente exacto": {
+        "es": "Importe pendiente exacto",
+        "en": "Exact remaining amount"
+    },
+    "Referencia bancaria exacta": {
+        "es": "Referencia bancaria exacta",
+        "en": "Exact bank reference"
+    },
+    "Referencia documental": {
+        "es": "Referencia documental",
+        "en": "Document reference"
+    },
+    "Referencia en el concepto": {
+        "es": "Referencia en el concepto",
+        "en": "Reference in description"
+    },
+    "Fechas próximas": {
+        "es": "Fechas próximas",
+        "en": "Nearby dates"
+    },
+    "Misma cuenta registrada": {
+        "es": "Misma cuenta registrada",
+        "en": "Same recorded account"
+    },
+    "Sin operación ERP identificada": {
+        "es": "Sin operación ERP identificada",
+        "en": "No ERP operation identified"
+    },
+    "Operación ERP sin banco": {
+        "es": "Operación ERP sin banco",
+        "en": "ERP operation without bank movement"
+    },
+    "Diferencia de importe": {
+        "es": "Diferencia de importe",
+        "en": "Amount difference"
+    },
+    "Referencia o concepto diferente": {
+        "es": "Referencia o concepto diferente",
+        "en": "Different reference or description"
+    },
+    "Posible duplicado": {
+        "es": "Posible duplicado",
+        "en": "Possible duplicate"
+    },
+    "Operación anulada": {
+        "es": "Operación anulada",
+        "en": "Voided operation"
+    },
+    "Previamente conciliado": {
+        "es": "Previamente conciliado",
+        "en": "Previously reconciled"
+    },
+    "Periodo protegido": {
+        "es": "Periodo protegido",
+        "en": "Protected period"
+    },
+    "Posible comisión bancaria": {
+        "es": "Posible comisión bancaria",
+        "en": "Possible bank fee"
+    },
+    "Coincidencia ambigua": {
+        "es": "Coincidencia ambigua",
+        "en": "Ambiguous match"
+    },
+    "Cuenta, moneda o medio incompatible": {
+        "es": "Cuenta, moneda o medio incompatible",
+        "en": "Incompatible account, currency or method"
+    },
+    "Tipo de operación": {
+        "es": "Tipo de operación",
+        "en": "Operation type"
+    },
+    "Según dirección del movimiento": {
+        "es": "Según dirección del movimiento",
+        "en": "Based on movement direction"
+    },
+    "Pagos o devoluciones fiscales": {
+        "es": "Pagos o devoluciones fiscales",
+        "en": "Tax payments or refunds"
+    },
+    "Transferencia entre cuentas propias": {
+        "es": "Transferencia entre cuentas propias",
+        "en": "Transfer between own accounts"
+    },
+    "No se pudieron consultar las operaciones.": {
+        "es": "No se pudieron consultar las operaciones.",
+        "en": "The operations could not be retrieved."
+    },
+    "Revisión registrada": {
+        "es": "Revisión registrada",
+        "en": "Review recorded"
+    },
+    "Cobros de clientes": {
+        "es": "Cobros de clientes",
+        "en": "Customer receipts"
+    },
+    "Pagos a proveedores": {
+        "es": "Pagos a proveedores",
+        "en": "Supplier payments"
+    },
+    "Fecha histórica sin instante UTC registrado.": {
+        "es": "Fecha histórica sin instante UTC registrado.",
+        "en": "Historical date without a recorded UTC instant."
+    },
+    "Si corresponde, se reclasificará el importe confirmado entre la cuenta genérica y la cuenta bancaria. No se ajustarán las diferencias.": {
+        "es": "Si corresponde, se reclasificará el importe confirmado entre la cuenta genérica y la cuenta bancaria. No se ajustarán las diferencias.",
+        "en": "Where applicable, the confirmed amount will be reclassified between the generic account and the bank account. Differences will not be adjusted."
     }
 }

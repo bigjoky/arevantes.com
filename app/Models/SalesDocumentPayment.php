@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
 use Illuminate\Validation\ValidationException;
@@ -50,6 +51,11 @@ class SalesDocumentPayment extends Model
     public function document(): BelongsTo
     {
         return $this->belongsTo(SalesDocument::class, 'sales_document_id');
+    }
+
+    public function reconciliations(): HasMany
+    {
+        return $this->hasMany(BankReconciliation::class);
     }
 
     public function reconciliation(): HasOne

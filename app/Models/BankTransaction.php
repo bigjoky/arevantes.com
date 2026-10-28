@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class BankTransaction extends Model
@@ -23,6 +24,11 @@ class BankTransaction extends Model
     public function statementImport(): BelongsTo
     {
         return $this->belongsTo(BankStatementImport::class, 'bank_statement_import_id');
+    }
+
+    public function reconciliations(): HasMany
+    {
+        return $this->hasMany(BankReconciliation::class);
     }
 
     public function reconciliation(): HasOne

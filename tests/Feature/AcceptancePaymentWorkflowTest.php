@@ -11,9 +11,11 @@ use App\Models\QuoteLine;
 use App\Models\SalesDocument;
 use App\Models\User;
 use App\Models\WorkOrder;
+use App\Services\Banking\ControlledReconciliation;
 use App\Services\Documents\QuoteBillingPlan;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class AcceptancePaymentWorkflowTest extends TestCase
@@ -174,9 +176,11 @@ class AcceptancePaymentWorkflowTest extends TestCase
             'status' => 'pending',
         ]);
 
-        $this->post(route('banking.auto', $account))
-            ->assertRedirect()
-            ->assertSessionHasNoErrors();
+        $this->post(route('banking.auto', $account))->assertSessionHasErrors('reconciliation');
+        $admin = User::factory()->create(['role' => 'admin']);
+        $this->actingAs($admin)->post(route('sales-documents.payments.store', $invoice), ['paid_at' => today()->toDateString(), 'amount' => '363.00', 'method' => 'bank_transfer', 'reference' => $invoice->number])->assertSessionHasNoErrors();
+        $payment = $invoice->payments()->firstOrFail();
+        $this->post(route('banking.reconcile', $transaction), ['payment' => 'customer:'.$payment->id, 'allocated_amount' => '363.00', 'account_id' => $account->id, 'revision' => app(ControlledReconciliation::class)->revision($transaction->fresh()), 'operation_key' => (string) Str::uuid(), 'reason' => 'Synthetic acceptance receipt confirmation', 'confirmed' => 1])->assertSessionHasNoErrors();
 
         $this->assertSame('draft', $invoice->refresh()->status);
         $this->assertSame('363.00', $invoice->paid_amount);
@@ -197,9 +201,12 @@ class AcceptancePaymentWorkflowTest extends TestCase
         ])->assertRedirect();
 
         $executionOrder = WorkOrder::where('kind', 'installation')->firstOrFail();
-        $this->delete(route('banking.reconciliations.undo', $transaction->reconciliation))
+        $this->delete(route('banking.reconciliations.undo', $transaction->reconciliation->id), ['reason' => 'Synthetic mistaken bank association', 'operation_key' => (string) Str::uuid(), 'confirmed' => 1])
             ->assertRedirect()
             ->assertSessionHasNoErrors();
+        $this->assertSame('cleared', $quote->refresh()->financial_status);
+        $this->assertSame('363.00', $invoice->fresh()->paid_amount);
+        $this->post(route('sales-documents.payments.cancel', [$invoice, $payment->id]), ['reason' => 'Synthetic incorrect receipt registration', 'operation_key' => (string) Str::uuid(), 'revision' => $payment->fresh()->cancellationRevision(), 'confirmed' => 1])->assertSessionHasNoErrors();
         $this->assertEquals(0, (float) JournalLine::whereHas('account', fn ($q) => $q->where('code', '438'))->selectRaw('sum(debit-credit) as balance')->value('balance'));
         $this->assertSame('pending', $quote->refresh()->financial_status);
         $this->assertSame('pending', $installation->refresh()->financial_status);

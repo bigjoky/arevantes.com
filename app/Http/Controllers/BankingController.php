@@ -30,10 +30,14 @@ use App\Services\Banking\BankReconciliationRuleEngine;
 use App\Services\Banking\BankTransactionAnalyzer;
 use App\Services\Banking\BankTransactionPoster;
 use App\Services\Banking\CardSettlementSchedule;
+use App\Services\Banking\ControlledReconciliation;
+use App\Services\Banking\ReconciliationWorkspace;
 use App\Services\Banking\StatementImporter;
 use App\Services\Finance\FinanceWorkspace;
 use App\Services\Finance\OutstandingBalanceCalculator;
 use App\Services\Finance\ReceivedInvoiceIdentity;
+use App\Support\Time\BusinessTime;
+use Brick\Math\BigDecimal;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -56,11 +60,13 @@ class BankingController extends Controller
 
     public function index(Request $request): Response
     {
+        $request->validate(['account' => 'nullable|integer|exists:bank_accounts,id', 'from' => 'nullable|date', 'to' => ['nullable', 'date', Rule::when($request->filled('from'), 'after_or_equal:from')], 'amount_min' => 'nullable|numeric', 'amount_max' => ['nullable', 'numeric', Rule::when($request->filled('amount_min'), 'gte:amount_min')], 'erp_search' => 'nullable|string|max:100']);
         $from = $request->string('from')->toString();
         $to = $request->string('to')->toString();
         $filters = [
             'search' => trim($request->string('search')->toString()),
-            'status' => in_array($request->string('status')->toString(), ['pending', 'reconciled', 'accounted'], true) ? $request->string('status')->toString() : '',
+            'erp_search' => $request->input('erp_search', ''), 'amount_min' => $request->input('amount_min', ''), 'amount_max' => $request->input('amount_max', ''),
+            'status' => in_array($request->string('status')->toString(), ['pending', 'partial', 'reconciled', 'accounted'], true) ? $request->string('status')->toString() : '',
             'from' => preg_match('/^\d{4}-\d{2}-\d{2}$/', $from) ? $from : '',
             'to' => preg_match('/^\d{4}-\d{2}-\d{2}$/', $to) ? $to : '',
         ];
@@ -77,14 +83,18 @@ class BankingController extends Controller
             ->when($filters['status'], fn ($query, $status) => $query->where('status', $status))
             ->when($filters['from'], fn ($query, $from) => $query->whereDate('booked_on', '>=', $from))
             ->when($filters['to'], fn ($query, $to) => $query->whereDate('booked_on', '<=', $to))
+            ->when($request->filled('amount_min'), fn ($q) => $q->where('amount', '>=', $request->input('amount_min')))
+            ->when($request->filled('amount_max'), fn ($q) => $q->where('amount', '<=', $request->input('amount_max')))
             ->latest('booked_on')
             ->latest('id')
             ->paginate(25)
             ->withQueryString();
         $candidatePool = $this->candidatePool($transactions->getCollection());
         $activeRules = $account ? $this->ruleEngine->rules($account) : collect();
-        $transactions->through(function ($transaction) use ($medianAmount, $candidatePool, $activeRules) {
-            $candidates = $transaction->status === 'pending' ? $this->candidates($transaction, false, $candidatePool) : [];
+        $reconciliationWorkspace = app(ReconciliationWorkspace::class);
+        $reconciliationWorkspace->prepare($transactions->getCollection());
+        $transactions->through(function ($transaction) use ($medianAmount, $candidatePool, $activeRules, $reconciliationWorkspace) {
+            $candidates = $transaction->status === 'pending' ? collect($this->candidates($transaction, false, $candidatePool))->where('creates_payment', false)->values()->all() : [];
 
             return [
                 ...$transaction->makeHidden('raw_data')->toArray(),
@@ -92,18 +102,19 @@ class BankingController extends Controller
                 'value_on' => $transaction->value_on?->toDateString(),
                 'transfer' => $transaction->outgoingTransfer ?? $transaction->incomingTransfer,
                 'candidates' => $candidates,
+                'reconciliation_details' => $reconciliationWorkspace->transaction($transaction),
                 'rule_suggestion' => $transaction->status === 'pending' ? $this->ruleEngine->suggest($transaction, $activeRules) : null,
                 ...$this->transactionAnalyzer->analyze($transaction, $candidates, $medianAmount),
             ];
         });
 
         $summary = $account ? [
-            'pending' => $account->transactions()->where('status', 'pending')->count(),
+            'pending' => $account->transactions()->whereIn('status', ['pending', 'partial'])->count(),
             'reconciled' => $account->transactions()->whereIn('status', ['reconciled', 'accounted'])->count(),
-            'pendingAmount' => round((float) $account->transactions()->where('status', 'pending')->sum('amount'), 2),
-            'stale' => $account->transactions()->where('status', 'pending')->whereDate('booked_on', '<', today()->subDays(7))->count(),
-            'missingReference' => $account->transactions()->where('status', 'pending')->where(fn ($query) => $query->whereNull('reference')->orWhere('reference', ''))->count(),
-            'unusualAmount' => $medianAmount > 0 ? $account->transactions()->where('status', 'pending')->whereRaw('abs(amount) >= ?', [max(1000, $medianAmount * 3)])->count() : 0,
+            'pendingAmount' => (float) DB::table('bank_transactions as t')->where('t.bank_account_id', $account->id)->whereIn('t.status', ['pending', 'partial'])->selectRaw('coalesce(sum((case when t.amount>=0 then 1 else -1 end)*(abs(t.amount)-coalesce((select sum(coalesce(r.allocated_amount,abs(t.amount))) from bank_reconciliations r where r.bank_transaction_id=t.id and r.reversed_at is null),0))),0) as remaining')->value('remaining'),
+            'stale' => $account->transactions()->whereIn('status', ['pending', 'partial'])->whereDate('booked_on', '<', today()->subDays(7))->count(),
+            'missingReference' => $account->transactions()->whereIn('status', ['pending', 'partial'])->where(fn ($query) => $query->whereNull('reference')->orWhere('reference', ''))->count(),
+            'unusualAmount' => $medianAmount > 0 ? $account->transactions()->whereIn('status', ['pending', 'partial'])->whereRaw('abs(amount) >= ?', [max(1000, $medianAmount * 3)])->count() : 0,
             'medianAmount' => $medianAmount,
         ] : ['pending' => 0, 'reconciled' => 0, 'pendingAmount' => 0, 'stale' => 0, 'missingReference' => 0, 'unusualAmount' => 0, 'medianAmount' => 0];
 
@@ -142,7 +153,7 @@ class BankingController extends Controller
                 'transactions',
                 'transactions as pending_transactions_count' => fn ($query) => $query->where('status', 'pending'),
                 'transactions as processed_transactions_count' => fn ($query) => $query->where(fn ($query) => $query
-                    ->whereHas('reconciliation')
+                    ->whereHas('reconciliation', fn ($q) => $q->withoutGlobalScope('active_bank_reconciliation'))
                     ->orWhereHas('posting')
                     ->orWhereHas('outgoingTransfer')
                     ->orWhereHas('incomingTransfer')),
@@ -170,7 +181,7 @@ class BankingController extends Controller
             return [...$run->toArray(), 'posting_count' => $applied->count(), 'can_reverse' => ! $run->reversed_at && $stateIsReversible];
         }) : [];
 
-        return Inertia::render('banking/index', ['accounts' => $accounts, 'selectedAccount' => $account ? [...$account->toArray(), 'iban' => ($request->input('view') === 'manage' && $request->user()->can('manage-treasury')) ? $account->iban : ($account->iban ? '•••• '.substr($account->iban, -4) : null)] : null, 'transactions' => $transactions, 'imports' => $imports, 'control' => $account ? $this->bankControl($account) : null, 'ledgerAccounts' => LedgerAccount::where('is_active', true)->where('is_postable', true)->whereNotIn('code', ['430', '400', '410', '472', '477'])->orderBy('code')->get(['id', 'code', 'name', 'type']), 'liabilityAccounts' => LedgerAccount::where('is_active', true)->where('is_postable', true)->where('type', 'liability')->orderBy('code')->get(['id', 'code', 'name']), 'products' => $products, 'productSummary' => $productSummary, 'summary' => $summary, 'financeAccounts' => $request->input('view') === 'manage' ? null : app(FinanceWorkspace::class)->accounts(), 'capabilities' => ['manage' => $request->user()->can('manage-treasury'), 'accounting' => $request->user()->can('manage-accounting')], 'bankTab' => in_array($request->input('tab'), ['accounts', 'reconciliation', 'import', 'rules'], true) ? $request->input('tab') : 'accounts', 'filters' => $filters, 'reconciliationRules' => $rules, 'rulePreview' => $account ? $this->ruleEngine->preview($account, $activeRules) : null, 'ruleRuns' => $ruleRuns]);
+        return Inertia::render('banking/index', ['unmatchedOperations' => $reconciliationWorkspace->unmatched($request, $account?->id), 'accounts' => $accounts, 'selectedAccount' => $account ? [...$account->toArray(), 'iban' => ($request->input('view') === 'manage' && $request->user()->can('manage-treasury')) ? $account->iban : ($account->iban ? '•••• '.substr($account->iban, -4) : null)] : null, 'transactions' => $transactions, 'imports' => $imports, 'control' => $account ? $this->bankControl($account) : null, 'ledgerAccounts' => LedgerAccount::where('is_active', true)->where('is_postable', true)->whereNotIn('code', ['430', '400', '410', '472', '477'])->orderBy('code')->get(['id', 'code', 'name', 'type']), 'liabilityAccounts' => LedgerAccount::where('is_active', true)->where('is_postable', true)->where('type', 'liability')->orderBy('code')->get(['id', 'code', 'name']), 'products' => $products, 'productSummary' => $productSummary, 'summary' => $summary, 'financeAccounts' => $request->input('view') === 'manage' ? null : app(FinanceWorkspace::class)->accounts(), 'capabilities' => ['manage' => $request->user()->can('manage-treasury'), 'accounting' => $request->user()->can('manage-accounting'), 'reconcile' => ControlledReconciliation::authorized($request->user()), 'correctReconciliation' => $request->user()->can('correct-bank-reconciliations'), 'automaticReconciliation' => false], 'bankTab' => in_array($request->input('tab'), ['accounts', 'reconciliation', 'import', 'rules'], true) ? $request->input('tab') : 'accounts', 'filters' => $filters, 'reconciliationRules' => $rules, 'rulePreview' => $account ? $this->ruleEngine->preview($account, $activeRules) : null, 'ruleRuns' => $ruleRuns]);
     }
 
     public function storeRule(Request $request, BankAccount $account): RedirectResponse
@@ -352,7 +363,7 @@ class BankingController extends Controller
                 throw ValidationException::withMessages(['reason' => __('Undo reconciliations and accounting postings before rolling back this import.')]);
             }
             $transactionIds = $transactions->pluck('id');
-            $hasHistory = BankReconciliation::whereIn('bank_transaction_id', $transactionIds)->exists()
+            $hasHistory = BankReconciliation::withoutGlobalScope('active_bank_reconciliation')->whereIn('bank_transaction_id', $transactionIds)->exists()
                 || BankTransactionPosting::whereIn('bank_transaction_id', $transactionIds)->exists()
                 || BankTransfer::whereIn('outgoing_transaction_id', $transactionIds)->orWhereIn('incoming_transaction_id', $transactionIds)->exists();
             if ($hasHistory) {
@@ -436,73 +447,67 @@ class BankingController extends Controller
         return $rule->only(['name', 'ledger_account_id', 'priority', 'direction', 'match_field', 'match_operator', 'pattern', 'min_amount', 'max_amount', 'confidence', 'is_active']);
     }
 
-    public function reconcile(Request $request, BankTransaction $transaction, JournalPoster $poster, AccountingSynchronizer $accounting): RedirectResponse
+    public function reconcile(Request $request, BankTransaction $transaction, ControlledReconciliation $control): RedirectResponse
     {
-        abort_unless($transaction->status === 'pending', 422);
-        $data = $request->validate(['payment' => ['required', 'string', 'regex:/^(customer|supplier|tax|transfer|customer_invoice|supplier_invoice|expense):[0-9]+$/']]);
-        $transfer = $this->matchSelection($transaction, $data['payment'], $request->user()->id, 'manual', $poster, $accounting);
+        $data = $request->validate([
+            'payment' => ['required', 'regex:/^(customer|supplier|tax|transfer):[0-9]+$/'],
+            'allocated_amount' => ['required', 'numeric', 'decimal:0,2', 'gt:0', 'max:9999999999.99'],
+            'account_id' => ['required', 'integer'], 'revision' => ['required', 'string', 'size:64'],
+            'operation_key' => ['required', 'uuid'], 'reason' => ['required', 'string', 'min:5', 'max:2000'], 'confirmed' => ['accepted'],
+        ]);
+        if (str_starts_with($data['payment'], 'transfer:')) {
+            abort_unless(ControlledReconciliation::authorized($request->user()), 403);
+            $otherId = (int) substr($data['payment'], 9);
+            DB::transaction(function () use ($transaction, $otherId, $data, $request, $control) {
+                BankTransaction::whereIn('id', [$transaction->id, $otherId])->orderBy('id')->lockForUpdate()->get();
+                $bank = $transaction->fresh();
+                $previous = AuditLog::where('auditable_type', BankTransaction::class)->where('auditable_id', $bank->id)->where('event', 'bank_transfer_confirmed')->where('new_values->operation_key', $data['operation_key'])->first();
+                if ($previous) {
+                    abort_unless($previous->user_id === $request->user()->id && ($previous->new_values['selection'] ?? null) === $data['payment'] && ($previous->new_values['reason'] ?? null) === $data['reason'], 422);
 
-        return back()->with('toast', ['type' => 'success', 'message' => $transfer ? __('Transfer between own accounts matched.') : __('Transaction reconciled.')]);
-    }
-
-    public function auto(Request $request, BankAccount $account, JournalPoster $poster, AccountingSynchronizer $accounting): RedirectResponse
-    {
-        $data = $request->validate(['minimum_confidence' => ['nullable', 'integer', 'between:80,100']]);
-        $minimumConfidence = (int) ($data['minimum_confidence'] ?? 95);
-        $matched = 0;
-        $reviewed = 0;
-        $account->transactions()->where('status', 'pending')->orderBy('booked_on')->each(function ($transaction) use ($request, $poster, $accounting, $minimumConfidence, &$matched, &$reviewed) {
-            $candidates = $this->candidates($transaction, true);
-            $candidate = $this->transactionAnalyzer->automaticCandidate($candidates, $minimumConfidence);
-            if ($candidate) {
-                $this->matchSelection($transaction, $candidate['value'], $request->user()->id, 'automatic', $poster, $accounting);
-                $matched++;
-            } elseif ($candidates !== []) {
-                $reviewed++;
-            }
-        });
-
-        return back()->with('toast', ['type' => 'success', 'message' => __(':count transactions reconciled automatically; :reviewed left for review.', ['count' => $matched, 'reviewed' => $reviewed])]);
-    }
-
-    public function undo(Request $request, BankReconciliation $reconciliation, JournalPoster $poster): RedirectResponse
-    {
-        $request->validate(['reason' => ['nullable', 'string', 'min:10', 'max:500']]);
-        DB::transaction(function () use ($request, $reconciliation, $poster) {
-            BankTransaction::lockForUpdate()->findOrFail($reconciliation->bank_transaction_id);
-            $reconciliation = BankReconciliation::lockForUpdate()->findOrFail($reconciliation->id);
-            AuditLog::create(['user_id' => $request->user()->id, 'event' => 'bank_reconciliation_reversed', 'auditable_type' => BankTransaction::class, 'auditable_id' => $reconciliation->bank_transaction_id, 'old_values' => $reconciliation->toArray(), 'new_values' => ['reason' => $request->input('reason'), 'reversed_at' => now()->toIso8601String()]]);
-            $reconciliation->load([
-                'customerPayment.document',
-                'customerPayment.accountingEntry.lines.account:id,code',
-                'supplierPayment.expense',
-                'supplierPayment.purchaseDocument.creditNotes',
-                'supplierPayment.accountingEntry.lines.account:id,code',
-            ]);
-            if ($reconciliation->journalEntry) {
-                $this->reverseEntry($reconciliation->journalEntry, $request->user()->id, $poster);
-            }
-            $transactionId = $reconciliation->bank_transaction_id;
-            $generatedPayment = collect([$reconciliation->customerPayment, $reconciliation->supplierPayment])
-                ->first(fn ($payment) => (int) $payment?->origin_bank_transaction_id === (int) $transactionId);
-            if ($generatedPayment?->accountingEntry) {
-                $this->reverseEntry($generatedPayment->accountingEntry, $request->user()->id, $poster);
-                if ($generatedPayment instanceof SalesDocumentPayment && $generatedPayment->document?->collect_before_invoice) {
-                    JournalEntry::whereMorphedTo('source', $generatedPayment)->where('event', 'invoice_allocation')->each(fn ($entry) => $this->reverseEntry($entry, $request->user()->id, $poster));
+                    return;
                 }
-            }
-            $reconciliation->transaction()->update(['status' => 'pending']);
-            $reconciliation->delete();
-            if ($generatedPayment) {
-                $customerDocument = $generatedPayment instanceof SalesDocumentPayment ? $generatedPayment->document : null;
-                $expense = $generatedPayment instanceof SupplierPayment ? $generatedPayment->expense : null;
-                $supplierDocument = $generatedPayment instanceof SupplierPayment ? $generatedPayment->purchaseDocument : null;
-                $generatedPayment->delete();
-                $this->refreshDocumentPaymentStatus($customerDocument, $expense, $supplierDocument);
-            }
-        });
+                abort_unless($bank->bank_account_id === (int) $data['account_id'] && hash_equals($control->revision($bank), $data['revision']) && BigDecimal::of($bank->amount)->abs()->isEqualTo($data['allocated_amount']), 422);
+                $other = BankTransaction::findOrFail($otherId);
+                $control->assertPeriods([$bank->booked_on->toDateString(), $other->booked_on->toDateString()]);
+                $this->matchSelection($bank, $data['payment'], $request->user()->id, 'manual', app(JournalPoster::class), app(AccountingSynchronizer::class));
+                AuditLog::create(['user_id' => $request->user()->id, 'auditable_type' => BankTransaction::class, 'auditable_id' => $bank->id, 'event' => 'bank_transfer_confirmed', 'new_values' => ['selection' => $data['payment'], 'reason' => $data['reason'], 'operation_key' => $data['operation_key'], 'amount' => $data['allocated_amount'], 'recorded_at_utc' => BusinessTime::now()->utc()->toISOString()]]);
+            });
 
-        return back()->with('toast', ['type' => 'success', 'message' => __('Reconciliation removed.')]);
+            return back()->with('toast', ['type' => 'success', 'message' => __('Transfer between own accounts matched.')]);
+        }
+        $control->match($transaction, $data['payment'], (string) $data['allocated_amount'], (int) $data['account_id'], $data['revision'], $data['operation_key'], trim($data['reason']), $request->user());
+
+        return back()->with('toast', ['type' => 'success', 'message' => __('Transaction reconciled.')]);
+    }
+
+    public function reconciliationCandidates(Request $request, BankTransaction $transaction, ReconciliationWorkspace $workspace): JsonResponse
+    {
+        abort_unless(ControlledReconciliation::authorized($request->user()), 403);
+        $request->validate(['search' => 'nullable|string|max:100', 'kind' => 'nullable|in:customer,supplier,tax,transfer', 'page' => 'nullable|integer|min:1', 'include_voided' => 'nullable|boolean']);
+
+        return response()->json($workspace->candidates($transaction, $request));
+    }
+
+    public function reviewDiscrepancy(Request $request, BankTransaction $transaction, ControlledReconciliation $control): RedirectResponse
+    {
+        $data = $request->validate(['category' => ['required', Rule::in(ReconciliationWorkspace::CATEGORIES)], 'review_status' => 'required|in:investigating,documented,resolved', 'reason' => 'required|string|min:5|max:2000', 'operation_key' => 'required|uuid', 'confirmed' => 'accepted']);
+        $control->review($transaction, $data['category'], $data['review_status'], trim($data['reason']), $data['operation_key'], $request->user());
+
+        return back()->with('toast', ['type' => 'success', 'message' => __('Bank discrepancy review recorded without financial adjustment.')]);
+    }
+
+    public function auto(Request $request, BankAccount $account): RedirectResponse
+    {
+        throw ValidationException::withMessages(['reconciliation' => __('Automatic matching is disabled. Suggestions require explicit manual confirmation.')]);
+    }
+
+    public function undo(Request $request, int $reconciliation, ControlledReconciliation $control): RedirectResponse
+    {
+        $data = $request->validate(['reason' => 'required|string|min:5|max:2000', 'operation_key' => 'required|uuid', 'confirmed' => 'accepted']);
+        $control->undo($reconciliation, $data['operation_key'], trim($data['reason']), $request->user());
+
+        return back()->with('toast', ['type' => 'success', 'message' => __('Reconciliation corrected; the original relationship is retained.')]);
     }
 
     public function postTransaction(Request $request, BankTransaction $transaction, JournalPoster $poster, LedgerAccountResolver $accounts): RedirectResponse

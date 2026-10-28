@@ -48,5 +48,65 @@
     "file": "resources/js/pages/public/page.tsx",
     "value": "redes",
     "reason": "Technical route, action, field or service identifier; must not be localized."
+  },
+  {
+    "file": "resources/js/components/banking/reconciliation-workspace.tsx",
+    "value": "no_erp_operation",
+    "reason": "Technical enum membership test only; visible discrepancy labels use the bilingual terms mapping."
+  },
+  {
+    "file": "resources/js/components/banking/reconciliation-workspace.tsx",
+    "value": "no_bank_movement",
+    "reason": "Technical enum membership test only; visible discrepancy labels use the bilingual terms mapping."
+  },
+  {
+    "file": "resources/js/components/banking/reconciliation-workspace.tsx",
+    "value": "amount_difference",
+    "reason": "Technical enum membership test only; visible discrepancy labels use the bilingual terms mapping."
+  },
+  {
+    "file": "resources/js/components/banking/reconciliation-workspace.tsx",
+    "value": "reference_difference",
+    "reason": "Technical enum membership test only; visible discrepancy labels use the bilingual terms mapping."
+  },
+  {
+    "file": "resources/js/components/banking/reconciliation-workspace.tsx",
+    "value": "possible_duplicate",
+    "reason": "Technical enum membership test only; visible discrepancy labels use the bilingual terms mapping."
+  },
+  {
+    "file": "resources/js/components/banking/reconciliation-workspace.tsx",
+    "value": "voided_operation",
+    "reason": "Technical enum membership test only; visible discrepancy labels use the bilingual terms mapping."
+  },
+  {
+    "file": "resources/js/components/banking/reconciliation-workspace.tsx",
+    "value": "already_reconciled",
+    "reason": "Technical enum membership test only; visible discrepancy labels use the bilingual terms mapping."
+  },
+  {
+    "file": "resources/js/components/banking/reconciliation-workspace.tsx",
+    "value": "closed_period",
+    "reason": "Technical enum membership test only; visible discrepancy labels use the bilingual terms mapping."
+  },
+  {
+    "file": "resources/js/components/banking/reconciliation-workspace.tsx",
+    "value": "bank_fee",
+    "reason": "Technical enum membership test only; visible discrepancy labels use the bilingual terms mapping."
+  },
+  {
+    "file": "resources/js/components/banking/reconciliation-workspace.tsx",
+    "value": "accounted",
+    "reason": "Technical enum membership test only; visible discrepancy labels use the bilingual terms mapping."
+  },
+  {
+    "file": "resources/js/components/banking/reconciliation-workspace.tsx",
+    "value": "bank_match_confirmed",
+    "reason": "Technical audit event identifier in a conditional; the rendered label is a bilingual human-readable string."
+  },
+  {
+    "file": "resources/js/components/banking/reconciliation-workspace.tsx",
+    "value": "bank_match_corrected",
+    "reason": "Technical audit event identifier in a conditional; the rendered label is a bilingual human-readable string."
   }
 ]
