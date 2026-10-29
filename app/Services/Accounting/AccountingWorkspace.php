@@ -47,13 +47,13 @@ class AccountingWorkspace
         $net = (string) BigDecimal::of($opening)->plus($debit)->minus($credit);
 
         return [...$account->only(['id', 'code', 'name', 'type', 'parent_code', 'level', 'is_active', 'is_postable', 'source', 'source_version']), 'debit' => $debit, 'credit' => $credit, 'opening' => $opening, 'net' => $net,
-            'balance' => in_array($account->type, ['liability', 'equity', 'income'], true) ? (string) BigDecimal::of($net)->negated() : $net];
+            'stored_type' => $account->type, 'type' => AccountingAccountPolicy::nature($account), 'effective_type' => AccountingAccountPolicy::nature($account), 'balance' => in_array(AccountingAccountPolicy::nature($account), ['liability', 'equity', 'income'], true) ? (string) BigDecimal::of($net)->negated() : $net];
     }
 
     public function summary(string $from, string $to, ?string $balanceFrom = null): array
     {
         $rows = $this->lines($balanceFrom ?? $from, $to)->join('ledger_accounts', 'ledger_accounts.id', '=', 'journal_lines.ledger_account_id')
-            ->selectRaw('ledger_accounts.type, coalesce(sum(debit),0) debit, coalesce(sum(credit),0) credit')->groupBy('ledger_accounts.type')->get()->keyBy('type');
+            ->selectRaw(AccountingAccountPolicy::natureExpression().' as type, coalesce(sum(debit),0) debit, coalesce(sum(credit),0) credit')->groupByRaw(AccountingAccountPolicy::natureExpression())->get()->keyBy('type');
         $balances = [];
         foreach (['asset', 'liability', 'equity', 'income', 'expense'] as $type) {
             $debit = $rows[$type]->debit ?? '0';
@@ -98,6 +98,7 @@ class AccountingWorkspace
     public function entryRow(JournalEntry $entry): array
     {
         return [...$entry->only(['id', 'number', 'description', 'status', 'entry_kind', 'event', 'fiscal_year_id', 'created_by', 'reverses_entry_id']),
+            'annotated_description' => $entry->relationLoaded('corrections') ? $entry->corrections->whereNotNull('description')->last()?->description : null, 'source_reference' => $entry->relationLoaded('source') ? ($entry->source?->supplier_number ?? $entry->source?->document_number ?? $entry->source?->number ?? $entry->source?->reference) : null, 'creator' => $entry->relationLoaded('creator') ? $entry->creator?->name : null, 'correction_links' => $entry->relationLoaded('corrections') ? $entry->corrections->map(fn ($c) => ['id' => $c->id, 'entry_id' => $c->correction_entry_id])->all() : [],
             'entry_date' => $entry->entry_date->toDateString(), 'created_at' => $entry->created_at?->toIso8601String(), 'posted_at' => $entry->posted_at?->toIso8601String(),
             'debit' => self::decimal($entry->debit), 'credit' => self::decimal($entry->credit), 'href' => '/accounting/entries/'.$entry->id];
     }

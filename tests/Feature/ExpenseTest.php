@@ -143,14 +143,17 @@ class ExpenseTest extends TestCase
         ])->assertSessionHasErrors(['document_number', 'issuer_legal_name', 'issuer_tax_id']);
     }
 
-    public function test_employee_accounts_use_identification_suffix_and_personal_payment_records_the_debt(): void
+    public function test_explicit_employee_accounts_and_personal_payment_record_the_debt(): void
     {
         $finance = User::factory()->create(['role' => 'admin']);
         $employee = Person::create(['category' => 'staff', 'first_name' => 'Lucía', 'last_name' => 'Sanz', 'tax_id' => '12345678Z']);
-        $this->assertStringEndsWith('678', $employee->refresh()->employee_advance_account_code);
-        $this->assertStringEndsWith('678', $employee->employee_payable_account_code);
+        $this->assertNull($employee->refresh()->employee_advance_account_code);
+        EconomicFixture::personAccounts($employee);
+        $this->assertStringStartsWith('460', $employee->refresh()->employee_advance_account_code);
+        $this->assertStringStartsWith('465', $employee->employee_payable_account_code);
         $secondEmployee = Person::create(['category' => 'staff', 'first_name' => 'Mario', 'last_name' => 'León', 'tax_id' => '87654678P']);
-        $this->assertStringEndsWith('678', $secondEmployee->refresh()->employee_payable_account_code);
+        EconomicFixture::personAccounts($secondEmployee);
+        $this->assertStringStartsWith('465', $secondEmployee->refresh()->employee_payable_account_code);
         $this->assertNotSame($employee->employee_payable_account_code, $secondEmployee->employee_payable_account_code);
 
         $expense = EconomicFixture::expense(['expense_category_id' => ExpenseCategory::firstOrFail()->id, 'created_by' => $finance->id, 'number' => 'EXP-2026-00999', 'type' => 'receipt', 'merchant_name' => 'Shared purchase', 'expense_date' => '2026-08-29', 'subtotal' => 100, 'tax_amount' => 0, 'amount' => 100, 'paid_amount' => 0, 'status' => 'pending']);

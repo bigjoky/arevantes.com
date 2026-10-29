@@ -2,6 +2,7 @@
 
 namespace App\Services\Accounting;
 
+use App\Models\AccountingEntryCorrection;
 use App\Models\AuditLog;
 use App\Models\Expense;
 use App\Models\FiscalYear;
@@ -57,6 +58,9 @@ class ExpenseCorrection
                 }
             }
             if ($expense->creditor_account_code && (string) ($data['supplier_id'] ?? '') !== (string) ($expense->supplier_id ?? '')) {
+                if ((string) ($data['supplier_id'] ?? '') === (string) ($expense->supplier_id ?? '')) {
+                    $data['creditor_account_code'] = $expense->creditor_account_code;
+                }
                 $data = app(ExpenseCreditorRegistry::class)->newInvoice($data);
             }
             if ($paid > 0 && ((string) ($data['supplier_id'] ?? '') !== (string) ($expense->supplier_id ?? '') || $data['currency_code'] !== $expense->currency_code)) {
@@ -66,7 +70,10 @@ class ExpenseCorrection
             if ($amount < $paid || $amount < 0) {
                 $this->fail('The expense total cannot be less than its registered payments.');
             }
-            $oldLines = $this->accounting->expenseLines($expense);
+            $oldLines = app(PostedAccountSnapshot::class)->lines($expense) ?: $this->accounting->expenseLines($expense);
+            if (AccountingEntryCorrection::whereIn('journal_entry_id', JournalEntry::whereMorphedTo('source', $expense)->select('id'))->exists()) {
+                $this->fail('Review the manual journal correction before changing this fiscal document.');
+            }
             $posted = $expense->accountingEntry()->exists();
             if ($posted) {
                 $actual = [];
@@ -96,7 +103,7 @@ class ExpenseCorrection
             $expense->refresh();
             $newLines = $this->accounting->expenseLines($expense);
             $entries = [];
-            if ($posted && ($oldLines !== $newLines || $oldDate !== $newDate)) {
+            if ($posted && (! PostedAccountSnapshot::equivalent($oldLines, $newLines) || $oldDate !== $newDate)) {
                 // Preserve the original entry and every earlier correction. Compensate
                 // the previous document values, then post the revised values.
                 $event = Str::random(20);

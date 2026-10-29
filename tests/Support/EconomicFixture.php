@@ -3,6 +3,8 @@
 namespace Tests\Support;
 
 use App\Models\Expense;
+use App\Models\LedgerAccount;
+use App\Models\Person;
 use App\Models\PurchaseDocument;
 use App\Models\Supplier;
 use Illuminate\Support\Facades\DB;
@@ -12,7 +14,32 @@ class EconomicFixture
 {
     public static function supplier(array $data): Supplier
     {
-        return Supplier::create([...$data, 'tax_id' => $data['tax_id'] ?? 'B'.sprintf('%08d', hexdec(substr(hash('sha256', $data['legal_name'] ?? 'Synthetic supplier'), 0, 6)))]);
+        $supplier = Supplier::create([...$data, 'tax_id' => $data['tax_id'] ?? 'B'.sprintf('%08d', hexdec(substr(hash('sha256', $data['legal_name'] ?? 'Synthetic supplier'), 0, 6)))]);
+        self::supplierAccounts($supplier);
+
+        return $supplier;
+    }
+
+    public static function supplierAccounts(Supplier $supplier): void
+    {
+        // Explicit master-data choices in synthetic fixtures; production no longer provisions accounts.
+        foreach (['payable_account_code' => ['400', 'liability'], 'service_payable_account_code' => ['410', 'liability']] as $field => [$prefix,$type]) {
+            if (! $supplier->$field) {
+                $code = $prefix.str_pad((string) $supplier->id, 4, '0', STR_PAD_LEFT);
+                LedgerAccount::firstOrCreate(['code' => $code], ['name' => $supplier->legal_name, 'type' => $type, 'parent_code' => $prefix, 'is_active' => true, 'is_postable' => true, 'source' => 'custom']);
+                $supplier->update([$field => $code]);
+            }
+        }
+    }
+
+    public static function personAccounts(Person $person): void
+    {
+        $fields = $person->category === 'staff' ? ['employee_advance_account_code' => ['460', 'asset'], 'employee_payable_account_code' => ['465', 'liability']] : ['receivable_account_code' => ['430', 'asset']];
+        foreach ($fields as $field => [$prefix,$type]) {
+            $code = $prefix.str_pad((string) $person->id, 4, '0', STR_PAD_LEFT);
+            LedgerAccount::firstOrCreate(['code' => $code], ['name' => 'Synthetic chosen account', 'type' => $type, 'parent_code' => $prefix, 'is_active' => true, 'is_postable' => true, 'source' => 'custom']);
+            $person->update([$field => $code]);
+        }
     }
 
     public static function expense(array $data): Expense

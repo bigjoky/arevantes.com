@@ -45,7 +45,11 @@ export type Entry = {
     debit: string;
     credit: string;
     href: string;
+    annotated_description?: string | null;
     lines: Line[];
+    source_reference?: string | null;
+    creator?: string | null;
+    correction_links?: { id: number; entry_id: number | null }[];
 };
 export type Line = {
     id: number;
@@ -219,6 +223,36 @@ export function EntryTable({
                                 </td>
                                 <td>
                                     <Link href={e.href}>{e.description}</Link>
+                                    {e.annotated_description && (
+                                        <p className="text-sm">
+                                            Anotación: {e.annotated_description}
+                                        </p>
+                                    )}
+                                    {e.source_reference && (
+                                        <p className="text-xs">
+                                            Documento: {e.source_reference}
+                                        </p>
+                                    )}
+                                    {e.creator && (
+                                        <p className="text-xs">
+                                            Usuario: {e.creator}
+                                        </p>
+                                    )}
+                                    {e.correction_links?.map((c) => (
+                                        <p key={c.id} className="text-xs">
+                                            <Link
+                                                href={
+                                                    c.entry_id
+                                                        ? `/accounting/entries/${c.entry_id}`
+                                                        : e.href
+                                                }
+                                            >
+                                                {c.entry_id
+                                                    ? 'Rectificación relacionada'
+                                                    : 'Anotación auditada'}
+                                            </Link>
+                                        </p>
+                                    ))}
                                     {lines &&
                                         e.lines.map((l) => (
                                             <div
@@ -393,6 +427,16 @@ export default function AccountingWorkspace(p: Props) {
                                     </Link>
                                 </Button>
                             )}
+                            <Button variant="outline" asChild>
+                                <Link href="/accounting/control">
+                                    Configuración contable
+                                </Link>
+                            </Button>
+                            <Button variant="outline" asChild>
+                                <Link href="/accounting/review">
+                                    Revisión contable
+                                </Link>
+                            </Button>
                             {area === 'accounts' && p.capabilities.accounts && (
                                 <Button asChild>
                                     <Link href="/accounting/accounts?mode=manage">
@@ -1145,6 +1189,17 @@ function FiltersForm({
             </label>
             {area === 'entries' && (
                 <>
+                    <label>
+                        Referencia
+                        <Input
+                            name="reference"
+                            defaultValue={f.reference ?? ''}
+                        />
+                    </label>
+                    <label>
+                        Concepto
+                        <Input name="concept" defaultValue={f.concept ?? ''} />
+                    </label>
                     <label>
                         Estado
                         <select

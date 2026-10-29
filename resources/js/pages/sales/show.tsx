@@ -11,6 +11,7 @@ import {
     Trash2,
 } from 'lucide-react';
 import { useState } from 'react';
+import { AccountingOperationFields } from '@/components/accounting/operation-fields';
 import DocumentCustody, {
     originalDownloadAllowed,
 } from '@/components/document-custody';
@@ -674,6 +675,7 @@ export default function SalesShow({
                                     >
                                         {({ errors }) => (
                                             <>
+                                                <AccountingOperationFields kind="receipt" />
                                                 <input
                                                     type="hidden"
                                                     name="idempotency_key"

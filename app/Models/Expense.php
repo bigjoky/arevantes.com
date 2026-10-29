@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\MorphOne;
 
 class Expense extends Model
 {
-    protected $fillable = [
+    protected $fillable = ['accounting_overrides',
         'expense_category_id', 'supplier_id', 'creditor_account_code', 'installation_id', 'created_by', 'number',
         'type', 'document_number', 'invoice_series', 'merchant_name', 'issuer_legal_name',
         'issuer_tax_id', 'issuer_country', 'expense_date', 'operation_date', 'due_date', 'currency_code',
@@ -21,7 +21,7 @@ class Expense extends Model
 
     protected function casts(): array
     {
-        return [
+        return ['accounting_overrides' => 'array',
             'expense_date' => 'date:Y-m-d', 'operation_date' => 'date:Y-m-d',
             'due_date' => 'date:Y-m-d', 'subtotal' => 'decimal:2', 'tax_amount' => 'decimal:2',
             'withholding_rate' => 'decimal:3', 'withholding_amount' => 'decimal:2',

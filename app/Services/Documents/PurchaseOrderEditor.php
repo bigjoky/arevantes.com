@@ -44,7 +44,7 @@ class PurchaseOrderEditor
             $before = $this->snapshot($order);
             $supplier = Supplier::findOrFail($data['supplier_id']);
             $order->orderApprovals()->whereIn('status', ['pending', 'approved'])->update(['status' => 'cancelled', 'decided_by' => $userId, 'decided_at' => now(), 'notes' => __('Cancelled because the purchase order was edited.')]);
-            $order->update([...collect($data)->only(['supplier_id', 'issue_date', 'expected_delivery_date', 'notes'])->all(), ...$calculation['totals'],
+            $order->update([...collect($data)->only(['supplier_id', 'issue_date', 'expected_delivery_date', 'notes', 'accounting_overrides', 'accounting_category_id'])->all(), ...$calculation['totals'],
                 'supplier_snapshot' => $supplier->purchaseSnapshot(), 'status' => 'ordered', 'locked_at' => now(), 'approved_at' => null, 'approved_by' => null, 'approval_notes' => null,
                 'sent_at' => null, 'supplier_confirmed_at' => null, 'supplier_confirmed_by' => null, 'supplier_confirmed_delivery_date' => null, 'supplier_confirmation_reference' => null]);
             $order->lines()->delete();

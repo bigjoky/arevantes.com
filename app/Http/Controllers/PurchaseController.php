@@ -12,6 +12,7 @@ use App\Models\PurchaseSetting;
 use App\Models\Supplier;
 use App\Models\SupplierQualityIncident;
 use App\Models\Warehouse;
+use App\Services\Accounting\AccountingOperationInput;
 use App\Services\Accounting\AccountingSynchronizer;
 use App\Services\Accounting\SupplierPaymentSourceResolver;
 use App\Services\Documents\DocumentNumber;
@@ -117,7 +118,7 @@ class PurchaseController extends Controller
             $totals = $this->calculate($data['lines'], (float) ($data['shipping_cost'] ?? 0));
             $issued = app(DocumentNumber::class)->next($data['type'], $data['issue_date']);
             $isOrder = $data['type'] === 'purchase_order';
-            $document = PurchaseDocument::create(['type' => $data['type'], 'supplier_id' => $data['supplier_id'], 'document_series_id' => $issued['series']->id, 'created_by' => $request->user()->id, 'assigned_to' => $isOrder ? $request->user()->id : null, 'assigned_by' => $isOrder ? $request->user()->id : null, 'assigned_at' => $isOrder ? now() : null, 'number' => $issued['number'], 'status' => $isOrder ? 'ordered' : 'draft', 'invoicing_status' => $isOrder ? 'not_invoiced' : null, 'issue_date' => $data['issue_date'], 'expected_delivery_date' => $data['expected_delivery_date'] ?? null, 'notes' => $data['notes'] ?? null, 'locked_at' => $isOrder ? now() : null, ...$totals['totals']]);
+            $document = PurchaseDocument::create(['accounting_overrides' => $data['accounting_overrides'] ?? null, 'accounting_category_id' => $data['accounting_category_id'] ?? null, 'type' => $data['type'], 'supplier_id' => $data['supplier_id'], 'document_series_id' => $issued['series']->id, 'created_by' => $request->user()->id, 'assigned_to' => $isOrder ? $request->user()->id : null, 'assigned_by' => $isOrder ? $request->user()->id : null, 'assigned_at' => $isOrder ? now() : null, 'number' => $issued['number'], 'status' => $isOrder ? 'ordered' : 'draft', 'invoicing_status' => $isOrder ? 'not_invoiced' : null, 'issue_date' => $data['issue_date'], 'expected_delivery_date' => $data['expected_delivery_date'] ?? null, 'notes' => $data['notes'] ?? null, 'locked_at' => $isOrder ? now() : null, ...$totals['totals']]);
             $document->lines()->createMany($totals['lines']);
             $requiresApproval = $isOrder && app(PurchaseOrderApprovalWorkflow::class)->request($document, $request->user()->id);
             if (! $requiresApproval) {
@@ -301,6 +302,7 @@ class PurchaseController extends Controller
             'lines.*.quantity' => ['required', 'numeric', 'min:0'],
             'lines.*.unit_price' => ['required', 'numeric', 'min:0'],
         ]);
+        $data = [...$data, ...AccountingOperationInput::validate($request, 'purchase')];
         $invoice = DB::transaction(function () use ($request, $purchaseDocument, $data, $accounting, $matcher) {
             $purchaseDocument = PurchaseDocument::lockForUpdate()->findOrFail($purchaseDocument->id);
             abort_if($purchaseDocument->receiver_company_id !== null && (int) $purchaseDocument->receiver_company_id !== (int) CompanyProfile::min('id'), 422, 'La compra pertenece a otra empresa receptora.');
@@ -309,7 +311,7 @@ class PurchaseController extends Controller
             app(ReceivedInvoiceIdentity::class)->lockInput($issuer['country'] ?? 'ES', $issuer['tax_id'] ?? null, 'invoice', $data['supplier_number'], $purchaseDocument->receiver_company_id);
             $issued = app(DocumentNumber::class)->next('supplier_invoice', $data['issue_date']);
             $reviewRequired = $match['matching_status'] === 'review_required';
-            $invoice = PurchaseDocument::create(['type' => 'supplier_invoice', 'source_document_id' => $purchaseDocument->id, 'installation_id' => $purchaseDocument->installation_id, 'work_order_id' => $purchaseDocument->work_order_id, 'sales_document_id' => $purchaseDocument->sales_document_id, 'supplier_id' => $purchaseDocument->supplier_id, 'document_series_id' => $issued['series']->id, 'created_by' => $request->user()->id, 'number' => $issued['number'], 'supplier_number' => $data['supplier_number'], 'status' => $reviewRequired ? 'review_required' : 'registered', 'matching_status' => $match['matching_status'], 'match_variance_amount' => $match['variance_amount'], 'issue_date' => $data['issue_date'], 'due_date' => $data['due_date'] ?? null, ...$match['totals'], 'notes' => $purchaseDocument->notes, 'locked_at' => now()]);
+            $invoice = PurchaseDocument::create(['accounting_overrides' => $data['accounting_overrides'] ?? $purchaseDocument->accounting_overrides, 'accounting_category_id' => $data['accounting_category_id'] ?? $purchaseDocument->accounting_category_id, 'type' => 'supplier_invoice', 'source_document_id' => $purchaseDocument->id, 'installation_id' => $purchaseDocument->installation_id, 'work_order_id' => $purchaseDocument->work_order_id, 'sales_document_id' => $purchaseDocument->sales_document_id, 'supplier_id' => $purchaseDocument->supplier_id, 'document_series_id' => $issued['series']->id, 'created_by' => $request->user()->id, 'number' => $issued['number'], 'supplier_number' => $data['supplier_number'], 'status' => $reviewRequired ? 'review_required' : 'registered', 'matching_status' => $match['matching_status'], 'match_variance_amount' => $match['variance_amount'], 'issue_date' => $data['issue_date'], 'due_date' => $data['due_date'] ?? null, ...$match['totals'], 'notes' => $purchaseDocument->notes, 'locked_at' => now()]);
             $invoice->lines()->createMany($match['lines']);
             if (! $reviewRequired) {
                 $accounting->syncPurchaseDocument($invoice, $request->user()->id);
@@ -462,7 +464,7 @@ class PurchaseController extends Controller
 
     private function validateDocument(Request $request): array
     {
-        return $request->validate(['type' => ['required', Rule::in(['purchase_rfq', 'purchase_order'])], 'supplier_id' => ['required', Rule::exists('suppliers', 'id')->where('is_active', true)], 'issue_date' => ['required', 'date'], 'expected_delivery_date' => ['nullable', 'date', 'after_or_equal:issue_date'], 'shipping_cost' => ['nullable', 'numeric', 'min:0'], 'notes' => ['nullable', 'string'], 'lines' => ['required', 'array', 'min:1'], 'lines.*.product_id' => ['nullable', Rule::exists('products', 'id')->where('is_active', true)], 'lines.*.description' => ['required', 'string'], 'lines.*.quantity' => ['required', 'numeric', 'gt:0'], 'lines.*.unit_price' => ['required', 'numeric', 'min:0'], 'lines.*.discount_percent' => ['required', 'numeric', 'between:0,100'], 'lines.*.tax_percent' => ['required', 'numeric', 'between:0,100']]);
+        return [...AccountingOperationInput::validate($request, 'purchase'), ...$request->validate(['type' => ['required', Rule::in(['purchase_rfq', 'purchase_order'])], 'supplier_id' => ['required', Rule::exists('suppliers', 'id')->where('is_active', true)], 'issue_date' => ['required', 'date'], 'expected_delivery_date' => ['nullable', 'date', 'after_or_equal:issue_date'], 'shipping_cost' => ['nullable', 'numeric', 'min:0'], 'notes' => ['nullable', 'string'], 'lines' => ['required', 'array', 'min:1'], 'lines.*.product_id' => ['nullable', Rule::exists('products', 'id')->where('is_active', true)], 'lines.*.description' => ['required', 'string'], 'lines.*.quantity' => ['required', 'numeric', 'gt:0'], 'lines.*.unit_price' => ['required', 'numeric', 'min:0'], 'lines.*.discount_percent' => ['required', 'numeric', 'between:0,100'], 'lines.*.tax_percent' => ['required', 'numeric', 'between:0,100']])];
     }
 
     private function calculate(array $lines, float $shippingCost = 0): array

@@ -13,10 +13,10 @@ use App\Models\User;
 use App\Services\Accounting\AccountingSynchronizer;
 use App\Services\Accounting\ExpenseCreditorRegistry;
 use App\Services\Accounting\JournalPoster;
-use App\Services\Accounting\SupplierLedgerAccountManager;
 use App\Services\Accounting\SupplierMasterRecovery;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Validation\ValidationException;
+use Tests\Support\EconomicFixture;
 use Tests\TestCase;
 
 class SupplierAccountingIntegrityTest extends TestCase
@@ -35,8 +35,9 @@ class SupplierAccountingIntegrityTest extends TestCase
         $a = Supplier::create(['legal_name' => 'One', 'tax_id' => 'A12345678', 'country' => 'ES']);
         $b = Supplier::create(['legal_name' => 'Two', 'tax_id' => 'B54321678', 'country' => 'ES']);
         foreach ([$a, $b] as $supplier) {
-            $this->assertStringEndsWith('678', $supplier->payable_account_code);
-            $this->assertStringEndsWith('678', $supplier->service_payable_account_code);
+            $this->assertNull($supplier->payable_account_code);
+            EconomicFixture::supplierAccounts($supplier);
+            $this->assertStringStartsWith('410', $supplier->service_payable_account_code);
             $this->assertStringStartsWith('4000', $supplier->payable_account_code);
             $this->assertStringStartsWith('4100', $supplier->service_payable_account_code);
         }
@@ -53,8 +54,8 @@ class SupplierAccountingIntegrityTest extends TestCase
         $this->actingAs($user)->post(route('expenses.store'), $this->data())->assertRedirect()->assertSessionHasNoErrors();
         $expense = Expense::sole();
         $this->assertNotNull($expense->supplier_id);
-        $this->assertStringStartsWith('4100', $expense->creditor_account_code);
-        $this->assertSame($expense->supplier->service_payable_account_code, $expense->creditor_account_code);
+        $this->assertSame('410', $expense->creditor_account_code);
+        $this->assertNull($expense->supplier->service_payable_account_code);
         $this->assertTrue($expense->accountingEntry->lines()->whereHas('account', fn ($query) => $query->where('code', $expense->creditor_account_code))->exists());
         $payment = SupplierPayment::create(['expense_id' => $expense->id, 'created_by' => $user->id, 'amount' => 121, 'method' => 'cash', 'paid_at' => '2026-09-15']);
         app(AccountingSynchronizer::class)->syncSupplierPayment($payment);
@@ -98,7 +99,7 @@ class SupplierAccountingIntegrityTest extends TestCase
             $synchronizer->syncExpense($expense);
             $this->fail('Inactive account accepted');
         } catch (ValidationException $exception) {
-            $this->assertArrayHasKey('lines', $exception->errors());
+            $this->assertArrayHasKey('accounting', $exception->errors());
         }
         $this->assertSame(0, JournalEntry::count());
         $account->update(['is_active' => true]);
@@ -118,9 +119,9 @@ class SupplierAccountingIntegrityTest extends TestCase
     public function test_inactive_supplier_account_is_not_reactivated_by_renaming_supplier(): void
     {
         $supplier = Supplier::create(['legal_name' => 'Supplier', 'tax_id' => 'A12345678', 'country' => 'ES']);
+        EconomicFixture::supplierAccounts($supplier);
         LedgerAccount::where('code', $supplier->payable_account_code)->update(['is_active' => false]);
         $supplier->update(['legal_name' => 'New name']);
-        app(SupplierLedgerAccountManager::class)->sync($supplier);
         $this->assertFalse(LedgerAccount::where('code', $supplier->payable_account_code)->firstOrFail()->is_active);
     }
 
@@ -128,6 +129,7 @@ class SupplierAccountingIntegrityTest extends TestCase
     {
         $user = User::factory()->create(['role' => 'admin']);
         $supplier = Supplier::create(['legal_name' => 'Supplier', 'tax_id' => 'A12345678', 'country' => 'ES']);
+        EconomicFixture::supplierAccounts($supplier);
         $account = LedgerAccount::where('code', $supplier->payable_account_code)->firstOrFail();
         $this->actingAs($user)->delete(route('accounting.accounts.destroy', $account))->assertSessionHasErrors('account');
         app(JournalPoster::class)->post('2026-09-15', 'Test', [
@@ -140,6 +142,7 @@ class SupplierAccountingIntegrityTest extends TestCase
     public function test_persisted_creditor_assignments_cannot_be_removed_by_migration_rollback(): void
     {
         Supplier::create(['legal_name' => 'Supplier', 'tax_id' => 'A12345678', 'country' => 'ES']);
+        EconomicFixture::supplierAccounts(Supplier::firstOrFail());
         $migration = require database_path('migrations/2026_10_05_050000_add_supplier_creditor_accounts.php');
         $this->expectException(\RuntimeException::class);
         $this->expectExceptionMessage('Cannot remove persisted creditor account assignments.');

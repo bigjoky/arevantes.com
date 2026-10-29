@@ -10,6 +10,19 @@ use Illuminate\Database\Eloquent\Relations\MorphOne;
 
 class SalesDocument extends Model
 {
+    protected static function booted(): void
+    {
+        static::creating(function (self $document) {
+            if ($document->source_document_id) {
+                $parent = self::find($document->source_document_id);
+                if ($parent) {
+                    $document->accounting_overrides ??= $parent->accounting_overrides;
+                    $document->accounting_category_id ??= $parent->accounting_category_id;
+                }
+            }
+        });
+    }
+
     protected $hidden = ['creation_key', 'creation_fingerprint', 'issuer_snapshot', 'archived_pdf_path', 'archived_pdf_hash'];
 
     public function issuerIdentity(): array
@@ -17,11 +30,11 @@ class SalesDocument extends Model
         return $this->issuer_snapshot ?? CompanyProfile::first()?->documentSnapshot() ?? config('company');
     }
 
-    protected $fillable = ['type', 'quote_id', 'source_document_id', 'person_id', 'installation_id', 'document_series_id', 'created_by', 'number', 'status', 'fulfillment_status', 'billing_status', 'issue_date', 'due_date', 'billing_percentage', 'billing_sequence', 'billing_label', 'collect_before_invoice', 'is_acceptance_invoice', 'issued_at', 'locked_at', 'subtotal', 'discount_amount', 'tax_amount', 'amount', 'paid_amount', 'customer_snapshot', 'notes'];
+    protected $fillable = ['accounting_overrides', 'accounting_category_id', 'type', 'quote_id', 'source_document_id', 'person_id', 'installation_id', 'document_series_id', 'created_by', 'number', 'status', 'fulfillment_status', 'billing_status', 'issue_date', 'due_date', 'billing_percentage', 'billing_sequence', 'billing_label', 'collect_before_invoice', 'is_acceptance_invoice', 'issued_at', 'locked_at', 'subtotal', 'discount_amount', 'tax_amount', 'amount', 'paid_amount', 'customer_snapshot', 'notes'];
 
     protected function casts(): array
     {
-        return ['issuer_snapshot' => 'array', 'issue_date' => 'date:Y-m-d', 'due_date' => 'date:Y-m-d', 'billing_percentage' => 'decimal:2', 'collect_before_invoice' => 'boolean', 'is_acceptance_invoice' => 'boolean', 'issued_at' => 'datetime', 'locked_at' => 'datetime', 'subtotal' => 'decimal:2', 'discount_amount' => 'decimal:2', 'tax_amount' => 'decimal:2', 'amount' => 'decimal:2', 'paid_amount' => 'decimal:2', 'customer_snapshot' => 'array'];
+        return ['accounting_overrides' => 'array', 'issuer_snapshot' => 'array', 'issue_date' => 'date:Y-m-d', 'due_date' => 'date:Y-m-d', 'billing_percentage' => 'decimal:2', 'collect_before_invoice' => 'boolean', 'is_acceptance_invoice' => 'boolean', 'issued_at' => 'datetime', 'locked_at' => 'datetime', 'subtotal' => 'decimal:2', 'discount_amount' => 'decimal:2', 'tax_amount' => 'decimal:2', 'amount' => 'decimal:2', 'paid_amount' => 'decimal:2', 'customer_snapshot' => 'array'];
     }
 
     public function quote(): BelongsTo
@@ -87,5 +100,10 @@ class SalesDocument extends Model
     public function recurringServiceBilling(): HasOne
     {
         return $this->hasOne(RecurringServiceBilling::class);
+    }
+
+    public function accountingCategory(): BelongsTo
+    {
+        return $this->belongsTo(FinancialCategory::class, 'accounting_category_id');
     }
 }

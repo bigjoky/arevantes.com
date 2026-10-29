@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AccountingEntryCorrection;
 use App\Models\AccountingPeriod;
 use App\Models\AuditLog;
 use App\Models\CompanyProfile;
@@ -14,8 +15,12 @@ use App\Models\SalesDocument;
 use App\Models\SalesDocumentPayment;
 use App\Models\SupplierPayment;
 use App\Models\User;
+use App\Services\Accounting\AccountingAccountPolicy;
 use App\Services\Accounting\AccountingWorkspace;
+use App\Services\Accounting\AccountUsage;
+use App\Services\Accounting\JournalCorrection;
 use Brick\Math\BigDecimal;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
@@ -31,7 +36,7 @@ class AccountingWorkspaceController extends Controller
         $f = $request->validate([
             'year' => 'nullable|integer|between:2020,2100', 'from' => 'nullable|date_format:Y-m-d', 'to' => 'nullable|date_format:Y-m-d|after_or_equal:from',
             'search' => 'nullable|string|max:150', 'entry_status' => ['nullable', Rule::in(['posted', 'draft'])],
-            'kind' => 'nullable|string|max:64',
+            'kind' => 'nullable|string|max:64', 'reference' => 'nullable|string|max:150', 'concept' => 'nullable|string|max:150',
             'sort' => ['nullable', Rule::in(['date_desc', 'date_asc', 'number'])], 'account' => 'nullable|string|max:20|exists:ledger_accounts,code',
             'group' => 'nullable|integer|between:1,9', 'active' => ['nullable', Rule::in(['yes', 'no'])],
             'accounts_page' => 'nullable|integer|min:1',
@@ -50,6 +55,24 @@ class AccountingWorkspaceController extends Controller
         return $f;
     }
 
+    private function filteredEntries(array $f): Builder
+    {
+        $entries = JournalEntry::query()->whereDate('entry_date', '>=', $f['from'])->whereDate('entry_date', '<=', $f['to'])
+            ->when($f['search'] ?? null, fn ($q, $s) => $q->where(fn ($q) => $q->where('number', 'like', "%$s%")->orWhere('description', 'like', "%$s%")->orWhereHas('lines', fn ($l) => $l->where('description', 'like', "%$s%"))->orWhereHasMorph('source', [SalesDocument::class, PurchaseDocument::class, Expense::class], fn ($d) => $d->where('number', 'like', "%$s%"))))
+            ->when($f['entry_status'] ?? null, fn ($q, $s) => $q->where('status', $s))
+            ->when($f['kind'] ?? null, fn ($q, $s) => $q->where('entry_kind', $s))
+            ->when($f['account'] ?? null, fn ($q, $a) => $q->whereHas('lines.account', fn ($q) => $q->where('code', $a)));
+        $entries->when($f['concept'] ?? null, fn ($q, $v) => $q->where(fn ($q) => $q->where('description', 'like', "%$v%")->orWhereHas('lines', fn ($l) => $l->where('description', 'like', "%$v%"))))
+            ->when($f['reference'] ?? null, fn ($q, $v) => $q->whereHasMorph('source', [SalesDocument::class, PurchaseDocument::class, Expense::class, SalesDocumentPayment::class, SupplierPayment::class], function ($s, $type) use ($v) {
+                $s->where($type === Expense::class ? 'document_number' : (in_array($type, [SalesDocumentPayment::class, SupplierPayment::class]) ? 'reference' : 'number'), 'like', "%$v%");
+                if ($type === PurchaseDocument::class) {
+                    $s->orWhere('supplier_number', 'like', "%$v%");
+                }
+            }));
+
+        return $entries;
+    }
+
     public function index(Request $request, AccountingWorkspace $workspace): Response
     {
         $f = $this->filters($request);
@@ -57,18 +80,14 @@ class AccountingWorkspaceController extends Controller
         abort_unless(in_array($area, ['overview', 'entries', 'accounts', 'reports', 'books'], true), 404);
         $view = $request->input('view', $request->filled('account') ? 'ledger' : ($area === 'reports' ? 'balance' : 'journal'));
         abort_unless(in_array($view, ['balance', 'profit', 'journal', 'ledger', 'trial', 'equity', 'cashflow'], true), 404);
-        $entries = $workspace->entryQuery()->whereDate('entry_date', '>=', $f['from'])->whereDate('entry_date', '<=', $f['to'])
-            ->when($f['search'] ?? null, fn ($q, $s) => $q->where(fn ($q) => $q->where('number', 'like', "%$s%")->orWhere('description', 'like', "%$s%")))
-            ->when($f['entry_status'] ?? null, fn ($q, $s) => $q->where('status', $s))
-            ->when($f['kind'] ?? null, fn ($q, $s) => $q->where('entry_kind', $s))
-            ->when($f['account'] ?? null, fn ($q, $a) => $q->whereHas('lines.account', fn ($q) => $q->where('code', $a)));
+        $entries = $this->filteredEntries($f)->withSum('lines as debit', 'debit')->withSum('lines as credit', 'credit');
         if (in_array($area, ['reports', 'overview'], true)) {
             $entries->where('status', 'posted');
         }
         $sort = $f['sort'] ?? ($area === 'reports' ? 'date_asc' : 'date_desc');
         $entries->orderBy($sort === 'number' ? 'number' : 'entry_date', $sort === 'date_desc' ? 'desc' : 'asc')->orderBy('id', $sort === 'date_desc' ? 'desc' : 'asc');
-        if ($area === 'reports' && $view === 'journal') {
-            $entries->with('lines.account:id,code,name');
+        if ($area === 'entries' || ($area === 'reports' && $view === 'journal')) {
+            $entries->with(['lines.account:id,code,name', 'corrections:id,journal_entry_id,correction_entry_id,description', 'source', 'creator:id,name']);
         }
         $pagedEntries = $entries->paginate($f['per_page'] ?? 10)->withQueryString()->through(function ($entry) use ($workspace) {
             return [...$workspace->entryRow($entry), 'lines' => $entry->relationLoaded('lines') ? $entry->lines->map(fn ($l) => ['id' => $l->id, 'code' => $l->account->code, 'name' => $l->account->name, 'description' => $l->description, 'debit' => $l->debit, 'credit' => $l->credit])->all() : []];
@@ -90,7 +109,7 @@ class AccountingWorkspaceController extends Controller
         if (($f['account'] ?? null) && $area === 'reports' && $view === 'ledger') {
             $account = LedgerAccount::where('code', $f['account'])->firstOrFail();
             $before = $account->lines()->whereHas('entry', fn ($q) => $q->where('status', 'posted')->whereDate('entry_date', '>=', $balanceFrom)->whereDate('entry_date', '<', $f['from']))->selectRaw('coalesce(sum(debit),0) debit, coalesce(sum(credit),0) credit')->first();
-            $creditNature = in_array($account->type, ['liability', 'equity', 'income'], true);
+            $creditNature = in_array(AccountingAccountPolicy::nature($account), ['liability', 'equity', 'income'], true);
             $opening = $creditNature ? AccountingWorkspace::subtract($before->credit, $before->debit) : AccountingWorkspace::subtract($before->debit, $before->credit);
             // SQL window includes every filtered movement before pagination; stable date / entry / line ordering.
             $lines = $workspace->lines($f['from'], $f['to'])->where('ledger_account_id', $account->id)->join('journal_entries', 'journal_entries.id', '=', 'journal_lines.journal_entry_id')
@@ -107,7 +126,7 @@ class AccountingWorkspaceController extends Controller
             'summary' => $workspace->summary($f['from'], $f['to'], $balanceFrom), 'series' => $workspace->series($f['from'], $f['to']),
             'entries' => $pagedEntries, 'accounts' => $accounts, 'groups' => $groupRows, 'ledger' => $ledger,
             'reportAccounts' => $area === 'reports' && in_array($view, ['balance', 'profit', 'trial'], true) ? (clone $allAccounts)->whereHas('lines', fn ($q) => $q->whereHas('entry', fn ($e) => $e->where('status', 'posted')->whereDate('entry_date', '>=', $balanceFrom)->whereDate('entry_date', '<=', $f['to'])))->orderBy('code')->get()->map(fn ($a) => $workspace->accountRow($a)) : [],
-            'capabilities' => ['manage' => Gate::allows('manage-accounting'), 'accounts' => Gate::allows('manage-staff'), 'books' => false, 'multiCompany' => false, 'statutoryMapping' => false, 'import' => false],
+            'capabilities' => ['manage' => Gate::allows('manage-accounting'), 'accounts' => Gate::allows('manage-ledger-accounts'), 'books' => false, 'multiCompany' => false, 'statutoryMapping' => false, 'import' => false],
             'kinds' => JournalEntry::whereDate('entry_date', '>=', $f['from'])->whereDate('entry_date', '<=', $f['to'])->distinct()->orderBy('entry_kind')->pluck('entry_kind'),
         ]);
     }
@@ -116,7 +135,7 @@ class AccountingWorkspaceController extends Controller
     {
         $this->filters($request);
 
-        return Inertia::render('accounting/entry', ['entry' => null, 'canManage' => true, 'postingAccounts' => LedgerAccount::where('is_active', true)->where('is_postable', true)->orderBy('code')->get(['code', 'name'])]);
+        return Inertia::render('accounting/entry', ['entry' => null, 'initialAccount' => $request->validate(['account_code' => ['nullable', Rule::exists('ledger_accounts', 'code')->where('is_active', true)->where('is_postable', true)]])['account_code'] ?? '', 'canManage' => true, 'postingAccounts' => LedgerAccount::where('is_active', true)->where('is_postable', true)->orderBy('code')->get(['code', 'name'])]);
     }
 
     public function account(Request $request, LedgerAccount $account, AccountingWorkspace $workspace): Response
@@ -124,7 +143,7 @@ class AccountingWorkspaceController extends Controller
         $f = $this->filters($request);
         $row = $workspace->accounts($f['from'], $f['to'])->findOrFail($account->id);
 
-        return Inertia::render('accounting/account', ['account' => $workspace->accountRow($row), 'year' => $f['year'], 'canManage' => Gate::allows('manage-staff')]);
+        return Inertia::render('accounting/account', ['account' => $workspace->accountRow($row), 'year' => $f['year'], 'canManage' => Gate::allows('manage-ledger-accounts'), 'usage' => app(AccountUsage::class)->forAccount($account)]);
     }
 
     public function show(Request $request, JournalEntry $entry, AccountingWorkspace $workspace): Response
@@ -134,9 +153,9 @@ class AccountingWorkspaceController extends Controller
         $creator = $entry->created_by ? User::find($entry->created_by)?->name : null;
         $history = AuditLog::where('auditable_type', $entry->getMorphClass())->where('auditable_id', $entry->id)->latest('id')->limit(30)->get(['id', 'event', 'user_id', 'created_at']);
 
-        return Inertia::render('accounting/entry', ['entry' => [...$workspace->entryRow($entry), 'lines' => $entry->lines->map(fn ($l) => ['id' => $l->id, 'code' => $l->account->code, 'name' => $l->account->name, 'description' => $l->description, 'debit' => $l->debit, 'credit' => $l->credit]), 'creator' => $creator,
-            'source' => $this->source($entry), 'original' => $entry->reversedEntry?->only(['id', 'number']), 'reversal' => $entry->reversal?->only(['id']),
-            'fiscalYear' => $entry->fiscalYear?->only(['year', 'status']), 'period' => AccountingPeriod::where('year', $entry->entry_date->year)->where('month', $entry->entry_date->month)->first()?->only(['year', 'month', 'status']), 'history' => $history], 'canManage' => Gate::allows('manage-accounting'),
+        return Inertia::render('accounting/entry', ['entry' => [...$workspace->entryRow($entry), 'lines' => $entry->lines->map(fn ($l) => ['id' => $l->id, 'code' => $l->account->code, 'name' => $l->account->name, 'description' => $l->description, 'debit' => $l->debit, 'credit' => $l->credit]), 'creator' => $creator, 'draft_metadata' => AuditLog::where('auditable_type', $entry->getMorphClass())->where('auditable_id', $entry->id)->where('event', 'journal_draft_saved')->latest('id')->first()?->new_values, 'resolution' => AuditLog::where('auditable_type', $entry->getMorphClass())->where('auditable_id', $entry->id)->where('event', 'journal_accounts_resolved')->latest('id')->first()?->new_values,
+            'source' => $this->source($entry), 'original' => $entry->reversedEntry?->only(['id', 'number']) ?? ($entry->source_type === JournalEntry::class ? $entry->source?->only(['id', 'number']) : null), 'reversal' => $entry->reversal?->only(['id']),
+            'corrections' => AccountingEntryCorrection::with('creator:id,name')->where('journal_entry_id', $entry->id)->orderBy('id')->get(), 'correction_revision' => app(JournalCorrection::class)->revision($entry), 'can_correct' => Gate::allows('correct-journal-entries'), 'fiscalYear' => $entry->fiscalYear?->only(['year', 'status']), 'period' => AccountingPeriod::where('year', $entry->entry_date->year)->where('month', $entry->entry_date->month)->first()?->only(['year', 'month', 'status']), 'history' => $history], 'canManage' => Gate::allows('manage-accounting'),
             'postingAccounts' => LedgerAccount::where('is_active', true)->where('is_postable', true)->orderBy('code')->get(['code', 'name'])]);
     }
 
@@ -145,11 +164,11 @@ class AccountingWorkspaceController extends Controller
         if (! $entry->source_type || ! $entry->source_id) {
             return null;
         }
-        $paths = [SalesDocument::class => '/sales/', PurchaseDocument::class => '/purchases/', Expense::class => '/expenses/', SupplierPayment::class => null];
+        $paths = [SalesDocument::class => '/sales/', PurchaseDocument::class => '/purchases/', Expense::class => '/expenses/', SupplierPayment::class => null, JournalEntry::class => '/accounting/entries/'];
         $class = $entry->source_type;
         $source = $entry->source;
 
-        return ['type' => class_basename($class), 'id' => $entry->source_id, 'number' => $source?->number ?? (string) $entry->source_id, 'href' => isset($paths[$class]) ? $paths[$class].$entry->source_id : ($source instanceof SalesDocumentPayment && $source->sales_document_id ? '/sales/'.$source->sales_document_id : ($source instanceof SupplierPayment ? ($source->expense_id ? '/expenses/'.$source->expense_id : ($source->purchase_document_id ? '/purchases/'.$source->purchase_document_id : null)) : null))];
+        return ['type' => class_basename($class), 'id' => $entry->source_id, 'number' => $source?->number ?? $source?->reference, 'href' => isset($paths[$class]) ? $paths[$class].$entry->source_id : ($source instanceof SalesDocumentPayment && $source->sales_document_id ? '/sales/'.$source->sales_document_id : ($source instanceof SupplierPayment ? ($source->expense_id ? '/expenses/'.$source->expense_id : ($source->purchase_document_id ? '/purchases/'.$source->purchase_document_id : null)) : null))];
     }
 
     public function export(Request $request, AccountingWorkspace $workspace): StreamedResponse
@@ -160,10 +179,8 @@ class AccountingWorkspaceController extends Controller
             $out = fopen('php://output', 'w');
             fwrite($out, "\xEF\xBB\xBF");
             fputcsv($out, ['Ejercicio', 'Desde', 'Hasta', 'Fecha', 'Asiento', 'Concepto', 'Cuenta', 'Descripción', 'Debe', 'Haber'], ';', '"', '');
-            $workspace->lines($f['from'], $f['to'])->whereHas('account', fn ($q) => $q->when($f['account'] ?? null, fn ($q, $a) => $q->where('code', $a)))
-                ->whereHas('entry', fn ($q) => $q
-                    ->when($f['kind'] ?? null, fn ($q, $kind) => $q->where('entry_kind', $kind))
-                    ->when($f['search'] ?? null, fn ($q, $s) => $q->where(fn ($q) => $q->where('number', 'like', "%$s%")->orWhere('description', 'like', "%$s%"))))
+            $workspace->lines($f['from'], $f['to'])->whereIn('journal_entry_id', $this->filteredEntries($f)->select('journal_entries.id'))
+                ->whereHas('account', fn ($q) => $q->when($f['account'] ?? null, fn ($q, $a) => $q->where('code', $a)))
                 ->join('journal_entries', 'journal_entries.id', '=', 'journal_lines.journal_entry_id')->select('journal_lines.*')->with(['account:id,code,name', 'entry:id,entry_date,number,description'])
                 ->orderBy('journal_entries.entry_date')->orderBy('journal_entries.id')->orderBy('journal_lines.id')->chunk(500, function ($lines) use ($out, $f) {
                     foreach ($lines as $l) {

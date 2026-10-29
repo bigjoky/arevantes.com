@@ -10,10 +10,20 @@ use Illuminate\Database\Eloquent\Relations\MorphOne;
 
 class PurchaseDocument extends Model
 {
-    protected $fillable = ['planning_scenario_request_id', 'type', 'source_document_id', 'installation_id', 'work_order_id', 'sales_document_id', 'procurement_batch_id', 'supplier_id', 'supplier_snapshot', 'destination_warehouse_id', 'document_series_id', 'created_by', 'assigned_to', 'assigned_by', 'assigned_at', 'number', 'supplier_number', 'status', 'matching_status', 'invoicing_status', 'issue_date', 'quoted_at', 'valid_until', 'delivery_days', 'due_date', 'expected_delivery_date', 'supplier_confirmed_delivery_date', 'supplier_confirmed_at', 'supplier_confirmed_by', 'supplier_confirmation_reference', 'last_followed_up_at', 'last_followed_up_by', 'last_follow_up_note', 'next_follow_up_date', 'sent_at', 'subtotal', 'tax_amount', 'shipping_cost', 'amount', 'match_variance_amount', 'paid_amount', 'notes', 'quote_notes', 'is_selected', 'locked_at', 'approved_at', 'approved_by', 'approval_notes', 'cancelled_at', 'cancelled_by', 'cancellation_reason', 'closed_at', 'closed_by', 'closing_reason'];
+    protected $fillable = ['accounting_overrides', 'accounting_category_id', 'planning_scenario_request_id', 'type', 'source_document_id', 'installation_id', 'work_order_id', 'sales_document_id', 'procurement_batch_id', 'supplier_id', 'supplier_snapshot', 'destination_warehouse_id', 'document_series_id', 'created_by', 'assigned_to', 'assigned_by', 'assigned_at', 'number', 'supplier_number', 'status', 'matching_status', 'invoicing_status', 'issue_date', 'quoted_at', 'valid_until', 'delivery_days', 'due_date', 'expected_delivery_date', 'supplier_confirmed_delivery_date', 'supplier_confirmed_at', 'supplier_confirmed_by', 'supplier_confirmation_reference', 'last_followed_up_at', 'last_followed_up_by', 'last_follow_up_note', 'next_follow_up_date', 'sent_at', 'subtotal', 'tax_amount', 'shipping_cost', 'amount', 'match_variance_amount', 'paid_amount', 'notes', 'quote_notes', 'is_selected', 'locked_at', 'approved_at', 'approved_by', 'approval_notes', 'cancelled_at', 'cancelled_by', 'cancellation_reason', 'closed_at', 'closed_by', 'closing_reason'];
 
     protected static function booted(): void
     {
+        static::creating(function (self $document) {
+            if ($document->source_document_id) {
+                $parent = self::find($document->source_document_id);
+                if ($parent) {
+                    $document->accounting_overrides ??= $parent->accounting_overrides;
+                    $document->accounting_category_id ??= $parent->accounting_category_id;
+                }
+            }
+        });
+
         static::creating(function (PurchaseDocument $document): void {
             if ($document->supplier_snapshot || ! $document->supplier_id) {
                 return;
@@ -30,7 +40,7 @@ class PurchaseDocument extends Model
 
     protected function casts(): array
     {
-        return ['supplier_snapshot' => 'array', 'issue_date' => 'date:Y-m-d', 'assigned_at' => 'datetime', 'quoted_at' => 'datetime', 'valid_until' => 'date:Y-m-d', 'due_date' => 'date:Y-m-d', 'expected_delivery_date' => 'date:Y-m-d', 'supplier_confirmed_delivery_date' => 'date:Y-m-d', 'supplier_confirmed_at' => 'datetime', 'last_followed_up_at' => 'datetime', 'next_follow_up_date' => 'date:Y-m-d', 'sent_at' => 'datetime', 'subtotal' => 'decimal:2', 'tax_amount' => 'decimal:2', 'shipping_cost' => 'decimal:2', 'amount' => 'decimal:2', 'match_variance_amount' => 'decimal:2', 'paid_amount' => 'decimal:2', 'is_selected' => 'boolean', 'locked_at' => 'datetime', 'approved_at' => 'datetime', 'cancelled_at' => 'datetime', 'closed_at' => 'datetime'];
+        return ['accounting_overrides' => 'array', 'supplier_snapshot' => 'array', 'issue_date' => 'date:Y-m-d', 'assigned_at' => 'datetime', 'quoted_at' => 'datetime', 'valid_until' => 'date:Y-m-d', 'due_date' => 'date:Y-m-d', 'expected_delivery_date' => 'date:Y-m-d', 'supplier_confirmed_delivery_date' => 'date:Y-m-d', 'supplier_confirmed_at' => 'datetime', 'last_followed_up_at' => 'datetime', 'next_follow_up_date' => 'date:Y-m-d', 'sent_at' => 'datetime', 'subtotal' => 'decimal:2', 'tax_amount' => 'decimal:2', 'shipping_cost' => 'decimal:2', 'amount' => 'decimal:2', 'match_variance_amount' => 'decimal:2', 'paid_amount' => 'decimal:2', 'is_selected' => 'boolean', 'locked_at' => 'datetime', 'approved_at' => 'datetime', 'cancelled_at' => 'datetime', 'closed_at' => 'datetime'];
     }
 
     public function supplier(): BelongsTo
@@ -158,5 +168,10 @@ class PurchaseDocument extends Model
     public function attachment(): HasOne
     {
         return $this->hasOne(PurchaseDocumentAttachment::class);
+    }
+
+    public function accountingCategory(): BelongsTo
+    {
+        return $this->belongsTo(FinancialCategory::class, 'accounting_category_id');
     }
 }

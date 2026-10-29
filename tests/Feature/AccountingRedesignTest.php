@@ -65,7 +65,11 @@ class AccountingRedesignTest extends TestCase
         $this->admin();
         $lines = $this->lines();
         $lines[1]['credit'] = '90.00';
-        $this->post('/accounting/drafts', ['entry_date' => '2026-03-10', 'description' => 'Pendiente', 'lines' => $lines])->assertSessionHasNoErrors();
+        $this->post('/accounting/drafts', ['entry_date' => '2026-03-10', 'description' => 'Pendiente', 'lines' => $lines])->assertSessionHasErrors('lines');
+        $this->assertDatabaseCount('journal_entries', 0);
+        $this->post('/accounting/drafts', ['entry_date' => '2026-03-10', 'description' => 'Pendiente', 'lines' => $this->lines()])->assertSessionHasNoErrors();
+        $draft = JournalEntry::latest('id')->firstOrFail();
+        $draft->lines()->where('credit', '>', 0)->firstOrFail()->update(['credit' => '90.00']);
         $entry = JournalEntry::latest('id')->firstOrFail();
         $this->post('/accounting/drafts/'.$entry->id.'/post')->assertSessionHasErrors('lines');
         $this->assertSame('draft', $entry->fresh()->status);

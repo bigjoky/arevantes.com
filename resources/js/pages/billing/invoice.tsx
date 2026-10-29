@@ -8,6 +8,7 @@ import {
     RotateCcw,
 } from 'lucide-react';
 import { useState } from 'react';
+import { AccountingOperationFields } from '@/components/accounting/operation-fields';
 import type { CustomerReceipt } from '@/components/billing/cancel-customer-receipt';
 import { CancelCustomerReceipt } from '@/components/billing/cancel-customer-receipt';
 import {
@@ -271,6 +272,7 @@ function PaymentAction({
                 Observaciones
                 <Input name="notes" />
             </label>
+            {customer && <AccountingOperationFields kind="receipt" />}
         </ActionDialog>
     );
 }

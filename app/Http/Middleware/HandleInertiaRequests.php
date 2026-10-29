@@ -3,6 +3,8 @@
 namespace App\Http\Middleware;
 
 use App\Models\CompanyProfile;
+use App\Services\Accounting\AccountingContext;
+use App\Services\Accounting\AccountingOperationInput;
 use App\Support\CompanyBrand;
 use App\Support\WorkspaceNavigation;
 use App\Support\WorkspaceShortcuts;
@@ -53,6 +55,8 @@ class HandleInertiaRequests extends Middleware
         return [
             ...parent::share($request),
             'name' => config('app.name'),
+            'accountingInputOptions' => fn () => AccountingOperationInput::options($request),
+            'accountingContext' => fn () => app(AccountingContext::class)->forRequest($request),
             'branding' => fn () => app(CompanyBrand::class)->for($user ? CompanyProfile::first() : null),
             'localization' => [
                 'current' => app()->getLocale(),

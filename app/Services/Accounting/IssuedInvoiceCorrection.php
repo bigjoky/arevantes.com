@@ -2,6 +2,7 @@
 
 namespace App\Services\Accounting;
 
+use App\Models\AccountingEntryCorrection;
 use App\Models\AuditLog;
 use App\Models\FiscalYear;
 use App\Models\Installation;
@@ -61,6 +62,9 @@ class IssuedInvoiceCorrection
                 }
                 // A correction must retain a verified original, never manufacture the missing historical original.
                 app(DocumentPdf::class)->render($invoice, 'invoice');
+                if (AccountingEntryCorrection::whereIn('journal_entry_id', JournalEntry::whereMorphedTo('source', $invoice)->select('id'))->exists()) {
+                    $this->fail('Review the manual journal correction before changing this fiscal document.');
+                }
                 $before = self::snapshot($invoice);
                 $oldDate = $invoice->issue_date->toDateString();
                 $newDate = Carbon::parse($data['issue_date'])->toDateString();
@@ -87,9 +91,9 @@ class IssuedInvoiceCorrection
                     $this->fail('The installation does not belong to the selected customer.');
                 }
                 $customer = Person::findOrFail($data['person_id']);
-                $oldCustomerAccount = $invoice->customer?->receivable_account_code ?: '430';
+                $oldCustomerAccount = app(PostedAccountSnapshot::class)->control($invoice, ['430']) ?: ($invoice->customer?->receivable_account_code ?: '430');
                 $newCustomerAccount = $customer->receivable_account_code ?: '430';
-                $oldLines = $this->accounting->salesDocumentLines($invoice);
+                $oldLines = app(PostedAccountSnapshot::class)->lines($invoice) ?: $this->accounting->salesDocumentLines($invoice);
                 $posted = $invoice->accountingEntry()->exists();
                 if ($posted) {
                     $this->assertAccountingMatches($invoice, $oldLines);
@@ -120,7 +124,7 @@ class IssuedInvoiceCorrection
                 $invoice->refresh();
                 $newLines = $this->accounting->salesDocumentLines($invoice);
                 $entries = [];
-                if ($posted && ($oldLines !== $newLines || $oldDate !== $newDate)) {
+                if ($posted && (! PostedAccountSnapshot::equivalent($oldLines, $newLines) || $oldDate !== $newDate)) {
                     $entries = $this->postCorrection($invoice, $oldDate, $oldLines, $newDate, $newLines, $request->user()->id);
                 } elseif (! $posted) {
                     $this->accounting->syncSalesDocument($invoice, $request->user()->id);

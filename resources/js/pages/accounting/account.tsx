@@ -2,18 +2,21 @@ import { Head, Link } from '@inertiajs/react';
 import { Panel, money } from '@/components/billing/workspace';
 import { PageHeader, PageShell } from '@/components/page-shell';
 import { Button } from '@/components/ui/button';
+import { usageNames } from './account-usage';
 import { accountTypes } from './workspace';
 import '@/../css/accounting.css';
 export default function Account({
     account,
     year,
     canManage,
+    usage = [],
 }: {
     account: {
         code: string;
         name: string;
         parent_code: string | null;
         type: string;
+        stored_type?: string;
         source: string;
         source_version: string | null;
         is_active: boolean;
@@ -23,6 +26,7 @@ export default function Account({
     };
     year: number;
     canManage: boolean;
+    usage?: { type: string; count: number; href: string }[];
 }) {
     return (
         <>
@@ -100,6 +104,29 @@ export default function Account({
                     El historial específico de cambios y los documentos se
                     consultan desde los asientos relacionados.
                 </p>
+                {account.stored_type &&
+                    account.stored_type !== account.type && (
+                        <Panel title="Metadatos heredados pendientes de revisión">
+                            <p>
+                                Se muestra la naturaleza del PGC sin modificar
+                                la clasificación almacenada ni los asientos
+                                históricos.
+                            </p>
+                        </Panel>
+                    )}
+                <Panel title="Dónde se utiliza">
+                    {usage.length ? (
+                        usage.map((u) => (
+                            <p key={u.type}>
+                                <Link href={u.href}>
+                                    {usageNames[u.type] ?? u.type} · {u.count}
+                                </Link>
+                            </p>
+                        ))
+                    ) : (
+                        <p>Sin usos registrados.</p>
+                    )}
+                </Panel>
             </PageShell>
         </>
     );

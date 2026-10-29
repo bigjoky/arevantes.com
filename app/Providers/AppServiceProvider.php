@@ -276,6 +276,10 @@ class AppServiceProvider extends ServiceProvider
             'view-analytics', 'view-analytics-executive', 'view-analytics-sales',
             'view-analytics-operations', 'view-analytics-supply', 'view-analytics-finance',
         ];
+        Gate::define('manage-ledger-accounts', fn (User $user) => $user->can('manage-accounting') && $user->can('view-finance'));
+        Gate::define('assign-accounting-accounts', fn (User $user) => $user->can('manage-accounting') && $user->can('view-finance'));
+        Gate::define('configure-accounting', fn (User $user) => $user->hasRole('admin') && $user->can('manage-accounting') && $user->can('view-finance'));
+        Gate::define('correct-journal-entries', fn (User $user) => $user->hasRole('admin') && $user->can('manage-accounting') && $user->can('view-finance'));
         Gate::define('correct-bank-reconciliations', fn (User $user) => $user->hasRole('admin') && $user->can('manage-treasury') && $user->can('manage-accounting') && $user->can('view-finance'));
         foreach ($permissions as $permission) {
             Gate::define($permission, fn (User $user) => app(PermissionResolver::class)->allows($user, $permission));

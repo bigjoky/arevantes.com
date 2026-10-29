@@ -2,6 +2,7 @@ import '../../../css/supply-mobile.css';
 import { Head, Link, usePage } from '@inertiajs/react';
 import { Plus, ShoppingCart, Trash2 } from 'lucide-react';
 import { useState } from 'react';
+import { AccountingOperationFields } from '@/components/accounting/operation-fields';
 import {
     FormActions,
     FormErrorSummary,
@@ -831,6 +832,7 @@ export function PurchaseDialog({
                                     <InputError message={errors.notes} />
                                 </div>
                             </FormSection>
+                            <AccountingOperationFields kind="purchase" />
                             <FormActions
                                 processing={processing}
                                 submitLabel="Create document"

@@ -25386,5 +25386,697 @@
     "Volver al origen": {
         "es": "Volver al origen",
         "en": "Back to origin"
+    },
+    "Buscar cuenta por código o nombre": {
+        "es": "Buscar cuenta por código o nombre",
+        "en": "Search accounts by code or name"
+    },
+    "Asignación contable de la ficha": {
+        "es": "Asignación contable de la ficha",
+        "en": "Record accounting assignment"
+    },
+    "Asignación contable": {
+        "es": "Asignación contable",
+        "en": "Accounting assignment"
+    },
+    "Sin asignación específica": {
+        "es": "Sin asignación específica",
+        "en": "No specific assignment"
+    },
+    "Se revisarán reglas y cuenta general antes de contabilizar.": {
+        "es": "Se revisarán reglas y cuenta general antes de contabilizar.",
+        "en": "Rules and the general account will be checked before posting."
+    },
+    "Revisar cuentas, origen y configuración": {
+        "es": "Revisar cuentas, origen y configuración",
+        "en": "Review accounts, origin and configuration"
+    },
+    "Las asociaciones se aplican a operaciones futuras. Un asiento contabilizado conserva sus cuentas originales.": {
+        "es": "Las asociaciones se aplican a operaciones futuras. Un asiento contabilizado conserva sus cuentas originales.",
+        "en": "Assignments apply to future operations. Posted entries retain their original accounts."
+    },
+    "Anotaciones y rectificaciones": {
+        "es": "Anotaciones y rectificaciones",
+        "en": "Annotations and corrections"
+    },
+    "El concepto y los apuntes originales se conservan. Los cambios descriptivos se muestran como anotaciones; los cambios de cuenta generan un asiento enlazado.": {
+        "es": "El concepto y los apuntes originales se conservan. Los cambios descriptivos se muestran como anotaciones; los cambios de cuenta generan un asiento enlazado.",
+        "en": "The original description and lines are preserved. Description changes appear as annotations; account changes create a linked journal entry."
+    },
+    "Concepto anotado:": {
+        "es": "Concepto anotado:",
+        "en": "Annotated description:"
+    },
+    "Referencia justificativa:": {
+        "es": "Referencia justificativa:",
+        "en": "Supporting reference:"
+    },
+    "Apunte #": {
+        "es": "Apunte #",
+        "en": "Line #"
+    },
+    "Consultar asiento de rectificación": {
+        "es": "Consultar asiento de rectificación",
+        "en": "View correction entry"
+    },
+    "Sin cambio de importes ni asiento económico.": {
+        "es": "Sin cambio de importes ni asiento económico.",
+        "en": "No amount changes or financial journal entry."
+    },
+    "Sin anotaciones ni rectificaciones registradas.": {
+        "es": "Sin anotaciones ni rectificaciones registradas.",
+        "en": "No annotations or corrections recorded."
+    },
+    "Rectificar cuentas o conceptos": {
+        "es": "Rectificar cuentas o conceptos",
+        "en": "Correct accounts or descriptions"
+    },
+    "No permite modificar importes, Debe/Haber, terceros ni documentos fiscales. Requiere ejercicio y periodo abiertos.": {
+        "es": "No permite modificar importes, Debe/Haber, terceros ni documentos fiscales. Requiere ejercicio y periodo abiertos.",
+        "en": "Amounts, debit/credit, third parties and fiscal documents cannot be changed. Open fiscal years and periods are required."
+    },
+    "Fecha del asiento de corrección": {
+        "es": "Fecha del asiento de corrección",
+        "en": "Correction entry date"
+    },
+    "Concepto general anotado": {
+        "es": "Concepto general anotado",
+        "en": "Annotated entry description"
+    },
+    "· Debe": {
+        "es": "· Debe",
+        "en": "· Debit"
+    },
+    "Cuenta propuesta": {
+        "es": "Cuenta propuesta",
+        "en": "Proposed account"
+    },
+    "Concepto del apunte": {
+        "es": "Concepto del apunte",
+        "en": "Line description"
+    },
+    "Referencia justificativa": {
+        "es": "Referencia justificativa",
+        "en": "Supporting reference"
+    },
+    "Mostrar efecto contable": {
+        "es": "Mostrar efecto contable",
+        "en": "Preview accounting effect"
+    },
+    "Se registrará este asiento de rectificación:": {
+        "es": "Se registrará este asiento de rectificación:",
+        "en": "The following correction entry will be recorded:"
+    },
+    "Se registrará únicamente una anotación auditada.": {
+        "es": "Se registrará únicamente una anotación auditada.",
+        "en": "Only an audited annotation will be recorded."
+    },
+    "Confirmo el motivo y el efecto mostrado, conservando el original.": {
+        "es": "Confirmo el motivo y el efecto mostrado, conservando el original.",
+        "en": "I confirm the reason and the displayed effect, preserving the original."
+    },
+    "Registrar rectificación": {
+        "es": "Registrar rectificación",
+        "en": "Record correction"
+    },
+    "Decisiones contables de esta operación": {
+        "es": "Decisiones contables de esta operación",
+        "en": "Accounting choices for this operation"
+    },
+    "Opcional. Una cuenta indicada aquí tiene prioridad sobre el tercero, producto y reglas. Si se deja vacía, se utiliza la jerarquía configurada. El cobro de una factura contabilizada conserva su cuenta de cliente.": {
+        "es": "Opcional. Una cuenta indicada aquí tiene prioridad sobre el tercero, producto y reglas. Si se deja vacía, se utiliza la jerarquía configurada. El cobro de una factura contabilizada conserva su cuenta de cliente.",
+        "en": "Optional. An account selected here takes precedence over third parties, products and rules. Leave it blank to use the configured hierarchy. Receipts for posted invoices retain the invoice customer account."
+    },
+    "Categoría contable": {
+        "es": "Categoría contable",
+        "en": "Accounting category"
+    },
+    "Sin categoría específica": {
+        "es": "Sin categoría específica",
+        "en": "No specific category"
+    },
+    "Confirmo las decisiones contables indicadas.": {
+        "es": "Confirmo las decisiones contables indicadas.",
+        "en": "I confirm these accounting choices."
+    },
+    "En gastos, elige una sola contrapartida: proveedor o acreedor. En cobros, se aplica la cuenta de la forma de pago seleccionada; el anticipo solo corresponde a documentos sin emitir.": {
+        "es": "En gastos, elige una sola contrapartida: proveedor o acreedor. En cobros, se aplica la cuenta de la forma de pago seleccionada; el anticipo solo corresponde a documentos sin emitir.",
+        "en": "For expenses, select one control account: supplier or creditor. Receipts use the account for the selected payment method; advances only apply to unissued documents."
+    },
+    "No cambia asientos existentes. Las cuentas fiscales y la naturaleza de cada apunte siguen protegidas.": {
+        "es": "No cambia asientos existentes. Las cuentas fiscales y la naturaleza de cada apunte siguen protegidas.",
+        "en": "Existing entries are unchanged. Fiscal accounts and the nature of each line remain protected."
+    },
+    "Consulta de relaciones reales, sin modificar movimientos.": {
+        "es": "Consulta de relaciones reales, sin modificar movimientos.",
+        "en": "View actual relationships without changing transactions."
+    },
+    "Volver a la cuenta": {
+        "es": "Volver a la cuenta",
+        "en": "Back to account"
+    },
+    "Sin denominación registrada": {
+        "es": "Sin denominación registrada",
+        "en": "No name recorded"
+    },
+    "· ID": {
+        "es": "· ID",
+        "en": "· ID"
+    },
+    "Consultar origen": {
+        "es": "Consultar origen",
+        "en": "View source"
+    },
+    "Origen no disponible": {
+        "es": "Origen no disponible",
+        "en": "Source unavailable"
+    },
+    "Metadatos heredados pendientes de revisión": {
+        "es": "Metadatos heredados pendientes de revisión",
+        "en": "Legacy metadata requiring review"
+    },
+    "Se muestra la naturaleza del PGC sin modificar la clasificación almacenada ni los asientos históricos.": {
+        "es": "Se muestra la naturaleza del PGC sin modificar la clasificación almacenada ni los asientos históricos.",
+        "en": "The PGC nature is displayed without changing stored metadata or historical entries."
+    },
+    "Dónde se utiliza": {
+        "es": "Dónde se utiliza",
+        "en": "Where this account is used"
+    },
+    "Sin usos registrados.": {
+        "es": "Sin usos registrados.",
+        "en": "No recorded usage."
+    },
+    "apuntes registrados": {
+        "es": "apuntes registrados",
+        "en": "recorded journal lines"
+    },
+    "Configuración contable": {
+        "es": "Configuración contable",
+        "en": "Accounting configuration"
+    },
+    "Control y configuración contable": {
+        "es": "Control y configuración contable",
+        "en": "Accounting control and configuration"
+    },
+    "Las decisiones se aplican a operaciones futuras. El histórico solo se corrige mediante acciones expresas.": {
+        "es": "Las decisiones se aplican a operaciones futuras. El histórico solo se corrige mediante acciones expresas.",
+        "en": "Choices apply to future operations. Historical records are only corrected through explicit actions."
+    },
+    "Volver a Contabilidad": {
+        "es": "Volver a Contabilidad",
+        "en": "Back to Accounting"
+    },
+    "Criterio de asignación": {
+        "es": "Criterio de asignación",
+        "en": "Assignment hierarchy"
+    },
+    "Cuenta elegida para la operación.": {
+        "es": "Cuenta elegida para la operación.",
+        "en": "Account selected for the operation."
+    },
+    "Cuenta del tercero, producto o concepto.": {
+        "es": "Cuenta del tercero, producto o concepto.",
+        "en": "Account assigned to the third party, product or item."
+    },
+    "Primera regla activa aplicable, en el orden mostrado.": {
+        "es": "Primera regla activa aplicable, en el orden mostrado.",
+        "en": "First applicable active rule, in the order shown."
+    },
+    "Cuenta predeterminada de la categoría.": {
+        "es": "Cuenta predeterminada de la categoría.",
+        "en": "Category default account."
+    },
+    "Cuenta general válida del sistema.": {
+        "es": "Cuenta general válida del sistema.",
+        "en": "Valid system general account."
+    },
+    "No se crean subcuentas al guardar una ficha. Las cuentas inactivas, de agrupación o incompatibles bloquean la contabilización.": {
+        "es": "No se crean subcuentas al guardar una ficha. Las cuentas inactivas, de agrupación o incompatibles bloquean la contabilización.",
+        "en": "Saving a record does not create subaccounts. Inactive, grouping or incompatible accounts prevent posting."
+    },
+    "Gestionar plan de cuentas": {
+        "es": "Gestionar plan de cuentas",
+        "en": "Manage chart of accounts"
+    },
+    "Bandeja de revisión contable": {
+        "es": "Bandeja de revisión contable",
+        "en": "Accounting review inbox"
+    },
+    "Plantillas de nóminas, impuestos y otros asientos": {
+        "es": "Plantillas de nóminas, impuestos y otros asientos",
+        "en": "Payroll, tax and other journal templates"
+    },
+    "Asignaciones por ficha": {
+        "es": "Asignaciones por ficha",
+        "en": "Assignments by record"
+    },
+    "Existencias e inmovilizado permiten preparar apuntes manuales. No se generan valoraciones de almacén ni amortizaciones automáticas.": {
+        "es": "Existencias e inmovilizado permiten preparar apuntes manuales. No se generan valoraciones de almacén ni amortizaciones automáticas.",
+        "en": "Inventory and fixed asset assignments can prepare manual entries. No automatic stock valuation or depreciation is generated."
+    },
+    "Área": {
+        "es": "Área",
+        "en": "Area"
+    },
+    "Buscar ficha": {
+        "es": "Buscar ficha",
+        "en": "Search records"
+    },
+    "Ficha": {
+        "es": "Ficha",
+        "en": "Record"
+    },
+    "Seleccionar ficha": {
+        "es": "Seleccionar ficha",
+        "en": "Select a record"
+    },
+    "Cuentas generales visibles": {
+        "es": "Cuentas generales visibles",
+        "en": "Visible general accounts"
+    },
+    "Un campo vacío conserva la cuenta general existente. Elegir otra cuenta requiere que tenga la misma naturaleza.": {
+        "es": "Un campo vacío conserva la cuenta general existente. Elegir otra cuenta requiere que tenga la misma naturaleza.",
+        "en": "A blank field retains the existing general account. A replacement must have the same accounting nature."
+    },
+    "Prefijo compatible:": {
+        "es": "Prefijo compatible:",
+        "en": "Compatible prefix:"
+    },
+    "Reglas de contabilización": {
+        "es": "Reglas de contabilización",
+        "en": "Posting rules"
+    },
+    "Se aplica la primera coincidencia. Las asignaciones manuales y específicas tienen prioridad.": {
+        "es": "Se aplica la primera coincidencia. Las asignaciones manuales y específicas tienen prioridad.",
+        "en": "The first matching rule applies. Manual and specific assignments take precedence."
+    },
+    "Cualquier operación compatible": {
+        "es": "Cualquier operación compatible",
+        "en": "Any compatible operation"
+    },
+    "Cualquiera": {
+        "es": "Cualquiera",
+        "en": "Any"
+    },
+    "Regla activa": {
+        "es": "Regla activa",
+        "en": "Active rule"
+    },
+    "Subir prioridad": {
+        "es": "Subir prioridad",
+        "en": "Increase priority"
+    },
+    "Quitar regla": {
+        "es": "Quitar regla",
+        "en": "Remove rule"
+    },
+    "Añadir regla": {
+        "es": "Añadir regla",
+        "en": "Add rule"
+    },
+    "Plantillas de conceptos": {
+        "es": "Plantillas de conceptos",
+        "en": "Description templates"
+    },
+    "Variables permitidas:": {
+        "es": "Variables permitidas:",
+        "en": "Allowed variables:"
+    },
+    "{numero}, {cliente}, {proveedor}, {referencia}, {concepto}": {
+        "es": "{numero}, {cliente}, {proveedor}, {referencia}, {concepto}",
+        "en": "{numero}, {cliente}, {proveedor}, {referencia}, {concepto}"
+    },
+    ". No se inventan referencias ausentes.": {
+        "es": ". No se inventan referencias ausentes.",
+        "en": ". Missing references are not invented."
+    },
+    "Español": {
+        "es": "Español",
+        "en": "Spanish"
+    },
+    "English": {
+        "es": "English",
+        "en": "English"
+    },
+    "Confirmar configuración": {
+        "es": "Confirmar configuración",
+        "en": "Confirm configuration"
+    },
+    "Confirmo las reglas para operaciones futuras.": {
+        "es": "Confirmo las reglas para operaciones futuras.",
+        "en": "I confirm the rules for future operations."
+    },
+    "Guardar configuración contable": {
+        "es": "Guardar configuración contable",
+        "en": "Save accounting configuration"
+    },
+    "Consultando asignaciones…": {
+        "es": "Consultando asignaciones…",
+        "en": "Loading assignments…"
+    },
+    "Categoría contable de la operación": {
+        "es": "Categoría contable de la operación",
+        "en": "Operation accounting category"
+    },
+    "Confirmo la categoría para contabilización futura.": {
+        "es": "Confirmo la categoría para contabilización futura.",
+        "en": "I confirm this category for future posting."
+    },
+    "Guardar categoría": {
+        "es": "Guardar categoría",
+        "en": "Save category"
+    },
+    "Sin cuenta específica registrada": {
+        "es": "Sin cuenta específica registrada",
+        "en": "No specific account recorded"
+    },
+    "Cuenta registrada para esta ficha.": {
+        "es": "Cuenta registrada para esta ficha.",
+        "en": "Account recorded for this record."
+    },
+    "Preparar apunte manual": {
+        "es": "Preparar apunte manual",
+        "en": "Prepare manual entry"
+    },
+    "Revisar asignación": {
+        "es": "Revisar asignación",
+        "en": "Review assignment"
+    },
+    "Cuenta autorizada": {
+        "es": "Cuenta autorizada",
+        "en": "Authorized account"
+    },
+    "Dejar la cuenta vacía delega en reglas y categoría. Esta decisión no cambia asientos ya contabilizados.": {
+        "es": "Dejar la cuenta vacía delega en reglas y categoría. Esta decisión no cambia asientos ya contabilizados.",
+        "en": "Leave the account blank to delegate to rules and category defaults. This choice does not change posted entries."
+    },
+    "Confirmo la cuenta para esta ficha.": {
+        "es": "Confirmo la cuenta para esta ficha.",
+        "en": "I confirm this account for this record."
+    },
+    "Guardar asignación": {
+        "es": "Guardar asignación",
+        "en": "Save assignment"
+    },
+    "Crear subcuenta propuesta": {
+        "es": "Crear subcuenta propuesta",
+        "en": "Create proposed subaccount"
+    },
+    "La propuesta se basa en la naturaleza y el identificador de esta ficha. Se crea únicamente al confirmar esta acción; después guarda su asociación.": {
+        "es": "La propuesta se basa en la naturaleza y el identificador de esta ficha. Se crea únicamente al confirmar esta acción; después guarda su asociación.",
+        "en": "The proposal uses the record nature and identifier. The subaccount is created only when you confirm this action; then save its assignment."
+    },
+    "Denominación": {
+        "es": "Denominación",
+        "en": "Account name"
+    },
+    "Cuenta superior:": {
+        "es": "Cuenta superior:",
+        "en": "Parent account:"
+    },
+    "Crear esta subcuenta": {
+        "es": "Crear esta subcuenta",
+        "en": "Create this subaccount"
+    },
+    "Observaciones y referencia registradas": {
+        "es": "Observaciones y referencia registradas",
+        "en": "Recorded notes and reference"
+    },
+    "Origen de las cuentas contabilizadas": {
+        "es": "Origen de las cuentas contabilizadas",
+        "en": "Origin of posted accounts"
+    },
+    "Revisión de configuración:": {
+        "es": "Revisión de configuración:",
+        "en": "Configuration revision:"
+    },
+    "Aplicar filtros a todo el ejercicio": {
+        "es": "Aplicar filtros a todo el ejercicio",
+        "en": "Apply filters to the full fiscal year"
+    },
+    "Los filtros se consultan en servidor para todo el ejercicio.": {
+        "es": "Los filtros se consultan en servidor para todo el ejercicio.",
+        "en": "Filters query the server across the full fiscal year."
+    },
+    "asientos de esta página": {
+        "es": "asientos de esta página",
+        "en": "entries on this page"
+    },
+    "Revisión contable": {
+        "es": "Revisión contable",
+        "en": "Accounting review"
+    },
+    "Diagnóstico informativo. Ninguna incidencia reclasifica ni modifica el histórico automáticamente.": {
+        "es": "Diagnóstico informativo. Ninguna incidencia reclasifica ni modifica el histórico automáticamente.",
+        "en": "Informational diagnostics. Findings never automatically reclassify or change historical records."
+    },
+    "Una cuenta general o una coincidencia de denominación no demuestra un error. Revisa su contexto antes de decidir.": {
+        "es": "Una cuenta general o una coincidencia de denominación no demuestra un error. Revisa su contexto antes de decidir.",
+        "en": "A general account or matching name does not prove an error. Review its context before deciding."
+    },
+    "Buscar referencia o cuenta": {
+        "es": "Buscar referencia o cuenta",
+        "en": "Search reference or account"
+    },
+    "Revisar origen": {
+        "es": "Revisar origen",
+        "en": "Review source"
+    },
+    "Sin incidencias registradas para este criterio.": {
+        "es": "Sin incidencias registradas para este criterio.",
+        "en": "No findings recorded for this criterion."
+    },
+    "Anotación:": {
+        "es": "Anotación:",
+        "en": "Annotation:"
+    },
+    "Documento:": {
+        "es": "Documento:",
+        "en": "Document:"
+    },
+    "Usuario:": {
+        "es": "Usuario:",
+        "en": "User:"
+    },
+    "Rectificación relacionada": {
+        "es": "Rectificación relacionada",
+        "en": "Related correction"
+    },
+    "Anotación auditada": {
+        "es": "Anotación auditada",
+        "en": "Audited annotation"
+    },
+    "Cuenta contable": {
+        "es": "Cuenta contable",
+        "en": "Accounting account"
+    },
+    "Seleccionar cuenta existente": {
+        "es": "Seleccionar cuenta existente",
+        "en": "Select existing account"
+    },
+    "Crear o revisar una subcuenta bancaria": {
+        "es": "Crear o revisar una subcuenta bancaria",
+        "en": "Create or review a bank subaccount"
+    },
+    "Accounting corrections are immutable.": {
+        "en": "Accounting corrections are immutable.",
+        "es": "Las rectificaciones contables son inmutables."
+    },
+    "Select an active postable account compatible with :role.": {
+        "en": "Select an active postable account compatible with :role.",
+        "es": "Selecciona una cuenta activa y contabilizable compatible con :role."
+    },
+    "An accounting assignment is required for :role.": {
+        "en": "An accounting assignment is required for :role.",
+        "es": "Debes configurar una cuenta contable para :role."
+    },
+    "Use an accounting code containing between 3 and 20 digits.": {
+        "en": "Use an accounting code containing between 3 and 20 digits.",
+        "es": "Utiliza un código contable de entre 3 y 20 cifras."
+    },
+    "This accounting role is not available for this operation.": {
+        "en": "This accounting role is not available for this operation.",
+        "es": "Esta función contable no está disponible para esta operación."
+    },
+    "Choose only one supplier or creditor control account for this expense.": {
+        "en": "Choose only one supplier or creditor control account for this expense.",
+        "es": "Elige una sola cuenta de contrapartida para el gasto: proveedor o acreedor."
+    },
+    "Financial category selection is not available for this operation.": {
+        "en": "Financial category selection is not available for this operation.",
+        "es": "Esta operación no admite una categoría financiera."
+    },
+    "Assign the employee accounting accounts explicitly before registering this operation.": {
+        "en": "Assign the employee accounting accounts explicitly before registering this operation.",
+        "es": "Asigna expresamente las cuentas del empleado antes de registrar esta operación."
+    },
+    "The original document has several accounting accounts without sufficient line evidence. An explicit accounting review is required.": {
+        "en": "The original document has several accounting accounts without sufficient line evidence. An explicit accounting review is required.",
+        "es": "El documento original utiliza varias cuentas sin evidencia suficiente por línea. Se requiere una revisión contable expresa."
+    },
+    "The posted control account is ambiguous. Review the linked journal corrections.": {
+        "en": "The posted control account is ambiguous. Review the linked journal corrections.",
+        "es": "No puede determinarse una única cuenta de contrapartida. Revisa las rectificaciones enlazadas."
+    },
+    "Use the original business workflow to reverse an automatic or linked entry.": {
+        "en": "Use the original business workflow to reverse an automatic or linked entry.",
+        "es": "Utiliza el procedimiento de la operación original para anular un asiento automático o enlazado."
+    },
+    "Use the journal correction workflow for an already posted operation.": {
+        "en": "Use the journal correction workflow for an already posted operation.",
+        "es": "Utiliza la rectificación del asiento para una operación ya contabilizada."
+    },
+    "The concept template contains an unsupported placeholder.": {
+        "en": "The concept template contains an unsupported placeholder.",
+        "es": "La plantilla del concepto contiene una variable no admitida."
+    },
+    "The configuration changed. Reload before saving.": {
+        "en": "The configuration changed. Reload before saving.",
+        "es": "La configuración ha cambiado. Recarga antes de guardar."
+    },
+    "Accounting configuration saved for future operations.": {
+        "en": "Accounting configuration saved for future operations.",
+        "es": "Configuración contable guardada para operaciones futuras."
+    },
+    "The accounting assignment changed. Reload before saving.": {
+        "en": "The accounting assignment changed. Reload before saving.",
+        "es": "La asignación contable ha cambiado. Recarga antes de guardar."
+    },
+    "This operation is already posted. Use its journal correction workflow.": {
+        "en": "This operation is already posted. Use its journal correction workflow.",
+        "es": "La operación ya está contabilizada. Utiliza la rectificación de su asiento."
+    },
+    "Select an explicit treasury account before continuing.": {
+        "en": "Select an explicit treasury account before continuing.",
+        "es": "Selecciona una cuenta de tesorería expresa antes de continuar."
+    },
+    "Accounting assignment saved for future operations.": {
+        "en": "Accounting assignment saved for future operations.",
+        "es": "Asignación contable guardada para operaciones futuras."
+    },
+    "Accounting category saved for future posting.": {
+        "en": "Accounting category saved for future posting.",
+        "es": "Categoría contable guardada para contabilización futura."
+    },
+    "Journal correction recorded; the original remains unchanged.": {
+        "en": "Journal correction recorded; the original remains unchanged.",
+        "es": "Rectificación registrada; el asiento original se conserva intacto."
+    },
+    "This accounting code already exists. Select the existing account.": {
+        "en": "This accounting code already exists. Select the existing account.",
+        "es": "Este código contable ya existe. Selecciona la cuenta existente."
+    },
+    "This account is in use. Reassign future operations or use an audited journal correction.": {
+        "en": "This account is in use. Reassign future operations or use an audited journal correction.",
+        "es": "La cuenta está utilizada. Reasigna operaciones futuras o utiliza una rectificación contable auditada."
+    },
+    "The account must extend its parent code and keep its accounting nature.": {
+        "en": "The account must extend its parent code and keep its accounting nature.",
+        "es": "La cuenta debe ampliar el código de su superior y conservar su naturaleza contable."
+    },
+    "The journal line does not belong to this entry.": {
+        "en": "The journal line does not belong to this entry.",
+        "es": "El apunte no pertenece a este asiento."
+    },
+    "Select an active postable accounting account.": {
+        "en": "Select an active postable accounting account.",
+        "es": "Selecciona una cuenta contable activa y contabilizable."
+    },
+    "The replacement account is incompatible with the accounting nature of this line.": {
+        "en": "The replacement account is incompatible with the accounting nature of this line.",
+        "es": "La cuenta propuesta no es compatible con la naturaleza de este apunte."
+    },
+    "The correction key was already used for a different request.": {
+        "en": "The correction key was already used for a different request.",
+        "es": "La clave de rectificación ya se utilizó con otros datos."
+    },
+    "The source document is unavailable. Review it before correcting this entry.": {
+        "en": "The source document is unavailable. Review it before correcting this entry.",
+        "es": "El documento de origen no está disponible. Revísalo antes de rectificar el asiento."
+    },
+    "The correction requires open fiscal years and periods.": {
+        "en": "The correction requires open fiscal years and periods.",
+        "es": "La rectificación requiere ejercicios y periodos abiertos."
+    },
+    "This journal entry requires a different protected accounting procedure.": {
+        "en": "This journal entry requires a different protected accounting procedure.",
+        "es": "Este asiento requiere su procedimiento contable específico."
+    },
+    "The entry or its corrections changed. Reload before confirming.": {
+        "en": "The entry or its corrections changed. Reload before confirming.",
+        "es": "El asiento o sus rectificaciones han cambiado. Recarga antes de confirmar."
+    },
+    "A prepared or filed tax return protects this journal entry.": {
+        "en": "A prepared or filed tax return protects this journal entry.",
+        "es": "Una declaración preparada o presentada protege este asiento."
+    },
+    "Correct the bank relationship or cancelled operation through its authorized workflow first.": {
+        "en": "Correct the bank relationship or cancelled operation through its authorized workflow first.",
+        "es": "Corrige primero la relación bancaria o la operación anulada mediante su procedimiento autorizado."
+    },
+    "Bank reconciliation entries must be corrected from the bank workspace.": {
+        "en": "Bank reconciliation entries must be corrected from the bank workspace.",
+        "es": "Los asientos bancarios o fiscales enlazados deben corregirse desde el procedimiento de origen."
+    },
+    "customers": {
+        "en": "customers",
+        "es": "clientes"
+    },
+    "creditors": {
+        "en": "creditors",
+        "es": "acreedores"
+    },
+    "bank accounts": {
+        "en": "bank accounts",
+        "es": "bancos"
+    },
+    "inventory": {
+        "en": "inventory",
+        "es": "existencias"
+    },
+    "fixed assets": {
+        "en": "fixed assets",
+        "es": "inmovilizado"
+    },
+    "customer advances": {
+        "en": "customer advances",
+        "es": "anticipos de clientes"
+    },
+    "supplier advances": {
+        "en": "supplier advances",
+        "es": "anticipos a proveedores"
+    },
+    "output VAT": {
+        "en": "output VAT",
+        "es": "IVA repercutido"
+    },
+    "input VAT": {
+        "en": "input VAT",
+        "es": "IVA soportado"
+    },
+    "withholdings": {
+        "en": "withholdings",
+        "es": "retenciones"
+    },
+    "employee advances": {
+        "en": "employee advances",
+        "es": "anticipos al personal"
+    },
+    "employee payables": {
+        "en": "employee payables",
+        "es": "remuneraciones pendientes"
+    },
+    "credit cards": {
+        "en": "credit cards",
+        "es": "tarjetas de crédito"
+    },
+    "other treasury funds": {
+        "en": "other treasury funds",
+        "es": "otros fondos de tesorería"
+    },
+    "Revisar asiento contabilizado": {
+        "es": "Revisar asiento contabilizado",
+        "en": "Review posted journal entry"
     }
 }

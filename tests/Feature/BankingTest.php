@@ -49,7 +49,7 @@ class BankingTest extends TestCase
     {
         $user = User::factory()->create(['role' => 'commercial']);
         $technician = User::factory()->create(['role' => 'technician']);
-        $this->actingAs($user)->post(route('banking.accounts.store'), [
+        $this->actingAs($user)->post(route('banking.accounts.store'), ['ledger_account_id' => LedgerAccount::firstOrCreate(['code' => '572'.str_pad((string) (BankAccount::max('id') + 1), 4, '0', STR_PAD_LEFT)], ['name' => 'Synthetic explicit bank', 'type' => 'asset', 'is_active' => true, 'is_postable' => true, 'source' => 'custom'])->id,
             'name' => 'Main settlement account',
             'currency' => 'EUR',
             'opening_balance' => 0,
@@ -130,7 +130,7 @@ class BankingTest extends TestCase
     public function test_multiple_cards_can_draw_from_one_shared_credit_facility(): void
     {
         $user = User::factory()->create(['role' => 'commercial']);
-        $this->actingAs($user)->post(route('banking.accounts.store'), [
+        $this->actingAs($user)->post(route('banking.accounts.store'), ['ledger_account_id' => LedgerAccount::firstOrCreate(['code' => '572'.str_pad((string) (BankAccount::max('id') + 1), 4, '0', STR_PAD_LEFT)], ['name' => 'Synthetic explicit bank', 'type' => 'asset', 'is_active' => true, 'is_postable' => true, 'source' => 'custom'])->id,
             'name' => 'Shared cards settlement',
             'currency' => 'EUR',
             'opening_balance' => 0,
@@ -196,7 +196,7 @@ class BankingTest extends TestCase
     {
         $this->travelTo('2026-08-06');
         $user = User::factory()->create(['role' => 'commercial']);
-        $this->actingAs($user)->post(route('banking.accounts.store'), [
+        $this->actingAs($user)->post(route('banking.accounts.store'), ['ledger_account_id' => LedgerAccount::firstOrCreate(['code' => '572'.str_pad((string) (BankAccount::max('id') + 1), 4, '0', STR_PAD_LEFT)], ['name' => 'Synthetic explicit bank', 'type' => 'asset', 'is_active' => true, 'is_postable' => true, 'source' => 'custom'])->id,
             'name' => 'Existing cards settlement',
             'currency' => 'EUR',
             'opening_balance' => 0,
@@ -565,7 +565,7 @@ class BankingTest extends TestCase
 
     public function test_bank_movement_can_be_split_and_create_a_missing_custom_subaccount(): void
     {
-        $user = User::factory()->create(['role' => 'commercial']);
+        $user = User::factory()->create(['role' => 'admin']);
         $account = BankAccount::create(['name' => 'Split posting account', 'currency' => 'EUR', 'opening_balance' => 0, 'is_active' => true]);
         $transaction = $account->transactions()->create(['booked_on' => now(), 'amount' => -100, 'currency' => 'EUR', 'description' => 'Unified bank charge', 'import_hash' => hash('sha256', 'split-bank-charge'), 'status' => 'pending']);
 
@@ -596,7 +596,7 @@ class BankingTest extends TestCase
 
     public function test_pending_movements_can_be_bulk_posted_atomically_to_one_account(): void
     {
-        $user = User::factory()->create(['role' => 'commercial']);
+        $user = User::factory()->create(['role' => 'admin']);
         $account = BankAccount::create(['name' => 'Bulk posting account', 'currency' => 'EUR', 'opening_balance' => 0, 'is_active' => true]);
         $first = $account->transactions()->create(['booked_on' => '2026-08-01', 'amount' => -12.5, 'currency' => 'EUR', 'description' => 'Monthly bank fee', 'import_hash' => hash('sha256', 'bulk-fee-one'), 'status' => 'pending']);
         $second = $account->transactions()->create(['booked_on' => '2026-08-02', 'amount' => -7.5, 'currency' => 'EUR', 'description' => 'Transfer bank fee', 'import_hash' => hash('sha256', 'bulk-fee-two'), 'status' => 'pending']);
@@ -636,7 +636,7 @@ class BankingTest extends TestCase
 
     public function test_split_posting_rejects_an_unbalanced_allocation_and_unnamed_new_account(): void
     {
-        $user = User::factory()->create(['role' => 'commercial']);
+        $user = User::factory()->create(['role' => 'admin']);
         $account = BankAccount::create(['name' => 'Protected split account', 'currency' => 'EUR', 'opening_balance' => 0, 'is_active' => true]);
         $transaction = $account->transactions()->create(['booked_on' => now(), 'amount' => -100, 'currency' => 'EUR', 'description' => 'Protected charge', 'import_hash' => hash('sha256', 'protected-split-charge'), 'status' => 'pending']);
         $this->actingAs($user);
@@ -659,8 +659,8 @@ class BankingTest extends TestCase
     {
         $user = User::factory()->create(['role' => 'admin']);
         $this->actingAs($user);
-        $this->post(route('banking.accounts.store'), ['name' => 'Bank A', 'currency' => 'EUR', 'opening_balance' => 0, 'is_active' => true])->assertRedirect();
-        $this->post(route('banking.accounts.store'), ['name' => 'Bank B', 'currency' => 'EUR', 'opening_balance' => 0, 'is_active' => true])->assertRedirect();
+        $this->post(route('banking.accounts.store'), ['ledger_account_id' => LedgerAccount::firstOrCreate(['code' => '572'.str_pad((string) (BankAccount::max('id') + 1), 4, '0', STR_PAD_LEFT)], ['name' => 'Synthetic explicit bank', 'type' => 'asset', 'is_active' => true, 'is_postable' => true, 'source' => 'custom'])->id, 'name' => 'Bank A', 'currency' => 'EUR', 'opening_balance' => 0, 'is_active' => true])->assertRedirect();
+        $this->post(route('banking.accounts.store'), ['ledger_account_id' => LedgerAccount::firstOrCreate(['code' => '572'.str_pad((string) (BankAccount::max('id') + 1), 4, '0', STR_PAD_LEFT)], ['name' => 'Synthetic explicit bank', 'type' => 'asset', 'is_active' => true, 'is_postable' => true, 'source' => 'custom'])->id, 'name' => 'Bank B', 'currency' => 'EUR', 'opening_balance' => 0, 'is_active' => true])->assertRedirect();
         $from = BankAccount::where('name', 'Bank A')->with('ledgerAccount')->firstOrFail();
         $to = BankAccount::where('name', 'Bank B')->with('ledgerAccount')->firstOrFail();
         $this->assertNotSame($from->ledgerAccount->code, $to->ledgerAccount->code);
@@ -682,7 +682,7 @@ class BankingTest extends TestCase
     {
         $user = User::factory()->create(['role' => 'admin']);
         $this->actingAs($user);
-        $this->post(route('banking.accounts.store'), ['name' => 'Collections bank', 'currency' => 'EUR', 'opening_balance' => 0, 'is_active' => true])->assertRedirect();
+        $this->post(route('banking.accounts.store'), ['ledger_account_id' => LedgerAccount::firstOrCreate(['code' => '572'.str_pad((string) (BankAccount::max('id') + 1), 4, '0', STR_PAD_LEFT)], ['name' => 'Synthetic explicit bank', 'type' => 'asset', 'is_active' => true, 'is_postable' => true, 'source' => 'custom'])->id, 'name' => 'Collections bank', 'currency' => 'EUR', 'opening_balance' => 0, 'is_active' => true])->assertRedirect();
         $account = BankAccount::where('name', 'Collections bank')->with('ledgerAccount')->firstOrFail();
         $sale = SalesDocument::create(['type' => 'invoice', 'number' => 'FAC-BANK-1', 'status' => 'paid', 'issue_date' => now(), 'subtotal' => 100, 'discount_amount' => 0, 'tax_amount' => 0, 'amount' => 100, 'paid_amount' => 100, 'customer_snapshot' => []]);
         $payment = $sale->payments()->create(['created_by' => $user->id, 'paid_at' => now(), 'amount' => 100, 'method' => 'bank_transfer', 'reference' => 'COLL-1']);
@@ -726,7 +726,7 @@ class BankingTest extends TestCase
     {
         $user = User::factory()->create(['role' => 'commercial']);
         $supplier = EconomicFixture::supplier(['legal_name' => 'Solar Supply SL', 'country' => 'ES', 'payment_terms_days' => 30]);
-        $this->actingAs($user)->post(route('banking.accounts.store'), ['name' => 'Payments', 'currency' => 'EUR', 'opening_balance' => 0, 'is_active' => true])->assertRedirect();
+        $this->actingAs($user)->post(route('banking.accounts.store'), ['ledger_account_id' => LedgerAccount::firstOrCreate(['code' => '572'.str_pad((string) (BankAccount::max('id') + 1), 4, '0', STR_PAD_LEFT)], ['name' => 'Synthetic explicit bank', 'type' => 'asset', 'is_active' => true, 'is_postable' => true, 'source' => 'custom'])->id, 'name' => 'Payments', 'currency' => 'EUR', 'opening_balance' => 0, 'is_active' => true])->assertRedirect();
         $account = BankAccount::where('name', 'Payments')->with('ledgerAccount')->firstOrFail();
         $invoice = EconomicFixture::purchase([
             'type' => 'supplier_invoice', 'supplier_id' => $supplier->id,
@@ -766,7 +766,7 @@ class BankingTest extends TestCase
     public function test_expense_reconciliation_with_a_bank_subaccount_can_be_undone_and_retried(): void
     {
         $user = User::factory()->create(['role' => 'admin']);
-        $this->actingAs($user)->post(route('banking.accounts.store'), ['name' => 'Expense bank', 'currency' => 'EUR', 'opening_balance' => 0, 'is_active' => true])->assertRedirect();
+        $this->actingAs($user)->post(route('banking.accounts.store'), ['ledger_account_id' => LedgerAccount::firstOrCreate(['code' => '572'.str_pad((string) (BankAccount::max('id') + 1), 4, '0', STR_PAD_LEFT)], ['name' => 'Synthetic explicit bank', 'type' => 'asset', 'is_active' => true, 'is_postable' => true, 'source' => 'custom'])->id, 'name' => 'Expense bank', 'currency' => 'EUR', 'opening_balance' => 0, 'is_active' => true])->assertRedirect();
         $account = BankAccount::where('name', 'Expense bank')->with('ledgerAccount')->firstOrFail();
         $expense = EconomicFixture::expense([
             'expense_category_id' => ExpenseCategory::firstOrFail()->id, 'created_by' => $user->id,
@@ -907,7 +907,7 @@ class BankingTest extends TestCase
     public function test_reusable_rules_preview_and_apply_safe_accounting_with_audited_trace(): void
     {
         $user = User::factory()->create(['role' => 'commercial']);
-        $this->actingAs($user)->post(route('banking.accounts.store'), [
+        $this->actingAs($user)->post(route('banking.accounts.store'), ['ledger_account_id' => LedgerAccount::firstOrCreate(['code' => '572'.str_pad((string) (BankAccount::max('id') + 1), 4, '0', STR_PAD_LEFT)], ['name' => 'Synthetic explicit bank', 'type' => 'asset', 'is_active' => true, 'is_postable' => true, 'source' => 'custom'])->id,
             'name' => 'Rules account',
             'currency' => 'EUR',
             'opening_balance' => 0,
@@ -1061,7 +1061,7 @@ class BankingTest extends TestCase
     public function test_conflicting_rules_are_explained_and_never_posted_automatically(): void
     {
         $user = User::factory()->create(['role' => 'commercial']);
-        $this->actingAs($user)->post(route('banking.accounts.store'), [
+        $this->actingAs($user)->post(route('banking.accounts.store'), ['ledger_account_id' => LedgerAccount::firstOrCreate(['code' => '572'.str_pad((string) (BankAccount::max('id') + 1), 4, '0', STR_PAD_LEFT)], ['name' => 'Synthetic explicit bank', 'type' => 'asset', 'is_active' => true, 'is_postable' => true, 'source' => 'custom'])->id,
             'name' => 'Conflict account',
             'currency' => 'EUR',
             'opening_balance' => 0,

@@ -38,14 +38,14 @@ class SalesDocumentPayment extends Model
 
     public function cancellationRevision(): string
     {
-        return hash('sha256', json_encode($this->only(['id', 'sales_document_id', 'paid_at', 'amount', 'method', 'reference', 'notes', 'updated_at', 'origin_bank_transaction_id', 'voided_at']), JSON_THROW_ON_ERROR));
+        return hash('sha256', json_encode([$this->only(['id', 'sales_document_id', 'paid_at', 'amount', 'method', 'reference', 'notes', 'updated_at', 'origin_bank_transaction_id', 'voided_at']), AccountingEntryCorrection::whereIn('journal_entry_id', JournalEntry::whereMorphedTo('source', $this)->select('id'))->orderBy('id')->pluck('id')->all()], JSON_THROW_ON_ERROR));
     }
 
-    protected $fillable = ['idempotency_key', 'created_by', 'origin_bank_transaction_id', 'paid_at', 'amount', 'method', 'reference', 'notes'];
+    protected $fillable = ['accounting_overrides', 'idempotency_key', 'created_by', 'origin_bank_transaction_id', 'paid_at', 'amount', 'method', 'reference', 'notes'];
 
     protected function casts(): array
     {
-        return ['paid_at' => 'date:Y-m-d', 'amount' => 'decimal:2', 'voided_at' => 'immutable_datetime'];
+        return ['accounting_overrides' => 'array', 'paid_at' => 'date:Y-m-d', 'amount' => 'decimal:2', 'voided_at' => 'immutable_datetime'];
     }
 
     public function document(): BelongsTo

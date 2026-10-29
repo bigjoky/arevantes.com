@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AuditLog;
 use App\Models\CompanyProfile;
 use App\Models\FiscalYear;
 use App\Models\JournalEntry;
@@ -20,11 +21,11 @@ class AccountingDraftController extends Controller
     {
         abort_if(CompanyProfile::count() > 1, 409, __('Accounting company separation is not configured.'));
         $data = $request->validate([
-            'entry_date' => 'required|date_format:Y-m-d', 'description' => 'required|string|max:255',
+            'notes' => 'nullable|string|max:2000', 'reference' => 'nullable|string|max:255', 'entry_date' => 'required|date_format:Y-m-d', 'description' => 'required|string|max:255',
             'lines' => 'required|array|min:2|max:50', 'lines.*.account_code' => ['required', Rule::exists('ledger_accounts', 'code')->where('is_active', true)->where('is_postable', true)],
             'lines.*.description' => 'nullable|string|max:255', 'lines.*.debit' => 'required|numeric|min:0', 'lines.*.credit' => 'required|numeric|min:0',
         ]);
-        $lines = $poster->normalizeLines($data['lines'], false);
+        $lines = $poster->normalizeLines($data['lines'], true);
         $draft = DB::transaction(function () use ($data, $lines, $entry, $request, $periods) {
             $year = FiscalYear::whereDate('starts_on', '<=', $data['entry_date'])->whereDate('ends_on', '>=', $data['entry_date'])->lockForUpdate()->first();
             if (! $year || $year->status !== 'open') {
@@ -38,6 +39,7 @@ class AccountingDraftController extends Controller
             if ($entry && ($draft->status !== 'draft' || $draft->source_type)) {
                 throw ValidationException::withMessages(['entry' => __('Only manual drafts can be changed.')]);
             }
+            $before = $draft->exists ? [...$draft->getAttributes(), 'lines' => $draft->lines()->get()->toArray()] : null;
             $draft->fill(['entry_date' => $data['entry_date'], 'description' => $data['description'], 'fiscal_year_id' => $year->id, 'entry_kind' => 'manual', 'event' => 'manual', 'status' => 'draft']);
             if (! $entry) {
                 $draft->fill(['number' => 'D-'.Str::ulid(), 'created_by' => $request->user()->id]);
@@ -48,6 +50,8 @@ class AccountingDraftController extends Controller
                 $account = LedgerAccount::where('code', $line['account_code'])->firstOrFail();
                 $draft->lines()->create(['ledger_account_id' => $account->id, 'description' => $line['description'] ?? null, 'debit' => $line['debit'], 'credit' => $line['credit']]);
             }
+
+            AuditLog::create(['user_id' => $request->user()->id, 'event' => 'journal_draft_saved', 'old_values' => $before, 'auditable_type' => $draft->getMorphClass(), 'auditable_id' => $draft->id, 'new_values' => ['description' => $draft->description, 'notes' => $data['notes'] ?? null, 'reference' => $data['reference'] ?? null, 'lines' => $lines]]);
 
             return $draft;
         });

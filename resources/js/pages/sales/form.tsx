@@ -1,5 +1,9 @@
 import { Head, Link, useForm } from '@inertiajs/react';
 import { ArrowLeft, Plus, Save, Trash2 } from 'lucide-react';
+import {
+    AccountingOperationFields,
+    readAccountingFields,
+} from '@/components/accounting/operation-fields';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -194,6 +198,10 @@ export default function SalesForm({
                 <form
                     onSubmit={(event) => {
                         event.preventDefault();
+                        const accounting = readAccountingFields(
+                            event.currentTarget,
+                        );
+                        form.transform((data) => ({ ...data, ...accounting }));
 
                         if (document) {
                             form.put(
@@ -202,7 +210,10 @@ export default function SalesForm({
                                     : `/sales/${document.id}`,
                             );
                         } else {
-                            form.transform(creation.transform);
+                            form.transform((data) => ({
+                                ...creation.transform(data),
+                                ...accounting,
+                            }));
                             form.post('/sales', {
                                 onSuccess: creation.complete,
                             });
@@ -578,6 +589,32 @@ export default function SalesForm({
                                   : 'Create document'}
                         </Button>
                     </div>
+                    {!issuedCorrection && (
+                        <AccountingOperationFields
+                            kind="sale"
+                            initial={
+                                (
+                                    document as
+                                        | (typeof document & {
+                                              accounting_overrides?: Record<
+                                                  string,
+                                                  string
+                                              >;
+                                          })
+                                        | null
+                                )?.accounting_overrides
+                            }
+                            categoryId={
+                                (
+                                    document as
+                                        | (typeof document & {
+                                              accounting_category_id?: number;
+                                          })
+                                        | null
+                                )?.accounting_category_id
+                            }
+                        />
+                    )}
                 </form>
             </div>
         </>

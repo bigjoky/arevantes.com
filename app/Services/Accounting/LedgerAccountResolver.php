@@ -10,8 +10,8 @@ class LedgerAccountResolver
     public function resolveOrCreate(string $code, ?string $name, string $field): LedgerAccount
     {
         $code = trim($code);
-        if (! preg_match('/^[0-9]{3,12}$/', $code)) {
-            throw ValidationException::withMessages([$field => __('Use an accounting code containing between 3 and 12 digits.')]);
+        if (! preg_match('/^[0-9]{3,20}$/', $code)) {
+            throw ValidationException::withMessages([$field => __('Use an accounting code containing between 3 and 20 digits.')]);
         }
 
         $existing = LedgerAccount::where('code', $code)->first();
@@ -23,6 +23,7 @@ class LedgerAccountResolver
             return $existing;
         }
 
+        abort_unless(auth()->user()?->can('manage-ledger-accounts'), 403);
         if (blank($name)) {
             throw ValidationException::withMessages([str_replace('account_code', 'account_name', $field) => __('Enter a name to create this subaccount.')]);
         }

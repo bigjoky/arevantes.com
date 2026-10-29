@@ -1,4 +1,4 @@
-import { Form, Head, Link, router } from '@inertiajs/react';
+import { Form, Head, Link, router, usePage } from '@inertiajs/react';
 import {
     ArrowLeft,
     CreditCard,
@@ -3426,6 +3426,12 @@ function ProductValue({ label, value }: { label: string; value: string }) {
     );
 }
 export function AccountDialog() {
+    const page = usePage<{
+        ledgerAccounts?: { id: number; code: string; name: string }[];
+    }>();
+    const postingAccounts = (page.props.ledgerAccounts ?? []).filter((a) =>
+        a.code.startsWith('572'),
+    );
     const [open, setOpen] = useState(false);
 
     return (
@@ -3452,6 +3458,26 @@ export function AccountDialog() {
                     <Field label="Account name" name="name" />
                     <Field label="Bank" name="bank_name" />
                     <Field label="IBAN" name="iban" />
+                    <label>
+                        Cuenta contable
+                        <select
+                            name="ledger_account_id"
+                            required
+                            className="w-full rounded border p-2"
+                        >
+                            <option value="">
+                                Seleccionar cuenta existente
+                            </option>
+                            {postingAccounts.map((a) => (
+                                <option key={a.id} value={a.id}>
+                                    {a.code} · {a.name}
+                                </option>
+                            ))}
+                        </select>
+                    </label>
+                    <Link href="/accounting/control">
+                        Crear o revisar una subcuenta bancaria
+                    </Link>
                     <div className="grid gap-4 sm:grid-cols-2">
                         <Field label="Currency" name="currency" value="EUR" />
                         <Field

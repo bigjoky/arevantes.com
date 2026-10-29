@@ -108,5 +108,20 @@
     "file": "resources/js/components/banking/reconciliation-workspace.tsx",
     "value": "bank_match_corrected",
     "reason": "Technical audit event identifier in a conditional; the rendered label is a bilingual human-readable string."
+  },
+  {
+    "file": "resources/js/components/accounting/operation-fields.tsx",
+    "value": "sale",
+    "reason": "Technical entity-kind identifier used in a membership condition; user-facing labels are translated separately."
+  },
+  {
+    "file": "resources/js/components/accounting/operation-fields.tsx",
+    "value": "purchase",
+    "reason": "Technical entity-kind identifier used in a membership condition; user-facing labels are translated separately."
+  },
+  {
+    "file": "resources/js/pages/accounting/control.tsx",
+    "value": "expense",
+    "reason": "Technical entity-kind identifier used in a membership condition; user-facing labels are translated separately."
   }
 ]

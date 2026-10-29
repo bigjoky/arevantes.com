@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AccountingControlController;
 use App\Http\Controllers\AccountingController;
 use App\Http\Controllers\AccountingDraftController;
 use App\Http\Controllers\AccountingTemplateController;
@@ -426,7 +427,17 @@ Route::middleware(['auth'])->group(function () {
     Route::get('finance/payment-batches/{paymentBatch}/sepa', [FinanceController::class, 'downloadPaymentBatch'])->middleware('can:approve-payments')->name('finance.payment-batches.sepa');
     Route::post('finance/payment-batches/{paymentBatch}/execute', [FinanceController::class, 'executePaymentBatch'])->middleware('can:approve-payments')->name('finance.payment-batches.execute');
     Route::middleware(AccountingCompanyContext::class)->group(function () {
+        Route::get('accounting/review', [AccountingControlController::class, 'review'])->middleware('can:view-finance')->name('accounting.review');
+        Route::get('accounting/control', [AccountingControlController::class, 'index'])->middleware('can:view-finance')->name('accounting.control');
+        Route::patch('accounting/control', [AccountingControlController::class, 'save'])->middleware('can:configure-accounting')->name('accounting.control.save');
+        Route::get('accounting/control/entities/{kind}', [AccountingControlController::class, 'entities'])->middleware('can:view-finance')->name('accounting.control.entities');
+        Route::patch('accounting/control/category/{kind}/{id}', [AccountingControlController::class, 'category'])->middleware('can:assign-accounting-accounts')->name('accounting.control.category');
+        Route::get('accounting/control/assignments/{kind}/{id}', [AccountingControlController::class, 'assignments'])->middleware('can:view-finance')->name('accounting.control.assignments');
+        Route::patch('accounting/control/assignments/{kind}/{id}', [AccountingControlController::class, 'assign'])->middleware('can:assign-accounting-accounts')->name('accounting.control.assign');
+        Route::post('accounting/entries/{entry}/correction-preview', [AccountingControlController::class, 'preview'])->middleware('can:correct-journal-entries')->name('accounting.corrections.preview');
+        Route::post('accounting/entries/{entry}/corrections', [AccountingControlController::class, 'correct'])->middleware('can:correct-journal-entries')->name('accounting.corrections.store');
         Route::get('accounting/entries/create', [AccountingWorkspaceController::class, 'create'])->middleware('can:manage-accounting')->name('accounting.entries.create');
+        Route::get('accounting/accounts/{account}/usage', [AccountingControlController::class, 'usage'])->middleware('can:view-finance')->name('accounting.accounts.usage');
         Route::get('accounting/accounts/{account}', [AccountingWorkspaceController::class, 'account'])->middleware('can:view-finance')->name('accounting.accounts.show');
         Route::get('accounting/export', [AccountingWorkspaceController::class, 'export'])->middleware('can:view-finance')->name('accounting.export');
         Route::get('accounting/entries/{entry}', [AccountingWorkspaceController::class, 'show'])->middleware('can:view-finance')->name('accounting.entries.show');
@@ -444,9 +455,9 @@ Route::middleware(['auth'])->group(function () {
         Route::patch('accounting/mappings/expense-categories/{category}', [AccountingController::class, 'updateExpenseCategory'])->middleware('can:manage-accounting')->name('accounting.mappings.expense-categories.update');
         Route::patch('accounting/mappings/tax-rates/{taxRate}', [AccountingController::class, 'updateTaxRate'])->middleware('can:manage-accounting')->name('accounting.mappings.tax-rates.update');
         Route::get('accounting/accounts', [ChartOfAccountsController::class, 'index'])->middleware('can:view-finance')->name('accounting.accounts.index');
-        Route::post('accounting/accounts', [ChartOfAccountsController::class, 'store'])->middleware('can:manage-staff')->name('accounting.accounts.store');
-        Route::patch('accounting/accounts/{account}', [ChartOfAccountsController::class, 'update'])->middleware('can:manage-staff')->name('accounting.accounts.update');
-        Route::delete('accounting/accounts/{account}', [ChartOfAccountsController::class, 'destroy'])->middleware('can:manage-staff')->name('accounting.accounts.destroy');
+        Route::post('accounting/accounts', [ChartOfAccountsController::class, 'store'])->middleware('can:manage-ledger-accounts')->name('accounting.accounts.store');
+        Route::patch('accounting/accounts/{account}', [ChartOfAccountsController::class, 'update'])->middleware('can:manage-ledger-accounts')->name('accounting.accounts.update');
+        Route::delete('accounting/accounts/{account}', [ChartOfAccountsController::class, 'destroy'])->middleware('can:manage-ledger-accounts')->name('accounting.accounts.destroy');
         Route::get('accounting/templates', [AccountingTemplateController::class, 'index'])->middleware('can:view-finance')->name('accounting.templates.index');
         Route::post('accounting/templates', [AccountingTemplateController::class, 'store'])->middleware('can:manage-accounting')->name('accounting.templates.store');
         Route::patch('accounting/templates/{template}', [AccountingTemplateController::class, 'update'])->middleware('can:manage-accounting')->name('accounting.templates.update');

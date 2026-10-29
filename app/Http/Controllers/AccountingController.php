@@ -17,6 +17,7 @@ use App\Models\SalesDocumentPayment;
 use App\Models\Supplier;
 use App\Models\SupplierPayment;
 use App\Models\TaxRate;
+use App\Services\Accounting\AccountingAccountPolicy;
 use App\Services\Accounting\AccountingPeriodManager;
 use App\Services\Accounting\AccountingSynchronizer;
 use App\Services\Accounting\AccountingWorkspace;
@@ -26,6 +27,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -46,23 +48,27 @@ class AccountingController extends Controller
         $selectedFinancialCategory = $request->filled('financial_category')
             ? FinancialCategory::findOrFail($request->integer('financial_category'))
             : null;
-        $entries = JournalEntry::with(['lines.account:id,code,name', 'reversal:id,reverses_entry_id', 'source'])
+        $request->validate(['search' => 'nullable|string|max:150', 'from' => 'nullable|date_format:Y-m-d', 'to' => 'nullable|date_format:Y-m-d', 'account_filter' => 'nullable|string|max:20', 'kind' => 'nullable|string|max:64', 'entry_status' => 'nullable|in:draft,posted']);
+        $entryPage = JournalEntry::with(['lines.account:id,code,name', 'reversal:id,reverses_entry_id', 'source'])
             ->whereYear('entry_date', $year)
             ->when($selectedFinancialCategory, fn ($query) => $query->whereHas('lines.account', fn ($account) => $account->where('financial_category_id', $selectedFinancialCategory->id)))
-            ->latest('entry_date')
-            ->latest('id')
-            ->limit(250)
-            ->get()
-            ->each(function (JournalEntry $entry) {
+            ->when($request->input('search'), fn ($q, $v) => $q->where(fn ($q) => $q->where('number', 'like', "%$v%")->orWhere('description', 'like', "%$v%")->orWhereHas('lines', fn ($l) => $l->where('description', 'like', "%$v%")->orWhereHas('account', fn ($a) => $a->where('code', 'like', "%$v%")->orWhere('name', 'like', "%$v%")))))
+            ->when($request->input('from'), fn ($q, $v) => $q->whereDate('entry_date', '>=', $v))->when($request->input('to'), fn ($q, $v) => $q->whereDate('entry_date', '<=', $v))
+            ->when($request->input('kind'), fn ($q, $v) => $q->where('entry_kind', $v))->when($request->input('entry_status'), fn ($q, $v) => $q->where('status', $v))
+            ->when($request->input('account_filter'), fn ($q, $v) => $q->whereHas('lines.account', fn ($a) => $a->where('code', $v)))
+            ->latest('entry_date')->latest('id')->paginate(25, ['*'], 'journal_page')->withQueryString()
+            ->through(function (JournalEntry $entry) {
                 $entry->setAttribute('source_href', $this->journalSourceHref($entry));
                 $entry->unsetRelation('source');
+
+                return $entry;
             });
         $accounts = LedgerAccount::where('is_postable', true)->withSum(['lines as debit' => fn ($query) => $query->whereHas('entry', fn ($entry) => $entry->where('status', 'posted')->whereYear('entry_date', $year))], 'debit')->withSum(['lines as credit' => fn ($query) => $query->whereHas('entry', fn ($entry) => $entry->where('status', 'posted')->whereYear('entry_date', $year))], 'credit')->orderBy('code')->get()->map(function ($account) {
             $debit = round((float) $account->debit, 2);
             $credit = round((float) $account->credit, 2);
-            $naturalBalance = in_array($account->type, ['liability', 'equity', 'income'], true) ? $credit - $debit : $debit - $credit;
+            $naturalBalance = in_array(AccountingAccountPolicy::nature($account), ['liability', 'equity', 'income'], true) ? $credit - $debit : $debit - $credit;
 
-            return [...$account->toArray(), 'debit' => $debit, 'credit' => $credit, 'balance' => round($naturalBalance, 2)];
+            return [...$account->toArray(), 'debit' => $debit, 'credit' => $credit, 'effective_type' => AccountingAccountPolicy::nature($account), 'balance' => round($naturalBalance, 2)];
         });
         $totals = JournalLine::whereHas('entry', fn ($entry) => $entry->where('status', 'posted')->whereYear('entry_date', $year))->selectRaw('coalesce(sum(debit), 0) as debit, coalesce(sum(credit), 0) as credit')->first();
         $selectedAccount = $request->filled('account') ? LedgerAccount::where('code', $request->string('account'))->first() : null;
@@ -101,14 +107,14 @@ class AccountingController extends Controller
                 ->get()
                 ->values(),
             'periodSummary' => $periods->summary($year, $month),
-            'entries' => $entries,
+            'entries' => $entryPage->items(), 'entryPagination' => ['links' => $entryPage->linkCollection(), 'total' => $entryPage->total()],
             'selectedFinancialCategory' => $selectedFinancialCategory?->only(['id', 'code', 'name', 'reporting_group']),
             'accounts' => $accounts,
             'selectedAccount' => $selectedAccount,
             'ledger' => $ledger,
             'reports' => [
                 'profitAndLoss' => ['income' => $income, 'expenses' => $expenses, 'result' => round($income - $expenses, 2)],
-                'balanceSheet' => ['assets' => round((float) $accounts->where('type', 'asset')->sum('balance'), 2), 'liabilities' => round((float) $accounts->where('type', 'liability')->sum('balance'), 2), 'equity' => round((float) $accounts->where('type', 'equity')->sum('balance'), 2), 'result' => round($income - $expenses, 2)],
+                'balanceSheet' => ['assets' => round((float) $accounts->where('effective_type', 'asset')->sum('balance'), 2), 'liabilities' => round((float) $accounts->where('effective_type', 'liability')->sum('balance'), 2), 'equity' => round((float) $accounts->where('type', 'equity')->sum('balance'), 2), 'result' => round($income - $expenses, 2)],
             ],
             'summary' => ['entries' => JournalEntry::whereYear('entry_date', $year)->count(), 'debit' => round((float) $totals->debit, 2), 'credit' => round((float) $totals->credit, 2)],
             'expenseCategories' => ExpenseCategory::orderBy('name')->get(['id', 'code', 'name', 'expense_account_code', 'is_active']),
@@ -143,6 +149,9 @@ class AccountingController extends Controller
     {
         $data = $request->validate(['entry_date' => ['required', 'date'], 'description' => ['nullable', 'string', 'max:255']]);
         abort_unless($entry->status === 'posted', 422, __('Only posted entries can be reversed.'));
+        if ($entry->source_type || $entry->entry_kind !== 'manual') {
+            throw ValidationException::withMessages(['entry' => __('Use the original business workflow to reverse an automatic or linked entry.')]);
+        }
         $entry->load('lines.account:id,code');
         $lines = $entry->lines->map(fn ($line) => ['account_code' => $line->account->code, 'description' => $line->description, 'debit' => $line->credit, 'credit' => $line->debit])->all();
         $poster->post($data['entry_date'], $data['description'] ?? __('Reversal of :entry', ['entry' => $entry->number]), $lines, $request->user()->id, 'reversal', null, 'reversal', $entry);
@@ -198,6 +207,7 @@ class AccountingController extends Controller
     public function updateExpenseCategory(Request $request, ExpenseCategory $category): RedirectResponse
     {
         $data = $request->validate(['expense_account_code' => ['required', Rule::exists('ledger_accounts', 'code')->where(fn ($query) => $query->where('type', 'expense')->where('is_postable', true)->where('is_active', true))]]);
+        app(AccountingAccountPolicy::class)->valid($data['expense_account_code'], 'expense');
         $category->update($data);
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Expense accounting mapping updated.')]);
@@ -206,6 +216,8 @@ class AccountingController extends Controller
     public function updateTaxRate(Request $request, TaxRate $taxRate): RedirectResponse
     {
         $data = $request->validate(['output_account_code' => ['required', Rule::exists('ledger_accounts', 'code')->where(fn ($query) => $query->where('is_postable', true)->where('is_active', true))], 'input_account_code' => ['required', Rule::exists('ledger_accounts', 'code')->where(fn ($query) => $query->where('is_postable', true)->where('is_active', true))]]);
+        app(AccountingAccountPolicy::class)->valid($data['output_account_code'], 'output_vat');
+        app(AccountingAccountPolicy::class)->valid($data['input_account_code'], 'input_vat');
         $taxRate->update($data);
 
         return back()->with('toast', ['type' => 'success', 'message' => __('VAT accounting mapping updated.')]);

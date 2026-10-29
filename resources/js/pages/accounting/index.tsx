@@ -16,7 +16,13 @@ import {
 } from 'lucide-react';
 import { useState } from 'react';
 import type React from 'react';
-import { PageHeader, PageShell, PageTabs } from '@/components/page-shell';
+import {
+    PageHeader,
+    PageShell,
+    PageTabs,
+    PaginationBar,
+} from '@/components/page-shell';
+import type { PaginationLink } from '@/components/page-shell';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -143,6 +149,7 @@ export default function AccountingIndex({
     periodSummary,
     canClosePeriods,
     entries,
+    entryPagination,
     selectedFinancialCategory,
     accounts,
     selectedAccount,
@@ -160,6 +167,7 @@ export default function AccountingIndex({
     periodSummary: PeriodSummary;
     canClosePeriods: boolean;
     entries: Entry[];
+    entryPagination?: { links: PaginationLink[]; total: number };
     selectedFinancialCategory: {
         id: number;
         code: string;
@@ -407,6 +415,7 @@ export default function AccountingIndex({
                     <Journal
                         renderHeader={renderHeader}
                         entries={entries}
+                        entryPagination={entryPagination}
                         canReverse={fiscalYear?.status === 'open'}
                         accounts={accounts}
                         year={year}
@@ -879,12 +888,14 @@ function ManualEntryDialog({
 function Journal({
     renderHeader,
     entries,
+    entryPagination,
     canReverse,
     accounts,
     year,
 }: {
     renderHeader: (exportAction: React.ReactNode) => React.ReactNode;
     entries: Entry[];
+    entryPagination?: { links: PaginationLink[]; total: number };
     canReverse: boolean;
     accounts: Account[];
     year: number;
@@ -896,9 +907,12 @@ function Journal({
     const [selectedId, setSelectedId] = useState<number | null>(
         requestedEntry > 0 ? requestedEntry : null,
     );
-    const [search, setSearch] = useState('');
-    const [account, setAccount] = useState('all');
-    const [kind, setKind] = useState('all');
+    const query = new URL(page.url, 'http://localhost').searchParams;
+    const [search, setSearch] = useState(query.get('search') ?? '');
+    const [account, setAccount] = useState(
+        query.get('account_filter') ?? 'all',
+    );
+    const [kind, setKind] = useState(query.get('kind') ?? 'all');
     const [journal, setJournal] = useState('all');
     const journals = Array.from(
         new Map(
@@ -909,8 +923,8 @@ function Journal({
             ),
         ).values(),
     );
-    const [start, setStart] = useState('');
-    const [end, setEnd] = useState('');
+    const [start, setStart] = useState(query.get('from') ?? '');
+    const [end, setEnd] = useState(query.get('to') ?? '');
     const [tab, setTab] = useState('detail');
     const entryStatus = new URL(page.url, 'http://localhost').searchParams.get(
         'entry_status',
@@ -924,7 +938,7 @@ function Journal({
             (journal === 'all' || entry.journal?.id === journal) &&
             (account === 'all' ||
                 entry.lines.some((line) => line.account.code === account)) &&
-            `${entry.number} ${entry.description} ${entry.lines.map((line) => `${line.account.code} ${line.account.name} ${line.debit} ${line.credit}`).join(' ')}`
+            `${entry.number} ${entry.description} ${entry.lines.map((line) => `${line.account.code} ${line.account.name} ${line.description ?? ''} ${line.debit} ${line.credit}`).join(' ')}`
                 .toLocaleLowerCase()
                 .includes(search.toLocaleLowerCase()),
     );
@@ -939,39 +953,29 @@ function Journal({
               ? 'Contabilizado'
               : entry.status;
     const exportEntries = () => {
-        const rows = [
-            ['Fecha', 'Asiento', 'Concepto', 'Tipo', 'Debe', 'Haber'],
-            ...filtered.map((entry) => [
-                entry.entry_date.slice(0, 10),
-                entry.number,
-                entry.description,
-                entry.entry_kind,
-                total(entry, 'debit').toFixed(2),
-                total(entry, 'credit').toFixed(2),
-            ]),
-        ];
-        const blob = new Blob(
-            [
-                '\ufeff' +
-                    rows
-                        .map((row) =>
-                            row
-                                .map(
-                                    (cell) =>
-                                        `"${String(cell).replaceAll('"', '""')}"`,
-                                )
-                                .join(';'),
-                        )
-                        .join('\r\n'),
-            ],
-            { type: 'text/csv;charset=utf-8;' },
-        );
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `libro-diario-${year}.csv`;
-        link.click();
-        URL.revokeObjectURL(url);
+        const params = new URLSearchParams({ year: String(year) });
+
+        if (start) {
+params.set('from', start);
+}
+
+        if (end) {
+params.set('to', end);
+}
+
+        if (search) {
+params.set('search', search);
+}
+
+        if (account !== 'all') {
+params.set('account', account);
+}
+
+        if (kind !== 'all') {
+params.set('kind', kind);
+}
+
+        window.location.assign(`/accounting/export?${params.toString()}`);
     };
 
     return (
@@ -1057,6 +1061,42 @@ function Journal({
                     />
                 </div>
             </div>
+            <div className="my-3 flex flex-wrap items-center gap-3">
+                <Button
+                    variant="outline"
+                    onClick={() =>
+                        router.get(
+                            '/accounting',
+                            Object.fromEntries(
+                                Object.entries({
+                                    ...Object.fromEntries(query),
+                                    area: 'management',
+                                    year: String(year),
+                                    search,
+                                    account_filter: account,
+                                    kind,
+                                    from: start,
+                                    to: end,
+                                    journal_page: '1',
+                                }).filter(([, v]) => v && v !== 'all'),
+                            ),
+                            { preserveState: false, preserveScroll: true },
+                        )
+                    }
+                >
+                    Aplicar filtros a todo el ejercicio
+                </Button>
+                <p className="text-xs">
+                    Los filtros se consultan en servidor para todo el ejercicio.
+                </p>
+            </div>
+            {entryPagination && (
+                <PaginationBar
+                    links={entryPagination.links}
+                    total={entryPagination.total}
+                    noun="asientos"
+                />
+            )}
             <div className="grid border-t xl:grid-cols-[minmax(0,1.08fr)_minmax(0,1fr)]">
                 <div className="min-w-0 overflow-x-auto pt-3 xl:pr-5">
                     <table className="w-full min-w-[620px] text-xs">
@@ -1141,7 +1181,8 @@ function Journal({
                         <Empty text="No hay asientos que coincidan con los filtros." />
                     )}
                     <p className="py-4 text-xs text-muted-foreground">
-                        {filtered.length} de {entries.length} asientos cargados
+                        {filtered.length} de {entries.length} asientos de esta
+                        página
                     </p>
                 </div>
                 <aside className="min-w-0 border-t py-6 xl:border-t-0 xl:border-l xl:pl-7">

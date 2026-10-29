@@ -1,4 +1,4 @@
-import { Form, Head, Link, usePage } from '@inertiajs/react';
+import { Form, Head, Link } from '@inertiajs/react';
 import { ArrowLeft, Pencil, Plus, Search, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { PageHeader, PageShell } from '@/components/page-shell';
@@ -22,16 +22,19 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import { accountTypes } from './workspace';
 
 type Account = {
     id: number;
     code: string;
     name: string;
     type: string;
+    effective_type?: string;
     parent_code: string | null;
     is_postable: boolean;
     is_active: boolean;
     source: string;
+    lines_count?: number;
 };
 type Page<T> = {
     data: T[];
@@ -44,13 +47,14 @@ export default function Accounts({
     accounts,
     parents,
     search,
+    canConfigure,
 }: {
     accounts: Page<Account>;
     parents: Account[];
     search: string;
+    canConfigure: boolean;
 }) {
-    const admin = usePage<{ auth: { abilities: { manageStaff: boolean } } }>()
-        .props.auth.abilities.manageStaff;
+    const admin = canConfigure;
 
     return (
         <>
@@ -106,9 +110,22 @@ export default function Accounts({
                                     <td className="py-2 font-mono font-medium">
                                         {account.code}
                                     </td>
-                                    <td>{account.name}</td>
+                                    <td>
+                                        <Link
+                                            href={`/accounting/accounts/${account.id}`}
+                                        >
+                                            {account.name}
+                                        </Link>
+                                        <p className="text-xs">
+                                            {account.lines_count ?? 0} apuntes
+                                            registrados
+                                        </p>
+                                    </td>
                                     <td className="capitalize">
-                                        {account.type}
+                                        {accountTypes[
+                                            account.effective_type ??
+                                                account.type
+                                        ] ?? account.type}
                                     </td>
                                     <td className="font-mono">
                                         {account.parent_code || '—'}

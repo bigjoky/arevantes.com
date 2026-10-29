@@ -1,6 +1,8 @@
 import { Form, Head, Link, useForm } from '@inertiajs/react';
 import { ArrowLeft, Plus, Save, Trash2 } from 'lucide-react';
 import { useState } from 'react';
+import { roleNames } from '@/components/accounting/account-input';
+import { JournalCorrectionPanel } from '@/components/accounting/journal-correction';
 import { Panel, date, money } from '@/components/billing/workspace';
 import { PageHeader, PageShell } from '@/components/page-shell';
 import { Button } from '@/components/ui/button';
@@ -9,6 +11,24 @@ import { State } from './workspace';
 import type { Entry, Line } from './workspace';
 import '@/../css/accounting.css';
 type Detail = Entry & {
+    draft_metadata?: {
+        notes?: string | null;
+        reference?: string | null;
+    } | null;
+    resolution?: {
+        configuration_revision: number;
+        decisions: {
+            role: string;
+            code: string;
+            origin: string;
+            rule_position?: number | null;
+        }[];
+    } | null;
+    correction_revision: string;
+    can_correct: boolean;
+    corrections: React.ComponentProps<
+        typeof JournalCorrectionPanel
+    >['entry']['corrections'];
     period: null | { year: number; month: number; status: string };
     created_at: string;
     posted_at: string | null;
@@ -16,7 +36,7 @@ type Detail = Entry & {
     source: null | {
         type: string;
         id: number;
-        number: string;
+        number: string | null;
         href: string | null;
     };
     original: null | { id: number; number: string };
@@ -33,15 +53,19 @@ export default function JournalEntry({
     entry,
     canManage,
     postingAccounts,
+    initialAccount = '',
 }: {
     entry: Detail | null;
     canManage: boolean;
+    initialAccount?: string;
     postingAccounts: { code: string; name: string }[];
 }) {
     const [editing, setEditing] = useState(!entry);
     const form = useForm({
         entry_date: entry?.entry_date ?? new Date().toLocaleDateString('en-CA'),
         description: entry?.description ?? '',
+        notes: entry?.draft_metadata?.notes ?? '',
+        reference: entry?.draft_metadata?.reference ?? '',
         lines: entry?.lines.map((l) => ({
             account_code: l.code,
             description: l.description ?? '',
@@ -49,7 +73,7 @@ export default function JournalEntry({
             credit: l.credit,
         })) ?? [
             {
-                account_code: '',
+                account_code: initialAccount,
                 description: '',
                 debit: '0.00',
                 credit: '0.00',
@@ -106,6 +130,46 @@ export default function JournalEntry({
                         </>
                     }
                 />
+                {entry?.draft_metadata &&
+                    (entry.draft_metadata.notes ||
+                        entry.draft_metadata.reference) && (
+                        <Panel title="Observaciones y referencia registradas">
+                            <p>{entry.draft_metadata.notes}</p>
+                            <p>{entry.draft_metadata.reference}</p>
+                        </Panel>
+                    )}
+                {entry?.resolution && (
+                    <Panel title="Origen de las cuentas contabilizadas">
+                        <p>
+                            Revisión de configuración:{' '}
+                            {entry.resolution.configuration_revision}
+                        </p>
+                        {entry.resolution.decisions.map((d, i) => (
+                            <p key={i}>
+                                {roleNames[d.role] ?? d.role} · {d.code} ·{' '}
+                                {(
+                                    {
+                                        operation: 'Selección de la operación',
+                                        specific: 'Asignación específica',
+                                        rule: 'Regla configurable',
+                                        category: 'Predeterminado de categoría',
+                                        system: 'Cuenta general',
+                                        posted_document:
+                                            'Cuenta del documento contabilizado',
+                                    } as Record<string, string>
+                                )[d.origin] ?? 'Origen no disponible'}
+                                {d.rule_position ? ` · ${d.rule_position}` : ''}
+                            </p>
+                        ))}
+                    </Panel>
+                )}
+                {entry?.status === 'posted' && (
+                    <JournalCorrectionPanel
+                        key={entry.correction_revision}
+                        entry={entry}
+                        accounts={postingAccounts}
+                    />
+                )}
                 {entry && (
                     <>
                         <div>
@@ -316,6 +380,29 @@ export default function JournalEntry({
                                     {error}
                                 </p>
                             ))}
+                            <label>
+                                Observaciones
+                                <Input
+                                    value={form.data.notes}
+                                    onChange={(e) =>
+                                        form.setData('notes', e.target.value)
+                                    }
+                                    maxLength={2000}
+                                />
+                            </label>
+                            <label>
+                                Referencia justificativa
+                                <Input
+                                    value={form.data.reference}
+                                    onChange={(e) =>
+                                        form.setData(
+                                            'reference',
+                                            e.target.value,
+                                        )
+                                    }
+                                    maxLength={255}
+                                />
+                            </label>
                             <p className="accounting-muted">
                                 El borrador no afecta a saldos. Para
                                 contabilizar, Debe y Haber deben coincidir y
@@ -399,6 +486,8 @@ export default function JournalEntry({
                             </Link>
                         )}
                         {entry.status === 'posted' &&
+                            !entry.source &&
+                            entry.entry_kind === 'manual' &&
                             !entry.reversal &&
                             canManage && (
                                 <Panel title="Corrección mediante reversión">

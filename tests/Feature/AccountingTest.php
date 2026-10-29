@@ -272,10 +272,11 @@ class AccountingTest extends TestCase
         $this->assertDatabaseHas('ledger_accounts', ['code' => '629', 'type' => 'expense']);
     }
 
-    public function test_customer_and_supplier_subaccounts_are_created_and_used_by_documents_and_payments(): void
+    public function test_explicit_customer_and_supplier_subaccounts_are_used_by_documents_and_payments(): void
     {
         $user = User::factory()->create(['role' => 'commercial']);
         $customer = Person::create(['category' => 'customer', 'first_name' => 'Ana', 'last_name' => 'Solar']);
+        EconomicFixture::personAccounts($customer);
         $supplier = EconomicFixture::supplier(['legal_name' => 'Panels SL', 'country' => 'ES', 'payment_terms_days' => 30]);
         $this->assertStringStartsWith('430', $customer->fresh()->receivable_account_code);
         $this->assertStringStartsWith('400', $supplier->fresh()->payable_account_code);
@@ -309,6 +310,7 @@ class AccountingTest extends TestCase
     {
         $user = User::factory()->create(['role' => 'commercial']);
         $customer = Person::create(['category' => 'customer', 'first_name' => 'Accounts', 'company_name' => 'Aging Solar SL']);
+        EconomicFixture::personAccounts($customer);
         $invoice = SalesDocument::create(['type' => 'invoice', 'person_id' => $customer->id, 'number' => 'FAC-AGING-1', 'status' => 'partial', 'issue_date' => now()->subMonths(2), 'due_date' => now()->subDays(45), 'subtotal' => 100, 'discount_amount' => 0, 'tax_amount' => 21, 'amount' => 121, 'paid_amount' => 21, 'customer_snapshot' => []]);
         $invoice->payments()->create(['created_by' => $user->id, 'paid_at' => now()->subDays(40), 'amount' => 21, 'method' => 'bank_transfer']);
         app(AccountingSynchronizer::class)->sync($user->id);

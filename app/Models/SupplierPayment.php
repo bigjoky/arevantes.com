@@ -15,11 +15,11 @@ class SupplierPayment extends Model
         static::addGlobalScope('active_supplier_payment', fn ($query) => $query->whereNull('supplier_payments.voided_at'));
     }
 
-    protected $fillable = ['purchase_document_id', 'expense_id', 'idempotency_key', 'created_by', 'origin_bank_transaction_id', 'paid_at', 'amount', 'method', 'funding_source_type', 'funding_source_id', 'ledger_account_id', 'reference', 'notes'];
+    protected $fillable = ['accounting_overrides', 'purchase_document_id', 'expense_id', 'idempotency_key', 'created_by', 'origin_bank_transaction_id', 'paid_at', 'amount', 'method', 'funding_source_type', 'funding_source_id', 'ledger_account_id', 'reference', 'notes'];
 
     protected function casts(): array
     {
-        return ['paid_at' => 'date:Y-m-d', 'amount' => 'decimal:2', 'voided_at' => 'datetime'];
+        return ['accounting_overrides' => 'array', 'paid_at' => 'date:Y-m-d', 'amount' => 'decimal:2', 'voided_at' => 'datetime'];
     }
 
     public function voidedBy(): BelongsTo

@@ -11,6 +11,7 @@ use App\Models\Quote;
 use App\Models\SalesDocument;
 use App\Models\SalesDocumentPayment;
 use App\Models\Warehouse;
+use App\Services\Accounting\AccountingOperationInput;
 use App\Services\Accounting\AccountingSynchronizer;
 use App\Services\Accounting\CustomerPaymentCancellation;
 use App\Services\Accounting\IssuedInvoiceCorrection;
@@ -134,6 +135,7 @@ class SalesDocumentController extends Controller
     {
         abort_unless($request->user()->hasRole('admin') && $request->user()->can('manage-admin') && IssuedInvoiceCorrection::eligible($salesDocument), 403);
         $request->validate(['revision' => ['required', 'string', 'size:64'], 'correction_reason' => ['required', 'string', 'min:5', 'max:2000']]);
+        $request->validate(['accounting_overrides' => 'prohibited', 'accounting_category_id' => 'prohibited']);
         $data = $this->validateDirectDocument($request);
         abort_unless($data['type'] === 'invoice', 422, __('The document type cannot be changed after creation.'));
         $request->validate(['lines.*.id' => ['nullable', 'integer', 'distinct', Rule::exists('sales_document_lines', 'id')->where('sales_document_id', $salesDocument->id)]]);
@@ -366,6 +368,7 @@ class SalesDocumentController extends Controller
     {
         abort_unless($request->user()->can('manage-treasury'), 403);
         $data = $request->validate(['idempotency_key' => ['nullable', 'uuid'], 'paid_at' => ['required', 'date'], 'amount' => ['required', 'numeric', 'decimal:0,2', 'gt:0'], 'method' => ['required', Rule::in(['bank_transfer', 'card', 'cash', 'direct_debit', 'other'])], 'reference' => ['nullable', 'string', 'max:255'], 'notes' => ['nullable', 'string']]);
+        $data = [...$data, ...AccountingOperationInput::validate($request, 'receipt')];
         try {
             DB::transaction(function () use ($request, $salesDocument, $data, $accounting) {
                 if ($salesDocument->quote_id) {
@@ -582,7 +585,7 @@ class SalesDocumentController extends Controller
 
     private function validateDirectDocument(Request $request): array
     {
-        return $request->validate([
+        return [...AccountingOperationInput::validate($request, 'sale'), ...$request->validate([
             'type' => ['required', Rule::in(['order', 'delivery_note', 'invoice'])],
             'person_id' => ['required', Rule::exists('people', 'id')->where('category', 'customer')],
             'installation_id' => ['nullable', 'exists:installations,id'],
@@ -598,7 +601,7 @@ class SalesDocumentController extends Controller
             'lines.*.unit_price' => ['required', 'numeric', 'min:0'],
             'lines.*.discount_percent' => ['required', 'numeric', 'between:0,100'],
             'lines.*.tax_percent' => ['required', 'numeric', 'between:0,100'],
-        ]);
+        ])];
     }
 
     private function persistDirectDocument(SalesDocument $document, array $data, Request $request, QuoteCalculator $calculator): SalesDocument

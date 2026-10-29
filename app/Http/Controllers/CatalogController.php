@@ -8,6 +8,7 @@ use App\Models\Product;
 use App\Models\Supplier;
 use App\Models\TaxRate;
 use App\Models\Unit;
+use App\Services\Accounting\AccountingAccountPolicy;
 use App\Support\BusinessLineCatalog;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -102,8 +103,8 @@ class CatalogController extends Controller
             'business_lines_submitted' => ['sometimes', 'boolean'],
             'unit_id' => ['required', 'exists:units,id'],
             'tax_rate_id' => ['required', 'exists:tax_rates,id'],
-            'sale_account_code' => ['required', 'exists:ledger_accounts,code'],
-            'purchase_account_code' => ['required', 'exists:ledger_accounts,code'],
+            'sale_account_code' => ['nullable', 'exists:ledger_accounts,code'],
+            'purchase_account_code' => ['nullable', 'exists:ledger_accounts,code'],
             'sale_price' => ['required', 'numeric', 'min:0'],
             'cost_price' => ['required', 'numeric', 'min:0'],
             'track_stock' => ['boolean'],
@@ -123,6 +124,11 @@ class CatalogController extends Controller
             $data['business_lines'] = [];
         }
 
+        foreach (['sale_account_code' => 'revenue', 'purchase_account_code' => 'purchase'] as $field => $role) {
+            if (filled($data[$field] ?? null)) {
+                app(AccountingAccountPolicy::class)->valid($data[$field], $role);
+            }
+        }
         unset($data['business_lines_submitted']);
 
         return $data;

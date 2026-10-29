@@ -6423,3 +6423,26 @@ Estado: implantado localmente en checkout independiente; no publicado. Ver [veri
 | Validación física y concurrencia adicional | Pendiente iOS/Android HTTPS y ensayo PostgreSQL aislado | Verificar teclado, lectores, instalación/caché y carreras sin afectar producción |
 
 Verificación: 85 frontend, 49 backend/1036 aserciones, build/tipos/lint/i18n/Pint correctos. Sin migraciones ni cambios de infraestructura o reglas económicas.
+
+
+## Conciliación bancaria publicada — 29/10/2026
+
+Publicado y verificado: commit `093845b4a48f5f7fce80c23c75fb0824d3b74b06` (funcionalidad `d77adcc` y ajuste de fecha fiscal), deployment `depl-a318af86-d059-4b81-ba26-76f66a677f25`, finalizado a las 09:58:17 Europe/Madrid. [Evidencia](bank-reconciliation-publication-2026-10-29.json).
+
+- Bancos y conciliación incorpora filtros, pendientes ERP, búsqueda y sugerencias explicables, conciliaciones parciales N:M, discrepancias e historial. Confirmación, motivo, permisos, revisión, locks e idempotencia; sin conciliación automática ni movimientos ficticios.
+- Desconciliar conserva el cobro/pago y revierte únicamente su reclasificación bancaria. Operaciones originadas desde el banco siguen protegidas hasta disponer de corrección contable específica. Anular cobros es una acción separada.
+- Migración propia aplicada251→252 bajo mantenimiento; históricos sin reescritura, columnas originales de nueve tablas económicas idénticas por hash. Nuevos instantes en UTC; no se inventan offsets históricos. Mantenimiento retirado.
+- Suite general1.071 aprobadas/50 omitidas; PostgreSQL17.6 económico103 pruebas/1.462 aserciones; cuatro carreras reales/42 aserciones; ajuste fiscal final22 pruebas/263 aserciones en ambos motores. Tipos, lint, traducciones, build y Pint correctos. Escritorio/móvil con datos sintéticos y red interceptada; no se han probado acciones económicas sobre producción.
+- GET autenticados de conciliación, candidatos, cobros, Finanzas, factura y asiento200; /up y /login200, acceso bancario anónimo302. Fuentes efectivas verificadas. El lote remoto agotó su tiempo y se sustituyó por comprobaciones separadas aprobadas. Sin archivos de logs de aplicación disponibles en el contenedor; monitor de deployments sin errores y rutas afectadas sin500.
+- Seis jobs históricos intactos:3/4/5 cuarentena y1/2/6 default; tres trabajos nuevos7/8/9 también conservados pendientes. Ninguno ejecutado o reservado. Workers, scheduler, integraciones OPS, push-to-deploy y migraciones automáticas desactivados. Backups, retención y originales documentales no modificados.
+
+Cierre verificado. No se inicia conciliación automática, Nexo ni ECO-03.
+
+
+## ACC-01 — Control del plan de cuentas y rectificaciones (29/10/2026)
+
+- Estado: candidato local implementado, en verificación; todavía no publicado.
+- Implementado: gestión y usos de cuentas, asignaciones expresas futuras, jerarquía configurable, conceptos ES/EN, borradores equilibrados, anotaciones y ajustes trazables/idempotentes, búsqueda del diario en servidor y revisión informativa.
+- Dependencias: motor contable, periodos, identidad fiscal y conciliación existentes; migración aditiva específica. Sin Nexo ni ECO-03.
+- Criterio de aceptación: pruebas contables y concurrencia PostgreSQL 17.6, tipos/estilo/catálogo/compilación, comprobación visual escritorio/móvil y conservación de históricos antes/después de publicar.
+- Verificaciones y límites: [ACC-01](accounting-control-acc01.md). Publicación condicionada a completar estas verificaciones; no ejecutar migraciones ajenas ni activar automatismos.

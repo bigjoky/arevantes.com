@@ -12,6 +12,7 @@ use App\Models\PurchaseDocument;
 use App\Models\Supplier;
 use App\Models\SupplierPayment;
 use App\Rules\SafeUpload;
+use App\Services\Accounting\AccountingOperationInput;
 use App\Services\Accounting\AccountingSynchronizer;
 use App\Services\Accounting\ExpenseCorrection;
 use App\Services\Accounting\ExpenseCreditorRegistry;
@@ -29,6 +30,7 @@ use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -279,7 +281,13 @@ class ExpenseController extends Controller
         $data['subtotal'] = $subtotal;
         $data['tax_amount'] = $taxAmount;
         $data['withholding_amount'] = $withholdingAmount;
+        if (! $editing) {
+            $data = [...$data, ...AccountingOperationInput::validate($request, 'expense')];
+        }
         if ($editing) {
+            if (($request->has('accounting_overrides') && $request->input('accounting_overrides') != $editing->accounting_overrides) || $request->filled('accounting_category_id')) {
+                throw ValidationException::withMessages(['accounting' => __('Use the journal correction workflow for an already posted operation.')]);
+            }
             app(ExpenseCorrection::class)->correct($editing, $data, $taxLines->all(), $request);
 
             return to_route('expenses.show', $editing)->with('toast', ['type' => 'success', 'message' => __('Expense corrected.')]);
@@ -300,7 +308,8 @@ class ExpenseController extends Controller
                 if (in_array($data['type'], ['invoice', 'simplified_invoice'], true)) {
                     app(ReceivedInvoiceIdentity::class)->lockInput($data['issuer_country'] ?? 'ES', $data['issuer_tax_id'] ?? null, 'invoice', $data['document_number'] ?? '');
                 }
-                $data = app(ExpenseCreditorRegistry::class)->newInvoice($data);
+                $data = app(ExpenseCreditorRegistry::class)->newInvoice($data, true);
+                $accountingDecision = Arr::pull($data, '_accounting_control_decision');
                 $number = $numbers->next('expense', $data['expense_date'])['number'];
                 $amount = $data['tax_calculation_snapshot']['result']['totals']['total'] ?? round((float) $data['subtotal'] + (float) $data['tax_amount'] - (float) $data['withholding_amount'], 2);
                 $expense = Expense::create([...$data, 'created_by' => $request->user()->id, 'number' => $number, 'amount' => $amount, 'status' => 'pending']);
@@ -308,7 +317,7 @@ class ExpenseController extends Controller
                 foreach ($storedFiles as $storedFile) {
                     $expense->attachments()->create([...$storedFile, 'uploaded_by' => $request->user()->id]);
                 }
-                $accounting->syncExpense($expense, $request->user()->id);
+                $accounting->syncExpense($expense, $request->user()->id, $accountingDecision);
 
                 return $expense;
             });

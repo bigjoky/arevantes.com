@@ -1,4 +1,5 @@
 import { usePage } from '@inertiajs/react';
+import { AccountingContextPanel } from '@/components/accounting/context-panel';
 import { AppContent } from '@/components/app-content';
 import { AppShell } from '@/components/app-shell';
 import { AppSidebar } from '@/components/app-sidebar';
@@ -51,6 +52,7 @@ export default function AppSidebarLayout({
                         }
                     >
                         {children}
+                        <AccountingContextPanel />
                     </MobileExperience>
                 </AppContent>
             </AppShell>

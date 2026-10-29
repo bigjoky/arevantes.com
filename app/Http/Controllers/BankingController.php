@@ -22,6 +22,7 @@ use App\Models\SalesDocument;
 use App\Models\SalesDocumentPayment;
 use App\Models\SupplierPayment;
 use App\Models\TaxReturnPayment;
+use App\Services\Accounting\AccountingAccountPolicy;
 use App\Services\Accounting\AccountingSynchronizer;
 use App\Services\Accounting\JournalPoster;
 use App\Services\Accounting\LedgerAccountResolver;
@@ -252,13 +253,10 @@ class BankingController extends Controller
     public function storeAccount(Request $request): RedirectResponse
     {
         $data = $request->validate(['name' => ['required', 'string', 'max:255'], 'bank_name' => ['nullable', 'string', 'max:255'], 'iban' => ['nullable', 'string', 'max:34', 'unique:bank_accounts'], 'currency' => ['required', 'string', 'size:3'], 'opening_balance' => ['required', 'numeric'], 'is_active' => ['boolean']]);
-        $account = DB::transaction(function () use ($data) {
-            $account = BankAccount::create([...$data, 'ledger_account_id' => LedgerAccount::where('code', '572')->value('id')]);
-            $ledger = LedgerAccount::create(['code' => '572'.str_pad((string) $account->id, 4, '0', STR_PAD_LEFT), 'name' => $account->name, 'type' => 'asset', 'is_active' => true]);
-            $account->update(['ledger_account_id' => $ledger->id]);
-
-            return $account;
-        });
+        $request->validate(['ledger_account_id' => ['required', 'integer', 'exists:ledger_accounts,id']]);
+        $ledger = LedgerAccount::findOrFail($request->integer('ledger_account_id'));
+        app(AccountingAccountPolicy::class)->valid($ledger->code, 'bank');
+        $account = BankAccount::create([...$data, 'ledger_account_id' => $ledger->id]);
 
         return to_route('banking.index', ['account' => $account->id])->with('toast', ['type' => 'success', 'message' => __('Bank account created.')]);
     }

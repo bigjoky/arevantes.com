@@ -2,6 +2,7 @@
 
 namespace App\Services\Banking;
 
+use App\Models\AccountingEntryCorrection;
 use App\Models\AuditLog;
 use App\Models\BankReconciliation;
 use App\Models\BankTransaction;
@@ -201,6 +202,15 @@ class ControlledReconciliation
             $this->fail('Post and verify the ERP treasury entry before bank account reclassification.');
         }
         $source = $funding?->count() === 1 ? $funding->first()->account->code : '572';
+        if ($entry && $funding?->count() === 1) {
+            foreach (AccountingEntryCorrection::where('journal_entry_id', $entry->id)->orderBy('id')->get() as $correction) {
+                foreach ($correction->line_changes as $change) {
+                    if ((int) $change['id'] === $funding->first()->id) {
+                        $source = $change['account_code'];
+                    }
+                }
+            }
+        }
         if ($source !== '572' && $source !== $code) {
             $this->fail('The posted treasury account differs from the selected bank account. Accounting review is required.');
         }

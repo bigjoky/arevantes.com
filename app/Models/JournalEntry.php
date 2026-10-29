@@ -56,4 +56,14 @@ class JournalEntry extends Model
     {
         return $this->hasOne(self::class, 'reverses_entry_id');
     }
+
+    public function corrections(): HasMany
+    {
+        return $this->hasMany(AccountingEntryCorrection::class);
+    }
+
+    public function creator(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
 }

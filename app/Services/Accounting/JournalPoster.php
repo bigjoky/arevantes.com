@@ -2,6 +2,7 @@
 
 namespace App\Services\Accounting;
 
+use App\Models\AccountingEntryCorrection;
 use App\Models\FiscalYear;
 use App\Models\JournalEntry;
 use App\Models\LedgerAccount;
@@ -19,6 +20,7 @@ class JournalPoster
     public function post(string $date, string $description, array $lines, ?int $userId, string $kind = 'manual', ?Model $source = null, string $event = 'manual', ?JournalEntry $reverses = null, ?JournalEntry $draft = null): JournalEntry
     {
         $lines = $this->normalizeLines($lines);
+        $description = app(JournalConcepts::class)->posting($source, $kind, $event, $description, $reverses);
 
         if (! in_array($kind, ['closing', 'closing_reversal', 'opening_reversal'], true)) {
             $this->periods->assertOpen($date);
@@ -62,13 +64,25 @@ class JournalPoster
             }
             $entry->fill($attributes)->save();
 
-            $accounts = LedgerAccount::whereIn('code', collect($lines)->pluck('account_code'))->get()->keyBy('code');
+            $accounts = LedgerAccount::whereIn('code', collect($lines)->pluck('account_code'))->orderBy('id')->sharedLock()->get()->keyBy('code');
             foreach ($lines as $line) {
                 $account = $accounts->get($line['account_code']);
                 if (! $account?->is_active || ! $account->is_postable) {
                     throw ValidationException::withMessages(['lines' => __('An accounting account is missing, inactive or not postable.')]);
                 }
-                $entry->lines()->create(['ledger_account_id' => $account->id, 'description' => $line['description'] ?? null, 'debit' => $line['debit'], 'credit' => $line['credit']]);
+                $entry->lines()->create(['ledger_account_id' => $account->id, 'description' => $line['description'] ?? ($kind === 'automatic' ? mb_substr($account->name.' — '.$description, 0, 255) : null), 'debit' => $line['debit'], 'credit' => $line['credit']]);
+            }
+
+            if ($reverses) {
+                // Reverse active reclassifications too: cancelling the original must unwind its
+                // effective ledger position without editing either historical journal.
+                foreach (AccountingEntryCorrection::where('journal_entry_id', $reverses->id)->whereNotNull('correction_entry_id')->orderBy('id')->get() as $correction) {
+                    $adjustment = JournalEntry::with('lines.account')->findOrFail($correction->correction_entry_id);
+                    if (! $adjustment->reversal()->exists()) {
+                        $adjustedLines = $adjustment->lines->map(fn ($l) => ['account_code' => $l->account->code, 'description' => $l->description, 'debit' => $l->credit, 'credit' => $l->debit])->all();
+                        $this->post($date, app(JournalConcepts::class)->render('reversal', ['referencia' => $adjustment->number, 'concepto' => $description]), $adjustedLines, $userId, 'reversal', null, 'reversal', $adjustment);
+                    }
+                }
             }
 
             return $entry;

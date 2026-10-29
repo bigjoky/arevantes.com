@@ -2,6 +2,7 @@
 
 namespace App\Services\Accounting;
 
+use App\Models\Expense;
 use App\Models\ExpenseCategory;
 use App\Models\FiscalEntity;
 use App\Models\Supplier;
@@ -41,20 +42,32 @@ class ExpenseCreditorRegistry
     }
 
     /** New documents only. Historical account choices remain unchanged. */
-    public function newInvoice(array $data): array
+    public function newInvoice(array $data, bool $includeDecision = false): array
     {
         if (($data['currency_code'] ?? 'EUR') !== 'EUR') {
             return $data;
         }
         $supplier = filled($data['supplier_id'] ?? null) ? Supplier::findOrFail($data['supplier_id']) : $this->supplier($data);
-        if (! $supplier) {
-            return $data;
+        if ($supplier) {
+            app(SupplierLedgerAccountManager::class)->sync($supplier);
         }
-        app(SupplierLedgerAccountManager::class)->sync($supplier);
-        $expenseCode = ExpenseCategory::findOrFail($data['expense_category_id'])->expense_account_code ?: '629';
-        // Services outside the productive supply chain use 410. Other mappings need review.
-        $code = str_starts_with($expenseCode, '60') ? $supplier->payable_account_code : $supplier->service_payable_account_code;
+        $category = ExpenseCategory::findOrFail($data['expense_category_id']);
+        $overrides = $data['accounting_overrides'] ?? [];
+        $frozen = $data['creditor_account_code'] ?? null;
+        $role = isset($overrides['supplier']) ? 'supplier' : (isset($overrides['creditor']) ? 'creditor' : ($frozen ? (str_starts_with($frozen, '400') ? 'supplier' : 'creditor') : (str_starts_with($category->expense_account_code ?? '', '60') ? 'supplier' : 'creditor')));
+        $legacy = $role === 'supplier' ? $supplier?->payable_account_code : $supplier?->service_payable_account_code;
+        $policy = app(AccountingAccountPolicy::class);
+        if ($frozen && ! isset($overrides['supplier']) && ! isset($overrides['creditor'])) {
+            $account = $policy->valid($frozen, $role);
+            $decision = ['role' => $role, 'code' => $account->code, 'name' => $account->name, 'origin' => 'stored_operation'];
+        } else {
+            $decision = $policy->decision($role, new Expense($data), $supplier, $category, legacySpecific: $legacy, fallback: $role === 'supplier' ? '400' : '410');
+        }
+        $result = [...$data, 'supplier_id' => $supplier?->id, 'creditor_account_code' => $decision['code']];
+        if ($includeDecision) {
+            $result['_accounting_control_decision'] = $decision;
+        }
 
-        return [...$data, 'supplier_id' => $supplier->id, 'creditor_account_code' => $code];
+        return $result;
     }
 }

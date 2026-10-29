@@ -7,6 +7,7 @@ import {
     WalletCards,
 } from 'lucide-react';
 import { useState } from 'react';
+import { AccountingOperationFields } from '@/components/accounting/operation-fields';
 import { ExpenseCalculationPreview } from '@/components/expense-calculation-preview';
 import { ExpenseIssuerFields } from '@/components/expense-issuer-fields';
 import {
@@ -949,6 +950,7 @@ function ExpenseDialog({
                                     <InputError message={errors.accounting} />
                                 </div>
                             </FormSection>
+                            <AccountingOperationFields kind="expense" />
                             <FormActions
                                 processing={processing}
                                 submitLabel={translate(
