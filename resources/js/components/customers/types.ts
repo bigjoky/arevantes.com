@@ -1,3 +1,4 @@
+import type { PartyAccountingSummary } from '@/components/accounting/party-accounting';
 export type CustomerRow = {
     id: number;
     name: string;
@@ -38,6 +39,7 @@ export type RelationRow = {
     href: string | null;
 };
 export type CustomerWorkspace = {
+    accounting?: PartyAccountingSummary | null;
     possibleDuplicates: { id: number; name: string }[];
     tab: 'summary' | Domain;
     permissions: Record<Domain, boolean>;

@@ -10,6 +10,7 @@ import {
     Phone,
 } from 'lucide-react';
 import type { ComponentProps } from 'react';
+import { PartyAccounting } from '@/components/accounting/party-accounting';
 import { Breadcrumbs } from '@/components/breadcrumbs';
 import { Button } from '@/components/ui/button';
 import { CustomerCrmDetails } from '@/pages/people/legacy-show';
@@ -147,6 +148,7 @@ export function CustomerDetail({
                     </details>
                 </div>
             </header>
+            <PartyAccounting summary={workspace.accounting} />
             <nav
                 className="customers-detail-tabs"
                 aria-label="Secciones de la ficha del cliente"

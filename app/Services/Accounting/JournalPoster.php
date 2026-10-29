@@ -6,6 +6,7 @@ use App\Models\AccountingEntryCorrection;
 use App\Models\FiscalYear;
 use App\Models\JournalEntry;
 use App\Models\LedgerAccount;
+use App\Models\TaxReturn;
 use App\Services\Documents\DocumentNumber;
 use Brick\Math\BigDecimal;
 use Brick\Math\RoundingMode;
@@ -76,11 +77,15 @@ class JournalPoster
             if ($reverses) {
                 // Reverse active reclassifications too: cancelling the original must unwind its
                 // effective ledger position without editing either historical journal.
-                foreach (AccountingEntryCorrection::where('journal_entry_id', $reverses->id)->whereNotNull('correction_entry_id')->orderBy('id')->get() as $correction) {
-                    $adjustment = JournalEntry::with('lines.account')->findOrFail($correction->correction_entry_id);
+                foreach (JournalEntry::whereIn('id', AccountingEntryCorrection::where('journal_entry_id', $reverses->id)->whereNotNull('correction_entry_id')->select('correction_entry_id'))->with('lines.account')->orderBy('entry_date')->orderBy('id')->get() as $adjustment) {
                     if (! $adjustment->reversal()->exists()) {
                         $adjustedLines = $adjustment->lines->map(fn ($l) => ['account_code' => $l->account->code, 'description' => $l->description, 'debit' => $l->credit, 'credit' => $l->debit])->all();
-                        $this->post($date, app(JournalConcepts::class)->render('reversal', ['referencia' => $adjustment->number, 'concepto' => $description]), $adjustedLines, $userId, 'reversal', null, 'reversal', $adjustment);
+                        $adjustmentDate = max($date, $adjustment->entry_date->toDateString());
+                        FiscalYear::whereDate('starts_on', '<=', $adjustmentDate)->whereDate('ends_on', '>=', $adjustmentDate)->lockForUpdate()->first();
+                        if (TaxReturn::whereIn('status', ['prepared', 'filed'])->whereDate('period_from', '<=', $adjustmentDate)->whereDate('period_to', '>=', $adjustmentDate)->exists()) {
+                            throw ValidationException::withMessages(['correction' => __('A prepared or filed tax return protects the linked correction. Review it before reversing.')]);
+                        }
+                        $this->post($adjustmentDate, app(JournalConcepts::class)->render('reversal', ['referencia' => $adjustment->number, 'concepto' => $description]), $adjustedLines, $userId, 'reversal', null, 'reversal', $adjustment);
                     }
                 }
             }

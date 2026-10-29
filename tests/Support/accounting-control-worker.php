@@ -5,6 +5,7 @@ use App\Models\JournalEntry;
 use App\Models\SalesDocument;
 use App\Models\User;
 use App\Services\Accounting\AccountingAccountPolicy;
+use App\Services\Accounting\AccountingReclassification;
 use App\Services\Accounting\CustomerPaymentCancellation;
 use App\Services\Accounting\JournalCorrection;
 use App\Services\Accounting\LedgerAccountResolver;
@@ -45,6 +46,8 @@ try {
         $r = Request::create('/', 'PATCH', $x['data']);
         $r->setUserResolver(fn () => $user);
         app(AccountingControlController::class)->assign($r, 'customer', $x['person_id'], app(AccountingAccountPolicy::class));
+    } elseif ($x['mode'] === 'batch') {
+        app(AccountingReclassification::class)->execute($x['data'], $user);
     } elseif ($x['mode'] === 'cancel') {
         app(CustomerPaymentCancellation::class)->cancel(SalesDocument::findOrFail($x['document_id']), $x['payment_id'], $user, 'Synthetic cancellation', $x['key'], $x['payment_revision']);
     } else {

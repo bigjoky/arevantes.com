@@ -3,6 +3,7 @@
 use App\Http\Controllers\AccountingControlController;
 use App\Http\Controllers\AccountingController;
 use App\Http\Controllers\AccountingDraftController;
+use App\Http\Controllers\AccountingReclassificationController;
 use App\Http\Controllers\AccountingTemplateController;
 use App\Http\Controllers\AccountingWorkspaceController;
 use App\Http\Controllers\ActionCenterController;
@@ -427,6 +428,12 @@ Route::middleware(['auth'])->group(function () {
     Route::get('finance/payment-batches/{paymentBatch}/sepa', [FinanceController::class, 'downloadPaymentBatch'])->middleware('can:approve-payments')->name('finance.payment-batches.sepa');
     Route::post('finance/payment-batches/{paymentBatch}/execute', [FinanceController::class, 'executePaymentBatch'])->middleware('can:approve-payments')->name('finance.payment-batches.execute');
     Route::middleware(AccountingCompanyContext::class)->group(function () {
+        Route::get('accounting/parties/{kind}/{id}', [AccountingReclassificationController::class, 'party'])->middleware('can:view-finance')->whereIn('kind', ['customer', 'supplier'])->whereNumber('id')->name('accounting.parties.show');
+        Route::get('accounting/reclassification', [AccountingReclassificationController::class, 'index'])->middleware('can:correct-journal-entries')->name('accounting.reclassification');
+        Route::post('accounting/reclassification/preview', [AccountingReclassificationController::class, 'preview'])->middleware('can:correct-journal-entries')->name('accounting.reclassification.preview');
+        Route::post('accounting/reclassification', [AccountingReclassificationController::class, 'store'])->middleware('can:correct-journal-entries')->name('accounting.reclassification.store');
+        Route::get('accounting/reclassification/{batch}', [AccountingReclassificationController::class, 'batch'])->middleware('can:view-finance')->whereUuid('batch')->name('accounting.reclassification.batch');
+
         Route::get('accounting/review', [AccountingControlController::class, 'review'])->middleware('can:view-finance')->name('accounting.review');
         Route::get('accounting/control', [AccountingControlController::class, 'index'])->middleware('can:view-finance')->name('accounting.control');
         Route::patch('accounting/control', [AccountingControlController::class, 'save'])->middleware('can:configure-accounting')->name('accounting.control.save');

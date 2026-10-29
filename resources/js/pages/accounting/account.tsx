@@ -9,6 +9,7 @@ export default function Account({
     account,
     year,
     canManage,
+    canReclassify,
     usage = [],
 }: {
     account: {
@@ -26,6 +27,7 @@ export default function Account({
     };
     year: number;
     canManage: boolean;
+    canReclassify?: boolean;
     usage?: { type: string; count: number; href: string }[];
 }) {
     return (
@@ -44,6 +46,15 @@ export default function Account({
                         </Button>
                     }
                 />
+                {canReclassify && (
+                    <Button asChild variant="outline">
+                        <Link
+                            href={`/accounting/reclassification?account=${account.code}&year=${year}`}
+                        >
+                            Reclasificar apuntes de esta cuenta
+                        </Link>
+                    </Button>
+                )}
                 <Panel title="Información de la cuenta">
                     <dl className="accounting-details">
                         <div>

@@ -125,6 +125,7 @@ type Props = {
         }>;
     };
     capabilities: {
+        reclassify?: boolean;
         manage: boolean;
         accounts: boolean;
         books: boolean;
@@ -437,6 +438,13 @@ export default function AccountingWorkspace(p: Props) {
                                     Revisión contable
                                 </Link>
                             </Button>
+                            {p.capabilities.reclassify && (
+                                <Button variant="outline" asChild>
+                                    <Link href="/accounting/reclassification">
+                                        Reclasificación contable
+                                    </Link>
+                                </Button>
+                            )}
                             {area === 'accounts' && p.capabilities.accounts && (
                                 <Button asChild>
                                     <Link href="/accounting/accounts?mode=manage">

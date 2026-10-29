@@ -254,7 +254,7 @@ class AccountingControlController extends Controller
         abort_unless($r->user()->can('correct-journal-entries'), 403);
         $d = $this->correctionData($r);
 
-        return response()->json($service->plan($entry, $d));
+        return response()->json($service->preview($entry, $d));
     }
 
     public function correct(Request $r, JournalEntry $entry, JournalCorrection $service)
@@ -288,6 +288,6 @@ class AccountingControlController extends Controller
         }
         $rows = $report->query($issue)->when($d['search'] ?? null, fn ($q, $term) => $q->where('title', 'like', '%'.$term.'%'))->orderBy('id')->paginate(25)->withQueryString();
 
-        return Inertia::render('accounting/review', ['issue' => $issue, 'counts' => $counts, 'rows' => $rows, 'search' => $d['search'] ?? '']);
+        return Inertia::render('accounting/review', ['canReclassify' => $r->user()->can('correct-journal-entries'), 'issue' => $issue, 'counts' => $counts, 'rows' => $rows, 'search' => $d['search'] ?? '']);
     }
 }

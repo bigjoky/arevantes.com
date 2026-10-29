@@ -6446,3 +6446,13 @@ Cierre verificado. No se inicia conciliación automática, Nexo ni ECO-03.
 - Dependencias: motor contable, periodos, identidad fiscal y conciliación existentes; migración aditiva específica. Sin Nexo ni ECO-03.
 - Criterio de aceptación: pruebas contables y concurrencia PostgreSQL 17.6, tipos/estilo/catálogo/compilación, comprobación visual escritorio/móvil y conservación de históricos antes/después de publicar.
 - Verificado: 1.090 pruebas generales, 121 económicas PostgreSQL 17.6, cinco carreras reales, 88 frontend, tipos/estilo/catálogo/build y escritorio/móvil. Detalle y límites: [ACC-01](accounting-control-acc01.md). Migración propia252→253, doce históricos y triggers intactos por hash; nueve GET privados200, públicos200/302. Jobs y automatismos sin cambios. Evidencia: [publicación ACC-01](accounting-control-publication-2026-10-29.json).
+
+## ACC-02 — Saldos consolidados y reclasificación asistida (29/10/2026)
+
+- Estado: candidato verificado; pendiente de publicación manual y verificación productiva, todavía no completado.
+- Alcance: situación contable en fichas de clientes y proveedores, cuentas históricas y anticipos con evidencia; mayor paginado; reclasificación individual y lotes supervisados sobre ACC-01, con vista previa, revisión e idempotencia.
+- Dependencias: rectificaciones, cierres, identidad documental y conciliación existentes. Una tabla aditiva de trazabilidad, sin reescritura histórica.
+- Criterios de aceptación: ambas capacidades publicadas; pruebas PostgreSQL 17.6, concurrencia y regresión económica; tipos/lint/ES-EN/build y visual escritorio/móvil; versión/rutas e históricos verificados en producción.
+- Límites y tratamiento de atribución incierta: [ACC-02](accounting-consolidation-acc02.md). No activar automatismos ni jobs pendientes.
+
+- Verificación local ACC-02: 1.104 pruebas generales, 101 económicas PostgreSQL 17.6, ocho carreras reales/64 aserciones, 88 frontend, tipos/estilo/ES-EN/build y flujo visual escritorio/móvil. Históricos no modificados; publicación pendiente.

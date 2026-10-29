@@ -1,5 +1,7 @@
 import { Head, Link } from '@inertiajs/react';
 import type { ComponentProps } from 'react';
+import { PartyAccounting } from '@/components/accounting/party-accounting';
+import type { PartyAccountingSummary } from '@/components/accounting/party-accounting';
 import { PageHeader, PageShell } from '@/components/page-shell';
 import { useSupplyDetailNavigation } from '@/components/supply/workspace';
 import { date, Empty, money, Panel } from '@/components/supply/workspace';
@@ -27,6 +29,7 @@ const tabs = [
 ] as const;
 export default function SupplierShow({
     supplier,
+    accounting,
     editableSupplier,
     contacts,
     products,
@@ -34,6 +37,7 @@ export default function SupplierShow({
     capabilities,
 }: {
     supplier: Supplier;
+    accounting?: PartyAccountingSummary | null;
     editableSupplier: ComponentProps<typeof SupplierDialog>['supplier'];
     contacts: {
         id: number;
@@ -104,6 +108,7 @@ export default function SupplierShow({
                         </>
                     }
                 />
+                <PartyAccounting summary={accounting} />
                 <nav className="supply-tabs" aria-label="Ficha de proveedor">
                     {permittedTabs.map(([id, label]) => (
                         <a

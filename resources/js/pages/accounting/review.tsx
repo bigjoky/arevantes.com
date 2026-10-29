@@ -15,11 +15,13 @@ const labels: Record<string, string> = {
     inactive_rules: 'Reglas con cuentas inactivas',
 };
 export default function Review({
+    canReclassify,
     issue,
     counts,
     rows,
     search,
 }: {
+    canReclassify?: boolean;
     issue: string;
     counts: Record<string, number>;
     rows: {
@@ -56,6 +58,11 @@ export default function Review({
                         </Link>
                     ))}
                 </div>
+                {canReclassify && (
+                    <Link href="/accounting/reclassification">
+                        Reclasificación contable
+                    </Link>
+                )}
                 <Panel title={labels[issue]}>
                     <p className="mb-3 text-sm">
                         Una cuenta general o una coincidencia de denominación no

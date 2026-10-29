@@ -28,6 +28,7 @@ type Entry = {
     correction_revision: string;
     can_correct: boolean;
     corrections: Correction[];
+    reclassification_batches?: { id: string; reason: string }[];
     lines: {
         id: number;
         code: string;
@@ -136,6 +137,18 @@ export function JournalCorrectionPanel({
     return (
         <>
             <Panel title="Anotaciones y rectificaciones">
+                {entry.can_correct && (
+                    <Link href="/accounting/reclassification">
+                        Reclasificación contable supervisada
+                    </Link>
+                )}
+                {entry.reclassification_batches?.map((b) => (
+                    <p key={b.id}>
+                        <Link href={`/accounting/reclassification/${b.id}`}>
+                            Lote de reclasificación · {b.reason}
+                        </Link>
+                    </p>
+                ))}
                 <p className="mb-3 text-sm">
                     El concepto y los apuntes originales se conservan. Los
                     cambios descriptivos se muestran como anotaciones; los

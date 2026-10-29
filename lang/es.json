@@ -1893,5 +1893,20 @@
     "employee payables": "remuneraciones pendientes",
     "credit cards": "tarjetas de crédito",
     "other treasury funds": "otros fondos de tesorería",
-    "Select only one supplier or creditor control account.": "Selecciona una única cuenta de control de proveedor o acreedor."
+    "Select only one supplier or creditor control account.": "Selecciona una única cuenta de control de proveedor o acreedor.",
+    "The selected journal line is unavailable.": "El apunte seleccionado no está disponible.",
+    "Select a different account for this line.": "Selecciona otra cuenta para este apunte.",
+    "Treasury, tax and closing lines require their specific accounting workflow.": "Los apuntes de tesorería, impuestos y cierre requieren su procedimiento contable específico.",
+    "Split this selection by third party, fiscal year and accounting criterion before confirming.": "Separa la selección por tercero, ejercicio y criterio contable antes de confirmar.",
+    "The batch key was already used for a different request.": "La clave del lote ya se utilizó para otra solicitud.",
+    "The selection changed after preview. Review the batch again.": "La selección ha cambiado desde la vista previa. Revisa el lote de nuevo.",
+    "There are no eligible lines to reclassify.": "No hay apuntes elegibles para reclasificar.",
+    "Confirm explicitly that blocked lines will remain unchanged.": "Confirma expresamente que los apuntes bloqueados permanecerán sin cambios.",
+    "Use the protected document, tax or treasury workflow.": "Utiliza el procedimiento específico del documento, impuesto o tesorería.",
+    "The proposed subaccount is explicitly assigned to another third party. Review the assignment first.": "La subcuenta propuesta está asignada expresamente a otro tercero. Revisa primero la asignación.",
+    "Another accounting operation is in progress. Review the batch and retry safely.": "Hay otra operación contable en curso. Revisa el lote y vuelve a intentarlo de forma segura.",
+    "The reclassification date cannot precede the original entry.": "La fecha de reclasificación no puede ser anterior al asiento original.",
+    "A prepared or filed tax return protects the linked correction. Review it before reversing.": "Una declaración preparada o presentada protege el ajuste vinculado. Revísala antes de anularlo.",
+    "A later-dated account correction exists. Choose its date or a later open date.": "Existe un ajuste de cuenta con fecha posterior. Elige esa fecha u otra posterior de un periodo abierto.",
+    "Treasury, employee, tax and closing lines require their specific accounting workflow.": "Los apuntes de tesorería, personal, impuestos y cierre requieren su procedimiento contable específico."
 }

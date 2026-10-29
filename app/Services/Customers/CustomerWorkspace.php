@@ -13,6 +13,7 @@ use App\Models\SalesDocument;
 use App\Models\User;
 use App\Models\WorkOrder;
 use App\Models\WorkOrderAttachment;
+use App\Services\Accounting\PartyLedger;
 use App\Support\Time\InstantSql;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
@@ -124,7 +125,7 @@ class CustomerWorkspace
                 }
             })->limit(5)->get(['id', 'first_name', 'last_name', 'company_name'])->map(fn ($p) => ['id' => $p->id, 'name' => $this->name($p)])->all() : [];
 
-        return ['tab' => $tab, 'permissions' => $permissions, 'domains' => $domains, 'financial' => $financial, 'possibleDuplicates' => $duplicates];
+        return ['accounting' => $request->user()->can('view-finance') ? app(PartyLedger::class)->summary('customer', $person->id, $request) : null, 'tab' => $tab, 'permissions' => $permissions, 'domains' => $domains, 'financial' => $financial, 'possibleDuplicates' => $duplicates];
     }
 
     public function name(Person $person): string

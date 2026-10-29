@@ -26078,5 +26078,277 @@
     "Revisar asiento contabilizado": {
         "es": "Revisar asiento contabilizado",
         "en": "Review posted journal entry"
+    },
+    "Reclasificación contable supervisada": {
+        "es": "Reclasificación contable supervisada",
+        "en": "Supervised accounting reclassification"
+    },
+    "Lote de reclasificación ·": {
+        "es": "Lote de reclasificación ·",
+        "en": "Reclassification batch ·"
+    },
+    "Situación contable": {
+        "es": "Situación contable",
+        "en": "Accounting position"
+    },
+    "Saldo confirmado de apuntes contabilizados. No equivale al importe pendiente de las facturas. Los anticipos se muestran por separado.": {
+        "es": "Saldo confirmado de apuntes contabilizados. No equivale al importe pendiente de las facturas. Los anticipos se muestran por separado.",
+        "en": "Confirmed posted ledger balance. This differs from outstanding invoices. Advances are shown separately."
+    },
+    "Consultar periodo": {
+        "es": "Consultar periodo",
+        "en": "Apply period"
+    },
+    "Total Debe": {
+        "es": "Total Debe",
+        "en": "Total debit"
+    },
+    "Total Haber": {
+        "es": "Total Haber",
+        "en": "Total credit"
+    },
+    "Saldo consolidado": {
+        "es": "Saldo consolidado",
+        "en": "Consolidated balance"
+    },
+    "Anticipos": {
+        "es": "Anticipos",
+        "en": "Advances"
+    },
+    "Cuenta principal actual": {
+        "es": "Cuenta principal actual",
+        "en": "Current principal account"
+    },
+    "Cuentas históricas vinculadas:": {
+        "es": "Cuentas históricas vinculadas:",
+        "en": "Linked historical accounts:"
+    },
+    "Movimientos pendientes de identificación:": {
+        "es": "Movimientos pendientes de identificación:",
+        "en": "Transactions awaiting attribution:"
+    },
+    ". No incluidos en el saldo confirmado.": {
+        "es": ". No incluidos en el saldo confirmado.",
+        "en": ". Excluded from the confirmed balance."
+    },
+    "Atribución por documento contabilizado y sus ajustes enlazados.": {
+        "es": "Atribución por documento contabilizado y sus ajustes enlazados.",
+        "en": "Attributed through the posted document and its linked adjustments."
+    },
+    "Consultar mayor del tercero": {
+        "es": "Consultar mayor del tercero",
+        "en": "View party ledger"
+    },
+    "Revisar movimientos sin atribución": {
+        "es": "Revisar movimientos sin atribución",
+        "en": "Review unattributed transactions"
+    },
+    "Cada movimiento conserva su fecha contable real. La cuenta compartida no prueba por sí misma la identidad del tercero.": {
+        "es": "Cada movimiento conserva su fecha contable real. La cuenta compartida no prueba por sí misma la identidad del tercero.",
+        "en": "Every transaction retains its actual accounting date. A shared account alone does not establish party identity."
+    },
+    "Resultado de reclasificación": {
+        "es": "Resultado de reclasificación",
+        "en": "Reclassification result"
+    },
+    "Lote contabilizado": {
+        "es": "Lote contabilizado",
+        "en": "Posted batch"
+    },
+    "Fecha contable:": {
+        "es": "Fecha contable:",
+        "en": "Accounting date:"
+    },
+    "Originales conservados. Cada asiento de ajuste está enlazado y auditado.": {
+        "es": "Originales conservados. Cada asiento de ajuste está enlazado y auditado.",
+        "en": "Original entries preserved. Every adjustment is linked and audited."
+    },
+    "Consultar asiento original": {
+        "es": "Consultar asiento original",
+        "en": "View original entry"
+    },
+    "Consultar ajuste": {
+        "es": "Consultar ajuste",
+        "en": "View adjustment"
+    },
+    "Elementos bloqueados, sin cambios": {
+        "es": "Elementos bloqueados, sin cambios",
+        "en": "Blocked items, unchanged"
+    },
+    "Apunte": {
+        "es": "Apunte",
+        "en": "Journal line"
+    },
+    "Volver a reclasificación": {
+        "es": "Volver a reclasificación",
+        "en": "Back to reclassification"
+    },
+    "Reclasificación contable": {
+        "es": "Reclasificación contable",
+        "en": "Accounting reclassification"
+    },
+    "Selección supervisada. Los originales se conservan y cada ajuste utiliza su fecha contable real.": {
+        "es": "Selección supervisada. Los originales se conservan y cada ajuste utiliza su fecha contable real.",
+        "en": "Supervised selection. Originals are preserved and each adjustment uses its actual accounting date."
+    },
+    "Localizar apuntes": {
+        "es": "Localizar apuntes",
+        "en": "Find journal lines"
+    },
+    "Cuenta actual": {
+        "es": "Cuenta actual",
+        "en": "Current account"
+    },
+    "Concepto o asiento": {
+        "es": "Concepto o asiento",
+        "en": "Description or entry"
+    },
+    "Automático": {
+        "es": "Automático",
+        "en": "Automatic"
+    },
+    "Manual": {
+        "es": "Manual",
+        "en": "Manual"
+    },
+    "Rectificación": {
+        "es": "Rectificación",
+        "en": "Correction"
+    },
+    "Anulación": {
+        "es": "Anulación",
+        "en": "Reversal"
+    },
+    "Apertura": {
+        "es": "Apertura",
+        "en": "Opening"
+    },
+    "Cierre": {
+        "es": "Cierre",
+        "en": "Closing"
+    },
+    "Tipo de tercero": {
+        "es": "Tipo de tercero",
+        "en": "Party type"
+    },
+    "Proveedor o acreedor": {
+        "es": "Proveedor o acreedor",
+        "en": "Supplier or creditor"
+    },
+    "Buscar tercero": {
+        "es": "Buscar tercero",
+        "en": "Search parties"
+    },
+    "Todos los resultados": {
+        "es": "Todos los resultados",
+        "en": "All results"
+    },
+    "Buscar apuntes": {
+        "es": "Buscar apuntes",
+        "en": "Find journal lines"
+    },
+    "Apuntes encontrados": {
+        "es": "Apuntes encontrados",
+        "en": "Matching journal lines"
+    },
+    "La selección corresponde a esta página. Los bloqueos se vuelven a validar al confirmar; no se ejecutan líneas protegidas.": {
+        "es": "La selección corresponde a esta página. Los bloqueos se vuelven a validar al confirmar; no se ejecutan líneas protegidas.",
+        "en": "Selection applies to this page. Restrictions are rechecked on confirmation; protected lines are never executed."
+    },
+    "Elegible para revisión": {
+        "es": "Elegible para revisión",
+        "en": "Eligible for review"
+    },
+    "Preparar reclasificación": {
+        "es": "Preparar reclasificación",
+        "en": "Prepare reclassification"
+    },
+    "Fecha contable de la rectificación": {
+        "es": "Fecha contable de la rectificación",
+        "en": "Correction accounting date"
+    },
+    "Mostrar propuesta de reclasificación": {
+        "es": "Mostrar propuesta de reclasificación",
+        "en": "Preview reclassification"
+    },
+    "Vista previa obligatoria": {
+        "es": "Vista previa obligatoria",
+        "en": "Required preview"
+    },
+    "Apuntes seleccionados:": {
+        "es": "Apuntes seleccionados:",
+        "en": "Selected lines:"
+    },
+    ". Elegibles:": {
+        "es": ". Elegibles:",
+        "en": ". Eligible:"
+    },
+    ". Asientos de ajuste:": {
+        "es": ". Asientos de ajuste:",
+        "en": ". Adjustment entries:"
+    },
+    ". Motivo:": {
+        "es": ". Motivo:",
+        "en": ". Reason:"
+    },
+    "Se neutraliza la imputación anterior y se registra en la nueva cuenta mediante el ajuste enlazado.": {
+        "es": "Se neutraliza la imputación anterior y se registra en la nueva cuenta mediante el ajuste enlazado.",
+        "en": "The previous allocation is offset and posted to the new account through the linked adjustment."
+    },
+    "Tercero sin identificar: no se atribuye un efecto confirmado.": {
+        "es": "Tercero sin identificar: no se atribuye un efecto confirmado.",
+        "en": "Unidentified party: no confirmed party effect is attributed."
+    },
+    "Efecto sobre el saldo consolidado del tercero: 0,00 €. Cambia el desglose entre cuentas.": {
+        "es": "Efecto sobre el saldo consolidado del tercero: 0,00 €. Cambia el desglose entre cuentas.",
+        "en": "Effect on the consolidated party balance: €0.00. The account breakdown changes."
+    },
+    "Asiento de ajuste propuesto": {
+        "es": "Asiento de ajuste propuesto",
+        "en": "Proposed adjustment entry"
+    },
+    "Confirmo ejecutar solo los elementos elegibles y conservar los bloqueados sin cambios.": {
+        "es": "Confirmo ejecutar solo los elementos elegibles y conservar los bloqueados sin cambios.",
+        "en": "I confirm execution of eligible items only, leaving blocked items unchanged."
+    },
+    "He revisado la propuesta y autorizo estos ajustes.": {
+        "es": "He revisado la propuesta y autorizo estos ajustes.",
+        "en": "I have reviewed the proposal and authorize these adjustments."
+    },
+    "Confirmar reclasificación": {
+        "es": "Confirmar reclasificación",
+        "en": "Confirm reclassification"
+    },
+    "Historial de lotes": {
+        "es": "Historial de lotes",
+        "en": "Batch history"
+    },
+    "Positivo: saldo contable a cobrar. Negativo: a favor del cliente.": {
+        "es": "Positivo: saldo contable a cobrar. Negativo: a favor del cliente.",
+        "en": "Positive: accounting receivable. Negative: in the customer’s favor."
+    },
+    "Positivo: saldo contable a pagar. Negativo: a favor de la empresa.": {
+        "es": "Positivo: saldo contable a pagar. Negativo: a favor de la empresa.",
+        "en": "Positive: accounting payable. Negative: in the company’s favor."
+    },
+    "El saldo consolidado descuenta los anticipos, que también se desglosan.": {
+        "es": "El saldo consolidado descuenta los anticipos, que también se desglosan.",
+        "en": "The consolidated balance deducts advances, which are also shown separately."
+    },
+    "Resumen agregado por cuenta": {
+        "es": "Resumen agregado por cuenta",
+        "en": "Totals by account"
+    },
+    "Seleccionar apunte": {
+        "es": "Seleccionar apunte",
+        "en": "Select journal line"
+    },
+    "Sin atribución confirmada": {
+        "es": "Sin atribución confirmada",
+        "en": "No confirmed attribution"
+    },
+    "Reclasificar apuntes de esta cuenta": {
+        "es": "Reclasificar apuntes de esta cuenta",
+        "en": "Reclassify lines for this account"
     }
 }

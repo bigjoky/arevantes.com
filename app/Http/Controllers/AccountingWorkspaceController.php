@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\AccountingEntryCorrection;
 use App\Models\AccountingPeriod;
+use App\Models\AccountingReclassificationBatch;
 use App\Models\AuditLog;
 use App\Models\CompanyProfile;
 use App\Models\Expense;
@@ -126,7 +127,7 @@ class AccountingWorkspaceController extends Controller
             'summary' => $workspace->summary($f['from'], $f['to'], $balanceFrom), 'series' => $workspace->series($f['from'], $f['to']),
             'entries' => $pagedEntries, 'accounts' => $accounts, 'groups' => $groupRows, 'ledger' => $ledger,
             'reportAccounts' => $area === 'reports' && in_array($view, ['balance', 'profit', 'trial'], true) ? (clone $allAccounts)->whereHas('lines', fn ($q) => $q->whereHas('entry', fn ($e) => $e->where('status', 'posted')->whereDate('entry_date', '>=', $balanceFrom)->whereDate('entry_date', '<=', $f['to'])))->orderBy('code')->get()->map(fn ($a) => $workspace->accountRow($a)) : [],
-            'capabilities' => ['manage' => Gate::allows('manage-accounting'), 'accounts' => Gate::allows('manage-ledger-accounts'), 'books' => false, 'multiCompany' => false, 'statutoryMapping' => false, 'import' => false],
+            'capabilities' => ['reclassify' => Gate::allows('correct-journal-entries'), 'manage' => Gate::allows('manage-accounting'), 'accounts' => Gate::allows('manage-ledger-accounts'), 'books' => false, 'multiCompany' => false, 'statutoryMapping' => false, 'import' => false],
             'kinds' => JournalEntry::whereDate('entry_date', '>=', $f['from'])->whereDate('entry_date', '<=', $f['to'])->distinct()->orderBy('entry_kind')->pluck('entry_kind'),
         ]);
     }
@@ -143,7 +144,7 @@ class AccountingWorkspaceController extends Controller
         $f = $this->filters($request);
         $row = $workspace->accounts($f['from'], $f['to'])->findOrFail($account->id);
 
-        return Inertia::render('accounting/account', ['account' => $workspace->accountRow($row), 'year' => $f['year'], 'canManage' => Gate::allows('manage-ledger-accounts'), 'usage' => app(AccountUsage::class)->forAccount($account)]);
+        return Inertia::render('accounting/account', ['canReclassify' => Gate::allows('correct-journal-entries'), 'account' => $workspace->accountRow($row), 'year' => $f['year'], 'canManage' => Gate::allows('manage-ledger-accounts'), 'usage' => app(AccountUsage::class)->forAccount($account)]);
     }
 
     public function show(Request $request, JournalEntry $entry, AccountingWorkspace $workspace): Response
@@ -155,7 +156,7 @@ class AccountingWorkspaceController extends Controller
 
         return Inertia::render('accounting/entry', ['entry' => [...$workspace->entryRow($entry), 'lines' => $entry->lines->map(fn ($l) => ['id' => $l->id, 'code' => $l->account->code, 'name' => $l->account->name, 'description' => $l->description, 'debit' => $l->debit, 'credit' => $l->credit]), 'creator' => $creator, 'draft_metadata' => AuditLog::where('auditable_type', $entry->getMorphClass())->where('auditable_id', $entry->id)->where('event', 'journal_draft_saved')->latest('id')->first()?->new_values, 'resolution' => AuditLog::where('auditable_type', $entry->getMorphClass())->where('auditable_id', $entry->id)->where('event', 'journal_accounts_resolved')->latest('id')->first()?->new_values,
             'source' => $this->source($entry), 'original' => $entry->reversedEntry?->only(['id', 'number']) ?? ($entry->source_type === JournalEntry::class ? $entry->source?->only(['id', 'number']) : null), 'reversal' => $entry->reversal?->only(['id']),
-            'corrections' => AccountingEntryCorrection::with('creator:id,name')->where('journal_entry_id', $entry->id)->orderBy('id')->get(), 'correction_revision' => app(JournalCorrection::class)->revision($entry), 'can_correct' => Gate::allows('correct-journal-entries'), 'fiscalYear' => $entry->fiscalYear?->only(['year', 'status']), 'period' => AccountingPeriod::where('year', $entry->entry_date->year)->where('month', $entry->entry_date->month)->first()?->only(['year', 'month', 'status']), 'history' => $history], 'canManage' => Gate::allows('manage-accounting'),
+            'reclassification_batches' => AccountingReclassificationBatch::whereJsonContains('results->entries', $entry->id)->orderByDesc('recorded_at_utc')->get(['id', 'reason', 'correction_date']), 'corrections' => AccountingEntryCorrection::with('creator:id,name')->where('journal_entry_id', $entry->id)->orderBy('id')->get(), 'correction_revision' => app(JournalCorrection::class)->revision($entry), 'can_correct' => Gate::allows('correct-journal-entries'), 'fiscalYear' => $entry->fiscalYear?->only(['year', 'status']), 'period' => AccountingPeriod::where('year', $entry->entry_date->year)->where('month', $entry->entry_date->month)->first()?->only(['year', 'month', 'status']), 'history' => $history], 'canManage' => Gate::allows('manage-accounting'),
             'postingAccounts' => LedgerAccount::where('is_active', true)->where('is_postable', true)->orderBy('code')->get(['code', 'name'])]);
     }
 

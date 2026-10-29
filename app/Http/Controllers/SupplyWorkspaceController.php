@@ -15,6 +15,7 @@ use App\Models\Supplier;
 use App\Models\TaxRate;
 use App\Models\Unit;
 use App\Models\Warehouse;
+use App\Services\Accounting\PartyLedger;
 use App\Services\Accounting\SupplierPaymentSourceResolver;
 use App\Services\Billing\BillingWorkspace;
 use App\Services\Documents\PurchaseInvoiceMatcher;
@@ -217,11 +218,12 @@ class SupplyWorkspaceController extends Controller
         return Inertia::render('supply/suppliers', ['suppliers' => $rows->orderBy('legal_name')->paginate(15)->withQueryString(), 'filters' => $filters, 'capabilities' => $this->capabilities()]);
     }
 
-    public function supplierShow(Supplier $supplier): Response
+    public function supplierShow(Supplier $supplier, Request $request): Response
     {
         $supplier->load(['contacts', 'products.product:id,name,sku', 'purchaseDocuments' => fn ($q) => $q->latest('issue_date')->limit(15)]);
 
         return Inertia::render('supply/supplier', [
+            'accounting' => Gate::allows('view-finance') ? app(PartyLedger::class)->summary('supplier', $supplier->id, $request) : null,
             'supplier' => $supplier->only(['id', 'legal_name', 'trade_name', 'tax_id', 'email', 'phone', 'address_line_1', 'city', 'province', 'postal_code', 'country', 'payment_terms_days', 'is_active']),
             'editableSupplier' => Gate::allows('view-finance') ? $supplier->withoutRelations() : null,
             'contacts' => $supplier->contacts->map(fn ($row) => $row->only(['id', 'first_name', 'last_name', 'position', 'email', 'phone'])),

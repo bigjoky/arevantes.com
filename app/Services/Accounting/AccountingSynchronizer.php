@@ -81,9 +81,9 @@ class AccountingSynchronizer
         if (! $document->collect_before_invoice) {
             return;
         }
-        $account = $this->frozen($document, ['430'], 'receivable') ?: $this->account('receivable', $document, $document->customer, $document->customer?->receivable_account_code, '430');
+        $account = $this->frozen($document, ['430'], 'receivable', asOf: $document->issue_date->toDateString()) ?: $this->account('receivable', $document, $document->customer, $document->customer?->receivable_account_code, '430');
         foreach ($document->payments()->get() as $payment) {
-            $this->post($payment, 'invoice_allocation', $document->issue_date->toDateString(), $document->number, $userId, [[$this->frozen($payment, ['438'], 'customer_advance', 'payment') ?: $this->account('customer_advance', $payment, $document->customer, null, '438'), $payment->amount, 0], [$account, 0, $payment->amount]]);
+            $this->post($payment, 'invoice_allocation', $document->issue_date->toDateString(), $document->number, $userId, [[$this->frozen($payment, ['438'], 'customer_advance', 'payment', $document->issue_date->toDateString()) ?: $this->account('customer_advance', $payment, $document->customer, null, '438'), $payment->amount, 0], [$account, 0, $payment->amount]]);
         }
     }
 
@@ -242,7 +242,7 @@ class AccountingSynchronizer
             $document = SalesDocument::lockForUpdate()->findOrFail($payment->sales_document_id);
             $payment = SalesDocumentPayment::lockForUpdate()->findOrFail($payment->id);
             $payment->setRelation('document', $document->loadMissing('customer'));
-            $customerAccount = $document->collect_before_invoice && ! $document->locked_at ? $this->account('customer_advance', $payment, $document->customer, null, '438') : ($this->frozen($document, ['430'], 'receivable') ?: $this->account('receivable', $document, $document->customer, $document->customer?->receivable_account_code, '430'));
+            $customerAccount = $document->collect_before_invoice && ! $document->locked_at ? $this->account('customer_advance', $payment, $document->customer, null, '438') : ($this->frozen($document, ['430'], 'receivable', asOf: $payment->paid_at->toDateString()) ?: $this->account('receivable', $document, $document->customer, $document->customer?->receivable_account_code, '430'));
 
             return $this->post($payment, 'payment', $payment->paid_at->toDateString(), __('Customer receipt :reference', ['reference' => $payment->reference ?: $payment->id]), $userId, [
                 [$this->account($payment->method === 'cash' ? 'cash' : 'bank', $payment, null, null, $payment->method === 'cash' ? '570' : '572'), $payment->amount, 0], [$customerAccount, 0, $payment->amount],
@@ -275,7 +275,7 @@ class AccountingSynchronizer
             $supplier = $payment->expense?->supplier ?? $payment->purchaseDocument?->supplier;
             $role = str_starts_with($supplierAccount, '410') ? 'creditor' : 'supplier';
             $paymentDocument = $payment->expense ?? $payment->purchaseDocument;
-            $supplierAccount = $this->frozen($paymentDocument, ['400', '410'], $role) ?: $this->account($role, $payment, $supplier, $supplierAccount, $role === 'supplier' ? '400' : '410');
+            $supplierAccount = $this->frozen($paymentDocument, ['400', '410'], $role, asOf: $payment->paid_at->toDateString()) ?: $this->account($role, $payment, $supplier, $supplierAccount, $role === 'supplier' ? '400' : '410');
 
             return $this->post($payment, 'payment', $payment->paid_at->toDateString(), __('Supplier payment :reference', ['reference' => $payment->reference ?: $payment->id]), $userId, [
                 [$supplierAccount, $payment->amount, 0], [$fundingAccount, 0, $payment->amount],
@@ -326,7 +326,7 @@ class AccountingSynchronizer
         if ($operation && in_array($operation->type ?? null, ['credit_note', 'supplier_credit_note'], true) && $operation->source_document_id && empty($operation->accounting_overrides[$role])) {
             $parent = $operation->newQuery()->find($operation->source_document_id);
             if ($parent) {
-                $historical = app(PostedAccountSnapshot::class)->historicalChoice($parent, $role, $specific);
+                $historical = app(PostedAccountSnapshot::class)->historicalChoice($parent, $role, $specific, $operation->issue_date->toDateString());
                 if ($historical) {
                     $this->decisions[] = ['role' => $role, 'code' => $historical, 'origin' => 'posted_document', 'source_type' => $parent->getMorphClass(), 'source_id' => $parent->id];
 
@@ -343,9 +343,9 @@ class AccountingSynchronizer
         return $decision['code'];
     }
 
-    private function frozen(Model $source, array $prefixes, string $role, ?string $event = null): ?string
+    private function frozen(Model $source, array $prefixes, string $role, ?string $event = null, ?string $asOf = null): ?string
     {
-        $code = app(PostedAccountSnapshot::class)->control($source, $prefixes, $event);
+        $code = app(PostedAccountSnapshot::class)->control($source, $prefixes, $event, $asOf);
         if ($code) {
             $this->decisions[] = ['role' => $role, 'code' => $code, 'origin' => 'posted_document', 'source_type' => $source->getMorphClass(), 'source_id' => $source->id];
         }

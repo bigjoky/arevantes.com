@@ -20,6 +20,7 @@ use App\Models\TaxReturnPayment;
 use App\Models\User;
 use App\Support\Time\BusinessTime;
 use Illuminate\Database\UniqueConstraintViolationException;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -39,15 +40,23 @@ class JournalCorrection
         throw ValidationException::withMessages(['correction' => __($message)]);
     }
 
-    public function plan(JournalEntry $entry, array $data): array
+    public function currentLines(JournalEntry $entry): Collection
     {
-        $entry->load('lines.account');
+        $entry->loadMissing('lines.account');
         $effective = $entry->lines->keyBy('id')->map(fn ($l) => ['account_code' => $l->account->code, 'description' => $l->description]);
-        foreach (AccountingEntryCorrection::where('journal_entry_id', $entry->id)->orderBy('id')->get() as $c) {
+        foreach (($entry->relationLoaded('corrections') ? $entry->corrections->sortBy('id') : AccountingEntryCorrection::where('journal_entry_id', $entry->id)->orderBy('id')->get()) as $c) {
             foreach ($c->line_changes as $line) {
                 $effective[$line['id']] = ['account_code' => $line['account_code'], 'description' => $line['description']];
             }
         }
+
+        return $effective;
+    }
+
+    public function plan(JournalEntry $entry, array $data): array
+    {
+        $entry->load('lines.account');
+        $effective = $this->currentLines($entry);
         $changes = [];
         $posting = [];
         foreach ($data['lines'] ?? [] as $change) {
@@ -74,11 +83,58 @@ class JournalCorrection
                 $posting[] = ['account_code' => $new->code, 'description' => $description, 'debit' => $line->debit, 'credit' => $line->credit];
             }
         }
+        if ($posting && isset($data['entry_date'])) {
+            if ($data['entry_date'] < $entry->entry_date->toDateString()) {
+                $this->fail('The reclassification date cannot precede the original entry.');
+            }
+            $latest = AccountingEntryCorrection::where('journal_entry_id', $entry->id)->whereNotNull('correction_entry_id')->max('correction_date');
+            if ($latest && $data['entry_date'] < $latest) {
+                $this->fail('A later-dated account correction exists. Choose its date or a later open date.');
+            }
+        }
         if ($posting) {
             $this->poster->normalizeLines($posting);
         }
 
         return ['line_changes' => $changes, 'posting_lines' => $posting, 'changes_accounts' => (bool) $posting, 'original_untouched' => true];
+    }
+
+    /** Read-only eligibility, shared by individual and supervised batch previews. */
+    public function preview(JournalEntry $entry, array $data): array
+    {
+        $entry = JournalEntry::findOrFail($entry->id);
+        if ($entry->status !== 'posted' || $entry->reversal()->exists() || in_array($entry->entry_kind, ['closing', 'opening', 'correction', 'reversal'], true)) {
+            $this->fail('This journal entry requires a different protected accounting procedure.');
+        }
+        if (! hash_equals($this->revision($entry), $data['revision'])) {
+            $this->fail('The entry or its corrections changed. Reload before confirming.');
+        }
+        foreach (array_unique([$entry->entry_date->toDateString(), $data['entry_date']]) as $date) {
+            if (! FiscalYear::whereDate('starts_on', '<=', $date)->whereDate('ends_on', '>=', $date)->where('status', 'open')->exists()) {
+                $this->fail('The correction requires open fiscal years and periods.');
+            }
+            $this->periods->assertOpen($date);
+        }
+        if (TaxReturn::whereIn('status', ['prepared', 'filed'])->where(function ($q) use ($entry, $data) {
+            foreach (array_unique([$entry->entry_date->toDateString(), $data['entry_date']]) as $date) {
+                $q->orWhere(fn ($p) => $p->whereDate('period_from', '<=', $date)->whereDate('period_to', '>=', $date));
+            }
+        })->exists()) {
+            $this->fail('A prepared or filed tax return protects this journal entry.');
+        }
+        $plan = $this->plan($entry, $data);
+        $source = $entry->source;
+        if ($entry->source_type && ! $source) {
+            $this->fail('The source document is unavailable. Review it before correcting this entry.');
+        }
+        if ($plan['changes_accounts'] && ($source instanceof SalesDocumentPayment || $source instanceof SupplierPayment) && ($source->reconciliation()->exists() || $source->origin_bank_transaction_id || $source->voided_at)) {
+            $this->fail('Correct the bank relationship or cancelled operation through its authorized workflow first.');
+        }
+        if ($plan['changes_accounts'] && ($source instanceof BankReconciliation || $source instanceof BankTransactionPosting || $source instanceof BankTransfer || $source instanceof TaxReturn || $source instanceof TaxReturnPayment)) {
+            $this->fail('Bank reconciliation entries must be corrected from the bank workspace.');
+        }
+
+        return $plan;
     }
 
     private function replay(AccountingEntryCorrection $existing, JournalEntry $entry, array $data, User $actor): AccountingEntryCorrection
@@ -138,7 +194,11 @@ class JournalCorrection
                 if (! hash_equals($this->revision($entry), $data['revision'])) {
                     $this->fail('The entry or its corrections changed. Reload before confirming.');
                 }
-                if (TaxReturn::whereIn('status', ['prepared', 'filed'])->whereDate('period_from', '<=', $entry->entry_date)->whereDate('period_to', '>=', $entry->entry_date)->exists()) {
+                if (TaxReturn::whereIn('status', ['prepared', 'filed'])->where(function ($q) use ($entry, $data) {
+                    foreach (array_unique([$entry->entry_date->toDateString(), $data['entry_date']]) as $date) {
+                        $q->orWhere(fn ($p) => $p->whereDate('period_from', '<=', $date)->whereDate('period_to', '>=', $date));
+                    }
+                })->exists()) {
                     $this->fail('A prepared or filed tax return protects this journal entry.');
                 }
                 $plan = $this->plan($entry, $data);
