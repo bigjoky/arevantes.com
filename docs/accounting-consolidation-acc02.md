@@ -1,6 +1,6 @@
 # ACC-02 — Saldos consolidados y reclasificación asistida
 
-Estado: candidato integrado verificado; publicación manual pendiente. No publicado todavía.
+Estado: completado, publicado y verificado en producción el 29/10/2026.
 
 ## Alcance y evidencia
 
@@ -42,4 +42,12 @@ La selección interactiva corresponde a la página actual; el servidor admite ha
 - Vista previa confirmada de solo lectura. EXPLAIN ANALYZE de la consulta de atribución en el pequeño fixture sintético: 10 filas, 2,076 ms de ejecución y 8,289 ms de planificación; no se presenta como ensayo de carga productiva.
 - Preflight productivo de lectura: únicamente pendiente la migración propia, sin asientos descuadrados; automatismos desactivados y trabajos pendientes preservados.
 
-ACC-02 no se considera completado hasta publicar y verificar ambas capacidades. El despliegue y sus comprobaciones se registrarán al finalizar.
+Ambas capacidades publicadas y verificadas. Código `98753f322da22589e89f1edaa746368942478a22`; deployment `depl-a319aee6-7c9a-4652-bb2e-06285599458b`, succeeded el 29/10/2026 a las 20:52:14 UTC. La única migración propia pasa el registro de 253 a 254. Quince tablas históricas conservan sus hashes y los triggers permanecen intactos. La nueva tabla conserva RLS, cero privilegios Data API/PUBLIC y sus tres índices. Fuentes remotas iguales al candidato por SHA-256.
+
+Mantenimiento retirado. Once GET autenticados devuelven 200: herramienta, mayor de cliente y proveedor, ambas fichas, detalle de asiento, revisión, plan, banco, gastos y compras. Las cinco rutas principales confirman los nuevos contratos de datos. `/up` y `/login` devuelven 200; herramienta anónima, 302. No se crearon lotes ni movimientos de prueba en producción. La ejecución mutativa se probó exclusivamente con datos sintéticos y rollback.
+
+Los nueve jobs y sus payloads/colas/intententos/reservas permanecen intactos, incluidos los seis históricos. Workers, scheduler, integraciones OPS, push-to-deploy, hook y migraciones automáticas siguen desactivados. Backups, originales y retención conservados.
+
+El monitor CLI permaneció suscrito después de finalizar el deployment; se cerró únicamente ese proceso local tras comprobar repetidamente el estado succeeded y SHA por API. No es un fallo del despliegue. No hay archivos de log de aplicación disponibles en el contenedor: se verificaron el estado de Cloud y las rutas afectadas, sin afirmar una revisión global de logs inexistentes.
+
+Evidencia compacta: [publicación ACC-02](accounting-consolidation-publication-2026-10-29.json).

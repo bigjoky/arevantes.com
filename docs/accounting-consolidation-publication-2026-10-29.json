@@ -1,0 +1,199 @@
+{
+  "state": "published_verified",
+  "code_commit": "98753f322da22589e89f1edaa746368942478a22",
+  "deployment": "depl-a319aee6-7c9a-4652-bb2e-06285599458b",
+  "cloud": {
+    "read_at_utc": "2026-10-29T20:54:26.196114+00:00",
+    "read_only": true,
+    "monitor_invoked": true,
+    "monitor_exit": -2,
+    "monitor_note": "CLI subscriber emitted no output; stopped its local read-only process only after exact deployment GET repeatedly confirmed succeeded and currentDeploymentId",
+    "expected_candidate": "98753f322da22589e89f1edaa746368942478a22",
+    "environment": {
+      "id": "env-a278002d-4d7c-4fc2-8920-1034fe592f20",
+      "status": "running",
+      "buildCommand": "composer install --no-dev --prefer-dist --optimize-autoloader --no-interaction\ncomposer patches-repatch --no-interaction\nnpm ci\nnpm run build\nphp artisan optimize",
+      "deployCommand": null,
+      "usesPushToDeploy": false,
+      "usesDeployHook": false,
+      "currentDeploymentId": "depl-a319aee6-7c9a-4652-bb2e-06285599458b"
+    },
+    "deployment": {
+      "id": "depl-a319aee6-7c9a-4652-bb2e-06285599458b",
+      "status": "deployment.succeeded",
+      "commitHash": "98753f322da22589e89f1edaa746368942478a22",
+      "startedAt": "2026-10-29T20:50:38.000000Z",
+      "finishedAt": "2026-10-29T20:52:14.000000Z",
+      "failureReason": null
+    },
+    "instance": {
+      "id": "inst-a278002d-5256-4baa-a564-1f2e601f06ad",
+      "type": "app",
+      "minReplicas": 1,
+      "maxReplicas": 1,
+      "usesScheduler": false,
+      "backgroundProcessIds": []
+    },
+    "background_processes": [],
+    "patches_repatch_preserved": true,
+    "exact_candidate_active": true,
+    "monitor_stopped_locally_after_confirmed_success": true
+  },
+  "migration": {
+    "migration": "2026_10_29_185005_create_accounting_reclassification_batches",
+    "sha256": "7d2e5c03184b5634391d03abb5021ba82e6495ad428c85f4a274e5b0bff3e042",
+    "migrations_before": 253,
+    "migrations_after": 254,
+    "historical_tables_unchanged": 15,
+    "historical_triggers_unchanged": true,
+    "automatic_hook_used": false
+  },
+  "integrity": {
+    "historical_tables_unchanged": 15,
+    "historical_triggers_unchanged": true,
+    "jobs_unchanged": 9,
+    "new_table_rls": true,
+    "data_api_grants": 0,
+    "batch_indexes": 3,
+    "production_test_writes": 0
+  },
+  "tests": {
+    "general": {
+      "total": 1156,
+      "passed": 1104,
+      "skipped": 52,
+      "assertions": 15576
+    },
+    "postgresql_17_6": {
+      "tests": 101,
+      "assertions": 897
+    },
+    "concurrency": {
+      "tests": 2,
+      "scenarios": 8,
+      "assertions": 64
+    },
+    "frontend": {
+      "passed": 88
+    },
+    "types": true,
+    "affected_eslint": true,
+    "pint": true,
+    "catalog_es_en": true,
+    "build": true,
+    "visual": {
+      "syntheticOnly": true,
+      "actualProductionWrites": 0,
+      "previewPosts": 1,
+      "interceptedConfirmations": 1,
+      "mobile": {
+        "viewport": 390,
+        "content": 390
+      },
+      "finalBounds": {
+        "viewport": 390,
+        "content": 390
+      },
+      "keyboardConfirmed": true,
+      "pageErrors": []
+    },
+    "visual_english_heading": true
+  },
+  "public_routes": [
+    {
+      "path": "/up",
+      "status": 200
+    },
+    {
+      "path": "/login",
+      "status": 200
+    },
+    {
+      "path": "/accounting/reclassification",
+      "status": 302
+    }
+  ],
+  "authenticated_routes": [
+    {
+      "path": "/accounting/accounts?year=2026",
+      "status": 200,
+      "bytes": 34916
+    },
+    {
+      "path": "/banking",
+      "status": 200,
+      "bytes": 172510
+    },
+    {
+      "path": "/people/2",
+      "status": 200,
+      "component": "people/show",
+      "bytes": 30882,
+      "new_contract_present": true
+    },
+    {
+      "path": "/accounting/entries/2",
+      "status": 200,
+      "component": "accounting/entry",
+      "bytes": 91807,
+      "new_contract_present": true
+    },
+    {
+      "path": "/expenses",
+      "status": 200,
+      "bytes": 139994
+    },
+    {
+      "path": "/accounting/parties/customer/2?ledger_year=2026",
+      "status": 200,
+      "component": "accounting/party-ledger",
+      "bytes": 23534,
+      "new_contract_present": true
+    },
+    {
+      "path": "/purchases",
+      "status": 200,
+      "bytes": 124335
+    },
+    {
+      "path": "/accounting/review",
+      "status": 200,
+      "bytes": 23309
+    },
+    {
+      "path": "/accounting/parties/supplier/1?ledger_year=2026",
+      "status": 200,
+      "bytes": 24431
+    },
+    {
+      "path": "/suppliers/1",
+      "status": 200,
+      "component": "supply/supplier",
+      "bytes": 26418,
+      "new_contract_present": true
+    },
+    {
+      "path": "/accounting/reclassification?year=2026",
+      "status": 200,
+      "component": "accounting/reclassification",
+      "bytes": 121709,
+      "new_contract_present": true
+    }
+  ],
+  "operations": {
+    "maintenance": false,
+    "workers": false,
+    "scheduler": false,
+    "push_to_deploy": false,
+    "automatic_migrations": false,
+    "ops_integrations": false,
+    "backups_documents_and_retention": "unchanged",
+    "available_application_log_files": 0
+  },
+  "limitations": [
+    "Unattributed and contradictory historical identity evidence remains excluded from confirmed balances.",
+    "Closed periods and protected fiscal, employee and treasury operations retain their specific workflows.",
+    "Interactive selection belongs to the current page; backend limit is 50 lines.",
+    "CLI monitor subscription stayed connected after deployment success; only its local process was stopped after independent API confirmation."
+  ]
+}

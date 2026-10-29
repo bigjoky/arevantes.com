@@ -6449,10 +6449,10 @@ Cierre verificado. No se inicia conciliación automática, Nexo ni ECO-03.
 
 ## ACC-02 — Saldos consolidados y reclasificación asistida (29/10/2026)
 
-- Estado: candidato verificado; pendiente de publicación manual y verificación productiva, todavía no completado.
+- Estado: completado, publicado y verificado en producción. Código `98753f322da22589e89f1edaa746368942478a22`; deployment `depl-a319aee6-7c9a-4652-bb2e-06285599458b` succeeded, 29/10/2026 20:52:14 UTC.
 - Alcance: situación contable en fichas de clientes y proveedores, cuentas históricas y anticipos con evidencia; mayor paginado; reclasificación individual y lotes supervisados sobre ACC-01, con vista previa, revisión e idempotencia.
 - Dependencias: rectificaciones, cierres, identidad documental y conciliación existentes. Una tabla aditiva de trazabilidad, sin reescritura histórica.
 - Criterios de aceptación: ambas capacidades publicadas; pruebas PostgreSQL 17.6, concurrencia y regresión económica; tipos/lint/ES-EN/build y visual escritorio/móvil; versión/rutas e históricos verificados en producción.
 - Límites y tratamiento de atribución incierta: [ACC-02](accounting-consolidation-acc02.md). No activar automatismos ni jobs pendientes.
 
-- Verificación local ACC-02: 1.104 pruebas generales, 101 económicas PostgreSQL 17.6, ocho carreras reales/64 aserciones, 88 frontend, tipos/estilo/ES-EN/build y flujo visual escritorio/móvil. Históricos no modificados; publicación pendiente.
+- Verificación local ACC-02: 1.104 pruebas generales, 101 económicas PostgreSQL 17.6, ocho carreras reales/64 aserciones, 88 frontend, tipos/estilo/ES-EN/build y flujo visual escritorio/móvil. Históricos intactos en quince tablas, migración propia253→254, once GET privados200 y contratos nuevos confirmados. Jobs y automatismos sin cambios. Evidencia: [publicación ACC-02](accounting-consolidation-publication-2026-10-29.json).
