@@ -1,4 +1,5 @@
-import { Form, Head } from '@inertiajs/react';
+import '../../../css/supply-mobile.css';
+import { Head } from '@inertiajs/react';
 import { Pencil, Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import {
@@ -8,12 +9,13 @@ import {
 } from '@/components/forms/form-layout';
 import InputError from '@/components/input-error';
 import LocationFields from '@/components/locations/location-fields';
+import Dialog from '@/components/projects/protected-dialog';
+import Form from '@/components/projects/protected-form';
+import { SupplyDialogContent as DialogContent } from '@/components/supply/workspace';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
-    Dialog,
-    DialogContent,
     DialogHeader,
     DialogTitle,
     DialogTrigger,

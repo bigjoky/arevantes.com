@@ -1,7 +1,9 @@
 import { useForm, usePage } from '@inertiajs/react';
 import InputError from '@/components/input-error';
+import { useSupplyConfirmation } from '@/components/supply/confirm-operation';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { useOperationsFormProtection } from '@/hooks/use-operations-form-protection';
 export default function ReceiptWarehouseCorrection({
     orderId,
     receiptId,
@@ -30,10 +32,14 @@ export default function ReceiptWarehouseCorrection({
         reason: '',
         operation_key: crypto.randomUUID(),
     });
+    const protection = useOperationsFormProtection(() => form);
+    const confirmation = useSupplyConfirmation();
     const warehouse = warehouses.find((w) => w.id === warehouseId);
 
     return (
         <div className="min-w-0">
+            {protection.confirmation}
+            {confirmation.dialog}
             <p>Almacén registrado: {warehouse?.name || `#${warehouseId}`}</p>
             {abilities?.managePurchases && abilities?.manageCatalog && (
                 <details>
@@ -44,10 +50,33 @@ export default function ReceiptWarehouseCorrection({
                         className="mt-2 grid gap-2"
                         onSubmit={(e) => {
                             e.preventDefault();
-                            form.post(
-                                `/purchases/${orderId}/receipts/${receiptId}/warehouse`,
-                                { preserveScroll: true },
-                            );
+                            confirmation.confirm(() => {
+                                if (!protection.beginSubmit()) {
+                                    return;
+                                }
+
+                                form.post(
+                                    `/purchases/${orderId}/receipts/${receiptId}/warehouse`,
+                                    {
+                                        preserveScroll: true,
+                                        onSuccess: () => {
+                                            const clean = {
+                                                ...form.data,
+                                                expected_warehouse_id: Number(
+                                                    form.data.warehouse_id,
+                                                ),
+                                                reason: '',
+                                                operation_key:
+                                                    crypto.randomUUID(),
+                                            };
+                                            form.setDefaults(clean);
+                                            protection.saved();
+                                            form.setData(clean);
+                                        },
+                                        onFinish: protection.finishSubmit,
+                                    },
+                                );
+                            });
                         }}
                     >
                         <p className="text-xs text-muted-foreground">

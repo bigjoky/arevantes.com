@@ -1,12 +1,15 @@
-import { Form, Head, Link } from '@inertiajs/react';
+import '../../../css/supply-mobile.css';
+import { Head, Link, usePage } from '@inertiajs/react';
 import { Plus, Trash2 } from 'lucide-react';
-import { useState } from 'react';
+import { useId, useState } from 'react';
+import Dialog from '@/components/projects/protected-dialog';
+import Form from '@/components/projects/protected-form';
+import ReleaseReservation from '@/components/supply/release-reservation';
+import { SupplyDialogContent as DialogContent } from '@/components/supply/workspace';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
-    Dialog,
-    DialogContent,
     DialogHeader,
     DialogTitle,
     DialogTrigger,
@@ -22,6 +25,7 @@ import {
 } from '@/components/ui/select';
 import { useLocale } from '@/hooks/use-locale';
 import { translate } from '@/i18n';
+import { supplyEntityUrl } from '@/lib/supply/navigation';
 
 type Warehouse = {
     is_usable: boolean;
@@ -126,6 +130,7 @@ export default function InventoryIndex({
     planningRequestId: number | null;
 }) {
     const { locale } = useLocale();
+    const { url: context } = usePage();
     const tab = initialSection;
     const title = {
         stock: 'Stock',
@@ -137,7 +142,7 @@ export default function InventoryIndex({
     return (
         <>
             <Head title={translate(title, locale)} />
-            <div className="flex flex-1 flex-col gap-6 p-4 md:p-6">
+            <div className="supply-legacy-mobile flex flex-1 flex-col gap-6 p-4 md:p-6">
                 <header className="flex flex-wrap items-center justify-between gap-3">
                     <div>
                         <h1 className="text-xl font-semibold">
@@ -235,36 +240,87 @@ export default function InventoryIndex({
                                             key={`${position.warehouse.id}-${position.product.id}`}
                                             className="border-b"
                                         >
-                                            <td className="py-3 font-medium">
+                                            <td
+                                                data-label={translate(
+                                                    'Product',
+                                                    locale,
+                                                )}
+                                                className="py-3 font-medium"
+                                            >
                                                 {position.product.name}
                                             </td>
-                                            <td className="font-mono text-xs">
+                                            <td
+                                                data-label={translate(
+                                                    'SKU',
+                                                    locale,
+                                                )}
+                                                className="font-mono text-xs"
+                                            >
                                                 {position.product.sku || '—'}
                                             </td>
-                                            <td>
+                                            <td
+                                                data-label={translate(
+                                                    'Warehouse',
+                                                    locale,
+                                                )}
+                                            >
                                                 {position.warehouse.name}{' '}
                                                 <span className="text-xs text-muted-foreground">
                                                     ({position.warehouse.code})
                                                 </span>
                                             </td>
-                                            <td className="text-right font-medium">
+                                            <td
+                                                data-label={translate(
+                                                    'On hand',
+                                                    locale,
+                                                )}
+                                                className="text-right font-medium"
+                                            >
                                                 {number(position.on_hand)}
                                             </td>
-                                            <td className="text-right">
+                                            <td
+                                                data-label={translate(
+                                                    'Reserved',
+                                                    locale,
+                                                )}
+                                                className="text-right"
+                                            >
                                                 {number(position.reserved)}
                                             </td>
                                             <td
+                                                data-label={translate(
+                                                    'Available',
+                                                    locale,
+                                                )}
                                                 className={`text-right text-base font-semibold ${position.available < 0 ? 'text-destructive' : ''}`}
                                             >
                                                 {number(position.available)}
                                             </td>
-                                            <td className="text-right">
+                                            <td
+                                                data-label={translate(
+                                                    'In transit',
+                                                    locale,
+                                                )}
+                                                className="text-right"
+                                            >
                                                 {number(position.in_transit)}
                                             </td>
-                                            <td className="text-right font-medium">
+                                            <td
+                                                data-label={translate(
+                                                    'Projected',
+                                                    locale,
+                                                )}
+                                                className="text-right font-medium"
+                                            >
                                                 {number(position.projected)}
                                             </td>
-                                            <td className="text-xs">
+                                            <td
+                                                data-label={translate(
+                                                    'Next receipt',
+                                                    locale,
+                                                )}
+                                                className="text-xs"
+                                            >
                                                 {position.inbound_order_count >
                                                 0 ? (
                                                     <>
@@ -288,7 +344,12 @@ export default function InventoryIndex({
                                                     '—'
                                                 )}
                                             </td>
-                                            <td>
+                                            <td
+                                                data-label={translate(
+                                                    'Tracking',
+                                                    locale,
+                                                )}
+                                            >
                                                 {position.product
                                                     .track_serials ? (
                                                     <Badge variant="outline">
@@ -327,11 +388,29 @@ export default function InventoryIndex({
                                                 key={serial.id}
                                                 className="border-b last:border-0"
                                             >
-                                                <td className="py-3 font-mono">
+                                                <td
+                                                    data-label={translate(
+                                                        'Serial number',
+                                                        locale,
+                                                    )}
+                                                    className="py-3 font-mono"
+                                                >
                                                     {serial.serial_number}
                                                 </td>
-                                                <td>{serial.product.name}</td>
-                                                <td>
+                                                <td
+                                                    data-label={translate(
+                                                        'Product',
+                                                        locale,
+                                                    )}
+                                                >
+                                                    {serial.product.name}
+                                                </td>
+                                                <td
+                                                    data-label={translate(
+                                                        'Warehouse',
+                                                        locale,
+                                                    )}
+                                                >
                                                     {warehouses.find(
                                                         (w) =>
                                                             w.id ===
@@ -367,17 +446,47 @@ export default function InventoryIndex({
                                         key={movement.id}
                                         className="border-b align-top"
                                     >
-                                        <td className="py-3 font-medium">
+                                        <td
+                                            data-label={translate(
+                                                'Movement',
+                                                locale,
+                                            )}
+                                            className="py-3 font-medium"
+                                        >
                                             {movement.number}
                                         </td>
-                                        <td>
+                                        <td
+                                            data-label={translate(
+                                                'Type',
+                                                locale,
+                                            )}
+                                        >
                                             <Badge variant="outline">
                                                 {movement.type}
                                             </Badge>
                                         </td>
-                                        <td>{date(movement.posted_at)}</td>
-                                        <td>{movement.reference || '—'}</td>
-                                        <td>
+                                        <td
+                                            data-label={translate(
+                                                'Date',
+                                                locale,
+                                            )}
+                                        >
+                                            {date(movement.posted_at)}
+                                        </td>
+                                        <td
+                                            data-label={translate(
+                                                'Reference',
+                                                locale,
+                                            )}
+                                        >
+                                            {movement.reference || '—'}
+                                        </td>
+                                        <td
+                                            data-label={translate(
+                                                'Lines',
+                                                locale,
+                                            )}
+                                        >
                                             {movement.lines.map((line) => (
                                                 <div key={line.id}>
                                                     {line.product.name} ·{' '}
@@ -419,23 +528,60 @@ export default function InventoryIndex({
                                         key={reservation.id}
                                         className="border-b"
                                     >
-                                        <td className="py-3 font-medium">
+                                        <td
+                                            data-label={translate(
+                                                'Installation',
+                                                locale,
+                                            )}
+                                            className="py-3 font-medium"
+                                        >
                                             {reservation.installation
                                                 ?.project_reference ||
                                                 reservation.installation
                                                     ?.site_name ||
                                                 '—'}
                                         </td>
-                                        <td>{reservation.product.name}</td>
-                                        <td>{reservation.warehouse.name}</td>
-                                        <td>{Number(reservation.quantity)}</td>
-                                        <td>
+                                        <td
+                                            data-label={translate(
+                                                'Product',
+                                                locale,
+                                            )}
+                                        >
+                                            {reservation.product.name}
+                                        </td>
+                                        <td
+                                            data-label={translate(
+                                                'Warehouse',
+                                                locale,
+                                            )}
+                                        >
+                                            {reservation.warehouse.name}
+                                        </td>
+                                        <td
+                                            data-label={translate(
+                                                'Reserved',
+                                                locale,
+                                            )}
+                                        >
+                                            {Number(reservation.quantity)}
+                                        </td>
+                                        <td
+                                            data-label={translate(
+                                                'Pending',
+                                                locale,
+                                            )}
+                                        >
                                             {Number(reservation.quantity) -
                                                 Number(
                                                     reservation.consumed_quantity,
                                                 )}
                                         </td>
-                                        <td>
+                                        <td
+                                            data-label={translate(
+                                                'Source',
+                                                locale,
+                                            )}
+                                        >
                                             <Badge
                                                 variant="outline"
                                                 className="mr-2"
@@ -464,7 +610,10 @@ export default function InventoryIndex({
                                                 </Link>
                                             ) : reservation.work_order ? (
                                                 <Link
-                                                    href={`/work-orders?work_order=${reservation.work_order.id}`}
+                                                    href={supplyEntityUrl(
+                                                        `/work-orders/${reservation.work_order.id}`,
+                                                        context,
+                                                    )}
                                                     className="underline underline-offset-2"
                                                 >
                                                     {
@@ -476,27 +625,29 @@ export default function InventoryIndex({
                                                 'Manual reservation'
                                             )}
                                         </td>
-                                        <td>
+                                        <td
+                                            data-label={translate(
+                                                'Reserved until',
+                                                locale,
+                                            )}
+                                        >
                                             {reservation.reserved_until
                                                 ? date(
                                                       reservation.reserved_until,
                                                   )
                                                 : 'No expiry'}
                                         </td>
-                                        <td>
+                                        <td
+                                            data-label={translate(
+                                                'Actions',
+                                                locale,
+                                            )}
+                                        >
                                             {reservation.status ===
                                                 'active' && (
-                                                <Form
-                                                    action={`/inventory/reservations/${reservation.id}`}
-                                                    method="delete"
-                                                >
-                                                    <Button
-                                                        size="sm"
-                                                        variant="outline"
-                                                    >
-                                                        Release
-                                                    </Button>
-                                                </Form>
+                                                <ReleaseReservation
+                                                    id={reservation.id}
+                                                />
                                             )}
                                         </td>
                                     </tr>
@@ -621,6 +772,7 @@ function MovementDialog({
     warehouses: Warehouse[];
     products: Product[];
 }) {
+    const { locale } = useLocale();
     const [open, setOpen] = useState(false);
     const [type, setType] = useState('receipt');
     const [lines, setLines] = useState<Line[]>([blankLine()]);
@@ -641,6 +793,10 @@ function MovementDialog({
                     <DialogTitle>Post stock movement</DialogTitle>
                 </DialogHeader>
                 <Form
+                    onResetFields={() => {
+                        setType('receipt');
+                        setLines([blankLine()]);
+                    }}
                     action="/inventory/movements"
                     method="post"
                     onSuccess={() => {
@@ -710,7 +866,13 @@ function MovementDialog({
                                         key={i}
                                         className="border-b last:border-0"
                                     >
-                                        <td className="py-2 pr-2">
+                                        <td
+                                            data-label={translate(
+                                                'Product',
+                                                locale,
+                                            )}
+                                            className="py-2 pr-2"
+                                        >
                                             <Select
                                                 name={`lines[${i}][product_id]`}
                                                 value={line.product_id}
@@ -743,7 +905,13 @@ function MovementDialog({
                                                 </SelectContent>
                                             </Select>
                                         </td>
-                                        <td className="p-2">
+                                        <td
+                                            data-label={translate(
+                                                'Quantity',
+                                                locale,
+                                            )}
+                                            className="p-2"
+                                        >
                                             <Input
                                                 name={`lines[${i}][quantity]`}
                                                 type="number"
@@ -757,7 +925,13 @@ function MovementDialog({
                                                 }
                                             />
                                         </td>
-                                        <td className="p-2">
+                                        <td
+                                            data-label={translate(
+                                                'Unit cost',
+                                                locale,
+                                            )}
+                                            className="p-2"
+                                        >
                                             <Input
                                                 name={`lines[${i}][unit_cost]`}
                                                 type="number"
@@ -772,7 +946,13 @@ function MovementDialog({
                                                 }
                                             />
                                         </td>
-                                        <td className="p-2">
+                                        <td
+                                            data-label={translate(
+                                                'Serials',
+                                                locale,
+                                            )}
+                                            className="p-2"
+                                        >
                                             <Input
                                                 name={`lines[${i}][serials]`}
                                                 value={line.serials}
@@ -784,7 +964,13 @@ function MovementDialog({
                                                 placeholder="Comma-separated when required"
                                             />
                                         </td>
-                                        <td className="p-2">
+                                        <td
+                                            data-label={translate(
+                                                'Actions',
+                                                locale,
+                                            )}
+                                            className="p-2"
+                                        >
                                             <Button
                                                 type="button"
                                                 size="icon"
@@ -918,16 +1104,18 @@ function SelectField({
     onChange?: (v: string) => void;
     options: string[][];
 }) {
+    const id = useId();
+
     return (
         <div className="grid gap-2">
-            <Label>{label}</Label>
+            <Label htmlFor={id}>{label}</Label>
             <Select
                 name={name}
                 value={value}
                 onValueChange={onChange}
                 defaultValue={value === undefined ? options[0]?.[0] : undefined}
             >
-                <SelectTrigger>
+                <SelectTrigger id={id}>
                     <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -954,10 +1142,12 @@ function Field({
     type?: string;
     className?: string;
 }) {
+    const id = useId();
+
     return (
         <div className={`grid gap-2 ${className}`}>
-            <Label>{label}</Label>
-            <Input name={name} type={type} defaultValue={value ?? ''} />
+            <Label htmlFor={id}>{label}</Label>
+            <Input id={id} name={name} type={type} defaultValue={value ?? ''} />
         </div>
     );
 }

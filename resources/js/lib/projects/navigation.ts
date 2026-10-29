@@ -19,6 +19,7 @@ const filters = new Set([
     'service_state',
     'installation',
     'view',
+    'warehouse',
     'tab',
     'section_page',
 ]);
@@ -33,24 +34,24 @@ export function projectReturnUrl(
         value.startsWith('//') ||
         value.includes('\\')
     ) {
-return fallback;
-}
+        return fallback;
+    }
 
     const url = new URL(value, 'https://projects.invalid');
 
     if (
-        !/^\/(execution(?:\/projects(?:\/\d+)?)?|installations(?:\/\d+)?|after-sales)$/.test(
+        !/^\/(execution(?:\/projects(?:\/\d+)?)?|installations(?:\/\d+)?|after-sales|inventory|inventory\/reservations|inventory\/movements|supply)$/.test(
             url.pathname,
         )
     ) {
-return fallback;
-}
+        return fallback;
+    }
 
     const query = new URLSearchParams();
     url.searchParams.forEach((v, k) => {
         if (filters.has(k)) {
-query.set(k, v);
-}
+            query.set(k, v);
+        }
     });
 
     return url.pathname + (query.size ? `?${query}` : '');

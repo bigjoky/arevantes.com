@@ -4,7 +4,9 @@ namespace App\Services\Operations;
 
 use App\Models\AuditLog;
 use App\Models\CrmActivity;
+use App\Models\Product;
 use App\Models\User;
+use App\Models\Warehouse;
 use App\Models\WorkOrder;
 use App\Services\Supply\CriticalMaterialRisk;
 use App\Services\Work\TechnicianSchedule;
@@ -137,14 +139,19 @@ class OperationsWorkspace
         $order->makeHidden(['signature_path']);
         $content = match ($tab) {
             'tasks' => $order->checklistItems()->paginate(20)->withQueryString(),
-            'materials' => $order->stockReservations()->with(['product:id,name,sku', 'warehouse:id,name'])->paginate(15)->withQueryString(),
+            'materials' => $order->stockReservations()->with(['product:id,name,sku,unit_id', 'product.unit:id,symbol', 'warehouse:id,name'])->paginate(15)->withQueryString(),
             'documents','photos' => $order->attachments()->where('kind', $tab === 'photos' ? 'photo' : 'document')->select(['id', 'work_order_id', 'kind', 'original_name', 'mime_type', 'size', 'created_at'])->paginate(15)->withQueryString(),
             'reports' => $order->timeEntries()->with('user:id,name')->select(['id', 'work_order_id', 'user_id', 'started_at', 'ended_at', 'duration_minutes', 'notes'])->paginate(15)->withQueryString()->through(fn ($entry) => $entry->setAppends([])),
             'activity' => AuditLog::query()->where('auditable_type', WorkOrder::class)->where('auditable_id', $order->id)->latest()->paginate(15, ['id', 'user_id', 'event', 'created_at'])->withQueryString(),
             default => null
         };
 
-        return [...$this->common($request), 'order' => $order, 'tab' => $tab, 'content' => $content, 'runningTimer' => $order->timeEntries()->where('user_id', $request->user()->id)->whereNull('ended_at')->first(['id', 'started_at'])?->setAppends([]), 'transitions' => ($order->allowed_transitions_snapshot ?: WorkOrderWorkflow::DEFAULT_TRANSITIONS)[$order->status] ?? []];
+        $materialOptions = $tab === 'materials' && $request->user()->can('manage-catalog') ? [
+            'products' => Product::with('unit:id,symbol')->where('track_stock', true)->where('is_active', true)->orderBy('name')->get(['id', 'name', 'unit_id']),
+            'warehouses' => Warehouse::where('is_active', true)->where('is_usable', true)->orderBy('name')->get(['id', 'name']),
+        ] : null;
+
+        return [...$this->common($request), 'order' => $order, 'tab' => $tab, 'content' => $content, 'materialOptions' => $materialOptions, 'runningTimer' => $order->timeEntries()->where('user_id', $request->user()->id)->whereNull('ended_at')->first(['id', 'started_at'])?->setAppends([]), 'transitions' => ($order->allowed_transitions_snapshot ?: WorkOrderWorkflow::DEFAULT_TRANSITIONS)[$order->status] ?? []];
     }
 
     public function agenda(Request $request): array

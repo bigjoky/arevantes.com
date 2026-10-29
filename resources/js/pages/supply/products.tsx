@@ -94,6 +94,10 @@ export default function Products({
                         </select>
                     </label>
                 </Filters>
+                <p className="supply-note">
+                    Existencias globales. Consulta la ficha para ver cada
+                    almacén.
+                </p>
                 <section className="supply-panel">
                     {products.data.length ? (
                         <div className="supply-table-wrap">

@@ -6408,3 +6408,18 @@ Implementado y verificado localmente; publicación autorizada pendiente de compr
 - Fechas nuevas de confirmación/corrección en UTC con presentación Europe/Madrid; las fechas históricas ambiguas no se convierten en instantes supuestos.
 - Verificación: suite general 1.071 aprobadas/50 omitidas; PostgreSQL17.6 económico 103 pruebas/1.462 aserciones; cuatro carreras reales en dos procesos (42 aserciones). Tipos, lint afectado, traducciones, compilación y Pint aprobados. Datos sintéticos; sin pruebas económicas en producción.
 - Criterio de cierre: commit selectivo, migración única sin cambios en columnas históricas, SHA efectivo y rutas privadas verificadas. Colas históricas, workers, scheduler e integraciones permanecen intactos/desactivados.
+## Almacén y Compras Móvil 04 — 29/10/2026
+
+Estado: implantado localmente en checkout independiente; no publicado. Ver [verificación y límites](supply-mobile-04.md).
+
+| Capacidad | Estado / dependencia | Criterio de aceptación |
+|---|---|---|
+| Catálogo, stock, necesidades, reservas y compras móviles | Implantado sobre contratos existentes | 119 comprobaciones responsive, tablas desde 1024 y permisos conservados |
+| Entrega, consumo, devolución y recepción parcial | Implantado con confirmación, guardas y servicios existentes | Una operación por confirmación, errores preservan valores y trazabilidad sin doble descuento |
+| Navegación instalación/orden/materiales | Implantado con enlaces mínimos y retorno saneado | Filtros y origen conservados, destinos externos rechazados |
+| Preparación y entregas pendientes | Pendiente de contrato de estados, permisos y transiciones | Definir backend autorizado antes de mostrar cifras o acciones; no confundir traslado registrado con pendiente |
+| Restricción individual por almacén | Pendiente de modelo ACL autorizado; gates actuales respetados | Definir asignación y políticas de lectura/escritura antes de exponer filtrado por usuario |
+| Idempotencia de reservas entre pestañas/reintentos independientes | Pendiente de contrato servidor; guardas locales y bloqueos existentes conservados | Misma clave/reintento devuelve misma reserva sin duplicar; definir alcance y pruebas concurrentes antes de modificar esquema |
+| Validación física y concurrencia adicional | Pendiente iOS/Android HTTPS y ensayo PostgreSQL aislado | Verificar teclado, lectores, instalación/caché y carreras sin afectar producción |
+
+Verificación: 85 frontend, 49 backend/1036 aserciones, build/tipos/lint/i18n/Pint correctos. Sin migraciones ni cambios de infraestructura o reglas económicas.

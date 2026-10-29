@@ -141,6 +141,38 @@ export default function SupplyDashboard({
                         </label>
                     }
                 />
+                <nav
+                    className="supply-mobile-links"
+                    aria-label="Accesos de almacén"
+                >
+                    {capabilities.catalog && (
+                        <>
+                            <Link href="/catalog">Productos</Link>
+                            <Link href="/inventory?view=stock">
+                                Existencias por almacén
+                            </Link>
+                            <Link href="/inventory?view=needs">
+                                Necesidades
+                            </Link>
+                            <Link href="/inventory?view=reservations">
+                                Reservas
+                            </Link>
+                            <Link href="/inventory?view=deliveries">
+                                Entregas registradas
+                            </Link>
+                            <Link href="/inventory?view=returns">
+                                Devoluciones
+                            </Link>
+                        </>
+                    )}
+                    {capabilities.purchases && (
+                        <Link href="/purchases">Pedidos y recepciones</Link>
+                    )}
+                </nav>
+                <p className="supply-note">
+                    Resumen global autorizado. Consulta existencias para
+                    seleccionar un almacén.
+                </p>
                 <div className="supply-kpis">
                     {metricsConfig.map(([key, label, note, Icon]) => (
                         <article className="supply-kpi" key={key}>

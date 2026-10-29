@@ -11,6 +11,7 @@ const allowed = new Set([
     'page',
     'view',
     'week',
+    'warehouse',
     'search',
     'phase',
     'service_type',
@@ -33,6 +34,10 @@ const origins = new Set([
     '/operations/agenda',
     '/operations/planning',
     '/operations',
+    '/inventory',
+    '/inventory/reservations',
+    '/inventory/movements',
+    '/supply',
 ]);
 
 /** Only same-app, recognized list contexts; never accept an external return URL. */

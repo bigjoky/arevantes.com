@@ -1,8 +1,11 @@
+import '../../../css/supply-mobile.css';
 import { Link, router, usePage } from '@inertiajs/react';
 import { Package, Search } from 'lucide-react';
-import type { ReactNode } from 'react';
+import type { ReactNode, ComponentProps } from 'react';
+import { ProjectDialogContent } from '@/components/projects/protected-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { supplyReturnUrl, supplyEntityUrl } from '@/lib/supply/navigation';
 import '@/../css/supply.css';
 
 export type Page<T> = {
@@ -217,6 +220,8 @@ export function Filters({
     );
 }
 export function StockTable({ positions }: { positions: Position[] }) {
+    const { url: context } = usePage();
+
     return positions.length ? (
         <div className="supply-table-wrap">
             <table className="supply-table">
@@ -234,7 +239,12 @@ export function StockTable({ positions }: { positions: Position[] }) {
                     {positions.map((row) => (
                         <tr key={`${row.warehouse.id}:${row.product.id}`}>
                             <td data-label="Producto">
-                                <Link href={`/catalog/${row.product.id}`}>
+                                <Link
+                                    href={supplyEntityUrl(
+                                        `/catalog/${row.product.id}`,
+                                        context,
+                                    )}
+                                >
                                     {row.product.name}
                                 </Link>
                                 <small>
@@ -261,6 +271,8 @@ export function StockTable({ positions }: { positions: Position[] }) {
     );
 }
 export function NeedTable({ needs }: { needs: Need[] }) {
+    const { url: context } = usePage();
+
     return needs.length ? (
         <div className="supply-table-wrap">
             <table className="supply-table">
@@ -286,7 +298,10 @@ export function NeedTable({ needs }: { needs: Need[] }) {
                             </td>
                             <td data-label="Proyecto / instalación">
                                 <Link
-                                    href={`/installations/${row.installation.id}`}
+                                    href={supplyEntityUrl(
+                                        `/installations/${row.installation.id}`,
+                                        context,
+                                    )}
                                 >
                                     {row.installation.project_reference ??
                                         row.installation.site_name ??
@@ -325,6 +340,8 @@ export function NeedTable({ needs }: { needs: Need[] }) {
     );
 }
 export function Movements({ rows }: { rows: Movement[] }) {
+    const { url: context } = usePage();
+
     return rows.length ? (
         <div className="supply-movements">
             {rows.map((row) => (
@@ -339,7 +356,10 @@ export function Movements({ rows }: { rows: Movement[] }) {
                         </small>
                         {row.purchaseDocument && (
                             <Link
-                                href={`/purchases/${row.purchaseDocument.id}`}
+                                href={supplyEntityUrl(
+                                    `/purchases/${row.purchaseDocument.id}`,
+                                    context,
+                                )}
                             >
                                 {row.purchaseDocument.number}
                             </Link>
@@ -361,13 +381,21 @@ export function Movements({ rows }: { rows: Movement[] }) {
                             </Link>
                         )}
                         {row.workOrder && (
-                            <Link href={`/work-orders/${row.workOrder.id}`}>
+                            <Link
+                                href={supplyEntityUrl(
+                                    `/work-orders/${row.workOrder.id}`,
+                                    context,
+                                )}
+                            >
                                 {row.workOrder.number}
                             </Link>
                         )}
                         {row.installation && (
                             <Link
-                                href={`/installations/${row.installation.id}`}
+                                href={supplyEntityUrl(
+                                    `/installations/${row.installation.id}`,
+                                    context,
+                                )}
                             >
                                 {row.installation.project_reference ??
                                     row.installation.site_name}
@@ -407,8 +435,7 @@ export function useSupplyDetailNavigation(
     const requested = parameters.get('tab');
     const tab = tabs.some(([id]) => id === requested) ? requested! : tabs[0][0];
     const returnTo = parameters.get('return_to') ?? base;
-    const back =
-        returnTo === base || returnTo.startsWith(`${base}?`) ? returnTo : base;
+    const back = supplyReturnUrl(returnTo, base);
     const setTab = (id: string) => {
         parameters.set('tab', id);
         parameters.delete('page');
@@ -420,4 +447,16 @@ export function useSupplyDetailNavigation(
     };
 
     return { tab, setTab, back };
+}
+
+export function SupplyDialogContent({
+    className,
+    ...props
+}: ComponentProps<typeof ProjectDialogContent>) {
+    return (
+        <ProjectDialogContent
+            {...props}
+            className={'supply-dialog ' + (className ?? '')}
+        />
+    );
 }

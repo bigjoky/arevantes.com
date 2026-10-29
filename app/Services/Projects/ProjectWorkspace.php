@@ -127,7 +127,7 @@ class ProjectWorkspace
 
     private function permissions(): array
     {
-        return ['manage' => Gate::allows('manage-installations'), 'quotes' => Gate::allows('manage-quotes'),
+        return ['catalog' => Gate::allows('manage-catalog'), 'manage' => Gate::allows('manage-installations'), 'quotes' => Gate::allows('manage-quotes'),
             'customer' => Gate::allows('manage-customers'), 'planning' => Gate::allows('manage-operations'),
             'finance' => Gate::allows('view-finance')];
     }

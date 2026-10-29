@@ -350,6 +350,17 @@ export default function ProjectDetail({
                                     <small>{power(i.system_power_kw)}</small>
                                 )}
                             </Link>
+                            {permissions.catalog && (
+                                <Link
+                                    href={projectEntityUrl(
+                                        '/inventory?view=needs&installation=' +
+                                            i.id,
+                                        page.url,
+                                    )}
+                                >
+                                    Consultar necesidades de la instalación
+                                </Link>
+                            )}
                             <h2>Hitos registrados</h2>
                             {Object.entries(milestones)
                                 .filter(([, value]) => value)

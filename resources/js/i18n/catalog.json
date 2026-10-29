@@ -25290,5 +25290,101 @@
     "Si corresponde, se reclasificará el importe confirmado entre la cuenta genérica y la cuenta bancaria. No se ajustarán las diferencias.": {
         "es": "Si corresponde, se reclasificará el importe confirmado entre la cuenta genérica y la cuenta bancaria. No se ajustarán las diferencias.",
         "en": "Where applicable, the confirmed amount will be reclassified between the generic account and the bank account. Differences will not be adjusted."
+    },
+    "Confirmar operación de material": {
+        "es": "Confirmar operación de material",
+        "en": "Confirm material operation"
+    },
+    "Revisa las cantidades, el almacén y el destino antes de registrar la operación. Se aplicarán las validaciones del servidor.": {
+        "es": "Revisa las cantidades, el almacén y el destino antes de registrar la operación. Se aplicarán las validaciones del servidor.",
+        "en": "Review quantities, warehouse and destination before recording this operation. Server validations apply."
+    },
+    "Seguir revisando": {
+        "es": "Seguir revisando",
+        "en": "Keep reviewing"
+    },
+    "Confirmar operación": {
+        "es": "Confirmar operación",
+        "en": "Confirm operation"
+    },
+    "Reservar material para esta orden": {
+        "es": "Reservar material para esta orden",
+        "en": "Reserve material for this work order"
+    },
+    "Almacén de origen": {
+        "es": "Almacén de origen",
+        "en": "Source warehouse"
+    },
+    "Reservado hasta": {
+        "es": "Reservado hasta",
+        "en": "Reserved until"
+    },
+    "La reserva no entrega ni consume material. El servidor comprobará la disponibilidad del almacén y las condiciones de la instalación.": {
+        "es": "La reserva no entrega ni consume material. El servidor comprobará la disponibilidad del almacén y las condiciones de la instalación.",
+        "en": "Reserving does not deliver or consume material. The server checks warehouse availability and installation conditions."
+    },
+    "Reservar material": {
+        "es": "Reservar material",
+        "en": "Reserve material"
+    },
+    "· Reservado:": {
+        "es": "· Reservado:",
+        "en": "· Reserved:"
+    },
+    "· Consumido:": {
+        "es": "· Consumido:",
+        "en": "· Consumed:"
+    },
+    "Cantidad a consumir": {
+        "es": "Cantidad a consumir",
+        "en": "Quantity to consume"
+    },
+    "Registrar consumo": {
+        "es": "Registrar consumo",
+        "en": "Record consumption"
+    },
+    "Liberar reserva": {
+        "es": "Liberar reserva",
+        "en": "Release reservation"
+    },
+    "Accesos de almacén": {
+        "es": "Accesos de almacén",
+        "en": "Warehouse shortcuts"
+    },
+    "Necesidades": {
+        "es": "Necesidades",
+        "en": "Material needs"
+    },
+    "Reservas": {
+        "es": "Reservas",
+        "en": "Reservations"
+    },
+    "Entregas registradas": {
+        "es": "Entregas registradas",
+        "en": "Recorded deliveries"
+    },
+    "Devoluciones": {
+        "es": "Devoluciones",
+        "en": "Returns"
+    },
+    "Pedidos y recepciones": {
+        "es": "Pedidos y recepciones",
+        "en": "Orders and receipts"
+    },
+    "Resumen global autorizado. Consulta existencias para seleccionar un almacén.": {
+        "es": "Resumen global autorizado. Consulta existencias para seleccionar un almacén.",
+        "en": "Authorized global summary. Open stock to select a warehouse."
+    },
+    "Existencias globales. Consulta la ficha para ver cada almacén.": {
+        "es": "Existencias globales. Consulta la ficha para ver cada almacén.",
+        "en": "Global stock. Open the product details for each warehouse."
+    },
+    "Consultar necesidades de la instalación": {
+        "es": "Consultar necesidades de la instalación",
+        "en": "View installation material needs"
+    },
+    "Volver al origen": {
+        "es": "Volver al origen",
+        "en": "Back to origin"
     }
 }

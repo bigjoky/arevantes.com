@@ -4,6 +4,7 @@ export const money = quoteMoney;
 export const date = quoteDate;
 export type Filters = Record<string, string>;
 export type Permissions = {
+    catalog?: boolean;
     manage: boolean;
     quotes: boolean;
     customer: boolean;

@@ -1,4 +1,5 @@
-import { Form, Head, Link, usePage } from '@inertiajs/react';
+import '../../../css/supply-mobile.css';
+import { Head, Link, usePage } from '@inertiajs/react';
 import { Plus, ShoppingCart, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import {
@@ -7,11 +8,12 @@ import {
     FormSection,
 } from '@/components/forms/form-layout';
 import InputError from '@/components/input-error';
+import Dialog from '@/components/projects/protected-dialog';
+import Form from '@/components/projects/protected-form';
+import { SupplyDialogContent as DialogContent } from '@/components/supply/workspace';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
-    Dialog,
-    DialogContent,
     DialogHeader,
     DialogTitle,
     DialogTrigger,

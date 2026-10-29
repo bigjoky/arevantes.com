@@ -1,9 +1,12 @@
-import { Head, Link, useForm } from '@inertiajs/react';
+import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import InputError from '@/components/input-error';
 import { PageHeader, PageShell } from '@/components/page-shell';
+import { useSupplyConfirmation } from '@/components/supply/confirm-operation';
 import { Panel } from '@/components/supply/workspace';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { useOperationsFormProtection } from '@/hooks/use-operations-form-protection';
+import { supplyReturnUrl } from '@/lib/supply/navigation';
 type Option = {
     is_usable?: boolean;
     id: number;
@@ -26,10 +29,25 @@ export default function Transport({
     users: Option[];
     deliveries: { id: number; number: string; installation_id: number }[];
 }) {
+    const { url: context } = usePage();
+    const back = supplyReturnUrl(
+        new URL(context, 'https://supply.invalid').searchParams.get(
+            'return_to',
+        ),
+        '/inventory',
+    );
+    const origin = new URL(back, 'https://supply.invalid');
     const form = useForm({
-        type: 'delivery',
+        type:
+            origin.searchParams.get('view') === 'returns'
+                ? 'internal_return'
+                : 'delivery',
         operation_key: crypto.randomUUID(),
-        installation_id: '',
+        installation_id: installations.some(
+            (i) => String(i.id) === origin.searchParams.get('installation'),
+        )
+            ? origin.searchParams.get('installation')!
+            : '',
         recipient_id: '',
         source_movement_id: '',
         source_warehouse_id: '',
@@ -40,6 +58,8 @@ export default function Transport({
         notes: '',
         material_condition: 'usable',
     });
+    const protection = useOperationsFormProtection(() => form);
+    const confirmation = useSupplyConfirmation();
     const isReturn = form.data.type === 'internal_return';
     const selects = [
         ['product_id', 'Producto', products],
@@ -50,6 +70,8 @@ export default function Transport({
 
     return (
         <>
+            {protection.confirmation}
+            {confirmation.dialog}
             <Head title="Entrega de material" />
             <PageShell className="supply-workspace">
                 <PageHeader
@@ -61,7 +83,7 @@ export default function Transport({
                     description="Traslada material entre almacenes reales conservando sus reservas y números de serie."
                     secondaryActions={
                         <Button variant="outline" asChild>
-                            <Link href="/inventory">Volver a inventario</Link>
+                            <Link href={back}>Volver a inventario</Link>
                         </Button>
                     }
                 />
@@ -70,7 +92,16 @@ export default function Transport({
                         className="supply-filters"
                         onSubmit={(event) => {
                             event.preventDefault();
-                            form.post('/inventory/transport');
+                            confirmation.confirm(() => {
+                                if (!protection.beginSubmit()) {
+                                    return;
+                                }
+
+                                form.post('/inventory/transport', {
+                                    onSuccess: () => protection.saved(),
+                                    onFinish: protection.finishSubmit,
+                                });
+                            });
                         }}
                     >
                         <label>

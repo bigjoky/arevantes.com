@@ -1,5 +1,6 @@
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, Link, usePage } from '@inertiajs/react';
 import { PageHeader, PageShell } from '@/components/page-shell';
+import ReleaseReservation from '@/components/supply/release-reservation';
 import { RequirementDialog } from '@/components/supply/requirement-dialog';
 import type { NeedOptions } from '@/components/supply/requirement-dialog';
 import {
@@ -18,6 +19,11 @@ import type {
     Position,
 } from '@/components/supply/workspace';
 import { Button } from '@/components/ui/button';
+import {
+    supplyViewUrl,
+    supplyEntityUrl,
+    supplyReturnUrl,
+} from '@/lib/supply/navigation';
 const tabs = [
     ['stock', 'Existencias'],
     ['needs', 'Necesidades'],
@@ -61,6 +67,11 @@ export default function Inventory({
     warehouses: { id: number; name: string }[];
     needOptions: NeedOptions | null;
 }) {
+    const { url: context } = usePage();
+    const returnTo = new URL(
+        context,
+        'https://supply.invalid',
+    ).searchParams.get('return_to');
     const isDelivery = view === 'deliveries';
     const isReturn = view === 'returns';
 
@@ -72,9 +83,20 @@ export default function Inventory({
                     title="Inventario"
                     description="Consulta el material físico, reservado y disponible, y toda su trazabilidad."
                     secondaryActions={
-                        <Button asChild variant="outline">
-                            <Link href="/inventory/warehouses">Almacenes</Link>
-                        </Button>
+                        <>
+                            {returnTo && (
+                                <Button asChild variant="outline">
+                                    <Link href={supplyReturnUrl(returnTo)}>
+                                        Volver al origen
+                                    </Link>
+                                </Button>
+                            )}
+                            <Button asChild variant="outline">
+                                <Link href="/inventory/warehouses">
+                                    Almacenes
+                                </Link>
+                            </Button>
+                        </>
                     }
                     primaryAction={
                         view === 'needs' && needOptions ? (
@@ -84,7 +106,10 @@ export default function Inventory({
                                 <Link
                                     href={
                                         isDelivery || isReturn
-                                            ? '/inventory/transport'
+                                            ? supplyEntityUrl(
+                                                  '/inventory/transport',
+                                                  context,
+                                              )
                                             : view === 'reservations'
                                               ? '/inventory/reservations'
                                               : '/inventory/manage?section=movements'
@@ -106,7 +131,7 @@ export default function Inventory({
                     {tabs.map(([id, label]) => (
                         <Link
                             key={id}
-                            href={`/inventory?view=${id}`}
+                            href={supplyViewUrl(context, id)}
                             aria-current={view === id ? 'page' : undefined}
                         >
                             {label}
@@ -195,7 +220,10 @@ export default function Inventory({
                                                 <td data-label="Origen">
                                                     {r.work_order ? (
                                                         <Link
-                                                            href={`/work-orders/${r.work_order.id}`}
+                                                            href={supplyEntityUrl(
+                                                                `/work-orders/${r.work_order.id}`,
+                                                                context,
+                                                            )}
                                                         >
                                                             {
                                                                 r.work_order
@@ -234,20 +262,9 @@ export default function Inventory({
                                                 </td>
                                                 <td data-label="Acciones">
                                                     {r.status === 'active' && (
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            onClick={() =>
-                                                                router.delete(
-                                                                    `/inventory/reservations/${r.id}`,
-                                                                    {
-                                                                        preserveScroll: true,
-                                                                    },
-                                                                )
-                                                            }
-                                                        >
-                                                            Liberar
-                                                        </Button>
+                                                        <ReleaseReservation
+                                                            id={r.id}
+                                                        />
                                                     )}
                                                 </td>
                                             </tr>

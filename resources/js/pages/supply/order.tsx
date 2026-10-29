@@ -2,6 +2,7 @@ import { Head, Link, useForm } from '@inertiajs/react';
 import InputError from '@/components/input-error';
 import { PageHeader, PageShell } from '@/components/page-shell';
 import ReceiptWarehouseCorrection from '@/components/receipt-warehouse-correction';
+import { useSupplyConfirmation } from '@/components/supply/confirm-operation';
 import { useSupplyDetailNavigation } from '@/components/supply/workspace';
 import {
     date,
@@ -14,6 +15,7 @@ import {
 import type { Capabilities, Movement } from '@/components/supply/workspace';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { useOperationsFormProtection } from '@/hooks/use-operations-form-protection';
 import { purchaseStates } from './purchases';
 type Line = {
     id: number;
@@ -105,8 +107,13 @@ export default function PurchaseOrder({
         serials: Object.fromEntries(lines.map((l) => [l.id, ''])),
     });
 
+    const protection = useOperationsFormProtection(() => form);
+    const confirmation = useSupplyConfirmation();
+
     return (
         <>
+            {protection.confirmation}
+            {confirmation.dialog}
             <Head title={order.number} />
             <PageShell className="supply-workspace">
                 <PageHeader
@@ -334,15 +341,21 @@ export default function PurchaseOrder({
                                     <form
                                         onSubmit={(e) => {
                                             e.preventDefault();
-                                            form.post(
-                                                `/purchases/${order.id}/receive`,
-                                                {
-                                                    onSuccess: () =>
-                                                        form.setData(
-                                                            (data) => ({
-                                                                ...data,
+                                            confirmation.confirm(() => {
+                                                if (!protection.beginSubmit()) {
+                                                    return;
+                                                }
+
+                                                form.post(
+                                                    `/purchases/${order.id}/receive`,
+                                                    {
+                                                        onSuccess: () => {
+                                                            const clean = {
+                                                                ...form.data,
                                                                 operation_key:
                                                                     crypto.randomUUID(),
+                                                                supplier_delivery_note:
+                                                                    '',
                                                                 quantities:
                                                                     Object.fromEntries(
                                                                         lines.map(
@@ -365,10 +378,18 @@ export default function PurchaseOrder({
                                                                             ],
                                                                         ),
                                                                     ),
-                                                            }),
-                                                        ),
-                                                },
-                                            );
+                                                            };
+                                                            form.setDefaults(
+                                                                clean,
+                                                            );
+                                                            protection.saved();
+                                                            form.setData(clean);
+                                                        },
+                                                        onFinish:
+                                                            protection.finishSubmit,
+                                                    },
+                                                );
+                                            });
                                         }}
                                         className="p-4"
                                     >

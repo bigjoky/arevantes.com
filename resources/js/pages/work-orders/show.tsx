@@ -17,6 +17,11 @@ import {
     kinds,
 } from '@/components/operations/workspace';
 import type { Workspace, Order } from '@/components/operations/workspace';
+import type { MaterialOptions } from '@/components/supply/order-materials';
+import {
+    ReserveOrderMaterial,
+    ConsumeOrderMaterial,
+} from '@/components/supply/order-materials';
 import { Button } from '@/components/ui/button';
 import {
     operationsOrderUrl,
@@ -34,6 +39,7 @@ type Item = {
     product?: { name: string; sku: string };
     warehouse?: { name: string };
     quantity?: string;
+    consumed_quantity?: string;
     status?: string;
     started_at?: string;
     ended_at?: string;
@@ -43,6 +49,7 @@ type Item = {
 };
 type Props = Workspace & {
     order: Order;
+    materialOptions?: MaterialOptions | null;
     runningTimer: { id: number; started_at: string } | null;
     tab: string;
     transitions: string[];
@@ -262,6 +269,23 @@ export default function Detail(data: Props) {
                             }
                         />
                     )}
+                    {data.tab === tabs[3][0] && (
+                        <>
+                            {data.materialOptions && (
+                                <ReserveOrderMaterial
+                                    orderId={o.id}
+                                    options={data.materialOptions}
+                                />
+                            )}
+                            {data.materialOptions && (
+                                <Link
+                                    href={`/inventory?view=needs&installation=${o.installation.id}`}
+                                >
+                                    Consultar necesidades de la instalación
+                                </Link>
+                            )}
+                        </>
+                    )}
                     {data.content?.data.map((item) => (
                         <div className="ops-backlog" key={item.id}>
                             {tasks ? (
@@ -301,6 +325,16 @@ export default function Detail(data: Props) {
                                         Descargar
                                     </a>
                                 </>
+                            ) : item.product &&
+                              data.tab === tabs[3][0] &&
+                              item.status === 'active' ? (
+                                <ConsumeOrderMaterial
+                                    orderId={o.id}
+                                    row={{
+                                        ...item,
+                                        quantity: item.quantity ?? '0',
+                                    }}
+                                />
                             ) : item.product ? (
                                 <>
                                     <span>
