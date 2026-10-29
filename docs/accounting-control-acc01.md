@@ -1,6 +1,6 @@
 # ACC-01 — Control contable
 
-Estado: implementado en candidato local; publicación pendiente de completar verificaciones. No se han modificado datos productivos en esta intervención.
+Estado: candidato integrado verificado; publicación manual pendiente. No se han modificado datos productivos en esta intervención.
 
 ## Diagnóstico y decisiones
 
@@ -32,4 +32,11 @@ Contabilidad → Plan de cuentas para crear, buscar, editar metadatos y consulta
 
 ## Verificación
 
-Resultados definitivos y publicación se registrarán aquí al finalizar. Los ensayos se ejecutan con datos sintéticos; no se realizan pruebas de escritura en producción.
+- Suite general integrada: 1.141 pruebas; 1.090 aprobadas, 51 omitidas, 15.504 aserciones (67,9 s).
+- PostgreSQL 17.6: 121 pruebas económicas / 1.450 aserciones aprobadas; primer bloque adicional 63 / 585.
+- Cinco carreras con procesos reales (1 prueba / 42 aserciones): creación de cuenta, asignación concurrente, misma clave, claves distintas y anulación frente a corrección.
+- Frontend: 88 pruebas aprobadas; contrato de exclusiones técnicas ES/EN actualizado y comprobado, sin traducir identificadores internos.
+- TypeScript, ESLint de los archivos afectados, Pint, catálogo y compilación aprobados. El build conserva el aviso existente sobre chunks grandes.
+- Navegador con assets compilados, respuestas de controladores obtenidas con datos sintéticos y rollback: configuración y detalle de asiento en escritorio y móvil de 390 px, sin desbordamiento horizontal ni errores JS. Toda red interceptada; ninguna escritura productiva ni cambio del servidor local existente.
+- Las primeras ejecuciones simultáneas de build/pruebas o de suites que comparten Storage::fake causaron fallos de fixture. Las verificaciones definitivas se ejecutaron sin esa interferencia; no se alteró la lógica documental para ocultarlos.
+- Preflight productivo de lectura: 252 migraciones, únicamente pendiente la propia de ACC-01; ninguna diferencia debe/haber; nueve jobs sin intentos ni reservas; integraciones OPS y automatismos desactivados. Los ensayos se ejecutan con datos sintéticos; no se realizan pruebas de escritura en producción.

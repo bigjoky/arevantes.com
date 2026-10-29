@@ -15,8 +15,8 @@ export function AccountingContextPanel() {
         | undefined;
 
     if (!context) {
-return null;
-}
+        return null;
+    }
 
     return (
         <section

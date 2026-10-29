@@ -91,8 +91,8 @@ export default function AccountingControl(p: Props) {
         )
             .then(async (r) => {
                 if (!r.ok) {
-throw new Error('No se pudieron consultar las fichas.');
-}
+                    throw new Error('No se pudieron consultar las fichas.');
+                }
 
                 return r.json();
             })
@@ -104,8 +104,8 @@ throw new Error('No se pudieron consultar las fichas.');
             })
             .catch((e) => {
                 if (active && e.name !== 'AbortError') {
-setError(e.message);
-}
+                    setError(e.message);
+                }
             });
 
         return () => {
@@ -689,8 +689,8 @@ function EntityAssignments({
             );
 
             if (!r.ok) {
-throw new Error('No se pudieron consultar las asignaciones.');
-}
+                throw new Error('No se pudieron consultar las asignaciones.');
+            }
 
             const d = (await r.json()) as Assignment;
             setData(d);
@@ -706,10 +706,10 @@ throw new Error('No se pudieron consultar las asignaciones.');
         })
             .then(async (r) => {
                 if (!r.ok) {
-throw new Error(
+                    throw new Error(
                         'No se pudieron consultar las asignaciones.',
                     );
-}
+                }
 
                 return r.json();
             })
@@ -720,8 +720,8 @@ throw new Error(
             })
             .catch((e) => {
                 if (live) {
-setError(e.message);
-}
+                    setError(e.message);
+                }
             });
 
         return () => {
@@ -730,12 +730,12 @@ setError(e.message);
     }, [kind, id]);
 
     if (error) {
-return <p role="alert">{error}</p>;
-}
+        return <p role="alert">{error}</p>;
+    }
 
     if (!data) {
-return <p>Consultando asignaciones…</p>;
-}
+        return <p>Consultando asignaciones…</p>;
+    }
 
     return (
         <div className="space-y-4">

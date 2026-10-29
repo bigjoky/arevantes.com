@@ -956,24 +956,24 @@ function Journal({
         const params = new URLSearchParams({ year: String(year) });
 
         if (start) {
-params.set('from', start);
-}
+            params.set('from', start);
+        }
 
         if (end) {
-params.set('to', end);
-}
+            params.set('to', end);
+        }
 
         if (search) {
-params.set('search', search);
-}
+            params.set('search', search);
+        }
 
         if (account !== 'all') {
-params.set('account', account);
-}
+            params.set('account', account);
+        }
 
         if (kind !== 'all') {
-params.set('kind', kind);
-}
+            params.set('kind', kind);
+        }
 
         window.location.assign(`/accounting/export?${params.toString()}`);
     };

@@ -113,12 +113,12 @@ export function JournalCorrectionPanel({
             const data = await r.json();
 
             if (!r.ok) {
-throw new Error(
+                throw new Error(
                     Object.values(data.errors ?? {})
                         .flat()
                         .join(' ') || 'No se pudo preparar la rectificación.',
                 );
-}
+            }
 
             setPreview(data);
         } catch (e) {
@@ -200,7 +200,7 @@ throw new Error(
                             e.preventDefault();
 
                             if (preview) {
-form.post(
+                                form.post(
                                     `/accounting/entries/${entry.id}/corrections`,
                                     {
                                         preserveScroll: true,
@@ -219,7 +219,7 @@ form.post(
                                         },
                                     },
                                 );
-}
+                            }
                         }}
                     >
                         <p className="text-sm">

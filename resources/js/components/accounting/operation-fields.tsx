@@ -22,8 +22,8 @@ export function AccountingOperationFields({
     const [values, setValues] = useState<Record<string, string>>(initial ?? {});
 
     if (!options) {
-return null;
-}
+        return null;
+    }
 
     const roles = {
         sale: ['receivable', 'revenue', 'customer_advance'],
@@ -105,17 +105,17 @@ export function readAccountingFields(
         const match = /^accounting_overrides\[([a-z_]+)\]$/.exec(key);
 
         if (match && typeof value === 'string') {
-overrides[match[1]] = value;
-}
+            overrides[match[1]] = value;
+        }
 
         if (key === 'accounting_category_id' && typeof value === 'string') {
-result.accounting_category_id = value;
-}
+            result.accounting_category_id = value;
+        }
     }
 
     if (Object.keys(overrides).length) {
-result.accounting_overrides = overrides;
-}
+        result.accounting_overrides = overrides;
+    }
 
     return result;
 }

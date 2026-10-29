@@ -55,6 +55,11 @@ test('all reviewed visible strings have actual Spanish and English translations'
 // Explicit review boundary: adding an exclusion requires reviewing its semantics here,
 // rather than merely increasing a total. Original review: 498a2b4; banking: d77adcc.
 const reviewedContract = {
+    'resources/js/components/accounting/operation-fields.tsx': [
+        'sale',
+        'purchase',
+    ],
+    'resources/js/pages/accounting/control.tsx': ['expense'],
     'resources/js/components/project-journey.tsx': [
         'set_required_tasks',
         'close',
@@ -102,6 +107,8 @@ const propertyName = (node) => node.name?.getText().replace(/^['"]|['"]$/g, '');
 function isTechnicalLiteral(node) {
     const parent = node.parent;
 
+    if (ts.isLiteralTypeNode(parent)) return true;
+
     if (ts.isJsxAttribute(parent)) {
         return ['value', 'href', 'name', 'autoComplete'].includes(
             parent.name.getText(),
@@ -130,6 +137,15 @@ function isTechnicalLiteral(node) {
 
     if (ts.isArrayLiteralExpression(parent)) {
         const owner = parent.parent;
+
+        // Accounting role arrays resolve through the bilingual roleNames lookup.
+        if (
+            ts.isPropertyAssignment(owner) &&
+            ['sale', 'purchase', 'expense', 'receipt'].includes(
+                propertyName(owner),
+            )
+        )
+            return true;
 
         // URL half of a [translated label, route] navigation tuple.
         if (

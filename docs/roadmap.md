@@ -6441,8 +6441,8 @@ Cierre verificado. No se inicia conciliación automática, Nexo ni ECO-03.
 
 ## ACC-01 — Control del plan de cuentas y rectificaciones (29/10/2026)
 
-- Estado: candidato local implementado, en verificación; todavía no publicado.
+- Estado: candidato integrado verificado; pendiente de publicación manual.
 - Implementado: gestión y usos de cuentas, asignaciones expresas futuras, jerarquía configurable, conceptos ES/EN, borradores equilibrados, anotaciones y ajustes trazables/idempotentes, búsqueda del diario en servidor y revisión informativa.
 - Dependencias: motor contable, periodos, identidad fiscal y conciliación existentes; migración aditiva específica. Sin Nexo ni ECO-03.
 - Criterio de aceptación: pruebas contables y concurrencia PostgreSQL 17.6, tipos/estilo/catálogo/compilación, comprobación visual escritorio/móvil y conservación de históricos antes/después de publicar.
-- Verificaciones y límites: [ACC-01](accounting-control-acc01.md). Publicación condicionada a completar estas verificaciones; no ejecutar migraciones ajenas ni activar automatismos.
+- Verificado: 1.090 pruebas generales, 121 económicas PostgreSQL 17.6, cinco carreras reales, 88 frontend, tipos/estilo/catálogo/build y escritorio/móvil. Detalle y límites: [ACC-01](accounting-control-acc01.md). Publicación manual pendiente; no ejecutar migraciones ajenas ni activar automatismos.
