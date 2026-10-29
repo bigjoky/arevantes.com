@@ -1,0 +1,168 @@
+{
+  "candidate": "26abc366b98f2bb5ed4db27a69518c3a41376958",
+  "deployment": "depl-a31942d0-2fdf-4b92-bdd1-4ae32d544e9a",
+  "state": "published_verified",
+  "tests": {
+    "general": {
+      "total": 1141,
+      "passed": 1090,
+      "skipped": 51,
+      "assertions": 15504
+    },
+    "postgresql_17_6": {
+      "tests": 121,
+      "assertions": 1450
+    },
+    "concurrency": {
+      "test": 1,
+      "scenarios": 5,
+      "assertions": 42
+    },
+    "frontend": {
+      "passed": 88
+    },
+    "types": true,
+    "affected_eslint": true,
+    "pint": true,
+    "catalog": true,
+    "build": true,
+    "visual": {
+      "synthetic": true,
+      "desktop": 1440,
+      "mobile": 390,
+      "horizontal_overflow": false,
+      "javascript_errors": 0
+    }
+  },
+  "migration": {
+    "migration": "2026_10_29_105544_add_controlled_accounting_configuration_and_corrections",
+    "sha256": "e2a2575c56c3c79fe8861d6d9413655deb44329b335b7e83db0754ceace3204d",
+    "migrations_before": 252,
+    "migrations_after": 253,
+    "historical_tables_unchanged": 12,
+    "historical_triggers_unchanged": true,
+    "automatic_hook_used": false
+  },
+  "cloud": {
+    "read_at_utc": "2026-10-29T15:50:43.919087+00:00",
+    "read_only": true,
+    "monitor_exit": 0,
+    "expected_candidate": "26abc366b98f2bb5ed4db27a69518c3a41376958",
+    "environment": {
+      "id": "env-a278002d-4d7c-4fc2-8920-1034fe592f20",
+      "status": "running",
+      "buildCommand": "composer install --no-dev --prefer-dist --optimize-autoloader --no-interaction\ncomposer patches-repatch --no-interaction\nnpm ci\nnpm run build\nphp artisan optimize",
+      "deployCommand": null,
+      "usesPushToDeploy": false,
+      "usesDeployHook": false,
+      "currentDeploymentId": "depl-a31942d0-2fdf-4b92-bdd1-4ae32d544e9a"
+    },
+    "deployment": {
+      "id": "depl-a31942d0-2fdf-4b92-bdd1-4ae32d544e9a",
+      "status": "deployment.succeeded",
+      "commitHash": "26abc366b98f2bb5ed4db27a69518c3a41376958",
+      "startedAt": "2026-10-29T15:48:24.000000Z",
+      "finishedAt": "2026-10-29T15:50:18.000000Z",
+      "failureReason": null
+    },
+    "instance": {
+      "id": "inst-a278002d-5256-4baa-a564-1f2e601f06ad",
+      "type": "app",
+      "minReplicas": 1,
+      "maxReplicas": 1,
+      "usesScheduler": false,
+      "backgroundProcessIds": []
+    },
+    "background_processes": [],
+    "patches_repatch_preserved": true,
+    "exact_candidate_active": true
+  },
+  "integrity": {
+    "historical_tables_unchanged": 12,
+    "historical_triggers_unchanged": true,
+    "jobs_unchanged": 9,
+    "rls_tables": 3,
+    "data_api_table_and_sequence_grants": 0,
+    "business_test_writes": 0
+  },
+  "public_routes": [
+    {
+      "path": "/up",
+      "status": 200
+    },
+    {
+      "path": "/login",
+      "status": 200
+    },
+    {
+      "path": "/accounting/control",
+      "status": 302
+    }
+  ],
+  "authenticated_routes": [
+    {
+      "path": "/accounting/accounts",
+      "status": 200,
+      "bytes": 34648
+    },
+    {
+      "path": "/banking",
+      "status": 200,
+      "bytes": 172083
+    },
+    {
+      "path": "/accounting/control",
+      "status": 200,
+      "bytes": 115682
+    },
+    {
+      "path": "/accounting?year=2026&area=entries",
+      "status": 200,
+      "bytes": 38535
+    },
+    {
+      "path": "/accounting/entries/2",
+      "status": 200,
+      "bytes": 91461
+    },
+    {
+      "path": "/expenses",
+      "status": 200,
+      "bytes": 139686
+    },
+    {
+      "path": "/sales/4",
+      "status": 200,
+      "bytes": 129366,
+      "can_cancel_receipts": true,
+      "has_cancellation_revisions": true,
+      "void_history_available": true
+    },
+    {
+      "path": "/purchases",
+      "status": 200,
+      "bytes": 124027
+    },
+    {
+      "path": "/accounting/review",
+      "status": 200,
+      "bytes": 23391
+    }
+  ],
+  "operations": {
+    "maintenance": false,
+    "workers": false,
+    "scheduler": false,
+    "push_to_deploy": false,
+    "automatic_migrations": false,
+    "ops_integrations": false,
+    "backups_and_retention": "unchanged",
+    "available_application_log_files": 0
+  },
+  "limitations": [
+    "No automatic stock valuation or depreciation.",
+    "Historical ambiguous account distributions require explicit review.",
+    "Fiscal document edits with manual journal corrections require prior review.",
+    "No application log files available; deployment monitor and affected read-only requests verified."
+  ]
+}

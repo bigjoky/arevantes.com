@@ -1,6 +1,6 @@
 # ACC-01 — Control contable
 
-Estado: candidato integrado verificado; publicación manual pendiente. No se han modificado datos productivos en esta intervención.
+Estado: publicado y verificado en producción. Se ha aplicado únicamente la migración aditiva propia; no se han reescrito datos históricos.
 
 ## Diagnóstico y decisiones
 
@@ -40,3 +40,15 @@ Contabilidad → Plan de cuentas para crear, buscar, editar metadatos y consulta
 - Navegador con assets compilados, respuestas de controladores obtenidas con datos sintéticos y rollback: configuración y detalle de asiento en escritorio y móvil de 390 px, sin desbordamiento horizontal ni errores JS. Toda red interceptada; ninguna escritura productiva ni cambio del servidor local existente.
 - Las primeras ejecuciones simultáneas de build/pruebas o de suites que comparten Storage::fake causaron fallos de fixture. Las verificaciones definitivas se ejecutaron sin esa interferencia; no se alteró la lógica documental para ocultarlos.
 - Preflight productivo de lectura: 252 migraciones, únicamente pendiente la propia de ACC-01; ninguna diferencia debe/haber; nueve jobs sin intentos ni reservas; integraciones OPS y automatismos desactivados. Los ensayos se ejecutan con datos sintéticos; no se realizan pruebas de escritura en producción.
+
+## Publicación efectiva
+
+Código `26abc366b98f2bb5ed4db27a69518c3a41376958`; Laravel Cloud `depl-a31942d0-2fdf-4b92-bdd1-4ae32d544e9a`, succeeded el 29/10/2026 a las 15:50:18 UTC. Integra selectivamente ACC-01 sobre el almacén móvil ya publicado, conservando también la comprobación de contratos i18n existente en main.
+
+Migraciones 252→253: aplicada exclusivamente `2026_10_29_105544_add_controlled_accounting_configuration_and_corrections`, bajo mantenimiento, locks acotados y comprobación de igualdad del registro. Doce tablas conservan todas sus columnas originales por hash antes/después; triggers históricos sin cambios. Fuentes remotas iguales al candidato por SHA-256. Tres nuevas tablas con RLS y sin privilegios Data API/PUBLIC, tampoco en sus secuencias. No se crearon movimientos económicos ni documentos de prueba en producción.
+
+Mantenimiento retirado. Nueve GET autenticados de configuración, revisión, diario, plan, asiento, factura, banco, gastos y compras: 200. `/up` y `/login`: 200; configuración anónima: 302. El cliente urllib recibió 403 en la capa pública; se verificó con curl y mediante el kernel autenticado sin cambiar controles de acceso. No hay archivos de log de aplicación disponibles en el contenedor: el monitor de despliegue terminó sin errores y las rutas verificadas no devolvieron 500; no se afirma una revisión de logs inexistentes.
+
+Los nueve jobs permanecen sin intentos ni reservas y con payload/cola intactos, incluidos los seis históricos. Workers, scheduler, integraciones OPS, push-to-deploy, hook y migraciones automáticas desactivados. Backups, custodia y retención conservados. Contenedor PostgreSQL sintético detenido y navegador de QA cerrado. La instancia localhost existente no se ha sustituido; la comprobación visual utilizó assets compilados y datos sintéticos con red interceptada.
+
+Evidencia compacta: [publicación ACC-01](accounting-control-publication-2026-10-29.json).
