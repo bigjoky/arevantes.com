@@ -13,6 +13,7 @@ use App\Models\JournalEntry;
 use App\Models\LedgerAccount;
 use App\Models\SalesDocument;
 use App\Models\SupplierPayment;
+use App\Models\TaxReturn;
 use App\Models\User;
 use App\Services\Accounting\AccountingSynchronizer;
 use App\Services\Accounting\JournalPoster;
@@ -176,6 +177,24 @@ class ControlledBankReconciliationTest extends TestCase
         $this->assertDatabaseCount('bank_reconciliations', 0);
         $this->get(route('banking.reconciliation.candidates', $bank))->assertOk()->assertJsonPath('data.0.blocked', null);
         $this->get(route('banking.reconciliation.candidates', $bank).'?search='.urlencode($document->number))->assertOk()->assertJsonPath('data.0.number', $document->number);
+    }
+
+    public function test_tax_candidate_date_signal_uses_payment_date_instead_of_current_date(): void
+    {
+        [, , $bank] = $this->fixture('100.00', '-100.00');
+        $this->travelTo(CarbonImmutable::parse('2026-12-20 12:00:00', 'Europe/Madrid'));
+        $tax = TaxReturn::create([
+            'year' => 2026, 'quarter' => 2, 'period_from' => '2026-04-01', 'period_to' => '2026-06-30',
+            'status' => 'filed', 'result' => 100, 'output_vat' => 100, 'input_vat' => 0, 'snapshot' => [], 'prepared_at' => now(),
+        ]);
+        $payment = $tax->payments()->create(['amount' => 100, 'paid_on' => '2026-09-21', 'method' => 'bank_transfer']);
+        $candidate = app(ReconciliationWorkspace::class)->candidate($bank, $payment, 'tax');
+        $this->assertSame('2026-09-21', $candidate['date']);
+        $this->assertContains('near_date', $candidate['signals']);
+        $payment->update(['paid_on' => '2026-08-01']);
+        $candidate = app(ReconciliationWorkspace::class)->candidate($bank, $payment->fresh(), 'tax');
+        $this->assertNotContains('near_date', $candidate['signals']);
+        $this->travelBack();
     }
 
     public function test_reviews_have_history_and_cannot_fabricate_a_resolved_balance(): void

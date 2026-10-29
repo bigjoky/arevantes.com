@@ -111,7 +111,7 @@ class ReconciliationWorkspace
             $signals[] = 'concept_reference';
             $score += 10;
         }
-        $days = (int) abs($bank->booked_on->diffInDays($payment->paid_at));
+        $days = (int) abs($bank->booked_on->diffInDays($paidDate));
         if ($days <= 7) {
             $signals[] = 'near_date';
             $score += 10;
