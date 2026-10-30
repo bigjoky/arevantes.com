@@ -1,4 +1,5 @@
-import { Form, Head } from '@inertiajs/react';
+import '@/../css/hr-mobile.css';
+import { Head } from '@inertiajs/react';
 import {
     CalendarClock,
     Check,
@@ -9,6 +10,7 @@ import {
     UserRound,
 } from 'lucide-react';
 import InputError from '@/components/input-error';
+import Form from '@/components/projects/protected-form';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -21,6 +23,8 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import ConfirmSubmit from '@/pages/human-resources/confirm-submit';
+import MobileHrNavigation from '@/pages/human-resources/mobile-navigation';
 
 type StaffOption = { id: number; name: string };
 type TaskSummary = { open: number; overdue: number; completed: number };
@@ -55,7 +59,8 @@ export default function Tasks({
     return (
         <>
             <Head title="Tareas de RR. HH." />
-            <div className="flex flex-1 flex-col gap-8 p-4">
+            <div className="hr-mobile-workspace flex flex-1 flex-col gap-8 p-4">
+                <MobileHrNavigation />
                 <header>
                     <h1 className="text-xl font-semibold">
                         Tareas y onboarding
@@ -335,10 +340,13 @@ export default function Tasks({
                                             method="delete"
                                             className="ml-auto"
                                         >
-                                            <Button size="sm" variant="ghost">
+                                            <ConfirmSubmit
+                                                size="sm"
+                                                variant="ghost"
+                                            >
                                                 <Trash2 />
                                                 Eliminar
-                                            </Button>
+                                            </ConfirmSubmit>
                                         </Form>
                                     </div>
                                     {task.completedByName ? (

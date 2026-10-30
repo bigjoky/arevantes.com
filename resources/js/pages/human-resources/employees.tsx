@@ -1,6 +1,8 @@
-import { Form, Head, Link } from '@inertiajs/react';
+import '@/../css/hr-mobile.css';
+import { Head, Link } from '@inertiajs/react';
 import { ChevronRight, UsersRound } from 'lucide-react';
 import InputError from '@/components/input-error';
+import Form from '@/components/projects/protected-form';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -12,6 +14,8 @@ import {
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import MobileHrNavigation from '@/pages/human-resources/mobile-navigation';
+import ProtectedDetails from '@/pages/human-resources/protected-details';
 
 type Department = { id: number; name: string };
 type StaffOption = { id: number; name: string };
@@ -55,7 +59,8 @@ export default function Employees({
     return (
         <>
             <Head title="Fichas laborales" />
-            <div className="flex flex-1 flex-col gap-8 p-4">
+            <div className="hr-mobile-workspace flex flex-1 flex-col gap-8 p-4">
+                <MobileHrNavigation />
                 <header className="flex flex-wrap items-start justify-between gap-4">
                     <div>
                         <h1 className="text-xl font-semibold">
@@ -116,7 +121,7 @@ export default function Employees({
                                 </div>
                             </CardHeader>
                             <CardContent>
-                                <details>
+                                <ProtectedDetails>
                                     <summary className="cursor-pointer text-sm font-medium">
                                         {employee.employment
                                             ? 'Editar condiciones laborales'
@@ -432,7 +437,7 @@ export default function Employees({
                                             </>
                                         )}
                                     </Form>
-                                </details>
+                                </ProtectedDetails>
                             </CardContent>
                         </Card>
                     ))}

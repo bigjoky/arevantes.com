@@ -4720,8 +4720,8 @@
         "es": "Completado por"
     },
     "Completadas": {
-        "en": "Completadas",
-        "es": "Totaldas"
+        "en": "Completed",
+        "es": "Completadas"
     },
     "Completar": {
         "en": "Complete",
@@ -26510,5 +26510,17 @@
     "Accesos de tesorería": {
         "es": "Accesos de tesorería",
         "en": "Treasury shortcuts"
+    },
+    "Confirmar": {
+        "es": "Confirmar",
+        "en": "Confirm"
+    },
+    "¿Eliminar este departamento? Las fichas asociadas quedarán sin departamento.": {
+        "es": "¿Eliminar este departamento? Las fichas asociadas quedarán sin departamento.",
+        "en": "Delete this department? Associated employee records will no longer have a department."
+    },
+    "Eliminar contacto": {
+        "es": "Eliminar contacto",
+        "en": "Delete contact"
     }
 }

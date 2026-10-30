@@ -82,6 +82,26 @@ class HumanResourcesSelfServiceTest extends TestCase
         Notification::assertSentTo($admin, LeaveRequestSubmittedNotification::class);
     }
 
+    public function test_forged_employee_identifier_cannot_create_leave_for_another_employee(): void
+    {
+        Notification::fake();
+        $employee = $this->staff('Alice', 'Own');
+        $other = $this->staff('Bob', 'Other');
+        $user = User::factory()->create(['person_id' => $employee->id, 'role' => 'commercial']);
+
+        $this->actingAs($user)->post(route('my-human-resources.leave.store'), [
+            'person_id' => $other->id,
+            'employee_id' => $other->id,
+            'type' => 'personal',
+            'start_date' => '2026-11-16',
+            'end_date' => '2026-11-16',
+            'notes' => 'Prueba sintética',
+        ])->assertRedirect();
+
+        $this->assertDatabaseHas('hr_leave_requests', ['person_id' => $employee->id, 'notes' => 'Prueba sintética']);
+        $this->assertDatabaseMissing('hr_leave_requests', ['person_id' => $other->id, 'notes' => 'Prueba sintética']);
+    }
+
     public function test_overlapping_pending_or_approved_leave_is_rejected(): void
     {
         $employee = $this->staff('Luis', 'Employee');

@@ -1,4 +1,5 @@
-import { Form, Head, Link } from '@inertiajs/react';
+import '@/../css/hr-mobile.css';
+import { Head, Link } from '@inertiajs/react';
 import {
     AlertTriangle,
     ArrowLeft,
@@ -12,6 +13,7 @@ import {
     Upload,
 } from 'lucide-react';
 import InputError from '@/components/input-error';
+import Form from '@/components/projects/protected-form';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -24,6 +26,8 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import ConfirmSubmit from '@/pages/human-resources/confirm-submit';
+import MobileHrNavigation from '@/pages/human-resources/mobile-navigation';
 
 type Employment = {
     employeeNumber: string | null;
@@ -99,7 +103,8 @@ export default function Dossier({
     return (
         <>
             <Head title={`Expediente · ${employee.name}`} />
-            <div className="flex flex-1 flex-col gap-6 p-4">
+            <div className="hr-mobile-workspace flex flex-1 flex-col gap-6 p-4">
+                <MobileHrNavigation />
                 <header className="flex flex-wrap items-start justify-between gap-4">
                     <div className="space-y-2">
                         <Button variant="ghost" size="sm" asChild>
@@ -496,14 +501,14 @@ function Documents({
                                         method="delete"
                                     >
                                         {({ processing }) => (
-                                            <Button
+                                            <ConfirmSubmit
                                                 variant="ghost"
                                                 size="icon"
                                                 disabled={processing}
                                                 aria-label="Eliminar documento"
                                             >
                                                 <Trash2 />
-                                            </Button>
+                                            </ConfirmSubmit>
                                         )}
                                     </Form>
                                 ) : null}
@@ -564,9 +569,13 @@ function EmergencyContacts({
                                     action={`/human-resources/employees/${employee.id}/emergency-contacts/${contact.id}`}
                                     method="delete"
                                 >
-                                    <Button variant="ghost" size="icon">
+                                    <ConfirmSubmit
+                                        variant="ghost"
+                                        size="icon"
+                                        aria-label="Eliminar contacto"
+                                    >
                                         <Trash2 />
-                                    </Button>
+                                    </ConfirmSubmit>
                                 </Form>
                             ) : null}
                         </div>

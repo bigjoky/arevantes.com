@@ -1,4 +1,5 @@
-import { Form, Head } from '@inertiajs/react';
+import '@/../css/hr-mobile.css';
+import { Head } from '@inertiajs/react';
 import {
     AlertTriangle,
     CalendarDays,
@@ -9,6 +10,7 @@ import {
     X,
 } from 'lucide-react';
 import InputError from '@/components/input-error';
+import Form from '@/components/projects/protected-form';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -21,6 +23,9 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import ConfirmSubmit from '@/pages/human-resources/confirm-submit';
+import MobileHrNavigation from '@/pages/human-resources/mobile-navigation';
+import ProtectedDetails from '@/pages/human-resources/protected-details';
 
 type Balance = {
     type: string;
@@ -82,7 +87,8 @@ export default function Leave({
     return (
         <>
             <Head title="Ausencias" />
-            <div className="flex flex-1 flex-col gap-8 p-4">
+            <div className="hr-mobile-workspace flex flex-1 flex-col gap-8 p-4">
+                <MobileHrNavigation />
                 <header>
                     <h1 className="text-xl font-semibold">Ausencias</h1>
                     <p className="text-sm text-muted-foreground">
@@ -103,7 +109,7 @@ export default function Leave({
                     </CardHeader>
                     <CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                         {policies.map((policy) => (
-                            <details
+                            <ProtectedDetails
                                 key={policy.id}
                                 className="rounded-lg border p-3"
                             >
@@ -221,7 +227,7 @@ export default function Leave({
                                         </>
                                     )}
                                 </Form>
-                            </details>
+                            </ProtectedDetails>
                         ))}
                     </CardContent>
                 </Card>
@@ -522,13 +528,13 @@ export default function Leave({
                                                 action={`/human-resources/leave/${request.id}`}
                                                 method="delete"
                                             >
-                                                <Button
+                                                <ConfirmSubmit
                                                     size="sm"
                                                     variant="ghost"
                                                 >
                                                     <Trash2 />
                                                     Eliminar
-                                                </Button>
+                                                </ConfirmSubmit>
                                             </Form>
                                         </div>
                                     ) : null}
@@ -595,10 +601,10 @@ function DecisionForm({
                             <InputError message={errors.substitute_person_id} />
                         </div>
                     ) : null}
-                    <Button size="sm" variant={variant}>
+                    <ConfirmSubmit size="sm" variant={variant}>
                         {icon}
                         {label}
-                    </Button>
+                    </ConfirmSubmit>
                 </>
             )}
         </Form>

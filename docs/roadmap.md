@@ -6507,3 +6507,18 @@ Verificación: frontend y backend financiero, build/tipos/lint/i18n/Pint. Sin ca
 - Entorno de revisión: `http://localhost:8000`, copia de este worktree y SQLite
   aislado con usuario de prueba. No usa datos de producción. Pendiente de publicación;
   la validación local no acredita despliegue.
+
+## Recursos Humanos Móvil 06 — 30/10/2026
+
+Estado: cambios locales pendientes de publicación. Se reutilizan las rutas,
+permisos y datos existentes de RR. HH.; el portal personal sigue vinculado al
+empleado autenticado.
+
+| Capacidad | Estado / dependencia | Criterio de aceptación |
+|---|---|---|
+| Vistas de RR. HH. y navegación móvil | Adaptación local; escritorio conserva sus vistas existentes | Acceso a las secciones autorizadas, formularios utilizables y sin desbordamiento accidental |
+| Borradores y acciones sensibles | Guardas existentes reutilizadas; confirmación en cierres y acciones seleccionadas | Conservar cambios al seguir editando, impedir doble envío y confirmar operaciones sensibles |
+| Dispositivos físicos | Pendiente de entorno HTTPS y dispositivos iPhone/Android | Verificar teclado, áreas seguras, navegación, descargas privadas y sesión sin usar datos reales |
+| SEC-01 multientidad | Fuera del alcance; depende del modelo y políticas de aislamiento | Validación independiente de las consultas y documentos por empresa antes de afirmar aislamiento multientidad |
+
+La verificación local no implica publicación ni sustituye las pruebas en teléfonos.

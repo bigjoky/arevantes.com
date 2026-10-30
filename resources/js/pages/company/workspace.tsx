@@ -136,7 +136,18 @@ export default function CompanyWorkspace(p: Props) {
                     actions={
                         <>
                             {area === 'staff' && c.staff && (
-                                <NewEmployee departments={p.departments} />
+                                <>
+                                    <Button
+                                        asChild
+                                        variant="outline"
+                                        className="lg:hidden"
+                                    >
+                                        <Link href="/human-resources">
+                                            Recursos Humanos
+                                        </Link>
+                                    </Button>
+                                    <NewEmployee departments={p.departments} />
+                                </>
                             )}
                             {area === 'documents' && c.upload && (
                                 <UploadDialog />

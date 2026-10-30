@@ -1,4 +1,5 @@
-import { Form, Head } from '@inertiajs/react';
+import '@/../css/hr-mobile.css';
+import { Head } from '@inertiajs/react';
 import {
     BriefcaseBusiness,
     Building2,
@@ -13,6 +14,7 @@ import {
     X,
 } from 'lucide-react';
 import InputError from '@/components/input-error';
+import Form from '@/components/projects/protected-form';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -25,6 +27,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import ConfirmSubmit from '@/pages/human-resources/confirm-submit';
 
 type Employment = {
     employeeNumber: string | null;
@@ -107,7 +110,7 @@ export default function MySpace({
     return (
         <>
             <Head title="Mi RR. HH." />
-            <div className="flex flex-1 flex-col gap-8 p-4">
+            <div className="hr-mobile-workspace flex flex-1 flex-col gap-8 p-4">
                 <header>
                     <h1 className="text-xl font-semibold">Mi RR. HH.</h1>
                     <p className="text-sm text-muted-foreground">
@@ -615,13 +618,13 @@ export default function MySpace({
                                                             action={`/my-human-resources/leave/${request.id}/cancel`}
                                                             method="patch"
                                                         >
-                                                            <Button
+                                                            <ConfirmSubmit
                                                                 size="sm"
                                                                 variant="ghost"
                                                             >
                                                                 <X />
                                                                 Cancelar
-                                                            </Button>
+                                                            </ConfirmSubmit>
                                                         </Form>
                                                     ) : null}
                                                 </div>

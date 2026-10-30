@@ -1,6 +1,8 @@
-import { Form, Head } from '@inertiajs/react';
+import '@/../css/hr-mobile.css';
+import { Head } from '@inertiajs/react';
 import { Building2, Trash2 } from 'lucide-react';
 import InputError from '@/components/input-error';
+import Form from '@/components/projects/protected-form';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -13,6 +15,8 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import ConfirmSubmit from '@/pages/human-resources/confirm-submit';
+import MobileHrNavigation from '@/pages/human-resources/mobile-navigation';
 
 type Department = {
     id: number;
@@ -31,7 +35,8 @@ export default function Departments({
     return (
         <>
             <Head title="Departamentos" />
-            <div className="flex flex-1 flex-col gap-8 p-4">
+            <div className="hr-mobile-workspace flex flex-1 flex-col gap-8 p-4">
+                <MobileHrNavigation />
                 <header>
                     <h1 className="text-xl font-semibold">Departamentos</h1>
                     <p className="text-sm text-muted-foreground">
@@ -223,20 +228,15 @@ export default function Departments({
                                         action={`/human-resources/departments/${department.id}`}
                                         method="delete"
                                         className="mt-4 border-t pt-4"
-                                        onBefore={() =>
-                                            window.confirm(
-                                                '¿Eliminar este departamento? Las fichas asociadas quedarán sin departamento.',
-                                            )
-                                        }
                                     >
-                                        <Button
-                                            type="submit"
+                                        <ConfirmSubmit
                                             size="sm"
                                             variant="ghost"
+                                            description="¿Eliminar este departamento? Las fichas asociadas quedarán sin departamento."
                                         >
                                             <Trash2 />
                                             Eliminar
-                                        </Button>
+                                        </ConfirmSubmit>
                                     </Form>
                                 </CardContent>
                             </Card>
