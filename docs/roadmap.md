@@ -2526,7 +2526,7 @@ sus rutas y pasan a navegación interna. No se han publicado estos cambios.
 
 | Capacidad | Estado / dependencia / aceptación |
 | --- | --- |
-| Navegación canónica | Implantada: Comercial (CRM, Clientes, Presupuestos); Proyectos (Proyectos, Instalaciones, Postventa); Operaciones (Planificación, Órdenes de trabajo, Agenda); Almacén y compras (Productos, Inventario, Proveedores, Compras); Facturación (Facturas de clientes, Facturas de proveedores, Cobros y pagos); Contabilidad (Vista general, Asientos, Plan contable, Informes contables, Libros oficiales); Finanzas (Tesorería, Bancos y conciliación, Previsiones); Fiscal (Impuestos, Modelos, Periodos fiscales); Empresa (Personal, Documentos, Configuración) |
+| Navegación canónica | Implantada: Comercial (CRM, Clientes, Presupuestos); Proyectos (Proyectos, Instalaciones, Postventa); Operaciones (Planificación, Órdenes de trabajo, Agenda); Almacén y compras (Productos, Inventario, Proveedores, Compras); Facturación (Facturas de clientes, Facturas de proveedores, Cobros y pagos); Contabilidad (nodo padre navegable a Vista general; subsecciones Asientos, Plan contable, Informes contables, Libros oficiales); Finanzas (Tesorería, Bancos y conciliación, Previsiones); Fiscal (Impuestos, Modelos, Periodos fiscales); Empresa (Personal, Documentos, Configuración) |
 | Registro de proyectos | Preparado con acceso a expedientes técnicos; pendiente entidad de proyecto independiente, permisos y relación con instalaciones/expedientes; validar ciclo completo sin duplicación |
 | Agenda | Preparada con enlace al resumen operativo existente; pendiente agenda independiente, calendario real y permisos de eventos |
 | Asientos | Actualizado localmente el 23/10/2026: listado con filtros/búsqueda/orden/paginación backend y ficha completa; creación/edición de borradores y contabilización con decimales exactos. Plantillas/periódicos existentes conservados; importación pendiente. Véase UI-ACC-04/05/06/25. |
@@ -5651,7 +5651,7 @@ sus rutas y pasan a navegación interna. No se han publicado estos cambios.
 
 | Capacidad | Estado / dependencia / aceptación |
 | --- | --- |
-| Navegación canónica | Implantada: Comercial (CRM, Clientes, Presupuestos); Proyectos (Proyectos, Instalaciones, Postventa); Operaciones (Planificación, Órdenes de trabajo, Agenda); Almacén y compras (Productos, Inventario, Proveedores, Compras); Facturación (Facturas de clientes, Facturas de proveedores, Cobros y pagos); Contabilidad (Vista general, Asientos, Plan contable, Informes contables, Libros oficiales); Finanzas (Tesorería, Bancos y conciliación, Previsiones); Fiscal (Impuestos, Modelos, Periodos fiscales); Empresa (Personal, Documentos, Configuración) |
+| Navegación canónica | Implantada: Comercial (CRM, Clientes, Presupuestos); Proyectos (Proyectos, Instalaciones, Postventa); Operaciones (Planificación, Órdenes de trabajo, Agenda); Almacén y compras (Productos, Inventario, Proveedores, Compras); Facturación (Facturas de clientes, Facturas de proveedores, Cobros y pagos); Contabilidad (nodo padre navegable a Vista general; subsecciones Asientos, Plan contable, Informes contables, Libros oficiales); Finanzas (Tesorería, Bancos y conciliación, Previsiones); Fiscal (Impuestos, Modelos, Periodos fiscales); Empresa (Personal, Documentos, Configuración) |
 | Registro de proyectos | Preparado con acceso a expedientes técnicos; pendiente entidad de proyecto independiente, permisos y relación con instalaciones/expedientes; validar ciclo completo sin duplicación |
 | Agenda | Preparada con enlace al resumen operativo existente; pendiente agenda independiente, calendario real y permisos de eventos |
 | Asientos | Actualizado localmente el 23/10/2026: listado con filtros/búsqueda/orden/paginación backend y ficha completa; creación/edición de borradores y contabilización con decimales exactos. Plantillas/periódicos existentes conservados; importación pendiente. Véase UI-ACC-04/05/06/25. |
@@ -6486,3 +6486,24 @@ Estado: implantado en checkout independiente, no publicado. Ver [verificación](
 | Dispositivos físicos | Pendiente iPhone/Android en HTTPS autorizado | Comprobar teclado, safe areas, lectores, instalación y caché sin datos productivos de prueba |
 
 Verificación: frontend y backend financiero, build/tipos/lint/i18n/Pint. Sin cambios de reglas contables, fiscales, permisos, migraciones ni infraestructura.
+
+
+### Corrección de navegación de Contabilidad — 30/10/2026
+
+- Implantada localmente: el nodo padre usa `navigable` y conserva la URL
+  `/accounting?area=overview`; se elimina la subsección redundante Vista general.
+  Reutiliza la misma definición y los controles de enlace/chevron de Comercial,
+  Proyectos, Operaciones y Almacén y compras, sin cambios visuales ni de permisos.
+- La comprobación de autorización de rutas padre admite parámetros consultando
+  su ruta base. Los enlaces heredados de mapeos activan el padre Contabilidad.
+- Verificación: 11 tests backend de navegación/autorización, 517 aserciones;
+  94 tests frontend y script de rutas `tests/frontend/workspace-navigation.mjs`;
+  TypeScript, ESLint, Pint y build correctos. Build conserva avisos de tamaño de
+  bundles. Revisión en navegador local de dashboard, expansión y selección de
+  Asientos en escritorio y menú móvil/PWA, sin Vista general en el desplegable.
+- Criterio de aceptación cumplido: padre enlazado al dashboard, cuatro subsecciones
+  existentes accesibles y selección contextual; sin cambios contables, de modelos
+  ni nuevas migraciones. Sin carencias nuevas de backend ni dependencias pendientes.
+- Entorno de revisión: `http://localhost:8000`, copia de este worktree y SQLite
+  aislado con usuario de prueba. No usa datos de producción. Pendiente de publicación;
+  la validación local no acredita despliegue.

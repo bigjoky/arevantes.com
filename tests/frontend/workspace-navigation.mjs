@@ -28,6 +28,8 @@ const items = [
     },
     {
         id: 'accounting',
+        href: '/accounting?area=overview',
+        navigable: true,
         children: [
             {
                 id: 'accounting.entries',
@@ -166,4 +168,11 @@ assert.equal(
     'company.settings',
 );
 assert.equal(activeNavigation([], '/company/staff/5'), undefined);
-console.log('30 navigation assertions passed.');
+
+assert.equal(activeNavigation(items, '/accounting?area=overview&year=2026'), 'accounting');
+assert.equal(activeNavigation(items, '/accounting?view=mappings'), 'accounting');
+assert.equal(activeNavigation(items, '/accounting?view=mappings&area=overview'), 'accounting');
+assert.equal(activeNavigation(items, '/accounting/entries/42'), 'accounting.entries');
+assert.equal(activeNavigation(items, '/accounting?view=journal&area=entries'), 'accounting.entries');
+
+console.log('Workspace navigation assertions passed.');

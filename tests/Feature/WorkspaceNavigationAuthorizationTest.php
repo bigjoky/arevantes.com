@@ -202,11 +202,11 @@ class WorkspaceNavigationAuthorizationTest extends TestCase
         $commercial = collect($navigation)->firstWhere('id', 'commercial');
         $this->assertSame('/commercial', $commercial['href']);
         $this->assertTrue($commercial['navigable']);
-        $this->assertCount(8, array_filter($navigation, fn ($module) => $module['navigable'] ?? false));
+        $this->assertCount(9, array_filter($navigation, fn ($module) => $module['navigable'] ?? false));
         $expected = [
             'commercial' => ['crm', 'customers', 'quotes'], 'projects' => ['projects', 'installations', 'after-sales'],
             'operations' => ['planning', 'work-orders', 'agenda'], 'supply' => ['products', 'inventory', 'suppliers', 'purchases'],
-            'billing' => ['customers', 'suppliers', 'payments'], 'accounting' => ['overview', 'entries', 'accounts', 'reports', 'books'],
+            'billing' => ['customers', 'suppliers', 'payments'], 'accounting' => ['entries', 'accounts', 'reports', 'books'],
             'finance' => ['treasury', 'banking', 'forecasts'], 'tax' => ['taxes', 'models', 'periods'], 'company' => ['staff', 'documents', 'settings'],
         ];
         foreach ($navigation as $module) {
@@ -231,7 +231,14 @@ class WorkspaceNavigationAuthorizationTest extends TestCase
         $user = User::factory()->create();
         $navigation = collect(app(WorkspaceNavigation::class)->for($user));
         $accounting = $navigation->firstWhere('id', 'accounting');
-        $this->assertCount(5, $accounting['children']);
+        $this->assertCount(4, $accounting['children']);
+        $this->assertSame('/accounting?area=overview', $accounting['href']);
+        $this->assertTrue($accounting['navigable']);
+        $this->assertNotContains('Vista general', array_column($accounting['children'], 'title'));
+        $this->actingAs($user)->get($accounting['href'])->assertOk()
+            ->assertInertia(fn (Assert $page) => $page->component('accounting/workspace')->where('area', 'overview'));
+        $restricted = collect(app(WorkspaceNavigation::class)->for($this->userWithPermissions(['view-installations'])));
+        $this->assertNull($restricted->firstWhere('id', 'accounting'));
         $reports = collect($accounting['children'])->firstWhere('id', 'accounting.reports');
         $this->assertCount(6, $reports['links']);
         $this->assertStringContainsString('view=ledger', collect($reports['links'])->first(fn ($link) => str_contains($link['href'], 'view=ledger'))['href']);

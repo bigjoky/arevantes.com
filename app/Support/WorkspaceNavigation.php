@@ -16,9 +16,9 @@ class WorkspaceNavigation
         foreach ($this->definition() as $definition) {
             [$id, $title, $icon, $sections] = $definition;
             $parentPath = $definition[4] ?? null;
-            $navigable = $parentPath !== null && $destinations->has($parentPath);
+            $navigable = $parentPath !== null && $destinations->has(strtok($parentPath, '?#'));
             if ($navigable) {
-                $used[$parentPath] = true;
+                $used[strtok($parentPath, '?#')] = true;
             }
             $children = [];
             foreach ($sections as [$sectionId, $label, $paths, $ability, $pending]) {
@@ -109,12 +109,11 @@ class WorkspaceNavigation
                 ['payments', 'Cobros y pagos', ['/billing/payments' => 'Cobros y pagos'], 'view-finance', []],
             ], '/billing'],
             ['accounting', 'Contabilidad', 'scale', [
-                ['overview', 'Vista general', ['/accounting?area=overview' => 'Ejercicio y cierre', '/accounting?view=mappings&area=overview' => 'Mapeos contables'], 'view-finance', []],
                 ['entries', 'Asientos', ['/accounting?view=journal&area=entries' => 'Todos', '/accounting?view=journal&area=entries&entry_status=draft' => 'Borradores', '/accounting/templates?tab=recurring' => 'Periódicos', '/accounting/templates' => 'Plantillas'], 'view-finance', ['Importación de asientos']],
                 ['accounts', 'Plan contable', ['/accounting/accounts' => 'Plan contable'], null, []],
                 ['reports', 'Informes contables', ['/accounting?view=balance&area=reports' => 'Balance de situación', '/accounting?view=profit&area=reports' => 'Pérdidas y ganancias', '/accounting?view=journal&area=reports' => 'Libro Diario', '/accounting?view=ledger&area=reports' => 'Libro Mayor', '/accounting?view=trial&area=reports' => 'Balance de sumas y saldos', '/accounting?view=parties&area=reports' => 'Saldos de terceros'], 'view-finance', ['Estado de cambios en el patrimonio neto', 'Estado de flujos de efectivo']],
                 ['books', 'Libros oficiales', [], 'view-finance', ['Generación, consulta y exportación de libros contables oficiales']],
-            ]],
+            ], '/accounting?area=overview'],
             ['finance', 'Finanzas', 'wallet-cards', [
                 ['treasury', 'Tesorería', ['/finance?area=treasury' => 'Tesorería'], 'view-finance', []],
                 ['banking', 'Bancos y conciliación', ['/banking' => 'Bancos y conciliación'], null, []],
