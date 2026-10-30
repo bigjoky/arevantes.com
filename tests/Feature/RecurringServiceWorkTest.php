@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\AssetEvent;
 use App\Models\CustomerPortalAccess;
 use App\Models\CustomerPortalPreference;
+use App\Models\FieldServiceProfile;
 use App\Models\Installation;
 use App\Models\InstallationAsset;
 use App\Models\Person;
@@ -39,6 +40,7 @@ class RecurringServiceWorkTest extends TestCase
         $this->travelTo('2026-08-28 08:00:00');
         $admin = User::factory()->create(['role' => 'admin']);
         $technician = User::factory()->create(['role' => 'technician']);
+        FieldServiceProfile::create(['user_id' => $technician->id, 'weekly_schedule' => array_fill(1, 7, [['start' => '00:00', 'end' => '24:00']]), 'daily_capacity_minutes' => 1440, 'is_available' => true]);
         $customer = Person::create([
             'category' => 'customer', 'first_name' => 'Lucía', 'email' => 'lucia@example.test',
             'phone' => '600111222', 'preferred_contact_channel' => 'email',

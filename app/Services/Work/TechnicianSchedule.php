@@ -2,7 +2,9 @@
 
 namespace App\Services\Work;
 
+use App\Models\CrmActivity;
 use App\Models\FieldServiceProfile;
+use App\Models\HrCalendarHoliday;
 use App\Models\HrEmploymentProfile;
 use App\Models\HrLeaveRequest;
 use App\Models\User;
@@ -14,8 +16,33 @@ use Illuminate\Validation\ValidationException;
 
 class TechnicianSchedule
 {
+    private array $dailyLoad = [];
+
+    /** A read-only decision; unknown must never be advertised as confirmed availability. */
+    public function availability(?int $userId, mixed $start, mixed $end, ?int $exceptOrderId = null, array $requiredSkills = [], ?string $serviceZone = null): array
+    {
+        $issues = [];
+        $this->dailyLoad = [];
+        try {
+            $this->assertAvailable($userId, $start, $end, $exceptOrderId, $requiredSkills, $serviceZone);
+        } catch (ValidationException $exception) {
+            $issues = array_merge(...array_values($exception->errors()));
+        }
+        $profile = $userId ? FieldServiceProfile::where('user_id', $userId)->first() : null;
+        $unknown = ! $userId || ! $start || ! $end || $profile?->weekly_schedule === null;
+        $reason = __('Working hours are not configured. Availability cannot be confirmed.');
+        if ($unknown && $issues === []) {
+            $issues[] = $reason;
+        }
+        $status = $issues === [] ? 'available' : ((($unknown && $issues === [$reason]) || $issues === [__('An existing assignment has an incomplete schedule. Availability cannot be confirmed.')]) ? 'unknown' : 'unavailable');
+
+        return ['status' => $status, 'issues' => $issues, 'timezone' => BusinessTime::zone(),
+            'daily_capacity_minutes' => $profile?->daily_capacity_minutes, 'daily_load' => $this->dailyLoad,
+            'required_skills' => array_map(TechnicianSkills::label(...), $requiredSkills)];
+    }
+
     /** @param array<int, string> $requiredSkills */
-    public function assertAvailable(?int $userId, mixed $start, mixed $end, ?int $exceptOrderId = null, array $requiredSkills = [], ?string $serviceZone = null, bool $allowPendingAbsenceWarning = false): void
+    public function assertAvailable(?int $userId, mixed $start, mixed $end, ?int $exceptOrderId = null, array $requiredSkills = [], ?string $serviceZone = null, bool $allowPendingAbsenceWarning = false, ?int $exceptActivityId = null): void
     {
         if (! $userId) {
             return;
@@ -44,6 +71,10 @@ class TechnicianSchedule
         $end = BusinessTime::parse($end, 'scheduled_end');
         if ($end->lessThanOrEqualTo($start)) {
             throw ValidationException::withMessages(['scheduled_end' => __('The scheduled end must be after the scheduled start.')]);
+        }
+
+        if ($start->diffInDays($end) > 31) {
+            throw ValidationException::withMessages(['scheduled_end' => __('An intervention cannot exceed 31 days.')]);
         }
 
         $personId = User::whereKey($userId)->value('person_id');
@@ -78,18 +109,74 @@ class TechnicianSchedule
             ]);
         }
 
+        $dayStart = $start->copy()->startOfDay();
+        $dayEnd = $end->copy()->subMicrosecond()->endOfDay()->addMicrosecond();
+        $orders = WorkOrder::where('assigned_user_id', $userId)->whereNotIn('status', ['completed', 'cancelled'])
+            ->when($exceptOrderId, fn ($q) => $q->whereKeyNot($exceptOrderId))
+            ->where(fn ($q) => $q->whereInstant('scheduled_start', '<', $dayEnd)->orWhereNull('scheduled_start'))
+            ->where(fn ($q) => $q->whereInstant('scheduled_end', '>', $dayStart)->orWhereNull('scheduled_end'))
+            ->get(['scheduled_start', 'scheduled_end']);
+        if ($orders->contains(fn ($order) => ! $order->scheduled_start || ! $order->scheduled_end)) {
+            throw ValidationException::withMessages(['scheduled_start' => __('An existing assignment has an incomplete schedule. Availability cannot be confirmed.')]);
+        }
+        $activities = CrmActivity::where('assigned_user_id', $userId)->whereNull('work_order_id')
+            ->when($exceptActivityId, fn ($q) => $q->whereKeyNot($exceptActivityId))
+            ->whereNotIn('status', ['completed', 'cancelled'])
+            ->where(fn ($q) => $q->where(fn ($q) => $q->whereInstant('starts_at', '<', $dayEnd)->where(fn ($q) => $q->whereInstant('due_at', '>', $dayStart)->orWhereNull('due_at')))
+                ->orWhere(fn ($q) => $q->whereIn('type', ['visit', 'meeting'])->whereNull('starts_at')->whereInstant('due_at', '>=', $dayStart)->whereInstant('due_at', '<', $dayEnd)))
+            ->get(['starts_at', 'due_at']);
+        if ($activities->contains(fn ($activity) => ! $activity->starts_at || ! $activity->due_at)) {
+            throw ValidationException::withMessages(['scheduled_start' => __('An existing assignment has an incomplete schedule. Availability cannot be confirmed.')]);
+        }
         if ($profile) {
-            $plannedMinutes = (int) WorkOrder::query()->where('assigned_user_id', $userId)
-                ->whereNotIn('status', ['completed', 'cancelled'])
-                ->when($exceptOrderId, fn ($query) => $query->where('id', '!=', $exceptOrderId))
-                ->whereDate('scheduled_start', $start->toDateString())
-                ->get(['scheduled_start', 'scheduled_end', 'estimated_duration_minutes'])
-                ->sum(fn (WorkOrder $order) => $order->scheduled_start && $order->scheduled_end
-                    ? $order->scheduled_start->diffInMinutes($order->scheduled_end)
-                    : ($order->estimated_duration_minutes ?? 0));
-            $newMinutes = $start->diffInMinutes($end);
-            if ($plannedMinutes + $newMinutes > $profile->daily_capacity_minutes) {
-                throw ValidationException::withMessages(['scheduled_start' => __('Assignment exceeds the technician daily capacity of :minutes minutes.', ['minutes' => $profile->daily_capacity_minutes])]);
+            for ($day = $dayStart->copy(); $day->lt($end); $day->addDay()) {
+                $next = $day->copy()->addDay();
+                $minutes = fn ($a, $b) => max(0, $a->max($day)->diffInMinutes($b->min($next), false));
+                $occupied = $orders->sum(fn ($o) => $minutes($o->scheduled_start, $o->scheduled_end))
+                    + $activities->sum(fn ($a) => $minutes($a->starts_at, $a->due_at));
+                $this->dailyLoad[] = ['date' => $day->toDateString(), 'occupied_minutes' => (int) round($occupied), 'proposed_minutes' => (int) round($minutes($start, $end)), 'capacity_minutes' => $profile->daily_capacity_minutes];
+                if ($occupied + $minutes($start, $end) > $profile->daily_capacity_minutes) {
+                    throw ValidationException::withMessages(['scheduled_start' => __('Assignment exceeds the technician daily capacity of :minutes minutes.', ['minutes' => $profile->daily_capacity_minutes])]);
+                }
+            }
+        }
+        $activityConflict = CrmActivity::query()->where('assigned_user_id', $userId)->whereNull('work_order_id')->when($exceptActivityId, fn ($q) => $q->whereKeyNot($exceptActivityId))
+            ->whereNotIn('status', ['completed', 'cancelled'])
+            ->whereInstant('starts_at', '<', $end)->whereInstant('due_at', '>', $start)->exists();
+        if ($activityConflict) {
+            throw ValidationException::withMessages(['scheduled_start' => __('This technician has another scheduled visit or activity during this period.')]);
+        }
+
+        $this->assertWorkingHours($profile, $start, $end);
+
+    }
+
+    private function assertWorkingHours(?FieldServiceProfile $profile, $start, $end): void
+    {
+        if ($profile?->weekly_schedule === null) {
+            throw ValidationException::withMessages(['assigned_user_id' => __('Working hours are not configured. Availability cannot be confirmed.')]);
+        }
+        if ($start->diffInDays($end) > 31) {
+            throw ValidationException::withMessages(['scheduled_end' => __('An intervention cannot exceed 31 days.')]);
+        }
+        for ($day = $start->copy()->startOfDay(); $day->lt($end); $day->addDay()) {
+            if (HrCalendarHoliday::whereDate('holiday_date', $day->toDateString())->exists()) {
+                throw ValidationException::withMessages(['scheduled_start' => __('The selected period includes a non-working holiday.')]);
+            }
+            $partStart = $start->max($day);
+            $partEnd = $end->min($day->copy()->addDay());
+            $covered = false;
+            foreach ($profile->weekly_schedule[(string) $day->isoWeekday()] ?? [] as $slot) {
+                // Enumerate DST boundaries explicitly; ambiguous or nonexistent boundaries are unsafe.
+                $opens = BusinessTime::candidates($day->toDateString().' '.$slot['start']);
+                $closes = BusinessTime::candidates($slot['end'] === '24:00' ? $day->copy()->addDay()->toDateString().' 00:00' : $day->toDateString().' '.$slot['end']);
+                if (count($opens) === 1 && count($closes) === 1 && $partStart->gte($opens[0]) && $partEnd->lte($closes[0])) {
+                    $covered = true;
+                    break;
+                }
+            }
+            if (! $covered) {
+                throw ValidationException::withMessages(['scheduled_start' => __('The selected period is outside configured working hours.')]);
             }
         }
     }

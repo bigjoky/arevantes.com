@@ -1908,5 +1908,16 @@
     "The reclassification date cannot precede the original entry.": "La fecha de reclasificación no puede ser anterior al asiento original.",
     "A prepared or filed tax return protects the linked correction. Review it before reversing.": "Una declaración preparada o presentada protege el ajuste vinculado. Revísala antes de anularlo.",
     "A later-dated account correction exists. Choose its date or a later open date.": "Existe un ajuste de cuenta con fecha posterior. Elige esa fecha u otra posterior de un periodo abierto.",
-    "Treasury, employee, tax and closing lines require their specific accounting workflow.": "Los apuntes de tesorería, personal, impuestos y cierre requieren su procedimiento contable específico."
+    "Treasury, employee, tax and closing lines require their specific accounting workflow.": "Los apuntes de tesorería, personal, impuestos y cierre requieren su procedimiento contable específico.",
+    "Working hours are not configured. Availability cannot be confirmed.": "No hay horario laboral configurado. No se puede confirmar la disponibilidad.",
+    "Working periods must be ordered, non-overlapping and end after their start.": "Las franjas deben estar ordenadas, no solaparse y terminar después de su inicio.",
+    "This technician has another scheduled visit or activity during this period.": "El técnico tiene otra visita o actividad programada durante esta franja.",
+    "An existing assignment has an incomplete schedule. Availability cannot be confirmed.": "Hay una asignación con horario incompleto. No se puede confirmar la disponibilidad.",
+    "An intervention cannot exceed 31 days.": "Una intervención no puede superar 31 días.",
+    "The selected period includes a non-working holiday.": "La franja seleccionada incluye un festivo no laborable.",
+    "The selected period is outside configured working hours.": "La franja seleccionada está fuera del horario laboral configurado.",
+    "Only planned or blocked work orders can be rescheduled.": "Solo se pueden reprogramar órdenes planificadas o bloqueadas.",
+    "Completed installations cannot be rescheduled.": "No se pueden reprogramar instalaciones finalizadas.",
+    "Reassignment for an approved absence.": "Reasignación por ausencia aprobada.",
+    "Scheduled work changed while this absence was being reviewed. Refresh and review its coverage.": "La planificación cambió durante la revisión de la ausencia. Actualiza y revisa su cobertura."
 }

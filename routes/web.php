@@ -304,6 +304,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('knowledge/{knowledgeDocument}/reindex', [KnowledgeDocumentController::class, 'reindex'])->middleware('can:manage-staff')->name('knowledge.reindex');
     Route::delete('knowledge/{knowledgeDocument}', [KnowledgeDocumentController::class, 'destroy'])->middleware('can:manage-staff')->name('knowledge.destroy');
     Route::get('operations/activities', [OperationsController::class, 'index'])->middleware('can:manage-operations')->name('operations.activities');
+    Route::get('operations/planning/{workOrder}/availability', [OperationsWorkspaceController::class, 'availability'])->middleware('can:manage-installations')->name('operations.planning.availability');
     Route::get('operations/planning', [OperationsWorkspaceController::class, 'planning'])->middleware('can:manage-operations')->name('operations.planning');
     Route::get('operations/agenda', [OperationsWorkspaceController::class, 'agenda'])->middleware('can:manage-operations')->name('operations.agenda');
     Route::get('operations', [OperationsWorkspaceController::class, 'dashboard'])->middleware('can:manage-operations')->name('operations.index');

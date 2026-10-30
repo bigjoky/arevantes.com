@@ -190,7 +190,9 @@ class InventoryTest extends TestCase
     {
         $commercial = User::factory()->create(['role' => 'commercial']);
         $technician = User::factory()->create(['role' => 'technician']);
+        FieldServiceProfile::create(['user_id' => $technician->id, 'weekly_schedule' => array_fill(1, 7, [['start' => '00:00', 'end' => '24:00']]), 'daily_capacity_minutes' => 1440, 'is_available' => true]);
         $otherTechnician = User::factory()->create(['role' => 'technician']);
+        FieldServiceProfile::create(['user_id' => $otherTechnician->id, 'weekly_schedule' => array_fill(1, 7, [['start' => '00:00', 'end' => '24:00']]), 'daily_capacity_minutes' => 1440, 'is_available' => true]);
         $warehouse = Warehouse::create(['code' => 'MAIN', 'name' => 'Main warehouse']);
         $product = $this->product(false);
         $installation = Installation::create(['service_type' => 'solar', 'status' => 'scheduled', 'site_address_line_1' => 'Calle Sol 2']);
@@ -318,7 +320,7 @@ class InventoryTest extends TestCase
     {
         $commercial = User::factory()->create(['role' => 'commercial']);
         $technician = User::factory()->create(['role' => 'technician']);
-        FieldServiceProfile::create(['user_id' => $technician->id, 'daily_capacity_minutes' => 480, 'max_travel_km' => 100, 'skills' => ['electrical'], 'is_available' => true]);
+        FieldServiceProfile::create(['weekly_schedule' => array_fill(1, 7, [['start' => '00:00', 'end' => '24:00']]), 'user_id' => $technician->id, 'daily_capacity_minutes' => 480, 'max_travel_km' => 100, 'skills' => ['electrical'], 'is_available' => true]);
         $warehouse = Warehouse::create(['code' => 'MAIN', 'name' => 'Main warehouse', 'is_default' => true, 'is_active' => true]);
         $product = $this->product(false);
         $installation = Installation::create(['service_type' => 'electrical', 'status' => 'approved', 'site_address_line_1' => 'Calle Kit 1']);

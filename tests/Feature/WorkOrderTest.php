@@ -38,8 +38,9 @@ class WorkOrderTest extends TestCase
     {
         $commercial = User::factory()->create(['role' => 'commercial']);
         $technician = User::factory()->create(['role' => 'technician']);
-        FieldServiceProfile::create(['user_id' => $technician->id, 'skills' => ['solar', 'electrical']]);
+        FieldServiceProfile::create(['weekly_schedule' => array_fill(1, 7, [['start' => '00:00', 'end' => '24:00']]), 'user_id' => $technician->id, 'skills' => ['solar', 'electrical']]);
         $other = User::factory()->create(['role' => 'technician']);
+        FieldServiceProfile::create(['user_id' => $other->id, 'weekly_schedule' => array_fill(1, 7, [['start' => '00:00', 'end' => '24:00']]), 'daily_capacity_minutes' => 1440, 'is_available' => true]);
         $installation = Installation::create(['service_type' => 'solar', 'status' => 'scheduled', 'site_address_line_1' => 'Calle Sol 1']);
         $this->actingAs($commercial)->post(route('work-orders.store'), ['installation_id' => $installation->id, 'assigned_user_id' => $technician->id, 'title' => 'Install inverter'])->assertRedirect();
         $order = WorkOrder::firstOrFail();
@@ -66,7 +67,7 @@ class WorkOrderTest extends TestCase
         Storage::fake('local');
         $commercial = User::factory()->create(['role' => 'commercial']);
         $technician = User::factory()->create(['role' => 'technician']);
-        FieldServiceProfile::create(['user_id' => $technician->id, 'skills' => ['solar', 'electrical']]);
+        FieldServiceProfile::create(['weekly_schedule' => array_fill(1, 7, [['start' => '00:00', 'end' => '24:00']]), 'user_id' => $technician->id, 'skills' => ['solar', 'electrical']]);
         $installation = Installation::create(['service_type' => 'solar', 'status' => 'scheduled', 'site_address_line_1' => 'Calle Solar 3']);
         $this->actingAs($commercial)->post(route('work-orders.store'), ['installation_id' => $installation->id, 'assigned_user_id' => $technician->id, 'title' => 'Solar commissioning'])->assertRedirect();
         $order = WorkOrder::firstOrFail();
@@ -138,7 +139,7 @@ class WorkOrderTest extends TestCase
     {
         $commercial = User::factory()->create(['role' => 'commercial']);
         $technician = User::factory()->create(['role' => 'technician']);
-        FieldServiceProfile::create(['user_id' => $technician->id, 'skills' => ['solar', 'electrical']]);
+        FieldServiceProfile::create(['weekly_schedule' => array_fill(1, 7, [['start' => '00:00', 'end' => '24:00']]), 'user_id' => $technician->id, 'skills' => ['solar', 'electrical']]);
         $installation = Installation::create(['service_type' => 'ev_charger', 'status' => 'in_progress', 'site_address_line_1' => 'Calle Carga 2']);
         $order = WorkOrder::create(['installation_id' => $installation->id, 'assigned_user_id' => $technician->id, 'created_by' => $commercial->id, 'number' => 'WO-2026-00002', 'title' => 'Commission charger']);
 
@@ -151,7 +152,9 @@ class WorkOrderTest extends TestCase
     public function test_a_technician_can_edit_the_details_of_their_maintenance_order(): void
     {
         $technician = User::factory()->create(['role' => 'technician']);
+        FieldServiceProfile::create(['user_id' => $technician->id, 'weekly_schedule' => array_fill(1, 7, [['start' => '00:00', 'end' => '24:00']]), 'daily_capacity_minutes' => 1440, 'is_available' => true]);
         $other = User::factory()->create(['role' => 'technician']);
+        FieldServiceProfile::create(['user_id' => $other->id, 'weekly_schedule' => array_fill(1, 7, [['start' => '00:00', 'end' => '24:00']]), 'daily_capacity_minutes' => 1440, 'is_available' => true]);
         $installation = Installation::create(['service_type' => 'solar', 'status' => 'completed', 'site_address_line_1' => 'Calle Mantenimiento 1']);
         $order = app(WorkOrderFactory::class)->create([
             'installation_id' => $installation->id,
@@ -192,7 +195,7 @@ class WorkOrderTest extends TestCase
     {
         $commercial = User::factory()->create(['role' => 'commercial']);
         $technician = User::factory()->create(['role' => 'technician']);
-        FieldServiceProfile::create(['user_id' => $technician->id, 'skills' => ['solar', 'electrical']]);
+        FieldServiceProfile::create(['weekly_schedule' => array_fill(1, 7, [['start' => '00:00', 'end' => '24:00']]), 'user_id' => $technician->id, 'skills' => ['solar', 'electrical']]);
         $installation = Installation::create(['service_type' => 'solar', 'status' => 'approved', 'site_address_line_1' => 'Calle Solar 4']);
         $otherInstallation = Installation::create(['service_type' => 'solar', 'status' => 'approved', 'site_address_line_1' => 'Calle Solar 5']);
         $start = now()->addDays(2)->setTime(9, 0);

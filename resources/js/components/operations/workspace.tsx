@@ -46,6 +46,7 @@ export type Order = {
     };
     checklist_items_count: number;
     completed_tasks_count: number;
+    activities?: { priority: string }[];
     planning_issues?: { message: string }[];
     instructions: string | null;
     completion_notes: string | null;
@@ -62,6 +63,12 @@ type Page<T> = {
 export type Workspace = {
     orders: Order[] | Page<Order>;
     users: { id: number; name: string }[];
+    installations?: {
+        service_type?: string;
+        id: number;
+        project_reference: string | null;
+        site_name: string | null;
+    }[];
     canManage: boolean;
     filters: Record<string, string>;
     statuses: string[];
@@ -70,6 +77,17 @@ export type Workspace = {
     range: { start: string; end: string; previous: string; next: string };
     days: string[];
     backlog: Page<Order>;
+    activities?: {
+        opportunity_id: number | null;
+        id: number;
+        title: string;
+        type: string;
+        status: string;
+        priority: string;
+        starts_at: string | null;
+        due_at: string | null;
+        assigned_user?: { name: string } | null;
+    }[];
     truncated: boolean;
 };
 export const statuses: Record<string, string> = {
@@ -207,7 +225,7 @@ export function Frame({
 }
 export function Range({ data, path }: { data: Workspace; path: string }) {
     const query = (week: string) =>
-        `${path}?week=${week}&view=${data.filters.view ?? 'week'}`;
+        `${path}?${new URLSearchParams({ ...data.filters, week, view: data.filters.view ?? 'week' })}`;
 
     return (
         <div className="ops-range">
@@ -255,6 +273,35 @@ export function ScheduleForm({
         expected_updated_at: order.updated_at,
     });
 
+    const [availability, setAvailability] = useState<{
+        signature: string;
+        technicians: {
+            id: number;
+            name: string;
+            status: string;
+            issues: string[];
+            required_skills: string[];
+            daily_load: {
+                date: string;
+                occupied_minutes: number;
+                proposed_minutes: number;
+                capacity_minutes: number;
+            }[];
+            daily_capacity_minutes: number | null;
+        }[];
+    } | null>(null);
+    const [checking, setChecking] = useState(false);
+    const [checkError, setCheckError] = useState('');
+    const signature = JSON.stringify([
+        form.data.scheduled_start,
+        form.data.scheduled_end,
+    ]);
+    const checked = availability?.signature === signature;
+    const candidate = checked
+        ? availability.technicians.find(
+              (tech) => String(tech.id) === form.data.assigned_user_id,
+          )
+        : undefined;
     const protection = useOperationsFormProtection(() => form);
 
     return (
@@ -265,7 +312,10 @@ export function ScheduleForm({
                 onSubmit={(e) => {
                     e.preventDefault();
 
-                    if (!protection.beginSubmit()) {
+                    if (
+                        candidate?.status !== 'available' ||
+                        !protection.beginSubmit()
+                    ) {
                         return;
                     }
 
@@ -342,8 +392,94 @@ export function ScheduleForm({
                         {error}
                     </p>
                 ))}
-                <Button disabled={form.processing}>
-                    Guardar planificación
+                <Button
+                    type="button"
+                    disabled={
+                        checking ||
+                        !form.data.scheduled_start ||
+                        !form.data.scheduled_end
+                    }
+                    onClick={async () => {
+                        setChecking(true);
+                        setCheckError('');
+
+                        try {
+                            const query = new URLSearchParams({
+                                scheduled_start: scheduleInput(
+                                    form.data.scheduled_start,
+                                    order.scheduled_start,
+                                ),
+                                scheduled_end: scheduleInput(
+                                    form.data.scheduled_end,
+                                    order.scheduled_end,
+                                ),
+                            });
+                            const response = await fetch(
+                                `/operations/planning/${order.id}/availability?${query}`,
+                                { headers: { Accept: 'application/json' } },
+                            );
+
+                            if (!response.ok) {
+                                throw new Error(
+                                    'No se pudo comprobar la disponibilidad. Revisa la franja horaria.',
+                                );
+                            }
+
+                            const result = await response.json();
+                            setAvailability({
+                                signature,
+                                technicians: result.technicians,
+                            });
+                        } catch (error) {
+                            setCheckError(
+                                error instanceof Error
+                                    ? error.message
+                                    : 'Error de disponibilidad',
+                            );
+                        } finally {
+                            setChecking(false);
+                        }
+                    }}
+                >
+                    Consultar disponibilidad
+                </Button>
+                {checkError && <p role="alert">{checkError}</p>}
+                {checked && (
+                    <div aria-live="polite">
+                        {availability.technicians.map((tech) => (
+                            <div key={tech.id} className="mb-2 text-foreground">
+                                <strong>{tech.name}</strong> ·{' '}
+                                {tech.status === 'available'
+                                    ? 'Disponible'
+                                    : tech.status === 'unknown'
+                                      ? 'Disponibilidad desconocida'
+                                      : 'No disponible'}
+                                {tech.required_skills.length > 0 &&
+                                    ` · ${tech.required_skills.join(', ')}`}
+                                {tech.daily_capacity_minutes != null &&
+                                    ` · Capacidad: ${tech.daily_capacity_minutes} min/día`}
+                                {tech.daily_load.map((load) => (
+                                    <span className="block" key={load.date}>
+                                        {load.date} · Carga:{' '}
+                                        {load.occupied_minutes} min · Propuesta:{' '}
+                                        {load.proposed_minutes} min
+                                    </span>
+                                ))}
+                                {tech.issues.map((issue) => (
+                                    <span className="block" key={issue}>
+                                        {issue}
+                                    </span>
+                                ))}
+                            </div>
+                        ))}
+                    </div>
+                )}
+                <Button
+                    disabled={
+                        form.processing || candidate?.status !== 'available'
+                    }
+                >
+                    Confirmar planificación
                 </Button>
                 <Button
                     variant="outline"
@@ -375,13 +511,30 @@ export function Planning({
                     onClose={() => setSelected(null)}
                 />
             )}
+            {!!data.activities?.length && (
+                <Card title="Visitas y actividades CRM">
+                    {data.activities.map((activity) => (
+                        <p key={activity.id}>
+                            {date(activity.starts_at)} · {activity.title} ·{' '}
+                            {activity.assigned_user?.name ?? 'Sin asignar'} ·{' '}
+                            {activity.status} · {activity.priority}
+                        </p>
+                    ))}
+                </Card>
+            )}
             <div className="ops-planning-layout">
                 <Card
-                    title="Planificación semanal"
+                    title="Planificación"
                     href={compact ? '/operations/planning' : undefined}
                 >
                     <div className="ops-matrix">
-                        <div className="ops-matrix-row">
+                        <div
+                            className="ops-matrix-row"
+                            style={{
+                                gridTemplateColumns: `130px repeat(${data.days.length}, minmax(100px, 1fr))`,
+                                minWidth: 130 + data.days.length * 100,
+                            }}
+                        >
                             <strong>Técnicos</strong>
                             {data.days.map((day) => (
                                 <strong key={day}>
@@ -395,7 +548,14 @@ export function Planning({
                             ))}
                         </div>
                         {data.users.map((user) => (
-                            <div className="ops-matrix-row" key={user.id}>
+                            <div
+                                className="ops-matrix-row"
+                                key={user.id}
+                                style={{
+                                    gridTemplateColumns: `130px repeat(${data.days.length}, minmax(100px, 1fr))`,
+                                    minWidth: 130 + data.days.length * 100,
+                                }}
+                            >
                                 <strong>{user.name}</strong>
                                 {data.days.map((day) => (
                                     <div key={day}>
@@ -404,14 +564,16 @@ export function Planning({
                                                 (o) =>
                                                     o.assigned_user_id ===
                                                         user.id &&
-                                                    o.scheduled_start!.slice(
-                                                        0,
-                                                        10,
-                                                    ) <= day &&
-                                                    o.scheduled_end!.slice(
-                                                        0,
-                                                        10,
-                                                    ) >= day,
+                                                    (o.scheduled_start_day ??
+                                                        o.scheduled_start!.slice(
+                                                            0,
+                                                            10,
+                                                        )) <= day &&
+                                                    (o.scheduled_end_day ??
+                                                        o.scheduled_end!.slice(
+                                                            0,
+                                                            10,
+                                                        )) >= day,
                                             )
                                             .map((o) => (
                                                 <div
@@ -430,6 +592,16 @@ export function Planning({
                                                                 o.installation
                                                                     .site_name
                                                             }
+                                                        </small>
+                                                        <small>
+                                                            {statuses[o.status]}{' '}
+                                                            ·{' '}
+                                                            {o.estimated_duration_minutes ??
+                                                                '—'}{' '}
+                                                            min ·{' '}
+                                                            {o.activities?.[0]
+                                                                ?.priority ??
+                                                                '—'}
                                                         </small>
                                                         <small>
                                                             {date(
@@ -455,7 +627,13 @@ export function Planning({
                                                         data.canManage && (
                                                             <button
                                                                 disabled={
-                                                                    !!selected
+                                                                    !!selected ||
+                                                                    ![
+                                                                        'planned',
+                                                                        'blocked',
+                                                                    ].includes(
+                                                                        o.status,
+                                                                    )
                                                                 }
                                                                 onClick={() =>
                                                                     setSelected(
@@ -481,7 +659,12 @@ export function Planning({
                                 <Button
                                     key={o.id}
                                     variant="outline"
-                                    disabled={!!selected}
+                                    disabled={
+                                        !!selected ||
+                                        !['planned', 'blocked'].includes(
+                                            o.status,
+                                        )
+                                    }
                                     onClick={() => setSelected(o)}
                                 >
                                     Reprogramar {o.number}

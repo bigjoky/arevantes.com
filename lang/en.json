@@ -631,5 +631,16 @@
     "The upload request has changed. Start a new upload.": "The upload request has changed. Start a new upload.",
     "The document changed. Reload it before saving.": "The document changed. Reload it before saving.",
     "The document integrity check failed.": "The document integrity check failed.",
-    "The document contents do not match its extension.": "The document contents do not match its extension."
+    "The document contents do not match its extension.": "The document contents do not match its extension.",
+    "Working hours are not configured. Availability cannot be confirmed.": "Working hours are not configured. Availability cannot be confirmed.",
+    "Working periods must be ordered, non-overlapping and end after their start.": "Working periods must be ordered, non-overlapping and end after their start.",
+    "This technician has another scheduled visit or activity during this period.": "This technician has another scheduled visit or activity during this period.",
+    "An existing assignment has an incomplete schedule. Availability cannot be confirmed.": "An existing assignment has an incomplete schedule. Availability cannot be confirmed.",
+    "An intervention cannot exceed 31 days.": "An intervention cannot exceed 31 days.",
+    "The selected period includes a non-working holiday.": "The selected period includes a non-working holiday.",
+    "The selected period is outside configured working hours.": "The selected period is outside configured working hours.",
+    "Only planned or blocked work orders can be rescheduled.": "Only planned or blocked work orders can be rescheduled.",
+    "Completed installations cannot be rescheduled.": "Completed installations cannot be rescheduled.",
+    "Reassignment for an approved absence.": "Reassignment for an approved absence.",
+    "Scheduled work changed while this absence was being reviewed. Refresh and review its coverage.": "Scheduled work changed while this absence was being reviewed. Refresh and review its coverage."
 }

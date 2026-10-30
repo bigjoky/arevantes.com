@@ -13,6 +13,7 @@ use App\Services\HumanResources\LeaveBalanceCalculator;
 use App\Services\HumanResources\LeaveCoverageService;
 use App\Services\HumanResources\LeaveRequestCreator;
 use App\Services\Security\SecurityEventRecorder;
+use App\Services\Work\TechnicianSchedule;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -150,6 +151,13 @@ class HrLeaveController extends Controller
                         ->firstOrFail();
                     $coverage->assertSubstituteAvailable($substitute, $lockedLeave);
                     $coverage->reassign($conflicts, $substitute);
+                }
+            }
+
+            if ($validated['status'] === 'approved') {
+                app(TechnicianSchedule::class)->lockTechnicians([$lockedLeave->person->user?->id]);
+                if ($coverage->conflicts($lockedLeave)->isNotEmpty()) {
+                    throw ValidationException::withMessages(['status' => __('Scheduled work changed while this absence was being reviewed. Refresh and review its coverage.')]);
                 }
             }
 

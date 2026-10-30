@@ -30,7 +30,6 @@ class WorkOrderRescheduler
             $this->rescheduleLocked($lockedOrder, $changes, $reason, $userId, $batchUuid);
         });
         $order->refresh();
-        $this->serviceCycles->recordRevision($order, $reason, $userId);
     }
 
     /** @param array<int, array{work_order_id:int, scheduled_start:string, scheduled_end:string, assigned_user_id?:int|null}> $items */
@@ -56,21 +55,25 @@ class WorkOrderRescheduler
             }
         });
 
-        WorkOrder::query()->whereKey(collect($items)->pluck('work_order_id'))->get()
-            ->each(fn (WorkOrder $order) => $this->serviceCycles->recordRevision($order, $reason, $userId));
-
         return $batch;
     }
 
     /** @param array<string, mixed> $changes */
     private function rescheduleLocked(WorkOrder $order, array $changes, string $reason, ?int $userId, ?string $batchUuid): void
     {
+        abort_unless(in_array($order->status, ['planned', 'blocked'], true), 422, __('Only planned or blocked work orders can be rescheduled.'));
         abort_if($order->loadMissing('installation')->installation->dossier_closed_at && in_array($order->kind, ['installation', 'commissioning'], true), 422, 'Reabre el expediente antes de reprogramar la ejecución.');
-        $newStart = $changes['scheduled_start'] ?? $order->scheduled_start;
-        $newEnd = $changes['scheduled_end'] ?? $order->scheduled_end;
+        abort_if($order->installation->status === 'completed' && in_array($order->kind, ['installation', 'commissioning'], true), 422, __('Completed installations cannot be rescheduled.'));
+        $newStart = array_key_exists('scheduled_start', $changes) ? $changes['scheduled_start'] : $order->scheduled_start;
+        $newEnd = array_key_exists('scheduled_end', $changes) ? $changes['scheduled_end'] : $order->scheduled_end;
         $newStart = $newStart ? BusinessTime::parse($newStart, 'scheduled_start') : null;
         $newEnd = $newEnd ? BusinessTime::parse($newEnd, 'scheduled_end') : null;
         $newOwner = array_key_exists('assigned_user_id', $changes) ? $changes['assigned_user_id'] : $order->assigned_user_id;
+        if ((int) $newOwner === (int) $order->assigned_user_id
+            && ($newStart?->toISOString()) === ($order->scheduled_start?->toISOString())
+            && ($newEnd?->toISOString()) === ($order->scheduled_end?->toISOString())) {
+            return; // A repeated confirmation cannot duplicate the schedule history.
+        }
         $commitment = $order->loadMissing('serviceTicket.serviceCycleCommitment')->serviceTicket?->serviceCycleCommitment;
         if ($commitment && $newStart && ($newStart->toDateString() < $commitment->period_starts_on->toDateString() || $newStart->toDateString() > $commitment->period_ends_on->toDateString())) {
             throw ValidationException::withMessages(['scheduled_start' => __('The visit must remain within its approved service cycle.')]);
@@ -96,6 +99,8 @@ class WorkOrderRescheduler
             'reason' => $reason,
         ]);
         $order->update($changes);
+        app(InstallationWorkOrderSynchronizer::class)->sync($order);
+        $this->serviceCycles->recordRevision($order, $reason, $userId);
         $order->activities()->update(['assigned_user_id' => $newOwner, 'starts_at' => $newStart, 'due_at' => $newEnd]);
     }
 }

@@ -24,7 +24,7 @@ class FieldServiceOperationsTest extends TestCase
     public function test_assignment_checks_skills_zone_and_daily_capacity_before_planning(): void
     {
         $technician = User::factory()->create(['role' => 'technician']);
-        FieldServiceProfile::create([
+        FieldServiceProfile::create(['weekly_schedule' => array_fill(1, 7, [['start' => '00:00', 'end' => '24:00']]),
             'user_id' => $technician->id,
             'daily_capacity_minutes' => 120,
             'service_zones' => ['28001'],
@@ -46,7 +46,7 @@ class FieldServiceOperationsTest extends TestCase
     public function test_assignment_checks_technician_qualifications_even_when_work_is_not_scheduled_yet(): void
     {
         $technician = User::factory()->create(['role' => 'technician']);
-        FieldServiceProfile::create([
+        FieldServiceProfile::create(['weekly_schedule' => array_fill(1, 7, [['start' => '00:00', 'end' => '24:00']]),
             'user_id' => $technician->id,
             'daily_capacity_minutes' => 480,
             'service_zones' => ['28001'],
@@ -69,6 +69,7 @@ class FieldServiceOperationsTest extends TestCase
     {
         $commercial = User::factory()->create(['role' => 'commercial']);
         $technician = User::factory()->create(['role' => 'technician']);
+        FieldServiceProfile::create(['user_id' => $technician->id, 'weekly_schedule' => array_fill(1, 7, [['start' => '00:00', 'end' => '24:00']]), 'daily_capacity_minutes' => 1440, 'is_available' => true]);
 
         $this->actingAs($commercial)->get(route('field-service.index'))->assertOk();
         $this->put(route('field-service.profiles.update', $technician), [
@@ -104,7 +105,7 @@ class FieldServiceOperationsTest extends TestCase
     public function test_planning_flags_excessive_travel_between_consecutive_jobs(): void
     {
         $technician = User::factory()->create(['role' => 'technician']);
-        FieldServiceProfile::create([
+        FieldServiceProfile::create(['weekly_schedule' => array_fill(1, 7, [['start' => '00:00', 'end' => '24:00']]),
             'user_id' => $technician->id,
             'daily_capacity_minutes' => 480,
             'max_travel_km' => 10,
@@ -145,6 +146,7 @@ class FieldServiceOperationsTest extends TestCase
     {
         $commercial = User::factory()->create(['role' => 'commercial']);
         $installation = $this->installation();
+        $installation->update(['status' => 'approved']);
         $order = app(WorkOrderFactory::class)->create([
             'installation_id' => $installation->id,
             'title' => 'Commissioning',
@@ -173,7 +175,7 @@ class FieldServiceOperationsTest extends TestCase
     {
         $commercial = User::factory()->create(['role' => 'commercial']);
         $technician = User::factory()->create(['role' => 'technician']);
-        FieldServiceProfile::create([
+        FieldServiceProfile::create(['weekly_schedule' => array_fill(1, 7, [['start' => '00:00', 'end' => '24:00']]),
             'user_id' => $technician->id,
             'daily_capacity_minutes' => 480,
             'service_zones' => [],
@@ -337,6 +339,7 @@ class FieldServiceOperationsTest extends TestCase
     public function test_due_maintenance_generates_the_ticket_and_required_work_order(): void
     {
         $technician = User::factory()->create(['role' => 'technician']);
+        FieldServiceProfile::create(['user_id' => $technician->id, 'weekly_schedule' => array_fill(1, 7, [['start' => '00:00', 'end' => '24:00']]), 'daily_capacity_minutes' => 1440, 'is_available' => true]);
         $installation = $this->installation();
         $plan = MaintenancePlan::create([
             'installation_id' => $installation->id,

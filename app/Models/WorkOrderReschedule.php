@@ -18,6 +18,21 @@ class WorkOrderReschedule extends Model
         return ['old_scheduled_start' => PreciseInstant::class, 'old_scheduled_end' => PreciseInstant::class.':latest', 'new_scheduled_start' => PreciseInstant::class, 'new_scheduled_end' => PreciseInstant::class.':latest'];
     }
 
+    public function actor(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'changed_by');
+    }
+
+    public function previousTechnician(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'old_assigned_user_id');
+    }
+
+    public function nextTechnician(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'new_assigned_user_id');
+    }
+
     public function workOrder(): BelongsTo
     {
         return $this->belongsTo(WorkOrder::class);

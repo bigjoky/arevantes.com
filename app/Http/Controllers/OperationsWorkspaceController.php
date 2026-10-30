@@ -3,9 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Models\Installation;
+use App\Models\User;
 use App\Models\WorkOrder;
 use App\Models\WorkOrderTemplate;
 use App\Services\Operations\OperationsWorkspace;
+use App\Services\Work\TechnicianSchedule;
+use App\Support\Time\BusinessTime;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
@@ -29,6 +32,18 @@ class OperationsWorkspaceController extends Controller
     public function planning(Request $r, OperationsWorkspace $w)
     {
         return Inertia::render('operations/planning', $w->planning($r));
+    }
+
+    public function availability(Request $request, WorkOrder $workOrder, TechnicianSchedule $schedule)
+    {
+        $data = $request->validate(['scheduled_start' => ['required', 'string'], 'scheduled_end' => ['required', 'string']]);
+        $start = BusinessTime::parse($data['scheduled_start'], 'scheduled_start');
+        $end = BusinessTime::parse($data['scheduled_end'], 'scheduled_end');
+
+        return response()->json(['technicians' => User::whereIn('role', ['technician', 'admin'])->orderBy('name')->get(['id', 'name'])->map(fn ($user) => [
+            'id' => $user->id, 'name' => $user->name,
+            ...$schedule->availability($user->id, $start, $end, $workOrder->id, $workOrder->required_skills ?? [], $workOrder->service_zone),
+        ])]);
     }
 
     public function orders(Request $r, OperationsWorkspace $w)

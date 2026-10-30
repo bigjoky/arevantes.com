@@ -49,6 +49,18 @@ type Item = {
 };
 type Props = Workspace & {
     order: Order;
+    scheduleHistory?: {
+        id: number;
+        reason: string;
+        created_at: string;
+        old_scheduled_start: string | null;
+        old_scheduled_end: string | null;
+        new_scheduled_start: string | null;
+        new_scheduled_end: string | null;
+        actor: { name: string } | null;
+        previous_technician: { name: string } | null;
+        next_technician: { name: string } | null;
+    }[];
     materialOptions?: MaterialOptions | null;
     runningTimer: { id: number; started_at: string } | null;
     tab: string;
@@ -285,6 +297,32 @@ export default function Detail(data: Props) {
                                 </Link>
                             )}
                         </>
+                    )}
+                    {!!data.scheduleHistory?.length && (
+                        <section aria-label="Historial de planificación">
+                            <h3>Historial de planificación</h3>
+                            {data.scheduleHistory.map((revision) => (
+                                <div className="ops-backlog" key={revision.id}>
+                                    <p>
+                                        {date(revision.created_at)} ·{' '}
+                                        {revision.actor?.name ?? '—'} ·{' '}
+                                        {revision.reason}
+                                    </p>
+                                    <p>
+                                        {revision.previous_technician?.name ??
+                                            '—'}{' '}
+                                        · {date(revision.old_scheduled_start)} –{' '}
+                                        {date(revision.old_scheduled_end)}
+                                    </p>
+                                    <p>
+                                        →{' '}
+                                        {revision.next_technician?.name ?? '—'}{' '}
+                                        · {date(revision.new_scheduled_start)} –{' '}
+                                        {date(revision.new_scheduled_end)}
+                                    </p>
+                                </div>
+                            ))}
+                        </section>
                     )}
                     {data.content?.data.map((item) => (
                         <div className="ops-backlog" key={item.id}>

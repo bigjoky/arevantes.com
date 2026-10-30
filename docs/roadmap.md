@@ -6456,3 +6456,12 @@ Cierre verificado. No se inicia conciliación automática, Nexo ni ECO-03.
 - Límites y tratamiento de atribución incierta: [ACC-02](accounting-consolidation-acc02.md). No activar automatismos ni jobs pendientes.
 
 - Verificación local ACC-02: 1.104 pruebas generales, 101 económicas PostgreSQL 17.6, ocho carreras reales/64 aserciones, 88 frontend, tipos/estilo/ES-EN/build y flujo visual escritorio/móvil. Históricos intactos en quince tablas, migración propia253→254, once GET privados200 y contratos nuevos confirmados. Jobs y automatismos sin cambios. Evidencia: [publicación ACC-02](accounting-consolidation-publication-2026-10-29.json).
+
+## OPS-02 — Planificación, disponibilidad y conflictos (30/10/2026)
+
+- Estado: implementado localmente, publicación autorizada pendiente de verificación final y despliegue. No confundir con producción.
+- Alcance: jornada semanal configurable en perfil existente; disponibilidad confirmada/no disponible/desconocida; comprobación compartida con Ingeniería, órdenes, CRM y sustituciones de RR. HH.; día/semana/mes, filtros, carga, confirmación, historial y locks de técnicos. Sin módulo paralelo.
+- Dependencias: perfiles/habilidades, ausencias y calendario global de RR. HH., órdenes/actividades/UTC existentes. Migración aditiva propia nullable, sin reescribir históricos.
+- Criterios de aceptación: disponibilidad y estados cerrados respetados; carreras PostgreSQL sin doble reserva; calendario/agenda sin duplicados; ES/EN, teclado y escritorio/móvil; publicación manual del candidato exacto y nueve jobs intactos.
+- Verificación local: suite general 1.114 aprobadas/53 omitidas, PostgreSQL 17.6 41 pruebas/435 aserciones (tres carreras reales), frontend 88, tipos/estilo/catálogo/build. Detalle, reglas y límites: [OPS-02](operations-planning-ops02.md).
+- Carencias pendientes: calendarios territoriales/individuales y reservas de vehículos/equipos no tienen relación de datos autorizada; requieren definir esas relaciones y criterios de negocio antes de ofrecer disponibilidad sobre ellas. No inventar horarios: configurar expresamente los perfiles anteriores.

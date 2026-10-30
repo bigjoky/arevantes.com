@@ -20,6 +20,7 @@ import type { ServiceType } from '@/lib/business-lines';
 type SkillOption = { value: string; label: string };
 
 type Profile = {
+    weekly_schedule: Record<string, { start: string; end: string }[]> | null;
     daily_capacity_minutes: number;
     max_travel_km: number;
     home_postal_code: string | null;
@@ -225,6 +226,61 @@ function ProfileForm({
                                 name="home_postal_code"
                                 value={profile?.home_postal_code || ''}
                             />
+                            <fieldset className="grid gap-2">
+                                <legend>Horario semanal (Europe/Madrid)</legend>
+                                <p className="text-sm text-muted-foreground">
+                                    Sin horario configurado, la disponibilidad
+                                    será desconocida. Deja ambos campos vacíos
+                                    en los días no laborables.
+                                </p>
+                                {[
+                                    'Lunes',
+                                    'Martes',
+                                    'Miércoles',
+                                    'Jueves',
+                                    'Viernes',
+                                    'Sábado',
+                                    'Domingo',
+                                ].map((day, index) => (
+                                    <div
+                                        className="flex flex-wrap items-center gap-2"
+                                        key={day}
+                                    >
+                                        <span className="w-24">{day}</span>
+                                        {[0, 1, 2, 3].map((slot) => (
+                                            <div
+                                                className="flex gap-2"
+                                                key={slot}
+                                            >
+                                                <input
+                                                    aria-label={`${day} inicio ${slot + 1}`}
+                                                    type="time"
+                                                    name={`weekly_schedule[${index + 1}][${slot}][start]`}
+                                                    defaultValue={
+                                                        profile
+                                                            ?.weekly_schedule?.[
+                                                            String(index + 1)
+                                                        ]?.[slot]?.start ?? ''
+                                                    }
+                                                />
+                                                <input
+                                                    aria-label={`${day} fin ${slot + 1}`}
+                                                    type="text"
+                                                    placeholder="HH:mm"
+                                                    pattern="([01][0-9]|2[0-3]):[0-5][0-9]|24:00"
+                                                    name={`weekly_schedule[${index + 1}][${slot}][end]`}
+                                                    defaultValue={
+                                                        profile
+                                                            ?.weekly_schedule?.[
+                                                            String(index + 1)
+                                                        ]?.[slot]?.end ?? ''
+                                                    }
+                                                />
+                                            </div>
+                                        ))}
+                                    </div>
+                                ))}
+                            </fieldset>
                             <SkillChecklist
                                 label="Habilidades del técnico"
                                 value={skills}
@@ -254,8 +310,14 @@ function ProfileForm({
                                 />{' '}
                                 Available for assignment
                             </label>
+                            {Object.entries(errors)
+
+                                .map(([key, error]) => (
+                                    <InputError key={key} message={error} />
+                                ))}
                             <InputError
                                 message={
+                                    errors.weekly_schedule ||
                                     errors.daily_capacity_minutes ||
                                     errors.skills ||
                                     errors.service_zones

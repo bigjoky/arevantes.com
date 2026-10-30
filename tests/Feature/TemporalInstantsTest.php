@@ -104,7 +104,7 @@ class TemporalInstantsTest extends TestCase
     {
         $this->assertSame(60.0, BusinessTime::parse('2026-03-29T01:30:00+01:00')->diffInMinutes(BusinessTime::parse('2026-03-29T03:30:00+02:00')));
         $user = User::factory()->create(['role' => 'technician']);
-        FieldServiceProfile::create(['user_id' => $user->id, 'skills' => ['solar'], 'daily_capacity_minutes' => 480]);
+        FieldServiceProfile::create(['weekly_schedule' => array_fill(1, 7, [['start' => '00:00', 'end' => '24:00']]), 'user_id' => $user->id, 'skills' => ['solar'], 'daily_capacity_minutes' => 480]);
         $installation = Installation::create(['service_type' => 'solar', 'status' => 'approved', 'site_address_line_1' => 'Synthetic local test']);
         $order = WorkOrder::create(['installation_id' => $installation->id, 'assigned_user_id' => $user->id, 'number' => 'WO-DST', 'title' => 'Synthetic test', 'kind' => 'survey', 'scheduled_start' => '2026-10-25T02:10:00+02:00', 'scheduled_end' => '2026-10-25T02:40:00+02:00']);
         app(TechnicianSchedule::class)->assertAvailable($user->id, '2026-10-25T02:10:00+01:00', '2026-10-25T02:40:00+01:00');

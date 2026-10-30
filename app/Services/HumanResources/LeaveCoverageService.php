@@ -5,6 +5,7 @@ namespace App\Services\HumanResources;
 use App\Models\HrLeaveRequest;
 use App\Models\Person;
 use App\Models\WorkOrder;
+use App\Services\Work\WorkOrderRescheduler;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
 
@@ -57,8 +58,14 @@ class LeaveCoverageService
     /** @param Collection<int, WorkOrder> $orders */
     public function reassign(Collection $orders, Person $substitute): void
     {
-        $orders->each(fn (WorkOrder $order) => $order->update([
+        if ($orders->isEmpty()) {
+            return;
+        }
+        app(WorkOrderRescheduler::class)->bulk($orders->map(fn (WorkOrder $order) => [
+            'work_order_id' => $order->id,
             'assigned_user_id' => $substitute->user->id,
-        ]));
+            'scheduled_start' => $order->scheduled_start?->toIso8601String(),
+            'scheduled_end' => $order->scheduled_end?->toIso8601String(),
+        ])->all(), __('Reassignment for an approved absence.'), auth()->id());
     }
 }

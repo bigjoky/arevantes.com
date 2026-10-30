@@ -24,10 +24,10 @@ class TechnicalScheduleAvailabilityTest extends TestCase
         $proposal = new EngineeringScheduleProposal(['assignee_id' => $user->id, 'proposed_on' => today()->addDays(2), 'estimated_hours' => 4]);
         $service = app(TechnicalScheduleAvailability::class);
         $this->assertSame('blocked', $service->check($proposal, '09:00')['status']);
-        FieldServiceProfile::create(['user_id' => $user->id, 'daily_capacity_minutes' => 480, 'is_available' => true]);
+        FieldServiceProfile::create(['weekly_schedule' => array_fill(1, 7, [['start' => '00:00', 'end' => '24:00']]), 'user_id' => $user->id, 'daily_capacity_minutes' => 480, 'is_available' => true]);
         $this->assertSame('clear', $service->check($proposal, '09:00')['status']);
         $leave = HrLeaveRequest::create(['person_id' => $person->id, 'type' => 'vacation', 'start_date' => $proposal->proposed_on, 'end_date' => $proposal->proposed_on, 'requested_days' => 1, 'status' => 'pending', 'notes' => 'PRIVATE MEDICAL REASON']);
-        $this->assertSame('warning', $service->check($proposal, '09:00')['status']);
+        $this->assertSame('blocked', $service->check($proposal, '09:00')['status']);
         $leave->update(['status' => 'approved']);
         $result = $service->check($proposal, '09:00');
         $this->assertSame('blocked', $result['status']);
@@ -44,7 +44,7 @@ class TechnicalScheduleAvailabilityTest extends TestCase
     public function test_orders_overlap_and_overnight_work_counts_towards_daily_capacity(): void
     {
         $user = User::factory()->create(['role' => 'technician']);
-        FieldServiceProfile::create(['user_id' => $user->id, 'daily_capacity_minutes' => 480, 'is_available' => true]);
+        FieldServiceProfile::create(['weekly_schedule' => array_fill(1, 7, [['start' => '00:00', 'end' => '24:00']]), 'user_id' => $user->id, 'daily_capacity_minutes' => 480, 'is_available' => true]);
         $installation = Installation::create(['service_type' => 'electrical', 'status' => 'survey_booked', 'site_address_line_1' => 'Work site']);
         $day = today()->addDays(2);
         $proposal = new EngineeringScheduleProposal(['assignee_id' => $user->id, 'proposed_on' => $day, 'estimated_hours' => 7]);

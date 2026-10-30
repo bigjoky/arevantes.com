@@ -189,6 +189,7 @@ class OperationsController extends Controller
 
         $status = $data['status'] ?? 'pending';
         DB::transaction(function () use ($data, $opportunity, $installation, $status, $request, $salesCycle, $responseSla): void {
+            $this->assertActivityAvailability($data);
             $activity = CrmActivity::create([
                 ...$data,
                 'person_id' => $data['person_id'] ?? $opportunity?->person_id ?? $installation?->person_id,
@@ -237,6 +238,8 @@ class OperationsController extends Controller
         );
 
         DB::transaction(function () use ($activity, $data, $previousOpportunity, $targetOpportunity, $request, $salesCycle, $responseSla): void {
+            $lockedActivity = CrmActivity::whereKey($activity->id)->lockForUpdate()->firstOrFail();
+            $this->assertActivityAvailability([...$lockedActivity->getAttributes(), ...$data], $lockedActivity->id);
             $activity->update($data);
             $responseSla->record($activity);
             collect([$previousOpportunity, $targetOpportunity])->filter()->unique('id')->each(function (Opportunity $opportunity) use ($request, $salesCycle): void {
@@ -246,6 +249,22 @@ class OperationsController extends Controller
         });
 
         return back()->with('toast', ['type' => 'success', 'message' => __('Activity updated.')]);
+    }
+
+    private function assertActivityAvailability(array $data, ?int $exceptActivityId = null): void
+    {
+        $owner = $data['assigned_user_id'] ?? null;
+        if (! $owner || (! in_array($data['type'] ?? '', ['visit', 'meeting'], true) && (! filled($data['starts_at'] ?? null) || ! filled($data['due_at'] ?? null)))
+            || in_array($data['status'] ?? 'pending', ['completed', 'cancelled'], true)) {
+            return;
+        }
+        $technicalUser = User::whereKey($owner)->where(fn ($q) => $q->where('role', 'technician')->orWhere(fn ($q) => $q->where('role', 'admin')->whereHas('fieldServiceProfile')))->exists();
+        if (! $technicalUser) {
+            return;
+        }
+        $schedule = app(TechnicianSchedule::class);
+        $schedule->lockTechnicians([$owner]);
+        $schedule->assertAvailable((int) $owner, $data['starts_at'] ?? null, $data['due_at'] ?? null, exceptActivityId: $exceptActivityId);
     }
 
     public function destroy(Request $request, CrmActivity $activity, OpportunitySalesCycle $salesCycle): RedirectResponse
@@ -277,7 +296,7 @@ class OperationsController extends Controller
         $end = $data['scheduled_end'] ?? $activity->due_at;
         abort_if($start && $end && Carbon::parse($end)->lessThanOrEqualTo($start), 422, __('The scheduled end must be after the start.'));
         if ($start && $end) {
-            $schedule->assertAvailable($technicalAssignee, $start, $end);
+            $schedule->assertAvailable($technicalAssignee, $start, $end, exceptActivityId: $activity->id);
         }
 
         $order = $factory->create([

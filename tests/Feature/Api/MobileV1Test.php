@@ -4,6 +4,7 @@ namespace Tests\Feature\Api;
 
 use App\Models\CommercialVisit;
 use App\Models\CrmActivity;
+use App\Models\FieldServiceProfile;
 use App\Models\Installation;
 use App\Models\InstallationAsset;
 use App\Models\MaintenancePlan;
@@ -44,6 +45,7 @@ class MobileV1Test extends TestCase
     public function test_device_can_login_read_profile_and_revoke_its_token(): void
     {
         $user = User::factory()->create(['role' => 'technician', 'password' => 'secret-password']);
+        FieldServiceProfile::create(['user_id' => $user->id, 'weekly_schedule' => array_fill(1, 7, [['start' => '00:00', 'end' => '24:00']]), 'daily_capacity_minutes' => 1440, 'is_available' => true]);
 
         $login = $this->postJson('/api/mobile/v1/auth/login', [
             'email' => $user->email,
@@ -76,6 +78,7 @@ class MobileV1Test extends TestCase
     public function test_mobile_routes_require_the_mobile_token_ability(): void
     {
         $user = User::factory()->create(['role' => 'technician']);
+        FieldServiceProfile::create(['user_id' => $user->id, 'weekly_schedule' => array_fill(1, 7, [['start' => '00:00', 'end' => '24:00']]), 'daily_capacity_minutes' => 1440, 'is_available' => true]);
 
         Sanctum::actingAs($user, ['unrelated']);
 
@@ -113,6 +116,7 @@ class MobileV1Test extends TestCase
     public function test_mobile_api_responses_include_a_correlation_identifier(): void
     {
         $technician = User::factory()->create(['role' => 'technician']);
+        FieldServiceProfile::create(['user_id' => $technician->id, 'weekly_schedule' => array_fill(1, 7, [['start' => '00:00', 'end' => '24:00']]), 'daily_capacity_minutes' => 1440, 'is_available' => true]);
 
         $this->mobileAs($technician)
             ->getJson('/api/mobile/v1/me')
@@ -292,6 +296,7 @@ class MobileV1Test extends TestCase
             ->assertJsonCount(0, 'data.conversions.by_commercial');
 
         $technician = User::factory()->create(['role' => 'technician']);
+        FieldServiceProfile::create(['user_id' => $technician->id, 'weekly_schedule' => array_fill(1, 7, [['start' => '00:00', 'end' => '24:00']]), 'daily_capacity_minutes' => 1440, 'is_available' => true]);
         $this->mobileAs($technician)->getJson('/api/mobile/v1/commercial/dashboard')->assertForbidden();
     }
 
@@ -456,6 +461,7 @@ class MobileV1Test extends TestCase
         $this->assertDatabaseMissing('crm_activities', ['opportunity_id' => CommercialVisit::firstOrFail()->opportunity_id, 'type' => 'call']);
 
         $technician = User::factory()->create(['role' => 'technician']);
+        FieldServiceProfile::create(['user_id' => $technician->id, 'weekly_schedule' => array_fill(1, 7, [['start' => '00:00', 'end' => '24:00']]), 'daily_capacity_minutes' => 1440, 'is_available' => true]);
         $this->mobileAs($technician)->withHeader('Idempotency-Key', (string) Str::uuid())
             ->postJson('/api/mobile/v1/commercial/leads', [...$payload, 'client_uuid' => (string) Str::uuid()])
             ->assertForbidden();
@@ -465,7 +471,9 @@ class MobileV1Test extends TestCase
     public function test_mobile_agenda_lists_only_current_users_active_unlinked_activities(): void
     {
         $technician = User::factory()->create(['role' => 'technician']);
+        FieldServiceProfile::create(['user_id' => $technician->id, 'weekly_schedule' => array_fill(1, 7, [['start' => '00:00', 'end' => '24:00']]), 'daily_capacity_minutes' => 1440, 'is_available' => true]);
         $other = User::factory()->create(['role' => 'technician']);
+        FieldServiceProfile::create(['user_id' => $other->id, 'weekly_schedule' => array_fill(1, 7, [['start' => '00:00', 'end' => '24:00']]), 'daily_capacity_minutes' => 1440, 'is_available' => true]);
         $installation = Installation::create(['service_type' => 'solar', 'status' => 'in_progress', 'project_reference' => 'FV-MOBILE', 'site_address_line_1' => 'Calle Sol 1']);
         $visible = CrmActivity::create(['installation_id' => $installation->id, 'assigned_user_id' => $technician->id, 'type' => 'visit', 'title' => 'Long maintenance', 'priority' => 'normal', 'status' => 'pending', 'starts_at' => now()->subDays(2), 'due_at' => now()->addDays(5)]);
         CrmActivity::create(['assigned_user_id' => $other->id, 'type' => 'task', 'title' => 'Other user', 'priority' => 'normal', 'status' => 'pending']);
@@ -484,6 +492,7 @@ class MobileV1Test extends TestCase
     public function test_mobile_user_can_read_and_change_an_assigned_activity_idempotently(): void
     {
         $technician = User::factory()->create(['role' => 'technician']);
+        FieldServiceProfile::create(['user_id' => $technician->id, 'weekly_schedule' => array_fill(1, 7, [['start' => '00:00', 'end' => '24:00']]), 'daily_capacity_minutes' => 1440, 'is_available' => true]);
         $installation = Installation::create(['service_type' => 'solar', 'status' => 'in_progress', 'site_address_line_1' => 'Calle Sol 1']);
         $activity = CrmActivity::create(['installation_id' => $installation->id, 'assigned_user_id' => $technician->id, 'type' => 'task', 'title' => 'Assigned task', 'notes' => 'Detailed instructions', 'priority' => 'high', 'status' => 'pending']);
         $key = (string) Str::uuid();
@@ -507,6 +516,7 @@ class MobileV1Test extends TestCase
     public function test_mobile_user_cannot_access_another_users_activity(): void
     {
         $technician = User::factory()->create(['role' => 'technician']);
+        FieldServiceProfile::create(['user_id' => $technician->id, 'weekly_schedule' => array_fill(1, 7, [['start' => '00:00', 'end' => '24:00']]), 'daily_capacity_minutes' => 1440, 'is_available' => true]);
         $installation = Installation::create(['service_type' => 'solar', 'status' => 'in_progress', 'site_address_line_1' => 'Calle Sol 1']);
         $activity = CrmActivity::create(['installation_id' => $installation->id, 'assigned_user_id' => User::factory()->create()->id, 'type' => 'task', 'title' => 'Private task', 'priority' => 'normal', 'status' => 'pending']);
 
@@ -552,7 +562,9 @@ class MobileV1Test extends TestCase
     public function test_technician_only_receives_assigned_work_orders(): void
     {
         $technician = User::factory()->create(['role' => 'technician']);
+        FieldServiceProfile::create(['user_id' => $technician->id, 'weekly_schedule' => array_fill(1, 7, [['start' => '00:00', 'end' => '24:00']]), 'daily_capacity_minutes' => 1440, 'is_available' => true]);
         $other = User::factory()->create(['role' => 'technician']);
+        FieldServiceProfile::create(['user_id' => $other->id, 'weekly_schedule' => array_fill(1, 7, [['start' => '00:00', 'end' => '24:00']]), 'daily_capacity_minutes' => 1440, 'is_available' => true]);
         $installation = Installation::create(['service_type' => 'solar', 'status' => 'scheduled', 'site_address_line_1' => 'Calle Sol 1']);
         $assigned = WorkOrder::create(['installation_id' => $installation->id, 'assigned_user_id' => $technician->id, 'number' => 'WO-1', 'title' => 'Assigned']);
         $hidden = WorkOrder::create(['installation_id' => $installation->id, 'assigned_user_id' => $other->id, 'number' => 'WO-2', 'title' => 'Hidden']);
@@ -568,6 +580,7 @@ class MobileV1Test extends TestCase
     public function test_mobile_sync_uses_a_stable_cursor_and_exposes_a_snapshot_checkpoint(): void
     {
         $technician = User::factory()->create(['role' => 'technician']);
+        FieldServiceProfile::create(['user_id' => $technician->id, 'weekly_schedule' => array_fill(1, 7, [['start' => '00:00', 'end' => '24:00']]), 'daily_capacity_minutes' => 1440, 'is_available' => true]);
         $installation = Installation::create(['service_type' => 'solar', 'status' => 'scheduled', 'site_address_line_1' => 'Calle Sol 1']);
         $orders = collect(range(1, 3))->map(fn (int $index) => WorkOrder::create([
             'installation_id' => $installation->id,
@@ -620,6 +633,7 @@ class MobileV1Test extends TestCase
     public function test_mobile_status_changes_detect_a_stale_work_order_version(): void
     {
         $technician = User::factory()->create(['role' => 'technician', 'name' => 'Initial Technician']);
+        FieldServiceProfile::create(['user_id' => $technician->id, 'weekly_schedule' => array_fill(1, 7, [['start' => '00:00', 'end' => '24:00']]), 'daily_capacity_minutes' => 1440, 'is_available' => true]);
         $admin = User::factory()->create(['role' => 'admin']);
         $installation = Installation::create(['service_type' => 'solar', 'status' => 'scheduled', 'site_address_line_1' => 'Calle Sol 1']);
         $order = WorkOrder::create([
@@ -668,6 +682,7 @@ class MobileV1Test extends TestCase
     public function test_nested_execution_changes_advance_the_work_order_sync_version(): void
     {
         $technician = User::factory()->create(['role' => 'technician']);
+        FieldServiceProfile::create(['user_id' => $technician->id, 'weekly_schedule' => array_fill(1, 7, [['start' => '00:00', 'end' => '24:00']]), 'daily_capacity_minutes' => 1440, 'is_available' => true]);
         $installation = Installation::create(['service_type' => 'solar', 'status' => 'scheduled', 'site_address_line_1' => 'Calle Sol 1']);
         $order = WorkOrder::create(['installation_id' => $installation->id, 'assigned_user_id' => $technician->id, 'number' => 'WO-TOUCH', 'title' => 'Touch parent']);
         WorkOrder::query()->whereKey($order)->update(['updated_at' => now()->subDay()]);
@@ -699,6 +714,7 @@ class MobileV1Test extends TestCase
     public function test_technician_can_execute_assigned_work_order(): void
     {
         $technician = User::factory()->create(['role' => 'technician']);
+        FieldServiceProfile::create(['user_id' => $technician->id, 'weekly_schedule' => array_fill(1, 7, [['start' => '00:00', 'end' => '24:00']]), 'daily_capacity_minutes' => 1440, 'is_available' => true]);
         $installation = Installation::create(['service_type' => 'solar', 'status' => 'scheduled', 'site_address_line_1' => 'Calle Sol 1']);
         $order = WorkOrder::create(['installation_id' => $installation->id, 'assigned_user_id' => $technician->id, 'number' => 'WO-1', 'title' => 'Assigned']);
         $item = $order->checklistItems()->create(['position' => 1, 'label' => 'Test item', 'is_required' => true]);
@@ -721,6 +737,7 @@ class MobileV1Test extends TestCase
     public function test_mobile_work_order_exposes_the_contract_version_and_covered_assets_offline(): void
     {
         $technician = User::factory()->create(['role' => 'technician']);
+        FieldServiceProfile::create(['user_id' => $technician->id, 'weekly_schedule' => array_fill(1, 7, [['start' => '00:00', 'end' => '24:00']]), 'daily_capacity_minutes' => 1440, 'is_available' => true]);
         $installation = Installation::create(['service_type' => 'security', 'status' => 'completed', 'site_address_line_1' => 'Calle Alarma 1']);
         $asset = InstallationAsset::create(['installation_id' => $installation->id, 'asset_tag' => 'SEC-001', 'name' => 'Alarm panel', 'category' => 'alarm_panel', 'status' => 'active']);
         $plan = MaintenancePlan::create(['installation_id' => $installation->id, 'name' => 'Critical security care', 'version' => 4, 'service_level' => 'critical', 'coverage_type' => 'full', 'response_minutes' => 30, 'resolution_minutes' => 240, 'interval_months' => 3, 'starts_on' => today(), 'next_due_on' => today(), 'is_active' => true, 'scope' => 'Validate panel, signals and communications.']);
@@ -739,6 +756,7 @@ class MobileV1Test extends TestCase
     public function test_technician_can_start_and_stop_a_timer_created_offline(): void
     {
         $technician = User::factory()->create(['role' => 'technician']);
+        FieldServiceProfile::create(['user_id' => $technician->id, 'weekly_schedule' => array_fill(1, 7, [['start' => '00:00', 'end' => '24:00']]), 'daily_capacity_minutes' => 1440, 'is_available' => true]);
         $installation = Installation::create(['service_type' => 'solar', 'status' => 'scheduled', 'site_address_line_1' => 'Calle Sol 1']);
         $order = WorkOrder::create(['installation_id' => $installation->id, 'assigned_user_id' => $technician->id, 'number' => 'WO-OFFLINE', 'title' => 'Offline timer']);
         $clientUuid = (string) Str::uuid();
@@ -772,6 +790,7 @@ class MobileV1Test extends TestCase
     public function test_technician_can_block_and_resume_an_assigned_order_idempotently(): void
     {
         $technician = User::factory()->create(['role' => 'technician']);
+        FieldServiceProfile::create(['user_id' => $technician->id, 'weekly_schedule' => array_fill(1, 7, [['start' => '00:00', 'end' => '24:00']]), 'daily_capacity_minutes' => 1440, 'is_available' => true]);
         $installation = Installation::create(['service_type' => 'solar', 'status' => 'in_progress', 'site_address_line_1' => 'Calle Sol 1']);
         $order = WorkOrder::create(['installation_id' => $installation->id, 'assigned_user_id' => $technician->id, 'number' => 'WO-BLOCK', 'title' => 'Blocked order', 'status' => 'in_progress']);
         $activity = $order->activities()->create(['assigned_user_id' => $technician->id, 'type' => 'task', 'title' => $order->title, 'status' => 'in_progress']);
@@ -800,6 +819,7 @@ class MobileV1Test extends TestCase
     public function test_technician_must_stop_the_timer_before_blocking_an_order(): void
     {
         $technician = User::factory()->create(['role' => 'technician']);
+        FieldServiceProfile::create(['user_id' => $technician->id, 'weekly_schedule' => array_fill(1, 7, [['start' => '00:00', 'end' => '24:00']]), 'daily_capacity_minutes' => 1440, 'is_available' => true]);
         $installation = Installation::create(['service_type' => 'solar', 'status' => 'in_progress', 'site_address_line_1' => 'Calle Sol 1']);
         $order = WorkOrder::create(['installation_id' => $installation->id, 'assigned_user_id' => $technician->id, 'number' => 'WO-BLOCK-TIMER', 'title' => 'Running order', 'status' => 'in_progress']);
         $order->timeEntries()->create(['user_id' => $technician->id, 'created_by' => $technician->id, 'started_at' => now()]);
@@ -815,6 +835,7 @@ class MobileV1Test extends TestCase
     public function test_technician_can_complete_a_ready_work_order_idempotently(): void
     {
         $technician = User::factory()->create(['role' => 'technician']);
+        FieldServiceProfile::create(['user_id' => $technician->id, 'weekly_schedule' => array_fill(1, 7, [['start' => '00:00', 'end' => '24:00']]), 'daily_capacity_minutes' => 1440, 'is_available' => true]);
         $installation = Installation::create(['service_type' => 'solar', 'status' => 'in_progress', 'site_address_line_1' => 'Calle Sol 1']);
         $order = WorkOrder::create([
             'installation_id' => $installation->id,
@@ -863,6 +884,7 @@ class MobileV1Test extends TestCase
     public function test_mobile_completion_rejects_an_incomplete_work_order_without_reserving_the_key(): void
     {
         $technician = User::factory()->create(['role' => 'technician']);
+        FieldServiceProfile::create(['user_id' => $technician->id, 'weekly_schedule' => array_fill(1, 7, [['start' => '00:00', 'end' => '24:00']]), 'daily_capacity_minutes' => 1440, 'is_available' => true]);
         $installation = Installation::create(['service_type' => 'solar', 'status' => 'in_progress', 'site_address_line_1' => 'Calle Sol 1']);
         $order = WorkOrder::create([
             'installation_id' => $installation->id,
@@ -884,6 +906,7 @@ class MobileV1Test extends TestCase
     public function test_technician_can_consume_reserved_material_from_mobile_idempotently(): void
     {
         $technician = User::factory()->create(['role' => 'technician']);
+        FieldServiceProfile::create(['user_id' => $technician->id, 'weekly_schedule' => array_fill(1, 7, [['start' => '00:00', 'end' => '24:00']]), 'daily_capacity_minutes' => 1440, 'is_available' => true]);
         $installation = Installation::create(['service_type' => 'solar', 'status' => 'in_progress', 'site_address_line_1' => 'Calle Sol 1']);
         $order = WorkOrder::create([
             'installation_id' => $installation->id,
@@ -942,6 +965,7 @@ class MobileV1Test extends TestCase
     public function test_mutation_is_replayed_without_running_twice(): void
     {
         $technician = User::factory()->create(['role' => 'technician']);
+        FieldServiceProfile::create(['user_id' => $technician->id, 'weekly_schedule' => array_fill(1, 7, [['start' => '00:00', 'end' => '24:00']]), 'daily_capacity_minutes' => 1440, 'is_available' => true]);
         $installation = Installation::create(['service_type' => 'solar', 'status' => 'scheduled', 'site_address_line_1' => 'Calle Sol 1']);
         $order = WorkOrder::create(['installation_id' => $installation->id, 'assigned_user_id' => $technician->id, 'number' => 'WO-1', 'title' => 'Assigned']);
         $key = (string) Str::uuid();
@@ -960,6 +984,7 @@ class MobileV1Test extends TestCase
     public function test_an_in_flight_idempotent_mutation_is_not_executed_twice(): void
     {
         $technician = User::factory()->create(['role' => 'technician']);
+        FieldServiceProfile::create(['user_id' => $technician->id, 'weekly_schedule' => array_fill(1, 7, [['start' => '00:00', 'end' => '24:00']]), 'daily_capacity_minutes' => 1440, 'is_available' => true]);
         $installation = Installation::create(['service_type' => 'solar', 'status' => 'scheduled', 'site_address_line_1' => 'Calle Sol 1']);
         $order = WorkOrder::create(['installation_id' => $installation->id, 'assigned_user_id' => $technician->id, 'number' => 'WO-1', 'title' => 'Assigned']);
         $key = (string) Str::uuid();
@@ -984,7 +1009,9 @@ class MobileV1Test extends TestCase
     {
         Storage::fake('local');
         $technician = User::factory()->create(['role' => 'technician']);
+        FieldServiceProfile::create(['user_id' => $technician->id, 'weekly_schedule' => array_fill(1, 7, [['start' => '00:00', 'end' => '24:00']]), 'daily_capacity_minutes' => 1440, 'is_available' => true]);
         $other = User::factory()->create(['role' => 'technician']);
+        FieldServiceProfile::create(['user_id' => $other->id, 'weekly_schedule' => array_fill(1, 7, [['start' => '00:00', 'end' => '24:00']]), 'daily_capacity_minutes' => 1440, 'is_available' => true]);
         $installation = Installation::create(['service_type' => 'solar', 'status' => 'scheduled', 'site_address_line_1' => 'Calle Sol 1']);
         $order = WorkOrder::create(['installation_id' => $installation->id, 'assigned_user_id' => $technician->id, 'number' => 'WO-1', 'title' => 'Assigned']);
         $key = (string) Str::uuid();
@@ -1013,7 +1040,9 @@ class MobileV1Test extends TestCase
     {
         Storage::fake('local');
         $technician = User::factory()->create(['role' => 'technician']);
+        FieldServiceProfile::create(['user_id' => $technician->id, 'weekly_schedule' => array_fill(1, 7, [['start' => '00:00', 'end' => '24:00']]), 'daily_capacity_minutes' => 1440, 'is_available' => true]);
         $other = User::factory()->create(['role' => 'technician']);
+        FieldServiceProfile::create(['user_id' => $other->id, 'weekly_schedule' => array_fill(1, 7, [['start' => '00:00', 'end' => '24:00']]), 'daily_capacity_minutes' => 1440, 'is_available' => true]);
         $installation = Installation::create(['service_type' => 'solar', 'status' => 'scheduled', 'site_address_line_1' => 'Calle Sol 1']);
         $order = WorkOrder::create(['installation_id' => $installation->id, 'assigned_user_id' => $technician->id, 'number' => 'WO-1', 'title' => 'Assigned']);
         $key = (string) Str::uuid();
@@ -1047,7 +1076,9 @@ class MobileV1Test extends TestCase
     public function test_technician_can_record_an_idempotent_arrival(): void
     {
         $technician = User::factory()->create(['role' => 'technician']);
+        FieldServiceProfile::create(['user_id' => $technician->id, 'weekly_schedule' => array_fill(1, 7, [['start' => '00:00', 'end' => '24:00']]), 'daily_capacity_minutes' => 1440, 'is_available' => true]);
         $other = User::factory()->create(['role' => 'technician']);
+        FieldServiceProfile::create(['user_id' => $other->id, 'weekly_schedule' => array_fill(1, 7, [['start' => '00:00', 'end' => '24:00']]), 'daily_capacity_minutes' => 1440, 'is_available' => true]);
         $installation = Installation::create(['service_type' => 'solar', 'status' => 'scheduled', 'site_address_line_1' => 'Calle Sol 1']);
         $order = WorkOrder::create(['installation_id' => $installation->id, 'assigned_user_id' => $technician->id, 'number' => 'WO-1', 'title' => 'Assigned']);
         $key = (string) Str::uuid();

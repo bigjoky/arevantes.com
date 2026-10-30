@@ -71,7 +71,7 @@ class EngineeringDossierTest extends TestCase
         Queue::fake();
         $admin = User::factory()->create(['role' => 'admin']);
         $technician = User::factory()->create(['role' => 'technician']);
-        FieldServiceProfile::create(['user_id' => $technician->id, 'daily_capacity_minutes' => 480, 'skills' => ['electrical', 'electrical_installation', 'electrical_safety'], 'is_available' => true]);
+        FieldServiceProfile::create(['weekly_schedule' => array_fill(1, 7, [['start' => '00:00', 'end' => '24:00']]), 'user_id' => $technician->id, 'daily_capacity_minutes' => 480, 'skills' => ['electrical', 'electrical_installation', 'electrical_safety'], 'is_available' => true]);
         $installation = Installation::create(['service_type' => 'electrical', 'status' => 'approved', 'financial_status' => 'paid', 'site_address_line_1' => 'Technical site']);
         $workflow = app(EngineeringDossierWorkflow::class);
         $dossier = $workflow->create($this->payload(null, $installation, ['proposed_solution' => 'Technical design.']), $admin);
@@ -338,6 +338,7 @@ class EngineeringDossierTest extends TestCase
     public function test_technicians_can_consult_engineering_but_cannot_change_it(): void
     {
         $technician = User::factory()->create(['role' => 'technician']);
+        FieldServiceProfile::create(['user_id' => $technician->id, 'weekly_schedule' => array_fill(1, 7, [['start' => '00:00', 'end' => '24:00']]), 'daily_capacity_minutes' => 1440, 'is_available' => true]);
         $installation = Installation::create([
             'service_type' => 'solar',
             'status' => 'survey_booked',

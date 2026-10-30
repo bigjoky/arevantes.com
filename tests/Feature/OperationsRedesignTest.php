@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\CrmActivity;
+use App\Models\FieldServiceProfile;
 use App\Models\Installation;
 use App\Models\User;
 use App\Models\WorkOrder;
@@ -45,6 +46,7 @@ class OperationsRedesignTest extends TestCase
     public function test_technician_scope_applies_to_every_operations_projection(): void
     {
         $tech = User::factory()->create(['role' => 'technician']);
+        FieldServiceProfile::create(['user_id' => $tech->id, 'weekly_schedule' => array_fill(1, 7, [['start' => '00:00', 'end' => '24:00']]), 'daily_capacity_minutes' => 1440, 'is_available' => true]);
         $mine = $this->order(['assigned_user_id' => $tech->id]);
         $other = $this->order();
         $this->actingAs($tech)->get('/work-orders')->assertInertia(fn (Assert $p) => $p->where('orders.total', 1));
@@ -81,6 +83,7 @@ class OperationsRedesignTest extends TestCase
     public function test_reprogramming_rejects_conflicts_and_stale_versions_without_writes(): void
     {
         $admin = User::factory()->create(['role' => 'admin']);
+        FieldServiceProfile::create(['user_id' => $admin->id, 'weekly_schedule' => array_fill(1, 7, [['start' => '00:00', 'end' => '24:00']]), 'daily_capacity_minutes' => 1440, 'is_available' => true]);
         $this->actingAs($admin);
         $one = $this->order(['assigned_user_id' => $admin->id, 'scheduled_start' => '2026-10-07 09:00', 'scheduled_end' => '2026-10-07 11:00']);
         $two = $this->order();
@@ -105,6 +108,7 @@ class OperationsRedesignTest extends TestCase
     public function test_multiple_execution_orders_preserve_installation_hierarchy_and_audit_completion(): void
     {
         $user = User::factory()->create(['role' => 'admin']);
+        FieldServiceProfile::create(['user_id' => $user->id, 'weekly_schedule' => array_fill(1, 7, [['start' => '00:00', 'end' => '24:00']]), 'daily_capacity_minutes' => 1440, 'is_available' => true]);
         $this->actingAs($user);
         $first = $this->order(['kind' => 'installation', 'signed_at' => now(), 'assigned_user_id' => $user->id]);
         $second = $this->order(['installation_id' => $first->installation_id, 'kind' => 'commissioning', 'status' => 'in_progress']);
@@ -121,6 +125,7 @@ class OperationsRedesignTest extends TestCase
     {
         $admin = User::factory()->create(['role' => 'admin']);
         $technician = User::factory()->create(['role' => 'technician']);
+        FieldServiceProfile::create(['user_id' => $technician->id, 'weekly_schedule' => array_fill(1, 7, [['start' => '00:00', 'end' => '24:00']]), 'daily_capacity_minutes' => 1440, 'is_available' => true]);
         $order = $this->order(['assigned_user_id' => $technician->id]);
         $order->timeEntries()->create(['user_id' => $technician->id, 'started_at' => now()->subHour(), 'ended_at' => now(), 'duration_minutes' => 60, 'hourly_cost' => 99, 'mileage_rate' => 1]);
         $this->actingAs($admin)->get('/work-orders/create?installation='.$order->installation_id)->assertInertia(fn (Assert $p) => $p->where('selectedInstallation', (string) $order->installation_id)->has('installations', 1));

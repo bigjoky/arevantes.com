@@ -32,15 +32,22 @@ class WorkOrderFactory
         return DB::transaction(function () use ($data, $createdBy): WorkOrder {
             $data = ($data['frozen_technical_contract'] ?? false) ? $data : $this->prepare($data);
             $installation = Installation::lockForUpdate()->findOrFail($data['installation_id']);
+            if (filled($data['activity_id'] ?? null)) {
+                $sourceActivity = CrmActivity::whereKey($data['activity_id'])->lockForUpdate()->firstOrFail();
+                abort_unless($sourceActivity->installation_id === $installation->id, 422);
+                if ($sourceActivity->work_order_id) {
+                    return WorkOrder::findOrFail($sourceActivity->work_order_id);
+                }
+            }
             $template = filled($data['work_order_template_id'] ?? null)
                 ? WorkOrderTemplate::where('is_active', true)->findOrFail($data['work_order_template_id'])
                 : null;
             $kind = $data['kind'] ?? $template?->kind ?? 'installation';
-            if (in_array($kind, ['survey', 'installation', 'commissioning'], true)) {
+            if (isset($data['assigned_user_id'])) {
                 $schedule = app(TechnicianSchedule::class);
                 $owner = isset($data['assigned_user_id']) ? (int) $data['assigned_user_id'] : null;
                 $schedule->lockTechnicians([$owner]);
-                $schedule->assertAvailable($owner, $data['scheduled_start'] ?? null, $data['scheduled_end'] ?? null, null, $data['required_skills'] ?? $template?->required_skills ?? [], $data['service_zone'] ?? $installation->site_postal_code);
+                $schedule->assertAvailable($owner, $data['scheduled_start'] ?? null, $data['scheduled_end'] ?? null, null, $data['required_skills'] ?? $template?->required_skills ?? [], $data['service_zone'] ?? $installation->site_postal_code, exceptActivityId: isset($data['activity_id']) ? (int) $data['activity_id'] : null);
             }
             if (in_array($kind, ['installation', 'commissioning'], true)) {
                 app(TechnicalExecutionGuard::class)->assertCanPrepare($installation);

@@ -135,6 +135,7 @@ class OperationsAdminTest extends TestCase
     public function test_only_administrators_can_manage_roles(): void
     {
         $technician = User::factory()->create(['role' => 'technician']);
+        FieldServiceProfile::create(['user_id' => $technician->id, 'weekly_schedule' => array_fill(1, 7, [['start' => '00:00', 'end' => '24:00']]), 'daily_capacity_minutes' => 1440, 'is_available' => true]);
         $commercial = User::factory()->create(['role' => 'commercial']);
 
         $this->actingAs($technician)->get(route('admin.index'))->assertForbidden();
@@ -185,7 +186,9 @@ class OperationsAdminTest extends TestCase
     public function test_technicians_cannot_change_or_delete_another_users_activity(): void
     {
         $technician = User::factory()->create(['role' => 'technician']);
+        FieldServiceProfile::create(['user_id' => $technician->id, 'weekly_schedule' => array_fill(1, 7, [['start' => '00:00', 'end' => '24:00']]), 'daily_capacity_minutes' => 1440, 'is_available' => true]);
         $other = User::factory()->create(['role' => 'technician']);
+        FieldServiceProfile::create(['user_id' => $other->id, 'weekly_schedule' => array_fill(1, 7, [['start' => '00:00', 'end' => '24:00']]), 'daily_capacity_minutes' => 1440, 'is_available' => true]);
         $activity = CrmActivity::create([
             'assigned_user_id' => $other->id,
             'created_by' => $other->id,
@@ -205,7 +208,9 @@ class OperationsAdminTest extends TestCase
     public function test_technician_created_activities_are_always_assigned_to_them(): void
     {
         $technician = User::factory()->create(['role' => 'technician']);
+        FieldServiceProfile::create(['user_id' => $technician->id, 'weekly_schedule' => array_fill(1, 7, [['start' => '00:00', 'end' => '24:00']]), 'daily_capacity_minutes' => 1440, 'is_available' => true]);
         $other = User::factory()->create(['role' => 'technician']);
+        FieldServiceProfile::create(['user_id' => $other->id, 'weekly_schedule' => array_fill(1, 7, [['start' => '00:00', 'end' => '24:00']]), 'daily_capacity_minutes' => 1440, 'is_available' => true]);
 
         $this->actingAs($technician)->post(route('activities.store'), [
             'assigned_user_id' => $other->id,
@@ -265,7 +270,7 @@ class OperationsAdminTest extends TestCase
     {
         $commercial = User::factory()->create(['role' => 'commercial']);
         $technician = User::factory()->create(['role' => 'technician']);
-        FieldServiceProfile::create(['user_id' => $technician->id, 'skills' => ['solar', 'electrical'], 'is_available' => true]);
+        FieldServiceProfile::create(['weekly_schedule' => array_fill(1, 7, [['start' => '00:00', 'end' => '24:00']]), 'user_id' => $technician->id, 'skills' => ['solar', 'electrical'], 'is_available' => true]);
         $installation = Installation::create(['service_type' => 'solar', 'status' => 'approved', 'site_address_line_1' => 'Calle Solar 8']);
         $activity = CrmActivity::create([
             'installation_id' => $installation->id,

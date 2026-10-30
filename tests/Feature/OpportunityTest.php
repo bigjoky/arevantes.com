@@ -456,6 +456,7 @@ class OpportunityTest extends TestCase
     public function test_technician_cannot_access_opportunities(): void
     {
         $user = User::factory()->create(['role' => 'technician']);
+        FieldServiceProfile::create(['user_id' => $user->id, 'weekly_schedule' => array_fill(1, 7, [['start' => '00:00', 'end' => '24:00']]), 'daily_capacity_minutes' => 1440, 'is_available' => true]);
 
         $this->actingAs($user)->get(route('opportunities.index'))->assertForbidden();
     }
@@ -585,6 +586,7 @@ class OpportunityTest extends TestCase
     {
         $commercial = User::factory()->create(['role' => 'commercial']);
         $technician = User::factory()->create(['role' => 'technician']);
+        FieldServiceProfile::create(['user_id' => $technician->id, 'weekly_schedule' => array_fill(1, 7, [['start' => '00:00', 'end' => '24:00']]), 'daily_capacity_minutes' => 1440, 'is_available' => true]);
         $customer = Person::create(['category' => 'customer', 'first_name' => 'Ana']);
         $opportunity = Opportunity::create([
             'person_id' => $customer->id,
@@ -903,7 +905,7 @@ class OpportunityTest extends TestCase
         Queue::fake();
         $user = User::factory()->create(['role' => 'commercial']);
         $technician = User::factory()->create(['role' => 'technician']);
-        FieldServiceProfile::create(['user_id' => $technician->id, 'skills' => ['solar', 'electrical']]);
+        FieldServiceProfile::create(['weekly_schedule' => array_fill(1, 7, [['start' => '00:00', 'end' => '24:00']]), 'user_id' => $technician->id, 'skills' => ['solar', 'electrical']]);
         $product = $this->stockProduct('INV-5K', '5 kW inverter', 950);
         $customer = Person::create([
             'category' => 'customer',

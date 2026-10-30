@@ -18176,8 +18176,8 @@
         "es": "Periodo en curso"
     },
     "Mes": {
-        "en": "Month",
-        "es": "Mes"
+        "es": "Mes",
+        "en": "Month"
     },
     "Informes": {
         "en": "Reports",
@@ -23704,8 +23704,8 @@
         "es": "Vista de agenda"
     },
     "Semana": {
-        "en": "Week",
-        "es": "Semana"
+        "es": "Semana",
+        "en": "Week"
     },
     "list": {
         "en": "list",
@@ -26350,5 +26350,133 @@
     "Reclasificar apuntes de esta cuenta": {
         "es": "Reclasificar apuntes de esta cuenta",
         "en": "Reclassify lines for this account"
+    },
+    "Consultar disponibilidad": {
+        "es": "Consultar disponibilidad",
+        "en": "Check availability"
+    },
+    "Disponibilidad desconocida": {
+        "es": "Disponibilidad desconocida",
+        "en": "Availability unknown"
+    },
+    "Confirmar planificación": {
+        "es": "Confirmar planificación",
+        "en": "Confirm schedule"
+    },
+    "Visitas y actividades CRM": {
+        "es": "Visitas y actividades CRM",
+        "en": "CRM visits and activities"
+    },
+    "Horario semanal (Europe/Madrid)": {
+        "es": "Horario semanal (Europe/Madrid)",
+        "en": "Weekly working hours (Europe/Madrid)"
+    },
+    "Sin horario configurado, la disponibilidad será desconocida. Deja ambos campos vacíos en los días no laborables.": {
+        "es": "Sin horario configurado, la disponibilidad será desconocida. Deja ambos campos vacíos en los días no laborables.",
+        "en": "Without configured working hours, availability is unknown. Leave both fields blank on non-working days."
+    },
+    "Lunes": {
+        "es": "Lunes",
+        "en": "Monday"
+    },
+    "Martes": {
+        "es": "Martes",
+        "en": "Tuesday"
+    },
+    "Miércoles": {
+        "es": "Miércoles",
+        "en": "Wednesday"
+    },
+    "Jueves": {
+        "es": "Jueves",
+        "en": "Thursday"
+    },
+    "Viernes": {
+        "es": "Viernes",
+        "en": "Friday"
+    },
+    "Sábado": {
+        "es": "Sábado",
+        "en": "Saturday"
+    },
+    "Domingo": {
+        "es": "Domingo",
+        "en": "Sunday"
+    },
+    "Vista de planificación": {
+        "es": "Vista de planificación",
+        "en": "Planning view"
+    },
+    "Día": {
+        "es": "Día",
+        "en": "Day"
+    },
+    "Working hours are not configured. Availability cannot be confirmed.": {
+        "en": "Working hours are not configured. Availability cannot be confirmed.",
+        "es": "No hay horario laboral configurado. No se puede confirmar la disponibilidad."
+    },
+    "Working periods must be ordered, non-overlapping and end after their start.": {
+        "en": "Working periods must be ordered, non-overlapping and end after their start.",
+        "es": "Las franjas deben estar ordenadas, no solaparse y terminar después de su inicio."
+    },
+    "This technician has another scheduled visit or activity during this period.": {
+        "en": "This technician has another scheduled visit or activity during this period.",
+        "es": "El técnico tiene otra visita o actividad programada durante esta franja."
+    },
+    "An existing assignment has an incomplete schedule. Availability cannot be confirmed.": {
+        "en": "An existing assignment has an incomplete schedule. Availability cannot be confirmed.",
+        "es": "Hay una asignación con horario incompleto. No se puede confirmar la disponibilidad."
+    },
+    "An intervention cannot exceed 31 days.": {
+        "en": "An intervention cannot exceed 31 days.",
+        "es": "Una intervención no puede superar 31 días."
+    },
+    "The selected period includes a non-working holiday.": {
+        "en": "The selected period includes a non-working holiday.",
+        "es": "La franja seleccionada incluye un festivo no laborable."
+    },
+    "The selected period is outside configured working hours.": {
+        "en": "The selected period is outside configured working hours.",
+        "es": "La franja seleccionada está fuera del horario laboral configurado."
+    },
+    "Only planned or blocked work orders can be rescheduled.": {
+        "en": "Only planned or blocked work orders can be rescheduled.",
+        "es": "Solo se pueden reprogramar órdenes planificadas o bloqueadas."
+    },
+    "Completed installations cannot be rescheduled.": {
+        "en": "Completed installations cannot be rescheduled.",
+        "es": "No se pueden reprogramar instalaciones finalizadas."
+    },
+    "Reassignment for an approved absence.": {
+        "en": "Reassignment for an approved absence.",
+        "es": "Reasignación por ausencia aprobada."
+    },
+    "Scheduled work changed while this absence was being reviewed. Refresh and review its coverage.": {
+        "en": "Scheduled work changed while this absence was being reviewed. Refresh and review its coverage.",
+        "es": "La planificación cambió durante la revisión de la ausencia. Actualiza y revisa su cobertura."
+    },
+    "No se pudo comprobar la disponibilidad. Revisa la franja horaria.": {
+        "es": "No se pudo comprobar la disponibilidad. Revisa la franja horaria.",
+        "en": "Availability could not be checked. Review the selected time."
+    },
+    "Error de disponibilidad": {
+        "es": "Error de disponibilidad",
+        "en": "Availability error"
+    },
+    "HH:mm": {
+        "es": "HH:mm",
+        "en": "HH:mm"
+    },
+    "Historial de planificación": {
+        "es": "Historial de planificación",
+        "en": "Scheduling history"
+    },
+    "· Carga:": {
+        "es": "· Carga:",
+        "en": "· Workload:"
+    },
+    "min · Propuesta:": {
+        "es": "min · Propuesta:",
+        "en": "min · Proposed:"
     }
 }

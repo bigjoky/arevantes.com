@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\FieldServiceProfile;
 use App\Models\HrCalendarHoliday;
 use App\Models\HrLeaveAttachment;
 use App\Models\HrLeavePolicy;
@@ -26,8 +27,10 @@ class HumanResourcesLeavePolicyTest extends TestCase
         Storage::fake('local');
         $person = $this->staff('Julia', 'Nieto');
         $user = User::factory()->create(['person_id' => $person->id, 'role' => 'technician']);
+        FieldServiceProfile::create(['user_id' => $user->id, 'weekly_schedule' => array_fill(1, 7, [['start' => '00:00', 'end' => '24:00']]), 'daily_capacity_minutes' => 1440, 'is_available' => true]);
         $other = $this->staff('Pedro', 'Ríos');
         $otherUser = User::factory()->create(['person_id' => $other->id, 'role' => 'technician']);
+        FieldServiceProfile::create(['user_id' => $otherUser->id, 'weekly_schedule' => array_fill(1, 7, [['start' => '00:00', 'end' => '24:00']]), 'daily_capacity_minutes' => 1440, 'is_available' => true]);
 
         $this->actingAs($user)->post(route('my-human-resources.leave.store'), [
             'type' => 'sick',
@@ -56,8 +59,10 @@ class HumanResourcesLeavePolicyTest extends TestCase
         $admin = User::factory()->create(['role' => 'admin']);
         $person = $this->staff('Iván', 'Campo');
         $technician = User::factory()->create(['person_id' => $person->id, 'role' => 'technician']);
+        FieldServiceProfile::create(['user_id' => $technician->id, 'weekly_schedule' => array_fill(1, 7, [['start' => '00:00', 'end' => '24:00']]), 'daily_capacity_minutes' => 1440, 'is_available' => true]);
         $substitute = $this->staff('Sara', 'Luz');
         $substituteUser = User::factory()->create(['person_id' => $substitute->id, 'role' => 'technician']);
+        FieldServiceProfile::create(['user_id' => $substituteUser->id, 'weekly_schedule' => array_fill(1, 7, [['start' => '00:00', 'end' => '24:00']]), 'daily_capacity_minutes' => 1440, 'is_available' => true]);
         $installation = Installation::create([
             'service_type' => 'solar',
             'status' => 'scheduled',
@@ -69,7 +74,7 @@ class HumanResourcesLeavePolicyTest extends TestCase
             'created_by' => $admin->id,
             'number' => 'WO-COVERAGE-1',
             'title' => 'Puesta en marcha',
-            'status' => 'scheduled',
+            'status' => 'planned',
             'scheduled_start' => '2026-08-12 09:00:00',
             'scheduled_end' => '2026-08-12 13:00:00',
         ]);
@@ -150,6 +155,7 @@ class HumanResourcesLeavePolicyTest extends TestCase
         $this->travelTo('2026-08-10 09:00:00');
         $person = $this->staff('Lara', 'Díaz');
         $user = User::factory()->create(['person_id' => $person->id, 'role' => 'technician']);
+        FieldServiceProfile::create(['user_id' => $user->id, 'weekly_schedule' => array_fill(1, 7, [['start' => '00:00', 'end' => '24:00']]), 'daily_capacity_minutes' => 1440, 'is_available' => true]);
         HrCalendarHoliday::create(['holiday_date' => '2026-08-17', 'name' => 'Festivo local']);
 
         $this->actingAs($user)->post(route('my-human-resources.leave.store'), [
@@ -190,6 +196,7 @@ class HumanResourcesLeavePolicyTest extends TestCase
         $this->travelTo('2026-08-10 09:00:00');
         $person = $this->staff('Eva', 'Paz');
         $user = User::factory()->create(['person_id' => $person->id, 'role' => 'technician']);
+        FieldServiceProfile::create(['user_id' => $user->id, 'weekly_schedule' => array_fill(1, 7, [['start' => '00:00', 'end' => '24:00']]), 'daily_capacity_minutes' => 1440, 'is_available' => true]);
 
         $this->actingAs($user)->post(route('my-human-resources.leave.store'), [
             'type' => 'personal',
