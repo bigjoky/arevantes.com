@@ -1,6 +1,6 @@
 # OPS-02 — Planificación y disponibilidad
 
-Estado: implementación local verificada; publicación autorizada, pendiente de completar verificaciones visuales y despliegue.
+Estado: publicado y verificado en producción el 30/10/2026. Código `c41df6d649a7e8043bf75307ad7e287b5cc3077b`, deployment `depl-a31aaf63-8a12-4280-9a91-0bcd25d97b7d` succeeded (08:49:20 UTC). Mantenimiento retirado. [Evidencia](operations-planning-publication-2026-10-30.json).
 
 ## Diagnóstico y solución
 
@@ -29,3 +29,9 @@ La reprogramación admite órdenes planificadas o bloqueadas. Rechaza ejecución
 - No se generan alternativas automáticas de fecha: la consulta ofrece candidatos y razones para cambiar la franja o resolver configuración. Ningún técnico sin evidencia de disponibilidad se recomienda como disponible.
 - No se cambia ninguna jornada histórica automáticamente. Los perfiles anteriores necesitan configuración expresa antes de confirmar nuevas franjas.
 - Notificaciones y automatismos OPS siguen deshabilitados; no se consumen los nueve jobs pendientes ni se activan workers, scheduler, integraciones o push-to-deploy.
+
+## Publicación efectiva
+
+Migración explícita254→255, sin hook genérico: las columnas originales de seis tablas operativas conservan sus hashes y las trece fuentes PHP modificadas coinciden con el candidato. Nueve GET privados200 y contratos nuevos presentes; /up, /login y bundle público200; acceso anónimo a planificación302. RLS del perfil conservada. Dos perfiles existentes mantienen jornada desconocida; no se rellenan datos.
+
+Nueve jobs con payload, cola, intentos0 y ausencia de reserva idénticos al corte anterior;3/4/5 siguen en cuarentena. Workers, scheduler, push-to-deploy, hook e integraciones OPS desactivados; deployCommand vacío y patches-repatch conservado. Backups, retención, originales, facturación y contabilidad no modificados. Sin archivos de logs de aplicación accesibles en el contenedor: se han comprobado las rutas afectadas y el estado/log de despliegue, sin afirmar ausencia global de excepciones históricas.

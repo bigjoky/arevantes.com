@@ -6459,9 +6459,11 @@ Cierre verificado. No se inicia conciliación automática, Nexo ni ECO-03.
 
 ## OPS-02 — Planificación, disponibilidad y conflictos (30/10/2026)
 
-- Estado: implementado localmente, publicación autorizada pendiente de verificación final y despliegue. No confundir con producción.
+- Estado: publicado y verificado en producción. Código `c41df6d649a7e8043bf75307ad7e287b5cc3077b`; deployment `depl-a31aaf63-8a12-4280-9a91-0bcd25d97b7d` succeeded, 30/10/2026 08:49:20 UTC. Mantenimiento retirado.
 - Alcance: jornada semanal configurable en perfil existente; disponibilidad confirmada/no disponible/desconocida; comprobación compartida con Ingeniería, órdenes, CRM y sustituciones de RR. HH.; día/semana/mes, filtros, carga, confirmación, historial y locks de técnicos. Sin módulo paralelo.
 - Dependencias: perfiles/habilidades, ausencias y calendario global de RR. HH., órdenes/actividades/UTC existentes. Migración aditiva propia nullable, sin reescribir históricos.
 - Criterios de aceptación: disponibilidad y estados cerrados respetados; carreras PostgreSQL sin doble reserva; calendario/agenda sin duplicados; ES/EN, teclado y escritorio/móvil; publicación manual del candidato exacto y nueve jobs intactos.
 - Verificación local: suite general 1.114 aprobadas/53 omitidas, PostgreSQL 17.6 41 pruebas/435 aserciones (tres carreras reales), frontend 88, tipos/estilo/catálogo/build. Detalle, reglas y límites: [OPS-02](operations-planning-ops02.md).
 - Carencias pendientes: calendarios territoriales/individuales y reservas de vehículos/equipos no tienen relación de datos autorizada; requieren definir esas relaciones y criterios de negocio antes de ofrecer disponibilidad sobre ellas. No inventar horarios: configurar expresamente los perfiles anteriores.
+
+- Cierre OPS-02: migración propia254→255, seis históricos operativos y nueve jobs intactos, trece fuentes PHP verificadas; nueve GET autenticados200, públicos200/302 y bundle200. Dos perfiles conservan horario desconocido hasta configurarlo expresamente. Automatismos e integraciones desactivados. [Evidencia productiva](operations-planning-publication-2026-10-30.json).

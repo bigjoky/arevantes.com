@@ -1,0 +1,189 @@
+{
+  "code_commit": "c41df6d649a7e8043bf75307ad7e287b5cc3077b",
+  "deployment": {
+    "id": "depl-a31aaf63-8a12-4280-9a91-0bcd25d97b7d",
+    "status": "deployment.succeeded",
+    "commitHash": "c41df6d649a7e8043bf75307ad7e287b5cc3077b",
+    "startedAt": "2026-10-30T08:47:50.000000Z",
+    "finishedAt": "2026-10-30T08:49:20.000000Z",
+    "failureReason": null
+  },
+  "environment": {
+    "id": "env-a278002d-4d7c-4fc2-8920-1034fe592f20",
+    "status": "running",
+    "buildCommand": "composer install --no-dev --prefer-dist --optimize-autoloader --no-interaction\ncomposer patches-repatch --no-interaction\nnpm ci\nnpm run build\nphp artisan optimize",
+    "deployCommand": null,
+    "usesPushToDeploy": false,
+    "usesDeployHook": false,
+    "currentDeploymentId": "depl-a31aaf63-8a12-4280-9a91-0bcd25d97b7d"
+  },
+  "instance": {
+    "id": "inst-a278002d-5256-4baa-a564-1f2e601f06ad",
+    "type": "app",
+    "minReplicas": 1,
+    "maxReplicas": 1,
+    "usesScheduler": false,
+    "backgroundProcessIds": []
+  },
+  "migration": {
+    "migration": "2026_10_29_220000_add_weekly_schedule_to_field_service_profiles",
+    "sha256": "757656a59aca6e835ea22dbba8b6f5e6705c740718ed50c1bc66a5de15ce0cf7",
+    "migrations_before": 254,
+    "migrations_after": 255,
+    "historical_operational_tables_unchanged": 6,
+    "existing_schedules_untouched": true,
+    "automatic_hook_used": false
+  },
+  "checks": {
+    "general": {
+      "passed": 1114,
+      "skipped": 53,
+      "assertions": 15677
+    },
+    "postgresql": {
+      "version": "17.6",
+      "tests": 41,
+      "assertions": 435,
+      "real_process_race_scenarios": 3
+    },
+    "frontend_tests": 88,
+    "types": true,
+    "eslint": true,
+    "pint": true,
+    "bilingual_catalog": true,
+    "build": true,
+    "visual": {
+      "synthetic_only": true,
+      "production_operations_executed": 0,
+      "desktop_mobile_keyboard": true,
+      "english_labels": true,
+      "availability_recheck_invalidates_stale_client_result": true,
+      "intercepted_confirmations": 1,
+      "mobile_viewport": 390,
+      "mobile_content_width": 390,
+      "javascript_exceptions": 0,
+      "service_worker_intentionally_blocked": true
+    }
+  },
+  "private_read_only_routes": [
+    {
+      "kind": "planning",
+      "path": "/operations/planning",
+      "status": 200,
+      "component": "operations/planning",
+      "bytes": 25025,
+      "new_contract_present": true,
+      "days": 7
+    },
+    {
+      "kind": "day",
+      "path": "/operations/planning?view=day",
+      "status": 200,
+      "component": "operations/planning",
+      "bytes": 24132,
+      "new_contract_present": true,
+      "days": 1
+    },
+    {
+      "kind": "month",
+      "path": "/operations/planning?view=month",
+      "status": 200,
+      "component": "operations/planning",
+      "bytes": 35224,
+      "new_contract_present": true,
+      "days": 35
+    },
+    {
+      "kind": "agenda",
+      "path": "/operations/agenda",
+      "status": 200,
+      "component": "operations/agenda",
+      "bytes": 23609
+    },
+    {
+      "kind": "profiles",
+      "path": "/operations/field-service",
+      "status": 200,
+      "component": "operations/field-service",
+      "bytes": 42913,
+      "new_contract_present": true
+    },
+    {
+      "kind": "history",
+      "path": "/work-orders/1?tab=activity",
+      "status": 200,
+      "component": "work-orders/show",
+      "bytes": 25850,
+      "new_contract_present": true
+    },
+    {
+      "kind": "project",
+      "path": "/execution/projects/1",
+      "status": 200,
+      "component": "execution/show",
+      "bytes": 26655
+    },
+    {
+      "kind": "engineering",
+      "path": "/engineering",
+      "status": 200,
+      "component": "engineering/index",
+      "bytes": 24882
+    },
+    {
+      "kind": "availability",
+      "path": "/operations/planning/1/availability?scheduled_start=2026-11-02T09:00:00%2B01:00&scheduled_end=2026-11-02T10:00:00%2B01:00",
+      "status": 200,
+      "component": null,
+      "bytes": 770,
+      "new_contract_present": true,
+      "availability_states": {
+        "unknown": 2
+      }
+    }
+  ],
+  "public_routes": [
+    {
+      "path": "/up",
+      "status": 200
+    },
+    {
+      "path": "/login",
+      "status": 200
+    },
+    {
+      "path": "/operations/planning",
+      "status": 302
+    },
+    {
+      "path": "/build/assets/app-D-mS38G0.js",
+      "status": 200
+    }
+  ],
+  "integrity": {
+    "historical_operational_tables_unchanged": 6,
+    "exact_php_sources_verified": 13,
+    "jobs_unchanged": 9,
+    "jobs_attempts": 0,
+    "jobs_reserved": 0,
+    "quarantine_ids": [
+      3,
+      4,
+      5
+    ],
+    "default_pending_ids": [
+      1,
+      2,
+      6,
+      7,
+      8,
+      9
+    ],
+    "existing_profiles_unconfigured": 2,
+    "profile_rls_preserved": true,
+    "maintenance": false,
+    "integrations_disabled": true,
+    "backups_and_documents_untouched": true
+  },
+  "log_scope": "No application log files in the container; deployment succeeded without reported errors and all affected authenticated GET probes returned 200. This does not certify absence of unrelated historical exceptions."
+}
