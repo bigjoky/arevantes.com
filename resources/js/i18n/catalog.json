@@ -26490,5 +26490,13 @@
     "Turnos adicionales (3 y 4)": {
         "es": "Turnos adicionales (3 y 4)",
         "en": "Additional shifts (3 and 4)"
+    },
+    "Hora de inicio": {
+        "es": "Hora de inicio",
+        "en": "Start time"
+    },
+    "Hora de fin": {
+        "es": "Hora de fin",
+        "en": "End time"
     }
 }

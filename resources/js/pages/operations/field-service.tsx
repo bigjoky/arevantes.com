@@ -306,11 +306,11 @@ function WeeklySchedule({
             </p>
             <div className="grid min-w-0 grid-cols-2 gap-3">
                 <label className="grid min-w-0 gap-1 text-xs text-muted-foreground">
-                    <span>Inicio</span>
+                    <span>Hora de inicio</span>
                     <Input
                         className="w-full min-w-0"
                         type="time"
-                        aria-label={`${translate(day, locale)} · ${translate('Turno', locale)} ${slot + 1} · ${translate('Inicio', locale)}`}
+                        aria-label={`${translate(day, locale)} · ${translate('Turno', locale)} ${slot + 1} · ${translate('Hora de inicio', locale)}`}
                         name={`weekly_schedule[${dayIndex + 1}][${slot}][start]`}
                         defaultValue={
                             schedule?.[String(dayIndex + 1)]?.[slot]?.start ??
@@ -319,13 +319,13 @@ function WeeklySchedule({
                     />
                 </label>
                 <label className="grid min-w-0 gap-1 text-xs text-muted-foreground">
-                    <span>Fin</span>
+                    <span>Hora de fin</span>
                     <Input
                         className="w-full min-w-0"
                         type="text"
                         placeholder="HH:mm"
                         pattern="([01][0-9]|2[0-3]):[0-5][0-9]|24:00"
-                        aria-label={`${translate(day, locale)} · ${translate('Turno', locale)} ${slot + 1} · ${translate('Fin', locale)}`}
+                        aria-label={`${translate(day, locale)} · ${translate('Turno', locale)} ${slot + 1} · ${translate('Hora de fin', locale)}`}
                         name={`weekly_schedule[${dayIndex + 1}][${slot}][end]`}
                         defaultValue={
                             schedule?.[String(dayIndex + 1)]?.[slot]?.end ?? ''
