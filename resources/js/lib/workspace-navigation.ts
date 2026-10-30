@@ -91,12 +91,14 @@ export function activeNavigation(
             view === 'journal'
                 ? 'accounting.entries'
                 : view === 'mappings'
-                  ? 'accounting.overview'
+                  ? 'accounting'
                   : 'accounting.reports';
 
         if (
-            !items.some((module) =>
-                module.children?.some((child) => child.id === selected),
+            !items.some(
+                (module) =>
+                    module.id === selected ||
+                    module.children?.some((child) => child.id === selected),
             )
         ) {
             return undefined;
