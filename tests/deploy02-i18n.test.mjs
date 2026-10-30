@@ -107,7 +107,9 @@ const propertyName = (node) => node.name?.getText().replace(/^['"]|['"]$/g, '');
 function isTechnicalLiteral(node) {
     const parent = node.parent;
 
-    if (ts.isLiteralTypeNode(parent)) return true;
+    if (ts.isLiteralTypeNode(parent)) {
+        return true;
+    }
 
     if (ts.isJsxAttribute(parent)) {
         return ['value', 'href', 'name', 'autoComplete'].includes(
@@ -144,8 +146,9 @@ function isTechnicalLiteral(node) {
             ['sale', 'purchase', 'expense', 'receipt'].includes(
                 propertyName(owner),
             )
-        )
+        ) {
             return true;
+        }
 
         // URL half of a [translated label, route] navigation tuple.
         if (

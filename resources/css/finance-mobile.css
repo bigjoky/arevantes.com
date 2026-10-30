@@ -1,0 +1,213 @@
+.finance-mobile-access {
+    display: none;
+}
+@media (max-width: 1023px) {
+    .finance-mobile-access {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.5rem;
+    }
+    .finance-mobile-access a {
+        min-height: 44px;
+        white-space: normal;
+        text-align: center;
+    }
+    :is(.finance-workspace, .billing-workspace, .finance-admin-mobile) {
+        min-width: 0;
+        padding-bottom: calc(5.5rem + env(safe-area-inset-bottom));
+        overflow-wrap: anywhere;
+    }
+    :is(.finance-workspace, .billing-workspace, .finance-admin-mobile)
+        :is(input, select, textarea) {
+        font-size: 16px;
+        max-width: 100%;
+        min-width: 0;
+    }
+    :is(.finance-workspace, .billing-workspace, .finance-admin-mobile)
+        :is(
+            button,
+            select,
+            input:not([type='hidden']):not([type='checkbox']),
+            [role='combobox']
+        ) {
+        min-height: 44px;
+    }
+    :is(.finance-tabs, .billing-tabs) {
+        display: flex;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        max-width: 100%;
+    }
+    :is(.finance-tabs, .billing-tabs) > a {
+        white-space: nowrap;
+        flex-shrink: 0;
+        min-height: 44px;
+        display: inline-flex;
+        align-items: center;
+    }
+    :is(
+        .finance-two,
+        .finance-three,
+        .finance-four,
+        .finance-five,
+        .finance-six,
+        .finance-accounts,
+        .billing-two,
+        .billing-three,
+        .billing-four,
+        .billing-six
+    ) {
+        grid-template-columns: minmax(0, 1fr);
+    }
+    .billing-filters {
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .billing-filters > *,
+    .billing-search {
+        width: 100%;
+        min-width: 0;
+    }
+    :is(.finance-form, .billing-action-form) {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+    .finance-mobile-dialog {
+        width: calc(100vw - 1rem);
+        max-width: calc(100vw - 1rem);
+        max-height: calc(100dvh - 1rem - env(safe-area-inset-top));
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        padding-bottom: calc(1rem + env(safe-area-inset-bottom));
+    }
+    .finance-mobile-dialog :is(input, textarea, select) {
+        font-size: 16px;
+        max-width: 100%;
+        min-width: 0;
+    }
+    .finance-mobile-dialog
+        :is(button, select, input:not([type='hidden']):not([type='checkbox'])) {
+        min-height: 44px;
+    }
+    :is(.finance-admin-mobile, .finance-mobile-dialog) .grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+    :is(.finance-admin-mobile, .finance-mobile-dialog)
+        :is(.min-w-\[800px\], .min-w-\[900px\]) {
+        min-width: 0;
+    }
+    :is(
+            .finance-workspace,
+            .billing-workspace,
+            .finance-admin-mobile,
+            .finance-mobile-dialog
+        )
+        table {
+        width: 100%;
+        min-width: 0 !important;
+        table-layout: fixed;
+    }
+    :is(
+            .finance-workspace,
+            .billing-workspace,
+            .finance-admin-mobile,
+            .finance-mobile-dialog
+        )
+        table:has(td[data-label])
+        thead {
+        display: none;
+    }
+    :is(
+            .finance-workspace,
+            .billing-workspace,
+            .finance-admin-mobile,
+            .finance-mobile-dialog
+        )
+        table:has(td[data-label])
+        tbody {
+        display: grid;
+        gap: 0.75rem;
+    }
+    :is(
+            .finance-workspace,
+            .billing-workspace,
+            .finance-admin-mobile,
+            .finance-mobile-dialog
+        )
+        table:has(td[data-label])
+        tr {
+        display: grid;
+        border: 1px solid var(--border);
+        border-radius: 0.5rem;
+        padding: 0.75rem;
+    }
+    :is(
+            .finance-workspace,
+            .billing-workspace,
+            .finance-admin-mobile,
+            .finance-mobile-dialog
+        )
+        td[data-label] {
+        display: grid;
+        grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+        gap: 0.5rem;
+        white-space: normal;
+        overflow-wrap: anywhere;
+        padding: 0.35rem;
+        min-width: 0;
+    }
+    :is(
+            .finance-workspace,
+            .billing-workspace,
+            .finance-admin-mobile,
+            .finance-mobile-dialog
+        )
+        td[data-label]::before {
+        content: attr(data-label);
+        color: var(--muted-foreground);
+        font-size: 0.75rem;
+    }
+    :is(
+            .finance-workspace,
+            .billing-workspace,
+            .finance-admin-mobile,
+            .finance-mobile-dialog
+        )
+        td
+        > * {
+        min-width: 0;
+        max-width: 100%;
+    }
+    :is(.finance-workspace, .billing-workspace, .finance-admin-mobile)
+        .billing-pagination {
+        flex-wrap: wrap;
+    }
+    .finance-protected-form {
+        min-width: 0;
+    }
+}
+@media (max-width: 1023px) {
+    :is(.finance-workspace, .billing-workspace) .shell-page-heading {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    :is(.finance-workspace, .billing-workspace) .shell-page-heading > div {
+        width: 100%;
+        min-width: 0;
+    }
+    :is(.finance-workspace, .billing-workspace) .shell-page-heading h1 {
+        width: 100%;
+        overflow-wrap: anywhere;
+    }
+}
+/* Keep existing desktop actions while allowing crowded financial headings to wrap. */
+:is(.finance-workspace, .billing-workspace) .shell-page-heading {
+    flex-wrap: wrap;
+}
+:is(.finance-workspace, .billing-workspace)
+    .shell-page-heading
+    > div:first-child {
+    flex: 1 0 min(100%, 14rem);
+}

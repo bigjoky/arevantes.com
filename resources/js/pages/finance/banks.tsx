@@ -1,12 +1,15 @@
-import { Form, Head, Link } from '@inertiajs/react';
+import '@/../css/finance-mobile.css';
+import '@/../css/finance.css';
+import { Head, Link } from '@inertiajs/react';
 import type { ComponentProps } from 'react';
 import { ReconciliationPanel } from '@/components/banking/reconciliation-workspace';
 import type { ReconciliationExtras } from '@/components/banking/reconciliation-workspace';
 import { Panel, Empty, money, date } from '@/components/billing/workspace';
+import Form from '@/components/finance/protected-form';
 import { PageShell, PageHeader } from '@/components/page-shell';
+import Dialog from '@/components/projects/protected-dialog';
 import { Button } from '@/components/ui/button';
 import {
-    Dialog,
     DialogContent,
     DialogHeader,
     DialogTitle,
@@ -21,7 +24,6 @@ import {
 } from '../banking/legacy-index';
 import { FinanceAccounts } from './workspace';
 import type { Account } from './workspace';
-import '@/../css/finance.css';
 type Props = ComponentProps<typeof LegacyBanking> &
     ReconciliationExtras & {
         financeAccounts: Account[] | null;
@@ -87,7 +89,7 @@ export default function BanksWorkspace(p: Props) {
                                     Editar cuenta seleccionada
                                 </Button>
                             </DialogTrigger>
-                            <DialogContent>
+                            <DialogContent className="finance-mobile-dialog">
                                 <DialogHeader>
                                     <DialogTitle>
                                         Editar cuenta bancaria

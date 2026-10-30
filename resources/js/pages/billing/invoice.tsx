@@ -1,4 +1,6 @@
-import { Form, Head, Link } from '@inertiajs/react';
+import '@/../css/finance-mobile.css';
+import type { FormDataConvertible } from '@inertiajs/core';
+import { Head, Link, usePage } from '@inertiajs/react';
 import {
     Pencil,
     FileDown,
@@ -24,10 +26,12 @@ import DocumentCustody, {
     originalDownloadAllowed,
 } from '@/components/document-custody';
 import type { CustodyStatus } from '@/components/document-custody';
+import { financeLabel } from '@/components/finance/labels';
+import Form from '@/components/finance/protected-form';
 import { PageHeader, PageShell } from '@/components/page-shell';
+import Dialog from '@/components/projects/protected-dialog';
 import { Button } from '@/components/ui/button';
 import {
-    Dialog,
     DialogContent,
     DialogHeader,
     DialogTitle,
@@ -35,6 +39,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { useDocumentCreation } from '@/hooks/use-document-creation';
+import { financeReturn } from '@/lib/finance/navigation';
 type Detail = {
     collect_before_invoice?: boolean;
     supplier_number?: string;
@@ -83,12 +88,14 @@ function ActionDialog({
     action,
     children,
     onSuccess,
+    onResetFields,
 }: {
     title: string;
     trigger: React.ReactNode;
     action: string;
     children: React.ReactNode;
     onSuccess?: () => void;
+    onResetFields?: () => void;
 }) {
     const [open, setOpen] = useState(false);
     const creation = useDocumentCreation();
@@ -98,16 +105,20 @@ function ActionDialog({
             <DialogTrigger asChild>
                 <Button variant="outline">{trigger}</Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="finance-mobile-dialog">
                 <DialogHeader>
                     <DialogTitle>{title}</DialogTitle>
                 </DialogHeader>
                 <Form
                     action={action}
+                    onResetFields={onResetFields}
                     transform={(data) =>
                         action.endsWith('/duplicate')
-                            ? creation.transform(data)
-                            : data
+                            ? (creation.transform(data) as Record<
+                                  string,
+                                  FormDataConvertible
+                              >)
+                            : (data as Record<string, FormDataConvertible>)
                     }
                     method="post"
                     onSuccess={() => {
@@ -186,7 +197,11 @@ function PaymentAction({
                 </>
             }
             action={action}
-            onSuccess={() => setKey(crypto.randomUUID())}
+            onResetFields={() => setMethod('bank_transfer')}
+            onSuccess={() => {
+                setMethod('bank_transfer');
+                setKey(crypto.randomUUID());
+            }}
         >
             <input type="hidden" name="idempotency_key" value={key} />
             <label>
@@ -348,8 +363,18 @@ export default function InvoiceDetail({
         ['activity', 'Actividad'],
     ];
 
+    const { url } = usePage();
+    const returnTo = financeReturn(
+        new URL(url, 'https://arevantes.invalid').searchParams.get('return_to'),
+    );
+
     return (
         <PageShell className="billing-workspace">
+            {returnTo && (
+                <Button asChild variant="outline">
+                    <Link href={returnTo}>Volver</Link>
+                </Button>
+            )}
             <Head title={invoice.number} />
             <DocumentCustody
                 status={custodyStatus}
@@ -705,16 +730,41 @@ export default function InvoiceDetail({
                                 <tbody>
                                     {detail.payments.map((p) => (
                                         <tr key={p.id}>
-                                            <td>{date(p.paid_at)}</td>
-                                            <td>
+                                            <td
+                                                data-label={financeLabel(
+                                                    'Fecha',
+                                                )}
+                                            >
+                                                {date(p.paid_at)}
+                                            </td>
+                                            <td
+                                                data-label={financeLabel(
+                                                    'Forma',
+                                                )}
+                                            >
                                                 {labels[p.method] ?? p.method}
                                             </td>
-                                            <td>{p.reference ?? '—'}</td>
-                                            <td className="amount">
+                                            <td
+                                                data-label={financeLabel(
+                                                    'Referencia',
+                                                )}
+                                            >
+                                                {p.reference ?? '—'}
+                                            </td>
+                                            <td
+                                                data-label={financeLabel(
+                                                    'Importe',
+                                                )}
+                                                className="amount"
+                                            >
                                                 {money(p.amount)}
                                             </td>
                                             {customer && (
-                                                <td>
+                                                <td
+                                                    data-label={financeLabel(
+                                                        'Cobro',
+                                                    )}
+                                                >
                                                     <CancelCustomerReceipt
                                                         receipt={p}
                                                         invoiceId={invoice.id}
@@ -755,10 +805,32 @@ export default function InvoiceDetail({
                                 <tbody>
                                     {voidedPayments.map((payment) => (
                                         <tr key={payment.id}>
-                                            <td>{date(payment.paid_at)}</td>
-                                            <td>{money(payment.amount)}</td>
-                                            <td>{date(payment.voided_at)}</td>
-                                            <td>
+                                            <td
+                                                data-label={financeLabel(
+                                                    'Fecha',
+                                                )}
+                                            >
+                                                {date(payment.paid_at)}
+                                            </td>
+                                            <td
+                                                data-label={financeLabel(
+                                                    'Importe',
+                                                )}
+                                            >
+                                                {money(payment.amount)}
+                                            </td>
+                                            <td
+                                                data-label={financeLabel(
+                                                    'Anulado',
+                                                )}
+                                            >
+                                                {date(payment.voided_at)}
+                                            </td>
+                                            <td
+                                                data-label={financeLabel(
+                                                    'Motivo',
+                                                )}
+                                            >
                                                 {payment.void_reason}
                                                 {payment.voided_by && (
                                                     <p>
@@ -856,10 +928,34 @@ export default function InvoiceDetail({
                                 <tbody>
                                     {detail.deliveries.map((d) => (
                                         <tr key={d.id}>
-                                            <td>{d.recipient_email}</td>
-                                            <td>{date(d.sent_at)}</td>
-                                            <td>{d.status}</td>
-                                            <td>{d.failure_reason ?? '—'}</td>
+                                            <td
+                                                data-label={financeLabel(
+                                                    'Destinatario',
+                                                )}
+                                            >
+                                                {d.recipient_email}
+                                            </td>
+                                            <td
+                                                data-label={financeLabel(
+                                                    'Fecha',
+                                                )}
+                                            >
+                                                {date(d.sent_at)}
+                                            </td>
+                                            <td
+                                                data-label={financeLabel(
+                                                    'Resultado',
+                                                )}
+                                            >
+                                                {d.status}
+                                            </td>
+                                            <td
+                                                data-label={financeLabel(
+                                                    'Detalle',
+                                                )}
+                                            >
+                                                {d.failure_reason ?? '—'}
+                                            </td>
                                         </tr>
                                     ))}
                                 </tbody>
@@ -949,10 +1045,24 @@ function LineTable({ detail }: { detail: Detail }) {
                 <tbody>
                     {detail.lines.map((l) => (
                         <tr key={l.id}>
-                            <td>{l.description}</td>
-                            <td>{l.quantity}</td>
-                            <td className="amount">{money(l.unit_price)}</td>
-                            <td className="amount">{money(l.total)}</td>
+                            <td data-label={financeLabel('Descripción')}>
+                                {l.description}
+                            </td>
+                            <td data-label={financeLabel('Cantidad')}>
+                                {l.quantity}
+                            </td>
+                            <td
+                                data-label={financeLabel('Precio')}
+                                className="amount"
+                            >
+                                {money(l.unit_price)}
+                            </td>
+                            <td
+                                data-label={financeLabel('Importe')}
+                                className="amount"
+                            >
+                                {money(l.total)}
+                            </td>
                         </tr>
                     ))}
                 </tbody>
@@ -972,17 +1082,27 @@ function LineTable({ detail }: { detail: Detail }) {
                 <tbody>
                     {detail.tax_lines.map((line) => (
                         <tr key={line.id}>
-                            <td>{line.kind === 'vat' ? 'IVA' : line.kind}</td>
-                            <td className="amount">
+                            <td data-label={financeLabel('Concepto fiscal')}>
+                                {line.kind === 'vat' ? 'IVA' : line.kind}
+                            </td>
+                            <td
+                                data-label={financeLabel('Base')}
+                                className="amount"
+                            >
                                 {money(line.taxable_base)}
                             </td>
-                            <td>
+                            <td data-label={financeLabel('Tipo')}>
                                 {new Intl.NumberFormat('es-ES', {
                                     maximumFractionDigits: 3,
                                 }).format(Number(line.tax_rate))}
                                 %
                             </td>
-                            <td className="amount">{money(line.tax_amount)}</td>
+                            <td
+                                data-label={financeLabel('Cuota')}
+                                className="amount"
+                            >
+                                {money(line.tax_amount)}
+                            </td>
                         </tr>
                     ))}
                 </tbody>

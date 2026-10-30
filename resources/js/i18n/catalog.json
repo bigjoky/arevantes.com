@@ -26498,5 +26498,17 @@
     "Hora de fin": {
         "es": "Hora de fin",
         "en": "End time"
+    },
+    "Confirmar operación financiera": {
+        "es": "Confirmar operación financiera",
+        "en": "Confirm financial operation"
+    },
+    "Revisa los datos y el documento de origen. Se aplicarán los permisos y controles del servidor.": {
+        "es": "Revisa los datos y el documento de origen. Se aplicarán los permisos y controles del servidor.",
+        "en": "Review the data and source document. Server permissions and controls will apply."
+    },
+    "Accesos de tesorería": {
+        "es": "Accesos de tesorería",
+        "en": "Treasury shortcuts"
     }
 }

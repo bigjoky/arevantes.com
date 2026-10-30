@@ -1,4 +1,6 @@
-import { Form, Head, Link, router } from '@inertiajs/react';
+import '@/../css/finance-mobile.css';
+import '@/../css/finance.css';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import {
     Landmark,
     Wallet,
@@ -33,17 +35,19 @@ import {
     date,
 } from '@/components/billing/workspace';
 import type { Filters, Invoice, Page } from '@/components/billing/workspace';
+import { financeLabel } from '@/components/finance/labels';
+import Form from '@/components/finance/protected-form';
 import { PageShell, PageHeader } from '@/components/page-shell';
+import Dialog from '@/components/projects/protected-dialog';
 import { Button } from '@/components/ui/button';
 import {
-    Dialog,
     DialogContent,
     DialogHeader,
     DialogTitle,
     DialogTrigger,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import '@/../css/finance.css';
+import { financeView } from '@/lib/finance/navigation';
 export type Account = {
     id: number;
     name: string;
@@ -365,7 +369,7 @@ function ForecastDialog({
                     Nueva previsión
                 </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="finance-mobile-dialog">
                 <DialogHeader>
                     <DialogTitle>Nueva previsión manual</DialogTitle>
                 </DialogHeader>
@@ -468,6 +472,7 @@ function ForecastDialog({
     );
 }
 export default function FinanceWorkspace(p: Props) {
+    const { url } = usePage();
     const area = p.filters.area;
     const tab =
         p.filters.tab ?? (area === 'treasury' ? 'movements' : 'overview');
@@ -516,6 +521,32 @@ export default function FinanceWorkspace(p: Props) {
                     )
                 }
             />
+            <nav
+                className="finance-mobile-access"
+                aria-label="Accesos de tesorería"
+            >
+                <Button asChild variant="outline">
+                    <Link
+                        href={financeView(url, {
+                            area: 'treasury',
+                            tab: 'movements',
+                        })}
+                    >
+                        Tesorería
+                    </Link>
+                </Button>
+                <Button asChild variant="outline">
+                    <Link href="/billing/payments?tab=due">Vencimientos</Link>
+                </Button>
+                <Button asChild variant="outline">
+                    <Link href="/billing/payments">Cobros y pagos</Link>
+                </Button>
+                <Button asChild variant="outline">
+                    <Link href="/banking?tab=reconciliation">
+                        Bancos y conciliación
+                    </Link>
+                </Button>
+            </nav>
             <div className="finance-controls">
                 <label>
                     Periodo
@@ -560,7 +591,7 @@ export default function FinanceWorkspace(p: Props) {
                     ).map(([key, label]) => (
                         <Link
                             key={key}
-                            href={`/finance?area=${area}&tab=${key}`}
+                            href={financeView(url, { area, tab: key })}
                             aria-current={tab === key ? 'page' : undefined}
                         >
                             {label}
@@ -893,7 +924,11 @@ export default function FinanceWorkspace(p: Props) {
                                         <tbody>
                                             {p.manualForecasts.data.map((f) => (
                                                 <tr key={f.id}>
-                                                    <td>
+                                                    <td
+                                                        data-label={financeLabel(
+                                                            'Concepto',
+                                                        )}
+                                                    >
                                                         {f.description}
                                                         <small>
                                                             {
@@ -906,15 +941,35 @@ export default function FinanceWorkspace(p: Props) {
                                                                 'Una vez'}
                                                         </small>
                                                     </td>
-                                                    <td>{date(f.due_on)}</td>
-                                                    <td>
+                                                    <td
+                                                        data-label={financeLabel(
+                                                            'Fecha',
+                                                        )}
+                                                    >
+                                                        {date(f.due_on)}
+                                                    </td>
+                                                    <td
+                                                        data-label={financeLabel(
+                                                            'Importe',
+                                                        )}
+                                                    >
                                                         {f.direction === 'out'
                                                             ? '−'
                                                             : ''}
                                                         {money(f.amount)}
                                                     </td>
-                                                    <td>{f.status}</td>
-                                                    <td>
+                                                    <td
+                                                        data-label={financeLabel(
+                                                            'Estado',
+                                                        )}
+                                                    >
+                                                        {f.status}
+                                                    </td>
+                                                    <td
+                                                        data-label={financeLabel(
+                                                            'Acciones',
+                                                        )}
+                                                    >
                                                         {p.capabilities
                                                             .manage &&
                                                         f.status ===

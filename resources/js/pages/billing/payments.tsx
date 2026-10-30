@@ -1,4 +1,4 @@
-import { Head, Link } from '@inertiajs/react';
+import { Head, Link, usePage } from '@inertiajs/react';
 import {
     Panel,
     QueryFilters,
@@ -16,6 +16,7 @@ import type {
 } from '@/components/billing/workspace';
 import { PageHeader, PageShell } from '@/components/page-shell';
 import { Button } from '@/components/ui/button';
+import { financeView } from '@/lib/finance/navigation';
 export default function Payments({
     movements,
     pending,
@@ -27,6 +28,7 @@ export default function Payments({
     filters: Filters;
     capabilities: Capabilities;
 }) {
+    const { url } = usePage();
     const tab = filters.tab ?? 'movements';
 
     return (
@@ -59,7 +61,7 @@ export default function Payments({
                     ].map(([key, label]) => (
                         <Link
                             key={key}
-                            href={`/billing/payments?tab=${key}`}
+                            href={financeView(url, { tab: key })}
                             aria-current={tab === key ? 'page' : undefined}
                         >
                             {label}

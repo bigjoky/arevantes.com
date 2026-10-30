@@ -1,19 +1,13 @@
-import { Link, router } from '@inertiajs/react';
+import '@/../css/finance-mobile.css';
+import '@/../css/billing.css';
+import { Link, router, usePage } from '@inertiajs/react';
 import { Search, FileText } from 'lucide-react';
-import { useState } from 'react';
 import type { ReactNode } from 'react';
+import { financeLabel } from '@/components/finance/labels';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import {
-    Sheet,
-    SheetContent,
-    SheetHeader,
-    SheetTitle,
-    SheetTrigger,
-} from '@/components/ui/sheet';
-import { useIsMobile } from '@/hooks/use-mobile';
-import '@/../css/billing.css';
+import { financeEntity } from '@/lib/finance/navigation';
 
 export type Capabilities = {
     correct?: boolean;
@@ -172,9 +166,6 @@ export function QueryFilters({
     filters: Filters;
     children?: ReactNode;
 }) {
-    const mobile = useIsMobile();
-    const [open, setOpen] = useState(false);
-    const [search, setSearch] = useState(String(filters.search ?? ''));
     const submit = (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault();
         const params = Object.fromEntries(
@@ -186,7 +177,6 @@ export function QueryFilters({
             {
                 preserveState: true,
                 preserveScroll: true,
-                onSuccess: () => setOpen(false),
             },
         );
     };
@@ -196,53 +186,11 @@ export function QueryFilters({
             <Input
                 name="search"
                 aria-label="Buscar por referencia, tercero o proyecto"
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
+                defaultValue={String(filters.search ?? '')}
                 placeholder="Buscar por referencia, tercero..."
             />
         </label>
     );
-
-    if (mobile) {
-        return (
-            <div className="billing-mobile-filters">
-                <form onSubmit={submit}>
-                    {searchField}
-                    <Button variant="outline" type="submit">
-                        Buscar
-                    </Button>
-                </form>
-                <Sheet open={open} onOpenChange={setOpen}>
-                    <SheetTrigger asChild>
-                        <Button variant="outline">Filtros</Button>
-                    </SheetTrigger>
-                    <SheetContent className="overflow-y-auto">
-                        <SheetHeader>
-                            <SheetTitle>Filtros</SheetTitle>
-                        </SheetHeader>
-                        <form
-                            className="billing-filters billing-filter-sheet"
-                            onSubmit={submit}
-                        >
-                            <input type="hidden" name="search" value={search} />
-                            {children}
-                            <Button type="submit">Aplicar filtros</Button>
-                            <Button
-                                type="button"
-                                variant="outline"
-                                onClick={() => {
-                                    setOpen(false);
-                                    router.get(path);
-                                }}
-                            >
-                                Limpiar
-                            </Button>
-                        </form>
-                    </SheetContent>
-                </Sheet>
-            </div>
-        );
-    }
 
     return (
         <form className="billing-filters" onSubmit={submit}>
@@ -325,6 +273,8 @@ export function InvoiceTable({
     rows: Invoice[] | null;
     compact?: boolean;
 }) {
+    const { url } = usePage();
+
     if (rows === null) {
         return <Empty unavailable />;
     }
@@ -332,6 +282,7 @@ export function InvoiceTable({
     if (!rows.length) {
         return <Empty />;
     }
+
 
     return (
         <>
@@ -356,28 +307,58 @@ export function InvoiceTable({
                     <tbody>
                         {rows.map((r) => (
                             <tr key={`${r.kind}-${r.id}`}>
-                                <td>
-                                    <Link href={r.href}>{r.number}</Link>
+                                <td data-label={financeLabel('Referencia')}>
+                                    <Link href={financeEntity(r.href, url)}>
+                                        {r.number}
+                                    </Link>
                                 </td>
-                                <td>{r.party || 'Sin tercero identificado'}</td>
-                                {!compact && <td>{r.project || '—'}</td>}
-                                <td>
+                                <td
+                                    data-label={financeLabel(
+                                        'Cliente / proveedor',
+                                    )}
+                                >
+                                    {r.party || 'Sin tercero identificado'}
+                                </td>
+                                {!compact && (
+                                    <td data-label={financeLabel('Proyecto')}>
+                                        {r.project || '—'}
+                                    </td>
+                                )}
+                                <td data-label={financeLabel('Fecha')}>
                                     {r.kind === 'customer' &&
                                     r.status === 'draft'
                                         ? 'Sin emitir · borrador'
                                         : date(r.issue_date)}
                                 </td>
-                                {!compact && <td>{date(r.due_date)}</td>}
                                 {!compact && (
-                                    <td className="amount">{money(r.base)}</td>
+                                    <td
+                                        data-label={financeLabel('Vencimiento')}
+                                    >
+                                        {date(r.due_date)}
+                                    </td>
                                 )}
-                                <td className="amount">{money(r.amount)}</td>
                                 {!compact && (
-                                    <td>
+                                    <td
+                                        data-label={financeLabel(
+                                            'Base imponible',
+                                        )}
+                                        className="amount"
+                                    >
+                                        {money(r.base)}
+                                    </td>
+                                )}
+                                <td
+                                    data-label={financeLabel('Total')}
+                                    className="amount"
+                                >
+                                    {money(r.amount)}
+                                </td>
+                                {!compact && (
+                                    <td data-label={financeLabel('Documento')}>
                                         <State state={r.document_state} />
                                     </td>
                                 )}
-                                <td>
+                                <td data-label={financeLabel('Cobro / pago')}>
                                     <State
                                         state={r.payment_state}
                                         paidLabel={
@@ -388,9 +369,9 @@ export function InvoiceTable({
                                     />
                                 </td>
                                 {!compact && (
-                                    <td>
+                                    <td data-label={financeLabel('Acciones')}>
                                         <Link
-                                            href={r.href}
+                                            href={financeEntity(r.href, url)}
                                             aria-label={`Abrir ${r.number}`}
                                         >
                                             •••
@@ -406,7 +387,7 @@ export function InvoiceTable({
                 {rows.map((r) => (
                     <Link
                         key={`${r.kind}-${r.id}`}
-                        href={r.href}
+                        href={financeEntity(r.href, url)}
                         className="billing-mobile-card"
                     >
                         <FileText aria-hidden="true" />
@@ -436,6 +417,8 @@ export function InvoiceTable({
     );
 }
 export function MovementTable({ rows }: { rows: Movement[] | null }) {
+    const { url } = usePage();
+
     if (rows === null) {
         return <Empty unavailable />;
     }
@@ -443,6 +426,7 @@ export function MovementTable({ rows }: { rows: Movement[] | null }) {
     if (!rows.length) {
         return <Empty />;
     }
+
 
     return (
         <div className="billing-table-wrap always-scroll">
@@ -459,16 +443,29 @@ export function MovementTable({ rows }: { rows: Movement[] | null }) {
                 <tbody>
                     {rows.map((r) => (
                         <tr key={`${r.kind}-${r.id}`}>
-                            <td>{date(r.paid_at)}</td>
-                            <td>
-                                <Link href={r.href}>{r.number}</Link>
+                            <td data-label={financeLabel('Fecha')}>
+                                {date(r.paid_at)}
+                            </td>
+                            <td
+                                data-label={financeLabel(
+                                    'Referencia / tercero',
+                                )}
+                            >
+                                <Link href={financeEntity(r.href, url)}>
+                                    {r.number}
+                                </Link>
                                 <small>{r.party}</small>
                             </td>
-                            <td>
+                            <td data-label={financeLabel('Tipo')}>
                                 <State state={r.kind} />
                             </td>
-                            <td>{labels[r.method] ?? r.method}</td>
-                            <td className={`amount billing-${r.kind}`}>
+                            <td data-label={financeLabel('Forma')}>
+                                {labels[r.method] ?? r.method}
+                            </td>
+                            <td
+                                data-label={financeLabel('Importe')}
+                                className={`amount billing-${r.kind}`}
+                            >
                                 {r.kind === 'receipt' ? '+' : '−'}
                                 {money(r.amount)}
                             </td>

@@ -6472,3 +6472,17 @@ Cierre verificado. No se inicia conciliación automática, Nexo ni ECO-03.
 
 - Corregida la distribución libre de horas: días separados, turnos numerados e Inicio/Fin visibles y alineados con los componentes del ERP. Columnas adaptadas al ancho real de cada ficha; turnos 3/4 desplegables y abiertos si contienen datos.
 - Conservado el contrato de formulario y los valores guardados. Sin cambios de reglas, esquema ni datos. Verificación visual1440/390 px sin desbordamiento, alineación y teclado; tercer turno existente y FormData conservados.88 frontend, tipos, ESLint, catálogo y build correctos. Publicado y verificado: `8fd86320c6973022ff442979d223295e7a28b98c`, deployment `depl-a31ab765-daf2-4b59-8e76-3cb9642d5bc8` succeeded. Etiquetas específicas Hora de inicio/Hora de fin también verificadas en inglés. Ruta autenticada200 y bundle servido comprobado; sin migraciones ni mantenimiento, nueve jobs conservados.
+## Tesorería y Administración Móvil 05 — 30/10/2026
+
+Estado: implantado en checkout independiente, no publicado. Ver [verificación](finance-mobile-05.md).
+
+| Capacidad | Estado / dependencia | Criterio de aceptación |
+|---|---|---|
+| Tesorería, bancos, facturas y vencimientos móviles | Implantado sobre contratos actuales; tablas desde 1024 | 119 comprobaciones sin desbordamientos ni títulos ilegibles |
+| Protección de operaciones y borradores | Implantado con guardas y diálogos existentes | Confirmación, una petición simultánea, error conserva valores, descarte controlado |
+| Retorno financiero contextual | Implantado con destinos locales permitidos | Conservar filtros/ejercicio/página y rechazar destinos externos o rutas mutadoras |
+| Disponible bancario confirmado e histórico completo | Pendiente del contrato bancario y de saldos | Separar saldo confirmado, contable y previsiones, con fuente/fecha comprobables |
+| Aislamiento multientidad | Pendiente de modelo y políticas autorizadas del servidor | No anunciar separación hasta verificar empresa activa, consultas, escritura y documentos por entidad |
+| Dispositivos físicos | Pendiente iPhone/Android en HTTPS autorizado | Comprobar teclado, safe areas, lectores, instalación y caché sin datos productivos de prueba |
+
+Verificación: frontend y backend financiero, build/tipos/lint/i18n/Pint. Sin cambios de reglas contables, fiscales, permisos, migraciones ni infraestructura.

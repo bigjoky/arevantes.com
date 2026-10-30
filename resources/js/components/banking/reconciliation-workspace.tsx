@@ -1,6 +1,9 @@
-import { Form, Link, useForm } from '@inertiajs/react';
+import '@/../css/finance-mobile.css';
+import { Link, useForm } from '@inertiajs/react';
 import { useState } from 'react';
 import { Panel, money, date } from '@/components/billing/workspace';
+import { financeLabel } from '@/components/finance/labels';
+import Form from '@/components/finance/protected-form';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -11,6 +14,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { useOperationsFormProtection } from '@/hooks/use-operations-form-protection';
 
 type Candidate = {
     value: string;
@@ -210,6 +214,8 @@ function MovementReview({
         operation_key: '',
         confirmed: false,
     });
+    const formGuard = useOperationsFormProtection(() => form);
+    const reviewGuard = useOperationsFormProtection(() => review);
     const chosen =
         candidates.find((c) => c.value === form.data.payment) ||
         details?.suggestions.find((c) => c.value === form.data.payment);
@@ -252,11 +258,19 @@ function MovementReview({
         <Dialog
             open={open}
             onOpenChange={(value) => {
-                setOpen(value);
+                if (!value) {
+                    formGuard.requestClose(() =>
+                        reviewGuard.requestClose(() => setOpen(false)),
+                    );
+
+                    return;
+                }
+
+                setOpen(true);
 
                 if (value) {
                     form.clearErrors();
-                    form.setData({
+                    const matchDefaults = {
                         payment: '',
                         allocated_amount: '',
                         account_id: accountId,
@@ -264,8 +278,19 @@ function MovementReview({
                         operation_key: crypto.randomUUID(),
                         reason: '',
                         confirmed: false,
-                    });
-                    review.setData('operation_key', crypto.randomUUID());
+                    };
+                    const reviewDefaults = {
+                        category: 'no_erp_operation',
+                        review_status: 'investigating',
+                        reason: '',
+                        operation_key: crypto.randomUUID(),
+                        confirmed: false,
+                    };
+                    form.setDefaults(matchDefaults);
+                    form.setData(matchDefaults);
+                    review.setDefaults(reviewDefaults);
+                    review.setData(reviewDefaults);
+                    review.clearErrors();
                 }
             }}
         >
@@ -274,7 +299,9 @@ function MovementReview({
                     Revisar movimiento
                 </Button>
             </DialogTrigger>
-            <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-2xl">
+            {formGuard.confirmation}
+            {reviewGuard.confirmation}
+            <DialogContent className="finance-mobile-dialog max-h-[90dvh] overflow-y-auto sm:max-w-2xl">
                 <DialogHeader>
                     <DialogTitle>Conciliación y discrepancias</DialogTitle>
                 </DialogHeader>
@@ -399,11 +426,25 @@ function MovementReview({
                                         className="space-y-3"
                                         onSubmit={(event) => {
                                             event.preventDefault();
+
+                                            if (!formGuard.beginSubmit()) {
+return;
+}
+
                                             form.post(
                                                 `/banking/transactions/${row.id}/reconcile`,
                                                 {
                                                     onSuccess: () =>
-                                                        setOpen(false),
+                                                        formGuard.saved(() =>
+                                                            reviewGuard.requestClose(
+                                                                () =>
+                                                                    setOpen(
+                                                                        false,
+                                                                    ),
+                                                            ),
+                                                        ),
+                                                    onFinish:
+                                                        formGuard.finishSubmit,
                                                 },
                                             );
                                         }}
@@ -649,9 +690,22 @@ function MovementReview({
                                 className="space-y-3 border-t pt-3"
                                 onSubmit={(event) => {
                                     event.preventDefault();
+
+                                    if (!reviewGuard.beginSubmit()) {
+return;
+}
+
                                     review.post(
                                         `/banking/transactions/${row.id}/review`,
-                                        { onSuccess: () => setOpen(false) },
+                                        {
+                                            onSuccess: () =>
+                                                reviewGuard.saved(() =>
+                                                    formGuard.requestClose(() =>
+                                                        setOpen(false),
+                                                    ),
+                                                ),
+                                            onFinish: reviewGuard.finishSubmit,
+                                        },
                                     );
                                 }}
                             >
@@ -883,19 +937,35 @@ export function ReconciliationPanel({
                         <tbody>
                             {transactions.data.map((row) => (
                                 <tr key={row.id}>
-                                    <td>{date(row.booked_on)}</td>
-                                    <td>
+                                    <td data-label={financeLabel('Fecha')}>
+                                        {date(row.booked_on)}
+                                    </td>
+                                    <td
+                                        data-label={financeLabel(
+                                            'Concepto y referencia',
+                                        )}
+                                    >
                                         {row.description}
                                         <small>{row.reference || '—'}</small>
                                     </td>
-                                    <td>{money(row.amount)}</td>
-                                    <td>
+                                    <td data-label={financeLabel('Importe')}>
+                                        {money(row.amount)}
+                                    </td>
+                                    <td
+                                        data-label={financeLabel(
+                                            'Pendiente de conciliar',
+                                        )}
+                                    >
                                         {money(
                                             row.reconciliation_details
                                                 ?.remaining || null,
                                         )}
                                     </td>
-                                    <td>
+                                    <td
+                                        data-label={financeLabel(
+                                            'Estado e incidencias',
+                                        )}
+                                    >
                                         {row.status === 'partial'
                                             ? 'Parcialmente conciliado'
                                             : row.status === 'pending'
@@ -911,7 +981,7 @@ export function ReconciliationPanel({
                                             ),
                                         )}
                                     </td>
-                                    <td>
+                                    <td data-label={financeLabel('Acciones')}>
                                         {accountId && (
                                             <MovementReview
                                                 row={row}
@@ -978,8 +1048,18 @@ export function ReconciliationPanel({
                                             <tr
                                                 key={`${operation.source}-${operation.id}`}
                                             >
-                                                <td>{date(operation.date)}</td>
-                                                <td>
+                                                <td
+                                                    data-label={financeLabel(
+                                                        'Fecha',
+                                                    )}
+                                                >
+                                                    {date(operation.date)}
+                                                </td>
+                                                <td
+                                                    data-label={financeLabel(
+                                                        'Operación y referencia',
+                                                    )}
+                                                >
                                                     <Link
                                                         className="underline"
                                                         href={`/billing/payments?search=${encodeURIComponent(operation.description)}`}
@@ -991,10 +1071,20 @@ export function ReconciliationPanel({
                                                             '—'}
                                                     </small>
                                                 </td>
-                                                <td>
+                                                <td
+                                                    data-label={financeLabel(
+                                                        'Importe sin conciliar',
+                                                    )}
+                                                >
                                                     {money(operation.amount)}
                                                 </td>
-                                                <td>{operation.account}</td>
+                                                <td
+                                                    data-label={financeLabel(
+                                                        'Cuenta ERP',
+                                                    )}
+                                                >
+                                                    {operation.account}
+                                                </td>
                                             </tr>
                                         ),
                                     )}

@@ -1,4 +1,5 @@
-import { Form, Head, Link, router } from '@inertiajs/react';
+import '@/../css/finance-mobile.css';
+import { Head, Link, router } from '@inertiajs/react';
 import {
     ArrowDownToLine,
     CalendarClock,
@@ -28,6 +29,8 @@ import {
     XAxis,
     YAxis,
 } from 'recharts';
+import { financeLabel } from '@/components/finance/labels';
+import Form from '@/components/finance/protected-form';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -561,7 +564,7 @@ export default function FinanceIndex({
     return (
         <>
             <Head title="Finance" />
-            <div className="flex flex-1 flex-col gap-7 p-4 md:p-6">
+            <div className="finance-admin-mobile flex flex-1 flex-col gap-7 p-4 md:p-6">
                 <header className="flex flex-wrap items-center justify-between gap-3">
                     <div>
                         <h1 className="text-xl font-semibold">Finance</h1>
@@ -1119,28 +1122,56 @@ export default function FinanceIndex({
                                                 key={day.date}
                                                 className={`border-b ${day.closing < 0 ? 'bg-destructive/5' : ''}`}
                                             >
-                                                <td className="px-3 py-2 font-medium">
+                                                <td
+                                                    data-label={financeLabel(
+                                                        'Date',
+                                                    )}
+                                                    className="px-3 py-2 font-medium"
+                                                >
                                                     {day.label}
                                                 </td>
-                                                <td className="px-3 py-2 text-right">
+                                                <td
+                                                    data-label={financeLabel(
+                                                        'Opening',
+                                                    )}
+                                                    className="px-3 py-2 text-right"
+                                                >
                                                     {money(day.opening)}
                                                 </td>
-                                                <td className="px-3 py-2 text-right text-green-700 dark:text-green-400">
+                                                <td
+                                                    data-label={financeLabel(
+                                                        'Due in',
+                                                    )}
+                                                    className="px-3 py-2 text-right text-green-700 dark:text-green-400"
+                                                >
                                                     {day.in > 0
                                                         ? `+${money(day.in)}`
                                                         : '—'}
                                                 </td>
-                                                <td className="px-3 py-2 text-right">
+                                                <td
+                                                    data-label={financeLabel(
+                                                        'Due out',
+                                                    )}
+                                                    className="px-3 py-2 text-right"
+                                                >
                                                     {day.out > 0
                                                         ? `−${money(day.out)}`
                                                         : '—'}
                                                 </td>
                                                 <td
+                                                    data-label={financeLabel(
+                                                        'Closing',
+                                                    )}
                                                     className={`px-3 py-2 text-right font-semibold ${day.closing < 0 ? 'text-destructive' : ''}`}
                                                 >
                                                     {money(day.closing)}
                                                 </td>
-                                                <td className="px-3 py-2 text-right">
+                                                <td
+                                                    data-label={financeLabel(
+                                                        'Maturities',
+                                                    )}
+                                                    className="px-3 py-2 text-right"
+                                                >
                                                     {day.maturities || '—'}
                                                 </td>
                                             </tr>
@@ -1171,13 +1202,28 @@ export default function FinanceIndex({
                                             key={`${event.sourceType}-${event.sourceId}-${event.date}-${index}`}
                                             className="border-b"
                                         >
-                                            <td className="px-3 py-2">
+                                            <td
+                                                data-label={financeLabel(
+                                                    'Week',
+                                                )}
+                                                className="px-3 py-2"
+                                            >
                                                 {event.week}
                                             </td>
-                                            <td className="px-3 py-2">
+                                            <td
+                                                data-label={financeLabel(
+                                                    'Date',
+                                                )}
+                                                className="px-3 py-2"
+                                            >
                                                 {date(event.date)}
                                             </td>
-                                            <td className="px-3 py-2">
+                                            <td
+                                                data-label={financeLabel(
+                                                    'Origin',
+                                                )}
+                                                className="px-3 py-2"
+                                            >
                                                 <Link
                                                     href={event.href}
                                                     className="font-medium underline-offset-4 hover:underline"
@@ -1185,17 +1231,30 @@ export default function FinanceIndex({
                                                     {event.label}
                                                 </Link>
                                             </td>
-                                            <td className="px-3 py-2">
+                                            <td
+                                                data-label={financeLabel(
+                                                    'Type',
+                                                )}
+                                                className="px-3 py-2"
+                                            >
                                                 <Badge variant="outline">
                                                     {forecastSourceLabel(
                                                         event.sourceType,
                                                     )}
                                                 </Badge>
                                             </td>
-                                            <td className="px-3 py-2 text-right">
+                                            <td
+                                                data-label={financeLabel(
+                                                    'Source amount',
+                                                )}
+                                                className="px-3 py-2 text-right"
+                                            >
                                                 {money(event.originalAmount)}
                                             </td>
                                             <td
+                                                data-label={financeLabel(
+                                                    'Scenario amount',
+                                                )}
                                                 className={`px-3 py-2 text-right font-medium ${event.direction === 'in' ? 'text-green-700 dark:text-green-400' : ''}`}
                                             >
                                                 {event.direction === 'out'
@@ -1256,7 +1315,10 @@ export default function FinanceIndex({
                             <tbody>
                                 {bankPosition.map((account) => (
                                     <tr key={account.id} className="border-b">
-                                        <td className="px-3 py-3">
+                                        <td
+                                            data-label={financeLabel('Account')}
+                                            className="px-3 py-3"
+                                        >
                                             <Link
                                                 href={`/banking?account=${account.id}`}
                                                 className="font-medium underline-offset-4 hover:underline"
@@ -1269,13 +1331,19 @@ export default function FinanceIndex({
                                                 </div>
                                             )}
                                         </td>
-                                        <td className="px-3 py-3 text-right font-medium">
+                                        <td
+                                            data-label={financeLabel('Balance')}
+                                            className="px-3 py-3 text-right font-medium"
+                                        >
                                             {money(
                                                 account.balance,
                                                 account.currency,
                                             )}
                                         </td>
-                                        <td className="px-3 py-3 text-right">
+                                        <td
+                                            data-label={financeLabel('Pending')}
+                                            className="px-3 py-3 text-right"
+                                        >
                                             <span
                                                 className={
                                                     account.pendingTransactions >
@@ -1293,14 +1361,24 @@ export default function FinanceIndex({
                                                 )}
                                             </div>
                                         </td>
-                                        <td className="px-3 py-3">
+                                        <td
+                                            data-label={financeLabel(
+                                                'Last movement',
+                                            )}
+                                            className="px-3 py-3"
+                                        >
                                             {account.lastTransactionOn
                                                 ? date(
                                                       account.lastTransactionOn,
                                                   )
                                                 : 'No movements'}
                                         </td>
-                                        <td className="px-3 py-3">
+                                        <td
+                                            data-label={financeLabel(
+                                                'Statement control',
+                                            )}
+                                            className="px-3 py-3"
+                                        >
                                             <Badge
                                                 variant={
                                                     account.statementControl ===
@@ -1790,7 +1868,10 @@ export default function FinanceIndex({
                                         key={item.id}
                                         className="border-b last:border-0"
                                     >
-                                        <td className="py-3 font-medium">
+                                        <td
+                                            data-label={financeLabel('Order')}
+                                            className="py-3 font-medium"
+                                        >
                                             <Link
                                                 href={item.href}
                                                 className="underline underline-offset-2"
@@ -1806,8 +1887,18 @@ export default function FinanceIndex({
                                                     : 's'}
                                             </div>
                                         </td>
-                                        <td>{item.supplier || '—'}</td>
-                                        <td>
+                                        <td
+                                            data-label={financeLabel(
+                                                'Supplier',
+                                            )}
+                                        >
+                                            {item.supplier || '—'}
+                                        </td>
+                                        <td
+                                            data-label={financeLabel(
+                                                'Installation',
+                                            )}
+                                        >
                                             {item.installationId ? (
                                                 <Link
                                                     href={`/installations/${item.installationId}`}
@@ -1820,7 +1911,11 @@ export default function FinanceIndex({
                                                 '—'
                                             )}
                                         </td>
-                                        <td>
+                                        <td
+                                            data-label={financeLabel(
+                                                'Expected payment',
+                                            )}
+                                        >
                                             {date(item.expectedPaymentOn)}
                                             <div className="mt-1 text-xs text-muted-foreground">
                                                 Delivery{' '}
@@ -1830,16 +1925,36 @@ export default function FinanceIndex({
                                                 {date(item.deliveryOn)}
                                             </div>
                                         </td>
-                                        <td className="text-right">
+                                        <td
+                                            data-label={financeLabel(
+                                                'Ordered net',
+                                            )}
+                                            className="text-right"
+                                        >
                                             {money(item.orderedNet)}
                                         </td>
-                                        <td className="text-right">
+                                        <td
+                                            data-label={financeLabel(
+                                                'Invoiced net',
+                                            )}
+                                            className="text-right"
+                                        >
                                             {money(item.invoicedNet)}
                                         </td>
-                                        <td className="text-right font-medium">
+                                        <td
+                                            data-label={financeLabel(
+                                                'Open net',
+                                            )}
+                                            className="text-right font-medium"
+                                        >
                                             {money(item.remainingNet)}
                                         </td>
-                                        <td className="text-right font-semibold">
+                                        <td
+                                            data-label={financeLabel(
+                                                'Cash exposure',
+                                            )}
+                                            className="text-right font-semibold"
+                                        >
                                             {money(item.remainingCash)}
                                         </td>
                                     </tr>
@@ -1881,7 +1996,10 @@ export default function FinanceIndex({
                                         key={batch.id}
                                         className="border-b last:border-0"
                                     >
-                                        <td className="py-3 font-medium">
+                                        <td
+                                            data-label={financeLabel('Batch')}
+                                            className="py-3 font-medium"
+                                        >
                                             {batch.number}
                                             <details className="mt-1 font-normal">
                                                 <summary className="cursor-pointer text-xs text-muted-foreground">
@@ -1915,9 +2033,17 @@ export default function FinanceIndex({
                                                 </div>
                                             </details>
                                         </td>
-                                        <td>{date(batch.planned_on)}</td>
-                                        <td>{batch.account?.name || '—'}</td>
-                                        <td>
+                                        <td
+                                            data-label={financeLabel('Planned')}
+                                        >
+                                            {date(batch.planned_on)}
+                                        </td>
+                                        <td
+                                            data-label={financeLabel('Account')}
+                                        >
+                                            {batch.account?.name || '—'}
+                                        </td>
+                                        <td data-label={financeLabel('Status')}>
                                             <Badge variant="outline">
                                                 {batch.status}
                                             </Badge>
@@ -1945,10 +2071,16 @@ export default function FinanceIndex({
                                                     </div>
                                                 )}
                                         </td>
-                                        <td className="text-right font-medium">
+                                        <td
+                                            data-label={financeLabel('Total')}
+                                            className="text-right font-medium"
+                                        >
                                             {money(batch.total)}
                                         </td>
-                                        <td className="text-right">
+                                        <td
+                                            data-label={financeLabel('Actions')}
+                                            className="text-right"
+                                        >
                                             {can.approvePayments &&
                                                 batch.status === 'draft' && (
                                                     <Form
@@ -2118,7 +2250,12 @@ export default function FinanceIndex({
                                             key={item.installation_id}
                                             className="border-b last:border-0"
                                         >
-                                            <td className="py-3 font-medium">
+                                            <td
+                                                data-label={financeLabel(
+                                                    'Installation',
+                                                )}
+                                                className="py-3 font-medium"
+                                            >
                                                 <Link
                                                     className="underline underline-offset-2"
                                                     href={`/installations/${item.installation_id}`}
@@ -2127,25 +2264,60 @@ export default function FinanceIndex({
                                                         `#${item.installation_id}`}
                                                 </Link>
                                             </td>
-                                            <td className="text-right">
+                                            <td
+                                                data-label={financeLabel(
+                                                    'Revenue',
+                                                )}
+                                                className="text-right"
+                                            >
                                                 {money(item.revenue)}
                                             </td>
-                                            <td className="text-right">
+                                            <td
+                                                data-label={financeLabel(
+                                                    'Material',
+                                                )}
+                                                className="text-right"
+                                            >
                                                 {money(item.tracked_cost)}
                                             </td>
-                                            <td className="text-right">
+                                            <td
+                                                data-label={financeLabel(
+                                                    'Labour & travel',
+                                                )}
+                                                className="text-right"
+                                            >
                                                 {money(item.labour_cost)}
                                             </td>
-                                            <td className="text-right">
+                                            <td
+                                                data-label={financeLabel(
+                                                    'Supplier services',
+                                                )}
+                                                className="text-right"
+                                            >
                                                 {money(item.supplier_cost)}
                                             </td>
-                                            <td className="text-right">
+                                            <td
+                                                data-label={financeLabel(
+                                                    'Direct expenses',
+                                                )}
+                                                className="text-right"
+                                            >
                                                 {money(item.direct_expenses)}
                                             </td>
-                                            <td className="text-right">
+                                            <td
+                                                data-label={financeLabel(
+                                                    'Open commitments',
+                                                )}
+                                                className="text-right"
+                                            >
                                                 {money(item.committed_cost)}
                                             </td>
-                                            <td className="text-right font-semibold">
+                                            <td
+                                                data-label={financeLabel(
+                                                    'Actual margin',
+                                                )}
+                                                className="text-right font-semibold"
+                                            >
                                                 {money(item.margin)}
                                                 {item.margin_percent !==
                                                     null && (
@@ -2154,7 +2326,12 @@ export default function FinanceIndex({
                                                     </span>
                                                 )}
                                             </td>
-                                            <td className="text-right font-semibold">
+                                            <td
+                                                data-label={financeLabel(
+                                                    'Projected margin',
+                                                )}
+                                                className="text-right font-semibold"
+                                            >
                                                 {money(item.projected_margin)}
                                                 {item.projected_margin_percent !==
                                                     null && (
@@ -2318,7 +2495,10 @@ function AgingTable({
                             key={label as string}
                             className="border-b last:border-0"
                         >
-                            <td className="py-3 font-medium">
+                            <td
+                                data-label={financeLabel('Balance')}
+                                className="py-3 font-medium"
+                            >
                                 {label as string}
                             </td>
                             {columns.map((column) => (
@@ -2394,7 +2574,10 @@ function SupplyScenarioPanel({ scenario }: { scenario: SupplyScenario }) {
                                 key={`${row.work_order_id}-${row.product_id}`}
                                 className="border-b last:border-0"
                             >
-                                <td className="py-3 font-medium">
+                                <td
+                                    data-label={financeLabel('Work order')}
+                                    className="py-3 font-medium"
+                                >
                                     <Link
                                         href={`/work-orders?work_order=${row.work_order_id}`}
                                         className="underline underline-offset-2"
@@ -2405,7 +2588,7 @@ function SupplyScenarioPanel({ scenario }: { scenario: SupplyScenario }) {
                                         {row.installation || 'Installation'}
                                     </div>
                                 </td>
-                                <td>
+                                <td data-label={financeLabel('Critical item')}>
                                     {row.product}
                                     <div className="text-xs text-muted-foreground">
                                         Shortage {row.shortage_quantity}
@@ -2413,7 +2596,11 @@ function SupplyScenarioPanel({ scenario }: { scenario: SupplyScenario }) {
                                 </td>
                                 {row.recommended ? (
                                     <>
-                                        <td>
+                                        <td
+                                            data-label={financeLabel(
+                                                'Recommended supplier',
+                                            )}
+                                        >
                                             {row.recommended.supplier}
                                             <div className="text-xs text-muted-foreground">
                                                 {row.recommended
@@ -2422,7 +2609,9 @@ function SupplyScenarioPanel({ scenario }: { scenario: SupplyScenario }) {
                                                     : `${row.recommended.overall_score}/100`}
                                             </div>
                                         </td>
-                                        <td>
+                                        <td
+                                            data-label={financeLabel('Arrival')}
+                                        >
                                             {date(row.recommended.arrival_date)}
                                             <div
                                                 className={`text-xs ${row.recommended.arrives_on_time ? 'text-green-700 dark:text-green-400' : 'text-destructive'}`}
@@ -2432,16 +2621,26 @@ function SupplyScenarioPanel({ scenario }: { scenario: SupplyScenario }) {
                                                     : 'After work date'}
                                             </div>
                                         </td>
-                                        <td>
+                                        <td
+                                            data-label={financeLabel(
+                                                'Expected payment',
+                                            )}
+                                        >
                                             {date(row.recommended.payment_date)}
                                         </td>
-                                        <td className="text-right">
+                                        <td
+                                            data-label={financeLabel('Net')}
+                                            className="text-right"
+                                        >
                                             {money(
                                                 row.recommended.net_cost,
                                                 row.recommended.currency,
                                             )}
                                         </td>
-                                        <td className="text-right font-semibold">
+                                        <td
+                                            data-label={financeLabel('Cash')}
+                                            className="text-right font-semibold"
+                                        >
                                             {row.recommended.cash_impact ===
                                             null
                                                 ? 'Currency conversion required'
@@ -2531,7 +2730,10 @@ function ReceivableRiskPanel({ risk }: { risk: ReceivableRisk }) {
                                 key={row.customerId ?? row.customer}
                                 className="border-b last:border-0"
                             >
-                                <td className="py-3 font-medium">
+                                <td
+                                    data-label={financeLabel('Customer')}
+                                    className="py-3 font-medium"
+                                >
                                     {row.customerHref ? (
                                         <Link
                                             href={row.customerHref}
@@ -2578,7 +2780,7 @@ function ReceivableRiskPanel({ risk }: { risk: ReceivableRisk }) {
                                         </div>
                                     </details>
                                 </td>
-                                <td>
+                                <td data-label={financeLabel('Risk')}>
                                     <Badge
                                         variant={
                                             row.riskLevel === 'critical'
@@ -2602,16 +2804,28 @@ function ReceivableRiskPanel({ risk }: { risk: ReceivableRisk }) {
                                         </div>
                                     )}
                                 </td>
-                                <td className="text-right">
+                                <td
+                                    data-label={financeLabel('Invoices')}
+                                    className="text-right"
+                                >
                                     {row.invoiceCount}
                                 </td>
-                                <td className="text-right font-semibold">
+                                <td
+                                    data-label={financeLabel('Exposure')}
+                                    className="text-right font-semibold"
+                                >
                                     {money(row.outstanding)}
                                 </td>
-                                <td className="text-right">
+                                <td
+                                    data-label={financeLabel('Portfolio')}
+                                    className="text-right"
+                                >
                                     {row.sharePercent}%
                                 </td>
-                                <td className="text-right">
+                                <td
+                                    data-label={financeLabel('Overdue')}
+                                    className="text-right"
+                                >
                                     {money(row.overdue)}
                                     {row.overdue > 0 && (
                                         <div className="text-xs text-muted-foreground">
@@ -2619,10 +2833,16 @@ function ReceivableRiskPanel({ risk }: { risk: ReceivableRisk }) {
                                         </div>
                                     )}
                                 </td>
-                                <td className="text-right">
+                                <td
+                                    data-label={financeLabel('Over 90 days')}
+                                    className="text-right"
+                                >
                                     {money(row.over90)}
                                 </td>
-                                <td className="text-right">
+                                <td
+                                    data-label={financeLabel('Max aging')}
+                                    className="text-right"
+                                >
                                     {row.maxDaysOverdue > 0
                                         ? `${row.maxDaysOverdue}d`
                                         : '—'}
@@ -2677,7 +2897,10 @@ function DueTable({
                                 key={`${item.kind || 'receivable'}-${item.id}`}
                                 className="border-b last:border-0"
                             >
-                                <td className="py-3 font-medium">
+                                <td
+                                    data-label={financeLabel('Document')}
+                                    className="py-3 font-medium"
+                                >
                                     <Link
                                         className="underline underline-offset-2"
                                         href={
@@ -2691,11 +2914,13 @@ function DueTable({
                                         {item.number}
                                     </Link>
                                 </td>
-                                <td>{item.party || '—'}</td>
-                                <td>
+                                <td data-label={financeLabel('Party')}>
+                                    {item.party || '—'}
+                                </td>
+                                <td data-label={financeLabel('Due')}>
                                     {item.due_date ? date(item.due_date) : '—'}
                                 </td>
-                                <td>
+                                <td data-label={financeLabel('Aging')}>
                                     {item.days_overdue > 0 ? (
                                         <span className="font-medium text-amber-700 dark:text-amber-400">
                                             {item.days_overdue}d overdue
@@ -2706,7 +2931,7 @@ function DueTable({
                                         </span>
                                     )}
                                 </td>
-                                <td>
+                                <td data-label={financeLabel('Status')}>
                                     <Badge variant="outline">
                                         {item.status}
                                     </Badge>
@@ -2730,11 +2955,17 @@ function DueTable({
                                         </div>
                                     )}
                                 </td>
-                                <td className="text-right font-medium">
+                                <td
+                                    data-label={financeLabel('Outstanding')}
+                                    className="text-right font-medium"
+                                >
                                     {money(item.outstanding)}
                                 </td>
                                 {canManage && (
-                                    <td className="text-right">
+                                    <td
+                                        data-label={financeLabel('Action')}
+                                        className="text-right"
+                                    >
                                         {base ? (
                                             <CollectionActionForm
                                                 item={item}
@@ -3054,7 +3285,10 @@ function FinancialTaxonomyPanel({
                                     key={item.id}
                                     className="border-b last:border-0"
                                 >
-                                    <td className="px-3 py-2">
+                                    <td
+                                        data-label={financeLabel('Category')}
+                                        className="px-3 py-2"
+                                    >
                                         <div className="font-medium">
                                             {item.name}
                                         </div>
@@ -3062,13 +3296,22 @@ function FinancialTaxonomyPanel({
                                             {item.code}
                                         </div>
                                     </td>
-                                    <td className="px-3 py-2 capitalize">
+                                    <td
+                                        data-label={financeLabel('Group')}
+                                        className="px-3 py-2 capitalize"
+                                    >
                                         {item.reportingGroup.replace('_', ' ')}
                                     </td>
-                                    <td className="px-3 py-2 text-right">
+                                    <td
+                                        data-label={financeLabel('Usage')}
+                                        className="px-3 py-2 text-right"
+                                    >
                                         {item.usageCount}
                                     </td>
-                                    <td className="px-3 py-2 text-right">
+                                    <td
+                                        data-label={financeLabel('Status')}
+                                        className="px-3 py-2 text-right"
+                                    >
                                         {canManage && !item.isSystem ? (
                                             <Form
                                                 action={`/finance/categories/${item.id}`}
@@ -3199,7 +3442,10 @@ function TaxonomyComparisonPanel({
                     <tbody>
                         {comparison.rows.map((row) => (
                             <tr key={row.id} className="border-b last:border-0">
-                                <td className="px-3 py-2">
+                                <td
+                                    data-label={financeLabel('Category')}
+                                    className="px-3 py-2"
+                                >
                                     <div className="font-medium">
                                         {row.name}
                                     </div>
@@ -3207,16 +3453,28 @@ function TaxonomyComparisonPanel({
                                         {row.code}
                                     </div>
                                 </td>
-                                <td className="px-3 py-2 capitalize">
+                                <td
+                                    data-label={financeLabel('Group')}
+                                    className="px-3 py-2 capitalize"
+                                >
                                     {row.reportingGroup.replace('_', ' ')}
                                 </td>
-                                <td className="px-3 py-2 text-right">
+                                <td
+                                    data-label={financeLabel('Budget')}
+                                    className="px-3 py-2 text-right"
+                                >
                                     {money(row.budget)}
                                 </td>
-                                <td className="px-3 py-2 text-right">
+                                <td
+                                    data-label={financeLabel('Forecast')}
+                                    className="px-3 py-2 text-right"
+                                >
                                     {money(row.forecast)}
                                 </td>
-                                <td className="px-3 py-2 text-right font-semibold">
+                                <td
+                                    data-label={financeLabel('Actual')}
+                                    className="px-3 py-2 text-right font-semibold"
+                                >
                                     <Link
                                         href={row.actualHref}
                                         className="underline underline-offset-2"
@@ -3225,11 +3483,15 @@ function TaxonomyComparisonPanel({
                                     </Link>
                                 </td>
                                 <td
+                                    data-label={financeLabel('Actual − budget')}
                                     className={`px-3 py-2 text-right ${taxonomyVarianceIsAdverse(row.reportingGroup, row.budgetVariance) ? 'text-destructive' : ''}`}
                                 >
                                     {money(row.budgetVariance)}
                                 </td>
                                 <td
+                                    data-label={financeLabel(
+                                        'Actual − forecast',
+                                    )}
                                     className={`px-3 py-2 text-right ${taxonomyVarianceIsAdverse(row.reportingGroup, row.forecastVariance) ? 'text-destructive' : ''}`}
                                 >
                                     {money(row.forecastVariance)}
@@ -3274,10 +3536,18 @@ function TaxonomyComparisonPanel({
                             <tbody>
                                 {comparison.evidence.map((item) => (
                                     <tr key={item.id} className="border-b">
-                                        <td className="px-3 py-2">
+                                        <td
+                                            data-label={financeLabel('Date')}
+                                            className="px-3 py-2"
+                                        >
                                             {date(item.date)}
                                         </td>
-                                        <td className="px-3 py-2 font-medium">
+                                        <td
+                                            data-label={financeLabel(
+                                                'Reference',
+                                            )}
+                                            className="px-3 py-2 font-medium"
+                                        >
                                             {item.href ? (
                                                 <Link
                                                     href={item.href}
@@ -3289,10 +3559,16 @@ function TaxonomyComparisonPanel({
                                                 item.reference
                                             )}
                                         </td>
-                                        <td className="px-3 py-2">
+                                        <td
+                                            data-label={financeLabel('Origin')}
+                                            className="px-3 py-2"
+                                        >
                                             {item.description}
                                         </td>
-                                        <td className="px-3 py-2 text-right font-medium">
+                                        <td
+                                            data-label={financeLabel('Amount')}
+                                            className="px-3 py-2 text-right font-medium"
+                                        >
                                             {money(item.amount)}
                                         </td>
                                     </tr>
@@ -3676,27 +3952,52 @@ function BudgetForm({
                                     id={`budget-month-${index + 1}`}
                                     className="border-b last:border-0"
                                 >
-                                    <td className="py-2 font-medium">
+                                    <td
+                                        data-label={financeLabel('Month')}
+                                        className="py-2 font-medium"
+                                    >
                                         {month.month}
                                     </td>
-                                    <td className="text-right">
+                                    <td
+                                        data-label={financeLabel(
+                                            'Budget result',
+                                        )}
+                                        className="text-right"
+                                    >
                                         {money(month.budgetResult)}
                                     </td>
-                                    <td className="text-right">
+                                    <td
+                                        data-label={financeLabel(
+                                            'Actual result',
+                                        )}
+                                        className="text-right"
+                                    >
                                         {money(month.result)}
                                     </td>
-                                    <td className="text-right">
+                                    <td
+                                        data-label={financeLabel('Variance')}
+                                        className="text-right"
+                                    >
                                         {money(
                                             month.result - month.budgetResult,
                                         )}
                                     </td>
-                                    <td className="text-right">
+                                    <td
+                                        data-label={financeLabel('Budget cash')}
+                                        className="text-right"
+                                    >
                                         {money(cashFlow[index].budgetNet)}
                                     </td>
-                                    <td className="text-right">
+                                    <td
+                                        data-label={financeLabel('Actual cash')}
+                                        className="text-right"
+                                    >
                                         {money(cashFlow[index].net)}
                                     </td>
-                                    <td className="text-right">
+                                    <td
+                                        data-label={financeLabel('Variance')}
+                                        className="text-right"
+                                    >
                                         {money(
                                             cashFlow[index].net -
                                                 cashFlow[index].budgetNet,

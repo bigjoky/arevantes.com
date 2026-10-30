@@ -1,9 +1,10 @@
-import { Form, Link } from '@inertiajs/react';
+import { Link } from '@inertiajs/react';
 import { useState } from 'react';
 import { date, labels, money } from '@/components/billing/workspace';
+import Form from '@/components/finance/protected-form';
+import Dialog from '@/components/projects/protected-dialog';
 import { Button } from '@/components/ui/button';
 import {
-    Dialog,
     DialogContent,
     DialogHeader,
     DialogTitle,
@@ -58,7 +59,7 @@ export function CancelCustomerReceipt({
                     Ver cobro
                 </Button>
             </DialogTrigger>
-            <DialogContent className="max-h-[90dvh] overflow-y-auto">
+            <DialogContent className="finance-mobile-dialog max-h-[90dvh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle>Detalle del cobro</DialogTitle>
                 </DialogHeader>

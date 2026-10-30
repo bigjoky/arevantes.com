@@ -1,4 +1,5 @@
-import { Form, Head, Link, router, usePage } from '@inertiajs/react';
+import '@/../css/finance-mobile.css';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import {
     ArrowLeft,
     CreditCard,
@@ -15,13 +16,14 @@ import {
 } from 'lucide-react';
 import { useState } from 'react';
 import type { ReconciliationDetails } from '@/components/banking/reconciliation-workspace';
+import Form from '@/components/finance/protected-form';
 import { PaginationBar, TableViewport } from '@/components/page-shell';
 import type { PaginationLink } from '@/components/page-shell';
+import Dialog from '@/components/projects/protected-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
-    Dialog,
     DialogContent,
     DialogDescription,
     DialogHeader,
@@ -353,7 +355,7 @@ export default function BankingIndex({
     return (
         <>
             <Head title="Banking" />
-            <div className="flex flex-1 flex-col gap-6 p-4 md:p-6">
+            <div className="finance-admin-mobile flex flex-1 flex-col gap-6 p-4 md:p-6">
                 <datalist id="ledger-account-options">
                     {ledgerAccounts.map((account) => (
                         <option key={account.id} value={account.code}>
@@ -1168,7 +1170,7 @@ function BulkPostingDialog({
                     <ListPlus /> Bulk post
                 </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-2xl">
+            <DialogContent className="finance-mobile-dialog max-w-2xl">
                 <DialogHeader>
                     <DialogTitle>Post selected bank movements</DialogTitle>
                     <DialogDescription>
@@ -1190,6 +1192,7 @@ function BulkPostingDialog({
                     />
                 </div>
                 <Form
+                    onResetFields={() => setAccountCode('')}
                     action={`/banking/accounts/${account.id}/transactions/bulk-post`}
                     method="post"
                     className="grid gap-4"
