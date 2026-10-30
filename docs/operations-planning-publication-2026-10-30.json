@@ -185,5 +185,57 @@
     "integrations_disabled": true,
     "backups_and_documents_untouched": true
   },
-  "log_scope": "No application log files in the container; deployment succeeded without reported errors and all affected authenticated GET probes returned 200. This does not certify absence of unrelated historical exceptions."
+  "log_scope": "No application log files in the container; deployment succeeded without reported errors and all affected authenticated GET probes returned 200. This does not certify absence of unrelated historical exceptions.",
+  "schedule_layout_hotfix": {
+    "deployment": {
+      "id": "depl-a31ab765-daf2-4b59-8e76-3cb9642d5bc8",
+      "status": "deployment.succeeded",
+      "commitHash": "8fd86320c6973022ff442979d223295e7a28b98c",
+      "startedAt": "2026-10-30T09:10:14.000000Z",
+      "finishedAt": "2026-10-30T09:11:40.000000Z",
+      "failureReason": null
+    },
+    "instance": {
+      "id": "inst-a278002d-5256-4baa-a564-1f2e601f06ad",
+      "type": "app",
+      "minReplicas": 1,
+      "maxReplicas": 1,
+      "usesScheduler": false,
+      "backgroundProcessIds": []
+    },
+    "verification": {
+      "sources": {
+        "resources/js/pages/operations/field-service.tsx": "5c136099d40aadd7e6b5744c63ce6a64ab9787971d5b75fed2cc396ab60ab976",
+        "resources/js/i18n/catalog.json": "4df57443570e7fb04a4249f9ca97c35632af57818653303ed09983e3b7ed2a5b"
+      },
+      "asset": "assets/field-service-KajBAtpz.js",
+      "asset_http": 200,
+      "labels_in_delivered_bundle": true,
+      "jobs_preserved": 9,
+      "maintenance": false,
+      "migrations": 255,
+      "integrations_disabled": true
+    },
+    "authenticated_route": {
+      "kind": "profiles",
+      "path": "/operations/field-service",
+      "status": 200,
+      "component": "operations/field-service",
+      "bytes": 42959,
+      "new_contract_present": true
+    },
+    "visual": {
+      "desktop_width": 1440,
+      "mobile_width": 390,
+      "overflow": false,
+      "start_end_aligned": true,
+      "stored_third_shift_preserved": true,
+      "keyboard_expansion": true,
+      "es_en_time_labels": true
+    },
+    "frontend_tests": 88,
+    "types_lint_catalog_build": true,
+    "backend_changes": false,
+    "migrations_applied": false
+  }
 }
