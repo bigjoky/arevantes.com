@@ -14,6 +14,8 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import { useLocale } from '@/hooks/use-locale';
+import { translate } from '@/i18n';
 import { serviceLabels } from '@/lib/business-lines';
 import type { ServiceType } from '@/lib/business-lines';
 
@@ -226,61 +228,9 @@ function ProfileForm({
                                 name="home_postal_code"
                                 value={profile?.home_postal_code || ''}
                             />
-                            <fieldset className="grid gap-2">
-                                <legend>Horario semanal (Europe/Madrid)</legend>
-                                <p className="text-sm text-muted-foreground">
-                                    Sin horario configurado, la disponibilidad
-                                    será desconocida. Deja ambos campos vacíos
-                                    en los días no laborables.
-                                </p>
-                                {[
-                                    'Lunes',
-                                    'Martes',
-                                    'Miércoles',
-                                    'Jueves',
-                                    'Viernes',
-                                    'Sábado',
-                                    'Domingo',
-                                ].map((day, index) => (
-                                    <div
-                                        className="flex flex-wrap items-center gap-2"
-                                        key={day}
-                                    >
-                                        <span className="w-24">{day}</span>
-                                        {[0, 1, 2, 3].map((slot) => (
-                                            <div
-                                                className="flex gap-2"
-                                                key={slot}
-                                            >
-                                                <input
-                                                    aria-label={`${day} inicio ${slot + 1}`}
-                                                    type="time"
-                                                    name={`weekly_schedule[${index + 1}][${slot}][start]`}
-                                                    defaultValue={
-                                                        profile
-                                                            ?.weekly_schedule?.[
-                                                            String(index + 1)
-                                                        ]?.[slot]?.start ?? ''
-                                                    }
-                                                />
-                                                <input
-                                                    aria-label={`${day} fin ${slot + 1}`}
-                                                    type="text"
-                                                    placeholder="HH:mm"
-                                                    pattern="([01][0-9]|2[0-3]):[0-5][0-9]|24:00"
-                                                    name={`weekly_schedule[${index + 1}][${slot}][end]`}
-                                                    defaultValue={
-                                                        profile
-                                                            ?.weekly_schedule?.[
-                                                            String(index + 1)
-                                                        ]?.[slot]?.end ?? ''
-                                                    }
-                                                />
-                                            </div>
-                                        ))}
-                                    </div>
-                                ))}
-                            </fieldset>
+                            <WeeklySchedule
+                                schedule={profile?.weekly_schedule ?? null}
+                            />
                             <SkillChecklist
                                 label="Habilidades del técnico"
                                 value={skills}
@@ -331,6 +281,99 @@ function ProfileForm({
                 </Form>
             </CardContent>
         </Card>
+    );
+}
+
+function WeeklySchedule({
+    schedule,
+}: {
+    schedule: Profile['weekly_schedule'];
+}) {
+    const { locale } = useLocale();
+    const days = [
+        'Lunes',
+        'Martes',
+        'Miércoles',
+        'Jueves',
+        'Viernes',
+        'Sábado',
+        'Domingo',
+    ];
+    const period = (day: string, dayIndex: number, slot: number) => (
+        <div className="min-w-0 rounded-md border bg-muted/20 p-3" key={slot}>
+            <p className="mb-2 text-sm font-medium">
+                {translate('Turno', locale)} {slot + 1}
+            </p>
+            <div className="grid min-w-0 grid-cols-2 gap-3">
+                <label className="grid min-w-0 gap-1 text-xs text-muted-foreground">
+                    <span>Inicio</span>
+                    <Input
+                        className="w-full min-w-0"
+                        type="time"
+                        aria-label={`${translate(day, locale)} · ${translate('Turno', locale)} ${slot + 1} · ${translate('Inicio', locale)}`}
+                        name={`weekly_schedule[${dayIndex + 1}][${slot}][start]`}
+                        defaultValue={
+                            schedule?.[String(dayIndex + 1)]?.[slot]?.start ??
+                            ''
+                        }
+                    />
+                </label>
+                <label className="grid min-w-0 gap-1 text-xs text-muted-foreground">
+                    <span>Fin</span>
+                    <Input
+                        className="w-full min-w-0"
+                        type="text"
+                        placeholder="HH:mm"
+                        pattern="([01][0-9]|2[0-3]):[0-5][0-9]|24:00"
+                        aria-label={`${translate(day, locale)} · ${translate('Turno', locale)} ${slot + 1} · ${translate('Fin', locale)}`}
+                        name={`weekly_schedule[${dayIndex + 1}][${slot}][end]`}
+                        defaultValue={
+                            schedule?.[String(dayIndex + 1)]?.[slot]?.end ?? ''
+                        }
+                    />
+                </label>
+            </div>
+        </div>
+    );
+
+    return (
+        <fieldset className="grid min-w-0 gap-4">
+            <legend className="mb-2 text-sm font-semibold">
+                Horario semanal (Europe/Madrid)
+            </legend>
+            <p className="text-sm text-muted-foreground">
+                Sin horario configurado, la disponibilidad será desconocida.
+                Deja ambos campos vacíos en los días no laborables.
+            </p>
+            <p className="text-sm text-muted-foreground">
+                Cada turno tiene una hora de inicio y otra de fin. Deja vacíos
+                los turnos que no utilices.
+            </p>
+            {days.map((day, index) => (
+                <fieldset className="min-w-0 rounded-lg border p-3" key={day}>
+                    <legend className="px-1 text-sm font-semibold">
+                        {day}
+                    </legend>
+                    <div className="grid min-w-0 grid-cols-[repeat(auto-fit,minmax(min(100%,15rem),1fr))] gap-3">
+                        {[0, 1].map((slot) => period(day, index, slot))}
+                    </div>
+                    <details
+                        className="mt-3"
+                        open={
+                            (schedule?.[String(index + 1)]?.length ?? 0) > 2 ||
+                            undefined
+                        }
+                    >
+                        <summary className="cursor-pointer text-sm text-muted-foreground">
+                            Turnos adicionales (3 y 4)
+                        </summary>
+                        <div className="mt-3 grid min-w-0 grid-cols-[repeat(auto-fit,minmax(min(100%,15rem),1fr))] gap-3">
+                            {[2, 3].map((slot) => period(day, index, slot))}
+                        </div>
+                    </details>
+                </fieldset>
+            ))}
+        </fieldset>
     );
 }
 

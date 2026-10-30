@@ -21908,8 +21908,8 @@
         "es": "Año"
     },
     "Fin": {
-        "en": "End",
-        "es": "Fin"
+        "es": "Fin",
+        "en": "End"
     },
     "No existen ejercicios configurados.": {
         "en": "No fiscal years configured.",
@@ -26478,5 +26478,17 @@
     "min · Propuesta:": {
         "es": "min · Propuesta:",
         "en": "min · Proposed:"
+    },
+    "Turno": {
+        "es": "Turno",
+        "en": "Shift"
+    },
+    "Cada turno tiene una hora de inicio y otra de fin. Deja vacíos los turnos que no utilices.": {
+        "es": "Cada turno tiene una hora de inicio y otra de fin. Deja vacíos los turnos que no utilices.",
+        "en": "Each shift has a start and end time. Leave unused shifts blank."
+    },
+    "Turnos adicionales (3 y 4)": {
+        "es": "Turnos adicionales (3 y 4)",
+        "en": "Additional shifts (3 and 4)"
     }
 }

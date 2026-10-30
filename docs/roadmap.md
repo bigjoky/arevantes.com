@@ -6467,3 +6467,8 @@ Cierre verificado. No se inicia conciliación automática, Nexo ni ECO-03.
 - Carencias pendientes: calendarios territoriales/individuales y reservas de vehículos/equipos no tienen relación de datos autorizada; requieren definir esas relaciones y criterios de negocio antes de ofrecer disponibilidad sobre ellas. No inventar horarios: configurar expresamente los perfiles anteriores.
 
 - Cierre OPS-02: migración propia254→255, seis históricos operativos y nueve jobs intactos, trece fuentes PHP verificadas; nueve GET autenticados200, públicos200/302 y bundle200. Dos perfiles conservan horario desconocido hasta configurarlo expresamente. Automatismos e integraciones desactivados. [Evidencia productiva](operations-planning-publication-2026-10-30.json).
+
+### OPS-02 — Corrección de presentación de horarios (30/10/2026)
+
+- Corregida la distribución libre de horas: días separados, turnos numerados e Inicio/Fin visibles y alineados con los componentes del ERP. Columnas adaptadas al ancho real de cada ficha; turnos 3/4 desplegables y abiertos si contienen datos.
+- Conservado el contrato de formulario y los valores guardados. Sin cambios de reglas, esquema ni datos. Verificación visual1440/390 px sin desbordamiento, alineación y teclado; tercer turno existente y FormData conservados.88 frontend, tipos, ESLint, catálogo y build correctos. Publicación del ajuste pendiente de verificación productiva.
