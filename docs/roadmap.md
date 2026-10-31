@@ -6523,16 +6523,16 @@ empleado autenticado.
 
 La verificación local no implica publicación ni sustituye las pruebas en teléfonos.
 
-## OPS-03 — Calendarios individuales y vehículos (trabajo local en curso)
+## OPS-03 — Calendarios individuales y vehículos (publicado)
 
-Estado: implementación local pendiente de revisión completa, sin commit ni publicación. Se reutilizan las órdenes, actividades, turnos, ausencias y festivos existentes; no se han modificado datos productivos.
+Estado: publicado en producción el 31/10/2026 con el commit `4d4aba792788ffa23539eac9b6754696df4174cf`, deployment `depl-a31cae7a-90de-40a7-8cc5-4353801cf9ba`. Se reutilizan órdenes, actividades, turnos, ausencias y festivos existentes. La migración aditiva `2026_10_30_230000_create_operational_vehicles` se aplicó expresamente; se comprobaron seis historiales operativos y nueve trabajos sin cambios.
 
 | Capacidad | Estado y dependencia | Criterio de aceptación |
 |---|---|---|
-| Agenda individual | Implementación local; turnos y festivos registrados, ausencias sin revelar sus motivos privados | Datos propios o permisos de planificación, sin presentar como libre una disponibilidad desconocida |
-| Vehículos y reservas | Implementación local con migración aditiva pendiente de aplicación | Evitar solapamientos entre órdenes, visitas y bloqueos mediante validación transaccional y conservar historial |
-| Preparación de órdenes | Implementación local | No mostrar como preparada una orden cuyo vehículo requerido falte o esté indisponible |
+| Agenda individual | Publicado; turnos y festivos registrados, ausencias sin revelar sus motivos privados | Datos propios o permisos de planificación, sin presentar como libre una disponibilidad desconocida |
+| Vehículos y reservas | Publicado con migración aditiva aplicada | Evitar solapamientos entre órdenes, visitas y bloqueos mediante validación transaccional y conservar historial |
+| Preparación de órdenes | Publicado | No mostrar como preparada una orden cuyo vehículo requerido falte o esté indisponible |
 | Fechas ambiguas | El servidor acepta instantes explícitos y rechaza horas locales ambiguas; selección de ambas ocurrencias en la interfaz pendiente de revisión | Elegir sin ambigüedad cualquiera de las dos ocurrencias y rechazar horas inexistentes |
-| Revisión visual y publicación | Pendientes | Verificar escritorio y móvil, regresión, compilación, migración y despliegue autorizado antes de afirmar disponibilidad en producción |
+| Revisión visual y publicación | Completadas | Escritorio y móvil, regresión, compilación, migración y rutas productivas verificadas |
 
-Verificación parcial: PostgreSQL 17.6, 23 pruebas y 234 aserciones, incluidas carreras reales; 97 pruebas frontend superadas, tipos y compilación correctos. Las pantallas de calendario, vehículos y planificación se han inspeccionado con datos sintéticos a 1440 y 390 px, sin desbordamiento. Regresión global: 1.130 pruebas superadas y 54 omitidas, 15.834 aserciones; pendiente la publicación y su comprobación. Los festivos disponibles son los registrados en el calendario existente; no se infieren festivos territoriales. No existe custodia documental específica de vehículos.
+Verificación parcial: PostgreSQL 17.6, 23 pruebas y 234 aserciones, incluidas carreras reales; 97 pruebas frontend superadas, tipos y compilación correctos. Las pantallas de calendario, vehículos y planificación se han inspeccionado con datos sintéticos a 1440 y 390 px, sin desbordamiento. Regresión global: 1.130 pruebas superadas y 54 omitidas, 15.834 aserciones; despliegue y rutas autenticadas de vehículos, calendario, planificación, agenda, orden y proyecto comprobados; `/up` y `/login` devuelven 200. Workers, scheduler, despliegue y migraciones automáticos continúan desactivados. Los festivos disponibles son los registrados en el calendario existente; no se infieren festivos territoriales. No existe custodia documental específica de vehículos.
