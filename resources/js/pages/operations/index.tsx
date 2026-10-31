@@ -69,6 +69,9 @@ type UserOption = {
 type WorkOrderLink = { id: number; number: string; status: string };
 type Activity = {
     id: number;
+    updated_at: string;
+    vehicle_id: number | null;
+    vehicle_required: boolean;
     type: string;
     title: string;
     notes: string | null;
@@ -1457,7 +1460,55 @@ function ActivityDialog({
     currentUserId: number;
 }) {
     const [open, setOpen] = useState(false);
+    const vehicles =
+        (usePage().props.vehicles as
+            | { id: number; name: string; registration: string }[]
+            | undefined) ?? [];
     const editing = Boolean(activity);
+    const [vehicleRequired, setVehicleRequired] = useState(
+        activity?.vehicle_required ?? false,
+    );
+    const [selectedAssignee, setSelectedAssignee] = useState(
+        activity?.assigned_user ? String(activity.assigned_user.id) : 'none',
+    );
+    const [assigneePreview, setAssigneePreview] = useState<{
+        status: string;
+        issues: string[];
+    } | null>(null);
+    const [selectedVehicle, setSelectedVehicle] = useState(
+        activity?.vehicle_id ? String(activity.vehicle_id) : 'none',
+    );
+    const [vehiclePreview, setVehiclePreview] = useState<
+        | {
+              id: number;
+              name: string;
+              registration: string;
+              status: string;
+              issues: string[];
+          }[]
+        | null
+    >(null);
+    const [vehicleCheckError, setVehicleCheckError] = useState('');
+    const [vehicleHistory, setVehicleHistory] = useState<
+        | {
+              id: number;
+              reason: string;
+              actor: { name: string } | null;
+              previous_vehicle: { registration: string } | null;
+              next_vehicle: { registration: string } | null;
+              old_start_utc: string | null;
+              new_start_utc: string | null;
+          }[]
+        | null
+    >(null);
+    const vehicleReady =
+        selectedVehicle === 'none'
+            ? !vehicleRequired
+            : vehiclePreview?.find(
+                  (item) => String(item.id) === selectedVehicle,
+              )?.status === 'available' &&
+              (selectedAssignee === 'none' ||
+                  assigneePreview?.status === 'available');
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
@@ -1496,6 +1547,36 @@ function ActivityDialog({
                     method={editing ? 'patch' : 'post'}
                     resetOnSuccess={!editing}
                     onSuccess={() => setOpen(false)}
+                    onChange={(event) => {
+                        const target = event.nativeEvent.target;
+                        const name =
+                            target instanceof HTMLInputElement
+                                ? target.name
+                                : '';
+
+                        if (name === 'starts_at' || name === 'due_at') {
+                            setVehiclePreview(null);
+                        }
+                    }}
+                    transform={(values) => ({
+                        ...values,
+                        ...(values.starts_at
+                            ? {
+                                  starts_at: scheduleInput(
+                                      String(values.starts_at),
+                                      activity?.starts_at ?? null,
+                                  ),
+                              }
+                            : {}),
+                        ...(values.due_at
+                            ? {
+                                  due_at: scheduleInput(
+                                      String(values.due_at),
+                                      activity?.due_at ?? null,
+                                  ),
+                              }
+                            : {}),
+                    })}
                     className="grid gap-4"
                 >
                     {({ errors, processing }) =>
@@ -1538,6 +1619,11 @@ function ActivityDialog({
                                     />
                                     <SelectField
                                         label="Assigned to"
+                                        onValueChange={(value) => {
+                                            setSelectedAssignee(value);
+                                            setVehiclePreview(null);
+                                            setAssigneePreview(null);
+                                        }}
                                         name="assigned_user_id"
                                         defaultValue={
                                             activity?.assigned_user
@@ -1593,6 +1679,270 @@ function ActivityDialog({
                                         error={errors.due_at}
                                     />
                                 </div>
+                                {activity && (
+                                    <input
+                                        type="hidden"
+                                        name="expected_updated_at"
+                                        value={activity.updated_at}
+                                    />
+                                )}
+                                <label>
+                                    Vehículo
+                                    <select
+                                        name="vehicle_id"
+                                        value={selectedVehicle}
+                                        onChange={(event) => {
+                                            setSelectedVehicle(
+                                                event.target.value,
+                                            );
+                                            setVehiclePreview(null);
+                                        }}
+                                    >
+                                        <option value="none">
+                                            Sin vehículo
+                                        </option>
+                                        {vehicles.map((vehicle) => (
+                                            <option
+                                                value={vehicle.id}
+                                                key={vehicle.id}
+                                            >
+                                                {vehicle.registration} ·{' '}
+                                                {vehicle.name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </label>
+                                <Button
+                                    type="button"
+                                    onClick={async (event) => {
+                                        const form =
+                                            event.currentTarget.closest('form');
+
+                                        if (!form) {
+                                            return;
+                                        }
+
+                                        const values = new FormData(form);
+                                        const start = String(
+                                            values.get('starts_at') ?? '',
+                                        );
+                                        const end = String(
+                                            values.get('due_at') ?? '',
+                                        );
+                                        const selected = String(
+                                            values.get('vehicle_id') ?? 'none',
+                                        );
+                                        setVehicleCheckError('');
+                                        setVehiclePreview(null);
+
+                                        if (!start || !end) {
+                                            setVehicleCheckError(
+                                                'Selecciona primero inicio y fin de la visita.',
+                                            );
+
+                                            return;
+                                        }
+
+                                        const params = new URLSearchParams({
+                                            starts_at: scheduleInput(
+                                                start,
+                                                activity?.starts_at ?? null,
+                                            ),
+                                            ends_at: scheduleInput(
+                                                end,
+                                                activity?.due_at ?? null,
+                                            ),
+                                        });
+
+                                        const assignee = String(
+                                            values.get('assigned_user_id') ??
+                                                'none',
+                                        );
+
+                                        if (assignee !== 'none') {
+params.set('assignee_id', assignee);
+}
+
+                                        if (activity) {
+                                            params.set(
+                                                'except_activity_id',
+                                                String(activity.id),
+                                            );
+                                        }
+
+                                        try {
+                                            const response = await fetch(
+                                                `/operations/vehicles/availability?${params}`,
+                                                {
+                                                    headers: {
+                                                        Accept: 'application/json',
+                                                    },
+                                                },
+                                            );
+
+                                            if (!response.ok) {
+                                                throw new Error(
+                                                    'No se pudo comprobar la disponibilidad del vehículo.',
+                                                );
+                                            }
+
+                                            const result =
+                                                await response.json();
+                                            const current = new FormData(form);
+
+                                            if (
+                                                form.isConnected &&
+                                                current.get('starts_at') ===
+                                                    start &&
+                                                current.get('due_at') === end &&
+                                                current.get('vehicle_id') ===
+                                                    selected &&
+                                                String(
+                                                    current.get(
+                                                        'assigned_user_id',
+                                                    ) ?? 'none',
+                                                ) === assignee
+                                            ) {
+                                                setVehiclePreview(
+                                                    result.vehicles,
+                                                );
+                                                setAssigneePreview(
+                                                    result.assignee,
+                                                );
+                                            }
+                                        } catch (error) {
+                                            setVehicleCheckError(
+                                                error instanceof Error
+                                                    ? error.message
+                                                    : 'Error de disponibilidad',
+                                            );
+                                        }
+                                    }}
+                                >
+                                    Consultar disponibilidad de vehículos
+                                </Button>
+                                {vehicleCheckError && (
+                                    <p role="alert">{vehicleCheckError}</p>
+                                )}
+                                {vehiclePreview && (
+                                    <div aria-live="polite">
+                                        {assigneePreview && (
+                                            <p>
+                                                Responsable ·{' '}
+                                                {assigneePreview.status ===
+                                                'available'
+                                                    ? 'Disponible'
+                                                    : assigneePreview.status ===
+                                                        'unknown'
+                                                      ? 'Disponibilidad desconocida'
+                                                      : 'No disponible'}{' '}
+                                                {assigneePreview.issues.join(
+                                                    ' ',
+                                                )}
+                                            </p>
+                                        )}
+                                        {vehiclePreview.map((vehicle) => (
+                                            <p key={vehicle.id}>
+                                                {vehicle.registration} ·{' '}
+                                                {vehicle.name} ·{' '}
+                                                {vehicle.status === 'available'
+                                                    ? 'Disponible'
+                                                    : vehicle.status ===
+                                                        'unknown'
+                                                      ? 'Disponibilidad desconocida'
+                                                      : 'No disponible'}{' '}
+                                                {vehicle.issues.join(' ')}
+                                            </p>
+                                        ))}
+                                    </div>
+                                )}
+                                {activity && (
+                                    <Button
+                                        type="button"
+                                        onClick={async () => {
+                                            const response = await fetch(
+                                                `/operations/activities/${activity.id}/vehicle-history`,
+                                                {
+                                                    headers: {
+                                                        Accept: 'application/json',
+                                                    },
+                                                },
+                                            );
+
+                                            if (response.ok) {
+                                                setVehicleHistory(
+                                                    (await response.json())
+                                                        .history,
+                                                );
+                                            } else {
+                                                setVehicleCheckError(
+                                                    'No se pudo consultar el historial de vehículos.',
+                                                );
+                                            }
+                                        }}
+                                    >
+                                        Ver historial de vehículos
+                                    </Button>
+                                )}
+                                {vehicleHistory && (
+                                    <div>
+                                        {vehicleHistory.length === 0
+                                            ? 'Sin cambios de vehículo'
+                                            : vehicleHistory.map((item) => (
+                                                  <p key={item.id}>
+                                                      {item.actor?.name ?? '—'}{' '}
+                                                      · {item.reason} ·{' '}
+                                                      {item.previous_vehicle
+                                                          ?.registration ??
+                                                          '—'}{' '}
+                                                      →{' '}
+                                                      {item.next_vehicle
+                                                          ?.registration ??
+                                                          '—'}{' '}
+                                                      ·{' '}
+                                                      {formatDate(
+                                                          item.old_start_utc,
+                                                      )}{' '}
+                                                      →{' '}
+                                                      {formatDate(
+                                                          item.new_start_utc,
+                                                      )}
+                                                  </p>
+                                              ))}
+                                    </div>
+                                )}
+                                <input
+                                    type="hidden"
+                                    name="vehicle_required"
+                                    value={vehicleRequired ? '1' : '0'}
+                                />
+                                <label>
+                                    <input
+                                        type="checkbox"
+                                        checked={vehicleRequired}
+                                        onChange={(event) =>
+                                            setVehicleRequired(
+                                                event.target.checked,
+                                            )
+                                        }
+                                    />{' '}
+                                    Vehículo necesario para esta intervención
+                                </label>
+                                {editing && (
+                                    <Field
+                                        label="Motivo del cambio de vehículo"
+                                        name="vehicle_change_reason"
+                                        error={errors.vehicle_change_reason}
+                                    />
+                                )}
+                                {errors.vehicle_id && (
+                                    <InputError message={errors.vehicle_id} />
+                                )}
+                                {errors.expected_updated_at && (
+                                    <InputError
+                                        message={errors.expected_updated_at}
+                                    />
+                                )}
                                 <TextAreaField
                                     label="Notes / instructions"
                                     name="notes"
@@ -1607,7 +1957,7 @@ function ActivityDialog({
                                     }
                                     error={errors.blocked_reason}
                                 />
-                                <Button disabled={processing}>
+                                <Button disabled={processing || !vehicleReady}>
                                     {editing
                                         ? 'Save changes'
                                         : 'Create activity'}
@@ -1987,16 +2337,22 @@ function SelectField({
     name,
     options,
     defaultValue,
+    onValueChange,
 }: {
     label: string;
     name: string;
     options: string[][];
     defaultValue: string;
+    onValueChange?: (value: string) => void;
 }) {
     return (
         <div className="grid gap-2">
             <Label htmlFor={`${name}-${defaultValue}`}>{label}</Label>
-            <Select name={name} defaultValue={defaultValue}>
+            <Select
+                name={name}
+                defaultValue={defaultValue}
+                onValueChange={onValueChange}
+            >
                 <SelectTrigger
                     id={`${name}-${defaultValue}`}
                     className="w-full"

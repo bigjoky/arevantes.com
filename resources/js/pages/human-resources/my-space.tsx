@@ -1,5 +1,5 @@
 import '@/../css/hr-mobile.css';
-import { Head } from '@inertiajs/react';
+import { Head, Link, usePage } from '@inertiajs/react';
 import {
     BriefcaseBusiness,
     Building2,
@@ -107,6 +107,8 @@ export default function MySpace({
     documents: EmploymentDocument[];
     balances: LeaveBalance[];
 }) {
+    const user = usePage().props.auth.user;
+
     return (
         <>
             <Head title="Mi RR. HH." />
@@ -117,6 +119,9 @@ export default function MySpace({
                         Consulta tu ficha laboral y gestiona tus solicitudes de
                         ausencia.
                     </p>
+                    <Link href={`/operations/calendar/${user.id}`}>
+                        Consultar mi calendario
+                    </Link>
                 </header>
 
                 {!employee ? (

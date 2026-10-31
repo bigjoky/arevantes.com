@@ -1,3 +1,4 @@
+import { Link } from '@inertiajs/react';
 import {
     Frame,
     Planning,
@@ -26,6 +27,17 @@ export default function PlanningPage(data: Workspace) {
                     >
                         {label}
                     </a>
+                ))}
+            </nav>
+            <nav className="ops-range">
+                <Link href="/operations/vehicles">Vehículos</Link>
+                {data.users.map((user) => (
+                    <Link
+                        key={user.id}
+                        href={`/operations/calendar/${user.id}`}
+                    >
+                        Calendario · {user.name}
+                    </Link>
                 ))}
             </nav>
             <Range data={data} path="/operations/planning" />
@@ -71,6 +83,20 @@ export default function PlanningPage(data: Workspace) {
                         {data.statuses.map((status) => (
                             <option key={status} value={status}>
                                 {statuses[status] ?? status}
+                            </option>
+                        ))}
+                    </select>
+                </label>
+                <label>
+                    Vehículo
+                    <select
+                        name="vehicle"
+                        defaultValue={data.filters.vehicle ?? ''}
+                    >
+                        <option value="">Todos</option>
+                        {data.vehicles.map((vehicle) => (
+                            <option key={vehicle.id} value={vehicle.id}>
+                                {vehicle.registration} · {vehicle.name}
                             </option>
                         ))}
                     </select>

@@ -20,7 +20,7 @@ class FieldServiceSettingsController extends Controller
     public function index(): Response
     {
         return Inertia::render('operations/field-service', [
-            'users' => User::with('fieldServiceProfile')->whereIn('role', ['technician', 'admin'])->orderBy('name')->get(['id', 'name', 'role']),
+            'users' => User::with('fieldServiceProfile')->where(fn ($q) => $q->whereIn('role', ['technician', 'admin'])->orWhereHas('staffProfile', fn ($q) => $q->where('category', 'staff')))->orderBy('name')->get(['id', 'name', 'role']),
             'skillOptions' => TechnicianSkills::options(),
             'templates' => WorkOrderTemplate::orderBy('kind')->orderBy('name')->get(),
         ]);
@@ -28,7 +28,7 @@ class FieldServiceSettingsController extends Controller
 
     public function updateProfile(Request $request, User $user): RedirectResponse
     {
-        abort_unless($user->hasRole('technician', 'admin'), 422);
+        abort_unless($user->hasRole('technician', 'admin') || $user->staffProfile?->category === 'staff', 422);
         if (is_array($request->input('weekly_schedule'))) {
             $request->merge(['weekly_schedule' => collect($request->input('weekly_schedule'))->map(fn ($slots) => is_array($slots) ? array_values(array_filter($slots, fn ($slot) => ! is_array($slot) || filled($slot['start'] ?? null) || filled($slot['end'] ?? null))) : $slots)->all()]);
         }

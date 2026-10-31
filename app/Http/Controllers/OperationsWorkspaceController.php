@@ -3,11 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Models\Installation;
+use App\Models\OperationalVehicle;
 use App\Models\User;
 use App\Models\WorkOrder;
 use App\Models\WorkOrderTemplate;
+use App\Services\Operations\IndividualCalendar;
 use App\Services\Operations\OperationsWorkspace;
 use App\Services\Work\TechnicianSchedule;
+use App\Services\Work\VehicleAvailability;
 use App\Support\Time\BusinessTime;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -36,14 +39,23 @@ class OperationsWorkspaceController extends Controller
 
     public function availability(Request $request, WorkOrder $workOrder, TechnicianSchedule $schedule)
     {
-        $data = $request->validate(['scheduled_start' => ['required', 'string'], 'scheduled_end' => ['required', 'string']]);
+        $data = $request->validate(['scheduled_start' => ['required', 'string'], 'scheduled_end' => ['required', 'string'], 'vehicle_id' => ['nullable', 'integer', 'exists:operational_vehicles,id'], 'vehicle_required' => ['sometimes', 'boolean']]);
         $start = BusinessTime::parse($data['scheduled_start'], 'scheduled_start');
         $end = BusinessTime::parse($data['scheduled_end'], 'scheduled_end');
 
-        return response()->json(['technicians' => User::whereIn('role', ['technician', 'admin'])->orderBy('name')->get(['id', 'name'])->map(fn ($user) => [
+        $vehicles = OperationalVehicle::orderBy('name')->get(['id', 'name', 'registration', 'status'])->map(fn ($vehicle) => [...$vehicle->toArray(), ...app(VehicleAvailability::class)->decision($vehicle->id, $start, $end, $workOrder->id)]);
+
+        return response()->json(['vehicles' => $vehicles, 'technicians' => User::whereIn('role', ['technician', 'admin'])->orderBy('name')->get(['id', 'name'])->map(fn ($user) => [
             'id' => $user->id, 'name' => $user->name,
-            ...$schedule->availability($user->id, $start, $end, $workOrder->id, $workOrder->required_skills ?? [], $workOrder->service_zone),
+            ...((! empty($data['vehicle_id']) || ! empty($data['vehicle_required'])) ? $schedule->vehicleAwareAvailability($user->id, $start, $end, $workOrder->id, $workOrder->required_skills ?? [], $workOrder->service_zone) : $schedule->availability($user->id, $start, $end, $workOrder->id, $workOrder->required_skills ?? [], $workOrder->service_zone)),
         ])]);
+    }
+
+    public function calendar(Request $request, User $user, IndividualCalendar $calendar)
+    {
+        abort_unless($request->user()->is($user) || $request->user()->can('manage-installations'), 403);
+
+        return Inertia::render('operations/individual-calendar', $calendar->for($request, $user));
     }
 
     public function orders(Request $r, OperationsWorkspace $w)

@@ -49,6 +49,14 @@ type Item = {
 };
 type Props = Workspace & {
     order: Order;
+    vehicleHistory?: {
+        id: number;
+        reason: string;
+        created_at: string;
+        actor: { name: string } | null;
+        previous_vehicle: { registration: string; name: string } | null;
+        next_vehicle: { registration: string; name: string } | null;
+    }[];
     scheduleHistory?: {
         id: number;
         reason: string;
@@ -138,6 +146,7 @@ export default function Detail(data: Props) {
                 <ScheduleForm
                     order={o}
                     users={data.users}
+                    vehicles={data.vehicles}
                     onClose={() => setScheduling(false)}
                 />
             )}{' '}
@@ -297,6 +306,22 @@ export default function Detail(data: Props) {
                                 </Link>
                             )}
                         </>
+                    )}
+                    {!!data.vehicleHistory?.length && (
+                        <section aria-label="Historial de vehículos">
+                            <h3>Historial de vehículos</h3>
+                            {data.vehicleHistory.map((revision) => (
+                                <p key={revision.id}>
+                                    {date(revision.created_at)} ·{' '}
+                                    {revision.actor?.name ?? '—'} ·{' '}
+                                    {revision.reason} ·{' '}
+                                    {revision.previous_vehicle?.registration ??
+                                        '—'}{' '}
+                                    →{' '}
+                                    {revision.next_vehicle?.registration ?? '—'}
+                                </p>
+                            ))}
+                        </section>
                     )}
                     {!!data.scheduleHistory?.length && (
                         <section aria-label="Historial de planificación">

@@ -19,12 +19,12 @@ class TechnicianSchedule
     private array $dailyLoad = [];
 
     /** A read-only decision; unknown must never be advertised as confirmed availability. */
-    public function availability(?int $userId, mixed $start, mixed $end, ?int $exceptOrderId = null, array $requiredSkills = [], ?string $serviceZone = null): array
+    public function availability(?int $userId, mixed $start, mixed $end, ?int $exceptOrderId = null, array $requiredSkills = [], ?string $serviceZone = null, ?int $exceptActivityId = null): array
     {
         $issues = [];
         $this->dailyLoad = [];
         try {
-            $this->assertAvailable($userId, $start, $end, $exceptOrderId, $requiredSkills, $serviceZone);
+            $this->assertAvailable($userId, $start, $end, $exceptOrderId, $requiredSkills, $serviceZone, exceptActivityId: $exceptActivityId);
         } catch (ValidationException $exception) {
             $issues = array_merge(...array_values($exception->errors()));
         }
@@ -34,11 +34,26 @@ class TechnicianSchedule
         if ($unknown && $issues === []) {
             $issues[] = $reason;
         }
-        $status = $issues === [] ? 'available' : ((($unknown && $issues === [$reason]) || $issues === [__('An existing assignment has an incomplete schedule. Availability cannot be confirmed.')]) ? 'unknown' : 'unavailable');
+        $status = $issues === [] ? 'available' : ((($unknown && $issues === [$reason]) || $issues === [__('An existing assignment has an incomplete schedule. Availability cannot be confirmed.')] || $issues === [__('The assignee has no linked staff record. Absences cannot be checked.')]) ? 'unknown' : 'unavailable');
 
         return ['status' => $status, 'issues' => $issues, 'timezone' => BusinessTime::zone(),
             'daily_capacity_minutes' => $profile?->daily_capacity_minutes, 'daily_load' => $this->dailyLoad,
             'required_skills' => array_map(TechnicianSkills::label(...), $requiredSkills)];
+    }
+
+    public function vehicleAwareAvailability(?int $userId, mixed $start, mixed $end, ?int $exceptOrderId = null, array $requiredSkills = [], ?string $serviceZone = null, ?int $exceptActivityId = null): array
+    {
+        $decision = $this->availability($userId, $start, $end, $exceptOrderId, $requiredSkills, $serviceZone, $exceptActivityId);
+        if ($decision['status'] === 'available') {
+            try {
+                $this->assertStaffRecord($userId);
+            } catch (ValidationException $exception) {
+                $decision['status'] = 'unknown';
+                $decision['issues'] = array_merge(...array_values($exception->errors()));
+            }
+        }
+
+        return $decision;
     }
 
     /** @param array<int, string> $requiredSkills */
@@ -178,6 +193,13 @@ class TechnicianSchedule
             if (! $covered) {
                 throw ValidationException::withMessages(['scheduled_start' => __('The selected period is outside configured working hours.')]);
             }
+        }
+    }
+
+    public function assertStaffRecord(?int $userId): void
+    {
+        if ($userId && ! User::whereKey($userId)->whereHas('staffProfile', fn ($q) => $q->where('category', 'staff'))->exists()) {
+            throw ValidationException::withMessages(['assigned_user_id' => __('The assignee has no linked staff record. Absences cannot be checked.')]);
         }
     }
 

@@ -5,12 +5,14 @@ namespace App\Services\Operations;
 use App\Models\AuditLog;
 use App\Models\CrmActivity;
 use App\Models\Installation;
+use App\Models\OperationalVehicle;
 use App\Models\Product;
 use App\Models\User;
 use App\Models\Warehouse;
 use App\Models\WorkOrder;
 use App\Services\Supply\CriticalMaterialRisk;
 use App\Services\Work\TechnicianSchedule;
+use App\Services\Work\VehicleAvailability;
 use App\Services\Work\WorkOrderWorkflow;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
@@ -20,17 +22,17 @@ class OperationsWorkspace
 {
     public function base(Request $request): Builder
     {
-        return WorkOrder::query()->when($request->user()->hasRole('technician'), fn ($q) => $q->where('assigned_user_id', $request->user()->id));
+        return WorkOrder::query()->when(! $request->user()->can('manage-installations'), fn ($q) => $q->where('assigned_user_id', $request->user()->id));
     }
 
     public function rows(Builder $query): Builder
     {
-        return $query->select(['id', 'installation_id', 'assigned_user_id', 'number', 'title', 'kind', 'status', 'scheduled_start', 'scheduled_end', 'updated_at', 'estimated_duration_minutes', 'instructions', 'completion_notes', 'completed_at', 'required_skills', 'service_zone', 'allowed_transitions_snapshot', 'signed_at'])->with(['installation:id,person_id,project_reference,site_name,site_address_line_1,site_city,site_latitude,site_longitude', 'installation.customer:id,company_name,first_name,last_name', 'assignedUser:id,name'])->with('activities:id,work_order_id,priority')->withCount(['checklistItems', 'checklistItems as completed_tasks_count' => fn ($q) => $q->whereNotNull('completed_at')]);
+        return $query->select(['id', 'installation_id', 'assigned_user_id', 'number', 'title', 'kind', 'status', 'scheduled_start', 'scheduled_end', 'updated_at', 'estimated_duration_minutes', 'instructions', 'completion_notes', 'completed_at', 'required_skills', 'service_zone', 'allowed_transitions_snapshot', 'signed_at', 'vehicle_id', 'vehicle_required'])->with(['vehicle:id,name,registration,status', 'installation:id,person_id,project_reference,site_name,site_address_line_1,site_city,site_latitude,site_longitude', 'installation.customer:id,company_name,first_name,last_name', 'assignedUser:id,name'])->with('activities:id,work_order_id,priority')->withCount(['checklistItems', 'checklistItems as completed_tasks_count' => fn ($q) => $q->whereNotNull('completed_at')]);
     }
 
     public function range(Request $request): array
     {
-        $data = $request->validate(['week' => ['nullable', 'date_format:Y-m-d'], 'owner' => ['nullable', 'integer'], 'q' => ['nullable', 'string', 'max:150'], 'status' => ['nullable', 'in:planned,in_progress,blocked,completed,cancelled'], 'kind' => ['nullable', 'in:survey,installation,commissioning,maintenance,repair'], 'installation' => ['nullable', 'integer'], 'mine' => ['nullable', 'boolean'], 'per_page' => ['nullable', 'in:10,15,30,50'], 'view' => ['nullable', 'in:week,month,day,list'], 'metric' => ['nullable', 'in:today,delayed,completed'], 'date_from' => ['nullable', 'date_format:Y-m-d'], 'date_to' => ['nullable', 'date_format:Y-m-d', ...($request->filled('date_from') ? ['after_or_equal:date_from'] : [])]]);
+        $data = $request->validate(['week' => ['nullable', 'date_format:Y-m-d'], 'owner' => ['nullable', 'integer'], 'q' => ['nullable', 'string', 'max:150'], 'status' => ['nullable', 'in:planned,in_progress,blocked,completed,cancelled'], 'kind' => ['nullable', 'in:survey,installation,commissioning,maintenance,repair'], 'installation' => ['nullable', 'integer'], 'vehicle' => ['nullable', 'integer', 'exists:operational_vehicles,id'], 'mine' => ['nullable', 'boolean'], 'per_page' => ['nullable', 'in:10,15,30,50'], 'view' => ['nullable', 'in:week,month,day,list'], 'metric' => ['nullable', 'in:today,delayed,completed'], 'date_from' => ['nullable', 'date_format:Y-m-d'], 'date_to' => ['nullable', 'date_format:Y-m-d', ...($request->filled('date_from') ? ['after_or_equal:date_from'] : [])]]);
         $date = isset($data['week']) ? CarbonImmutable::parse($data['week'], config('app.timezone')) : CarbonImmutable::now(config('app.timezone'));
         $start = ($data['view'] ?? 'week') === 'month' ? $date->startOfMonth()->startOfWeek() : (($data['view'] ?? 'week') === 'day' ? $date->startOfDay() : $date->startOfWeek());
         $end = ($data['view'] ?? 'week') === 'month' ? $date->endOfMonth()->endOfWeek() : (($data['view'] ?? 'week') === 'day' ? $date->endOfDay() : $start->endOfWeek());
@@ -54,14 +56,14 @@ class OperationsWorkspace
 
     public function common(Request $request): array
     {
-        return ['canManage' => $request->user()->can('manage-installations'), 'users' => User::query()->whereIn('role', ['technician', 'admin'])->when($request->user()->hasRole('technician'), fn ($q) => $q->whereKey($request->user()->id))->orderBy('name')->get(['id', 'name']), 'timezone' => config('app.timezone'), 'statuses' => array_keys(WorkOrderWorkflow::DEFAULT_TRANSITIONS), 'kinds' => ['survey', 'installation', 'commissioning', 'maintenance', 'repair']];
+        return ['vehicles' => $request->user()->can('manage-operations') ? OperationalVehicle::orderBy('name')->get(['id', 'registration', 'name', 'status']) : collect(), 'canManage' => $request->user()->can('manage-installations'), 'users' => User::query()->whereIn('role', ['technician', 'admin'])->when(! $request->user()->can('manage-installations'), fn ($q) => $q->whereKey($request->user()->id))->orderBy('name')->get(['id', 'name']), 'timezone' => config('app.timezone'), 'statuses' => array_keys(WorkOrderWorkflow::DEFAULT_TRANSITIONS), 'kinds' => ['survey', 'installation', 'commissioning', 'maintenance', 'repair']];
     }
 
     public function planning(Request $request): array
     {
         [$filters,$start,$end] = $this->range($request);
         $query = $this->base($request)->when(! filled($filters['status'] ?? null), fn ($q) => $q->whereNotIn('status', ['completed', 'cancelled']));
-        foreach (['owner' => 'assigned_user_id', 'installation' => 'installation_id', 'kind' => 'kind', 'status' => 'status'] as $key => $column) {
+        foreach (['owner' => 'assigned_user_id', 'installation' => 'installation_id', 'vehicle' => 'vehicle_id', 'kind' => 'kind', 'status' => 'status'] as $key => $column) {
             $query->when($filters[$key] ?? null, fn ($q, $value) => $q->where($column, $value));
         }
         $scheduled = $this->rows(clone $query)->whereInstant('scheduled_start', '<=', $end)->whereInstant('scheduled_end', '>', $start)->orderBy('scheduled_start')->limit(500)->get();
@@ -70,7 +72,9 @@ class OperationsWorkspace
         $scheduled->each(function ($o) use ($issues) {
             $decision = app(TechnicianSchedule::class)->availability($o->assigned_user_id, $o->scheduled_start, $o->scheduled_end, $o->id, $o->required_skills ?? [], $o->service_zone);
             $o->setAttribute('availability', $decision);
-            $o->setAttribute('planning_issues', [...($issues[$o->id] ?? []), ...array_map(fn ($message) => ['type' => $decision['status'], 'severity' => 'warning', 'message' => $message], $decision['issues'])]);
+            $vehicleDecision = app(VehicleAvailability::class)->decision($o->vehicle_id, $o->scheduled_start, $o->scheduled_end, $o->id, $o->vehicle_required);
+            $o->setAttribute('vehicle_availability', $vehicleDecision);
+            $o->setAttribute('planning_issues', [...($issues[$o->id] ?? []), ...array_map(fn ($message) => ['type' => 'vehicle', 'severity' => 'warning', 'message' => $message], $vehicleDecision['issues']), ...array_map(fn ($message) => ['type' => $decision['status'], 'severity' => 'warning', 'message' => $message], $decision['issues'])]);
             $o->setAttribute('scheduled_start_day', $o->scheduled_start->toDateString());
             $o->setAttribute('scheduled_end_day', $o->scheduled_end->copy()->subMicrosecond()->toDateString());
         });
@@ -80,7 +84,7 @@ class OperationsWorkspace
             $days[] = $day->toDateString();
         }
 
-        return [...$this->common($request), 'filters' => $filters, 'orders' => $scheduled, 'backlog' => $backlog, 'days' => $days, 'range' => $this->navigation($filters, $start, $end), 'installations' => Installation::orderBy('project_reference')->get(['id', 'project_reference', 'site_name']), 'activities' => $this->unlinkedActivities($request, $filters, $start, $end), 'truncated' => $scheduled->count() === 500];
+        return [...$this->common($request), 'filters' => $filters, 'orders' => $scheduled, 'backlog' => $backlog, 'days' => $days, 'range' => $this->navigation($filters, $start, $end), 'installations' => Installation::query()->when(! $request->user()->can('manage-installations'), fn ($q) => $q->where(fn ($q) => $q->whereHas('workOrders', fn ($w) => $w->where('assigned_user_id', $request->user()->id))->orWhereHas('activities', fn ($a) => $a->where('assigned_user_id', $request->user()->id))))->orderBy('project_reference')->get(['id', 'project_reference', 'site_name']), 'activities' => $this->unlinkedActivities($request, $filters, $start, $end), 'truncated' => $scheduled->count() === 500];
     }
 
     public function dashboard(Request $request): array
@@ -158,29 +162,30 @@ class OperationsWorkspace
             'warehouses' => Warehouse::where('is_active', true)->where('is_usable', true)->orderBy('name')->get(['id', 'name']),
         ] : null;
 
-        return [...$this->common($request), 'order' => $order, 'scheduleHistory' => $tab === 'activity' ? $order->reschedules()->with(['actor:id,name', 'previousTechnician:id,name', 'nextTechnician:id,name'])->latest('id')->limit(50)->get() : [], 'tab' => $tab, 'content' => $content, 'materialOptions' => $materialOptions, 'runningTimer' => $order->timeEntries()->where('user_id', $request->user()->id)->whereNull('ended_at')->first(['id', 'started_at'])?->setAppends([]), 'transitions' => ($order->allowed_transitions_snapshot ?: WorkOrderWorkflow::DEFAULT_TRANSITIONS)[$order->status] ?? []];
+        return [...$this->common($request), 'order' => $order, 'vehicleHistory' => $tab === 'activity' ? $order->vehicleHistory()->with(['actor:id,name', 'previousVehicle:id,name,registration', 'nextVehicle:id,name,registration', 'previousAssignee:id,name', 'nextAssignee:id,name'])->limit(50)->get() : [], 'scheduleHistory' => $tab === 'activity' ? $order->reschedules()->with(['actor:id,name', 'previousTechnician:id,name', 'nextTechnician:id,name'])->latest('id')->limit(50)->get() : [], 'tab' => $tab, 'content' => $content, 'materialOptions' => $materialOptions, 'runningTimer' => $order->timeEntries()->where('user_id', $request->user()->id)->whereNull('ended_at')->first(['id', 'started_at'])?->setAppends([]), 'transitions' => ($order->allowed_transitions_snapshot ?: WorkOrderWorkflow::DEFAULT_TRANSITIONS)[$order->status] ?? []];
     }
 
     private function unlinkedActivities(Request $request, array $filters, $start, $end)
     {
         return CrmActivity::query()->whereNull('work_order_id')
-            ->when(! $request->user()->hasRole('admin', 'commercial'), fn ($q) => $q->where('assigned_user_id', $request->user()->id))
+            ->when(! $request->user()->can('manage-installations'), fn ($q) => $q->where('assigned_user_id', $request->user()->id))
             ->when($filters['owner'] ?? null, fn ($q, $id) => $q->where('assigned_user_id', $id))
             ->when($filters['installation'] ?? null, fn ($q, $id) => $q->where('installation_id', $id))
+            ->when($filters['vehicle'] ?? null, fn ($q, $id) => $q->where('vehicle_id', $id))
             ->when($filters['kind'] ?? null, fn ($q, $kind) => $kind === 'survey' ? $q->where('type', 'visit') : $q->whereRaw('1 = 0'))
             ->when($filters['status'] ?? null, fn ($q, $status) => $q->where('status', $status === 'planned' ? 'pending' : $status))
             ->where(fn ($q) => $q->where(fn ($q) => $q->whereInstant('starts_at', '<=', $end)->whereInstant('due_at', '>=', $start))
                 ->orWhere(fn ($q) => $q->whereNull('starts_at')->whereBetween('due_at', [$start, $end]))
                 ->orWhere(fn ($q) => $q->whereNull('due_at')->whereBetween('starts_at', [$start, $end])))
-            ->with('assignedUser:id,name')->orderBy('starts_at')->limit(200)
-            ->get(['id', 'title', 'type', 'status', 'priority', 'starts_at', 'due_at', 'assigned_user_id', 'installation_id', 'opportunity_id']);
+            ->with(['assignedUser:id,name', 'vehicle:id,registration,name,status'])->orderBy('starts_at')->limit(200)
+            ->get(['id', 'title', 'type', 'status', 'priority', 'starts_at', 'due_at', 'assigned_user_id', 'installation_id', 'opportunity_id', 'vehicle_id', 'vehicle_required']);
     }
 
     public function agenda(Request $request): array
     {
         [$filters,$start,$end] = $this->range($request);
         $query = $this->base($request);
-        foreach (['owner' => 'assigned_user_id', 'installation' => 'installation_id', 'kind' => 'kind', 'status' => 'status'] as $key => $column) {
+        foreach (['owner' => 'assigned_user_id', 'installation' => 'installation_id', 'vehicle' => 'vehicle_id', 'kind' => 'kind', 'status' => 'status'] as $key => $column) {
             $query->when($filters[$key] ?? null, fn ($q, $value) => $q->where($column, $value));
         }
         $orders = $this->rows($query)->whereInstant('scheduled_start', '<=', $end)->where(fn ($q) => $q->whereInstant('scheduled_end', '>', $start)->orWhere(fn ($s) => $s->whereNull('scheduled_end')->whereInstant('scheduled_start', '>=', $start)))->orderBy('scheduled_start')->limit(500)->get();

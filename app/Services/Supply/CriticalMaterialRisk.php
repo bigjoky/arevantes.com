@@ -23,7 +23,7 @@ class CriticalMaterialRisk
             ->whereIn('status', ['planned', 'in_progress', 'blocked'])
             ->whereNotNull('scheduled_start')
             ->whereBetween('scheduled_start', [$start, $end])
-            ->when($viewer?->hasRole('technician'), fn ($query) => $query->where('assigned_user_id', $viewer->id))
+            ->when($viewer && ! $viewer->can('manage-installations'), fn ($query) => $query->where('assigned_user_id', $viewer->id))
             ->orderBy('scheduled_start')
             ->get(['id', 'installation_id', 'assigned_user_id', 'number', 'title', 'scheduled_start'])
             ->unique('installation_id')

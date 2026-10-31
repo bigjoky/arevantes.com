@@ -30,6 +30,14 @@ export type Order = {
     scheduled_end_day?: string;
     estimated_duration_minutes: number | null;
     assigned_user_id: number | null;
+    vehicle_id: number | null;
+    vehicle_required: boolean;
+    vehicle: {
+        id: number;
+        name: string;
+        registration: string;
+        status: string;
+    } | null;
     assigned_user: { id: number; name: string } | null;
     installation: {
         id: number;
@@ -69,6 +77,12 @@ export type Workspace = {
         project_reference: string | null;
         site_name: string | null;
     }[];
+    vehicles: {
+        id: number;
+        registration: string;
+        name: string;
+        status: string;
+    }[];
     canManage: boolean;
     filters: Record<string, string>;
     statuses: string[];
@@ -87,6 +101,7 @@ export type Workspace = {
         starts_at: string | null;
         due_at: string | null;
         assigned_user?: { name: string } | null;
+        vehicle?: { id: number; name: string; registration: string } | null;
     }[];
     truncated: boolean;
 };
@@ -179,7 +194,10 @@ export function OrderCards({ orders }: { orders: Order[] }) {
                         <p>{o.title}</p>
                         <small>
                             {o.installation.site_name} ·{' '}
-                            {o.assigned_user?.name ?? 'Sin asignar'}
+                            {o.assigned_user?.name ?? 'Sin asignar'}{' '}
+                            {o.vehicle
+                                ? `· ${o.vehicle.registration} · ${o.vehicle.name}`
+                                : ''}
                         </small>
                     </div>
                     <div>
@@ -258,15 +276,19 @@ export function Range({ data, path }: { data: Workspace; path: string }) {
 export function ScheduleForm({
     order,
     users,
+    vehicles,
     onClose,
 }: {
     order: Order;
     users: Workspace['users'];
+    vehicles: Workspace['vehicles'];
     onClose: () => void;
 }) {
     const local = businessDateTimeInput;
     const form = useForm({
         assigned_user_id: String(order.assigned_user_id ?? ''),
+        vehicle_id: String(order.vehicle_id ?? ''),
+        vehicle_required: order.vehicle_required ?? false,
         scheduled_start: local(order.scheduled_start),
         scheduled_end: local(order.scheduled_end),
         reschedule_reason: '',
@@ -275,6 +297,13 @@ export function ScheduleForm({
 
     const [availability, setAvailability] = useState<{
         signature: string;
+        vehicles: {
+            id: number;
+            name: string;
+            registration: string;
+            status: string;
+            issues: string[];
+        }[];
         technicians: {
             id: number;
             name: string;
@@ -295,6 +324,8 @@ export function ScheduleForm({
     const signature = JSON.stringify([
         form.data.scheduled_start,
         form.data.scheduled_end,
+        form.data.vehicle_id,
+        form.data.vehicle_required,
     ]);
     const checked = availability?.signature === signature;
     const candidate = checked
@@ -302,6 +333,14 @@ export function ScheduleForm({
               (tech) => String(tech.id) === form.data.assigned_user_id,
           )
         : undefined;
+    const vehicleDecision = checked
+        ? availability.vehicles.find(
+              (item) => String(item.id) === form.data.vehicle_id,
+          )
+        : undefined;
+    const vehicleReady = !form.data.vehicle_id
+        ? !form.data.vehicle_required
+        : vehicleDecision?.status === 'available';
     const protection = useOperationsFormProtection(() => form);
 
     return (
@@ -314,6 +353,7 @@ export function ScheduleForm({
 
                     if (
                         candidate?.status !== 'available' ||
+                        !vehicleReady ||
                         !protection.beginSubmit()
                     ) {
                         return;
@@ -378,6 +418,32 @@ export function ScheduleForm({
                     />
                 </label>
                 <label>
+                    Vehículo
+                    <select
+                        value={form.data.vehicle_id}
+                        onChange={(e) =>
+                            form.setData('vehicle_id', e.target.value)
+                        }
+                    >
+                        <option value="">Sin vehículo</option>
+                        {vehicles.map((vehicle) => (
+                            <option key={vehicle.id} value={vehicle.id}>
+                                {vehicle.registration} · {vehicle.name}
+                            </option>
+                        ))}
+                    </select>
+                </label>
+                <label>
+                    <input
+                        type="checkbox"
+                        checked={form.data.vehicle_required}
+                        onChange={(e) =>
+                            form.setData('vehicle_required', e.target.checked)
+                        }
+                    />{' '}
+                    Vehículo necesario para esta intervención
+                </label>
+                <label>
                     Motivo
                     <input
                         required
@@ -413,6 +479,10 @@ export function ScheduleForm({
                                     form.data.scheduled_end,
                                     order.scheduled_end,
                                 ),
+                                vehicle_id: form.data.vehicle_id,
+                                vehicle_required: form.data.vehicle_required
+                                    ? '1'
+                                    : '0',
                             });
                             const response = await fetch(
                                 `/operations/planning/${order.id}/availability?${query}`,
@@ -429,6 +499,7 @@ export function ScheduleForm({
                             setAvailability({
                                 signature,
                                 technicians: result.technicians,
+                                vehicles: result.vehicles,
                             });
                         } catch (error) {
                             setCheckError(
@@ -446,6 +517,20 @@ export function ScheduleForm({
                 {checkError && <p role="alert">{checkError}</p>}
                 {checked && (
                     <div aria-live="polite">
+                        {availability.vehicles.map((vehicle) => (
+                            <p key={vehicle.id}>
+                                <strong>
+                                    {vehicle.registration} · {vehicle.name}
+                                </strong>{' '}
+                                ·{' '}
+                                {vehicle.status === 'available'
+                                    ? 'Disponible'
+                                    : vehicle.status === 'unknown'
+                                      ? 'Disponibilidad desconocida'
+                                      : 'No disponible'}{' '}
+                                {vehicle.issues.join(' ')}
+                            </p>
+                        ))}
                         {availability.technicians.map((tech) => (
                             <div key={tech.id} className="mb-2 text-foreground">
                                 <strong>{tech.name}</strong> ·{' '}
@@ -476,7 +561,9 @@ export function ScheduleForm({
                 )}
                 <Button
                     disabled={
-                        form.processing || candidate?.status !== 'available'
+                        form.processing ||
+                        candidate?.status !== 'available' ||
+                        !vehicleReady
                     }
                 >
                     Confirmar planificación
@@ -508,6 +595,7 @@ export function Planning({
                 <ScheduleForm
                     order={selected}
                     users={data.users}
+                    vehicles={data.vehicles}
                     onClose={() => setSelected(null)}
                 />
             )}
@@ -517,7 +605,9 @@ export function Planning({
                         <p key={activity.id}>
                             {date(activity.starts_at)} · {activity.title} ·{' '}
                             {activity.assigned_user?.name ?? 'Sin asignar'} ·{' '}
-                            {activity.status} · {activity.priority}
+                            {activity.status} · {activity.priority}{' '}
+                            {activity.vehicle &&
+                                `· ${activity.vehicle.registration} · ${activity.vehicle.name}`}
                         </p>
                     ))}
                 </Card>
@@ -603,6 +693,16 @@ export function Planning({
                                                                 ?.priority ??
                                                                 '—'}
                                                         </small>
+                                                        {o.vehicle && (
+                                                            <small>
+                                                                {
+                                                                    o.vehicle
+                                                                        .registration
+                                                                }{' '}
+                                                                ·{' '}
+                                                                {o.vehicle.name}
+                                                            </small>
+                                                        )}
                                                         <small>
                                                             {date(
                                                                 o.scheduled_start,

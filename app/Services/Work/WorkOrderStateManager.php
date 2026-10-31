@@ -67,6 +67,15 @@ class WorkOrderStateManager
                 $end = $locked->scheduled_end ?: $start->copy()->addMinutes($locked->estimated_duration_minutes ?: 120);
                 app(TechnicianSchedule::class)->assertAvailable($locked->assigned_user_id, $start, $end, $locked->id, $locked->required_skills ?? [], $locked->service_zone);
             }
+            $enteringExecution = $status === 'in_progress' || ($status === 'completed' && $locked->status === 'planned');
+            $reopening = $status === 'planned' && $locked->status === 'cancelled';
+            if (($enteringExecution || ($reopening && ($locked->vehicle_id || $locked->scheduled_start || $locked->scheduled_end))) && ($locked->vehicle_id || $locked->vehicle_required)) {
+                app(TechnicianSchedule::class)->lockTechnicians([$locked->assigned_user_id]);
+                app(TechnicianSchedule::class)->assertStaffRecord($locked->assigned_user_id);
+                $vehicles = app(VehicleAvailability::class);
+                $vehicles->lockVehicles([$locked->vehicle_id]);
+                $vehicles->assertAvailable($locked->vehicle_id, $locked->scheduled_start, $locked->scheduled_end, $locked->id, $locked->vehicle_required);
+            }
             if ($status === 'in_progress') {
                 $readiness = $this->readiness->for($locked);
                 abort_if(! $readiness['material_ready_now'], 422, __('Required materials are not physically available for this work yet.'));

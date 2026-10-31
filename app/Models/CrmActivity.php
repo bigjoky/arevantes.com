@@ -6,6 +6,7 @@ use App\Casts\PreciseInstant;
 use App\Models\Concerns\HasPreciseInstants;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class CrmActivity extends Model
@@ -15,11 +16,21 @@ class CrmActivity extends Model
 
     protected $touches = ['workOrder'];
 
-    protected $fillable = ['required_for_closure', 'planning_scenario_request_id', 'installation_id', 'work_order_id', 'person_id', 'opportunity_id', 'assigned_user_id', 'created_by', 'type', 'title', 'notes', 'priority', 'status', 'blocked_reason', 'starts_at', 'due_at', 'completed_at', 'completed_by', 'completion_notes'];
+    protected $fillable = ['vehicle_id', 'vehicle_required', 'required_for_closure', 'planning_scenario_request_id', 'installation_id', 'work_order_id', 'person_id', 'opportunity_id', 'assigned_user_id', 'created_by', 'type', 'title', 'notes', 'priority', 'status', 'blocked_reason', 'starts_at', 'due_at', 'completed_at', 'completed_by', 'completion_notes'];
 
     protected function casts(): array
     {
-        return ['required_for_closure' => 'boolean', 'starts_at' => PreciseInstant::class, 'due_at' => PreciseInstant::class.':latest', 'completed_at' => PreciseInstant::class];
+        return ['vehicle_required' => 'boolean', 'required_for_closure' => 'boolean', 'starts_at' => PreciseInstant::class, 'due_at' => PreciseInstant::class.':latest', 'completed_at' => PreciseInstant::class];
+    }
+
+    public function vehicle(): BelongsTo
+    {
+        return $this->belongsTo(OperationalVehicle::class, 'vehicle_id');
+    }
+
+    public function vehicleHistory(): HasMany
+    {
+        return $this->hasMany(OperationalVehicleAssignmentHistory::class, 'crm_activity_id')->latest('id');
     }
 
     public function installation(): BelongsTo

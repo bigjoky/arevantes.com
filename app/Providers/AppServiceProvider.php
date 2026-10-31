@@ -51,6 +51,8 @@ use App\Models\JournalEntry;
 use App\Models\JournalLine;
 use App\Models\LedgerAccount;
 use App\Models\MaintenancePlan;
+use App\Models\OperationalVehicle;
+use App\Models\OperationalVehicleBlock;
 use App\Models\Opportunity;
 use App\Models\PaymentBatch;
 use App\Models\PaymentBatchItem;
@@ -157,6 +159,8 @@ class AppServiceProvider extends ServiceProvider
         CommercialFieldSession::observe(AuditableObserver::class);
         CommercialRoutePlan::observe(AuditableObserver::class);
         CommercialRouteStop::observe(AuditableObserver::class);
+        OperationalVehicle::observe(AuditableObserver::class);
+        OperationalVehicleBlock::observe(AuditableObserver::class);
         HrCalendarHoliday::observe(AuditableObserver::class);
         HrContractChange::observe(AuditableObserver::class);
         HrDepartment::observe(AuditableObserver::class);

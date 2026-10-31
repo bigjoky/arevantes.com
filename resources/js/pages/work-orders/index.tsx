@@ -97,6 +97,9 @@ type PlanningReadiness = {
     shortage_items: number;
     shortage_quantity: number;
     personnel_ready: boolean;
+    vehicle_ready: boolean;
+    vehicle_status: 'available' | 'not_required' | 'unknown' | 'unavailable';
+    vehicle_issues: string[];
     required_skills: string[];
     qualified_technicians: { id: number; name: string }[];
     rows: (MaterialPlanRow & {
@@ -1070,6 +1073,8 @@ function WorkOrderMaterials({
                     {order.planning_readiness.personnel_ready
                         ? 'qualified technician assigned'
                         : `${order.planning_readiness.qualified_technicians.length} qualified technician(s) available`}
+                    {' '}· Vehicle: {order.planning_readiness.vehicle_status === 'not_required' ? 'not required' : order.planning_readiness.vehicle_ready ? 'available' : order.planning_readiness.vehicle_status === 'unknown' ? 'availability unknown' : 'pending or unavailable'}
+                    {order.planning_readiness.vehicle_issues.length > 0 && <span> ({order.planning_readiness.vehicle_issues.join(' ')})</span>}
                 </div>
                 {!order.planning_readiness.material_ready &&
                     order.planning_readiness.material_ready_on && (

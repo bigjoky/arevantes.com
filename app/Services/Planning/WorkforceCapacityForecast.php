@@ -25,7 +25,7 @@ class WorkforceCapacityForecast
 
         $technicians = User::query()
             ->where('role', 'technician')
-            ->when($viewer?->hasRole('technician'), fn ($query) => $query->whereKey($viewer->id))
+            ->when($viewer && ! $viewer->can('manage-installations'), fn ($query) => $query->whereKey($viewer->id))
             ->with([
                 'fieldServiceProfile:user_id,daily_capacity_minutes,is_available',
                 'staffProfile:id',

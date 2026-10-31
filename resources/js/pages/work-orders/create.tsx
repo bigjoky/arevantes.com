@@ -1,4 +1,5 @@
 import { Link, useForm } from '@inertiajs/react';
+import { useState } from 'react';
 import { Frame, Card, kinds } from '@/components/operations/workspace';
 import type { Workspace } from '@/components/operations/workspace';
 import { Button } from '@/components/ui/button';
@@ -23,6 +24,8 @@ export default function Create(data: Props) {
     const form = useForm({
         installation_id: String(data.selectedInstallation ?? ''),
         assigned_user_id: '',
+        vehicle_id: '',
+        vehicle_required: false,
         title: '',
         kind: data.selectedKind || 'installation',
         work_order_template_id: '',
@@ -31,6 +34,34 @@ export default function Create(data: Props) {
         instructions: '',
     });
 
+    const [vehiclePreview, setVehiclePreview] = useState<{
+        signature: string;
+        assignee: { status: string; issues: string[] } | null;
+        vehicles: {
+            id: number;
+            registration: string;
+            name: string;
+            status: string;
+            issues: string[];
+        }[];
+    } | null>(null);
+    const [vehicleError, setVehicleError] = useState('');
+    const signature = JSON.stringify([
+        form.data.scheduled_start,
+        form.data.scheduled_end,
+        form.data.assigned_user_id,
+        form.data.installation_id,
+        form.data.kind,
+        form.data.work_order_template_id,
+    ]);
+    const vehicleReady = !form.data.vehicle_id
+        ? !form.data.vehicle_required
+        : vehiclePreview?.signature === signature &&
+          vehiclePreview.vehicles.find(
+              (item) => String(item.id) === form.data.vehicle_id,
+          )?.status === 'available' &&
+          (!form.data.assigned_user_id ||
+              vehiclePreview.assignee?.status === 'available');
     const protection = useOperationsFormProtection(() => form);
 
     return (
@@ -56,7 +87,7 @@ export default function Create(data: Props) {
                     onSubmit={(e) => {
                         e.preventDefault();
 
-                        if (!protection.beginSubmit()) {
+                        if (!vehicleReady || !protection.beginSubmit()) {
                             return;
                         }
 
@@ -108,6 +139,132 @@ export default function Create(data: Props) {
                             ))}
                         </select>
                     </label>
+                    <label>
+                        Vehículo
+                        <select
+                            value={form.data.vehicle_id}
+                            onChange={(event) =>
+                                form.setData('vehicle_id', event.target.value)
+                            }
+                        >
+                            <option value="">Sin vehículo</option>
+                            {data.vehicles.map((vehicle) => (
+                                <option key={vehicle.id} value={vehicle.id}>
+                                    {vehicle.registration} · {vehicle.name}
+                                </option>
+                            ))}
+                        </select>
+                    </label>
+                    <label>
+                        <input
+                            type="checkbox"
+                            checked={form.data.vehicle_required}
+                            onChange={(event) =>
+                                form.setData(
+                                    'vehicle_required',
+                                    event.target.checked,
+                                )
+                            }
+                        />{' '}
+                        Vehículo necesario para esta intervención
+                    </label>
+                    <Button
+                        type="button"
+                        disabled={
+                            !form.data.scheduled_start ||
+                            !form.data.scheduled_end
+                        }
+                        onClick={async () => {
+                            setVehicleError('');
+
+                            try {
+                                const params = new URLSearchParams({
+                                    starts_at: form.data.scheduled_start,
+                                    ends_at: form.data.scheduled_end,
+                                });
+
+                                if (form.data.assigned_user_id) {
+                                    params.set(
+                                        'assignee_id',
+                                        form.data.assigned_user_id,
+                                    );
+                                }
+
+                                if (form.data.installation_id) {
+                                    params.set(
+                                        'installation_id',
+                                        form.data.installation_id,
+                                    );
+                                }
+
+                                if (form.data.kind) {
+                                    params.set('kind', form.data.kind);
+                                }
+
+                                if (form.data.work_order_template_id) {
+                                    params.set(
+                                        'work_order_template_id',
+                                        form.data.work_order_template_id,
+                                    );
+                                }
+
+                                const response = await fetch(
+                                    `/operations/vehicles/availability?${params}`,
+                                    { headers: { Accept: 'application/json' } },
+                                );
+
+                                if (!response.ok) {
+                                    throw new Error(
+                                        'No se pudo comprobar la disponibilidad del vehículo.',
+                                    );
+                                }
+
+                                const result = await response.json();
+                                setVehiclePreview({
+                                    signature,
+                                    vehicles: result.vehicles,
+                                    assignee: result.assignee,
+                                });
+                            } catch (error) {
+                                setVehicleError(
+                                    error instanceof Error
+                                        ? error.message
+                                        : 'Error de disponibilidad',
+                                );
+                            }
+                        }}
+                    >
+                        Consultar disponibilidad de vehículos
+                    </Button>
+                    {vehicleError && <p role="alert">{vehicleError}</p>}
+                    {vehiclePreview?.signature === signature && (
+                        <div aria-live="polite">
+                            {vehiclePreview.assignee && (
+                                <p>
+                                    Técnico ·{' '}
+                                    {vehiclePreview.assignee.status ===
+                                    'available'
+                                        ? 'Disponible'
+                                        : vehiclePreview.assignee.status ===
+                                            'unknown'
+                                          ? 'Disponibilidad desconocida'
+                                          : 'No disponible'}{' '}
+                                    {vehiclePreview.assignee.issues.join(' ')}
+                                </p>
+                            )}
+                            {vehiclePreview.vehicles.map((vehicle) => (
+                                <p key={vehicle.id}>
+                                    {vehicle.registration} · {vehicle.name} ·{' '}
+                                    {vehicle.status === 'available'
+                                        ? 'Disponible'
+                                        : vehicle.status === 'unknown'
+                                          ? 'Disponibilidad desconocida'
+                                          : 'No disponible'}{' '}
+                                    {vehicle.issues.join(' ')}
+                                </p>
+                            ))}
+                        </div>
+                    )}
                     <label>
                         Título
                         <input
@@ -203,7 +360,7 @@ export default function Create(data: Props) {
                             {error}
                         </p>
                     ))}
-                    <Button disabled={form.processing}>
+                    <Button disabled={form.processing || !vehicleReady}>
                         Crear orden de trabajo
                     </Button>
                 </form>

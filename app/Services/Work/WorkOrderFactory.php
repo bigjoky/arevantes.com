@@ -35,6 +35,10 @@ class WorkOrderFactory
             if (filled($data['activity_id'] ?? null)) {
                 $sourceActivity = CrmActivity::whereKey($data['activity_id'])->lockForUpdate()->firstOrFail();
                 abort_unless($sourceActivity->installation_id === $installation->id, 422);
+                $data['vehicle_id'] ??= $sourceActivity->vehicle_id;
+                if (! array_key_exists('vehicle_required', $data)) {
+                    $data['vehicle_required'] = $sourceActivity->vehicle_required;
+                }
                 if ($sourceActivity->work_order_id) {
                     return WorkOrder::findOrFail($sourceActivity->work_order_id);
                 }
@@ -48,6 +52,15 @@ class WorkOrderFactory
                 $owner = isset($data['assigned_user_id']) ? (int) $data['assigned_user_id'] : null;
                 $schedule->lockTechnicians([$owner]);
                 $schedule->assertAvailable($owner, $data['scheduled_start'] ?? null, $data['scheduled_end'] ?? null, null, $data['required_skills'] ?? $template?->required_skills ?? [], $data['service_zone'] ?? $installation->site_postal_code, exceptActivityId: isset($data['activity_id']) ? (int) $data['activity_id'] : null);
+            }
+            $vehicleId = $data['vehicle_id'] ?? null;
+            $vehicles = app(VehicleAvailability::class);
+            $vehicles->lockVehicles([$vehicleId]);
+            if (($vehicleId || ($data['vehicle_required'] ?? false)) && ($data['scheduled_start'] ?? null) && ($data['scheduled_end'] ?? null)) {
+                app(TechnicianSchedule::class)->assertStaffRecord(isset($data['assigned_user_id']) ? (int) $data['assigned_user_id'] : null);
+            }
+            if ($vehicleId || ($data['scheduled_start'] ?? null) || ($data['scheduled_end'] ?? null)) {
+                $vehicles->assertAvailable($vehicleId ? (int) $vehicleId : null, $data['scheduled_start'] ?? null, $data['scheduled_end'] ?? null, required: (bool) ($data['vehicle_required'] ?? false), exceptActivityId: isset($data['activity_id']) ? (int) $data['activity_id'] : null);
             }
             if (in_array($kind, ['installation', 'commissioning'], true)) {
                 app(TechnicalExecutionGuard::class)->assertCanPrepare($installation);
@@ -66,6 +79,17 @@ class WorkOrderFactory
                 'service_zone' => $data['service_zone'] ?? $installation->site_postal_code,
                 'allowed_transitions_snapshot' => ($data['allowed_transitions_snapshot'] ?? null) ?: $template?->allowed_transitions ?: $this->workflow->defaultTransitions(),
             ]);
+            if ($vehicleId || ($data['vehicle_required'] ?? false)) {
+                $order->vehicleHistory()->create([
+                    'old_vehicle_id' => null, 'new_vehicle_id' => $vehicleId,
+                    'old_assignee_id' => null, 'new_assignee_id' => $order->assigned_user_id,
+                    'old_start_utc' => null, 'old_end_utc' => null,
+                    'new_start_utc' => $order->scheduled_start?->copy()->utc(),
+                    'new_end_utc' => $order->scheduled_end?->copy()->utc(),
+                    'old_required' => false, 'new_required' => (bool) ($data['vehicle_required'] ?? false),
+                    'reason' => __('Vehicle assigned when creating the work order.'), 'changed_by' => $createdBy,
+                ]);
+            }
             $order->update(['number' => 'WO-'.now()->format('Y').'-'.str_pad((string) $order->id, 5, '0', STR_PAD_LEFT)]);
             $items = array_key_exists('checklist', $data)
                 ? $data['checklist']
@@ -79,6 +103,8 @@ class WorkOrderFactory
             $activity->fill([
                 'installation_id' => $installation->id,
                 'work_order_id' => $order->id,
+                'vehicle_id' => $order->vehicle_id,
+                'vehicle_required' => $order->vehicle_required ?? false,
                 'person_id' => $installation->person_id,
                 'assigned_user_id' => $order->assigned_user_id,
                 'created_by' => $createdBy,

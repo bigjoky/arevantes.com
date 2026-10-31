@@ -13,7 +13,7 @@ use Illuminate\Validation\ValidationException;
 
 class WorkOrderRescheduler
 {
-    public function __construct(private TechnicianSchedule $schedule, private ServiceCycleScheduleWorkflow $serviceCycles) {}
+    public function __construct(private TechnicianSchedule $schedule, private ServiceCycleScheduleWorkflow $serviceCycles, private VehicleAvailability $vehicles) {}
 
     /** @param array<string, mixed> $changes */
     public function reschedule(WorkOrder $order, array $changes, string $reason, ?int $userId, ?string $batchUuid = null): void
@@ -27,6 +27,7 @@ class WorkOrderRescheduler
             unset($changes['expected_updated_at']);
             $newOwner = array_key_exists('assigned_user_id', $changes) ? $changes['assigned_user_id'] : $lockedOrder->assigned_user_id;
             $this->schedule->lockTechnicians([$lockedOrder->assigned_user_id, $newOwner]);
+            $this->vehicles->lockVehicles([$lockedOrder->vehicle_id, $changes['vehicle_id'] ?? null]);
             $this->rescheduleLocked($lockedOrder, $changes, $reason, $userId, $batchUuid);
         });
         $order->refresh();
@@ -45,6 +46,7 @@ class WorkOrderRescheduler
             abort_unless($orders->count() === $orderIds->count(), 404);
             $owners = collect($items)->pluck('assigned_user_id')->merge($orders->pluck('assigned_user_id'))->all();
             $this->schedule->lockTechnicians($owners);
+            $this->vehicles->lockVehicles(collect($items)->pluck('vehicle_id')->merge($orders->pluck('vehicle_id'))->all());
 
             foreach ($items as $item) {
                 $order = $orders->get((int) $item['work_order_id']);
@@ -69,7 +71,11 @@ class WorkOrderRescheduler
         $newStart = $newStart ? BusinessTime::parse($newStart, 'scheduled_start') : null;
         $newEnd = $newEnd ? BusinessTime::parse($newEnd, 'scheduled_end') : null;
         $newOwner = array_key_exists('assigned_user_id', $changes) ? $changes['assigned_user_id'] : $order->assigned_user_id;
+        $newVehicle = array_key_exists('vehicle_id', $changes) ? $changes['vehicle_id'] : $order->vehicle_id;
+        $newRequired = array_key_exists('vehicle_required', $changes) ? (bool) $changes['vehicle_required'] : $order->vehicle_required;
         if ((int) $newOwner === (int) $order->assigned_user_id
+            && (int) $newVehicle === (int) $order->vehicle_id
+            && $newRequired === $order->vehicle_required
             && ($newStart?->toISOString()) === ($order->scheduled_start?->toISOString())
             && ($newEnd?->toISOString()) === ($order->scheduled_end?->toISOString())) {
             return; // A repeated confirmation cannot duplicate the schedule history.
@@ -87,6 +93,29 @@ class WorkOrderRescheduler
             $order->service_zone,
         );
 
+        if (($newVehicle || $newRequired) && $newStart && $newEnd) {
+            $this->schedule->assertStaffRecord($newOwner ? (int) $newOwner : null);
+        }
+        if ($newVehicle || $newStart || $newEnd) {
+            $this->vehicles->assertAvailable($newVehicle ? (int) $newVehicle : null, $newStart, $newEnd, $order->id, $newRequired);
+        }
+        if ($order->vehicle_id || $newVehicle || $order->vehicle_required !== $newRequired) {
+            $order->vehicleHistory()->create([
+                'old_vehicle_id' => $order->vehicle_id,
+                'new_vehicle_id' => $newVehicle,
+                'old_assignee_id' => $order->assigned_user_id,
+                'new_assignee_id' => $newOwner,
+                'old_start_utc' => $order->scheduled_start?->copy()->utc(),
+                'old_end_utc' => $order->scheduled_end?->copy()->utc(),
+                'new_start_utc' => $newStart?->copy()->utc(),
+                'new_end_utc' => $newEnd?->copy()->utc(),
+                'old_required' => $order->vehicle_required,
+                'new_required' => $newRequired,
+                'reason' => $reason,
+                'changed_by' => $userId,
+            ]);
+        }
+
         $order->reschedules()->create([
             'changed_by' => $userId,
             'old_assigned_user_id' => $order->assigned_user_id,
@@ -101,6 +130,6 @@ class WorkOrderRescheduler
         $order->update($changes);
         app(InstallationWorkOrderSynchronizer::class)->sync($order);
         $this->serviceCycles->recordRevision($order, $reason, $userId);
-        $order->activities()->update(['assigned_user_id' => $newOwner, 'starts_at' => $newStart, 'due_at' => $newEnd]);
+        $order->activities()->update(['assigned_user_id' => $newOwner, 'starts_at' => $newStart, 'due_at' => $newEnd, 'vehicle_id' => $newVehicle, 'vehicle_required' => $newRequired]);
     }
 }

@@ -142,6 +142,8 @@ class WorkOrderController extends Controller
             'items' => ['required', 'array', 'min:1', 'max:100'],
             'items.*.work_order_id' => ['required', 'distinct', 'exists:work_orders,id'],
             'items.*.assigned_user_id' => ['nullable', 'exists:users,id'],
+            'items.*.vehicle_id' => ['sometimes', 'nullable', 'exists:operational_vehicles,id'],
+            'items.*.vehicle_required' => ['sometimes', 'boolean'],
             'items.*.scheduled_start' => ['required', 'date'],
             'items.*.scheduled_end' => ['required', 'date', 'after:items.*.scheduled_start'],
         ]);
@@ -413,6 +415,8 @@ class WorkOrderController extends Controller
         $data = $request->validate([
             'expected_updated_at' => ['nullable', 'date'],
             'installation_id' => [$creating ? 'required' : 'sometimes', 'exists:installations,id'],
+            'vehicle_id' => ['sometimes', 'nullable', 'exists:operational_vehicles,id'],
+            'vehicle_required' => ['sometimes', 'boolean'],
             'assigned_user_id' => ['nullable', Rule::exists('users', 'id')->where(fn ($query) => $query->whereIn('role', ['technician', 'admin']))],
             'title' => [$creating ? 'required' : 'sometimes', 'string', 'max:255'],
             'kind' => ['sometimes', Rule::in(['survey', 'installation', 'commissioning', 'maintenance', 'repair'])],

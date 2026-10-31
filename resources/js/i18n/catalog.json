@@ -24881,7 +24881,7 @@
     },
     "Motivo de anulación": {
         "es": "Motivo de anulación",
-        "en": "Cancellation reason"
+        "en": "Reason for cancellation"
     },
     "Confirmo expresamente la anulación de este cobro.": {
         "es": "Confirmo expresamente la anulación de este cobro.",
@@ -26522,5 +26522,221 @@
     "Eliminar contacto": {
         "es": "Eliminar contacto",
         "en": "Delete contact"
+    },
+    "Vehículo": {
+        "es": "Vehículo",
+        "en": "Vehicle"
+    },
+    "Sin vehículo": {
+        "es": "Sin vehículo",
+        "en": "No vehicle"
+    },
+    "Vehículo necesario para esta intervención": {
+        "es": "Vehículo necesario para esta intervención",
+        "en": "Vehicle required for this intervention"
+    },
+    "Consultar mi calendario": {
+        "es": "Consultar mi calendario",
+        "en": "View my calendar"
+    },
+    "Consultar disponibilidad de vehículos": {
+        "es": "Consultar disponibilidad de vehículos",
+        "en": "Check vehicle availability"
+    },
+    "Ver historial de vehículos": {
+        "es": "Ver historial de vehículos",
+        "en": "View vehicle history"
+    },
+    "Sin cambios de vehículo": {
+        "es": "Sin cambios de vehículo",
+        "en": "No vehicle changes"
+    },
+    "Motivo del cambio de vehículo": {
+        "es": "Motivo del cambio de vehículo",
+        "en": "Reason for changing the vehicle"
+    },
+    "Agenda individual basada en la planificación operativa.": {
+        "es": "Agenda individual basada en la planificación operativa.",
+        "en": "Individual calendar based on operational scheduling."
+    },
+    "Horario no configurado": {
+        "es": "Horario no configurado",
+        "en": "Working hours not configured"
+    },
+    "Sin turnos": {
+        "es": "Sin turnos",
+        "en": "No shifts"
+    },
+    "Festivo ·": {
+        "es": "Festivo ·",
+        "en": "Holiday ·"
+    },
+    "Ausencia autorizada": {
+        "es": "Ausencia autorizada",
+        "en": "Approved absence"
+    },
+    "Ausencia pendiente": {
+        "es": "Ausencia pendiente",
+        "en": "Pending absence"
+    },
+    "Ocupado:": {
+        "es": "Ocupado:",
+        "en": "Occupied:"
+    },
+    "Sin información": {
+        "es": "Sin información",
+        "en": "No information"
+    },
+    "· Disponible:": {
+        "es": "· Disponible:",
+        "en": "· Available:"
+    },
+    "Desconocido": {
+        "es": "Desconocido",
+        "en": "Unknown"
+    },
+    "Hay trabajo asignado fuera de turno o durante una ausencia o festivo.": {
+        "es": "Hay trabajo asignado fuera de turno o durante una ausencia o festivo.",
+        "en": "Work is assigned outside shifts or during an absence or holiday."
+    },
+    "Órdenes asignadas": {
+        "es": "Órdenes asignadas",
+        "en": "Assigned work orders"
+    },
+    "Vehículos": {
+        "es": "Vehículos",
+        "en": "Vehicles"
+    },
+    "Calendario ·": {
+        "es": "Calendario ·",
+        "en": "Calendar ·"
+    },
+    "Guardar vehículo": {
+        "es": "Guardar vehículo",
+        "en": "Save vehicle"
+    },
+    "Crear vehículo": {
+        "es": "Crear vehículo",
+        "en": "Create vehicle"
+    },
+    "Inicio del bloqueo": {
+        "es": "Inicio del bloqueo",
+        "en": "Block start"
+    },
+    "Fin del bloqueo": {
+        "es": "Fin del bloqueo",
+        "en": "Block end"
+    },
+    "Motivo del bloqueo": {
+        "es": "Motivo del bloqueo",
+        "en": "Reason for block"
+    },
+    "Registrar bloqueo": {
+        "es": "Registrar bloqueo",
+        "en": "Record block"
+    },
+    "Anular bloqueo": {
+        "es": "Anular bloqueo",
+        "en": "Cancel block"
+    },
+    "Vehículos operativos": {
+        "es": "Vehículos operativos",
+        "en": "Operational vehicles"
+    },
+    "Consulta las asignaciones y los bloqueos de los vehículos.": {
+        "es": "Consulta las asignaciones y los bloqueos de los vehículos.",
+        "en": "View vehicle assignments and blocks."
+    },
+    "Volver a planificación": {
+        "es": "Volver a planificación",
+        "en": "Back to planning"
+    },
+    "No hay vehículos registrados.": {
+        "es": "No hay vehículos registrados.",
+        "en": "No vehicles have been registered."
+    },
+    "Sin técnico": {
+        "es": "Sin técnico",
+        "en": "No technician"
+    },
+    "Documentación del vehículo: no disponible.": {
+        "es": "Documentación del vehículo: no disponible.",
+        "en": "Vehicle documentation: unavailable."
+    },
+    "Editar vehículo": {
+        "es": "Editar vehículo",
+        "en": "Edit vehicle"
+    },
+    "Programar bloqueo o mantenimiento": {
+        "es": "Programar bloqueo o mantenimiento",
+        "en": "Schedule a block or maintenance"
+    },
+    "· Anulado": {
+        "es": "· Anulado",
+        "en": "· Cancelled"
+    },
+    "Historial de vehículos": {
+        "es": "Historial de vehículos",
+        "en": "Vehicle history"
+    },
+    "Selecciona primero inicio y fin de la visita.": {
+        "es": "Selecciona primero inicio y fin de la visita.",
+        "en": "Select the visit start and end first."
+    },
+    "No se pudo comprobar la disponibilidad del vehículo.": {
+        "es": "No se pudo comprobar la disponibilidad del vehículo.",
+        "en": "The vehicle availability could not be checked."
+    },
+    "No se pudo consultar el historial de vehículos.": {
+        "es": "No se pudo consultar el historial de vehículos.",
+        "en": "The vehicle history could not be retrieved."
+    },
+    "Responsable ·": {
+        "es": "Responsable ·",
+        "en": "Assignee ·"
+    },
+    "He revisado las asignaciones afectadas": {
+        "es": "He revisado las asignaciones afectadas",
+        "en": "I have reviewed the affected assignments"
+    },
+    "Ver asignaciones en planificación": {
+        "es": "Ver asignaciones en planificación",
+        "en": "View assignments in planning"
+    },
+    "Técnico ·": {
+        "es": "Técnico ·",
+        "en": "Technician ·"
+    },
+    "Vehículo pendiente": {
+        "es": "Vehículo pendiente",
+        "en": "Vehicle pending"
+    },
+    "Vacaciones autorizadas": {
+        "es": "Vacaciones autorizadas",
+        "en": "Approved leave"
+    },
+    "Vacaciones pendientes": {
+        "es": "Vacaciones pendientes",
+        "en": "Pending leave"
+    },
+    "Se muestran las 100 revisiones más recientes.": {
+        "es": "Se muestran las 100 revisiones más recientes.",
+        "en": "The 100 most recent revisions are shown."
+    },
+    "· Vehicle:": {
+        "es": "· Vehículo:",
+        "en": "· Vehicle:"
+    },
+    "not required": {
+        "es": "no necesario",
+        "en": "not required"
+    },
+    "availability unknown": {
+        "es": "disponibilidad desconocida",
+        "en": "availability unknown"
+    },
+    "pending or unavailable": {
+        "es": "pendiente o no disponible",
+        "en": "pending or unavailable"
     }
 }

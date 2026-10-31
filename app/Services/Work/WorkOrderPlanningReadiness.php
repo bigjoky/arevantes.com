@@ -13,6 +13,7 @@ class WorkOrderPlanningReadiness
     public function __construct(
         private ProjectMaterialPlanner $materials,
         private TechnicianCandidateFinder $technicians,
+        private VehicleAvailability $vehicles,
     ) {}
 
     /** @return array<string, mixed> */
@@ -74,8 +75,10 @@ class WorkOrderPlanningReadiness
         $shortageItems = $rows->where('shortage_by_schedule', '>', 0)->count();
         $materialReady = ! $requiresMaterials || $shortageItems === 0;
         $materialReadyNow = ! $requiresMaterials || $rows->every(fn (array $row) => $row['is_unplanned'] || (float) $row['remaining_quantity'] <= (float) $row['available_quantity'] + (float) ($row['reserved_for_order'] ?? 0));
-        $status = $materialReady && $assignedReady && $order->scheduled_start ? 'ready'
-            : ($order->scheduled_start && (! $materialReady || ($order->assigned_user_id && ! $assignedReady)) ? 'blocked' : 'warning');
+        $vehicle = $this->vehicles->decision($order->vehicle_id, $order->scheduled_start, $order->scheduled_end, $order->id, (bool) $order->vehicle_required);
+        $vehicleReady = in_array($vehicle['status'], ['available', 'not_required'], true);
+        $status = $materialReady && $assignedReady && $vehicleReady && $order->scheduled_start ? 'ready'
+            : ($order->scheduled_start && (! $materialReady || ! $vehicleReady || ($order->assigned_user_id && ! $assignedReady)) ? 'blocked' : 'warning');
 
         return [
             'status' => $status,
@@ -86,6 +89,9 @@ class WorkOrderPlanningReadiness
             'shortage_items' => $shortageItems,
             'shortage_quantity' => round((float) $rows->sum('shortage_by_schedule'), 3),
             'personnel_ready' => $assignedReady,
+            'vehicle_ready' => $vehicleReady,
+            'vehicle_status' => $vehicle['status'],
+            'vehicle_issues' => $vehicle['issues'],
             'qualified_technicians' => $qualified,
             'required_skills' => $order->required_skills ?? [],
             'rows' => $rows->all(),

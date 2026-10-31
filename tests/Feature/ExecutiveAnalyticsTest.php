@@ -266,7 +266,7 @@ class ExecutiveAnalyticsTest extends TestCase
             'owner_user_id' => $user->id, 'created_by' => $user->id, 'code' => 'LOST-BEFORE',
             'title' => 'Lost before', 'stage' => 'lost', 'estimated_value' => 1000, 'expected_close_on' => today(),
         ]);
-        OpportunityStageHistory::where('opportunity_id', $lostPreviously->id)->update(['changed_at' => now()->subMonth()]);
+        OpportunityStageHistory::where('opportunity_id', $lostPreviously->id)->update(['changed_at' => now()->subMonthNoOverflow()]);
 
         $this->actingAs($user)->get(route('analytics.index', ['area' => 'sales', 'period' => 'month']))
             ->assertOk()
