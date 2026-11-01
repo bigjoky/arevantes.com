@@ -66,7 +66,7 @@ class EconomicConcurrencyTest extends TestCase
                     }
                     usleep(20000);
                 } while (microtime(true) < $deadline);
-                $this->assertSame(2, $waiting, implode(' ', array_map(fn ($worker) => $worker->getErrorOutput(), $workers)));
+                $this->assertSame(2, $waiting, implode(' ', array_map(fn ($worker) => $worker->getErrorOutput().$worker->getOutput(), $workers)));
                 DB::commit();
             }
             $outcomes = [];
@@ -210,15 +210,37 @@ class EconomicConcurrencyTest extends TestCase
         $this->assertSame(1, JournalEntry::where('source_type', (new SupplierPayment)->getMorphClass())->where('event', 'payment')->count());
     }
 
-    public function test_receipt_posting_and_deletion_do_not_leave_orphan_accounting(): void
+    public function test_receipt_posting_and_audited_cancellation_preserve_accounting(): void
     {
         $invoice = $this->document();
         $invoice->update(['collect_before_invoice' => true]);
-        $receipt = $invoice->payments()->create(['paid_at' => today(), 'amount' => '10.00', 'method' => 'cash']);
+        $receipt = $invoice->payments()->create(['paid_at' => '2026-09-21', 'amount' => '10.00', 'method' => 'cash']);
         $operation = ['document_id' => $invoice->id, 'receipt_id' => $receipt->id];
-        $this->race([['operation' => 'delete_receipt', ...$operation], ['operation' => 'post_receipt', ...$operation]], fn () => SalesDocument::whereKey($invoice->id)->lockForUpdate()->firstOrFail());
-        $exists = SalesDocumentPayment::whereKey($receipt->id)->exists();
-        $entries = JournalEntry::where('source_type', $receipt->getMorphClass())->where('source_id', $receipt->id)->count();
-        $this->assertSame($exists ? 1 : 0, $entries);
+        $results = $this->race([
+            ['operation' => 'cancel_receipt', ...$operation, 'key' => (string) Str::uuid(), 'revision' => $receipt->cancellationRevision()],
+            ['operation' => 'post_receipt', ...$operation],
+        ], fn () => SalesDocument::whereKey($invoice->id)->lockForUpdate()->firstOrFail());
+        $this->assertSame('applied', $results[0]['outcome']);
+        $this->assertContains($results[1]['outcome'], ['applied', 'rejected']);
+        if ($results[1]['outcome'] === 'rejected') {
+            $this->assertSame(404, $results[1]['status']);
+        }
+        $this->assertSame(1, SalesDocumentPayment::withoutGlobalScope('active_customer_payment')->whereKey($receipt->id)->count());
+        $this->assertNotNull(SalesDocumentPayment::withoutGlobalScope('active_customer_payment')->findOrFail($receipt->id)->voided_at);
+        $this->assertSame('0.00', $invoice->fresh()->paid_amount);
+        $entries = JournalEntry::where('source_type', $receipt->getMorphClass())->where('source_id', $receipt->id);
+        $posted = (clone $entries)->where('event', 'payment')->count();
+        $reversed = (clone $entries)->where('event', 'payment_voided')->count();
+        $this->assertLessThanOrEqual(1, $posted);
+        $this->assertSame($posted, $reversed);
+        if ($posted === 1) {
+            $entry = (clone $entries)->where('event', 'payment')->with('lines')->firstOrFail();
+            $reversal = (clone $entries)->where('event', 'payment_voided')->with('lines')->firstOrFail();
+            $this->assertSame($entry->id, $reversal->reverses_entry_id);
+            $this->assertEquals(10, $entry->lines->sum('debit'));
+            $this->assertEquals(10, $entry->lines->sum('credit'));
+            $this->assertEquals(10, $reversal->lines->sum('debit'));
+            $this->assertEquals(10, $reversal->lines->sum('credit'));
+        }
     }
 }

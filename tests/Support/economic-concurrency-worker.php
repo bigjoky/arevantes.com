@@ -8,6 +8,7 @@ use App\Models\SalesDocumentPayment;
 use App\Models\SupplierPayment;
 use App\Models\User;
 use App\Services\Accounting\AccountingSynchronizer;
+use App\Services\Accounting\CustomerPaymentCancellation;
 use App\Services\Documents\SalesDocumentConversion;
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -60,6 +61,7 @@ try {
         'duplicate' => $controller->duplicate($request, $document),
         'credit' => $controller->creditNote($request, $document),
         'delete_receipt' => $controller->destroyPayment($document, SalesDocumentPayment::findOrFail($data['receipt_id'])),
+        'cancel_receipt' => app(CustomerPaymentCancellation::class)->cancel($document, $data['receipt_id'], $actor, 'Synthetic concurrent cancellation', $data['key'], $data['revision']),
         'post_receipt' => app(AccountingSynchronizer::class)->syncCustomerPayment(SalesDocumentPayment::findOrFail($data['receipt_id']), $actor->id),
     };
     echo json_encode(['outcome' => 'applied']);
