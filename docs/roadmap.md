@@ -6555,3 +6555,23 @@ La verificación comprende 103 pruebas frontend, 218 pruebas backend y vistas en
 anchos de 320 a 1440 px. Las 19 pruebas PostgreSQL pendientes y una regresión adicional superaron la
 validación aislada. La comprobación local no implica publicación ni modifica
 reglas fiscales o saldos.
+
+## Informes Móvil 08 — 01/11/2026
+
+Estado: adaptación implementada y verificada localmente; sin publicación. Se
+mantienen los permisos, fuentes y cálculos de analítica y compras existentes.
+
+| Capacidad | Estado / dependencia | Criterio de aceptación |
+|---|---|---|
+| Panel y desglose de indicadores | Tarjetas móviles con enlaces a registros y tablas de escritorio | Conservar filtros, unidades, importes y acceso al origen |
+| Matrices y gráfico de compras | Desplazamiento interno identificado y accesible por teclado | Consultar todos los periodos y columnas sin desplazar la página |
+| PDF y Excel | Descargas existentes sujetas a permisos y filtros | Respuesta, nombre y alcance coinciden con el periodo elegido |
+| Descargas en teléfonos físicos | Pendiente de validación en iOS y Android en entorno autorizado | Descargar y abrir ambos formatos manteniendo sesión y filtros |
+| Análisis no disponible | Depende de fuentes, permisos y definiciones de cada módulo | Mostrar el estado real sin introducir métricas o importes ficticios |
+
+La verificación local incluye las áreas disponibles y el informe de compras en
+anchos de 320, 390, 412, 768, 1023, 1024 y 1440 px; las pruebas de permisos y
+exportación se ejecutan con datos sintéticos en SQLite y PostgreSQL. La descarga
+por el navegador integrado quedó pendiente de confirmación por falta de evento
+de descarga. La verificación local no implica despliegue ni modifica datos
+productivos.

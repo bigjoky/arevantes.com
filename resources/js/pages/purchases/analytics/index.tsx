@@ -1,7 +1,10 @@
+import '@/../css/reports-mobile08.css';
 import { Head, Link } from '@inertiajs/react';
 import { ChartNoAxesCombined, TrendingDown, TrendingUp } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { useLocale } from '@/hooks/use-locale';
+import { translate } from '@/i18n';
 
 type Metrics = {
     period_spend: number;
@@ -54,6 +57,27 @@ export default function SupplyAnalyticsIndex({
     price_alerts: PriceAlert[];
     months: number;
 }) {
+    const { locale } = useLocale();
+    const intlLocale = locale === 'es' ? 'es-ES' : 'en-GB';
+    const money = (value: number) =>
+        new Intl.NumberFormat(intlLocale, {
+            style: 'currency',
+            currency: 'EUR',
+        }).format(value);
+    const compactMoney = (value: number) =>
+        new Intl.NumberFormat(intlLocale, {
+            notation: 'compact',
+            maximumFractionDigits: 1,
+        }).format(value);
+    const date = (value: string) =>
+        new Intl.DateTimeFormat(intlLocale, { dateStyle: 'medium' }).format(
+            new Date(`${value}T12:00:00`),
+        );
+    const monthLabel = (value: string) =>
+        new Intl.DateTimeFormat(intlLocale, {
+            month: 'short',
+            year: 'numeric',
+        }).format(new Date(`${value}-01T12:00:00`));
     const maxMonthly = Math.max(
         1,
         ...monthly_spend.map((month) => Math.abs(month.amount)),
@@ -66,7 +90,7 @@ export default function SupplyAnalyticsIndex({
     return (
         <>
             <Head title="Supply analytics" />
-            <div className="flex flex-1 flex-col gap-6 p-4 md:p-6">
+            <div className="reports-mobile08 flex min-w-0 flex-1 flex-col gap-6 p-4 md:p-6">
                 <header className="flex flex-wrap items-start justify-between gap-3">
                     <div>
                         <h1 className="text-xl font-semibold">
@@ -127,32 +151,43 @@ export default function SupplyAnalyticsIndex({
                     <p className="text-sm text-muted-foreground">
                         Supplier invoices less credit notes.
                     </p>
+                    <p className="mt-2 text-xs text-muted-foreground lg:hidden">
+                        Desliza el gráfico horizontalmente para ver todos los
+                        meses.
+                    </p>
                     <div
-                        className="mt-6 grid h-56 items-end gap-2"
-                        style={{
-                            gridTemplateColumns: `repeat(${monthly_spend.length}, minmax(2.5rem, 1fr))`,
-                        }}
+                        className="overflow-x-auto"
+                        role="region"
+                        aria-label="Monthly net spend chart"
+                        tabIndex={0}
                     >
-                        {monthly_spend.map((month) => (
-                            <div
-                                key={month.month}
-                                className="flex h-full min-w-0 flex-col justify-end"
-                                title={`${month.label}: ${money(month.amount)}`}
-                            >
-                                <div className="mb-1 truncate text-center text-xs font-medium">
-                                    {compactMoney(month.amount)}
-                                </div>
+                        <div
+                            className="mt-6 grid h-56 min-w-max items-end gap-2 lg:min-w-0"
+                            style={{
+                                gridTemplateColumns: `repeat(${monthly_spend.length}, minmax(2.5rem, 1fr))`,
+                            }}
+                        >
+                            {monthly_spend.map((month) => (
                                 <div
-                                    className={`min-h-1 ${month.amount < 0 ? 'bg-destructive' : 'bg-primary'}`}
-                                    style={{
-                                        height: `${Math.max(2, (Math.abs(month.amount) / maxMonthly) * 160)}px`,
-                                    }}
-                                />
-                                <div className="mt-2 truncate text-center text-[10px] text-muted-foreground">
-                                    {month.label}
+                                    key={month.month}
+                                    className="flex h-full min-w-0 flex-col justify-end"
+                                    title={`${monthLabel(month.month)}: ${money(month.amount)}`}
+                                >
+                                    <div className="mb-1 truncate text-center text-xs font-medium">
+                                        {compactMoney(month.amount)}
+                                    </div>
+                                    <div
+                                        className={`min-h-1 ${month.amount < 0 ? 'bg-destructive' : 'bg-primary'}`}
+                                        style={{
+                                            height: `${Math.max(2, (Math.abs(month.amount) / maxMonthly) * 160)}px`,
+                                        }}
+                                    />
+                                    <div className="mt-2 truncate text-center text-[10px] text-muted-foreground">
+                                        {monthLabel(month.month)}
+                                    </div>
                                 </div>
-                            </div>
-                        ))}
+                            ))}
+                        </div>
                     </div>
                 </section>
                 <div className="grid gap-6 xl:grid-cols-2">
@@ -243,50 +278,84 @@ export default function SupplyAnalyticsIndex({
                         </div>
                     </section>
                 </div>
-                <section className="overflow-x-auto">
+                <section>
                     <h2 className="font-semibold">Open commitments</h2>
                     <p className="mb-4 text-sm text-muted-foreground">
                         Ordered value still awaiting supplier invoicing.
                     </p>
-                    <table className="w-full min-w-[48rem] text-sm">
-                        <thead>
-                            <tr className="border-b text-left text-muted-foreground">
-                                <th className="py-2">Order</th>
-                                <th>Supplier</th>
-                                <th>Status</th>
-                                <th>Effective ETA</th>
-                                <th className="text-right">Committed</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {commitments.map((commitment) => (
-                                <tr key={commitment.id} className="border-b">
-                                    <td className="py-3 font-medium">
-                                        <Link
-                                            href={`/purchases/${commitment.id}`}
-                                            className="underline underline-offset-2"
-                                        >
-                                            {commitment.number}
-                                        </Link>
-                                    </td>
-                                    <td>{commitment.supplier}</td>
-                                    <td>
-                                        <Badge variant="outline">
-                                            {label(commitment.status)}
-                                        </Badge>
-                                    </td>
-                                    <td>
-                                        {commitment.eta
-                                            ? date(commitment.eta)
-                                            : '—'}
-                                    </td>
-                                    <td className="text-right font-medium">
-                                        {money(commitment.amount)}
-                                    </td>
+                    <div className="grid gap-3 lg:hidden">
+                        {commitments.map((commitment) => (
+                            <article
+                                key={commitment.id}
+                                className="grid gap-2 rounded-lg border p-4 text-sm"
+                            >
+                                <Link
+                                    href={`/purchases/${commitment.id}`}
+                                    className="font-medium underline underline-offset-2"
+                                >
+                                    {commitment.number}
+                                </Link>
+                                <div>Supplier: {commitment.supplier}</div>
+                                <div>
+                                    Status:{' '}
+                                    <Badge variant="outline">
+                                        {label(commitment.status)}
+                                    </Badge>
+                                </div>
+                                <div>
+                                    Effective ETA:{' '}
+                                    {commitment.eta
+                                        ? date(commitment.eta)
+                                        : '—'}
+                                </div>
+                                <div>Committed: {money(commitment.amount)}</div>
+                            </article>
+                        ))}
+                    </div>
+                    <div className="hidden overflow-x-auto lg:block">
+                        <table className="w-full min-w-[48rem] text-sm">
+                            <thead>
+                                <tr className="border-b text-left text-muted-foreground">
+                                    <th className="py-2">Order</th>
+                                    <th>Supplier</th>
+                                    <th>Status</th>
+                                    <th>Effective ETA</th>
+                                    <th className="text-right">Committed</th>
                                 </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody>
+                                {commitments.map((commitment) => (
+                                    <tr
+                                        key={commitment.id}
+                                        className="border-b"
+                                    >
+                                        <td className="py-3 font-medium">
+                                            <Link
+                                                href={`/purchases/${commitment.id}`}
+                                                className="underline underline-offset-2"
+                                            >
+                                                {commitment.number}
+                                            </Link>
+                                        </td>
+                                        <td>{commitment.supplier}</td>
+                                        <td>
+                                            <Badge variant="outline">
+                                                {label(commitment.status)}
+                                            </Badge>
+                                        </td>
+                                        <td>
+                                            {commitment.eta
+                                                ? date(commitment.eta)
+                                                : '—'}
+                                        </td>
+                                        <td className="text-right font-medium">
+                                            {money(commitment.amount)}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
                     {commitments.length === 0 && (
                         <Empty text="No uninvoiced purchase commitments." />
                     )}
@@ -306,31 +375,19 @@ function Metric({ label, value }: { label: string; value: string }) {
 }
 
 function Empty({ text }: { text: string }) {
+    const { locale } = useLocale();
+
     return (
         <div className="flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground">
             <ChartNoAxesCombined className="size-5" />
-            {text}
+            {translate(text, locale)}
         </div>
     );
 }
 
-const money = (value: number) =>
-    new Intl.NumberFormat(undefined, {
-        style: 'currency',
-        currency: 'EUR',
-    }).format(value);
-const compactMoney = (value: number) =>
-    new Intl.NumberFormat(undefined, {
-        notation: 'compact',
-        maximumFractionDigits: 1,
-    }).format(value);
 const signed = (value: number) => (value > 0 ? `+${value}` : String(value));
 const label = (value: string) =>
     value.replaceAll('_', ' ').replace(/^\w/, (letter) => letter.toUpperCase());
-const date = (value: string) =>
-    new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(
-        new Date(`${value}T12:00:00`),
-    );
 
 SupplyAnalyticsIndex.layout = {
     breadcrumbs: [

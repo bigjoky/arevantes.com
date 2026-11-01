@@ -1,3 +1,4 @@
+import '@/../css/reports-mobile08.css';
 import { Head, Link, router, useForm } from '@inertiajs/react';
 import {
     Bell,
@@ -10,8 +11,8 @@ import {
     ShieldCheck,
     Trash2,
 } from 'lucide-react';
-import { useState } from 'react';
-import type { FormEvent, ReactNode } from 'react';
+import { useRef, useState } from 'react';
+import type { FormEvent, MouseEvent, ReactNode } from 'react';
 import { PageHeader, PageShell } from '@/components/page-shell';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -240,6 +241,21 @@ export default function AnalyticsIndex(props: Props) {
         'dashboard' | 'dictionary' | 'automation'
     >('dashboard');
     const [filter, setFilter] = useState(props.filters);
+    const [filtering, setFiltering] = useState(false);
+    const filterRequest = useRef(false);
+    const lastExport = useRef(0);
+
+    const preventRepeatedExport = (event: MouseEvent<HTMLAnchorElement>) => {
+        const now = Date.now();
+
+        if (now - lastExport.current < 1500) {
+            event.preventDefault();
+
+            return;
+        }
+
+        lastExport.current = now;
+    };
 
     const query = (overrides: Partial<Filter> = {}) => ({
         ...filter,
@@ -249,13 +265,27 @@ export default function AnalyticsIndex(props: Props) {
 
     const applyFilters = (event: FormEvent) => {
         event.preventDefault();
-        router.get('/analytics', query(), { preserveState: true });
+
+        if (filterRequest.current) {
+            return;
+        }
+
+        filterRequest.current = true;
+        setFiltering(true);
+        router.get('/analytics', query(), {
+            preserveState: true,
+            onSuccess: (page) => setFilter(page.props.filters as Filter),
+            onFinish: () => {
+                filterRequest.current = false;
+                setFiltering(false);
+            },
+        });
     };
 
     const openMetric = (key: string) => {
         router.get(
             '/analytics',
-            { ...filter, metric: key },
+            { ...props.filters, metric: key },
             { preserveState: true },
         );
     };
@@ -263,19 +293,25 @@ export default function AnalyticsIndex(props: Props) {
     return (
         <>
             <Head title="Analítica y dirección" />
-            <PageShell>
+            <PageShell className="reports-mobile08">
                 <PageHeader
                     title="Analítica y dirección"
                     description={`Corte ${formatDate(props.filters.to)} · calculado ${formatDateTime(props.generatedAt)} · trazable hasta el registro de origen.`}
                     actions={
                         <div className="flex gap-2">
                             <Button variant="outline" asChild>
-                                <a href={exportUrl('excel', filter)}>
+                                <a
+                                    href={exportUrl('excel', props.filters)}
+                                    onClick={preventRepeatedExport}
+                                >
                                     <FileSpreadsheet className="size-4" /> Excel
                                 </a>
                             </Button>
                             <Button variant="outline" asChild>
-                                <a href={exportUrl('pdf', filter)}>
+                                <a
+                                    href={exportUrl('pdf', props.filters)}
+                                    onClick={preventRepeatedExport}
+                                >
                                     <Download className="size-4" /> PDF
                                 </a>
                             </Button>
@@ -288,12 +324,19 @@ export default function AnalyticsIndex(props: Props) {
                         <Button
                             key={area.key}
                             size="sm"
+                            disabled={filtering}
                             variant={
                                 props.filters.area === area.key
                                     ? 'default'
                                     : 'outline'
                             }
                             onClick={() => {
+                                if (filterRequest.current) {
+                                    return;
+                                }
+
+                                filterRequest.current = true;
+                                setFiltering(true);
                                 setFilter((current) => ({
                                     ...current,
                                     area: area.key,
@@ -301,6 +344,12 @@ export default function AnalyticsIndex(props: Props) {
                                 router.get(
                                     '/analytics',
                                     query({ area: area.key }),
+                                    {
+                                        onFinish: () => {
+                                            filterRequest.current = false;
+                                            setFiltering(false);
+                                        },
+                                    },
                                 );
                             }}
                         >
@@ -403,13 +452,17 @@ export default function AnalyticsIndex(props: Props) {
                         </select>
                     </FilterField>
                     <div className="flex items-end">
-                        <Button type="submit" className="w-full">
-                            Aplicar
+                        <Button
+                            type="submit"
+                            className="w-full"
+                            disabled={filtering}
+                        >
+                            {filtering ? 'Aplicando…' : 'Aplicar'}
                         </Button>
                     </div>
                 </form>
 
-                <div className="flex gap-1 border-b">
+                <div className="flex flex-wrap gap-1 border-b">
                     <SectionButton
                         active={section === 'dashboard'}
                         onClick={() => setSection('dashboard')}
@@ -607,7 +660,16 @@ function RecurringHealthPanel({ health }: { health: RecurringHealth }) {
                 />
             </div>
             <Card className="gap-0 overflow-hidden py-0">
-                <div className="overflow-x-auto">
+                <p className="px-4 pt-3 text-xs text-muted-foreground lg:hidden">
+                    Desliza la tabla horizontalmente para ver todas las
+                    columnas.
+                </p>
+                <div
+                    className="overflow-x-auto"
+                    role="region"
+                    aria-label="Desglose por línea"
+                    tabIndex={0}
+                >
                     <table className="w-full min-w-[48rem] text-sm">
                         <thead className="bg-muted/50 text-left text-xs text-muted-foreground">
                             <tr>
@@ -756,7 +818,16 @@ function RecurringEconomicsPanel({
             </div>
             {economics.cycles.length > 0 ? (
                 <Card className="gap-0 overflow-hidden py-0">
-                    <div className="overflow-x-auto">
+                    <p className="px-4 pt-3 text-xs text-muted-foreground lg:hidden">
+                        Desliza la tabla horizontalmente para ver todas las
+                        columnas.
+                    </p>
+                    <div
+                        className="overflow-x-auto"
+                        role="region"
+                        aria-label="Ciclos contractuales"
+                        tabIndex={0}
+                    >
                         <table className="w-full min-w-[44rem] text-sm">
                             <thead className="bg-muted/50 text-left text-xs text-muted-foreground">
                                 <tr>
@@ -869,7 +940,16 @@ function ProjectMarginPanel({ analysis }: { analysis: ProjectMargins }) {
                 />
             </div>
             <Card className="gap-0 overflow-hidden py-0">
-                <div className="overflow-x-auto">
+                <p className="px-4 pt-3 text-xs text-muted-foreground lg:hidden">
+                    Desliza la tabla horizontalmente para ver todas las
+                    columnas.
+                </p>
+                <div
+                    className="overflow-x-auto"
+                    role="region"
+                    aria-label="Márgenes por línea"
+                    tabIndex={0}
+                >
                     <table className="w-full min-w-[54rem] text-sm">
                         <thead className="bg-muted/50 text-left text-xs text-muted-foreground">
                             <tr>
@@ -931,7 +1011,16 @@ function ProjectMarginPanel({ analysis }: { analysis: ProjectMargins }) {
                 <summary className="cursor-pointer px-4 py-3 font-medium">
                     Proyectos y datos de origen
                 </summary>
-                <div className="overflow-x-auto border-t">
+                <p className="px-4 pt-3 text-xs text-muted-foreground lg:hidden">
+                    Desliza la tabla horizontalmente para ver todas las
+                    columnas.
+                </p>
+                <div
+                    className="overflow-x-auto border-t"
+                    role="region"
+                    aria-label="Proyectos y datos de origen"
+                    tabIndex={0}
+                >
                     <table className="w-full min-w-[58rem] text-sm">
                         <thead className="text-left text-xs text-muted-foreground">
                             <tr>
@@ -1138,7 +1227,27 @@ function ConversionTable({
     return (
         <Card className="gap-0 overflow-hidden py-0">
             <h3 className="border-b p-4 font-semibold">{title}</h3>
-            <div className="overflow-x-auto">
+            <div className="divide-y lg:hidden">
+                {rows.map((row) => (
+                    <article key={row.key} className="grid gap-2 p-4 text-sm">
+                        <strong>{row.label}</strong>
+                        <div>
+                            Cierres: {row.won}/{row.closed}
+                        </div>
+                        <div>Conversión: {row.win_rate}%</div>
+                        <div>
+                            Valor ganado:{' '}
+                            {formatValue(row.won_value, 'currency')}
+                        </div>
+                    </article>
+                ))}
+                {!rows.length && (
+                    <p className="p-6 text-center text-sm text-muted-foreground">
+                        Sin cierres para este desglose.
+                    </p>
+                )}
+            </div>
+            <div className="hidden overflow-x-auto lg:block">
                 <table className="w-full text-sm">
                     <thead className="bg-muted/50 text-left text-xs text-muted-foreground">
                         <tr>
@@ -1227,7 +1336,42 @@ function Drilldown({
                     mantener el análisis rápido y obtener un detalle completo.
                 </div>
             ) : null}
-            <div className="overflow-x-auto">
+            <div className="divide-y lg:hidden">
+                {records.map((row, index) => (
+                    <article
+                        key={`${row.url}-${index}`}
+                        className="grid gap-2 p-4 text-sm"
+                    >
+                        <Link
+                            className="font-medium text-primary underline-offset-2 hover:underline"
+                            href={row.url}
+                        >
+                            {row.reference || `#${row.id}`}
+                        </Link>
+                        <div>Fecha: {formatDate(row.date)}</div>
+                        <div>Proyecto: {row.project || 'Sin proyecto'}</div>
+                        <div>
+                            Estado:{' '}
+                            <Badge variant="outline">{row.status}</Badge>
+                        </div>
+                        <div>
+                            Valor:{' '}
+                            {formatValue(
+                                row.value,
+                                metric.unit === 'percent'
+                                    ? 'number'
+                                    : metric.unit,
+                            )}
+                        </div>
+                    </article>
+                ))}
+                {!records.length && (
+                    <p className="p-8 text-center text-sm text-muted-foreground">
+                        No hay registros para estos filtros.
+                    </p>
+                )}
+            </div>
+            <div className="hidden overflow-x-auto lg:block">
                 <table className="w-full text-sm">
                     <thead className="bg-muted/50 text-left text-xs text-muted-foreground">
                         <tr>
@@ -1361,6 +1505,7 @@ function Automation(props: Props) {
                 >
                     <select
                         className={selectClass}
+                        aria-label="Indicador de la alerta"
                         value={alert.data.metric_key}
                         onChange={(e) =>
                             alert.setData('metric_key', e.target.value)
@@ -1375,6 +1520,7 @@ function Automation(props: Props) {
                     <div className="flex gap-2">
                         <select
                             className={`${selectClass} w-20`}
+                            aria-label="Operador de la alerta"
                             value={alert.data.operator}
                             onChange={(e) =>
                                 alert.setData('operator', e.target.value)
@@ -1389,6 +1535,7 @@ function Automation(props: Props) {
                         <Input
                             required
                             type="number"
+                            aria-label="Umbral de la alerta"
                             step="0.01"
                             value={alert.data.threshold}
                             onChange={(e) =>
@@ -1412,6 +1559,13 @@ function Automation(props: Props) {
                     </select>
                     <Button disabled={alert.processing}>Crear alerta</Button>
                 </form>
+                {Object.values(alert.errors).length > 0 && (
+                    <div role="alert" className="text-sm text-destructive">
+                        {Object.values(alert.errors).map((error) => (
+                            <p key={error}>{error}</p>
+                        ))}
+                    </div>
+                )}
                 <div className="divide-y">
                     {props.alerts.map((item) => (
                         <div
@@ -1472,6 +1626,7 @@ function Automation(props: Props) {
                                 <Button
                                     size="icon"
                                     variant="ghost"
+                                    aria-label="Eliminar alerta"
                                     onClick={() =>
                                         router.delete(
                                             `/analytics/alerts/${item.id}`,
@@ -1506,6 +1661,7 @@ function Automation(props: Props) {
                 >
                     <select
                         className={selectClass}
+                        aria-label="Área del informe"
                         value={subscription.data.area}
                         onChange={(e) =>
                             subscription.setData('area', e.target.value)
@@ -1519,6 +1675,7 @@ function Automation(props: Props) {
                     </select>
                     <select
                         className={selectClass}
+                        aria-label="Frecuencia del informe"
                         value={subscription.data.frequency}
                         onChange={(e) =>
                             subscription.setData('frequency', e.target.value)
@@ -1531,6 +1688,7 @@ function Automation(props: Props) {
                     <div className="flex gap-2">
                         <select
                             className={selectClass}
+                            aria-label="Formato del informe"
                             value={subscription.data.format}
                             onChange={(e) =>
                                 subscription.setData('format', e.target.value)
@@ -1544,6 +1702,13 @@ function Automation(props: Props) {
                         </Button>
                     </div>
                 </form>
+                {Object.values(subscription.errors).length > 0 && (
+                    <div role="alert" className="text-sm text-destructive">
+                        {Object.values(subscription.errors).map((error) => (
+                            <p key={error}>{error}</p>
+                        ))}
+                    </div>
+                )}
                 <div className="divide-y">
                     {props.subscriptions.map((item) => (
                         <div
@@ -1565,6 +1730,7 @@ function Automation(props: Props) {
                             <Button
                                 size="icon"
                                 variant="ghost"
+                                aria-label="Eliminar suscripción"
                                 onClick={() =>
                                     router.delete(
                                         `/analytics/subscriptions/${item.id}`,

@@ -26806,5 +26806,117 @@
     "Difference:": {
         "es": "Diferencia:",
         "en": "Difference:"
+    },
+    "Aplicando…": {
+        "es": "Aplicando…",
+        "en": "Applying…"
+    },
+    "Desliza la tabla horizontalmente para ver todas las columnas.": {
+        "es": "Desliza la tabla horizontalmente para ver todas las columnas.",
+        "en": "Scroll the table horizontally to see all columns."
+    },
+    "Desglose por línea": {
+        "es": "Desglose por línea",
+        "en": "Breakdown by line"
+    },
+    "Ciclos contractuales": {
+        "es": "Ciclos contractuales",
+        "en": "Contract cycles"
+    },
+    "Márgenes por línea": {
+        "es": "Márgenes por línea",
+        "en": "Margins by line"
+    },
+    "Cierres:": {
+        "es": "Cierres:",
+        "en": "Closed:"
+    },
+    "Conversión:": {
+        "es": "Conversión:",
+        "en": "Conversion:"
+    },
+    "Valor ganado:": {
+        "es": "Valor ganado:",
+        "en": "Won value:"
+    },
+    "Fecha:": {
+        "es": "Fecha:",
+        "en": "Date:"
+    },
+    "Proyecto:": {
+        "es": "Proyecto:",
+        "en": "Project:"
+    },
+    "Estado:": {
+        "es": "Estado:",
+        "en": "Status:"
+    },
+    "Desliza el gráfico horizontalmente para ver todos los meses.": {
+        "es": "Desliza el gráfico horizontalmente para ver todos los meses.",
+        "en": "Scroll the chart horizontally to see all months."
+    },
+    "Monthly net spend chart": {
+        "es": "Gráfico de gasto neto mensual",
+        "en": "Monthly net spend chart"
+    },
+    "Supplier:": {
+        "es": "Proveedor:",
+        "en": "Supplier:"
+    },
+    "Status:": {
+        "es": "Estado:",
+        "en": "Status:"
+    },
+    "Effective ETA:": {
+        "es": "Fecha prevista efectiva:",
+        "en": "Effective ETA:"
+    },
+    "Committed:": {
+        "es": "Comprometido:",
+        "en": "Committed:"
+    },
+    "Indicador de la alerta": {
+        "es": "Indicador de la alerta",
+        "en": "Alert metric"
+    },
+    "Operador de la alerta": {
+        "es": "Operador de la alerta",
+        "en": "Alert operator"
+    },
+    "Umbral de la alerta": {
+        "es": "Umbral de la alerta",
+        "en": "Alert threshold"
+    },
+    "Eliminar alerta": {
+        "es": "Eliminar alerta",
+        "en": "Delete alert"
+    },
+    "Área del informe": {
+        "es": "Área del informe",
+        "en": "Report area"
+    },
+    "Frecuencia del informe": {
+        "es": "Frecuencia del informe",
+        "en": "Report frequency"
+    },
+    "Formato del informe": {
+        "es": "Formato del informe",
+        "en": "Report format"
+    },
+    "Eliminar suscripción": {
+        "es": "Eliminar suscripción",
+        "en": "Delete subscription"
+    },
+    "No supplier exposure in this period.": {
+        "es": "No hay exposición a proveedores en este periodo.",
+        "en": "No supplier exposure in this period."
+    },
+    "Two price observations are needed before changes appear.": {
+        "es": "Se necesitan dos precios registrados para mostrar variaciones.",
+        "en": "Two price observations are needed before changes appear."
+    },
+    "No uninvoiced purchase commitments.": {
+        "es": "No hay compromisos de compra pendientes de facturar.",
+        "en": "No uninvoiced purchase commitments."
     }
 }

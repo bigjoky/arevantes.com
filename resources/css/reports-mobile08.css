@@ -1,0 +1,25 @@
+@media (max-width: 1023px) {
+    .reports-mobile08 {
+        min-width: 0;
+        padding-bottom: max(5rem, env(safe-area-inset-bottom));
+    }
+    .reports-mobile08 input,
+    .reports-mobile08 select {
+        min-width: 0;
+        min-height: 44px;
+        font-size: 16px;
+    }
+    .reports-mobile08 button,
+    .reports-mobile08 a {
+        min-height: 44px;
+    }
+    .reports-mobile08 [role='region'] {
+        max-width: 100%;
+        overscroll-behavior-x: contain;
+    }
+    .reports-mobile08 > *,
+    .reports-mobile08 section,
+    .reports-mobile08 article {
+        min-width: 0;
+    }
+}
